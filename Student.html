@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mr.Park Student Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #3b9edd;
+            --primary-dark: #2a8fc9;
+            --accent: #ff9f43;
+            --accent-2: #ff6b9d;
+            --success: #2ecc71;
+            --text: #2d3436;
+            --muted: #636e72;
+            --surface: rgba(255, 255, 255, 0.94);
+            --radius: 20px;
+            --shadow: 0 6px 0 rgba(59, 158, 221, 0.08), 0 12px 28px rgba(59, 158, 221, 0.12);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Nunito', system-ui, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 18%, rgba(255, 159, 67, 0.28), transparent 42%),
+                radial-gradient(circle at 88% 10%, rgba(59, 158, 221, 0.28), transparent 40%),
+                linear-gradient(180deg, #dff4ff 0%, #fff8e7 60%, #fef9ef 100%);
+            padding: 1rem 1rem 2.5rem;
+        }
+        .wrap { max-width: 720px; margin: 0 auto; }
+        h1, h2, h3 { font-family: 'Fredoka', sans-serif; margin: 0; }
+        .brand {
+            text-align: center;
+            margin-bottom: 1.25rem;
+        }
+        .brand h1 {
+            font-size: 1.65rem;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .brand p { color: var(--muted); margin: 0.35rem 0 0; font-size: 0.92rem; }
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(59, 158, 221, 0.15);
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.05rem;
+            margin-bottom: 0.85rem;
+            color: var(--primary-dark);
+        }
+        label { display: block; font-weight: 700; font-size: 0.85rem; margin-bottom: 0.35rem; }
+        input {
+            width: 100%;
+            border: 2px solid rgba(59, 158, 221, 0.2);
+            border-radius: 14px;
+            padding: 0.75rem 0.9rem;
+            font-size: 1rem;
+            font-family: inherit;
+            margin-bottom: 0.85rem;
+            background: #fff;
+        }
+        input:focus { outline: none; border-color: var(--primary); }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            border: none;
+            border-radius: 999px;
+            padding: 0.75rem 1.4rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--primary), #5dade2 55%, var(--accent));
+            color: #fff;
+            width: 100%;
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--primary-dark);
+            border: 2px solid rgba(59, 158, 221, 0.25);
+            width: auto;
+            padding: 0.45rem 1rem;
+            font-size: 0.85rem;
+        }
+        .error {
+            background: #ffeaea;
+            color: #c0392b;
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.9rem;
+            margin-bottom: 0.85rem;
+        }
+        .hidden { display: none !important; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.65rem;
+            margin-top: 0.75rem;
+        }
+        .stat {
+            background: linear-gradient(135deg, #f0f9ff, #fff8e7);
+            border-radius: 14px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .stat-val { font-family: 'Fredoka', sans-serif; font-size: 1.35rem; color: var(--primary-dark); }
+        .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+        .hw-item {
+            border-left: 4px solid var(--accent);
+            background: #fff;
+            border-radius: 12px;
+            padding: 0.75rem 0.85rem;
+            margin-bottom: 0.55rem;
+        }
+        .hw-item.pending { border-left-color: var(--accent-2); }
+        .hw-item-title { font-weight: 800; font-size: 0.95rem; }
+        .hw-item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+        .hw-item-desc { font-size: 0.85rem; margin-top: 0.35rem; white-space: pre-wrap; }
+        .fix-note {
+            margin-top: 0.4rem;
+            font-size: 0.82rem;
+            color: #d35400;
+            background: #fff8e7;
+            border-radius: 8px;
+            padding: 0.4rem 0.55rem;
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 0.45rem 0.35rem; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.06); }
+        th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .badge-present { background: #d5f5e3; color: #1e8449; }
+        .badge-tardy { background: #fdebd0; color: #b9770e; }
+        .badge-absent { background: #fadbd8; color: #c0392b; }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .welcome-name { font-family: 'Fredoka', sans-serif; font-size: 1.35rem; }
+        .welcome-sub { color: var(--muted); font-size: 0.85rem; }
+        .empty { color: var(--muted); font-size: 0.88rem; padding: 0.5rem 0; }
+        .tx-row { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.45rem 0; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; }
+        .tx-amt-pos { color: #27ae60; font-weight: 700; }
+        .tx-amt-neg { color: #e74c3c; font-weight: 700; }
+        .loading { text-align: center; padding: 2rem; color: var(--muted); }
+        .month-tabs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.4rem;
+            margin-bottom: 0.85rem;
+        }
+        @media (min-width: 520px) {
+            .month-tabs { grid-template-columns: repeat(6, 1fr); }
+        }
+        .month-btn {
+            border: 2px solid rgba(59, 158, 221, 0.18);
+            background: #fff;
+            color: var(--text);
+            border-radius: 12px;
+            padding: 0.4rem 0.2rem;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 700;
+            line-height: 1.15;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        @media (min-width: 520px) {
+            .month-btn { font-size: 0.72rem; padding: 0.45rem 0.25rem; }
+        }
+        .month-btn:hover { border-color: var(--primary); color: var(--primary-dark); }
+        .month-btn.active {
+            background: linear-gradient(135deg, var(--primary), #5dade2);
+            border-color: transparent;
+            color: #fff;
+        }
+        .month-btn.has-data:not(.active) {
+            border-color: rgba(59, 158, 221, 0.45);
+        }
+        .att-month-label {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        .collapse-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 0.65rem;
+            padding: 0.6rem 0.75rem;
+            border: 2px solid rgba(59, 158, 221, 0.18);
+            border-radius: 12px;
+            background: #f8fcff;
+            color: var(--primary-dark);
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .collapse-toggle i { transition: transform 0.2s; }
+        .collapse-toggle.open i { transform: rotate(180deg); }
+        .collapse-panel { margin-top: 0.5rem; }
+        .dollar-balance {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.35rem;
+            color: var(--primary-dark);
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="brand">
+        <h1>Mr.Park Student Portal</h1>
+        <p>Check your attendance, homework, dollars &amp; Chambit</p>
+    </div>
+
+    <div id="loginScreen" class="card">
+        <div class="card-title"><i class="fa-solid fa-right-to-bracket"></i> Login</div>
+        <p class="empty" style="margin-top:0">Use the Login ID and Password from your teacher.</p>
+        <div id="loginError" class="error hidden"></div>
+        <label for="loginId">Login ID</label>
+        <input type="text" id="loginId" autocomplete="username" placeholder="e.g. ethan">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Your password">
+        <button type="button" class="btn" id="loginBtn"><i class="fa-solid fa-door-open"></i> Enter</button>
+    </div>
+
+    <div id="dashboardScreen" class="hidden">
+        <div class="top-bar">
+            <div>
+                <div class="welcome-name" id="welcomeName">Student</div>
+                <div class="welcome-sub" id="welcomeClass">Class</div>
+            </div>
+            <button type="button" class="btn btn-outline" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-chart-simple"></i> My Stats</div>
+            <div class="stats" id="statsGrid"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-list-check"></i> Pending Homework</div>
+            <div id="pendingBox"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-book"></i> Today's Homework</div>
+            <div id="todayBox"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Attendance &amp; Vocab Scores</div>
+            <button type="button" class="collapse-toggle" id="attToggle">
+                <span>View by Month</span>
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+            <div id="attPanel" class="collapse-panel hidden">
+                <div class="month-tabs" id="monthTabs"></div>
+                <div class="att-month-label" id="attMonthLabel">Select a month</div>
+                <div id="attDetailPanel" class="hidden" style="overflow-x:auto">
+                    <table>
+                        <thead>
+                            <tr><th>Date</th><th>Attendance</th><th>Vocab</th></tr>
+                        </thead>
+                        <tbody id="attendanceBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-book-open-reader"></i> Chambit</div>
+            <div id="chambitBox"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-dollar-sign"></i> Dollars</div>
+            <div id="dollarBox"></div>
+        </div>
+    </div>
+
+    <div id="loadingScreen" class="loading hidden">
+        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+        <p>Loading…</p>
+    </div>
+</div>
+
+<script>
+(function() {
+    var NODE_API = (function() {
+        if (location.hostname.indexOf('railway.app') !== -1) return location.origin;
+        return 'https://mrpark-class-api-production.up.railway.app';
+    })();
+    var TOKEN_KEY = 'mrpark_student_token';
+    var MONTH_NAMES = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    var dashboardAttendance = [];
+    var selectedAttMonth = null;
+
+    function $(id) { return document.getElementById(id); }
+    function show(el) { el.classList.remove('hidden'); }
+    function hide(el) { el.classList.add('hidden'); }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function attendanceBadge(val) {
+        if (val === '출석') return '<span class="badge badge-present">Present</span>';
+        if (val === '지각') return '<span class="badge badge-tardy">Tardy</span>';
+        if (val === '결석') return '<span class="badge badge-absent">Absent</span>';
+        return escapeHtml(val || '—');
+    }
+
+    function api(path, opts) {
+        opts = opts || {};
+        var headers = { 'Content-Type': 'application/json' };
+        var token = sessionStorage.getItem(TOKEN_KEY);
+        if (token) headers.Authorization = 'Bearer ' + token;
+        return fetch(NODE_API + path, {
+            method: opts.method || 'GET',
+            headers: headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined
+        }).then(function(res) {
+            return res.json().then(function(data) {
+                if (!res.ok) throw new Error(data.error || 'Request failed');
+                return data;
+            });
+        });
+    }
+
+    function formatShortDate(dateStr) {
+        if (!dateStr) return '—';
+        var p = String(dateStr).split('-');
+        if (p.length !== 3) return dateStr;
+        return Number(p[1]) + '/' + Number(p[2]);
+    }
+
+    function monthFromDateStr(dateStr) {
+        var p = String(dateStr || '').split('-');
+        return p.length >= 2 ? Number(p[1]) : 0;
+    }
+
+    function monthCounts(records) {
+        var counts = {};
+        (records || []).forEach(function(r) {
+            var m = monthFromDateStr(r.dateStr);
+            if (m >= 1 && m <= 12) counts[m] = (counts[m] || 0) + 1;
+        });
+        return counts;
+    }
+
+    function renderAttendanceMonth(month) {
+        selectedAttMonth = month;
+        var rows = dashboardAttendance.filter(function(r) {
+            return monthFromDateStr(r.dateStr) === month;
+        });
+        rows.sort(function(a, b) {
+            return a.dateStr < b.dateStr ? -1 : a.dateStr > b.dateStr ? 1 : 0;
+        });
+        $('attMonthLabel').textContent = MONTH_NAMES[month - 1] + (rows.length ? ' · ' + rows.length + ' day(s)' : ' · No records');
+
+        var tabs = document.querySelectorAll('#monthTabs .month-btn');
+        tabs.forEach(function(btn) {
+            btn.classList.toggle('active', Number(btn.getAttribute('data-month')) === month);
+        });
+
+        show($('attDetailPanel'));
+        if (!rows.length) {
+            $('attendanceBody').innerHTML = '<tr><td colspan="3" class="empty">No records for this month.</td></tr>';
+            return;
+        }
+        $('attendanceBody').innerHTML = rows.map(function(r) {
+            return '<tr><td>' + escapeHtml(formatShortDate(r.dateStr)) + '</td><td>' + attendanceBadge(r.attendance) +
+                '</td><td>' + (r.vocabScore != null && r.vocabScore !== '' ? escapeHtml(r.vocabScore) : '—') + '</td></tr>';
+        }).join('');
+    }
+
+    function setupAttendanceTabs(records) {
+        dashboardAttendance = records || [];
+        selectedAttMonth = null;
+        var counts = monthCounts(dashboardAttendance);
+        var tabsHtml = '';
+        for (var m = 1; m <= 12; m++) {
+            var cls = 'month-btn';
+            if (counts[m]) cls += ' has-data';
+            tabsHtml += '<button type="button" class="' + cls + '" data-month="' + m + '">' +
+                MONTH_NAMES[m - 1] + '</button>';
+        }
+        $('monthTabs').innerHTML = tabsHtml;
+        $('attMonthLabel').textContent = 'Select a month';
+        hide($('attDetailPanel'));
+        hide($('attPanel'));
+        $('attToggle').classList.remove('open');
+
+        $('attToggle').onclick = function() {
+            var panel = $('attPanel');
+            var collapsed = panel.classList.toggle('hidden');
+            $('attToggle').classList.toggle('open', !collapsed);
+        };
+
+        $('monthTabs').querySelectorAll('.month-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                renderAttendanceMonth(Number(btn.getAttribute('data-month')));
+            });
+        });
+    }
+
+    function renderDollarSection(d) {
+        var txHtml = '';
+        if (d.transactions && d.transactions.length) {
+            txHtml = d.transactions.map(function(tx) {
+                var cls = tx.amount >= 0 ? 'tx-amt-pos' : 'tx-amt-neg';
+                var sign = tx.amount >= 0 ? '+' : '';
+                return '<div class="tx-row"><span>' + escapeHtml(tx.reason || 'adjustment') + '</span>' +
+                    '<span class="' + cls + '">' + sign + tx.amount + '</span></div>';
+            }).join('');
+        } else {
+            txHtml = '<p class="empty">No transactions yet.</p>';
+        }
+
+        $('dollarBox').innerHTML =
+            '<div class="dollar-balance">Balance: $' + escapeHtml(d.balance) + '</div>' +
+            (d.transactions && d.transactions.length
+                ? '<button type="button" class="collapse-toggle" id="dollarTxToggle">' +
+                    '<span>Transaction History (' + d.transactions.length + ')</span>' +
+                    '<i class="fa-solid fa-chevron-down"></i></button>' +
+                  '<div id="dollarTxPanel" class="collapse-panel hidden">' + txHtml + '</div>'
+                : '');
+
+        var toggle = $('dollarTxToggle');
+        if (toggle) {
+            toggle.addEventListener('click', function() {
+                var panel = $('dollarTxPanel');
+                var open = panel.classList.toggle('hidden');
+                toggle.classList.toggle('open', !open);
+            });
+        }
+    }
+
+    function showLoginError(msg) {
+        var el = $('loginError');
+        el.textContent = msg;
+        show(el);
+    }
+
+    function renderHomeworkItem(item, pending) {
+        var cls = pending ? 'hw-item pending' : 'hw-item';
+        var html = '<div class="' + cls + '">' +
+            '<div class="hw-item-title">' + escapeHtml(item.title) + '</div>' +
+            '<div class="hw-item-meta">' + escapeHtml(item.bundleTitle || 'Homework') +
+            (item.assignedDate ? ' · ' + escapeHtml(item.assignedDate) : '') + '</div>';
+        if (item.description) html += '<div class="hw-item-desc">' + escapeHtml(item.description) + '</div>';
+        if (item.fixNote) html += '<div class="fix-note"><i class="fa-solid fa-wrench"></i> Fix: ' + escapeHtml(item.fixNote) + '</div>';
+        html += '</div>';
+        return html;
+    }
+
+    function renderDashboard(data) {
+        $('welcomeName').textContent = data.profile.name;
+        $('welcomeClass').textContent = data.profile.className;
+
+        var s = data.summary;
+        $('statsGrid').innerHTML =
+            '<div class="stat"><div class="stat-val">' + s.pendingHomework + '</div><div class="stat-label">Pending HW</div></div>' +
+            '<div class="stat"><div class="stat-val">$' + s.dollars + '</div><div class="stat-label">Dollars</div></div>' +
+            '<div class="stat"><div class="stat-val">' + (s.avgVocab != null ? s.avgVocab : '—') + '</div><div class="stat-label">Avg Vocab</div></div>' +
+            '<div class="stat"><div class="stat-val">' + s.chambitCombo + '</div><div class="stat-label">Chambit Combo</div></div>';
+
+        var pending = data.homework.pending || [];
+        $('pendingBox').innerHTML = pending.length
+            ? pending.map(function(it) { return renderHomeworkItem(it, true); }).join('')
+            : '<p class="empty">No pending homework. Great job!</p>';
+
+        var hw = data.homework;
+        var todayHtml = '';
+        if (hw.todayTitle) todayHtml += '<p class="hw-item-meta" style="margin-bottom:0.5rem"><strong>' + escapeHtml(hw.todayTitle) + '</strong> · ' + escapeHtml(hw.todayDate) + '</p>';
+        if (hw.todayItems && hw.todayItems.length) {
+            todayHtml += hw.todayItems.map(function(it) { return renderHomeworkItem(it, false); }).join('');
+        } else if (!hw.todayTitle) {
+            todayHtml = '<p class="empty">No homework posted for today yet.</p>';
+        } else {
+            todayHtml += '<p class="empty">No items assigned to you for today.</p>';
+        }
+        $('todayBox').innerHTML = todayHtml;
+
+        setupAttendanceTabs(data.attendance || []);
+
+        var ch = data.chambit;
+        $('chambitBox').innerHTML =
+            '<div class="stats">' +
+            '<div class="stat"><div class="stat-val">' + (ch.readToday ? '✓' : '—') + '</div><div class="stat-label">Read Today</div></div>' +
+            '<div class="stat"><div class="stat-val">' + ch.weekRead + '/' + ch.weekRequired + '</div><div class="stat-label">This Week</div></div>' +
+            '</div>';
+
+        renderDollarSection(data.dollars || { balance: 0, transactions: [] });
+    }
+
+    function loadDashboard() {
+        hide($('loginScreen'));
+        show($('loadingScreen'));
+        api('/api/student/dashboard')
+            .then(function(data) {
+                hide($('loadingScreen'));
+                show($('dashboardScreen'));
+                renderDashboard(data);
+            })
+            .catch(function(err) {
+                sessionStorage.removeItem(TOKEN_KEY);
+                hide($('loadingScreen'));
+                show($('loginScreen'));
+                showLoginError(err.message || 'Session expired. Please log in again.');
+            });
+    }
+
+    $('loginBtn').addEventListener('click', function() {
+        hide($('loginError'));
+        var loginId = $('loginId').value.trim();
+        var password = $('loginPassword').value.trim();
+        if (!loginId || !password) {
+            showLoginError('Enter login ID and password.');
+            return;
+        }
+        $('loginBtn').disabled = true;
+        api('/api/student/login', {
+            method: 'POST',
+            body: { loginId: loginId, password: password }
+        }).then(function(res) {
+            sessionStorage.setItem(TOKEN_KEY, res.token);
+            hide($('loginScreen'));
+            loadDashboard();
+        }).catch(function(err) {
+            showLoginError(err.message || 'Login failed.');
+        }).finally(function() {
+            $('loginBtn').disabled = false;
+        });
+    });
+
+    $('loginPassword').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') $('loginBtn').click();
+    });
+
+    $('logoutBtn').addEventListener('click', function() {
+        sessionStorage.removeItem(TOKEN_KEY);
+        hide($('dashboardScreen'));
+        show($('loginScreen'));
+        $('loginPassword').value = '';
+    });
+
+    if (sessionStorage.getItem(TOKEN_KEY)) {
+        hide($('loginScreen'));
+        loadDashboard();
+    }
+})();
+</script>
+</body>
+</html>

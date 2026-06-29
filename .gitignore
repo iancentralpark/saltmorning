@@ -1,0 +1,6 @@
+server/node_modules/
+server/.env
+server/service-account.json
+server/.credentials/
+server/disco-*.json
+*.json.bak

@@ -1,0 +1,25 @@
+{
+  "name": "mrpark-class-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node API for Mr.Park Class (Google Sheets backend)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "prestart": "node -e \"const fs=require('fs');const src='../Student.html';if(fs.existsSync(src)){fs.mkdirSync('public',{recursive:true});fs.copyFileSync(src,'public/Student.html');}\"",
+    "dev": "node --watch src/index.js",
+    "check-setup": "node scripts/check-setup.js",
+    "setup": "node scripts/setup.js",
+    "oauth-setup": "node scripts/oauth-setup.js",
+    "railway-env": "node scripts/railway-env.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0"
+  }
+}

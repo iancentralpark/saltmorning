@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Draw</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --text: #2d3436; --muted: #636e72; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Nunito', system-ui, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 10%, rgba(255, 215, 0, 0.28), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(155, 89, 182, 0.25), transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(59, 158, 221, 0.2), transparent 45%),
+                linear-gradient(180deg, #fff8e1 0%, #fffdf5 45%, #f3f8ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .shell {
+            width: min(100%, 440px);
+            background: rgba(255, 255, 255, 0.97);
+            border: 3px solid rgba(241, 196, 15, 0.55);
+            border-radius: 24px;
+            box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(155, 89, 182, 0.14);
+            padding: 1.25rem 1.35rem 1.4rem;
+            text-align: center;
+        }
+        .title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.55rem;
+            font-weight: 700;
+            margin: 0 0 0.35rem;
+            color: #6d4c00;
+        }
+        .title i { color: #f1c40f; margin-right: 0.3rem; }
+        .sub { font-size: 0.88rem; color: var(--muted); margin: 0 0 0.75rem; font-weight: 700; }
+        .student-pick { margin-bottom: 1rem; text-align: left; }
+        .student-pick label {
+            display: block; font-size: 0.78rem; font-weight: 800; color: var(--muted);
+            margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .student-pick select {
+            width: 100%; border: 2px solid rgba(241, 196, 15, 0.45); border-radius: 14px;
+            padding: 0.65rem 0.75rem; font-family: 'Nunito', sans-serif; font-size: 0.95rem; font-weight: 700; background: #fff;
+        }
+        .save-status { font-size: 0.8rem; font-weight: 700; color: #27ae60; min-height: 1.2rem; margin-top: 0.5rem; }
+
+        .slot-machine {
+            background: linear-gradient(180deg, #5d4037 0%, #3e2723 100%);
+            border-radius: 20px;
+            padding: 0.85rem 0.75rem 1rem;
+            box-shadow: 0 8px 0 #2c1810, 0 16px 32px rgba(0,0,0,0.2);
+            margin-bottom: 0.85rem;
+        }
+        .slot-top {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.72rem;
+            letter-spacing: 0.2em;
+            color: #ffecb3;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+        .slot-windows {
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        .slot-windows::before,
+        .slot-windows::after {
+            content: '';
+            position: absolute;
+            left: 8%; right: 8%;
+            height: 3px;
+            background: rgba(255, 235, 59, 0.85);
+            z-index: 3;
+            pointer-events: none;
+            box-shadow: 0 0 8px rgba(255, 235, 59, 0.6);
+        }
+        .slot-windows::before { top: calc(50% - 40px); }
+        .slot-windows::after { top: calc(50% + 37px); }
+
+        .slot-reel {
+            width: min(100%, 320px);
+            height: 80px;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #1a1a1a;
+            border: 3px solid #ffd54f;
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+            position: relative;
+        }
+        .slot-reel.spinning-fast .slot-strip { filter: blur(2px); }
+        .slot-reel.spinning-slow .slot-strip { filter: blur(0.5px); }
+        .slot-strip { will-change: transform; }
+        .slot-item {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.92rem;
+            font-weight: 700;
+            line-height: 1.15;
+            padding: 0.3rem 0.75rem;
+            text-align: center;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+        }
+        .slot-item.idle-msg {
+            background: linear-gradient(135deg, #f1c40f 0%, #f39c12 45%, #e67e22 100%);
+            font-size: 1.08rem;
+            letter-spacing: 0.03em;
+        }
+
+        .lever-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .lever-btn {
+            position: relative;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .lever-btn:disabled { cursor: not-allowed; opacity: 0.65; }
+        .lever-arm {
+            width: 14px;
+            height: 52px;
+            margin: 0 auto;
+            background: linear-gradient(90deg, #b71c1c, #e53935 45%, #c62828);
+            border-radius: 7px 7px 2px 2px;
+            box-shadow: 2px 0 0 rgba(0,0,0,0.2);
+            transform-origin: bottom center;
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .lever-btn.pulled .lever-arm { transform: rotate(28deg); }
+        .lever-knob {
+            width: 34px;
+            height: 34px;
+            margin: -4px auto 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 32% 28%, #ffeb3b, #f57f17 55%, #e65100);
+            box-shadow: 0 4px 0 #bf360c, 0 6px 12px rgba(0,0,0,0.25);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .lever-btn.pulled .lever-knob { transform: translateY(6px) scale(0.96); }
+        .lever-label {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #6d4c00;
+            margin-top: 0.35rem;
+        }
+
+        .result-panel {
+            display: none;
+            margin-top: 0.5rem;
+            padding: 0.85rem 0.75rem;
+            border-radius: 16px;
+            background: linear-gradient(160deg, #fffef5, #fff8e1);
+            border: 2px solid rgba(241, 196, 15, 0.45);
+        }
+        .result-panel.show { display: block; animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes pop-in {
+            from { opacity: 0; transform: scale(0.92) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .tier-badge {
+            display: inline-block;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.28rem 0.75rem;
+            border-radius: 999px;
+            margin-bottom: 0.5rem;
+            color: #fff;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+        }
+        .prize-text {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: #2d3436;
+        }
+        .slot-hint {
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-weight: 700;
+            margin: 0.35rem 0 0;
+        }
+        .btn-again {
+            margin-top: 0.75rem;
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1.25rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 0.92rem;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #fff;
+            box-shadow: 0 4px 0 #d68910;
+        }
+        .btn-again:hover { transform: translateY(-2px); }
+        .btn-again:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 99; }
+        .confetti span {
+            position: absolute; width: 8px; height: 8px; border-radius: 2px;
+            animation: confetti-fall 1.8s ease-out forwards;
+        }
+        @keyframes confetti-fall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        .sym-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        .sym-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .sym-unique { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .sym-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .sym-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .sym-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
+
+        .tier-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        .tier-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .tier-unique { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .tier-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .tier-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .tier-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
+
+        .machine-shake { animation: machine-shake 0.35s ease-in-out; }
+        @keyframes machine-shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-3px); }
+            40% { transform: translateX(3px); }
+            60% { transform: translateX(-2px); }
+            80% { transform: translateX(2px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <h1 class="title"><i class="fa-solid fa-ticket"></i> Lucky Draw</h1>
+        <p class="sub" id="classSub">Pick a student, pull the lever!</p>
+
+        <div class="student-pick" id="studentPickWrap">
+            <label for="studentSelect">Student</label>
+            <select id="studentSelect">
+                <option value="">— Select student —</option>
+            </select>
+        </div>
+
+        <div class="slot-machine" id="slotMachine">
+            <div class="slot-top">★ Lucky Slot ★</div>
+            <div class="slot-windows">
+                <div class="slot-reel" id="reel"><div class="slot-strip"></div></div>
+            </div>
+        </div>
+
+        <div class="lever-wrap">
+            <button type="button" class="lever-btn" id="leverBtn" aria-label="Pull lever">
+                <div class="lever-knob"></div>
+                <div class="lever-arm"></div>
+            </button>
+        </div>
+        <div class="lever-label" id="leverLabel">Pull the lever!</div>
+
+        <div class="result-panel" id="resultPanel">
+            <div id="tierBadge" class="tier-badge tier-common">Common</div>
+            <div id="prizeText" class="prize-text">Prize</div>
+            <p class="slot-hint" id="resultHint"></p>
+            <div class="save-status" id="saveStatus"></div>
+            <button type="button" class="btn-again" id="drawAgainBtn">Spin again</button>
+        </div>
+    </div>
+
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+    <script>
+        var CLASS_ID = <?!= JSON.stringify(classId || '') ?>;
+        var CLASS_NAME = <?!= JSON.stringify(className || 'Class') ?>;
+        var STUDENTS = <?!= studentsJson ?>;
+        var NODE_API = <?!= JSON.stringify(nodeApiUrl || 'https://mrpark-class-api-production.up.railway.app') ?>;
+
+        var LUCKY_DRAW_TIERS = [
+            { id: 'common', name: 'Common', weight: 35, items: ['1 Haribo','2 Haribos','Bathroom/Water Priority','1 Vocab Hint','Free Stationery Rental','5% Vocab Magic Pass','3 Haribos'] },
+            { id: 'rare', name: 'Rare', weight: 25, items: ['10% Vocab Magic Pass','2 Vocab Hints','1 Minute more vocab test','Handshake with Mr. Park',"Mr. Park's Silly Face",'5 Haribos'] },
+            { id: 'unique', name: 'Unique', weight: 20, items: ['15% Vocab Magic Pass','High-five with Mr. Park','1 Minute Timestone','1 Day Chambit Pass','Combo Shield','Wrong Answer Eraser'] },
+            { id: 'legendary', name: 'Legendary', weight: 13, items: ['20% Vocab Magic Pass','2 Minutes Freedom Bell','2 Minutes Timestone',"The King's Throne"] },
+            { id: 'mythical', name: 'Mythical', weight: 5, items: ['Name The Teacher','3 Minutes Freedom Bell','Be a Commander!','3 Minutes Timestone'] },
+            { id: 'godlike', name: 'Godlike', weight: 2, items: ['The Forbidden Word','5 Minutes Freedom Bell','Double Dollars'] }
+        ];
+
+        var IDLE_REEL_MESSAGES = [
+            'Spin the reel!',
+            'Pull the lever!',
+            'Feeling lucky?',
+            "What's your prize?",
+            'Here we go!'
+        ];
+        var ITEM_H = 80;
+        var SPIN_FAST_MS = 3200;
+        var SPIN_SLOW_MS = 3800;
+        var currentPrize = null;
+        var isSpinning = false;
+        var tierById = {};
+        var phraseToTierId = {};
+        LUCKY_DRAW_TIERS.forEach(function(t) {
+            tierById[t.id] = t;
+            t.items.forEach(function(phrase) { phraseToTierId[phrase] = t.id; });
+        });
+
+        function pickPrize() {
+            var roll = Math.random() * 100;
+            var cumulative = 0;
+            for (var i = 0; i < LUCKY_DRAW_TIERS.length; i++) {
+                cumulative += LUCKY_DRAW_TIERS[i].weight;
+                if (roll < cumulative) {
+                    var tier = LUCKY_DRAW_TIERS[i];
+                    return { tier: tier, phrase: tier.items[Math.floor(Math.random() * tier.items.length)] };
+                }
+            }
+            var fallback = LUCKY_DRAW_TIERS[0];
+            return { tier: fallback, phrase: fallback.items[0] };
+        }
+
+        function randomPhrase() {
+            var tier = LUCKY_DRAW_TIERS[Math.floor(Math.random() * LUCKY_DRAW_TIERS.length)];
+            return tier.items[Math.floor(Math.random() * tier.items.length)];
+        }
+
+        function symClass(tierId) { return 'sym-' + tierId; }
+        function tierClass(tierId) { return 'tier-' + tierId; }
+
+        function prizeItemHtml(phrase) {
+            var tierId = phraseToTierId[phrase] || 'common';
+            return '<div class="slot-item ' + symClass(tierId) + '">' + phrase + '</div>';
+        }
+
+        function buildReelStrip(reelEl, finalPhrase, length) {
+            length = length || 40;
+            var phrases = [];
+            for (var i = 0; i < length - 1; i++) phrases.push(randomPhrase());
+            phrases.push(finalPhrase);
+            var strip = reelEl.querySelector('.slot-strip');
+            strip.style.transition = 'none';
+            strip.style.transform = 'translateY(0)';
+            strip.innerHTML = phrases.map(prizeItemHtml).join('');
+            return phrases.length;
+        }
+
+        function spinReel(reelEl, itemCount) {
+            return new Promise(function(resolve) {
+                var strip = reelEl.querySelector('.slot-strip');
+                var slowStartIndex = Math.max(itemCount - 10, Math.floor(itemCount * 0.72));
+                var fastEndY = -(slowStartIndex * ITEM_H);
+                var finalY = -((itemCount - 1) * ITEM_H);
+                var fastStart = performance.now();
+                var slowStart = 0;
+
+                reelEl.classList.add('spinning-fast');
+                strip.style.transition = 'none';
+
+                function easeOutCubic(t) {
+                    return 1 - Math.pow(1 - t, 3);
+                }
+
+                function fastFrame(now) {
+                    var progress = Math.min((now - fastStart) / SPIN_FAST_MS, 1);
+                    var y = fastEndY * progress;
+                    strip.style.transform = 'translateY(' + y + 'px)';
+                    if (progress < 1) {
+                        requestAnimationFrame(fastFrame);
+                    } else {
+                        reelEl.classList.remove('spinning-fast');
+                        reelEl.classList.add('spinning-slow');
+                        slowStart = performance.now();
+                        requestAnimationFrame(slowFrame);
+                    }
+                }
+
+                function slowFrame(now) {
+                    var progress = Math.min((now - slowStart) / SPIN_SLOW_MS, 1);
+                    var eased = easeOutCubic(progress);
+                    var y = fastEndY + (finalY - fastEndY) * eased;
+                    strip.style.transform = 'translateY(' + y + 'px)';
+                    if (progress < 1) {
+                        requestAnimationFrame(slowFrame);
+                    } else {
+                        reelEl.classList.remove('spinning-slow');
+                        resolve();
+                    }
+                }
+
+                requestAnimationFrame(fastFrame);
+            });
+        }
+
+        function showConfetti(count) {
+            var box = document.getElementById('confetti');
+            box.innerHTML = '';
+            var colors = ['#f1c40f', '#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#e67e22'];
+            for (var i = 0; i < count; i++) {
+                var el = document.createElement('span');
+                el.style.left = Math.random() * 100 + '%';
+                el.style.background = colors[i % colors.length];
+                el.style.animationDelay = (Math.random() * 0.4) + 's';
+                el.style.animationDuration = (1.2 + Math.random() * 1.2) + 's';
+                box.appendChild(el);
+            }
+            setTimeout(function() { box.innerHTML = ''; }, 2600);
+        }
+
+        function saveTicketForStudent(prize) {
+            var sel = document.getElementById('studentSelect');
+            var studentId = sel ? sel.value : '';
+            var statusEl = document.getElementById('saveStatus');
+            if (!CLASS_ID || !studentId || !prize) {
+                if (statusEl) statusEl.textContent = '';
+                return;
+            }
+            if (statusEl) statusEl.textContent = 'Saving ticket…';
+            fetch(NODE_API + '/api/lucky-draw/ticket', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classId: CLASS_ID,
+                    studentId: studentId,
+                    tier: prize.tier.name,
+                    prizeText: prize.phrase
+                })
+            }).then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) throw new Error(data.error || 'Save failed');
+                    if (statusEl) {
+                        statusEl.textContent = 'Saved for ' + (sel.options[sel.selectedIndex].text || 'student') + '!';
+                    }
+                });
+            }).catch(function(err) {
+                if (statusEl) statusEl.textContent = 'Could not save: ' + (err.message || err);
+            });
+        }
+
+        function revealResult(prize) {
+            var tier = prize.tier;
+            var badge = document.getElementById('tierBadge');
+            badge.textContent = tier.name;
+            badge.className = 'tier-badge ' + tierClass(tier.id);
+            document.getElementById('prizeText').textContent = prize.phrase;
+            document.getElementById('resultHint').textContent = 'Jackpot!';
+            document.getElementById('resultPanel').classList.add('show');
+            document.getElementById('leverLabel').textContent = 'Nice pull!';
+
+            var id = tier.id;
+            if (id === 'legendary' || id === 'mythical' || id === 'godlike') {
+                showConfetti(id === 'godlike' ? 70 : id === 'mythical' ? 50 : 35);
+            }
+            document.getElementById('slotMachine').classList.add('machine-shake');
+            setTimeout(function() {
+                document.getElementById('slotMachine').classList.remove('machine-shake');
+            }, 380);
+        }
+
+        function initStudentSelect() {
+            var sub = document.getElementById('classSub');
+            if (sub && CLASS_NAME) sub.textContent = CLASS_NAME + ' — pick a student, pull the lever!';
+            var sel = document.getElementById('studentSelect');
+            if (!sel) return;
+            (STUDENTS || []).forEach(function(st) {
+                var opt = document.createElement('option');
+                opt.value = st.id;
+                opt.textContent = st.name;
+                sel.appendChild(opt);
+            });
+            if (!CLASS_ID || !(STUDENTS || []).length) {
+                document.getElementById('studentPickWrap').style.display = 'none';
+            }
+        }
+
+        function showIdleReel() {
+            var reel = document.getElementById('reel');
+            var strip = reel.querySelector('.slot-strip');
+            var msg = IDLE_REEL_MESSAGES[Math.floor(Math.random() * IDLE_REEL_MESSAGES.length)];
+            strip.style.transition = 'none';
+            strip.style.transform = 'translateY(0)';
+            strip.innerHTML = '<div class="slot-item idle-msg">' + msg + '</div>';
+            reel.classList.remove('spinning-fast', 'spinning-slow');
+        }
+
+        function resetIdleReel() {
+            showIdleReel();
+        }
+
+        function resetForNewSpin() {
+            currentPrize = null;
+            isSpinning = false;
+            document.getElementById('resultPanel').classList.remove('show');
+            document.getElementById('saveStatus').textContent = '';
+            document.getElementById('leverLabel').textContent = 'Pull the lever!';
+            document.getElementById('leverBtn').disabled = false;
+            document.getElementById('drawAgainBtn').disabled = false;
+            if (CLASS_ID && (STUDENTS || []).length) {
+                document.getElementById('studentPickWrap').style.display = 'block';
+                document.getElementById('studentSelect').disabled = false;
+            }
+            resetIdleReel();
+        }
+
+        async function pullLever() {
+            if (isSpinning) return;
+            var sel = document.getElementById('studentSelect');
+            if (CLASS_ID && sel && !sel.value) {
+                alert('Please select a student first.');
+                return;
+            }
+
+            isSpinning = true;
+            currentPrize = pickPrize();
+
+            var lever = document.getElementById('leverBtn');
+            lever.disabled = true;
+            lever.classList.add('pulled');
+            document.getElementById('drawAgainBtn').disabled = true;
+            document.getElementById('leverLabel').textContent = 'Spinning…';
+            document.getElementById('resultPanel').classList.remove('show');
+            if (sel) sel.disabled = true;
+
+            try {
+                var reel = document.getElementById('reel');
+                var count = buildReelStrip(reel, currentPrize.phrase, 44);
+
+                saveTicketForStudent(currentPrize);
+
+                await spinReel(reel, count);
+
+                setTimeout(function() {
+                    lever.classList.remove('pulled');
+                }, 400);
+
+                revealResult(currentPrize);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('leverLabel').textContent = 'Something went wrong — try again';
+                lever.disabled = false;
+                lever.classList.remove('pulled');
+                showIdleReel();
+            } finally {
+                isSpinning = false;
+                document.getElementById('drawAgainBtn').disabled = false;
+            }
+        }
+
+        initStudentSelect();
+        resetIdleReel();
+        document.getElementById('leverBtn').addEventListener('click', pullLever);
+        document.getElementById('drawAgainBtn').addEventListener('click', resetForNewSpin);
+    </script>
+</body>
+</html>
