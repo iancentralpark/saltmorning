@@ -20,6 +20,12 @@ const {
 const { saveAttendanceData } = require('./attendanceService');
 const { getMonthlyReport } = require('./reportService');
 const { getStudentHistory, updateStudentRecord } = require('./studentService');
+const { getStudentStats } = require('./studentStatsService');
+const {
+  listClassStudents,
+  getMakeupLessons,
+  saveMakeupLesson
+} = require('./makeupService');
 const { studentLogin, getStudentDashboard } = require('./studentPortalService');
 const { requireStudentAuth } = require('./studentAuth');
 const {
@@ -198,6 +204,52 @@ router.post('/student-record', async (req, res) => {
     res.json({ message });
   } catch (e) {
     console.error('POST /student-record', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/student-stats', async (req, res) => {
+  try {
+    const { classId, studentId, period } = req.query;
+    if (!classId || !studentId) return res.status(400).json({ error: 'classId and studentId are required' });
+    res.json(await getStudentStats(classId, studentId, period));
+  } catch (e) {
+    console.error('GET /student-stats', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/students', async (req, res) => {
+  try {
+    const { classId } = req.query;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await listClassStudents(classId));
+  } catch (e) {
+    console.error('GET /students', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/makeup', async (req, res) => {
+  try {
+    const { classId, studentId } = req.query;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await getMakeupLessons(classId, studentId || ''));
+  } catch (e) {
+    console.error('GET /makeup', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/makeup', async (req, res) => {
+  try {
+    const { classId, studentId, studentName, dateStr, startTime, endTime, notes } = req.body || {};
+    if (!classId || !studentId || !dateStr) {
+      return res.status(400).json({ error: 'classId, studentId, and dateStr are required' });
+    }
+    res.json(await saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, endTime, notes));
+  } catch (e) {
+    console.error('POST /makeup', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });

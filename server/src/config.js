@@ -34,6 +34,7 @@ module.exports = {
   STUDENT_LIST_SHEET: 'Student_List',
   STUDENT_WITHDRAWN_SHEET: 'Student_Withdrawn',
   ATTENDANCE_SHEET: 'Attendance_Data',
+  MAKEUP_SHEET: 'Makeup_Lessons',
   CLASS_LOG_SPREADSHEET_ID: process.env.CLASS_LOG_SPREADSHEET_ID ||
     '1kUbo820pEzNThBmIQmwVi5MCd1O888y1rtuxz2IH4H4',
   CLASS_LOG_TAB_BY_CLASS_ID: {

@@ -3,12 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Mr.Park Class">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#3b9edd">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%233b9edd' width='180' height='180' rx='36'/%3E%3Ctext x='90' y='118' font-size='72' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-weight='bold'%3EMP%3C/text%3E%3C/svg%3E">
     <title>Mr.Park's Class Attendance & Dollars</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --app-font: 'Nunito', 'Fredoka', 'Segoe UI', Malgun Gothic, sans-serif;
@@ -1959,7 +1966,44 @@
         }
         .sidebar-reset-btn:hover { background: #fff8e7; }
 
-        .chambit-week-progress {
+        .btn-makeup-row {
+            border: none;
+            background: rgba(155, 89, 182, 0.12);
+            color: #8e44ad;
+            border-radius: 999px;
+            padding: 2px 7px;
+            font-size: 0.72rem;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .btn-makeup-row:hover { background: rgba(155, 89, 182, 0.22); color: #6c3483; }
+        .makeup-offday-bar {
+            border: 2px dashed rgba(155, 89, 182, 0.35);
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(59, 158, 221, 0.08));
+            border-radius: var(--app-radius-sm);
+            padding: 1rem 1.25rem;
+            text-align: center;
+        }
+        .student-stats-panel { margin-bottom: 1rem; }
+        .student-stats-toggle .btn { font-size: 0.82rem; }
+        .student-chart-wrap {
+            position: relative;
+            height: 220px;
+            margin-bottom: 1rem;
+            background: #fff;
+            border-radius: var(--app-radius-sm);
+            border: 1px solid var(--app-border);
+            padding: 0.75rem;
+        }
+        .makeup-history-list { font-size: 0.88rem; }
+        .makeup-history-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed rgba(0,0,0,0.08);
+        }
+        .makeup-history-item:last-child { border-bottom: none; }
             display: block;
             font-size: 0.72rem;
             font-weight: 800;
@@ -2058,6 +2102,13 @@
                 <i class="fa-solid fa-circle-info"></i> Please select a date.
             </div>
         </div>
+    </div>
+
+    <div id="makeupOffDayBar" class="hidden-section mb-4 makeup-offday-bar no-print">
+        <div class="fw-bold mb-2"><i class="fa-solid fa-clock-rotate-left text-purple"></i> No class today — record a makeup lesson</div>
+        <button type="button" class="btn btn-primary rounded-pill px-4" id="openMakeupPickerBtn">
+            <i class="fa-solid fa-user-clock"></i> Record Makeup Lesson
+        </button>
     </div>
 
     <div id="hwLastSection" class="hidden-section mb-4 app-section">
@@ -2177,7 +2228,29 @@
                 <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 mt-2" id="withdrawStudentBtn" title="Withdraw student from class">
                     <i class="fa-solid fa-user-slash"></i> Withdraw from class
                 </button>
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 mt-2 ms-1" id="detailMakeupBtn" title="Record makeup lesson">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Record makeup
+                </button>
             </div>
+        </div>
+
+        <div class="app-panel-white mb-3 student-stats-panel">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <div class="step-label mb-0"><i class="fa-solid fa-chart-line"></i> Vocab & Attendance Trends</div>
+                <div class="btn-group student-stats-toggle" role="group">
+                    <input type="radio" class="btn-check" name="statsPeriod" id="statsPeriodMonth" value="month" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="statsPeriodMonth">Monthly</label>
+                    <input type="radio" class="btn-check" name="statsPeriod" id="statsPeriodQuarter" value="quarter">
+                    <label class="btn btn-outline-primary btn-sm" for="statsPeriodQuarter">Quarterly</label>
+                </div>
+            </div>
+            <div class="student-chart-wrap"><canvas id="vocabTrendChart"></canvas></div>
+            <div class="student-chart-wrap"><canvas id="absenceTrendChart"></canvas></div>
+        </div>
+
+        <div class="app-panel-white mb-3">
+            <div class="step-label mb-2"><i class="fa-solid fa-clock-rotate-left"></i> Makeup lessons</div>
+            <div id="studentMakeupList" class="makeup-history-list text-muted small">Loading…</div>
         </div>
 
         <div class="app-panel-white mb-3">
@@ -2798,6 +2871,50 @@
     </div>
 </div>
 
+<!-- Makeup lesson modal -->
+<div class="modal fade app-modal" id="makeupModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-clock-rotate-left"></i> Record Makeup Lesson</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3" id="makeupStudentPickRow">
+                    <label class="form-label fw-bold" for="makeupStudentSelect">Student</label>
+                    <select class="form-select" id="makeupStudentSelect">
+                        <option value="">— Select student —</option>
+                    </select>
+                </div>
+                <p class="small text-muted mb-3 hidden-section" id="makeupStudentFixed">Student: <strong id="makeupStudentFixedName">—</strong></p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold" for="makeupDateInput">Date</label>
+                    <input type="date" class="form-control" id="makeupDateInput">
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-bold" for="makeupStartTime">Start</label>
+                        <input type="time" class="form-control" id="makeupStartTime">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold" for="makeupEndTime">End</label>
+                        <input type="time" class="form-control" id="makeupEndTime">
+                    </div>
+                </div>
+                <p class="small mb-3">Duration: <strong id="makeupDurationPreview">—</strong></p>
+                <div class="mb-2">
+                    <label class="form-label fw-bold" for="makeupNotesInput">Notes (optional)</label>
+                    <input type="text" class="form-control" id="makeupNotesInput" placeholder="e.g. Vocab review + reading">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveMakeupBtn">Save makeup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Class calendar modal -->
 <div class="modal fade app-modal calendar-modal" id="classCalendarModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -2964,6 +3081,10 @@
     let globalClasses = [];
     let selectedClass = null;
     let selectedStudent = null;
+    let makeupModalStudent = null;
+    let vocabTrendChartInst = null;
+    let absenceTrendChartInst = null;
+    let currentStatsPeriod = 'month';
     let currentClassRulesText = '';
     let libraryEditData = null;
     let librarySelectedStudentId = null;
@@ -3115,6 +3236,19 @@
         document.getElementById('addHistoryRowBtn').addEventListener('click', addEmptyHistoryRow);
         document.getElementById('addManualHwBtn').addEventListener('click', addManualHomeworkForStudent);
         document.getElementById('withdrawStudentBtn').addEventListener('click', withdrawSelectedStudent);
+        document.getElementById('detailMakeupBtn').addEventListener('click', function() {
+            if (selectedStudent) openMakeupModal(selectedStudent.id, selectedStudent.name);
+        });
+        document.getElementById('openMakeupPickerBtn').addEventListener('click', openMakeupPickerModal);
+        document.getElementById('saveMakeupBtn').addEventListener('click', saveMakeupLessonFromModal);
+        document.getElementById('makeupStartTime').addEventListener('change', updateMakeupDurationPreview);
+        document.getElementById('makeupEndTime').addEventListener('change', updateMakeupDurationPreview);
+        document.querySelectorAll('input[name="statsPeriod"]').forEach(function(el) {
+            el.addEventListener('change', function() {
+                currentStatsPeriod = el.value === 'quarter' ? 'quarter' : 'month';
+                if (selectedStudent) loadStudentStatsCharts();
+            });
+        });
         document.getElementById('addStudentBtn').addEventListener('click', openAddStudentModal);
         document.getElementById('saveNewStudentBtn').addEventListener('click', saveNewStudent);
 
@@ -4739,6 +4873,7 @@
             alertBox.innerHTML = '<i class="fa-solid fa-calendar-xmark"></i> ' + escapeHtml(holidayName) +
                 ' · Public holiday (no class for any class)';
             setWorkSectionsHidden(true);
+            updateMakeupOffDayBar(true);
             return;
         }
 
@@ -4747,11 +4882,13 @@
             alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' +
                 dayNames[dayOfWeek] + ' is not a scheduled day for [' + escapeHtml(selectedClass.name) + '].';
             setWorkSectionsHidden(true);
+            updateMakeupOffDayBar(true);
             return;
         }
 
         alertBox.className = 'alert alert-success w-100 mb-0 py-2 fw-bold text-center';
         alertBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + dayNames[dayOfWeek] + ' (Scheduled class day)';
+        updateMakeupOffDayBar(false);
 
         if (work) {
             applyWorkPanels(work, dateInput);
@@ -5862,6 +5999,9 @@
                     <button type="button" class="btn-withdraw-row" data-withdraw-btn title="Withdraw from class">
                         <i class="fa-solid fa-user-slash"></i>
                     </button>
+                    <button type="button" class="btn-makeup-row" data-makeup-btn title="Record makeup lesson">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </button>
                 </td>
                 <td>
                     <span class="chambit-week-progress${weekCompleteClass}" data-chambit-week>${weekReq > 0 ? weekRead + '/' + weekReq + ' this week' : ''}</span>
@@ -5908,6 +6048,10 @@
             tr.querySelector('[data-withdraw-btn]').addEventListener('click', function(e) {
                 e.stopPropagation();
                 withdrawStudentById(std.id, std.name);
+            });
+            tr.querySelector('[data-makeup-btn]').addEventListener('click', function(e) {
+                e.stopPropagation();
+                openMakeupModal(std.id, std.name);
             });
             tr.querySelector('[data-dollar-btn]').addEventListener('click', () => applyDollarFromRow(tr, std.id));
             tr.querySelector('[data-chambit-plus]').addEventListener('click', () => toggleChambitFromRow(tr, std.id, 'plus'));
@@ -6085,10 +6229,13 @@
 
     function backToMain() {
         selectedStudent = null;
+        destroyStudentCharts();
         document.getElementById('studentDetailSection').classList.add('hidden-section');
         setWorkSectionsHidden(false);
+        updateMakeupOffDayBar(false);
         showSidePanels();
         showSidebarToggle();
+        if (selectedClass) checkScheduleAndLoad(false);
     }
 
     function openStudentDetail(studentId, studentName) {
@@ -6100,11 +6247,13 @@
         document.getElementById('hwStudentPending').innerHTML = 'Loading…';
 
         setWorkSectionsHidden(true);
+        updateMakeupOffDayBar(false);
         hideSidePanels();
         hideSidebarToggle();
         document.getElementById('studentDetailSection').classList.remove('hidden-section');
 
         loadStudentHistory();
+        loadStudentStatsCharts();
         loadStudentHomework();
     }
 
@@ -6711,6 +6860,228 @@
                 loadStudentHomework();
             }
         });
+    }
+
+    function updateMakeupOffDayBar(show) {
+        const bar = document.getElementById('makeupOffDayBar');
+        if (!bar) return;
+        bar.classList.toggle('hidden-section', !show || !selectedClass);
+    }
+
+    function parseMakeupDurationHours(startTime, endTime) {
+        const parse = function(t) {
+            const m = String(t || '').match(/^(\d{1,2}):(\d{2})$/);
+            if (!m) return null;
+            return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        };
+        const s = parse(startTime);
+        const e = parse(endTime);
+        if (s == null || e == null || e <= s) return null;
+        return Math.round(((e - s) / 60) * 100) / 100;
+    }
+
+    function updateMakeupDurationPreview() {
+        const h = parseMakeupDurationHours(
+            document.getElementById('makeupStartTime').value,
+            document.getElementById('makeupEndTime').value
+        );
+        document.getElementById('makeupDurationPreview').textContent =
+            h != null ? h + ' hour' + (h === 1 ? '' : 's') : '—';
+    }
+
+    function loadMakeupStudentOptions(onDone) {
+        const sel = document.getElementById('makeupStudentSelect');
+        sel.innerHTML = '<option value="">Loading…</option>';
+        const finish = function(list) {
+            sel.innerHTML = '<option value="">— Select student —</option>';
+            (list || []).forEach(function(s) {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                sel.appendChild(opt);
+            });
+            if (onDone) onDone();
+        };
+        if (nodeApiEnabled()) {
+            nodeFetch('/api/students?classId=' + encodeURIComponent(selectedClass.id))
+                .then(finish)
+                .catch(handleError);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(finish)
+            .withFailureHandler(handleError)
+            .listClassStudentsForMakeup(selectedClass.id);
+    }
+
+    function openMakeupModal(studentId, studentName) {
+        if (!selectedClass) return;
+        makeupModalStudent = studentId ? { id: studentId, name: studentName } : null;
+        const pickRow = document.getElementById('makeupStudentPickRow');
+        const fixedRow = document.getElementById('makeupStudentFixed');
+        if (makeupModalStudent) {
+            pickRow.classList.add('hidden-section');
+            fixedRow.classList.remove('hidden-section');
+            document.getElementById('makeupStudentFixedName').textContent = studentName;
+        } else {
+            pickRow.classList.remove('hidden-section');
+            fixedRow.classList.add('hidden-section');
+            loadMakeupStudentOptions();
+        }
+        document.getElementById('makeupDateInput').value =
+            document.getElementById('attendanceDate').value || localTodayISO();
+        document.getElementById('makeupStartTime').value = '';
+        document.getElementById('makeupEndTime').value = '';
+        document.getElementById('makeupNotesInput').value = '';
+        updateMakeupDurationPreview();
+        new bootstrap.Modal(document.getElementById('makeupModal')).show();
+    }
+
+    function openMakeupPickerModal() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        openMakeupModal(null, null);
+    }
+
+    function saveMakeupLessonFromModal() {
+        if (!selectedClass) return;
+        let studentId = makeupModalStudent ? makeupModalStudent.id : '';
+        let studentName = makeupModalStudent ? makeupModalStudent.name : '';
+        if (!studentId) {
+            const sel = document.getElementById('makeupStudentSelect');
+            studentId = sel.value;
+            studentName = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : '';
+        }
+        const body = {
+            classId: selectedClass.id,
+            studentId: studentId,
+            studentName: studentName,
+            dateStr: document.getElementById('makeupDateInput').value,
+            startTime: document.getElementById('makeupStartTime').value,
+            endTime: document.getElementById('makeupEndTime').value,
+            notes: document.getElementById('makeupNotesInput').value.trim()
+        };
+        if (!body.studentId) {
+            appAlert('Select a student.');
+            return;
+        }
+        if (!body.dateStr || !body.startTime || !body.endTime) {
+            appAlert('Enter date, start time, and end time.');
+            return;
+        }
+        if (parseMakeupDurationHours(body.startTime, body.endTime) == null) {
+            appAlert('End time must be after start time.');
+            return;
+        }
+        showLoading(true);
+        const onDone = function(res) {
+            showLoading(false);
+            appToast(res.message || 'Makeup saved.');
+            bootstrap.Modal.getInstance(document.getElementById('makeupModal')).hide();
+            if (selectedStudent && selectedStudent.id === body.studentId) {
+                loadStudentStatsCharts();
+            }
+        };
+        if (!apiPost('/api/makeup', body, onDone)) {
+            google.script.run
+                .withSuccessHandler(onDone)
+                .withFailureHandler(handleError)
+                .saveMakeupLesson(
+                    body.classId, body.studentId, body.studentName,
+                    body.dateStr, body.startTime, body.endTime, body.notes
+                );
+        }
+    }
+
+    function renderStudentMakeupList(items) {
+        const box = document.getElementById('studentMakeupList');
+        if (!items || !items.length) {
+            box.innerHTML = '<p class="text-muted small mb-0">No makeup lessons recorded yet.</p>';
+            return;
+        }
+        box.innerHTML = '';
+        items.forEach(function(m) {
+            const div = document.createElement('div');
+            div.className = 'makeup-history-item';
+            div.innerHTML =
+                '<div><strong>' + escapeHtml(m.dateStr) + '</strong> · ' +
+                escapeHtml(m.startTime) + '–' + escapeHtml(m.endTime) +
+                ' <span class="badge bg-light text-dark">' + escapeHtml(String(m.durationHours)) + 'h</span>' +
+                (m.notes ? '<div class="text-muted">' + escapeHtml(m.notes) + '</div>' : '') +
+                '</div>';
+            box.appendChild(div);
+        });
+    }
+
+    function destroyStudentCharts() {
+        if (vocabTrendChartInst) { vocabTrendChartInst.destroy(); vocabTrendChartInst = null; }
+        if (absenceTrendChartInst) { absenceTrendChartInst.destroy(); absenceTrendChartInst = null; }
+    }
+
+    function loadStudentStatsCharts() {
+        if (!selectedClass || !selectedStudent || typeof Chart === 'undefined') return;
+        const period = currentStatsPeriod;
+        const q = '/api/student-stats?classId=' + encodeURIComponent(selectedClass.id) +
+            '&studentId=' + encodeURIComponent(selectedStudent.id) +
+            '&period=' + encodeURIComponent(period);
+        const render = function(data) {
+            destroyStudentCharts();
+            renderStudentMakeupList(data.makeup || []);
+            const labels = (data.labels || []).slice();
+            const vocabData = (data.vocab || []).map(function(v) { return v.avg; });
+            const abs = data.absence || [];
+            const present = abs.map(function(a) { return a.present; });
+            const tardy = abs.map(function(a) { return a.tardy; });
+            const absent = abs.map(function(a) { return a.absent; });
+
+            vocabTrendChartInst = new Chart(document.getElementById('vocabTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Vocab avg (pts)',
+                        data: vocabData,
+                        borderColor: '#3b9edd',
+                        backgroundColor: 'rgba(59,158,221,0.15)',
+                        tension: 0.25,
+                        fill: true,
+                        spanGaps: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 0, max: 100, ticks: { stepSize: 10 } } }
+                }
+            });
+
+            absenceTrendChartInst = new Chart(document.getElementById('absenceTrendChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Present', data: present, backgroundColor: '#2ecc71' },
+                        { label: 'Tardy', data: tardy, backgroundColor: '#f39c12' },
+                        { label: 'Absent', data: absent, backgroundColor: '#e74c3c' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { x: { stacked: true }, y: { stacked: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        };
+        if (!apiGet(q, render, { loading: false })) {
+            google.script.run
+                .withSuccessHandler(render)
+                .withFailureHandler(handleError)
+                .getStudentStats(selectedClass.id, selectedStudent.id, period);
+        }
     }
 
     function loadStudentHistory() {

@@ -879,6 +879,184 @@ function updateStudentRecord(classId, studentId, dateStr, attendance, vocabScore
   return "Saved new record.";
 }
 
+// ===== Makeup lessons =====
+var MAKEUP_SHEET_NAME = 'Makeup_Lessons';
+
+function ensureMakeupSheet_() {
+  const ss = getSS();
+  let sheet = ss.getSheetByName(MAKEUP_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(MAKEUP_SHEET_NAME);
+    sheet.appendRow([
+      'MakeupID', 'ClassID', 'StudentID', 'StudentName', 'Date',
+      'StartTime', 'EndTime', 'DurationHours', 'Notes', 'RecordedAt'
+    ]);
+  } else if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      'MakeupID', 'ClassID', 'StudentID', 'StudentName', 'Date',
+      'StartTime', 'EndTime', 'DurationHours', 'Notes', 'RecordedAt'
+    ]);
+  }
+  return sheet;
+}
+
+function parseTimeToMinutes_(t) {
+  const m = String(t || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return h * 60 + min;
+}
+
+function calcMakeupDurationHours_(startTime, endTime) {
+  const start = parseTimeToMinutes_(startTime);
+  const end = parseTimeToMinutes_(endTime);
+  if (start == null || end == null || end <= start) return null;
+  return Math.round(((end - start) / 60) * 100) / 100;
+}
+
+function listClassStudentsForMakeup(classId) {
+  return getEnrolledStudents_(classId).map(function(s) {
+    return { id: s.id, name: s.name };
+  });
+}
+
+function getMakeupLessons(classId, studentId) {
+  ensureMakeupSheet_();
+  const sheet = getSS().getSheetByName(MAKEUP_SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  const rows = [];
+  classId = String(classId || '');
+  studentId = studentId != null ? String(studentId) : '';
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== classId) continue;
+    if (studentId && String(data[i][2]) !== studentId) continue;
+    rows.push({
+      makeupId: String(data[i][0] || ''),
+      classId: String(data[i][1] || ''),
+      studentId: String(data[i][2] || ''),
+      studentName: String(data[i][3] || ''),
+      dateStr: String(data[i][4] || ''),
+      startTime: String(data[i][5] || ''),
+      endTime: String(data[i][6] || ''),
+      durationHours: Number(data[i][7]) || 0,
+      notes: String(data[i][8] || ''),
+      recordedAt: String(data[i][9] || '')
+    });
+  }
+  rows.sort(function(a, b) {
+    if (a.dateStr !== b.dateStr) return a.dateStr < b.dateStr ? 1 : -1;
+    return a.startTime < b.startTime ? 1 : -1;
+  });
+  return rows;
+}
+
+function saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, endTime, notes) {
+  classId = String(classId || '').trim();
+  studentId = String(studentId || '').trim();
+  dateStr = String(dateStr || '').trim();
+  startTime = String(startTime || '').trim();
+  endTime = String(endTime || '').trim();
+  notes = String(notes || '').trim();
+  if (!classId || !studentId || !dateStr) throw new Error('Class, student, and date are required.');
+  if (!startTime || !endTime) throw new Error('Start and end time are required (HH:mm).');
+  const durationHours = calcMakeupDurationHours_(startTime, endTime);
+  if (durationHours == null) throw new Error('End time must be after start time.');
+  if (!studentName) {
+    const students = getEnrolledStudents_(classId);
+    for (let i = 0; i < students.length; i++) {
+      if (String(students[i].id) === studentId) {
+        studentName = students[i].name;
+        break;
+      }
+    }
+    studentName = studentName || studentId;
+  }
+  const sheet = ensureMakeupSheet_();
+  const makeupId = 'MU_' + classId + '_' + Date.now();
+  const recordedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  sheet.appendRow([
+    makeupId, classId, studentId, studentName, dateStr,
+    startTime, endTime, durationHours, notes, recordedAt
+  ]);
+  return {
+    makeupId: makeupId,
+    message: 'Makeup recorded: ' + studentName + ' · ' + dateStr + ' · ' +
+      startTime + '–' + endTime + ' (' + durationHours + 'h)',
+    durationHours: durationHours
+  };
+}
+
+function monthKey_(dateStr) {
+  return String(dateStr || '').slice(0, 7);
+}
+
+function quarterKey_(dateStr) {
+  const m = String(dateStr || '').match(/^(\d{4})-(\d{2})/);
+  if (!m) return '';
+  const q = Math.ceil(parseInt(m[2], 10) / 3);
+  return m[1] + ' Q' + q;
+}
+
+function bucketLabel_(dateStr, period) {
+  return period === 'quarter' ? quarterKey_(dateStr) : monthKey_(dateStr);
+}
+
+function getStudentStats(classId, studentId, period) {
+  period = period === 'quarter' ? 'quarter' : 'month';
+  const history = getStudentHistory(classId, studentId);
+  const makeup = getMakeupLessons(classId, studentId);
+  const vocabBuckets = {};
+  const absenceBuckets = {};
+
+  history.forEach(function(r) {
+    const label = bucketLabel_(r.dateStr, period);
+    if (!label) return;
+    if (!absenceBuckets[label]) absenceBuckets[label] = { present: 0, tardy: 0, absent: 0 };
+    if (r.attendance === '출석') absenceBuckets[label].present++;
+    else if (r.attendance === '지각') absenceBuckets[label].tardy++;
+    else if (r.attendance === '결석') absenceBuckets[label].absent++;
+    const n = Number(r.vocabScore);
+    if (Number.isFinite(n) && n > 0) {
+      if (!vocabBuckets[label]) vocabBuckets[label] = { sum: 0, count: 0 };
+      vocabBuckets[label].sum += n;
+      vocabBuckets[label].count++;
+    }
+  });
+
+  function sortLabels(labels) {
+    return labels.sort(function(a, b) {
+      if (period === 'quarter') {
+        const pa = a.match(/^(\d{4}) Q(\d)$/);
+        const pb = b.match(/^(\d{4}) Q(\d)$/);
+        if (!pa || !pb) return a.localeCompare(b);
+        if (pa[1] !== pb[1]) return pa[1] < pb[1] ? -1 : 1;
+        return parseInt(pa[2], 10) - parseInt(pb[2], 10);
+      }
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+  }
+
+  const allLabels = sortLabels(Object.keys(absenceBuckets).concat(Object.keys(vocabBuckets))
+    .filter(function(v, i, a) { return a.indexOf(v) === i; }));
+
+  return {
+    period: period,
+    labels: allLabels,
+    vocab: allLabels.map(function(label) {
+      const b = vocabBuckets[label];
+      if (!b || !b.count) return { label: label, avg: null, count: 0 };
+      return { label: label, avg: Math.round((b.sum / b.count) * 10) / 10, count: b.count };
+    }),
+    absence: allLabels.map(function(label) {
+      const b = absenceBuckets[label] || { present: 0, tardy: 0, absent: 0 };
+      return { label: label, present: b.present, tardy: b.tardy, absent: b.absent };
+    }),
+    makeup: makeup
+  };
+}
+
 // 7. 달러 증감 적용 (+/- 허용, 0 미만도 허용)
 function applyDollarAdjustment(classId, studentId, amount, reason) {
   ensureDollarSheets_();
