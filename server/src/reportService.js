@@ -6,6 +6,7 @@ const {
 const { getSheetRows } = require('./sheets');
 const { formatSheetDate } = require('./dateUtils');
 const { getHolidaysForMonth } = require('./holiday');
+const { getMakeupLessonsForMonth } = require('./makeupService');
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -86,34 +87,84 @@ async function getMonthlyReport(classId, year, month) {
     };
   }
 
-  const report = classList.map(cls => {
-    const dates = buildScheduledDates(y, m, cls.allowedDays, holidays);
-    const students = (studentsByClass[cls.id] || []).map(std => ({
-      id: std.id,
-      name: std.name,
-      cells: dates.map(d => {
-        if (d.holiday) {
-          return { attendance: null, vocabScore: null, holiday: d.holiday };
-        }
-        const rec = recordMap[cls.id] && recordMap[cls.id][d.dateStr] && recordMap[cls.id][d.dateStr][std.id];
-        if (rec && rec.attendance) {
-          return {
-            attendance: rec.attendance,
-            vocabScore: rec.vocabScore,
-            holiday: ''
-          };
-        }
-        return { attendance: null, vocabScore: null, holiday: '' };
-      })
-    }));
-    return {
+  const report = [];
+  for (const cls of classList) {
+    const scheduledDates = buildScheduledDates(y, m, cls.allowedDays, holidays);
+    const scheduledSet = new Set(scheduledDates.map(d => d.dateStr));
+    const classMakeups = await getMakeupLessonsForMonth(cls.id, monthPrefix);
+    const completedMakeups = classMakeups.filter(mu => mu.status === 'Completed');
+
+    const extraMakeupDates = [...new Set(
+      completedMakeups
+        .map(mu => mu.dateStr)
+        .filter(dateStr => !scheduledSet.has(dateStr))
+    )].sort();
+
+    const extraDates = extraMakeupDates.map(dateStr => {
+      const dow = new Date(dateStr + 'T12:00:00').getDay();
+      return {
+        dateStr,
+        dayLabel: DAY_LABELS[dow],
+        holiday: holidays[dateStr] || '',
+        isMakeupColumn: true
+      };
+    });
+
+    const dates = scheduledDates.concat(extraDates)
+      .sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
+    const students = (studentsByClass[cls.id] || []).map(std => {
+      const completedSessions = completedMakeups.filter(mu => String(mu.studentId) === String(std.id));
+      const makeupHours = Math.round(completedSessions.reduce((s, mu) => s + (mu.durationHours || 0), 0) * 100) / 100;
+      return {
+        id: std.id,
+        name: std.name,
+        makeupCount: completedSessions.length,
+        makeupHours,
+        cells: dates.map(d => {
+          const makeupOnDate = completedSessions.find(mu => mu.dateStr === d.dateStr) || null;
+          if (d.isMakeupColumn) {
+            return {
+              attendance: makeupOnDate ? '보강' : null,
+              vocabScore: null,
+              holiday: d.holiday || '',
+              makeup: makeupOnDate,
+              isMakeupOnly: true
+            };
+          }
+          if (d.holiday) {
+            return { attendance: null, vocabScore: null, holiday: d.holiday, makeup: null };
+          }
+          const rec = recordMap[cls.id] && recordMap[cls.id][d.dateStr] && recordMap[cls.id][d.dateStr][std.id];
+          if (rec && rec.attendance) {
+            return {
+              attendance: rec.attendance,
+              vocabScore: rec.vocabScore,
+              holiday: '',
+              makeup: makeupOnDate
+            };
+          }
+          if (makeupOnDate) {
+            return {
+              attendance: '보강',
+              vocabScore: null,
+              holiday: '',
+              makeup: makeupOnDate
+            };
+          }
+          return { attendance: null, vocabScore: null, holiday: '', makeup: null };
+        })
+      };
+    });
+    report.push({
       id: cls.id,
       name: cls.name,
       allowedDays: cls.allowedDays,
       dates,
-      students
-    };
-  });
+      students,
+      makeupSessions: classMakeups.filter(mu => mu.status !== 'Cancelled')
+    });
+  }
 
   return { year: y, month: m, monthLabel: monthPrefix, classes: report };
 }

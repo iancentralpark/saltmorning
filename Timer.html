@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Timer</title>
@@ -183,9 +192,37 @@
             margin-bottom: 0.5rem;
         }
         body.done .done-msg { display: block; }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 12% 18%, rgba(255, 159, 67, 0.12), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(59, 158, 221, 0.16), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 55%, #141a23 100%);
+        }
+        [data-theme="dark"] body::before { opacity: 0.1; }
+        [data-theme="dark"] .timer-shell {
+            background: #1e242e;
+            border-color: rgba(120, 160, 200, 0.4);
+            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.22), 0 20px 40px rgba(0, 0, 0, 0.35);
+        }
+        [data-theme="dark"] .label,
+        [data-theme="dark"] #display { color: #b8d9f5; text-shadow: none; }
+        [data-theme="dark"] .label-sub { color: var(--muted); }
+        [data-theme="dark"] .btn-adjust-min,
+        [data-theme="dark"] .btn-reset {
+            background: #2d3644;
+            color: #b8d9f5;
+            border-color: rgba(120, 160, 200, 0.35);
+        }
     </style>
 </head>
 <body>
+    <script>if (/\bembed=1\b/.test(location.search)) document.documentElement.classList.add('tool-embedded');</script>
     <span class="deco deco-1" aria-hidden="true">📚</span>
     <span class="deco deco-2" aria-hidden="true">⭐</span>
     <span class="deco deco-3" aria-hidden="true">✏️</span>

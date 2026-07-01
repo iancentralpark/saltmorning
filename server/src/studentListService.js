@@ -45,16 +45,48 @@ async function buildClassStudentDirectory(classId) {
   return { nameMap, statusMap };
 }
 
-async function generateNextStudentId(classId) {
-  classId = String(classId);
+function parseStudentIdNumber_(studentId) {
+  const m = String(studentId || '').match(/^S(\d+)$/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+async function collectUsedStudentIds_() {
+  const used = new Set();
   let maxNum = 0;
+
   const data = await getSheetRows(STUDENT_LIST_SHEET);
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][2]) !== classId) continue;
-    const m = String(data[i][0]).match(/^S(\d+)$/i);
-    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    const sid = String(data[i][0] || '').trim();
+    if (!sid) continue;
+    used.add(sid);
+    const num = parseStudentIdNumber_(sid);
+    if (num != null) maxNum = Math.max(maxNum, num);
   }
-  return 'S' + String(maxNum + 1).padStart(3, '0');
+
+  try {
+    const withdrawn = await getSheetRows(STUDENT_WITHDRAWN_SHEET);
+    for (let i = 1; i < withdrawn.length; i++) {
+      const sid = String(withdrawn[i][1] || '').trim();
+      if (!sid) continue;
+      used.add(sid);
+      const num = parseStudentIdNumber_(sid);
+      if (num != null) maxNum = Math.max(maxNum, num);
+    }
+  } catch (e) { /* sheet may not exist yet */ }
+
+  return { used, maxNum };
+}
+
+/** Next Student_ID across all classes — never reuse an existing S### id. */
+async function generateNextStudentId() {
+  const { used, maxNum } = await collectUsedStudentIds_();
+  let nextNum = maxNum + 1;
+  let candidate;
+  do {
+    candidate = 'S' + String(nextNum).padStart(3, '0');
+    nextNum += 1;
+  } while (used.has(candidate));
+  return candidate;
 }
 
 async function addEnrolledStudent(classId, name, loginId, loginPassword) {
@@ -74,7 +106,7 @@ async function addEnrolledStudent(classId, name, loginId, loginPassword) {
     }
   }
 
-  const studentId = await generateNextStudentId(classId);
+  const studentId = await generateNextStudentId();
   await appendRows(STUDENT_LIST_SHEET, [[studentId, name, classId, 'Enrolled', loginId, loginPassword]]);
 
   cacheDeletePrefix('sidebar_v1_');

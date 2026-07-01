@@ -24,17 +24,39 @@ const { getStudentStats } = require('./studentStatsService');
 const {
   listClassStudents,
   getMakeupLessons,
-  saveMakeupLesson
+  saveMakeupLesson,
+  updateMakeupLesson,
+  deleteMakeupLesson,
+  setMakeupStatus
 } = require('./makeupService');
 const { studentLogin, getStudentDashboard } = require('./studentPortalService');
 const { requireStudentAuth } = require('./studentAuth');
 const {
+  groupLuckyTickets,
   saveLuckyDrawTicket,
   listStudentLuckyTickets,
-  redeemLuckyTicket
+  redeemLuckyTicket,
+  transferLuckyTicket
 } = require('./luckyDrawService');
+const {
+  getLuckyDrawConfig,
+  getActiveClientTiers,
+  saveLuckyDrawConfig
+} = require('./luckyDrawConfigService');
 const { addManualPendingHomework } = require('./manualHomeworkService');
 const { withdrawStudent, listWithdrawnStudents } = require('./withdrawnStudentService');
+const {
+  startStudentLeave,
+  endStudentLeave,
+  listStudentLeaves,
+  getActiveLeaveRecord
+} = require('./leaveService');
+const {
+  listPlannedAttendance,
+  getPlannedAttendanceCalendar,
+  createPlannedAttendance,
+  cancelPlannedAttendance
+} = require('./plannedAttendanceService');
 const { addEnrolledStudent } = require('./studentListService');
 const { applyDollarAdjustment } = require('./dollarService');
 const { toggleChambitRead, setChambitComboManual } = require('./chambitService');
@@ -232,9 +254,9 @@ router.get('/students', async (req, res) => {
 
 router.get('/makeup', async (req, res) => {
   try {
-    const { classId, studentId } = req.query;
+    const { classId, studentId, status } = req.query;
     if (!classId) return res.status(400).json({ error: 'classId is required' });
-    res.json(await getMakeupLessons(classId, studentId || ''));
+    res.json(await getMakeupLessons(classId, studentId || '', status ? { status } : {}));
   } catch (e) {
     console.error('GET /makeup', e);
     res.status(500).json({ error: e.message || 'Server error' });
@@ -247,9 +269,43 @@ router.post('/makeup', async (req, res) => {
     if (!classId || !studentId || !dateStr) {
       return res.status(400).json({ error: 'classId, studentId, and dateStr are required' });
     }
-    res.json(await saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, endTime, notes));
+    res.json(await saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, endTime, notes, {}));
   } catch (e) {
     console.error('POST /makeup', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.put('/makeup/:makeupId', async (req, res) => {
+  try {
+    const { makeupId } = req.params;
+    const { classId, studentId, studentName, dateStr, startTime, endTime, notes } = req.body || {};
+    res.json(await updateMakeupLesson(makeupId, {
+      classId, studentId, studentName, dateStr, startTime, endTime, notes
+    }));
+  } catch (e) {
+    console.error('PUT /makeup', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.patch('/makeup/:makeupId/status', async (req, res) => {
+  try {
+    const { makeupId } = req.params;
+    const { status } = req.body || {};
+    res.json(await setMakeupStatus(makeupId, status));
+  } catch (e) {
+    console.error('PATCH /makeup/status', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.delete('/makeup/:makeupId', async (req, res) => {
+  try {
+    const { makeupId } = req.params;
+    res.json(await deleteMakeupLesson(makeupId));
+  } catch (e) {
+    console.error('DELETE /makeup', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });
@@ -592,6 +648,29 @@ router.post('/homework/manual', async (req, res) => {
   }
 });
 
+router.get('/lucky-draw/config', async (req, res) => {
+  try {
+    const config = await getLuckyDrawConfig();
+    res.json({
+      tiers: config.tiers,
+      activeTiers: getActiveClientTiers(config)
+    });
+  } catch (e) {
+    console.error('GET /lucky-draw/config', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.put('/lucky-draw/config', async (req, res) => {
+  try {
+    const { tiers } = req.body || {};
+    res.json(await saveLuckyDrawConfig(tiers));
+  } catch (e) {
+    console.error('PUT /lucky-draw/config', e);
+    res.status(400).json({ error: e.message || 'Save failed' });
+  }
+});
+
 router.post('/lucky-draw/ticket', async (req, res) => {
   try {
     const { classId, studentId, tier, prizeText } = req.body || {};
@@ -609,10 +688,27 @@ router.get('/lucky-draw/student', async (req, res) => {
   try {
     const { classId, studentId } = req.query;
     if (!classId || !studentId) return res.status(400).json({ error: 'classId and studentId are required' });
-    res.json({ tickets: await listStudentLuckyTickets(classId, studentId) });
+    const tickets = await listStudentLuckyTickets(classId, studentId);
+    res.json({
+      tickets: groupLuckyTickets(tickets),
+      totalCount: tickets.length
+    });
   } catch (e) {
     console.error('GET /lucky-draw/student', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/lucky-draw/transfer', async (req, res) => {
+  try {
+    const { ticketId, toStudentId } = req.body || {};
+    if (!ticketId || !toStudentId) {
+      return res.status(400).json({ error: 'ticketId and toStudentId are required' });
+    }
+    res.json(await transferLuckyTicket(ticketId, toStudentId));
+  } catch (e) {
+    console.error('POST /lucky-draw/transfer', e);
+    res.status(400).json({ error: e.message || 'Transfer failed' });
   }
 });
 
@@ -634,6 +730,95 @@ router.post('/students/withdraw', async (req, res) => {
   } catch (e) {
     console.error('POST /students/withdraw', e);
     res.status(400).json({ error: e.message || 'Withdraw failed' });
+  }
+});
+
+router.get('/students/leave', async (req, res) => {
+  try {
+    const { classId, studentId } = req.query;
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    const leaves = await listStudentLeaves(classId, studentId);
+    const active = await getActiveLeaveRecord(classId, studentId);
+    res.json({ leaves, active });
+  } catch (e) {
+    console.error('GET /students/leave', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/students/leave', async (req, res) => {
+  try {
+    const { classId, studentId, startDate, endDate, reason } = req.body || {};
+    if (!classId || !studentId || !startDate || !endDate) {
+      return res.status(400).json({ error: 'classId, studentId, startDate, and endDate are required' });
+    }
+    res.json(await startStudentLeave(classId, studentId, startDate, endDate, reason));
+  } catch (e) {
+    console.error('POST /students/leave', e);
+    res.status(400).json({ error: e.message || 'Leave failed' });
+  }
+});
+
+router.post('/students/leave/end', async (req, res) => {
+  try {
+    const { leaveId } = req.body || {};
+    if (!leaveId) return res.status(400).json({ error: 'leaveId is required' });
+    res.json(await endStudentLeave(leaveId));
+  } catch (e) {
+    console.error('POST /students/leave/end', e);
+    res.status(400).json({ error: e.message || 'End leave failed' });
+  }
+});
+
+router.get('/students/planned-attendance', async (req, res) => {
+  try {
+    const { classId, studentId } = req.query;
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    res.json({ items: await listPlannedAttendance(classId, studentId) });
+  } catch (e) {
+    console.error('GET /students/planned-attendance', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/students/planned-attendance/calendar', async (req, res) => {
+  try {
+    const { classId, studentId, year, month } = req.query;
+    if (!classId || !studentId || !year || !month) {
+      return res.status(400).json({ error: 'classId, studentId, year, and month are required' });
+    }
+    res.json(await getPlannedAttendanceCalendar(classId, studentId, year, month));
+  } catch (e) {
+    console.error('GET /students/planned-attendance/calendar', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/students/planned-attendance', async (req, res) => {
+  try {
+    const { classId, studentId, date, type, note } = req.body || {};
+    if (!classId || !studentId || !date || !type) {
+      return res.status(400).json({ error: 'classId, studentId, date, and type are required' });
+    }
+    res.json(await createPlannedAttendance(classId, studentId, date, type, note));
+  } catch (e) {
+    console.error('POST /students/planned-attendance', e);
+    res.status(400).json({ error: e.message || 'Advance notice failed' });
+  }
+});
+
+router.post('/students/planned-attendance/cancel', async (req, res) => {
+  try {
+    const { noticeId } = req.body || {};
+    if (!noticeId) return res.status(400).json({ error: 'noticeId is required' });
+    res.json(await cancelPlannedAttendance(noticeId));
+  } catch (e) {
+    console.error('POST /students/planned-attendance/cancel', e);
+    res.status(400).json({ error: e.message || 'Cancel failed' });
   }
 });
 

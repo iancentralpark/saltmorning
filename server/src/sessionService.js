@@ -10,8 +10,7 @@ const {
   EVENTS_SHEET,
   VIDEO_SHEET,
   CHAMBIT_DAILY_SHEET,
-  CHAMBIT_COMBO_SHEET,
-  DEFAULT_YOUTUBE_VIDEO_ID
+  CHAMBIT_COMBO_SHEET
 } = require('./config');
 const { cacheGet, cacheSet } = require('./cache');
 const { buildRequestContext } = require('./sheets');
@@ -28,10 +27,13 @@ const {
   calcExpectedFinishDate,
   formatDateInTz
 } = require('./dateUtils');
-const { parseYoutubeVideoId, youtubeEmbedUrl } = require('./youtube');
+const { resolveSharedClassVideoFromRows } = require('./youtube');
 const { buildClassHomeworkFromCtx } = require('./homeworkService');
 const { getLuckyDrawCountsByClass } = require('./luckyDrawService');
+const { getActiveLeavesByClass, getAllActiveLeavesByClass } = require('./leaveService');
+const { getPlannedByClassAndDate } = require('./plannedAttendanceService');
 const { buildClassStudentDirectory } = require('./studentListService');
+const { getUpcomingMakeupEvents } = require('./makeupService');
 
 function parseRulesText(text) {
   return String(text || '')
@@ -130,37 +132,28 @@ async function buildClassSidebarFromCtx(ctx) {
     events.push({
       eventId: String(evRows[i][0]),
       eventDate,
-      description: String(evRows[i][3] || '')
+      description: String(evRows[i][3] || ''),
+      type: 'event'
     });
   }
-  events.sort((a, b) => {
+  const makeupEvents = await getUpcomingMakeupEvents(classId);
+  const allEvents = events.concat(makeupEvents);
+  allEvents.sort((a, b) => {
     if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
-    return a.description.localeCompare(b.description);
+    const aMakeup = a.type === 'makeup' ? 0 : 1;
+    const bMakeup = b.type === 'makeup' ? 0 : 1;
+    if (aMakeup !== bMakeup) return aMakeup - bMakeup;
+    return String(a.description).localeCompare(String(b.description));
   });
 
-  let video = {
-    videoUrl: 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
-    videoId: DEFAULT_YOUTUBE_VIDEO_ID,
-    embedUrl: youtubeEmbedUrl(DEFAULT_YOUTUBE_VIDEO_ID)
-  };
   const vidRows = await ctx.sheetRows(VIDEO_SHEET);
-  for (let i = 1; i < vidRows.length; i++) {
-    if (String(vidRows[i][0]) !== classId) continue;
-    const raw = String(vidRows[i][1] || '').trim();
-    const videoId = parseYoutubeVideoId(raw);
-    video = {
-      videoUrl: raw || ('https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID),
-      videoId,
-      embedUrl: youtubeEmbedUrl(videoId)
-    };
-    break;
-  }
+  const video = resolveSharedClassVideoFromRows(vidRows, classId);
 
   return {
     rules: rulesResult,
     books: { students: booksStudents },
     announcement,
-    events: { events },
+    events: { events: allEvents },
     video
   };
 }
@@ -214,6 +207,9 @@ async function buildClassAttendanceFromCtx(ctx, dateStr) {
 
   const pendingMap = await buildPendingHomeworkCountsFromCtx(ctx, classId);
   const luckyMap = await getLuckyDrawCountsByClass(classId);
+  const leaveMap = await getActiveLeavesByClass(classId, dateStr);
+  const allActiveLeaves = await getAllActiveLeavesByClass(classId);
+  const plannedMap = await getPlannedByClassAndDate(classId, dateStr);
 
   let allowedDays = [1, 2, 3, 4, 5];
   const classData = await ctx.sheetRows('Class_List');
@@ -263,23 +259,42 @@ async function buildClassAttendanceFromCtx(ctx, dateStr) {
       chambitWeekRead: weekRead,
       chambitWeekRequired: weekRequiredCount
     };
+    const leaveOnDate = leaveMap[sid] || null;
+    const activeLeave = allActiveLeaves[sid] || null;
+    const onLeave = !!leaveOnDate;
+    const leaveInfo = leaveOnDate || activeLeave;
+    const planned = plannedMap[sid] || null;
+    let attendance;
+    if (onLeave) {
+      attendance = '휴원';
+    } else if (existingMap[student.id]) {
+      attendance = existingMap[student.id].attendance;
+    } else if (planned) {
+      attendance = planned.type;
+    } else {
+      attendance = '출석';
+    }
+    const baseStudent = {
+      onLeave,
+      leaveInfo,
+      plannedNotice: planned,
+      attendance,
+      vocabScore: existingMap[student.id] ? existingMap[student.id].vocabScore : 0,
+      dollars: balanceMap[student.id] ?? 0,
+      ...base
+    };
     if (existingMap[student.id]) {
       return {
         id: student.id,
         name: student.name,
-        attendance: existingMap[student.id].attendance,
-        vocabScore: existingMap[student.id].vocabScore,
-        dollars: balanceMap[student.id] ?? 0,
-        ...base
+        ...baseStudent,
+        vocabScore: existingMap[student.id].vocabScore
       };
     }
     return {
       id: student.id,
       name: student.name,
-      attendance: '출석',
-      vocabScore: 0,
-      dollars: balanceMap[student.id] ?? 0,
-      ...base
+      ...baseStudent
     };
   });
 }

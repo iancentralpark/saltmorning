@@ -134,6 +134,37 @@
         .hw-item-title { font-weight: 800; font-size: 0.95rem; }
         .hw-item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
         .hw-item-desc { font-size: 0.85rem; margin-top: 0.35rem; white-space: pre-wrap; }
+        .lucky-item {
+            border-left: 4px solid #f4d03f;
+            background: linear-gradient(135deg, #fffef5, #fff);
+            border-radius: 12px;
+            padding: 0.75rem 0.85rem;
+            margin-bottom: 0.55rem;
+        }
+        .lucky-tier {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #b7950b;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .lucky-prize {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 0.15rem;
+        }
+        .lucky-count {
+            display: inline-block;
+            margin-left: 0.35rem;
+            padding: 0.08rem 0.45rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f9e79f, #f4d03f);
+            color: #7d6608;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+        .lucky-meta { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
         .fix-note {
             margin-top: 0.4rem;
             font-size: 0.82rem;
@@ -233,6 +264,13 @@
             font-size: 1.35rem;
             color: var(--primary-dark);
         }
+        .makeup-item {
+            padding: 0.55rem 0;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+            font-size: 0.88rem;
+        }
+        .makeup-item:last-child { border-bottom: none; }
+        .makeup-item-meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
     </style>
 </head>
 <body>
@@ -295,6 +333,16 @@
                     </table>
                 </div>
             </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-ticket"></i> Lucky Draw Tickets</div>
+            <div id="luckyTicketsBox"><p class="empty">No tickets yet.</p></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Makeup Lessons</div>
+            <div id="makeupBox"><p class="empty">No makeup lessons recorded yet.</p></div>
         </div>
 
         <div class="card">
@@ -489,6 +537,44 @@
         return html;
     }
 
+    function renderMakeupSection(items) {
+        var list = items || [];
+        if (!list.length) {
+            $('makeupBox').innerHTML = '<p class="empty">No makeup lessons recorded yet.</p>';
+            return;
+        }
+        $('makeupBox').innerHTML = list.map(function(m) {
+            var statusBadge = m.status === 'Scheduled'
+                ? ' <span class="badge" style="background:#e8daef;color:#6c3483">Scheduled</span>' : '';
+            return '<div class="makeup-item"><strong>' + escapeHtml(m.dateStr) + '</strong> · ' +
+                escapeHtml(m.startTime) + '–' + escapeHtml(m.endTime) +
+                ' <span class="badge badge-present">' + escapeHtml(String(m.durationHours)) + 'h</span>' +
+                statusBadge +
+                (m.notes ? '<div class="makeup-item-meta">' + escapeHtml(m.notes) + '</div>' : '') +
+                '</div>';
+        }).join('');
+    }
+
+    function renderLuckyTicketsSection(luckyDraw) {
+        var box = $('luckyTicketsBox');
+        var tickets = (luckyDraw && luckyDraw.tickets) || [];
+        if (!tickets.length) {
+            box.innerHTML = '<p class="empty">No Lucky Draw tickets yet. Win one in class!</p>';
+            return;
+        }
+        box.innerHTML = tickets.map(function(t) {
+            var count = Number(t.count) || 1;
+            var countHtml = count > 1
+                ? '<span class="lucky-count">×' + count + '</span>'
+                : '';
+            return '<div class="lucky-item">' +
+                '<div class="lucky-tier">' + escapeHtml(t.tier || 'Prize') + '</div>' +
+                '<div class="lucky-prize">' + escapeHtml(t.prizeText || '') + countHtml + '</div>' +
+                '<div class="lucky-meta">Won: ' + escapeHtml(t.drawnAt || '—') + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
     function renderDashboard(data) {
         $('welcomeName').textContent = data.profile.name;
         $('welcomeClass').textContent = data.profile.className;
@@ -517,7 +603,9 @@
         }
         $('todayBox').innerHTML = todayHtml;
 
+        renderLuckyTicketsSection(data.luckyDraw || {});
         setupAttendanceTabs(data.attendance || []);
+        renderMakeupSection(data.makeup || []);
 
         var ch = data.chambit;
         $('chambitBox').innerHTML =

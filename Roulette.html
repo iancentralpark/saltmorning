@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Roulette</title>
@@ -373,6 +382,47 @@
             font-size: 0.85rem;
             padding: 2rem 0.5rem;
         }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --panel: rgba(30, 36, 46, 0.97);
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 8% 12%, rgba(255, 159, 67, 0.1), transparent 38%),
+                radial-gradient(circle at 92% 8%, rgba(59, 158, 221, 0.14), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 48%, #141a23 100%);
+        }
+        [data-theme="dark"] body::before { opacity: 0.1; }
+        [data-theme="dark"] .wheel-wrap,
+        [data-theme="dark"] .sidebar {
+            background: var(--panel);
+            border-color: rgba(120, 160, 200, 0.35);
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 16px 40px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .wheel-header h1,
+        [data-theme="dark"] .sidebar h2 { color: #b8d9f5; text-shadow: none; }
+        [data-theme="dark"] .btn-reset,
+        [data-theme="dark"] .btn-dismiss {
+            background: #2d3644;
+            color: #b8d9f5;
+            border-color: rgba(120, 160, 200, 0.35) !important;
+        }
+        [data-theme="dark"] .add-row input,
+        [data-theme="dark"] .entry-item input {
+            background: #2d3644;
+            color: var(--text);
+            border-color: rgba(120, 160, 200, 0.3);
+        }
+        [data-theme="dark"] .winner-card {
+            background: #1e242e;
+            border-color: rgba(255, 159, 67, 0.35);
+            color: var(--text);
+        }
+        [data-theme="dark"] .winner-card .name { color: #fff; }
+        [data-theme="dark"] .count-hint { color: var(--muted); }
     </style>
 </head>
 <body>

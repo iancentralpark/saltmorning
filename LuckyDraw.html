@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lucky Draw</title>
@@ -34,6 +43,190 @@
             box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(155, 89, 182, 0.14);
             padding: 1.25rem 1.35rem 1.4rem;
             text-align: center;
+            position: relative;
+        }
+        .edit-prizes-btn {
+            position: absolute;
+            top: 0.85rem;
+            right: 0.9rem;
+            border: 2px solid rgba(241, 196, 15, 0.55);
+            border-radius: 999px;
+            background: #fffdf5;
+            color: #8d6e00;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.22rem 0.62rem;
+            cursor: pointer;
+            line-height: 1.2;
+            transition: transform 0.12s, background 0.12s;
+        }
+        .edit-prizes-btn:hover {
+            background: #fff8e1;
+            transform: translateY(-1px);
+        }
+        .edit-prizes-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        .config-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 120;
+            background: rgba(45, 52, 54, 0.45);
+            padding: 0.75rem;
+            align-items: center;
+            justify-content: center;
+        }
+        .config-overlay.show { display: flex; }
+        .config-panel {
+            width: min(100%, 520px);
+            max-height: min(92vh, 720px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 3px solid rgba(241, 196, 15, 0.55);
+            border-radius: 18px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+        }
+        .config-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.8rem 0.95rem;
+            border-bottom: 2px solid rgba(241, 196, 15, 0.25);
+            background: #fffdf5;
+        }
+        .config-panel-title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #6d4c00;
+            margin: 0;
+        }
+        .config-panel-close {
+            border: none;
+            background: transparent;
+            color: #636e72;
+            font-size: 1.2rem;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0.15rem 0.35rem;
+        }
+        .config-panel-body {
+            padding: 0.85rem 0.95rem;
+            overflow-y: auto;
+            text-align: left;
+        }
+        .config-panel-note {
+            font-size: 0.78rem;
+            color: #636e72;
+            font-weight: 700;
+            margin: 0 0 0.65rem;
+            line-height: 1.4;
+        }
+        .config-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.55rem;
+        }
+        .config-weight-total {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #636e72;
+        }
+        .config-weight-total.warn { color: #e67e22; }
+        .config-tier-card {
+            border: 2px solid rgba(241, 196, 15, 0.35);
+            border-radius: 12px;
+            background: #fffdf8;
+            padding: 0.7rem;
+            margin-bottom: 0.65rem;
+        }
+        .config-tier-head {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            align-items: flex-end;
+            margin-bottom: 0.45rem;
+        }
+        .config-tier-head label {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #636e72;
+            margin-bottom: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .config-tier-head input,
+        .config-tier-head select {
+            width: 100%;
+            border: 2px solid rgba(241, 196, 15, 0.35);
+            border-radius: 10px;
+            padding: 0.35rem 0.45rem;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .config-field-id { width: 6.5rem; }
+        .config-field-name { flex: 1 1 7rem; min-width: 7rem; }
+        .config-field-weight { width: 4.5rem; }
+        .config-field-active { width: 4.8rem; }
+        .config-tier-items {
+            width: 100%;
+            min-height: 5.5rem;
+            border: 2px solid rgba(241, 196, 15, 0.35);
+            border-radius: 10px;
+            padding: 0.45rem 0.55rem;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            resize: vertical;
+        }
+        .config-btn {
+            border: none;
+            border-radius: 999px;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 0.82rem;
+            padding: 0.42rem 0.85rem;
+            cursor: pointer;
+        }
+        .config-btn-primary {
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #fff;
+            box-shadow: 0 3px 0 #d68910;
+        }
+        .config-btn-secondary {
+            background: #ecf0f1;
+            color: #636e72;
+        }
+        .config-btn-danger {
+            background: #fff;
+            border: 2px solid rgba(231, 76, 60, 0.45);
+            color: #e74c3c;
+            padding: 0.35rem 0.55rem;
+        }
+        .config-panel-foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.45rem;
+            padding: 0.75rem 0.95rem;
+            border-top: 2px solid rgba(241, 196, 15, 0.25);
+            background: #fffdf5;
+        }
+        .config-status {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #27ae60;
+            min-height: 1rem;
+            margin-top: 0.35rem;
         }
         .title {
             font-family: 'Fredoka', sans-serif;
@@ -238,6 +431,7 @@
         .sym-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
         .sym-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
         .sym-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
+        .sym-custom { background: linear-gradient(135deg, #636e72, #2d3436); }
 
         .tier-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
         .tier-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
@@ -245,6 +439,7 @@
         .tier-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
         .tier-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
         .tier-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
+        .tier-custom { background: linear-gradient(135deg, #636e72, #2d3436); }
 
         .machine-shake { animation: machine-shake 0.35s ease-in-out; }
         @keyframes machine-shake {
@@ -254,10 +449,70 @@
             60% { transform: translateX(-2px); }
             80% { transform: translateX(2px); }
         }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 12% 10%, rgba(255, 215, 0, 0.1), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(155, 89, 182, 0.12), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 45%, #141a23 100%);
+        }
+        [data-theme="dark"] .shell {
+            background: rgba(30, 36, 46, 0.97);
+            border-color: rgba(241, 196, 15, 0.35);
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 18px 42px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .title { color: #f5d76e; }
+        [data-theme="dark"] .edit-prizes-btn {
+            background: #2d3644;
+            color: #f5d76e;
+            border-color: rgba(241, 196, 15, 0.35);
+        }
+        [data-theme="dark"] .student-pick select {
+            background: #2d3644;
+            color: var(--text);
+            border-color: rgba(241, 196, 15, 0.35);
+        }
+        [data-theme="dark"] .lever-label,
+        [data-theme="dark"] .slot-hint { color: var(--muted); }
+        [data-theme="dark"] .result-panel {
+            background: linear-gradient(160deg, #252c38, #1e242e);
+            border-color: rgba(241, 196, 15, 0.3);
+        }
+        [data-theme="dark"] .prize-text { color: var(--text); }
+        [data-theme="dark"] .config-panel,
+        [data-theme="dark"] .config-panel-head,
+        [data-theme="dark"] .config-panel-foot {
+            background: #1e242e;
+            border-color: rgba(241, 196, 15, 0.25);
+        }
+        [data-theme="dark"] .config-panel-title { color: #f5d76e; }
+        [data-theme="dark"] .config-panel-note,
+        [data-theme="dark"] .config-weight-total { color: var(--muted); }
+        [data-theme="dark"] .config-tier-card {
+            background: #252c38;
+            border-color: rgba(241, 196, 15, 0.25);
+        }
+        [data-theme="dark"] .config-tier-head input,
+        [data-theme="dark"] .config-tier-head select,
+        [data-theme="dark"] .config-tier-items {
+            background: #2d3644;
+            color: var(--text);
+            border-color: rgba(120, 160, 200, 0.3);
+        }
+        [data-theme="dark"] .config-btn-secondary {
+            background: #364152;
+            color: var(--text);
+        }
     </style>
 </head>
 <body>
     <div class="shell">
+        <button type="button" class="edit-prizes-btn" id="editPrizesBtn" title="Edit prize list, weights, and tiers">Edit</button>
         <h1 class="title"><i class="fa-solid fa-ticket"></i> Lucky Draw</h1>
         <p class="sub" id="classSub">Pick a student, pull the lever!</p>
 
@@ -294,13 +549,35 @@
 
     <div class="confetti" id="confetti" aria-hidden="true"></div>
 
+    <div class="config-overlay" id="configOverlay" aria-hidden="true">
+        <div class="config-panel" role="dialog" aria-labelledby="configPanelTitle">
+            <div class="config-panel-head">
+                <h2 class="config-panel-title" id="configPanelTitle">Lucky Draw Prizes</h2>
+                <button type="button" class="config-panel-close" id="configCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="config-panel-body">
+                <p class="config-panel-note">Edit tier names, weights, and prizes. Changes apply to new spins right away.</p>
+                <div class="config-toolbar">
+                    <div class="config-weight-total" id="configWeightTotal">Total active weight: —</div>
+                    <button type="button" class="config-btn config-btn-primary" id="addTierBtn">+ Add tier</button>
+                </div>
+                <div id="configEditorBody"><p class="config-panel-note">Loading…</p></div>
+                <div class="config-status" id="configSaveStatus"></div>
+            </div>
+            <div class="config-panel-foot">
+                <button type="button" class="config-btn config-btn-secondary" id="configCancelBtn">Cancel</button>
+                <button type="button" class="config-btn config-btn-primary" id="configSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         var CLASS_ID = <?!= JSON.stringify(classId || '') ?>;
         var CLASS_NAME = <?!= JSON.stringify(className || 'Class') ?>;
         var STUDENTS = <?!= studentsJson ?>;
         var NODE_API = <?!= JSON.stringify(nodeApiUrl || 'https://mrpark-class-api-production.up.railway.app') ?>;
 
-        var LUCKY_DRAW_TIERS = [
+        var FALLBACK_LUCKY_DRAW_TIERS = [
             { id: 'common', name: 'Common', weight: 35, items: ['1 Haribo','2 Haribos','Bathroom/Water Priority','1 Vocab Hint','Free Stationery Rental','5% Vocab Magic Pass','3 Haribos'] },
             { id: 'rare', name: 'Rare', weight: 25, items: ['10% Vocab Magic Pass','2 Vocab Hints','1 Minute more vocab test','Handshake with Mr. Park',"Mr. Park's Silly Face",'5 Haribos'] },
             { id: 'unique', name: 'Unique', weight: 20, items: ['15% Vocab Magic Pass','High-five with Mr. Park','1 Minute Timestone','1 Day Chambit Pass','Combo Shield','Wrong Answer Eraser'] },
@@ -308,6 +585,9 @@
             { id: 'mythical', name: 'Mythical', weight: 5, items: ['Name The Teacher','3 Minutes Freedom Bell','Be a Commander!','3 Minutes Timestone'] },
             { id: 'godlike', name: 'Godlike', weight: 2, items: ['The Forbidden Word','5 Minutes Freedom Bell','Double Dollars'] }
         ];
+        var KNOWN_TIER_STYLE_IDS = ['common', 'rare', 'unique', 'legendary', 'mythical', 'godlike'];
+        var LUCKY_DRAW_TIERS = [];
+        var configReady = false;
 
         var IDLE_REEL_MESSAGES = [
             'Spin the reel!',
@@ -323,16 +603,216 @@
         var isSpinning = false;
         var tierById = {};
         var phraseToTierId = {};
-        LUCKY_DRAW_TIERS.forEach(function(t) {
-            tierById[t.id] = t;
-            t.items.forEach(function(phrase) { phraseToTierId[phrase] = t.id; });
-        });
+
+        var configDraft = [];
+
+        function escapeHtml(text) {
+            return String(text == null ? '' : text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function slugifyTierId(name) {
+            return String(name || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '') || 'tier';
+        }
+
+        function updateConfigWeightTotal() {
+            var box = document.getElementById('configEditorBody');
+            var totalEl = document.getElementById('configWeightTotal');
+            if (!box || !totalEl) return;
+            var total = 0;
+            box.querySelectorAll('.config-tier-card').forEach(function(card) {
+                if (card.querySelector('[data-field="active"]').value !== '1') return;
+                total += Number(card.querySelector('[data-field="weight"]').value) || 0;
+            });
+            totalEl.textContent = 'Total active weight: ' + total;
+            totalEl.classList.toggle('warn', total !== 100);
+        }
+
+        function renderConfigEditor() {
+            var box = document.getElementById('configEditorBody');
+            if (!box) return;
+            if (!configDraft.length) {
+                box.innerHTML = '<p class="config-panel-note">No tiers yet. Add one to get started.</p>';
+                updateConfigWeightTotal();
+                return;
+            }
+            box.innerHTML = configDraft.map(function(tier, index) {
+                var itemsText = (tier.items || []).join('\n');
+                var activeVal = tier.active === false ? '0' : '1';
+                return '<div class="config-tier-card" data-tier-index="' + index + '">' +
+                    '<div class="config-tier-head">' +
+                    '<div class="config-field-id"><label>Tier ID</label><input type="text" data-field="id" value="' + escapeHtml(tier.id || '') + '"></div>' +
+                    '<div class="config-field-name"><label>Name</label><input type="text" data-field="name" value="' + escapeHtml(tier.name || '') + '"></div>' +
+                    '<div class="config-field-weight"><label>Weight</label><input type="number" min="0" step="1" data-field="weight" value="' + escapeHtml(String(tier.weight == null ? 0 : tier.weight)) + '"></div>' +
+                    '<div class="config-field-active"><label>Active</label><select data-field="active">' +
+                    '<option value="1"' + (activeVal === '1' ? ' selected' : '') + '>Yes</option>' +
+                    '<option value="0"' + (activeVal === '0' ? ' selected' : '') + '>No</option></select></div>' +
+                    '<button type="button" class="config-btn config-btn-danger" data-remove-tier title="Remove tier"><i class="fa-solid fa-trash"></i></button>' +
+                    '</div>' +
+                    '<label class="config-panel-note" style="margin-bottom:0.25rem;">Prizes (one per line)</label>' +
+                    '<textarea class="config-tier-items" data-field="items" rows="4">' + escapeHtml(itemsText) + '</textarea>' +
+                    '</div>';
+            }).join('');
+            box.querySelectorAll('[data-field="weight"], [data-field="active"]').forEach(function(el) {
+                el.addEventListener('input', updateConfigWeightTotal);
+                el.addEventListener('change', updateConfigWeightTotal);
+            });
+            box.querySelectorAll('[data-remove-tier]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var card = btn.closest('.config-tier-card');
+                    configDraft.splice(Number(card.getAttribute('data-tier-index')), 1);
+                    renderConfigEditor();
+                });
+            });
+            updateConfigWeightTotal();
+        }
+
+        function collectConfigFromEditor() {
+            var tiers = [];
+            document.getElementById('configEditorBody').querySelectorAll('.config-tier-card').forEach(function(card, index) {
+                var id = card.querySelector('[data-field="id"]').value.trim() ||
+                    slugifyTierId(card.querySelector('[data-field="name"]').value) ||
+                    ('tier_' + (index + 1));
+                var name = card.querySelector('[data-field="name"]').value.trim();
+                var weight = Number(card.querySelector('[data-field="weight"]').value) || 0;
+                var active = card.querySelector('[data-field="active"]').value === '1';
+                var items = card.querySelector('[data-field="items"]').value
+                    .split('\n')
+                    .map(function(line) { return line.trim(); })
+                    .filter(Boolean);
+                tiers.push({ id: id, name: name, weight: weight, active: active, sortOrder: index + 1, items: items });
+            });
+            return tiers;
+        }
+
+        function openConfigEditor() {
+            if (isSpinning) return;
+            var overlay = document.getElementById('configOverlay');
+            var statusEl = document.getElementById('configSaveStatus');
+            if (statusEl) statusEl.textContent = '';
+            document.getElementById('configEditorBody').innerHTML = '<p class="config-panel-note">Loading…</p>';
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+            fetch(NODE_API + '/api/lucky-draw/config')
+                .then(function(res) {
+                    return res.json().then(function(data) {
+                        if (!res.ok) throw new Error(data.error || 'Could not load prizes');
+                        configDraft = (data.tiers || []).map(function(tier) {
+                            return {
+                                id: tier.id,
+                                name: tier.name,
+                                weight: tier.weight,
+                                active: tier.active !== false,
+                                items: (tier.items || []).slice()
+                            };
+                        });
+                        renderConfigEditor();
+                    });
+                })
+                .catch(function(err) {
+                    document.getElementById('configEditorBody').innerHTML =
+                        '<p class="config-panel-note" style="color:#e74c3c;">' + escapeHtml(err.message || 'Load failed') + '</p>';
+                });
+        }
+
+        function closeConfigEditor() {
+            var overlay = document.getElementById('configOverlay');
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        function saveConfigEditor() {
+            var statusEl = document.getElementById('configSaveStatus');
+            var tiers = collectConfigFromEditor();
+            if (!tiers.length) {
+                alert('Add at least one tier.');
+                return;
+            }
+            for (var i = 0; i < tiers.length; i++) {
+                if (!tiers[i].name) {
+                    alert('Each tier needs a name.');
+                    return;
+                }
+                if (!tiers[i].items.length) {
+                    alert('Tier "' + tiers[i].name + '" needs at least one prize.');
+                    return;
+                }
+            }
+            if (statusEl) statusEl.textContent = 'Saving…';
+            fetch(NODE_API + '/api/lucky-draw/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tiers: tiers })
+            }).then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) throw new Error(data.error || 'Save failed');
+                    configDraft = tiers;
+                    applyLuckyDrawTiers(data.activeTiers || data.tiers || tiers);
+                    if (statusEl) statusEl.textContent = 'Saved!';
+                    closeConfigEditor();
+                    resetIdleReel();
+                });
+            }).catch(function(err) {
+                if (statusEl) statusEl.textContent = '';
+                alert(err.message || 'Save failed');
+            });
+        }
+
+        function rebuildTierIndexes() {
+            tierById = {};
+            phraseToTierId = {};
+            LUCKY_DRAW_TIERS.forEach(function(t) {
+                tierById[t.id] = t;
+                (t.items || []).forEach(function(phrase) { phraseToTierId[phrase] = t.id; });
+            });
+        }
+
+        function applyLuckyDrawTiers(tiers) {
+            LUCKY_DRAW_TIERS = (tiers || []).filter(function(t) {
+                return t && t.items && t.items.length && Number(t.weight) > 0;
+            });
+            if (!LUCKY_DRAW_TIERS.length) LUCKY_DRAW_TIERS = FALLBACK_LUCKY_DRAW_TIERS.slice();
+            rebuildTierIndexes();
+            configReady = true;
+        }
+
+        function loadLuckyDrawConfig() {
+            var lever = document.getElementById('leverBtn');
+            if (lever) lever.disabled = true;
+            document.getElementById('leverLabel').textContent = 'Loading prizes…';
+            return fetch(NODE_API + '/api/lucky-draw/config')
+                .then(function(res) {
+                    return res.json().then(function(data) {
+                        if (!res.ok) throw new Error(data.error || 'Could not load prizes');
+                        applyLuckyDrawTiers(data.activeTiers || data.tiers || []);
+                    });
+                })
+                .catch(function() {
+                    applyLuckyDrawTiers(FALLBACK_LUCKY_DRAW_TIERS);
+                })
+                .then(function() {
+                    if (lever) lever.disabled = false;
+                    document.getElementById('leverLabel').textContent = 'Pull the lever!';
+                    resetIdleReel();
+                });
+        }
 
         function pickPrize() {
-            var roll = Math.random() * 100;
+            var totalWeight = LUCKY_DRAW_TIERS.reduce(function(sum, tier) {
+                return sum + (Number(tier.weight) || 0);
+            }, 0);
+            if (!totalWeight) return { tier: LUCKY_DRAW_TIERS[0], phrase: LUCKY_DRAW_TIERS[0].items[0] };
+            var roll = Math.random() * totalWeight;
             var cumulative = 0;
             for (var i = 0; i < LUCKY_DRAW_TIERS.length; i++) {
-                cumulative += LUCKY_DRAW_TIERS[i].weight;
+                cumulative += Number(LUCKY_DRAW_TIERS[i].weight) || 0;
                 if (roll < cumulative) {
                     var tier = LUCKY_DRAW_TIERS[i];
                     return { tier: tier, phrase: tier.items[Math.floor(Math.random() * tier.items.length)] };
@@ -347,8 +827,12 @@
             return tier.items[Math.floor(Math.random() * tier.items.length)];
         }
 
-        function symClass(tierId) { return 'sym-' + tierId; }
-        function tierClass(tierId) { return 'tier-' + tierId; }
+        function symClass(tierId) {
+            return 'sym-' + (KNOWN_TIER_STYLE_IDS.indexOf(tierId) >= 0 ? tierId : 'custom');
+        }
+        function tierClass(tierId) {
+            return 'tier-' + (KNOWN_TIER_STYLE_IDS.indexOf(tierId) >= 0 ? tierId : 'custom');
+        }
 
         function prizeItemHtml(phrase) {
             var tierId = phraseToTierId[phrase] || 'common';
@@ -525,7 +1009,7 @@
         }
 
         async function pullLever() {
-            if (isSpinning) return;
+            if (isSpinning || !configReady) return;
             var sel = document.getElementById('studentSelect');
             if (CLASS_ID && sel && !sel.value) {
                 alert('Please select a student first.');
@@ -569,9 +1053,26 @@
         }
 
         initStudentSelect();
-        resetIdleReel();
+        loadLuckyDrawConfig();
         document.getElementById('leverBtn').addEventListener('click', pullLever);
         document.getElementById('drawAgainBtn').addEventListener('click', resetForNewSpin);
+        document.getElementById('editPrizesBtn').addEventListener('click', openConfigEditor);
+        document.getElementById('configCloseBtn').addEventListener('click', closeConfigEditor);
+        document.getElementById('configCancelBtn').addEventListener('click', closeConfigEditor);
+        document.getElementById('configSaveBtn').addEventListener('click', saveConfigEditor);
+        document.getElementById('addTierBtn').addEventListener('click', function() {
+            configDraft.push({
+                id: 'tier_' + (configDraft.length + 1),
+                name: 'New Tier',
+                weight: 0,
+                active: true,
+                items: ['New prize']
+            });
+            renderConfigEditor();
+        });
+        document.getElementById('configOverlay').addEventListener('click', function(e) {
+            if (e.target === e.currentTarget) closeConfigEditor();
+        });
     </script>
 </body>
 </html>

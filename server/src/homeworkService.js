@@ -128,6 +128,51 @@ function formatHomeworkForClassLog(items, nameById) {
   }).filter(Boolean).join('\n');
 }
 
+/** Parse Classroom assignment description back into display items (keeps "Name: task" prefixes). */
+function parseClassroomDescriptionToItems(description) {
+  const text = String(description || '').trim();
+  if (!text) return [];
+
+  let blocks = text.split(/\n\n+/).map(b => b.trim()).filter(Boolean);
+  if (blocks.length === 1 && /^\d+\.\s/m.test(text)) {
+    blocks = text.split(/\n(?=\d+\.\s)/).map(b => b.trim()).filter(Boolean);
+  }
+
+  const items = [];
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    const headMatch = lines[0].match(/^\d+\.\s*(.+)$/);
+    if (!headMatch) continue;
+    const title = headMatch[1].trim();
+    const descParts = [];
+    for (let i = 1; i < lines.length; i++) {
+      descParts.push(lines[i].replace(/^\s{2,}/, '').trim());
+    }
+    const hasNamePrefix = (() => {
+      const colon = title.indexOf(':');
+      if (colon <= 0) return false;
+      const prefix = title.slice(0, colon).trim();
+      return /^[A-Za-z][A-Za-z'-]*(?:\s*,\s*[A-Za-z][A-Za-z'-]*)*$/.test(prefix);
+    })();
+    items.push({
+      title,
+      description: descParts.join(' ').trim(),
+      targetStudentIds: [],
+      targetType: hasNamePrefix ? 'individual' : 'all',
+      displayTitle: title
+    });
+  }
+  return items;
+}
+
+function enrichHomeworkItemsForDisplay(items, nameById) {
+  return (items || []).map(it => ({
+    ...it,
+    displayTitle: it.displayTitle || formatHomeworkItemDisplayTitle(it, nameById)
+  }));
+}
+
 function newItemId(homeworkId, sortOrder) {
   return 'HWI_' + homeworkId + '_' + sortOrder;
 }
@@ -473,13 +518,15 @@ async function getLatestClassroomHomework(courseId, excludeDateStr) {
       if (excludeDateStr && assignedDate === excludeDateStr) continue;
       const sortTime = created.getTime();
       if (!best || sortTime > best.sortTime) {
+        const description = String(cw.description || '');
         best = {
           title: String(cw.title || ''),
-          description: String(cw.description || ''),
+          description,
           assignedDate,
           source: 'classroom',
           classroomWorkId: String(cw.id || ''),
-          sortTime
+          sortTime,
+          items: parseClassroomDescriptionToItems(description)
         };
       }
     }
@@ -551,6 +598,17 @@ async function buildClassHomeworkFromCtx(ctx, dateStr) {
     last = lastFromLog || lastFromClassroom;
   }
   if (last && last.sortTime) delete last.sortTime;
+
+  if (last) {
+    const students = await getEnrolledStudents(classId);
+    const nameById = {};
+    students.forEach(s => { nameById[String(s.id)] = s.name; });
+    if (last.items && last.items.length) {
+      last.items = enrichHomeworkItemsForDisplay(last.items, nameById);
+    } else if (last.description) {
+      last.items = parseClassroomDescriptionToItems(last.description);
+    }
+  }
 
   return {
     classroomLinked: !!(map && map.courseId),
@@ -962,5 +1020,7 @@ module.exports = {
   migrateLegacyHomework,
   readHomeworkLogForClass,
   getEnrolledStudents,
-  formatHomeworkForClassLog
+  formatHomeworkForClassLog,
+  parseClassroomDescriptionToItems,
+  formatHomeworkItemDisplayTitle
 };

@@ -4,15 +4,16 @@ const {
   ANNOUNCE_SHEET,
   EVENTS_SHEET,
   VIDEO_SHEET,
+  CLASS_LIST_SHEET,
   STUDENT_LIST_SHEET,
-  TIMEZONE,
-  DEFAULT_YOUTUBE_VIDEO_ID
+  TIMEZONE
 } = require('./config');
 const { getSheetRows, updateRange, appendRows, deleteRow } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
 const { formatSheetDate, formatDateTimeNow } = require('./dateUtils');
-const { parseYoutubeVideoId, youtubeEmbedUrl } = require('./youtube');
+const { parseYoutubeVideoId, youtubeEmbedUrl, GLOBAL_VIDEO_CLASS_ID, resolveSharedClassVideoFromRows } = require('./youtube');
 const { buildClassStudentDirectory } = require('./studentListService');
+const { getUpcomingMakeupEvents } = require('./makeupService');
 
 function parseRulesText(text) {
   return String(text || '')
@@ -142,12 +143,33 @@ async function saveClassAnnouncement(classId, text) {
 
 async function getClassUpcomingEvents(classId) {
   const today = formatSheetDate(new Date());
-  const events = (await readClassEvents(classId)).filter(e => e.eventDate >= today);
+  const regular = (await readClassEvents(classId))
+    .filter(e => e.eventDate >= today)
+    .map(e => Object.assign({ type: 'event' }, e));
+  const makeup = await getUpcomingMakeupEvents(classId);
+  const events = regular.concat(makeup);
+  events.sort((a, b) => {
+    if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
+    const aMakeup = a.type === 'makeup' ? 0 : 1;
+    const bMakeup = b.type === 'makeup' ? 0 : 1;
+    if (aMakeup !== bMakeup) return aMakeup - bMakeup;
+    return String(a.description).localeCompare(String(b.description));
+  });
   return { events };
 }
 
 async function getClassEventsEditData(classId) {
-  return { events: await readClassEvents(classId) };
+  const today = formatSheetDate(new Date());
+  const regular = (await readClassEvents(classId))
+    .filter(e => e.eventDate >= today)
+    .map(e => Object.assign({ type: 'event' }, e));
+  const makeup = await getUpcomingMakeupEvents(classId);
+  const events = regular.concat(makeup);
+  events.sort((a, b) => {
+    if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
+    return String(a.description).localeCompare(String(b.description));
+  });
+  return { events };
 }
 
 async function addClassEvent(classId, dateStr, description) {
@@ -181,51 +203,48 @@ async function deleteClassEvent(eventId) {
 
 async function getClassVideo(classId) {
   const data = await getSheetRows(VIDEO_SHEET);
-  const idStr = String(classId);
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) !== idStr) continue;
-    const raw = String(data[i][1] || '').trim();
-    let videoId = DEFAULT_YOUTUBE_VIDEO_ID;
-    try {
-      videoId = parseYoutubeVideoId(raw);
-    } catch (e) {
-      videoId = DEFAULT_YOUTUBE_VIDEO_ID;
-    }
-    return {
-      videoUrl: raw || 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
-      videoId,
-      embedUrl: youtubeEmbedUrl(videoId)
-    };
-  }
-  return {
-    videoUrl: 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
-    videoId: DEFAULT_YOUTUBE_VIDEO_ID,
-    embedUrl: youtubeEmbedUrl(DEFAULT_YOUTUBE_VIDEO_ID)
-  };
+  return resolveSharedClassVideoFromRows(data, classId);
 }
 
 async function saveClassVideo(classId, videoUrl) {
   const videoId = parseYoutubeVideoId(videoUrl);
   const normalized = String(videoUrl || '').trim() ||
     ('https://www.youtube.com/watch?v=' + videoId);
-  const data = await getSheetRows(VIDEO_SHEET);
   const now = formatDateTimeNow(TIMEZONE);
-  const idStr = String(classId);
-  let found = -1;
+
+  const classData = await getSheetRows(CLASS_LIST_SHEET);
+  const classIds = new Set([GLOBAL_VIDEO_CLASS_ID]);
+  for (let i = 1; i < classData.length; i++) {
+    if (classData[i][0]) classIds.add(String(classData[i][0]));
+  }
+
+  const data = await getSheetRows(VIDEO_SHEET, { skipCache: true });
+  const rowByClass = {};
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === idStr) {
-      found = i + 1;
-      break;
+    rowByClass[String(data[i][0])] = i + 1;
+  }
+
+  const appends = [];
+  for (const cid of classIds) {
+    const rowNum = rowByClass[cid];
+    if (rowNum) {
+      await updateRange(VIDEO_SHEET, `B${rowNum}:C${rowNum}`, [[normalized, now]]);
+    } else {
+      appends.push([cid, normalized, now]);
     }
   }
-  if (found > 0) {
-    await updateRange(VIDEO_SHEET, `B${found}:C${found}`, [[normalized, now]]);
-  } else {
-    await appendRows(VIDEO_SHEET, [[classId, normalized, now]]);
+  for (let i = 1; i < data.length; i++) {
+    const cid = String(data[i][0]);
+    if (classIds.has(cid)) continue;
+    await updateRange(VIDEO_SHEET, `B${i + 1}:C${i + 1}`, [[normalized, now]]);
   }
+  if (appends.length) {
+    await appendRows(VIDEO_SHEET, appends);
+  }
+
   cacheDeletePrefix('sidebar_v1_');
   return {
-    message: 'Video saved.',
+    message: 'Video saved for all classes.',
     videoUrl: normalized,
     videoId,
     embedUrl: youtubeEmbedUrl(videoId)

@@ -32,16 +32,22 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 app.use('/api', apiRoutes);
 
 app.get('/student', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'Student.html'));
 });
 
+app.get('/class', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'Class.html'));
+});
+
 app.get('/', (req, res) => {
   res.json({
     name: 'Mr.Park Class API',
-    endpoints: ['/api/health', '/api/session', '/api/work', '/api/attendance', '/student']
+    endpoints: ['/api/health', '/api/session', '/api/work', '/api/attendance', '/student', '/class']
   });
 });
 

@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -8,7 +17,10 @@
     <meta name="apple-mobile-web-app-title" content="Mr.Park Class">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#3b9edd">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%233b9edd' width='180' height='180' rx='36'/%3E%3Ctext x='90' y='118' font-size='72' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-weight='bold'%3EMP%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?!= (nodeApiUrl || '') + '/apple-touch-icon.png?v=2' ?>">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="<?!= (nodeApiUrl || '') + '/apple-touch-icon.png?v=2' ?>">
+    <link rel="icon" type="image/png" sizes="180x180" href="<?!= (nodeApiUrl || '') + '/apple-touch-icon.png?v=2' ?>">
+    <link rel="icon" type="image/png" sizes="512x512" href="<?!= (nodeApiUrl || '') + '/icon-512.png?v=2' ?>">
     <title>Mr.Park's Class Attendance & Dollars</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -394,6 +406,76 @@
             #whiteboardOverlay { display: none !important; }
         }
 
+        #toolOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10060;
+            align-items: center;
+            justify-content: center;
+            padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        }
+        #toolOverlay.show {
+            display: flex;
+        }
+        #toolOverlay .tool-popup-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(45, 52, 54, 0.42);
+            -webkit-tap-highlight-color: transparent;
+        }
+        #toolOverlay .tool-popup-window {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 20px;
+            border: 3px solid var(--app-surface-3);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+            overflow: hidden;
+            max-width: calc(100vw - 24px);
+            max-height: calc(100vh - 32px);
+            width: min(520px, calc(100vw - 24px));
+            height: min(440px, calc(100vh - 32px));
+        }
+        #toolOverlay .tool-popup-head {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.45rem 0.65rem 0.45rem 0.85rem;
+            background: linear-gradient(135deg, #3b9edd 0%, #ff9f43 100%);
+            color: #fff;
+            font-family: var(--app-heading);
+            font-weight: 700;
+            font-size: 0.88rem;
+        }
+        #toolOverlay .tool-popup-close {
+            border: none;
+            border-radius: 999px;
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.22);
+            color: #fff;
+            font-size: 1.1rem;
+            line-height: 1;
+            touch-action: manipulation;
+        }
+        #toolOverlay .tool-overlay-frame {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 0;
+            border: none;
+            display: block;
+            background: #fff;
+        }
+        body.tool-overlay-open { overflow: hidden; }
+        @media print {
+            #toolOverlay { display: none !important; }
+        }
+
         /* ===== Draggable sidebar panels ===== */
         .sidebar-panel {
             position: fixed;
@@ -404,6 +486,40 @@
         .sidebar-panel.is-dragging { z-index: 520; opacity: 0.94; }
         .sidebar-panel[data-sidebar-id="classTools"] { max-height: none; }
         .sidebar-panel[data-sidebar-id="youtube"] { max-height: none; }
+        /* Compact overlay mode — z-index must work on all widths (iPad landscape/PWA) */
+        body.sidebar-compact .sidebar-compact-backdrop {
+            z-index: 630;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body.sidebar-compact .sidebar-panel {
+            z-index: 640;
+        }
+        body.sidebar-compact .sidebar-panel:not(.sidebar-minimized) {
+            z-index: 650 !important;
+            width: min(300px, calc(100vw - 1.5rem)) !important;
+            max-width: min(300px, calc(100vw - 1.5rem)) !important;
+            max-height: min(78vh, 560px) !important;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+        }
+        body.sidebar-compact .sidebar-panel.sidebar-minimized {
+            width: 44px !important;
+        }
+        .sidebar-panel-full {
+            width: 100%;
+            max-height: inherit;
+            touch-action: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .sidebar-panel-full button,
+        .sidebar-panel-full a,
+        .sidebar-panel-full input,
+        .sidebar-panel-full select,
+        .sidebar-panel-full textarea,
+        .sidebar-panel-full iframe {
+            touch-action: manipulation;
+        }
         @media (max-width: 991px) {
             .sidebar-panel { width: min(240px, 46vw); max-height: min(50vh, 220px); }
             .sidebar-panel[data-sidebar-id="classTools"],
@@ -414,16 +530,6 @@
                 max-width: min(920px, calc(100vw - 1.25rem));
                 margin-top: 3.75rem;
                 padding: 1.35rem 1rem 2rem;
-            }
-            body.sidebar-compact .sidebar-panel.sidebar-minimized {
-                width: 44px !important;
-            }
-            body.sidebar-compact .sidebar-panel:not(.sidebar-minimized) {
-                width: min(300px, calc(100vw - 1.5rem)) !important;
-                max-width: min(300px, calc(100vw - 1.5rem)) !important;
-                max-height: min(78vh, 560px) !important;
-                z-index: 600 !important;
-                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
             }
         }
         .sidebar-compact-backdrop {
@@ -436,9 +542,12 @@
         .sidebar-panel-head {
             cursor: grab;
             user-select: none;
+        }
+        .sidebar-panel-head.is-dragging,
+        .sidebar-panel.is-dragging .sidebar-panel-head {
+            cursor: grabbing;
             touch-action: none;
         }
-        .sidebar-panel-head:active { cursor: grabbing; }
         .sidebar-panel-head .float-panel-title,
         .sidebar-panel-head .books-return-title,
         .sidebar-panel-head .class-rules-title {
@@ -469,13 +578,15 @@
             line-height: 1.2;
         }
         .sidebar-panel-hide-btn:hover { background: rgba(231, 76, 60, 0.15); color: #c0392b; }
-        .sidebar-panel-full { width: 100%; max-height: inherit; }
         .sidebar-panel.sidebar-minimized {
             width: 44px !important;
             max-height: none !important;
             height: auto;
         }
         .sidebar-panel.sidebar-minimized .sidebar-panel-full { display: none; }
+        .sidebar-panel.sidebar-minimized > *:not(.sidebar-mini-chip) {
+            display: none !important;
+        }
         .sidebar-mini-chip {
             display: none;
             width: 44px;
@@ -587,6 +698,25 @@
             color: #fff;
             box-shadow: 0 3px 0 #2a8fc9;
         }
+        .sidebar-tools-youtube-row {
+            margin-top: 0.35rem;
+        }
+        .sidebar-tools-youtube-row .btn-youtube-timer {
+            width: 100%;
+            background: linear-gradient(135deg, #ff0000, #cc0000);
+            color: #fff;
+            font-weight: 800;
+            border: none;
+            border-radius: 12px;
+            padding: 0.45rem 0.65rem;
+            font-size: 0.82rem;
+            box-shadow: 0 3px 0 rgba(153, 0, 0, 0.25);
+            touch-action: manipulation;
+        }
+        .sidebar-tools-youtube-row .btn-youtube-timer:hover {
+            color: #fff;
+            transform: translateY(-1px);
+        }
         .sidebar-tools-custom {
             display: flex;
             gap: 0.25rem;
@@ -654,7 +784,7 @@
             padding-left: 1.1rem;
             font-size: 0.86rem;
             font-weight: 800;
-            color: #1a1a1a;
+            color: var(--app-text);
             line-height: 1.45;
         }
         .class-rules-list li { margin-bottom: 0.35rem; }
@@ -713,7 +843,7 @@
             padding-left: 1rem;
             font-size: 0.82rem;
             font-weight: 800;
-            color: #1a1a1a;
+            color: var(--app-text);
             line-height: 1.4;
         }
         .books-return-empty {
@@ -779,6 +909,9 @@
             width: 100%;
             height: 100%;
             border: 0;
+        }
+        .sidebar-panel.sidebar-pc-only-hidden {
+            display: none !important;
         }
 
         /* ===== Google Search (theme) ===== */
@@ -867,7 +1000,7 @@
         .announcement-text {
             font-size: 0.86rem;
             font-weight: 800;
-            color: #1a1a1a;
+            color: var(--app-text);
             line-height: 1.45;
             white-space: pre-wrap;
         }
@@ -1144,11 +1277,57 @@
 
         .status-toggle { width: 100%; max-width: 240px; }
         .vocab-input {
-            max-width: 90px;
+            width: 4.75rem;
+            min-width: 4.75rem;
+            max-width: 4.75rem;
+            flex: 0 0 4.75rem;
             text-align: center;
             font-weight: 700;
             border-radius: 10px;
             border-color: var(--app-border);
+            padding-left: 0.4rem;
+            padding-right: 0.4rem;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        .vocab-input::-webkit-outer-spin-button,
+        .vocab-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .vocab-score-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            flex-wrap: nowrap;
+        }
+        .dollar-adjust-input {
+            width: 4.75rem;
+            min-width: 4.75rem;
+            max-width: 4.75rem;
+            flex: 0 0 4.75rem;
+            text-align: center;
+            font-weight: 700;
+            padding-left: 0.4rem;
+            padding-right: 0.4rem;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        .dollar-adjust-input::-webkit-outer-spin-button,
+        .dollar-adjust-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .dollar-adjust-group {
+            flex-wrap: nowrap;
+            justify-content: center;
+            width: auto;
+            max-width: none;
+        }
+        .dollar-adjust-group .btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
         .hidden-section { display: none; }
         .student-name-btn {
@@ -1156,8 +1335,34 @@
             color: var(--app-primary-dark);
             font-weight: 800;
             transition: color 0.15s;
+            white-space: nowrap;
+            flex: 0 1 auto;
         }
         .student-name-btn:hover { color: #ff6b9d; text-decoration: underline; }
+        .student-name-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.3rem;
+            text-align: left;
+            width: 100%;
+        }
+        .student-badges-row {
+            display: inline-flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.35rem;
+        }
+        .student-name-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.3rem;
+            width: 100%;
+        }
+        .student-name-td {
+            min-width: 10.5rem;
+        }
 
         .btn-check:checked + .btn-outline-success {
             background: linear-gradient(135deg, #27ae60, #2ecc71);
@@ -1234,17 +1439,37 @@
         .app-table tbody tr:hover { background: rgba(59, 158, 221, 0.06); }
         .app-table td { padding: 0.75rem 0.5rem; vertical-align: middle; }
 
+        .chambit-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            min-width: 6.75rem;
+        }
+        .chambit-week-progress {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #636e72;
+            line-height: 1.15;
+            white-space: nowrap;
+            letter-spacing: -0.01em;
+        }
+        .chambit-week-progress.complete {
+            color: #27ae60;
+        }
         .chambit-combo-badge {
             display: inline-block;
             font-family: var(--app-heading);
             font-weight: 700;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             color: var(--app-primary-dark);
             background: linear-gradient(135deg, #e8f6ff, #fff8e7);
             border: 2px solid rgba(59, 158, 221, 0.35);
             border-radius: 999px;
-            padding: 0.2rem 0.65rem;
-            margin-bottom: 0.35rem;
+            padding: 0.18rem 0.55rem;
+            margin-bottom: 0;
             cursor: pointer;
             transition: transform 0.12s, box-shadow 0.12s;
         }
@@ -1269,11 +1494,11 @@
             justify-content: center;
         }
         .chambit-toggle-btn {
-            width: 34px;
-            height: 34px;
-            border-radius: 12px;
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
             font-weight: 800;
-            font-size: 1rem;
+            font-size: 0.95rem;
             line-height: 1;
             padding: 0;
             border: 2px solid rgba(59, 158, 221, 0.35);
@@ -1380,6 +1605,10 @@
             line-height: 1.5;
             white-space: pre-wrap;
         }
+        #appConfirmModal,
+        #appAlertModal {
+            z-index: 200010 !important;
+        }
 
         .app-toast-wrap {
             position: fixed;
@@ -1427,6 +1656,26 @@
             border-radius: 22px;
             padding: 1rem 1.25rem;
             margin-bottom: 1rem;
+        }
+        .detail-header-main {
+            flex: 1 1 auto;
+            min-width: 0;
+            margin-left: auto;
+            text-align: right;
+        }
+        .detail-student-name {
+            font-family: var(--app-heading);
+            font-weight: 700;
+            font-size: 1.875rem;
+            line-height: 1.2;
+            color: var(--app-text);
+        }
+        .detail-header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.4rem;
+            margin-top: 0.55rem;
         }
 
         /* ===== Textbooks & progress ===== */
@@ -1596,13 +1845,19 @@
             background: linear-gradient(180deg, #fff 0%, #fffef9 100%);
         }
         .pending-hw-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 1.35rem;
+            padding: 0 0.5rem;
+            margin: 0;
             font-size: 0.65rem;
-            vertical-align: middle;
-            margin-left: 0.35rem;
+            line-height: 1;
             border-radius: 999px;
             background: linear-gradient(135deg, #ffeaa7, #fdcb6e) !important;
             color: #6d4c00 !important;
             font-weight: 800;
+            box-sizing: border-box;
         }
         .hw-classroom-badge { font-size: 0.75rem; font-weight: 700; }
         .hw-pending-list { text-align: left; }
@@ -1783,6 +2038,8 @@
         .att-present { color: #198754; }
         .att-tardy { color: #cc8800; }
         .att-absent { color: #dc3545; }
+        .att-leave { color: #6c757d; }
+        .att-absent { color: #dc3545; }
         .report-summary-table { width: auto; min-width: 60%; font-size: 11px; border-collapse: collapse; margin-top: 6px; }
         .report-summary-table th, .report-summary-table td { border: 1px solid #888; padding: 3px 8px; text-align: center; }
         .report-summary-table th.name-col, .report-summary-table td.name-col { text-align: left; }
@@ -1900,16 +2157,21 @@
         .btn-lucky-row {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 0.25rem;
-            margin-left: 0.35rem;
-            padding: 0.15rem 0.5rem;
+            margin: 0;
+            height: 1.35rem;
+            padding: 0 0.5rem;
+            flex: 0 0 auto;
+            white-space: nowrap;
             border: none;
             border-radius: 999px;
             background: linear-gradient(135deg, #f1c40f, #f39c12);
             color: #fff;
-            font-size: 0.72rem;
+            font-size: 0.65rem;
             font-weight: 800;
-            vertical-align: middle;
+            line-height: 1;
+            box-sizing: border-box;
             box-shadow: 0 2px 0 #d68910;
         }
         .btn-lucky-row:hover { color: #fff; transform: translateY(-1px); }
@@ -1923,7 +2185,26 @@
         }
         .lucky-ticket-tier { font-size: 0.72rem; font-weight: 800; color: #b7950b; text-transform: uppercase; }
         .lucky-ticket-prize { font-weight: 800; font-size: 0.95rem; margin: 0.2rem 0; }
+        .lucky-ticket-count {
+            display: inline-block;
+            margin-left: 0.35rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #f9e79f, #f4d03f);
+            color: #7d6608;
+            font-size: 0.78rem;
+            font-weight: 800;
+            vertical-align: middle;
+        }
         .lucky-ticket-meta { font-size: 0.75rem; color: var(--app-muted); }
+        .lucky-transfer-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+            align-items: center;
+        }
+        .lucky-transfer-row .form-select { max-width: 11rem; font-size: 0.82rem; }
 
         /* Sidebar toolbar (hide + reset align) */
         .sidebar-toolbar {
@@ -1977,6 +2258,73 @@
             vertical-align: middle;
         }
         .btn-makeup-row:hover { background: rgba(155, 89, 182, 0.22); color: #6c3483; }
+
+        tr.student-row-on-leave {
+            opacity: 0.72;
+            background: linear-gradient(90deg, rgba(108, 117, 125, 0.08), rgba(255, 255, 255, 0.5));
+        }
+        tr.student-row-on-leave td { color: #6c757d; }
+        tr.student-row-on-leave .student-name-btn { color: #495057; }
+        .leave-attendance-notice {
+            display: inline-block;
+            padding: 0.35rem 0.65rem;
+            border-radius: 12px;
+            background: #eceff1;
+            color: #546e7a;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.35;
+            text-align: left;
+            max-width: 220px;
+        }
+        .leave-attendance-notice small {
+            display: block;
+            font-weight: 600;
+            color: #78909c;
+            margin-top: 0.15rem;
+        }
+        .leave-upcoming-badge {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+        .planned-notice-badge {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+        .cal-day-class {
+            background: rgba(13, 110, 253, 0.12);
+            border-color: rgba(13, 110, 253, 0.35);
+        }
+        .cal-day-class:hover {
+            background: rgba(13, 110, 253, 0.2);
+        }
+        .cal-day-planned-absent {
+            background: rgba(220, 53, 69, 0.14);
+            border-color: rgba(220, 53, 69, 0.45);
+        }
+        .cal-day-planned-tardy {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: rgba(255, 193, 7, 0.55);
+        }
+        .planned-cal-legend span {
+            margin-right: 1rem;
+        }
+        .planned-cal-legend-class {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            background: rgba(13, 110, 253, 0.25);
+            border: 1px solid rgba(13, 110, 253, 0.45);
+            vertical-align: middle;
+            margin-right: 0.25rem;
+        }
         .makeup-offday-bar {
             border: 2px dashed rgba(155, 89, 182, 0.35);
             background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(59, 158, 221, 0.08));
@@ -1985,6 +2333,7 @@
             text-align: center;
         }
         .student-stats-panel { margin-bottom: 1rem; }
+        .student-history-month-input { width: auto; min-width: 9.5rem; }
         .student-stats-toggle .btn { font-size: 0.82rem; }
         .student-chart-wrap {
             position: relative;
@@ -2004,14 +2353,33 @@
             border-bottom: 1px dashed rgba(0,0,0,0.08);
         }
         .makeup-history-item:last-child { border-bottom: none; }
+        .makeup-history-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+        .makeup-history-actions .btn { padding: 0.15rem 0.45rem; font-size: 0.72rem; }
+        .badge-makeup-scheduled { background: #e8daef; color: #6c3483; font-size: 0.68rem; }
+        .upcoming-makeup-tag { color: #8e44ad; font-weight: 600; font-size: 0.78rem; }
+        .cell-makeup {
             display: block;
-            font-size: 0.72rem;
+            font-size: 0.62rem;
+            color: #8e44ad;
+            font-weight: 700;
+            margin-top: 1px;
+        }
+        .cell-makeup-primary {
+            font-size: 11px;
+            font-weight: 800;
+            color: #6c3483;
+        }
+        .report-makeup-col {
+            background: #f5eef8 !important;
+        }
+        .makeup-scheduled-list { max-height: 220px; overflow-y: auto; }
+        .report-makeup-title { font-size: 0.95rem; font-weight: 700; margin: 0.75rem 0 0.35rem; }
+        .chambit-week-label {
+            display: block;
+            font-size: 0.68rem;
             font-weight: 800;
             color: #636e72;
             margin-bottom: 0.3rem;
-        }
-        .chambit-week-progress.complete {
-            color: #27ae60;
         }
 
         /* Random student picker modal */
@@ -2031,6 +2399,409 @@
             0% { transform: scale(0.6); opacity: 0; }
             70% { transform: scale(1.08); }
             100% { transform: scale(1); opacity: 1; }
+        }
+
+        .theme-toggle-btn {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 620;
+            border: 2px solid var(--app-border);
+            border-radius: 999px;
+            padding: 0.42rem 0.85rem;
+            font-family: var(--app-heading);
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--app-primary-dark);
+            background: var(--app-surface-solid);
+            box-shadow: var(--app-shadow);
+            cursor: pointer;
+            transition: transform 0.15s, background 0.15s, color 0.15s;
+        }
+        .theme-toggle-btn:hover {
+            transform: translateY(-1px);
+            background: var(--app-surface-3);
+        }
+        .theme-toggle-btn i { margin-right: 0.25rem; }
+
+        /* ===== Dark mode ===== */
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --app-surface: rgba(30, 36, 46, 0.96);
+            --app-surface-solid: #1e242e;
+            --app-surface-2: #252c38;
+            --app-surface-3: #2d3644;
+            --app-border: rgba(120, 160, 200, 0.28);
+            --app-border-strong: rgba(255, 159, 67, 0.4);
+            --app-text: #e8edf3;
+            --app-muted: #9aa3ad;
+            --app-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 10px 28px rgba(0, 0, 0, 0.28);
+            --app-shadow-lg: 0 8px 0 rgba(0, 0, 0, 0.25), 0 20px 40px rgba(0, 0, 0, 0.35);
+            --bs-body-color: var(--app-text);
+            --bs-body-bg: #151a22;
+            --bs-border-color: var(--app-border);
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 8% 12%, rgba(255, 159, 67, 0.12), transparent 38%),
+                radial-gradient(circle at 92% 8%, rgba(59, 158, 221, 0.16), transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(255, 107, 157, 0.08), transparent 45%),
+                linear-gradient(180deg, #121820 0%, #171d27 48%, #141a23 100%);
+        }
+        [data-theme="dark"] body::before {
+            opacity: 0.12;
+            background-image: radial-gradient(circle, rgba(140, 180, 220, 0.22) 1.5px, transparent 1.5px);
+        }
+        [data-theme="dark"] .main-container {
+            border-color: rgba(80, 100, 130, 0.45);
+        }
+        [data-theme="dark"] .app-hero h1 {
+            color: var(--app-text);
+            text-shadow: 2px 2px 0 rgba(255, 159, 67, 0.12);
+        }
+        [data-theme="dark"] .btn-app-report,
+        [data-theme="dark"] .btn-app-calendar,
+        [data-theme="dark"] .btn-app-whiteboard,
+        [data-theme="dark"] .class-btn,
+        [data-theme="dark"] .sidebar-toggle-btn,
+        [data-theme="dark"] .sidebar-reset-btn,
+        [data-theme="dark"] .theme-toggle-btn {
+            background: var(--app-surface-3);
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .btn-app-report:hover,
+        [data-theme="dark"] .btn-app-calendar:hover,
+        [data-theme="dark"] .btn-app-whiteboard:hover,
+        [data-theme="dark"] .class-btn:hover,
+        [data-theme="dark"] .sidebar-toggle-btn:hover,
+        [data-theme="dark"] .sidebar-reset-btn:hover {
+            background: #364152;
+            color: #fff;
+        }
+        [data-theme="dark"] .class-btn.is-active { color: #fff; }
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-select,
+        [data-theme="dark"] textarea.form-control {
+            background-color: var(--app-surface-3);
+            color: var(--app-text);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .form-control:focus,
+        [data-theme="dark"] .form-select:focus {
+            background-color: #344052;
+            color: var(--app-text);
+            border-color: var(--app-primary);
+            box-shadow: 0 0 0 0.2rem rgba(59, 158, 221, 0.2);
+        }
+        [data-theme="dark"] .form-control::placeholder { color: #7f8b98; }
+        [data-theme="dark"] .table {
+            --bs-table-color: var(--app-text);
+            --bs-table-bg: transparent;
+            --bs-table-hover-color: var(--app-text);
+            --bs-table-hover-bg: rgba(59, 158, 221, 0.1);
+            --bs-table-striped-color: var(--app-text);
+            --bs-table-striped-bg: rgba(255, 255, 255, 0.03);
+        }
+        [data-theme="dark"] .app-table {
+            --bs-table-bg: rgba(255, 255, 255, 0.02);
+        }
+        [data-theme="dark"] .app-table thead th {
+            background: linear-gradient(180deg, #2a3544 0%, #232b38 100%);
+            color: #b8d9f5;
+            border-bottom-color: rgba(255, 159, 67, 0.28);
+        }
+        [data-theme="dark"] .app-table tbody tr:hover { background: rgba(59, 158, 221, 0.1); }
+        [data-theme="dark"] .float-panel-card,
+        [data-theme="dark"] .modal-content,
+        [data-theme="dark"] .hw-display-panel,
+        [data-theme="dark"] .textbook-card,
+        [data-theme="dark"] .lucky-ticket-item,
+        [data-theme="dark"] .makeup-history-item,
+        [data-theme="dark"] .config-tier-card,
+        [data-theme="dark"] .detail-header-card {
+            background: var(--app-surface-solid);
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .detail-header-card {
+            background: linear-gradient(135deg, #2a2418, #1c2838);
+            border-color: rgba(80, 120, 170, 0.35);
+        }
+        [data-theme="dark"] .detail-student-name { color: var(--app-text); }
+        [data-theme="dark"] .modal-content { border: 1px solid var(--app-border); }
+        [data-theme="dark"] .modal-body,
+        [data-theme="dark"] .modal-footer { background: var(--app-surface-solid); color: var(--app-text); }
+        [data-theme="dark"] .modal-header .btn-close { filter: brightness(0) invert(1); opacity: 0.75; }
+        [data-theme="dark"] .alert-secondary {
+            background: var(--app-surface-3);
+            border-color: var(--app-border);
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .btn-outline-primary,
+        [data-theme="dark"] .btn-outline-secondary,
+        [data-theme="dark"] .btn-outline-warning,
+        [data-theme="dark"] .btn-outline-danger,
+        [data-theme="dark"] .btn-outline-success,
+        [data-theme="dark"] .main-container .btn-outline-primary,
+        [data-theme="dark"] .main-container .btn-outline-secondary,
+        [data-theme="dark"] .main-container .btn-outline-success,
+        [data-theme="dark"] .main-container .btn-outline-warning,
+        [data-theme="dark"] .main-container .btn-outline-danger,
+        [data-theme="dark"] .main-container .btn-secondary,
+        [data-theme="dark"] .app-modal .btn-outline-primary,
+        [data-theme="dark"] .app-modal .btn-secondary {
+            background: var(--app-surface-3) !important;
+        }
+        [data-theme="dark"] .btn-outline-primary,
+        [data-theme="dark"] .main-container .btn-outline-primary,
+        [data-theme="dark"] .app-modal .btn-outline-primary { border-color: rgba(93, 173, 226, 0.65); color: #8ec8f5 !important; }
+        [data-theme="dark"] .btn-outline-secondary,
+        [data-theme="dark"] .main-container .btn-outline-secondary,
+        [data-theme="dark"] .main-container .btn-secondary,
+        [data-theme="dark"] .app-modal .btn-secondary { border-color: rgba(170, 180, 190, 0.45); color: #c5cdd6 !important; }
+        [data-theme="dark"] .btn-outline-warning,
+        [data-theme="dark"] .main-container .btn-outline-warning { border-color: rgba(243, 156, 18, 0.55); color: #f5c26b !important; }
+        [data-theme="dark"] .btn-outline-danger,
+        [data-theme="dark"] .main-container .btn-outline-danger { border-color: rgba(231, 76, 60, 0.55); color: #f1948a !important; }
+        [data-theme="dark"] .btn-outline-success,
+        [data-theme="dark"] .main-container .btn-outline-success { border-color: rgba(46, 204, 113, 0.55); color: #7dcea0 !important; }
+        [data-theme="dark"] .btn-outline-primary:hover,
+        [data-theme="dark"] .btn-outline-secondary:hover,
+        [data-theme="dark"] .btn-outline-warning:hover,
+        [data-theme="dark"] .btn-outline-danger:hover,
+        [data-theme="dark"] .btn-outline-success:hover,
+        [data-theme="dark"] .main-container .btn-outline-primary:hover,
+        [data-theme="dark"] .main-container .btn-outline-secondary:hover,
+        [data-theme="dark"] .main-container .btn-outline-warning:hover,
+        [data-theme="dark"] .main-container .btn-outline-danger:hover,
+        [data-theme="dark"] .main-container .btn-outline-success:hover,
+        [data-theme="dark"] .main-container .btn-secondary:hover,
+        [data-theme="dark"] .app-modal .btn-outline-primary:hover,
+        [data-theme="dark"] .app-modal .btn-secondary:hover {
+            color: #fff !important;
+            background: #3d4d63 !important;
+        }
+        [data-theme="dark"] .btn-check:not(:checked) + .btn-outline-primary {
+            background: var(--app-surface-3) !important;
+            color: #8ec8f5 !important;
+            border-color: rgba(93, 173, 226, 0.65) !important;
+        }
+        [data-theme="dark"] .sidebar-panel[data-sidebar-id="classTools"] .float-panel-head,
+        [data-theme="dark"] .sidebar-panel[data-sidebar-id="youtube"] .float-panel-head,
+        [data-theme="dark"] .sidebar-panel[data-sidebar-id="googleSearch"] .float-panel-head {
+            background: linear-gradient(135deg, #2a2418, #252c38);
+        }
+        [data-theme="dark"] .sidebar-tools-timer-label { color: #b8d9f5; }
+        [data-theme="dark"] .sidebar-panel-hide-btn {
+            background: rgba(255, 255, 255, 0.08);
+            color: #c5cdd6;
+        }
+        [data-theme="dark"] .sidebar-panel-hide-btn:hover {
+            background: rgba(231, 76, 60, 0.22);
+            color: #f1948a;
+        }
+        [data-theme="dark"] .class-rules-edit-btn {
+            background: var(--app-surface-3) !important;
+            color: #8ec8f5 !important;
+            border-color: rgba(93, 173, 226, 0.55) !important;
+        }
+        [data-theme="dark"] .student-chart-wrap {
+            background: var(--app-surface-3);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .student-stats-panel,
+        [data-theme="dark"] .hw-upload-panel,
+        [data-theme="dark"] .app-panel-white {
+            background: var(--app-surface-solid);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .hw-upload-panel {
+            background: linear-gradient(180deg, #1e242e 0%, #252c38 100%);
+        }
+        [data-theme="dark"] .form-label,
+        [data-theme="dark"] .step-label,
+        [data-theme="dark"] .hw-display-title { color: var(--app-text); }
+        [data-theme="dark"] .form-text,
+        [data-theme="dark"] .hw-display-body { color: var(--app-muted); }
+        [data-theme="dark"] .tb-queue-item {
+            background: var(--app-surface-3);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .tb-queue-name,
+        [data-theme="dark"] .tb-queue-num { color: var(--app-text); }
+        [data-theme="dark"] .tb-queue-meta { color: var(--app-muted); }
+        [data-theme="dark"] .hw-item-row {
+            background: var(--app-surface-3);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .hw-item-row-locked {
+            background: rgba(39, 174, 96, 0.12);
+            border-color: rgba(46, 204, 113, 0.35);
+        }
+        [data-theme="dark"] .hw-item-target label { color: var(--app-text); }
+        [data-theme="dark"] .hw-item-row-num { color: #8ec8f5; }
+        [data-theme="dark"] .hw-item-locked-label { color: #7dcea0; }
+        [data-theme="dark"] .hw-display-panel {
+            background: linear-gradient(145deg, #1e242e 0%, #252c38 50%, #2a3340 100%);
+            border-color: rgba(255, 159, 67, 0.28);
+        }
+        [data-theme="dark"] .event-add-form {
+            background: rgba(39, 174, 96, 0.08);
+            border-color: rgba(46, 204, 113, 0.28);
+        }
+        [data-theme="dark"] .report-class h4,
+        [data-theme="dark"] .report-legend,
+        [data-theme="dark"] .report-makeup-title { color: var(--app-text); }
+        [data-theme="dark"] .cal-day {
+            background: var(--app-surface-3);
+            color: var(--app-text);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .cal-day:hover:not(.cal-day-pad) {
+            background: #364152;
+            border-color: var(--app-primary);
+        }
+        [data-theme="dark"] .cal-day-off {
+            background: #3a424f;
+            color: #9aa3ad;
+        }
+        [data-theme="dark"] .cal-day-off:hover { background: #454f5d; }
+        [data-theme="dark"] .cal-day-today .cal-day-num { color: #8ec8f5; }
+        [data-theme="dark"] .cal-day-selected {
+            background: rgba(59, 158, 221, 0.2);
+            border-color: var(--app-primary);
+        }
+        [data-theme="dark"] .cal-detail-panel {
+            background: var(--app-surface-3);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .cal-nav-title,
+        [data-theme="dark"] .cal-detail-title { color: #b8d9f5; }
+        [data-theme="dark"] .cal-detail-off { color: var(--app-muted); }
+        [data-theme="dark"] .cal-legend,
+        [data-theme="dark"] .cal-legend span { color: var(--app-muted); }
+        [data-theme="dark"] .cal-legend-off {
+            background: #3a424f;
+            border-color: rgba(120, 140, 160, 0.35);
+        }
+        [data-theme="dark"] .cal-add-form { border-top-color: var(--app-border); }
+        [data-theme="dark"] table.report-table th,
+        [data-theme="dark"] table.report-table td {
+            border-color: rgba(120, 140, 160, 0.35);
+            color: var(--app-text);
+            background: var(--app-surface-3);
+        }
+        [data-theme="dark"] table.report-table thead th {
+            background: #364152 !important;
+            color: var(--app-text);
+        }
+        [data-theme="dark"] table.report-table th.name-col,
+        [data-theme="dark"] table.report-table td.name-col {
+            background: #2d3644 !important;
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .report-makeup-col {
+            background: rgba(142, 68, 173, 0.18) !important;
+        }
+        [data-theme="dark"] .chambit-combo-badge {
+            background: linear-gradient(135deg, #243040, #2f2a1f);
+            color: #b8d9f5;
+        }
+        [data-theme="dark"] .chambit-toggle-btn {
+            background: var(--app-surface-3);
+            color: #8ec8f5;
+        }
+        [data-theme="dark"] .chambit-week-progress { color: var(--app-muted); }
+        [data-theme="dark"] .student-name-btn { color: #8ec8f5; }
+        [data-theme="dark"] tr.student-row-on-leave {
+            background: linear-gradient(90deg, rgba(108, 117, 125, 0.18), rgba(30, 36, 46, 0.5));
+        }
+        [data-theme="dark"] tr.student-row-on-leave td,
+        [data-theme="dark"] tr.student-row-on-leave .student-name-btn { color: #9aa3ad; }
+        [data-theme="dark"] .leave-attendance-notice {
+            background: #2f3642;
+            color: #b0bac5;
+        }
+        [data-theme="dark"] .hw-display-empty,
+        [data-theme="dark"] .float-panel-empty,
+        [data-theme="dark"] .text-muted { color: var(--app-muted) !important; }
+        [data-theme="dark"] .lib-student-btn { color: var(--app-text); }
+        [data-theme="dark"] .lib-student-btn:hover { background: var(--app-surface-3); }
+        [data-theme="dark"] .lib-student-btn.active {
+            background: var(--app-surface-3);
+            color: #8ec8f5;
+        }
+        [data-theme="dark"] .sidebar-mini-chip {
+            background: var(--app-surface-solid);
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .loading-overlay {
+            background: rgba(10, 14, 20, 0.72);
+        }
+        [data-theme="dark"] .class-rules-card,
+        [data-theme="dark"] .books-return-card {
+            background: var(--app-surface-solid);
+            border-color: rgba(80, 120, 170, 0.4);
+            box-shadow: var(--app-shadow);
+        }
+        [data-theme="dark"] .class-rules-head,
+        [data-theme="dark"] .books-return-head {
+            background: linear-gradient(135deg, #2a2418, #1c2838);
+            border-bottom-color: rgba(80, 120, 170, 0.25);
+        }
+        [data-theme="dark"] .class-rules-title,
+        [data-theme="dark"] .books-return-title,
+        [data-theme="dark"] .float-panel-title {
+            color: #b8d9f5;
+        }
+        [data-theme="dark"] .sidebar-panel[data-sidebar-id="announcement"] .float-panel-head {
+            background: linear-gradient(135deg, #3a2430, #252c38);
+        }
+        [data-theme="dark"] .sidebar-panel[data-sidebar-id="upcomingEvent"] .float-panel-head {
+            background: linear-gradient(135deg, #1f3328, #252c38);
+        }
+        [data-theme="dark"] .float-panel-body-wrap,
+        [data-theme="dark"] .float-panel-list,
+        [data-theme="dark"] .announcement-text,
+        [data-theme="dark"] .class-rules-list,
+        [data-theme="dark"] .books-return-student,
+        [data-theme="dark"] .books-return-books {
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .books-return-empty,
+        [data-theme="dark"] .float-panel-empty,
+        [data-theme="dark"] .class-rules-list li.class-rules-empty {
+            color: var(--app-muted);
+        }
+        [data-theme="dark"] .google-search-input {
+            background: var(--app-surface-3);
+            color: var(--app-text);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .makeup-history-item {
+            border-bottom-color: rgba(120, 140, 160, 0.2);
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .badge.bg-light {
+            background: var(--app-surface-3) !important;
+            color: #8ec8f5 !important;
+            border-color: var(--app-border) !important;
+        }
+        [data-theme="dark"] .badge.bg-info {
+            color: #d4e9f7 !important;
+        }
+        [data-theme="dark"] .calendar-day {
+            background: var(--app-surface-3);
+            color: var(--app-text);
+        }
+        [data-theme="dark"] .calendar-day.other-month { color: #6d7783; }
+        [data-theme="dark"] .calendar-side-panel {
+            background: var(--app-surface-2);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .report-summary-table td,
+        [data-theme="dark"] .report-summary-table th {
+            background: var(--app-surface-3);
+            color: var(--app-text);
         }
 
         @media print {
@@ -2053,6 +2824,9 @@
     </style>
 </head>
 <body>
+<button type="button" class="theme-toggle-btn no-print" id="themeToggleBtn" title="Toggle dark mode" aria-label="Toggle dark mode">
+    <i class="fa-solid fa-moon" id="themeToggleIcon"></i><span id="themeToggleLabel">Dark</span>
+</button>
 
 <div id="loadingRow" class="loading-overlay">
     <div class="loading-card">
@@ -2065,6 +2839,17 @@
     <button type="button" class="wb-exit" id="whiteboardExitBtn" title="Close white screen (Esc)">
         <i class="fa-solid fa-xmark"></i>
     </button>
+</div>
+
+<div id="toolOverlay" class="no-print hidden-section" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="tool-popup-backdrop" id="toolPopupBackdrop" aria-hidden="true"></div>
+    <div class="tool-popup-window" id="toolPopupWindow">
+        <div class="tool-popup-head">
+            <span id="toolPopupTitle">Class tool</span>
+            <button type="button" class="tool-popup-close" id="toolOverlayCloseBtn" title="Close" aria-label="Close">&times;</button>
+        </div>
+        <iframe id="toolOverlayFrame" class="tool-overlay-frame" title="Class tool"></iframe>
+    </div>
 </div>
 
 <div id="sidebarCompactBackdrop" class="sidebar-compact-backdrop hidden-section no-print" aria-hidden="true"></div>
@@ -2105,9 +2890,12 @@
     </div>
 
     <div id="makeupOffDayBar" class="hidden-section mb-4 makeup-offday-bar no-print">
-        <div class="fw-bold mb-2"><i class="fa-solid fa-clock-rotate-left text-purple"></i> No class today — record a makeup lesson</div>
-        <button type="button" class="btn btn-primary rounded-pill px-4" id="openMakeupPickerBtn">
-            <i class="fa-solid fa-user-clock"></i> Record Makeup Lesson
+        <div class="fw-bold mb-2"><i class="fa-solid fa-clock-rotate-left text-purple"></i> No class today — record or schedule a makeup lesson</div>
+        <button type="button" class="btn btn-primary rounded-pill px-4 me-2" id="openMakeupPickerBtn">
+            <i class="fa-solid fa-user-clock"></i> Record Makeup
+        </button>
+        <button type="button" class="btn btn-outline-primary rounded-pill px-4" id="openMakeupScheduleBtn">
+            <i class="fa-solid fa-calendar-plus"></i> Schedule Makeup
         </button>
     </div>
 
@@ -2140,12 +2928,12 @@
                 <thead>
                     <tr>
                         <th style="width: 6%;">#</th>
-                        <th style="width: 16%;">Student</th>
-                        <th style="width: 16%;">Chambit Combo</th>
-                        <th style="width: 26%;">Attendance</th>
-                        <th style="width: 12%;">Vocab</th>
-                        <th style="width: 8%;">Dollars</th>
-                        <th style="width: 16%;">Adjust</th>
+                        <th style="width: 17%; min-width: 10rem;">Student</th>
+                        <th style="width: 14%; min-width: 7.25rem;">Chambit Combo</th>
+                        <th style="width: 24%;">Attendance</th>
+                        <th style="width: 11%; min-width: 7.25rem;">Vocab</th>
+                        <th style="width: 7%;">Dollars</th>
+                        <th style="width: 15%; min-width: 10rem;">Adjust</th>
                     </tr>
                 </thead>
                 <tbody id="studentTableBody">
@@ -2215,22 +3003,29 @@
     </div>
 
     <div id="studentDetailSection" class="hidden-section">
-        <div class="detail-header-card d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
+        <div class="detail-header-card d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div class="detail-header-back">
                 <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" type="button" id="backToMainBtn">
                     <i class="fa-solid fa-arrow-left"></i> Back
                 </button>
-                <span class="badge badge-class-pill ms-2" id="detailClassBadge">Class</span>
             </div>
-            <div class="text-end">
-                <div class="fw-bold fs-5" id="detailStudentName">Student</div>
+            <div class="detail-header-main">
+                <div class="detail-student-name" id="detailStudentName">Student</div>
                 <div class="text-muted small" id="detailSummary">Summary</div>
-                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 mt-2" id="withdrawStudentBtn" title="Withdraw student from class">
-                    <i class="fa-solid fa-user-slash"></i> Withdraw from class
-                </button>
-                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 mt-2 ms-1" id="detailMakeupBtn" title="Record makeup lesson">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Record makeup
-                </button>
+                <div class="detail-header-actions">
+                    <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="detailMakeupBtn" title="Record makeup lesson">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Record makeup
+                    </button>
+                    <button type="button" class="btn btn-outline-warning btn-sm rounded-pill px-3" id="detailPlannedBtn" title="Plan absence or tardy in advance">
+                        <i class="fa-solid fa-calendar-check"></i> Advance notice
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="detailLeaveBtn" title="Record leave of absence">
+                        <i class="fa-solid fa-pause"></i> Leave of absence
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" id="withdrawStudentBtn" title="Withdraw student from class">
+                        <i class="fa-solid fa-user-slash"></i> Withdraw from class
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -2246,6 +3041,16 @@
             </div>
             <div class="student-chart-wrap"><canvas id="vocabTrendChart"></canvas></div>
             <div class="student-chart-wrap"><canvas id="absenceTrendChart"></canvas></div>
+        </div>
+
+        <div class="app-panel-white mb-3">
+            <div class="step-label mb-2"><i class="fa-solid fa-pause"></i> Leave of absence</div>
+            <div id="studentLeaveList" class="makeup-history-list text-muted small">Loading…</div>
+        </div>
+
+        <div class="app-panel-white mb-3">
+            <div class="step-label mb-2"><i class="fa-solid fa-calendar-check"></i> Advance notice</div>
+            <div id="studentPlannedList" class="makeup-history-list text-muted small">Loading…</div>
         </div>
 
         <div class="app-panel-white mb-3">
@@ -2266,6 +3071,13 @@
             </div>
         </div>
 
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <div class="step-label mb-0"><i class="fa-solid fa-calendar-day"></i> Attendance records</div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="studentHistoryMonth" class="small fw-bold text-muted mb-0">Month</label>
+                <input type="month" id="studentHistoryMonth" class="form-control form-control-sm student-history-month-input">
+            </div>
+        </div>
         <div class="table-responsive app-table-card">
             <table class="table table-hover align-middle text-center app-table">
                 <thead>
@@ -2363,6 +3175,12 @@
                 <button type="button" class="btn" id="timer2Btn">2 min</button>
                 <button type="button" class="btn" id="timer5Btn">5 min</button>
                 <button type="button" class="btn" id="timer10Btn">10 min</button>
+            </div>
+            <div id="youtubeTimerClassToolsRow" class="sidebar-tools-youtube-row hidden-section">
+                <div class="sidebar-tools-timer-label"><i class="fa-brands fa-youtube"></i> Youtube Timer</div>
+                <button type="button" class="btn btn-youtube-timer" id="youtubeTimerBtn">
+                    <i class="fa-brands fa-youtube"></i> Play in YouTube
+                </button>
             </div>
             <div class="sidebar-tools-custom input-group input-group-sm">
                 <input type="number" class="form-control" id="customTimerMin" min="1" max="180" placeholder="Min">
@@ -2678,7 +3496,7 @@
             <div class="modal-body">
                 <p class="small text-muted mb-2">YouTube URL for <strong id="classVideoModalClassName">this class</strong></p>
                 <input type="url" class="form-control" id="classVideoUrlInput" placeholder="https://www.youtube.com/watch?v=…">
-                <div class="form-text">Paste a YouTube link or 11-character video ID. Saved per class.</div>
+                <div class="form-text">Paste a YouTube link or 11-character video ID. Applies to <strong>all classes</strong>.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -2719,7 +3537,7 @@
                 <p class="mb-0" id="appConfirmMessage"></p>
             </div>
             <div class="modal-footer justify-content-center gap-2 py-2">
-                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary rounded-pill px-4" id="appConfirmCancelBtn" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary rounded-pill px-4" id="appConfirmOkBtn">OK</button>
             </div>
         </div>
@@ -2850,6 +3668,83 @@
     </div>
 </div>
 
+<!-- Student leave modal -->
+<div class="modal fade app-modal" id="studentLeaveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-pause"></i> Leave of absence</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Student: <strong id="leaveModalStudentName">—</strong></p>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label fw-bold small" for="leaveStartDateInput">Start date</label>
+                        <input type="date" class="form-control" id="leaveStartDateInput">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold small" for="leaveEndDateInput">End date</label>
+                        <input type="date" class="form-control" id="leaveEndDateInput">
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-bold small" for="leaveReasonInput">Reason</label>
+                    <textarea class="form-control" id="leaveReasonInput" rows="3" placeholder="e.g. Family travel, medical leave"></textarea>
+                </div>
+                <p class="small text-muted mb-0">Attendance for each day in this range will be marked <strong>휴원</strong> automatically.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveStudentLeaveBtn">Save leave</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advance notice (planned absence/tardy) modal -->
+<div class="modal fade app-modal calendar-modal" id="plannedAttendanceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-calendar-check"></i> Advance notice</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">Student: <strong id="plannedModalStudentName">—</strong></p>
+                <p class="small text-muted mb-3">Click a <span class="planned-cal-legend-class"></span><strong>class day</strong> to plan Absent or Tardy. Attendance updates automatically on that date.</p>
+                <div class="calendar-layout">
+                    <div class="calendar-main">
+                        <div class="cal-nav">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="plannedCalPrevBtn" aria-label="Previous month">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <div class="cal-nav-title" id="plannedCalMonthTitle">June 2026</div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="plannedCalNextBtn" aria-label="Next month">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div class="cal-grid" id="plannedCalDowRow"></div>
+                        <div class="cal-grid" id="plannedCalGrid"></div>
+                        <div class="cal-legend planned-cal-legend">
+                            <span><span class="planned-cal-legend-class"></span> Class day</span>
+                            <span><span class="cal-legend-off"></span> No class</span>
+                            <span class="text-danger">■ Planned absent</span>
+                            <span class="text-warning">■ Planned tardy</span>
+                        </div>
+                    </div>
+                    <div class="cal-detail-panel" id="plannedCalDayDetail">
+                        <div class="cal-detail-empty">Click a class day to plan absence or tardy.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Lucky Draw tickets modal -->
 <div class="modal fade app-modal" id="luckyTicketsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -2876,7 +3771,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-clock-rotate-left"></i> Record Makeup Lesson</h5>
+                <h5 class="modal-title" id="makeupModalTitle"><i class="fa-solid fa-clock-rotate-left"></i> Record Makeup Lesson</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -2905,6 +3800,11 @@
                 <div class="mb-2">
                     <label class="form-label fw-bold" for="makeupNotesInput">Notes (optional)</label>
                     <input type="text" class="form-control" id="makeupNotesInput" placeholder="e.g. Vocab review + reading">
+                </div>
+                <p class="small text-muted mb-0">Future dates are added to Upcoming Events automatically.</p>
+                <div id="makeupScheduledSection" class="mt-3 pt-3 border-top">
+                    <div class="fw-bold small mb-2"><i class="fa-solid fa-calendar-check"></i> Scheduled makeups</div>
+                    <div id="makeupScheduledList" class="makeup-history-list makeup-scheduled-list text-muted small">Loading…</div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -3082,6 +3982,7 @@
     let selectedClass = null;
     let selectedStudent = null;
     let makeupModalStudent = null;
+    let editingMakeupId = null;
     let vocabTrendChartInst = null;
     let absenceTrendChartInst = null;
     let currentStatsPeriod = 'month';
@@ -3092,15 +3993,22 @@
     let cachedTodayHomeworkDate = '';
     let classLogDraftTimer = null;
     const CLASS_LOG_DRAFT_PREFIX = 'mrpark_classlog_draft_';
+    const THEME_STORAGE_KEY = 'mrpark_theme';
     let currentAnnouncementText = '';
     let currentClassVideoUrl = '';
     let calendarViewYear = 0;
     let calendarViewMonth = 0;
     let calendarData = null;
     let calendarSelectedDate = '';
+    let plannedCalYear = 0;
+    let plannedCalMonth = 0;
+    let plannedCalData = null;
+    let plannedCalSelectedDate = '';
     let chambitSetTarget = null;
     let sidebarsCollapsed = false;
     let loadedStudents = [];
+    let luckyModalStudentId = '';
+    let studentHistoryAllRecords = [];
     let sidebarLayout = null;
 
     const clientSessionCache = {
@@ -3110,7 +4018,7 @@
         work: null
     };
 
-    const SIDEBAR_LAYOUT_KEY = 'mrpark_sidebar_layout_v2';
+    const SIDEBAR_LAYOUT_KEY = 'mrpark_sidebar_layout_v3';
     const SIDEBAR_IDS = [
         'upcomingEvent', 'classTools', 'booksReturn',
         'announcement', 'classRules', 'youtube', 'googleSearch'
@@ -3133,8 +4041,141 @@
         });
     }
 
-    /** Always request a real popup window (not a tab). Browsers may still use a tab if pop-ups are restricted. */
+    const TOOL_POPUP_TITLES = {
+        timer: 'Vocab Timer',
+        roulette: 'Roulette',
+        dice: 'Dice',
+        luckydraw: 'Lucky Draw'
+    };
+
+    function toolPopupTitleFromUrl(url) {
+        const m = String(url || '').match(/[?&]page=([a-z]+)/i);
+        if (m && TOOL_POPUP_TITLES[m[1].toLowerCase()]) return TOOL_POPUP_TITLES[m[1].toLowerCase()];
+        return 'Class tool';
+    }
+
+    /** Touch tablet / phone / PWA — includes iPad with "Request Desktop Website". */
+    function isTabletLikeDevice() {
+        if (window.navigator.standalone === true) return true;
+        const ua = navigator.userAgent || '';
+        if (/iPad|iPhone|iPod|Android|Mobile|webOS|BlackBerry/i.test(ua)) return true;
+        if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+        if (window.matchMedia) {
+            if (window.matchMedia('(display-mode: standalone)').matches) return true;
+            if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+            if (window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 1366) return true;
+        }
+        return false;
+    }
+
+    /** Vocab Timer sidebar (YouTube embed) — desktop only; iPad uses Class Tools → Youtube Timer. */
+    function isVocabTimerSidebarSupported() {
+        return !isTabletLikeDevice();
+    }
+
+    function isYoutubeSidebarId(id) {
+        return id === 'youtube';
+    }
+
+    function isSidebarIdVisibleOnDevice(id) {
+        if (isYoutubeSidebarId(id) && !isVocabTimerSidebarSupported()) return false;
+        return true;
+    }
+
+    function getVisibleSidebarIds() {
+        return SIDEBAR_IDS.filter(isSidebarIdVisibleOnDevice);
+    }
+
+    function getSidebarStackRight() {
+        return SIDEBAR_STACK_RIGHT.filter(isSidebarIdVisibleOnDevice);
+    }
+
+    function getSidebarStackLeft() {
+        return SIDEBAR_STACK_LEFT.filter(isSidebarIdVisibleOnDevice);
+    }
+
+    function applyVocabTimerDeviceLayout() {
+        const showSidebar = isVocabTimerSidebarSupported();
+        const ytPanel = document.getElementById('youtubeFloat');
+        const ytToolsRow = document.getElementById('youtubeTimerClassToolsRow');
+        if (ytPanel) ytPanel.classList.toggle('sidebar-pc-only-hidden', !showSidebar);
+        if (ytToolsRow) ytToolsRow.classList.toggle('hidden-section', showSidebar);
+        if (!showSidebar && sidebarLayout && sidebarLayout.panels && sidebarLayout.panels.youtube) {
+            sidebarLayout.panels.youtube.userHidden = true;
+        }
+        if (shouldUseCompactSidebars() && selectedClass && !sidebarsCollapsed) {
+            prepareSidebarChipLayout();
+            revealSidebarPanelsDom();
+        }
+    }
+
+    function youtubeWatchUrlFromVideoData(data) {
+        if (!data) return '';
+        if (data.videoUrl) return data.videoUrl;
+        if (data.videoId) return 'https://www.youtube.com/watch?v=' + data.videoId;
+        return '';
+    }
+
+    function openYoutubeTimer() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        const url = currentClassVideoUrl;
+        if (!url) {
+            appAlert('YouTube timer is not set for this class. Set it on PC: Vocab Timer → Edit.');
+            return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    /** iPad/iPhone PWA and mobile Safari cannot open real popup windows — use in-page mini popup. */
+    function shouldUseInlineToolPopup() {
+        if (isTabletLikeDevice()) return true;
+        return window.innerWidth < 900;
+    }
+
+    function openToolInOverlay(url, width, height, title) {
+        const overlay = document.getElementById('toolOverlay');
+        const frame = document.getElementById('toolOverlayFrame');
+        const popup = document.getElementById('toolPopupWindow');
+        const titleEl = document.getElementById('toolPopupTitle');
+        if (!overlay || !frame || !popup) return;
+        const maxW = window.innerWidth - 24;
+        const maxH = window.innerHeight - 32;
+        const w = Math.min(Math.max(width || 520, 280), maxW);
+        const h = Math.min(Math.max(height || 440, 240), maxH);
+        popup.style.width = w + 'px';
+        popup.style.height = h + 'px';
+        if (titleEl) titleEl.textContent = title || toolPopupTitleFromUrl(url);
+        const embedUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'embed=1';
+        frame.src = embedUrl;
+        overlay.classList.remove('hidden-section');
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('tool-overlay-open');
+        updateSidebarCompactBackdrop();
+    }
+
+    function closeToolOverlay() {
+        const overlay = document.getElementById('toolOverlay');
+        const frame = document.getElementById('toolOverlayFrame');
+        if (!overlay || !frame) return;
+        frame.src = 'about:blank';
+        overlay.classList.add('hidden-section');
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('tool-overlay-open');
+        updateSidebarCompactBackdrop();
+    }
+    window.closeToolOverlay = closeToolOverlay;
+
+    /** Desktop: real popup. iPad PWA / mobile: centered mini popup on the same page. */
     function openPopupWindow(url, width, height, namePrefix) {
+        if (shouldUseInlineToolPopup()) {
+            openToolInOverlay(url, width, height);
+            return null;
+        }
         const w = width || 520;
         const h = height || 340;
         const dualLeft = typeof window.screenLeft !== 'undefined' ? window.screenLeft : window.screenX;
@@ -3156,8 +4197,8 @@
             'scrollbars=yes'
         ].join(',');
         const win = window.open(url, winName, features);
-        if (!win) {
-            appAlert('Pop-up blocked. Allow pop-ups for this site and try again.');
+        if (!win || win === window) {
+            openToolInOverlay(url, width, height);
             return null;
         }
         try { win.focus(); } catch (e) { /* ignore */ }
@@ -3207,8 +4248,58 @@
         openPopupWindow(url, 480, 720, 'classLuckyDraw_');
     }
 
+    function isDarkTheme() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+
+    function chartThemeOptions() {
+        const dark = isDarkTheme();
+        const grid = dark ? 'rgba(180, 190, 200, 0.15)' : 'rgba(0, 0, 0, 0.08)';
+        const tick = dark ? '#b0bac5' : '#636e72';
+        return {
+            gridColor: grid,
+            tickColor: tick,
+            legendColor: tick
+        };
+    }
+
+    function applyTheme(theme, options) {
+        options = options || {};
+        const dark = theme === 'dark';
+        if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+        else document.documentElement.removeAttribute('data-theme');
+        try { localStorage.setItem(THEME_STORAGE_KEY, dark ? 'dark' : 'light'); } catch (e) {}
+        const metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) metaTheme.setAttribute('content', dark ? '#151a22' : '#3b9edd');
+        updateThemeToggleUi();
+        if (!options.skipCharts && selectedStudent && selectedClass) {
+            loadStudentStatsCharts();
+        }
+    }
+
+    function updateThemeToggleUi() {
+        const dark = isDarkTheme();
+        const icon = document.getElementById('themeToggleIcon');
+        const label = document.getElementById('themeToggleLabel');
+        if (icon) {
+            icon.className = dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+        if (label) label.textContent = dark ? 'Light' : 'Dark';
+    }
+
+    function toggleTheme() {
+        applyTheme(isDarkTheme() ? 'light' : 'dark');
+    }
+
+    function initThemeToggle() {
+        updateThemeToggleUi();
+        const btn = document.getElementById('themeToggleBtn');
+        if (btn) btn.addEventListener('click', toggleTheme);
+    }
+
     // 앱 초기화 실행
     document.addEventListener("DOMContentLoaded", function() {
+        initThemeToggle();
         showLoading(true);
         // 첫 화면 날짜는 오늘로 자동 선택
         const dateEl = document.getElementById('attendanceDate');
@@ -3234,13 +4325,28 @@
         document.getElementById('saveBtn').addEventListener('click', saveRecords);
         document.getElementById('backToMainBtn').addEventListener('click', backToMain);
         document.getElementById('addHistoryRowBtn').addEventListener('click', addEmptyHistoryRow);
+        document.getElementById('studentHistoryMonth').addEventListener('change', function() {
+            document.getElementById('studentHistoryMonth').dataset.userPicked = '1';
+            renderFilteredStudentHistory();
+        });
         document.getElementById('addManualHwBtn').addEventListener('click', addManualHomeworkForStudent);
         document.getElementById('withdrawStudentBtn').addEventListener('click', withdrawSelectedStudent);
+        document.getElementById('detailLeaveBtn').addEventListener('click', function() {
+            if (selectedStudent) openStudentLeaveModal(selectedStudent.id, selectedStudent.name);
+        });
+        document.getElementById('saveStudentLeaveBtn').addEventListener('click', saveStudentLeaveFromModal);
         document.getElementById('detailMakeupBtn').addEventListener('click', function() {
             if (selectedStudent) openMakeupModal(selectedStudent.id, selectedStudent.name);
         });
-        document.getElementById('openMakeupPickerBtn').addEventListener('click', openMakeupPickerModal);
+        document.getElementById('detailPlannedBtn').addEventListener('click', function() {
+            if (selectedStudent) openPlannedAttendanceModal();
+        });
+        document.getElementById('plannedCalPrevBtn').addEventListener('click', function() { shiftPlannedCalMonth(-1); });
+        document.getElementById('plannedCalNextBtn').addEventListener('click', function() { shiftPlannedCalMonth(1); });
+        document.getElementById('openMakeupPickerBtn').addEventListener('click', function() { openMakeupPickerModal(false); });
+        document.getElementById('openMakeupScheduleBtn').addEventListener('click', function() { openMakeupPickerModal(true); });
         document.getElementById('saveMakeupBtn').addEventListener('click', saveMakeupLessonFromModal);
+        document.getElementById('makeupDateInput').addEventListener('change', updateMakeupModalLabels);
         document.getElementById('makeupStartTime').addEventListener('change', updateMakeupDurationPreview);
         document.getElementById('makeupEndTime').addEventListener('change', updateMakeupDurationPreview);
         document.querySelectorAll('input[name="statsPeriod"]').forEach(function(el) {
@@ -3283,6 +4389,8 @@
         document.getElementById('sidebarToggleBtn').addEventListener('click', toggleSidebarsCollapsed);
         document.getElementById('sidebarResetBtn').addEventListener('click', resetSidebarLayout);
         initSidebarSystem();
+        applyVocabTimerDeviceLayout();
+        document.getElementById('youtubeTimerBtn').addEventListener('click', openYoutubeTimer);
         document.getElementById('timerCustomBtn').addEventListener('click', openCustomTimer);
         document.getElementById('customTimerMin').addEventListener('keydown', function(e) {
             if (e.key === 'Enter') openCustomTimer();
@@ -3291,6 +4399,13 @@
         document.getElementById('openRouletteBtn').addEventListener('click', openRouletteWindow);
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
+        document.getElementById('toolOverlayCloseBtn').addEventListener('click', closeToolOverlay);
+        document.getElementById('toolPopupBackdrop').addEventListener('click', closeToolOverlay);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.getElementById('toolOverlay').classList.contains('show')) {
+                closeToolOverlay();
+            }
+        });
 
         document.getElementById('addTextbookBtn').addEventListener('click', openAddTextbookModal);
         document.getElementById('saveTextbookModalBtn').addEventListener('click', saveTextbookFromModal);
@@ -3338,11 +4453,31 @@
         document.getElementById('loadingRow').style.display = show ? 'flex' : 'none';
     }
 
+    function elevateAppDialogModal(modalEl) {
+        if (!modalEl) return;
+        let maxZ = 1050;
+        document.querySelectorAll('.modal.show').forEach(function(m) {
+            if (m === modalEl) return;
+            const z = parseInt(window.getComputedStyle(m).zIndex, 10);
+            if (!isNaN(z) && z > maxZ) maxZ = z;
+        });
+        const z = Math.max(maxZ + 20, 200010);
+        modalEl.style.zIndex = String(z);
+        modalEl.addEventListener('shown.bs.modal', function onShown() {
+            modalEl.removeEventListener('shown.bs.modal', onShown);
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length) {
+                backdrops[backdrops.length - 1].style.zIndex = String(z - 5);
+            }
+        });
+    }
+
     function appAlert(message, kind) {
         kind = kind || 'info';
         const header = document.getElementById('appAlertHeader');
         const titleEl = document.getElementById('appAlertTitle');
         const msgEl = document.getElementById('appAlertMessage');
+        const modalEl = document.getElementById('appAlertModal');
         const meta = {
             info: { cls: 'app-alert-header--info', icon: 'fa-circle-info', label: 'Notice' },
             error: { cls: 'app-alert-header--error', icon: 'fa-circle-exclamation', label: 'Error' },
@@ -3353,7 +4488,8 @@
         header.className = 'modal-header ' + m.cls;
         titleEl.innerHTML = '<i class="fa-solid ' + m.icon + '"></i> ' + m.label;
         msgEl.textContent = String(message == null ? '' : message);
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('appAlertModal')).show();
+        elevateAppDialogModal(modalEl);
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
     function appToast(message, durationMs) {
@@ -3378,11 +4514,14 @@
         const msgEl = document.getElementById('appConfirmMessage');
         const titleEl = document.getElementById('appConfirmTitle');
         const okBtn = document.getElementById('appConfirmOkBtn');
+        const cancelBtn = document.getElementById('appConfirmCancelBtn');
         const modalEl = document.getElementById('appConfirmModal');
         msgEl.textContent = String(message == null ? '' : message);
         titleEl.innerHTML = '<i class="fa-solid fa-circle-question"></i> ' + (options.title || 'Confirm');
         okBtn.textContent = options.okLabel || 'OK';
+        if (cancelBtn) cancelBtn.textContent = options.cancelLabel || 'Cancel';
         okBtn.className = 'btn rounded-pill px-4 ' + (options.danger ? 'btn-danger' : 'btn-primary');
+        elevateAppDialogModal(modalEl);
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         const newOkBtn = okBtn.cloneNode(true);
         okBtn.parentNode.replaceChild(newOkBtn, okBtn);
@@ -3428,7 +4567,6 @@
         // 날짜 선택 섹션 열기
         document.getElementById('dateSection').classList.remove('hidden-section');
         document.getElementById('selectedClassBadge').innerText = cls.name;
-        document.getElementById('detailClassBadge').innerText = cls.name;
         
         // 리포트 화면이 열려 있었다면 닫기
         document.getElementById('reportSection').classList.add('hidden-section');
@@ -3438,8 +4576,10 @@
         applySidebarResponsiveMode();
         if (shouldUseCompactSidebars()) {
             sidebarsCollapsed = true;
-            hideSidePanels();
             updateSidebarToggleLabel();
+            reconcileSidebarLayoutForDevice();
+            prepareSidebarChipLayout();
+            hideSidePanels();
         } else {
             showSidePanels();
         }
@@ -3476,17 +4616,93 @@
         return window.innerWidth < 1280;
     }
 
+    function shouldUseCompactSidebars() {
+        if (isTabletLikeDevice()) return true;
+        return isSidebarCompactViewport() || sidebarWouldOverlapMain();
+    }
+
+    function reconcileSidebarLayoutForDevice() {
+        if (!sidebarLayout) return;
+        if (!isTabletLikeDevice()) return;
+        const stale = sidebarLayout.version !== 3 || !sidebarLayout.tabletChip;
+        if (!stale) return;
+        sidebarLayout = { version: 3, tabletChip: true, panels: {} };
+        mergeSidebarDefaults(false);
+        saveSidebarLayout();
+    }
+
+    function ensureSidebarChipStructure() {
+        document.querySelectorAll('.sidebar-panel').forEach(function(panel) {
+            const id = panel.getAttribute('data-sidebar-id');
+            if (!id) return;
+            let chip = panel.querySelector(':scope > .sidebar-mini-chip');
+            let wrap = panel.querySelector(':scope > .sidebar-panel-full');
+            if (!wrap) {
+                wrap = document.createElement('div');
+                wrap.className = 'sidebar-panel-full';
+                const toMove = [];
+                Array.prototype.forEach.call(panel.children, function(child) {
+                    if (child !== chip) toMove.push(child);
+                });
+                toMove.forEach(function(child) { wrap.appendChild(child); });
+                if (chip) panel.insertBefore(wrap, chip);
+                else panel.appendChild(wrap);
+            }
+            if (!chip) {
+                const meta = SIDEBAR_META[id];
+                chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'sidebar-mini-chip';
+                chip.setAttribute('data-sidebar-id', id);
+                chip.title = meta.label + ' — tap to expand, drag to move';
+                const iconCls = meta.iconBrand ? 'fa-brands ' + meta.icon : 'fa-solid ' + meta.icon;
+                chip.innerHTML = '<i class="' + iconCls + '" aria-hidden="true"></i>';
+                panel.appendChild(chip);
+                attachSidebarDrag(chip, panel, id, function() { showSidebarPanelUser(id); });
+            }
+        });
+    }
+
+    function prepareSidebarChipLayout() {
+        if (!sidebarLayout) loadSidebarLayout();
+        getVisibleSidebarIds().forEach(function(id) {
+            if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
+            sidebarLayout.panels[id].userHidden = true;
+        });
+        compactSidebarLayout();
+        saveSidebarLayout();
+    }
+
+    function revealSidebarPanelsDom() {
+        getVisibleSidebarIds().forEach(function(id) {
+            const el = getSidebarEl(id);
+            if (!el) return;
+            el.classList.remove('hidden-section');
+            applySidebarPanelState(id);
+        });
+    }
+
+    function forceAllSidebarChips() {
+        prepareSidebarChipLayout();
+        revealSidebarPanelsDom();
+    }
+
+    function ensureSidebarsVisibleForInteraction() {
+        if (!selectedClass || !sidebarsCollapsed) return;
+        sidebarsCollapsed = false;
+        updateSidebarToggleLabel();
+        prepareSidebarChipLayout();
+        revealSidebarPanelsDom();
+        updateSidebarCompactBackdrop();
+    }
+
     function sidebarWouldOverlapMain() {
         const main = getMainContentBounds();
-        if (!main) return isSidebarCompactViewport();
+        if (!main) return true;
         const w = window.innerWidth;
         const panelW = w <= 991 ? Math.min(240, Math.round(w * 0.46)) : 260;
         const margin = 12;
         return main.left < panelW + margin || (w - main.right) < panelW + margin;
-    }
-
-    function shouldUseCompactSidebars() {
-        return isSidebarCompactViewport() || sidebarWouldOverlapMain();
     }
 
     function updateSidebarCompactBackdrop() {
@@ -3497,7 +4713,7 @@
             return;
         }
         let expanded = false;
-        SIDEBAR_IDS.forEach(function(id) {
+        getVisibleSidebarIds().forEach(function(id) {
             const p = sidebarLayout && sidebarLayout.panels[id];
             if (p && !p.userHidden) expanded = true;
         });
@@ -3511,14 +4727,14 @@
         const startTop = 58;
         let leftY = startTop;
         let rightY = startTop;
-        SIDEBAR_STACK_LEFT.forEach(function(id) {
+        getSidebarStackLeft().forEach(function(id) {
             if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
             sidebarLayout.panels[id].left = 6;
             sidebarLayout.panels[id].top = leftY;
             sidebarLayout.panels[id].userHidden = true;
             leftY += chipW + gap;
         });
-        SIDEBAR_STACK_RIGHT.forEach(function(id) {
+        getSidebarStackRight().forEach(function(id) {
             if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
             sidebarLayout.panels[id].left = Math.max(6, w - chipW - 6);
             sidebarLayout.panels[id].top = rightY;
@@ -3526,18 +4742,34 @@
             rightY += chipW + gap;
         });
         applySidebarPositions();
-        SIDEBAR_IDS.forEach(function(id) { applySidebarPanelState(id); });
+        getVisibleSidebarIds().forEach(function(id) { applySidebarPanelState(id); });
         updateSidebarCompactBackdrop();
     }
 
-    function positionExpandedSidebarCompact(id) {
+    function isSidebarStackRight(id) {
+        return getSidebarStackRight().indexOf(id) >= 0;
+    }
+
+    function getCompactExpandedPanelWidth() {
+        return Math.min(300, window.innerWidth - 24);
+    }
+
+    /** Expand beside the chip (left/right edge) instead of centering on screen. */
+    function positionExpandedSidebarInPlace(id) {
         const el = getSidebarEl(id);
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const panelW = Math.min(300, w - 24);
+        const panelW = getCompactExpandedPanelWidth();
+        const p = sidebarLayout.panels[id];
+        if (!p) return;
+        const chipTop = typeof p.top === 'number' ? p.top : 58;
+        if (isSidebarStackRight(id)) {
+            p.left = Math.max(6, w - panelW - 6);
+        } else {
+            p.left = 6;
+        }
         const panelH = el ? Math.min(el.offsetHeight || 320, Math.round(h * 0.78)) : 320;
-        sidebarLayout.panels[id].left = Math.round((w - panelW) / 2);
-        sidebarLayout.panels[id].top = Math.round(Math.max(56, (h - panelH) / 2));
+        p.top = Math.min(Math.max(56, chipTop), Math.max(56, h - panelH - 8));
         applySidebarPositions();
     }
 
@@ -3556,7 +4788,7 @@
     const SIDEBAR_STACK_RIGHT = ['announcement', 'classRules', 'youtube'];
     const SIDEBAR_HEIGHT_FALLBACK = {
         upcomingEvent: 190,
-        classTools: 310,
+        classTools: 380,
         booksReturn: 210,
         googleSearch: 120,
         announcement: 190,
@@ -3622,16 +4854,22 @@
         const cols = computeSidebarColumnX();
         return Object.assign(
             {},
-            stackSidebarPanels(SIDEBAR_STACK_LEFT, cols.leftX, startTop, gap, h),
-            stackSidebarPanels(SIDEBAR_STACK_RIGHT, cols.rightX, startTop, gap, h)
+            stackSidebarPanels(getSidebarStackLeft(), cols.leftX, startTop, gap, h),
+            stackSidebarPanels(getSidebarStackRight(), cols.rightX, startTop, gap, h)
         );
     }
 
     function resetSidebarLayout() {
         if (!sidebarLayout) loadSidebarLayout();
         if (shouldUseCompactSidebars()) {
-            compactSidebarLayout();
-            saveSidebarLayout();
+            sidebarLayout = { version: 3, tabletChip: true, panels: {} };
+            mergeSidebarDefaults(false);
+            if (selectedClass && !sidebarsCollapsed) {
+                forceAllSidebarChips();
+            } else {
+                prepareSidebarChipLayout();
+                hideSidePanels();
+            }
             return;
         }
         const defaults = computeDefaultSidebarPositions();
@@ -3665,15 +4903,18 @@
         if (!sidebarLayout) return;
         const defaults = computeDefaultSidebarPositions();
         let changed = false;
-        SIDEBAR_IDS.forEach(function(id) {
+        getVisibleSidebarIds().forEach(function(id) {
             const p = sidebarLayout.panels[id];
             const el = getSidebarEl(id);
             if (!p || !el) return;
             const panelW = el.offsetWidth || 260;
             const panelH = el.offsetHeight || 80;
-            const offScreen = p.left < -panelW + 24 || p.left > window.innerWidth - 24 ||
-                p.top < -panelH + 24 || p.top > window.innerHeight - 24;
-            if (offScreen) {
+            const minVisible = 48;
+            const offScreen = p.left < -panelW + minVisible ||
+                p.left > window.innerWidth - minVisible ||
+                p.top < -panelH + minVisible ||
+                p.top > window.innerHeight - minVisible;
+            if (offScreen && defaults[id]) {
                 p.left = defaults[id].left;
                 p.top = defaults[id].top;
                 changed = true;
@@ -3695,22 +4936,26 @@
             const raw = localStorage.getItem(SIDEBAR_LAYOUT_KEY);
             if (raw) {
                 sidebarLayout = JSON.parse(raw);
-                if (sidebarLayout && sidebarLayout.panels) return;
+                if (sidebarLayout && sidebarLayout.panels) {
+                    reconcileSidebarLayoutForDevice();
+                    return;
+                }
             }
         } catch (e) { /* ignore */ }
-        sidebarLayout = { version: 2, panels: {} };
+        sidebarLayout = { version: 3, tabletChip: isTabletLikeDevice(), panels: {} };
         mergeSidebarDefaults(false);
     }
 
     function mergeSidebarDefaults(save) {
         const defaults = computeDefaultSidebarPositions();
+        const defaultChip = isTabletLikeDevice();
         SIDEBAR_IDS.forEach(function(id) {
             if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
             const p = sidebarLayout.panels[id];
             const d = defaults[id];
-            if (typeof p.top !== 'number') p.top = d.top;
-            if (typeof p.left !== 'number') p.left = d.left;
-            if (typeof p.userHidden !== 'boolean') p.userHidden = false;
+            if (d && typeof p.top !== 'number') p.top = d.top;
+            if (d && typeof p.left !== 'number') p.left = d.left;
+            if (typeof p.userHidden !== 'boolean') p.userHidden = defaultChip;
         });
         if (save) saveSidebarLayout();
     }
@@ -3756,24 +5001,24 @@
     }
 
     function showSidebarPanelUser(id) {
-        if (!sidebarLayout.panels[id]) return;
+        if (!selectedClass) return;
+        if (!isSidebarIdVisibleOnDevice(id) || !sidebarLayout.panels[id]) return;
         if (shouldUseCompactSidebars()) {
-            SIDEBAR_IDS.forEach(function(other) {
+            ensureSidebarsVisibleForInteraction();
+            getVisibleSidebarIds().forEach(function(other) {
                 if (other === id || !sidebarLayout.panels[other]) return;
                 sidebarLayout.panels[other].userHidden = true;
                 applySidebarPanelState(other);
             });
             sidebarLayout.panels[id].userHidden = false;
             saveSidebarLayout();
-            if (selectedClass && !sidebarsCollapsed) {
-                const el = getSidebarEl(id);
-                if (el) {
-                    el.classList.remove('hidden-section');
-                    applySidebarPanelState(id);
-                }
+            const el = getSidebarEl(id);
+            if (el) {
+                el.classList.remove('hidden-section');
+                applySidebarPanelState(id);
             }
             requestAnimationFrame(function() {
-                positionExpandedSidebarCompact(id);
+                positionExpandedSidebarInPlace(id);
                 saveSidebarLayout();
                 updateSidebarCompactBackdrop();
             });
@@ -3781,30 +5026,32 @@
         }
         sidebarLayout.panels[id].userHidden = false;
         saveSidebarLayout();
-        if (selectedClass && !sidebarsCollapsed) {
-            const el = getSidebarEl(id);
-            if (el) {
-                el.classList.remove('hidden-section');
-                applySidebarPanelState(id);
-            }
+        const elDesktop = getSidebarEl(id);
+        if (elDesktop) {
+            elDesktop.classList.remove('hidden-section');
+            applySidebarPanelState(id);
         }
         updateSidebarCompactBackdrop();
     }
 
     function showSidePanels() {
         if (!selectedClass || sidebarsCollapsed) return;
+        if (!sidebarLayout) loadSidebarLayout();
+        applySidebarResponsiveMode();
+        ensureSidebarChipStructure();
         if (shouldUseCompactSidebars()) {
-            compactSidebarLayout();
-            saveSidebarLayout();
+            forceAllSidebarChips();
+        } else {
+            clampSidebarPositions();
+            getVisibleSidebarIds().forEach(function(id) {
+                const el = getSidebarEl(id);
+                if (!el) return;
+                el.classList.remove('hidden-section');
+                applySidebarPanelState(id);
+            });
+            applySidebarPositions();
         }
-        SIDEBAR_IDS.forEach(function(id) {
-            const el = getSidebarEl(id);
-            if (!el) return;
-            el.classList.remove('hidden-section');
-            applySidebarPanelState(id);
-        });
-        clampSidebarPositions();
-        applySidebarPositions();
+        updateSidebarCompactBackdrop();
     }
 
     function hideSidePanels() {
@@ -3840,6 +5087,7 @@
         if (sidebarsCollapsed) {
             hideSidePanels();
         } else if (selectedClass) {
+            applySidebarResponsiveMode();
             showSidePanels();
         }
         updateSidebarToggleLabel();
@@ -3847,21 +5095,28 @@
     }
 
     function attachSidebarDrag(dragEl, panel, id, onTap) {
+        let dragMoved = false;
+
         function startDrag(clientX, clientY) {
             const layout = sidebarLayout.panels[id];
             if (!layout) return null;
+            dragMoved = false;
             const startX = clientX;
             const startY = clientY;
             const startLeft = layout.left;
             const startTop = layout.top;
             let moved = false;
             panel.classList.add('is-dragging');
-            if (dragEl.classList.contains('sidebar-mini-chip')) {
+            dragEl.classList.add('is-dragging');
+            if (dragEl.classList.contains('sidebar-panel-head')) {
                 dragEl.classList.add('is-dragging');
             }
 
             function onMove(cx, cy) {
-                if (Math.abs(cx - startX) > 4 || Math.abs(cy - startY) > 4) moved = true;
+                if (Math.abs(cx - startX) > 4 || Math.abs(cy - startY) > 4) {
+                    moved = true;
+                    dragMoved = true;
+                }
                 const panelW = panel.offsetWidth || 44;
                 const panelH = panel.offsetHeight || 44;
                 layout.left = Math.round(Math.max(4, Math.min(window.innerWidth - panelW - 4, startLeft + (cx - startX))));
@@ -3873,6 +5128,9 @@
             function endDrag() {
                 panel.classList.remove('is-dragging');
                 dragEl.classList.remove('is-dragging');
+                if (dragEl.classList.contains('sidebar-panel-head')) {
+                    dragEl.classList.remove('is-dragging');
+                }
                 saveSidebarLayout();
                 if (!moved && typeof onTap === 'function') onTap();
             }
@@ -3912,31 +5170,28 @@
                 drag.endDrag();
                 document.removeEventListener('touchmove', onTouchMove);
                 document.removeEventListener('touchend', onTouchEnd);
+                document.removeEventListener('touchcancel', onTouchEnd);
             }
             document.addEventListener('touchmove', onTouchMove, { passive: false });
             document.addEventListener('touchend', onTouchEnd);
+            document.addEventListener('touchcancel', onTouchEnd);
         }, { passive: true });
+
+        if (dragEl.classList.contains('sidebar-mini-chip') && typeof onTap === 'function') {
+            dragEl.addEventListener('click', function(e) {
+                if (dragMoved) {
+                    dragMoved = false;
+                    return;
+                }
+                e.preventDefault();
+                e.stopPropagation();
+                onTap();
+            });
+        }
     }
 
     function initSidebarMiniChips() {
-        document.querySelectorAll('.sidebar-panel').forEach(function(panel) {
-            const id = panel.getAttribute('data-sidebar-id');
-            if (!id || panel.querySelector('.sidebar-panel-full')) return;
-            const wrap = document.createElement('div');
-            wrap.className = 'sidebar-panel-full';
-            while (panel.firstChild) wrap.appendChild(panel.firstChild);
-            panel.appendChild(wrap);
-            const meta = SIDEBAR_META[id];
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = 'sidebar-mini-chip';
-            chip.setAttribute('data-sidebar-id', id);
-            chip.title = meta.label + ' — click to expand, drag to move';
-            const iconCls = meta.iconBrand ? 'fa-brands ' + meta.icon : 'fa-solid ' + meta.icon;
-            chip.innerHTML = '<i class="' + iconCls + '" aria-hidden="true"></i>';
-            panel.appendChild(chip);
-            attachSidebarDrag(chip, panel, id, function() { showSidebarPanelUser(id); });
-        });
+        ensureSidebarChipStructure();
     }
 
     function initSidebarDrag() {
@@ -3960,10 +5215,13 @@
 
     function initSidebarSystem() {
         loadSidebarLayout();
+        reconcileSidebarLayoutForDevice();
         initSidebarMiniChips();
+        applyVocabTimerDeviceLayout();
         applySidebarResponsiveMode();
         applySidebarPositions();
-        SIDEBAR_IDS.forEach(function(id) { applySidebarPanelState(id); });
+        getVisibleSidebarIds().forEach(function(id) { applySidebarPanelState(id); });
+        if (!selectedClass || sidebarsCollapsed) hideSidePanels();
         initSidebarDrag();
         initSidebarHideButtons();
         const backdrop = document.getElementById('sidebarCompactBackdrop');
@@ -3973,24 +5231,32 @@
                 compactSidebarLayout();
                 saveSidebarLayout();
             });
+            backdrop.addEventListener('touchend', function(e) {
+                if (!shouldUseCompactSidebars() || sidebarsCollapsed) return;
+                if (e.target !== backdrop) return;
+                e.preventDefault();
+                compactSidebarLayout();
+                saveSidebarLayout();
+            });
         }
         window.addEventListener('resize', function() {
             if (!sidebarLayout) return;
+            applyVocabTimerDeviceLayout();
             applySidebarResponsiveMode();
             if (shouldUseCompactSidebars() && selectedClass && !sidebarsCollapsed) {
-                const anyExpanded = SIDEBAR_IDS.some(function(id) {
+                const anyExpanded = getVisibleSidebarIds().some(function(id) {
                     return sidebarLayout.panels[id] && !sidebarLayout.panels[id].userHidden;
                 });
                 if (anyExpanded) {
-                    SIDEBAR_IDS.forEach(function(id) {
+                    getVisibleSidebarIds().forEach(function(id) {
                         const p = sidebarLayout.panels[id];
-                        if (p && !p.userHidden) positionExpandedSidebarCompact(id);
+                        if (p && !p.userHidden) positionExpandedSidebarInPlace(id);
                     });
                 } else {
                     compactSidebarLayout();
                 }
                 saveSidebarLayout();
-            } else {
+            } else if (!shouldUseCompactSidebars()) {
                 mergeSidebarDefaults(false);
                 clampSidebarPositions();
                 applySidebarPositions();
@@ -4066,10 +5332,11 @@
     }
 
     function renderClassVideo(data) {
+        currentClassVideoUrl = (data && data.videoUrl) || youtubeWatchUrlFromVideoData(data) || '';
+        if (!isVocabTimerSidebarSupported()) return;
         const embed = document.getElementById('classYoutubeEmbed');
         if (!embed || !data || !data.embedUrl) return;
         if (embed.src !== data.embedUrl) embed.src = data.embedUrl;
-        currentClassVideoUrl = data.videoUrl || '';
     }
 
     function loadClassVideo() {
@@ -4113,9 +5380,11 @@
         if (!apiPost('/api/video', { classId: selectedClass.id, videoUrl: url }, function(res) {
                 currentClassVideoUrl = res.videoUrl || '';
                 renderClassVideo(res);
+                invalidateClientSidebarCache();
                 if (clientSessionCache.sidebar) {
                     clientSessionCache.sidebar.video = res;
                 }
+                appToast(res.message || 'Video saved for all classes.');
                 bootstrap.Modal.getInstance(document.getElementById('classVideoModal')).hide();
             })) {
             google.script.run
@@ -4123,9 +5392,11 @@
                     showLoading(false);
                     currentClassVideoUrl = res.videoUrl || '';
                     renderClassVideo(res);
+                    invalidateClientSidebarCache();
                     if (clientSessionCache.sidebar) {
                         clientSessionCache.sidebar.video = res;
                     }
+                    appToast(res.message || 'Video saved for all classes.');
                     bootstrap.Modal.getInstance(document.getElementById('classVideoModal')).hide();
                 })
                 .withFailureHandler(handleError)
@@ -4160,8 +5431,10 @@
             return;
         }
         list.innerHTML = data.events.map(function(ev) {
+            const tag = ev.type === 'makeup'
+                ? ' <span class="upcoming-makeup-tag">[Makeup]</span>' : '';
             return '<li><strong>' + escapeHtml(formatEventDateLabel(ev.eventDate)) + '</strong> — ' +
-                escapeHtml(ev.description) + '</li>';
+                escapeHtml(ev.description) + tag + '</li>';
         }).join('');
     }
 
@@ -4268,17 +5541,50 @@
             return;
         }
         box.innerHTML = data.events.map(function(ev) {
+            const tag = ev.type === 'makeup'
+                ? ' <span class="upcoming-makeup-tag">[Makeup]</span>' : '';
+            const delAttr = ev.type === 'makeup'
+                ? ' data-event-type="makeup" data-makeup-id="' + escapeHtml(ev.makeupId || ev.eventId) + '"'
+                : ' data-event-type="event" data-event-id="' + escapeHtml(ev.eventId) + '"';
             return '<div class="event-edit-row">' +
                 '<span><strong>' + escapeHtml(formatEventDateLabel(ev.eventDate)) + '</strong> — ' +
-                escapeHtml(ev.description) + '</span>' +
-                '<button type="button" class="btn btn-sm btn-outline-danger event-delete-btn" data-event-id="' +
-                escapeHtml(ev.eventId) + '"><i class="fa-solid fa-trash"></i></button></div>';
+                escapeHtml(ev.description) + tag + '</span>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger event-delete-btn"' + delAttr +
+                '><i class="fa-solid fa-trash"></i></button></div>';
         }).join('');
         box.querySelectorAll('.event-delete-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                deleteClassEvent(btn.getAttribute('data-event-id'));
+                if (btn.getAttribute('data-event-type') === 'makeup') {
+                    deleteScheduledMakeupFromEvents(btn.getAttribute('data-makeup-id'));
+                } else {
+                    deleteClassEvent(btn.getAttribute('data-event-id'));
+                }
             });
         });
+    }
+
+    function deleteScheduledMakeupFromEvents(makeupId) {
+        if (!makeupId) return;
+        appConfirm('Cancel this scheduled makeup?', function() {
+            showLoading(true);
+            const onDone = function() {
+                showLoading(false);
+                refreshEventsEditList();
+                reloadSidebarData(true);
+                loadUpcomingEvents();
+            };
+            if (nodeApiEnabled()) {
+                nodeFetch('/api/makeup/' + encodeURIComponent(makeupId) + '/status', {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: 'Cancelled' })
+                }).then(onDone).catch(handleError);
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(onDone)
+                .withFailureHandler(handleError)
+                .setMakeupLessonStatus(makeupId, 'Cancelled');
+        }, { danger: true, okLabel: 'Yes, cancel' });
     }
 
     function saveNewClassEvent() {
@@ -4481,10 +5787,15 @@
         let eventsHtml = '<div class="cal-detail-empty">No events</div>';
         if (day.events && day.events.length) {
             eventsHtml = day.events.map(function(ev) {
+                const delType = ev.type === 'makeup' ? 'makeup' : 'event';
+                const delId = ev.type === 'makeup' ? (ev.makeupId || ev.eventId) : ev.eventId;
                 return '<div class="cal-detail-item">' +
-                    '<span>' + escapeHtml(ev.description) + '</span>' +
-                    '<button type="button" class="btn btn-sm btn-outline-danger cal-event-del" data-event-id="' +
-                    escapeHtml(ev.eventId) + '" title="Remove event"><i class="fa-solid fa-trash"></i></button>' +
+                    '<span>' + escapeHtml(ev.description) +
+                    (ev.type === 'makeup' ? ' <span class="upcoming-makeup-tag">[Makeup]</span>' : '') +
+                    '</span>' +
+                    '<button type="button" class="btn btn-sm btn-outline-danger cal-event-del" data-event-type="' +
+                    escapeHtml(delType) + '" data-event-id="' + escapeHtml(delId) +
+                    '" title="Remove"><i class="fa-solid fa-trash"></i></button>' +
                     '</div>';
             }).join('');
         }
@@ -4512,7 +5823,11 @@
 
         box.querySelectorAll('.cal-event-del').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                deleteClassEventFromCalendar(btn.getAttribute('data-event-id'));
+                if (btn.getAttribute('data-event-type') === 'makeup') {
+                    deleteScheduledMakeupFromEvents(btn.getAttribute('data-event-id'));
+                } else {
+                    deleteClassEventFromCalendar(btn.getAttribute('data-event-id'));
+                }
             });
         });
         document.getElementById('calSaveEventBtn').addEventListener('click', function() {
@@ -5124,6 +6439,22 @@
         }
     }
 
+    function formatHomeworkItemTitleForDisplay(item) {
+        if (item.displayTitle) return item.displayTitle;
+        const students = getHomeworkEditorStudents();
+        const nameById = {};
+        students.forEach(function(s) { nameById[String(s.id)] = s.name; });
+        let title = String(item.title || '').trim();
+        const ids = item.studentIds || item.targetStudentIds || [];
+        if ((item.targetType === 'individual' || ids.length) && ids.length) {
+            const names = ids.map(function(sid) {
+                return homeworkStudentFirstName(nameById[String(sid)] || '');
+            }).filter(Boolean);
+            if (names.length) title = names.join(', ') + ': ' + title;
+        }
+        return title;
+    }
+
     function renderLastHomeworkDisplay(last) {
         const box = document.getElementById('hwLastDisplay');
         if (!last) {
@@ -5137,7 +6468,8 @@
         if (last.items && last.items.length) {
             desc = '<div class="hw-display-body"><ol class="mb-0 ps-3">' +
                 last.items.map(function(it) {
-                    return '<li><strong>' + escapeHtml(it.title) + '</strong>' +
+                    const lineTitle = formatHomeworkItemTitleForDisplay(it);
+                    return '<li><strong>' + escapeHtml(lineTitle) + '</strong>' +
                         (it.description ? '<div class="text-muted small">' + escapeHtml(it.description) + '</div>' : '') +
                         '</li>';
                 }).join('') + '</ol></div>';
@@ -5536,7 +6868,7 @@
         const list = document.getElementById('textbookQueueList');
         if (!list) return;
         if (!queue || queue.length === 0) {
-            list.innerHTML = '<p class="text-muted small mb-0">No books queued. Add the next textbook here — it will start when you mark the current one complete.</p>';
+            list.innerHTML = '<p class="text-muted small mb-0">No books queued. Add the next textbook here — when you mark one complete, the next book of the <strong>same type</strong> starts automatically.</p>';
             return;
         }
         list.innerHTML = '';
@@ -5688,6 +7020,8 @@
         document.getElementById('saveTextbookModalBtn').textContent = 'Add';
         setTextbookCompleteBtnVisible(false);
         document.getElementById('tbEditIdInput').value = '';
+        document.getElementById('tbEditIdInput').removeAttribute('data-tb-name');
+        document.getElementById('tbEditIdInput').removeAttribute('data-tb-type');
         document.getElementById('tbNameInput').value = '';
         document.getElementById('tbTypeInput').value = 'Vocab';
         document.getElementById('tbUnitChapter').checked = true;
@@ -5706,6 +7040,7 @@
         setTextbookCompleteBtnVisible(true);
         document.getElementById('tbEditIdInput').value = tb.id;
         document.getElementById('tbEditIdInput').setAttribute('data-tb-name', tb.name);
+        document.getElementById('tbEditIdInput').setAttribute('data-tb-type', tb.type || '');
         document.getElementById('tbNameInput').value = tb.name;
         document.getElementById('tbTypeInput').value = tb.type;
         if (tb.unitType === 'page') {
@@ -5813,19 +7148,31 @@
         }, { danger: true, okLabel: 'Remove' });
     }
 
+    function findNextQueueItemForType(queue, type) {
+        const want = String(type || '').trim();
+        if (!want || !queue || !queue.length) return null;
+        for (let i = 0; i < queue.length; i++) {
+            if (String(queue[i].type || '').trim() === want) return queue[i];
+        }
+        return null;
+    }
+
     function completeTextbookFromModal() {
         if (!selectedClass) return;
         const editId = document.getElementById('tbEditIdInput').value.trim();
         if (!editId) return;
         const name = document.getElementById('tbEditIdInput').getAttribute('data-tb-name') || 'this textbook';
+        const completedType = document.getElementById('tbEditIdInput').getAttribute('data-tb-type') || '';
         let confirmMsg = 'Mark "' + name + '" as complete?\n\nIt will be removed from the progress list.';
-        if (lastTextbookQueue.length > 0) {
-            const nextQ = lastTextbookQueue[0];
+        const nextQ = findNextQueueItemForType(lastTextbookQueue, completedType);
+        if (nextQ) {
             if (nextQ.isReady) {
-                confirmMsg += '\n\nNext up: "' + nextQ.name + '" will start automatically.';
+                confirmMsg += '\n\nNext ' + completedType + ' in queue: "' + nextQ.name + '" will start automatically (Start date: today).';
             } else {
-                confirmMsg += '\n\nNext up: "' + nextQ.name + '" is queued but still needs details — it won\'t auto-start until you edit it.';
+                confirmMsg += '\n\nNext ' + completedType + ' in queue: "' + nextQ.name + '" still needs details — it won\'t auto-start until you edit it.';
             }
+        } else if (completedType) {
+            confirmMsg += '\n\nNo ' + completedType + ' book is queued in Up Next — nothing will auto-start.';
         } else {
             confirmMsg += '\n\nAll records stay in the spreadsheet.';
         }
@@ -5963,6 +7310,12 @@
         }
     }
 
+    function vocabInputDisplayValue(score) {
+        const n = Number(score);
+        if (!Number.isFinite(n) || n === 0) return '';
+        return String(n);
+    }
+
     function renderStudents(students) {
         const tbody = document.getElementById('studentTableBody');
         tbody.innerHTML = '';
@@ -5978,10 +7331,23 @@
         students.forEach((std, index) => {
             const tr = document.createElement('tr');
             tr.setAttribute('data-student-id', std.id);
+            if (std.onLeave) {
+                tr.classList.add('student-row-on-leave');
+                tr.setAttribute('data-on-leave', '1');
+            }
             
             const pendingBadge = (std.pendingHomework > 0)
                 ? `<span class="badge bg-warning text-dark pending-hw-badge" title="Pending homework items">${std.pendingHomework} pending</span>`
                 : '';
+            const leaveBadge = (!std.onLeave && std.leaveInfo)
+                ? `<span class="badge bg-secondary leave-upcoming-badge" title="Scheduled leave">휴원 ${escapeHtml(std.leaveInfo.startDate)}–${escapeHtml(std.leaveInfo.endDate)}</span>`
+                : '';
+            const plannedBadge = (std.plannedNotice && !std.onLeave)
+                ? `<span class="badge ${std.plannedNotice.type === '지각' ? 'bg-warning text-dark' : 'bg-danger'} planned-notice-badge" title="Advance notice">` +
+                    (std.plannedNotice.type === '지각' ? 'Tardy' : 'Absent') + ' planned</span>'
+                : '';
+
+            const secondaryMeta = leaveBadge || plannedBadge;
 
             const chambitReadClass = std.chambitRead ? ' chambit-read-active' : '';
             const chambitCombo = Number(std.chambitCombo) || 0;
@@ -5989,21 +7355,42 @@
             const weekReq = Number(std.chambitWeekRequired) || 0;
             const weekCompleteClass = weekReq > 0 && weekRead >= weekReq ? ' complete' : '';
 
+            let attendanceCell = '';
+            if (std.onLeave && std.leaveInfo) {
+                const reasonLine = std.leaveInfo.reason
+                    ? '<small>' + escapeHtml(std.leaveInfo.reason) + '</small>'
+                    : '';
+                attendanceCell =
+                    '<span class="leave-attendance-notice">휴원 ' +
+                    escapeHtml(std.leaveInfo.startDate) + ' – ' + escapeHtml(std.leaveInfo.endDate) +
+                    reasonLine + '</span>';
+            } else {
+                attendanceCell =
+                    '<div class="btn-group status-toggle" role="group">' +
+                    '<input type="radio" class="btn-check" name="status_' + std.id + '" id="attend_' + std.id + '" value="출석" ' + (std.attendance === '출석' ? 'checked' : '') + '>' +
+                    '<label class="btn btn-outline-success btn-sm" for="attend_' + std.id + '">Present</label>' +
+                    '<input type="radio" class="btn-check" name="status_' + std.id + '" id="tardy_' + std.id + '" value="지각" ' + (std.attendance === '지각' ? 'checked' : '') + '>' +
+                    '<label class="btn btn-outline-warning btn-sm" for="tardy_' + std.id + '">Tardy</label>' +
+                    '<input type="radio" class="btn-check" name="status_' + std.id + '" id="absent_' + std.id + '" value="결석" ' + (std.attendance === '결석' ? 'checked' : '') + '>' +
+                    '<label class="btn btn-outline-danger btn-sm" for="absent_' + std.id + '">Absent</label>' +
+                    '</div>';
+            }
+
             tr.innerHTML = `
                 <td>${index + 1}</td>
-                <td class="fw-bold text-start ps-4">
-                    <span class="student-name-btn" role="button" title="View student detail & homework">${escapeHtml(std.name)}${pendingBadge}</span>
-                    <button type="button" class="btn-lucky-row${(std.luckyTickets || 0) ? '' : ' empty'}" data-lucky-btn title="Lucky Draw tickets">
-                        <i class="fa-solid fa-ticket"></i> <span data-lucky-count>${std.luckyTickets || 0}</span>
-                    </button>
-                    <button type="button" class="btn-withdraw-row" data-withdraw-btn title="Withdraw from class">
-                        <i class="fa-solid fa-user-slash"></i>
-                    </button>
-                    <button type="button" class="btn-makeup-row" data-makeup-btn title="Record makeup lesson">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
-                    </button>
+                <td class="fw-bold text-start ps-4 student-name-td">
+                    <div class="student-name-cell">
+                        <span class="student-name-btn" role="button" title="View student detail & homework">${escapeHtml(std.name)}</span>
+                        <div class="student-badges-row">
+                            ${pendingBadge}
+                            <button type="button" class="btn-lucky-row${(std.luckyTickets || 0) ? '' : ' empty'}" data-lucky-btn title="Lucky Draw tickets">
+                                <i class="fa-solid fa-ticket"></i> <span data-lucky-count>${std.luckyTickets || 0}</span>
+                            </button>
+                        </div>
+                        ${secondaryMeta ? '<div class="student-name-meta">' + leaveBadge + plannedBadge + '</div>' : ''}
+                    </div>
                 </td>
-                <td>
+                <td class="chambit-cell">
                     <span class="chambit-week-progress${weekCompleteClass}" data-chambit-week>${weekReq > 0 ? weekRead + '/' + weekReq + ' this week' : ''}</span>
                     <div class="chambit-combo-badge" data-chambit-combo role="button" title="Click to set Combo">${chambitCombo} Combo</div>
                     <div class="chambit-btn-group">
@@ -6011,30 +7398,19 @@
                         <button type="button" class="chambit-toggle-btn chambit-minus-btn" data-chambit-minus title="Not read — resets combo to 0">−</button>
                     </div>
                 </td>
+                <td>${attendanceCell}</td>
                 <td>
-                    <div class="btn-group status-toggle" role="group">
-                        <input type="radio" class="btn-check" name="status_${std.id}" id="attend_${std.id}" value="출석" ${std.attendance === '출석' ? 'checked' : ''}>
-                        <label class="btn btn-outline-success btn-sm" for="attend_${std.id}">Present</label>
-                        
-                        <input type="radio" class="btn-check" name="status_${std.id}" id="tardy_${std.id}" value="지각" ${std.attendance === '지각' ? 'checked' : ''}>
-                        <label class="btn btn-outline-warning btn-sm" for="tardy_${std.id}">Tardy</label>
-                        
-                        <input type="radio" class="btn-check" name="status_${std.id}" id="absent_${std.id}" value="결석" ${std.attendance === '결석' ? 'checked' : ''}>
-                        <label class="btn btn-outline-danger btn-sm" for="absent_${std.id}">Absent</label>
-                    </div>
-                </td>
-                <td>
-                    <div class="d-flex justify-content-center align-items-center">
-                        <input type="number" class="form-control form-control-sm vocab-input" min="0" max="100" value="${std.vocabScore}">
-                        <span class="ms-2 text-muted fw-bold">pts</span>
+                    <div class="vocab-score-cell">
+                        <input type="number" class="form-control form-control-sm vocab-input" min="0" max="100" value="${vocabInputDisplayValue(std.vocabScore)}" placeholder="">
+                        <span class="text-muted fw-bold">pts</span>
                     </div>
                 </td>
                 <td>
                     <span class="badge bg-dark" data-dollar-balance>${std.dollars ?? 0}</span>
                 </td>
                 <td>
-                    <div class="input-group input-group-sm">
-                        <input type="number" class="form-control" placeholder="+/-" data-dollar-input>
+                    <div class="input-group input-group-sm dollar-adjust-group">
+                        <input type="number" class="form-control dollar-adjust-input" placeholder="+/-" data-dollar-input>
                         <button class="btn btn-outline-primary" type="button" data-dollar-btn>Apply</button>
                     </div>
                 </td>
@@ -6044,14 +7420,6 @@
             tr.querySelector('[data-lucky-btn]').addEventListener('click', function(e) {
                 e.stopPropagation();
                 openLuckyTicketsModal(std.id, std.name);
-            });
-            tr.querySelector('[data-withdraw-btn]').addEventListener('click', function(e) {
-                e.stopPropagation();
-                withdrawStudentById(std.id, std.name);
-            });
-            tr.querySelector('[data-makeup-btn]').addEventListener('click', function(e) {
-                e.stopPropagation();
-                openMakeupModal(std.id, std.name);
             });
             tr.querySelector('[data-dollar-btn]').addEventListener('click', () => applyDollarFromRow(tr, std.id));
             tr.querySelector('[data-chambit-plus]').addEventListener('click', () => toggleChambitFromRow(tr, std.id, 'plus'));
@@ -6075,11 +7443,16 @@
         rows.forEach(row => {
             const studentId = row.getAttribute('data-student-id');
             if(!studentId) return;
-            
-            // 체크된 라디오 버튼의 값 읽기
-            const attendance = row.querySelector(`input[name="status_${studentId}"]:checked`).value;
-            // 단어 점수 값 읽기
-            const vocabScore = Number(row.querySelector('.vocab-input').value);
+
+            const onLeave = row.getAttribute('data-on-leave') === '1';
+            let attendance = '휴원';
+            if (!onLeave) {
+                const checked = row.querySelector(`input[name="status_${studentId}"]:checked`);
+                if (!checked) return;
+                attendance = checked.value;
+            }
+            const vocabRaw = row.querySelector('.vocab-input').value;
+            const vocabScore = vocabRaw === '' ? 0 : Number(vocabRaw);
 
             records.push({
                 studentId: studentId,
@@ -6235,7 +7608,10 @@
         updateMakeupOffDayBar(false);
         showSidePanels();
         showSidebarToggle();
-        if (selectedClass) checkScheduleAndLoad(false);
+        if (selectedClass) {
+            invalidateClientWorkCache();
+            checkScheduleAndLoad(true);
+        }
     }
 
     function openStudentDetail(studentId, studentName) {
@@ -6245,6 +7621,8 @@
         document.getElementById('detailStudentName').innerText = studentName;
         document.getElementById('detailSummary').innerText = 'Loading...';
         document.getElementById('hwStudentPending').innerHTML = 'Loading…';
+        const historyMonthInput = document.getElementById('studentHistoryMonth');
+        if (historyMonthInput) delete historyMonthInput.dataset.userPicked;
 
         setWorkSectionsHidden(true);
         updateMakeupOffDayBar(false);
@@ -6255,6 +7633,8 @@
         loadStudentHistory();
         loadStudentStatsCharts();
         loadStudentHomework();
+        loadStudentLeavePanel();
+        loadStudentPlannedPanel();
     }
 
     function loadStudentHomework() {
@@ -6655,16 +8035,17 @@
     function updateStudentPendingBadge(studentId, count) {
         const tr = document.querySelector('tr[data-student-id="' + studentId + '"]');
         if (!tr) return;
-        const nameCell = tr.querySelector('.student-name-btn');
-        if (!nameCell) return;
-        let badge = nameCell.querySelector('.pending-hw-badge');
+        const badgesRow = tr.querySelector('.student-badges-row');
+        if (!badgesRow) return;
+        let badge = badgesRow.querySelector('.pending-hw-badge');
         const pending = Number(count) || 0;
+        const luckyBtn = badgesRow.querySelector('[data-lucky-btn]');
         if (pending > 0) {
             if (!badge) {
                 badge = document.createElement('span');
                 badge.className = 'badge bg-warning text-dark pending-hw-badge';
                 badge.title = 'Pending homework items';
-                nameCell.appendChild(badge);
+                badgesRow.insertBefore(badge, luckyBtn || null);
             }
             badge.textContent = pending + ' pending';
         } else if (badge) {
@@ -6685,17 +8066,37 @@
 
     function openLuckyTicketsModal(studentId, studentName) {
         if (!selectedClass) return;
+        luckyModalStudentId = studentId;
         document.getElementById('luckyTicketsStudentName').textContent = studentName;
         document.getElementById('luckyTicketsList').innerHTML = '<p class="text-muted small mb-0">Loading…</p>';
         const modal = new bootstrap.Modal(document.getElementById('luckyTicketsModal'));
         modal.show();
+        reloadLuckyTicketsModalList();
+    }
+
+    function reloadLuckyTicketsModalList() {
+        if (!selectedClass || !luckyModalStudentId) return;
         const q = '/api/lucky-draw/student?classId=' + encodeURIComponent(selectedClass.id) +
-            '&studentId=' + encodeURIComponent(studentId);
+            '&studentId=' + encodeURIComponent(luckyModalStudentId);
         if (!apiGet(q, function(data) {
-            renderLuckyTicketsList(studentId, data.tickets || []);
+            renderLuckyTicketsList(luckyModalStudentId, data.tickets || []);
         }, { loading: false })) {
             appAlert('Lucky Draw tickets require the Node API.');
         }
+    }
+
+    function buildLuckyTransferOptions(fromStudentId) {
+        return (loadedStudents || [])
+            .filter(function(s) { return String(s.id) !== String(fromStudentId); })
+            .map(function(s) {
+                return '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>';
+            })
+            .join('');
+    }
+
+    function pickLuckyTicketIdFromGroup(group) {
+        const ids = group.ticketIds || [];
+        return ids.length ? ids[ids.length - 1] : '';
     }
 
     function renderLuckyTicketsList(studentId, tickets) {
@@ -6704,35 +8105,80 @@
             box.innerHTML = '<p class="text-muted small mb-0">No tickets yet.</p>';
             return;
         }
+        const transferOptions = buildLuckyTransferOptions(studentId);
         box.innerHTML = '';
         tickets.forEach(function(t) {
+            const count = Number(t.count) || 1;
+            const countBadge = count > 1
+                ? '<span class="lucky-ticket-count">×' + count + '</span>'
+                : '';
             const el = document.createElement('div');
             el.className = 'lucky-ticket-item';
             el.innerHTML =
                 '<div class="lucky-ticket-tier">' + escapeHtml(t.tier || 'Prize') + '</div>' +
-                '<div class="lucky-ticket-prize">' + escapeHtml(t.prizeText) + '</div>' +
+                '<div class="lucky-ticket-prize">' + escapeHtml(t.prizeText) + countBadge + '</div>' +
                 '<div class="lucky-ticket-meta">' + escapeHtml(t.drawnAt || '') + '</div>' +
-                '<div class="d-flex gap-2 mt-2">' +
-                '<button type="button" class="btn btn-sm btn-success lucky-use-btn"><i class="fa-solid fa-check"></i> Use</button>' +
-                '<button type="button" class="btn btn-sm btn-outline-danger lucky-remove-btn"><i class="fa-solid fa-trash"></i> Remove</button>' +
-                '</div>';
-            function redeem() {
+                '<div class="d-flex gap-2 mt-2 flex-wrap">' +
+                '<button type="button" class="btn btn-sm btn-success lucky-use-btn"><i class="fa-solid fa-check"></i> Use 1</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger lucky-remove-btn"><i class="fa-solid fa-trash"></i> Remove 1</button>' +
+                '</div>' +
+                (transferOptions
+                    ? '<div class="lucky-transfer-row">' +
+                    '<select class="form-select form-select-sm lucky-transfer-select">' +
+                    '<option value="">Transfer to…</option>' + transferOptions + '</select>' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary lucky-transfer-btn"><i class="fa-solid fa-right-left"></i> Transfer 1</button>' +
+                    '</div>'
+                    : '');
+            function redeemOne() {
+                const ticketId = pickLuckyTicketIdFromGroup(t);
+                if (!ticketId) return;
                 if (!apiPost('/api/lucky-draw/redeem', {
-                    ticketId: t.ticketId,
+                    ticketId: ticketId,
                     classId: selectedClass.id
                 }, function(res) {
-                    el.remove();
-                    if (!box.querySelector('.lucky-ticket-item')) {
-                        box.innerHTML = '<p class="text-muted small mb-0">No tickets left.</p>';
+                    if (count <= 1) {
+                        el.remove();
+                        if (!box.querySelector('.lucky-ticket-item')) {
+                            box.innerHTML = '<p class="text-muted small mb-0">No tickets left.</p>';
+                        }
+                    } else {
+                        t.count = count - 1;
+                        t.ticketIds = (t.ticketIds || []).slice(0, -1);
+                        renderLuckyTicketsList(studentId, tickets);
                     }
-                    updateLuckyTicketBadge(studentId, res.luckyTickets != null ? res.luckyTickets : res.remainingCount);
+                    updateLuckyTicketBadge(studentId, res.remainingCount);
                     appToast(res.message || 'Ticket removed.');
                 })) {
                     appAlert('Lucky Draw requires the Node API.');
                 }
             }
-            el.querySelector('.lucky-use-btn').addEventListener('click', redeem);
-            el.querySelector('.lucky-remove-btn').addEventListener('click', redeem);
+            el.querySelector('.lucky-use-btn').addEventListener('click', redeemOne);
+            el.querySelector('.lucky-remove-btn').addEventListener('click', redeemOne);
+            const transferBtn = el.querySelector('.lucky-transfer-btn');
+            if (transferBtn) {
+                transferBtn.addEventListener('click', function() {
+                    const toId = el.querySelector('.lucky-transfer-select').value;
+                    if (!toId) {
+                        appAlert('Choose a student to transfer to.');
+                        return;
+                    }
+                    const ticketId = pickLuckyTicketIdFromGroup(t);
+                    if (!ticketId) return;
+                    const toName = (loadedStudents.find(function(s) { return String(s.id) === String(toId); }) || {}).name || 'student';
+                    if (!confirm('Transfer 1 ticket to ' + toName + '?')) return;
+                    if (!apiPost('/api/lucky-draw/transfer', {
+                        ticketId: ticketId,
+                        toStudentId: toId
+                    }, function(res) {
+                        updateLuckyTicketBadge(studentId, res.fromRemainingCount);
+                        updateLuckyTicketBadge(toId, res.toRemainingCount);
+                        appToast('Transferred to ' + toName + '.');
+                        reloadLuckyTicketsModalList();
+                    })) {
+                        appAlert('Lucky Draw requires the Node API.');
+                    }
+                });
+            }
             box.appendChild(el);
         });
     }
@@ -6760,6 +8206,424 @@
             loadStudentHomework();
         })) {
             appAlert('Manual homework requires the Node API.');
+        }
+    }
+
+    function plannedTypeLabel(type) {
+        return type === '지각' ? 'Tardy' : (type === '결석' ? 'Absent' : type);
+    }
+
+    function openPlannedAttendanceModal() {
+        if (!selectedClass || !selectedStudent) return;
+        document.getElementById('plannedModalStudentName').textContent = selectedStudent.name;
+        const seed = document.getElementById('attendanceDate').value || localTodayISO();
+        const parts = seed.split('-');
+        plannedCalYear = parseInt(parts[0], 10);
+        plannedCalMonth = parseInt(parts[1], 10);
+        plannedCalSelectedDate = seed;
+        const dowRow = document.getElementById('plannedCalDowRow');
+        dowRow.innerHTML = CAL_DOW_LABELS.map(function(lbl) {
+            return '<div class="cal-dow">' + lbl + '</div>';
+        }).join('');
+        const modal = new bootstrap.Modal(document.getElementById('plannedAttendanceModal'));
+        modal.show();
+        loadPlannedAttendanceCalendar();
+    }
+
+    function shiftPlannedCalMonth(delta) {
+        plannedCalMonth += delta;
+        if (plannedCalMonth < 1) {
+            plannedCalMonth = 12;
+            plannedCalYear -= 1;
+        } else if (plannedCalMonth > 12) {
+            plannedCalMonth = 1;
+            plannedCalYear += 1;
+        }
+        loadPlannedAttendanceCalendar();
+    }
+
+    function loadPlannedAttendanceCalendar() {
+        if (!selectedClass || !selectedStudent) return;
+        document.getElementById('plannedCalMonthTitle').textContent =
+            CAL_MONTH_NAMES[plannedCalMonth - 1] + ' ' + plannedCalYear;
+        const q = '/api/students/planned-attendance/calendar?classId=' +
+            encodeURIComponent(selectedClass.id) +
+            '&studentId=' + encodeURIComponent(selectedStudent.id) +
+            '&year=' + plannedCalYear + '&month=' + plannedCalMonth;
+        const onData = function(data) {
+            plannedCalData = data;
+            renderPlannedAttendanceGrid();
+            if (plannedCalSelectedDate && data.days && data.days[plannedCalSelectedDate]) {
+                renderPlannedCalDayDetail(plannedCalSelectedDate, data.days[plannedCalSelectedDate]);
+            }
+        };
+        if (!apiGet(q, onData, { loading: false })) {
+            google.script.run
+                .withSuccessHandler(onData)
+                .withFailureHandler(handleError)
+                .getPlannedAttendanceCalendar(selectedClass.id, selectedStudent.id, plannedCalYear, plannedCalMonth);
+        }
+    }
+
+    function renderPlannedAttendanceGrid() {
+        const grid = document.getElementById('plannedCalGrid');
+        if (!plannedCalData || !plannedCalData.days) {
+            grid.innerHTML = '';
+            return;
+        }
+        const year = plannedCalData.year;
+        const month = plannedCalData.month;
+        const firstDow = new Date(year, month - 1, 1).getDay();
+        const today = localTodayISO();
+        let html = '';
+        let pad = 0;
+        while (pad < firstDow) {
+            html += '<div class="cal-day cal-day-pad" aria-hidden="true"></div>';
+            pad++;
+        }
+        const numDays = Object.keys(plannedCalData.days).length;
+        for (let d = 1; d <= numDays; d++) {
+            const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            const day = plannedCalData.days[dateStr] || {};
+            const classes = ['cal-day'];
+            if (day.offDay) classes.push('cal-day-off');
+            else if (day.classDay) classes.push('cal-day-class');
+            if (day.planned) {
+                classes.push(day.planned.type === '지각' ? 'cal-day-planned-tardy' : 'cal-day-planned-absent');
+            }
+            if (dateStr === today) classes.push('cal-day-today');
+            if (dateStr === plannedCalSelectedDate) classes.push('cal-day-selected');
+            let title = '';
+            if (day.holiday) title = day.holiday;
+            else if (day.offDay && !day.holiday) title = 'Not a scheduled class day';
+            else if (day.planned) title = 'Planned ' + plannedTypeLabel(day.planned.type);
+            html += '<button type="button" class="' + classes.join(' ') + '" data-planned-date="' +
+                escapeHtml(dateStr) + '"' + (title ? ' title="' + escapeHtml(title) + '"' : '') + '>' +
+                '<span class="cal-day-num">' + d + '</span></button>';
+        }
+        grid.innerHTML = html;
+        grid.querySelectorAll('[data-planned-date]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                selectPlannedCalDay(btn.getAttribute('data-planned-date'));
+            });
+        });
+    }
+
+    function selectPlannedCalDay(dateStr) {
+        plannedCalSelectedDate = dateStr;
+        renderPlannedAttendanceGrid();
+        if (plannedCalData && plannedCalData.days && plannedCalData.days[dateStr]) {
+            renderPlannedCalDayDetail(dateStr, plannedCalData.days[dateStr]);
+        }
+    }
+
+    function renderPlannedCalDayDetail(dateStr, day) {
+        const box = document.getElementById('plannedCalDayDetail');
+        if (day.holiday) {
+            box.innerHTML = '<div class="cal-detail-title">' + escapeHtml(formatEventDateLabel(dateStr)) +
+                '</div><div class="cal-detail-off"><i class="fa-solid fa-calendar-xmark"></i> ' +
+                escapeHtml(day.holiday) + ' (public holiday)</div>';
+            return;
+        }
+        if (!day.classDay) {
+            const dow = new Date(dateStr + 'T12:00:00').getDay();
+            box.innerHTML = '<div class="cal-detail-title">' + escapeHtml(formatEventDateLabel(dateStr)) +
+                '</div><div class="cal-detail-off"><i class="fa-solid fa-triangle-exclamation"></i> ' +
+                escapeHtml(dayNames[dow]) + ' — not a scheduled class day for this class.</div>';
+            return;
+        }
+
+        if (day.planned) {
+            box.innerHTML =
+                '<div class="cal-detail-title">' + escapeHtml(formatEventDateLabel(dateStr)) + '</div>' +
+                '<p class="mb-2">Planned: <strong>' + escapeHtml(plannedTypeLabel(day.planned.type)) + '</strong></p>' +
+                (day.planned.note ? '<p class="small text-muted">' + escapeHtml(day.planned.note) + '</p>' : '') +
+                '<button type="button" class="btn btn-sm btn-outline-danger" id="plannedCalRemoveBtn">' +
+                '<i class="fa-solid fa-trash"></i> Remove notice</button>';
+            document.getElementById('plannedCalRemoveBtn').addEventListener('click', function() {
+                cancelPlannedNotice(day.planned.noticeId);
+            });
+            return;
+        }
+
+        box.innerHTML =
+            '<div class="cal-detail-title">' + escapeHtml(formatEventDateLabel(dateStr)) + '</div>' +
+            '<p class="small text-muted mb-2">Mark advance notice for this class day:</p>' +
+            '<label class="form-label fw-bold small mb-1" for="plannedNoteInput">Note (optional)</label>' +
+            '<input type="text" class="form-control form-control-sm mb-3" id="plannedNoteInput" placeholder="e.g. Doctor appointment">' +
+            '<div class="d-flex flex-wrap gap-2">' +
+            '<button type="button" class="btn btn-sm btn-outline-danger" id="plannedMarkAbsentBtn">' +
+            '<i class="fa-solid fa-xmark"></i> Absent</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-warning" id="plannedMarkTardyBtn">' +
+            '<i class="fa-solid fa-clock"></i> Tardy</button></div>';
+        document.getElementById('plannedMarkAbsentBtn').addEventListener('click', function() {
+            savePlannedNotice(dateStr, '결석');
+        });
+        document.getElementById('plannedMarkTardyBtn').addEventListener('click', function() {
+            savePlannedNotice(dateStr, '지각');
+        });
+    }
+
+    function savePlannedNotice(dateStr, type) {
+        if (!selectedClass || !selectedStudent) return;
+        const noteEl = document.getElementById('plannedNoteInput');
+        const note = noteEl ? noteEl.value.trim() : '';
+        const body = {
+            classId: selectedClass.id,
+            studentId: selectedStudent.id,
+            date: dateStr,
+            type: type,
+            note: note
+        };
+        const onDone = function(res) {
+            invalidateClientWorkCache();
+            appToast(res.message || 'Advance notice saved.');
+            loadPlannedAttendanceCalendar();
+            loadStudentPlannedPanel();
+            loadStudentHistory();
+        };
+        const onFail = function(err) {
+            loadPlannedAttendanceCalendar();
+            loadStudentPlannedPanel();
+            handleError(err);
+        };
+        if (!nodeApiEnabled()) {
+            showLoading(true);
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    showLoading(false);
+                    onDone(res);
+                })
+                .withFailureHandler(function(err) {
+                    showLoading(false);
+                    onFail(err);
+                })
+                .createPlannedAttendance(body.classId, body.studentId, body.date, body.type, body.note);
+            return;
+        }
+        showLoading(true);
+        nodeFetch('/api/students/planned-attendance', { method: 'POST', body: JSON.stringify(body) })
+            .then(function(res) {
+                showLoading(false);
+                onDone(res);
+            })
+            .catch(function(err) {
+                showLoading(false);
+                onFail(err);
+            });
+    }
+
+    function cancelPlannedNotice(noticeId) {
+        if (!noticeId) return;
+        appConfirm('Remove this advance notice?', function() {
+            const onDone = function(res) {
+                invalidateClientWorkCache();
+                appToast(res.message || 'Removed.');
+                loadPlannedAttendanceCalendar();
+                loadStudentPlannedPanel();
+                loadStudentHistory();
+            };
+            if (!nodeApiEnabled()) {
+                showLoading(true);
+                google.script.run
+                    .withSuccessHandler(function(res) {
+                        showLoading(false);
+                        onDone(res);
+                    })
+                    .withFailureHandler(handleError)
+                    .cancelPlannedAttendance(noticeId);
+                return;
+            }
+            showLoading(true);
+            nodeFetch('/api/students/planned-attendance/cancel', {
+                method: 'POST',
+                body: JSON.stringify({ noticeId: noticeId })
+            })
+                .then(function(res) {
+                    showLoading(false);
+                    onDone(res);
+                })
+                .catch(handleError);
+        });
+    }
+
+    function loadStudentPlannedPanel() {
+        if (!selectedClass || !selectedStudent) return;
+        const box = document.getElementById('studentPlannedList');
+        box.innerHTML = 'Loading…';
+        const q = '/api/students/planned-attendance?classId=' + encodeURIComponent(selectedClass.id) +
+            '&studentId=' + encodeURIComponent(selectedStudent.id);
+        if (!apiGet(q, function(data) {
+            renderStudentPlannedList(data.items || []);
+        }, { loading: false })) {
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    renderStudentPlannedList(data.items || []);
+                })
+                .withFailureHandler(handleError)
+                .listPlannedAttendance(selectedClass.id, selectedStudent.id);
+        }
+    }
+
+    function renderStudentPlannedList(items) {
+        const box = document.getElementById('studentPlannedList');
+        if (!items.length) {
+            box.innerHTML = '<p class="text-muted small mb-0">No advance notices scheduled.</p>';
+            return;
+        }
+        box.innerHTML = '';
+        items.forEach(function(item) {
+            const el = document.createElement('div');
+            el.className = 'makeup-history-item';
+            const typeBadge = item.type === '지각'
+                ? '<span class="badge bg-warning text-dark ms-1">Tardy</span>'
+                : '<span class="badge bg-danger ms-1">Absent</span>';
+            el.innerHTML =
+                '<div class="fw-bold">' + escapeHtml(item.dateStr) + typeBadge + '</div>' +
+                (item.note ? '<div class="small mt-1">' + escapeHtml(item.note) + '</div>' : '') +
+                '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 cancel-planned-btn">Remove</button>';
+            el.querySelector('.cancel-planned-btn').addEventListener('click', function() {
+                cancelPlannedNotice(item.noticeId);
+            });
+            box.appendChild(el);
+        });
+    }
+
+    function openStudentLeaveModal(studentId, studentName) {
+        if (!selectedClass) return;
+        document.getElementById('leaveModalStudentName').textContent = studentName;
+        const today = document.getElementById('attendanceDate').value || localTodayISO();
+        document.getElementById('leaveStartDateInput').value = today;
+        document.getElementById('leaveEndDateInput').value = today;
+        document.getElementById('leaveReasonInput').value = '';
+        const modal = new bootstrap.Modal(document.getElementById('studentLeaveModal'));
+        modal.show();
+    }
+
+    function saveStudentLeaveFromModal() {
+        if (!selectedClass || !selectedStudent) return;
+        const startDate = document.getElementById('leaveStartDateInput').value;
+        const endDate = document.getElementById('leaveEndDateInput').value;
+        const reason = document.getElementById('leaveReasonInput').value.trim();
+        if (!startDate || !endDate) {
+            appAlert('Enter start and end dates.');
+            return;
+        }
+        const body = {
+            classId: selectedClass.id,
+            studentId: selectedStudent.id,
+            startDate: startDate,
+            endDate: endDate,
+            reason: reason
+        };
+        const onDone = function(res) {
+            bootstrap.Modal.getInstance(document.getElementById('studentLeaveModal')).hide();
+            invalidateClientWorkCache();
+            appToast(res.message || 'Leave saved.');
+            loadStudentLeavePanel();
+            loadStudentHistory();
+        };
+        const onFail = function(err) {
+            invalidateClientWorkCache();
+            loadStudentLeavePanel();
+            const msg = err && err.message ? err.message : String(err);
+            if (msg.indexOf('overlaps an existing active leave') !== -1) {
+                appAlert('이미 등록된 휴원이 있습니다.\n' + msg + '\n\n아래 Leave of absence 패널에서 확인하거나 "End leave early"로 취소할 수 있습니다.', 'error');
+            } else {
+                appAlert(msg, 'error');
+            }
+        };
+        if (!nodeApiEnabled()) {
+            showLoading(true);
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    showLoading(false);
+                    onDone(res);
+                })
+                .withFailureHandler(function(err) {
+                    showLoading(false);
+                    onFail(err);
+                })
+                .startStudentLeave(body.classId, body.studentId, body.startDate, body.endDate, body.reason);
+            return;
+        }
+        showLoading(true);
+        nodeFetch('/api/students/leave', { method: 'POST', body: JSON.stringify(body) })
+            .then(function(res) {
+                showLoading(false);
+                onDone(res);
+            })
+            .catch(function(err) {
+                showLoading(false);
+                onFail(err);
+            });
+    }
+
+    function loadStudentLeavePanel() {
+        if (!selectedClass || !selectedStudent) return;
+        const box = document.getElementById('studentLeaveList');
+        box.innerHTML = 'Loading…';
+        const q = '/api/students/leave?classId=' + encodeURIComponent(selectedClass.id) +
+            '&studentId=' + encodeURIComponent(selectedStudent.id);
+        if (!apiGet(q, function(data) {
+            renderStudentLeaveList(data.leaves || [], data.active || null);
+        }, { loading: false })) {
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    renderStudentLeaveList(data.leaves || [], data.active || null);
+                })
+                .withFailureHandler(function() {
+                    box.innerHTML = '<p class="text-muted small mb-0">Leave records require the Node API.</p>';
+                })
+                .listStudentLeaves(selectedClass.id, selectedStudent.id);
+        }
+    }
+
+    function renderStudentLeaveList(leaves, active) {
+        const box = document.getElementById('studentLeaveList');
+        if (!leaves.length) {
+            box.innerHTML = '<p class="text-muted small mb-0">No leave records yet.</p>';
+            return;
+        }
+        box.innerHTML = '';
+        leaves.forEach(function(item) {
+            const el = document.createElement('div');
+            el.className = 'makeup-history-item';
+            const statusLabel = item.status === 'Active' ? 'Active' : (item.status === 'Ended' ? 'Ended' : item.status);
+            el.innerHTML =
+                '<div class="fw-bold">' + escapeHtml(item.startDate) + ' – ' + escapeHtml(item.endDate) +
+                ' <span class="badge bg-secondary ms-1">' + escapeHtml(statusLabel) + '</span></div>' +
+                (item.reason ? '<div class="small mt-1">' + escapeHtml(item.reason) + '</div>' : '') +
+                (item.status === 'Active'
+                    ? '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 end-leave-btn">End leave early</button>'
+                    : '');
+            if (item.status === 'Active') {
+                el.querySelector('.end-leave-btn').addEventListener('click', function() {
+                    if (!confirm('End this leave early? Future dates will no longer be marked 휴원.')) return;
+                    const onDone = function(res) {
+                        appToast(res.message || 'Leave ended.');
+                        invalidateClientWorkCache();
+                        loadStudentLeavePanel();
+                        loadStudentHistory();
+                        if (!document.getElementById('studentSection').classList.contains('hidden-section')) {
+                            checkScheduleAndLoad(true);
+                        }
+                    };
+                    if (!apiPost('/api/students/leave/end', { leaveId: item.leaveId }, onDone)) {
+                        google.script.run
+                            .withSuccessHandler(onDone)
+                            .withFailureHandler(handleError)
+                            .endStudentLeave(item.leaveId);
+                    }
+                });
+            }
+            box.appendChild(el);
+        });
+        if (active) {
+            const note = document.createElement('p');
+            note.className = 'small text-muted mt-2 mb-0';
+            note.textContent = 'Currently on leave through ' + active.endDate + '.';
+            box.appendChild(note);
         }
     }
 
@@ -6914,8 +8778,104 @@
             .listClassStudentsForMakeup(selectedClass.id);
     }
 
-    function openMakeupModal(studentId, studentName) {
+    function syncMakeupScheduleCheckbox() {
+        updateMakeupModalLabels();
+    }
+
+    function updateMakeupModalLabels() {
+        const dateStr = document.getElementById('makeupDateInput').value;
+        const today = localTodayISO();
+        const titleEl = document.getElementById('makeupModalTitle');
+        const saveBtn = document.getElementById('saveMakeupBtn');
+        if (editingMakeupId) {
+            titleEl.innerHTML = '<i class="fa-solid fa-pen"></i> Edit Makeup Lesson';
+            saveBtn.textContent = 'Save changes';
+            return;
+        }
+        if (dateStr && dateStr > today) {
+            titleEl.innerHTML = '<i class="fa-solid fa-calendar-plus"></i> Schedule Makeup Lesson';
+            saveBtn.textContent = 'Schedule makeup';
+        } else {
+            titleEl.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i> Record Makeup Lesson';
+            saveBtn.textContent = 'Save makeup';
+        }
+    }
+
+    function loadMakeupScheduledList() {
+        const box = document.getElementById('makeupScheduledList');
+        if (!selectedClass || !box) return;
+        box.innerHTML = 'Loading…';
+        const render = function(items) {
+            const scheduled = (items || []).filter(function(m) { return m.status === 'Scheduled'; });
+            if (!scheduled.length) {
+                box.innerHTML = '<p class="text-muted small mb-0">No scheduled makeups.</p>';
+                return;
+            }
+            box.innerHTML = '';
+            scheduled.forEach(function(m) {
+                const div = document.createElement('div');
+                div.className = 'makeup-history-item';
+                div.innerHTML =
+                    '<div><strong>' + escapeHtml(m.studentName) + '</strong> · ' +
+                    escapeHtml(m.dateStr) + ' · ' + escapeHtml(m.startTime) + '–' + escapeHtml(m.endTime) +
+                    (m.notes ? '<div class="text-muted">' + escapeHtml(m.notes) + '</div>' : '') +
+                    '</div>' +
+                    '<div class="makeup-history-actions">' +
+                    '<button type="button" class="btn btn-outline-success btn-sm" data-complete-makeup title="Mark completed">Done</button>' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm" data-cancel-makeup title="Cancel">Cancel</button>' +
+                    '</div>';
+                div.querySelector('[data-complete-makeup]').addEventListener('click', function() {
+                    setMakeupLessonStatus(m, 'Completed');
+                });
+                div.querySelector('[data-cancel-makeup]').addEventListener('click', function() {
+                    setMakeupLessonStatus(m, 'Cancelled');
+                });
+                box.appendChild(div);
+            });
+        };
+        if (nodeApiEnabled()) {
+            nodeFetch('/api/makeup?classId=' + encodeURIComponent(selectedClass.id))
+                .then(render).catch(handleError);
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(render)
+            .withFailureHandler(handleError)
+            .getMakeupLessons(selectedClass.id, '');
+    }
+
+    function setMakeupLessonStatus(item, status) {
+        if (!item || !item.makeupId) return;
+        const label = status === 'Completed' ? 'Mark this makeup as completed?' : 'Cancel this scheduled makeup?';
+        appConfirm(label, function() {
+            showLoading(true);
+            const onDone = function(res) {
+                showLoading(false);
+                appToast(res.message || 'Updated.');
+                loadMakeupScheduledList();
+                reloadSidebarData(true);
+                loadUpcomingEvents();
+                if (calendarData) loadCalendarMonth();
+                if (selectedStudent) loadStudentStatsCharts();
+            };
+            if (nodeApiEnabled()) {
+                nodeFetch('/api/makeup/' + encodeURIComponent(item.makeupId) + '/status', {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: status })
+                }).then(onDone).catch(handleError);
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(onDone)
+                .withFailureHandler(handleError)
+                .setMakeupLessonStatus(item.makeupId, status);
+        }, { danger: status === 'Cancelled', okLabel: status === 'Completed' ? 'Complete' : 'Yes, cancel' });
+    }
+
+    function openMakeupModal(studentId, studentName, editItem, options) {
+        options = options || {};
         if (!selectedClass) return;
+        editingMakeupId = editItem ? editItem.makeupId : null;
         makeupModalStudent = studentId ? { id: studentId, name: studentName } : null;
         const pickRow = document.getElementById('makeupStudentPickRow');
         const fixedRow = document.getElementById('makeupStudentFixed');
@@ -6926,23 +8886,42 @@
         } else {
             pickRow.classList.remove('hidden-section');
             fixedRow.classList.add('hidden-section');
-            loadMakeupStudentOptions();
+            loadMakeupStudentOptions(editItem ? function() {
+                document.getElementById('makeupStudentSelect').value = editItem.studentId;
+            } : null);
         }
-        document.getElementById('makeupDateInput').value =
-            document.getElementById('attendanceDate').value || localTodayISO();
-        document.getElementById('makeupStartTime').value = '';
-        document.getElementById('makeupEndTime').value = '';
-        document.getElementById('makeupNotesInput').value = '';
+        const today = localTodayISO();
+        let defaultDate = editItem
+            ? editItem.dateStr
+            : (document.getElementById('attendanceDate').value || today);
+        if (!editItem && options.scheduleMode) {
+            const d = new Date(defaultDate + 'T12:00:00');
+            d.setDate(d.getDate() + 1);
+            defaultDate = d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        }
+        document.getElementById('makeupDateInput').value = defaultDate;
+        document.getElementById('makeupStartTime').value = editItem ? editItem.startTime : '';
+        document.getElementById('makeupEndTime').value = editItem ? editItem.endTime : '';
+        document.getElementById('makeupNotesInput').value = editItem ? (editItem.notes || '') : '';
         updateMakeupDurationPreview();
+        updateMakeupModalLabels();
+        loadMakeupScheduledList();
         new bootstrap.Modal(document.getElementById('makeupModal')).show();
     }
 
-    function openMakeupPickerModal() {
+    function openMakeupModalForEdit(item) {
+        if (!item) return;
+        openMakeupModal(item.studentId, item.studentName, item);
+    }
+
+    function openMakeupPickerModal(scheduleMode) {
         if (!selectedClass) {
             appAlert('Please select a class first.');
             return;
         }
-        openMakeupModal(null, null);
+        openMakeupModal(null, null, null, { scheduleMode: !!scheduleMode });
     }
 
     function saveMakeupLessonFromModal() {
@@ -6978,12 +8957,35 @@
         showLoading(true);
         const onDone = function(res) {
             showLoading(false);
-            appToast(res.message || 'Makeup saved.');
+            appToast(res.message || (editingMakeupId ? 'Makeup updated.' : 'Makeup saved.'));
             bootstrap.Modal.getInstance(document.getElementById('makeupModal')).hide();
+            editingMakeupId = null;
             if (selectedStudent && selectedStudent.id === body.studentId) {
                 loadStudentStatsCharts();
             }
+            reloadSidebarData(true);
+            loadUpcomingEvents();
+            if (calendarData) loadCalendarMonth();
         };
+        if (editingMakeupId) {
+            if (nodeApiEnabled()) {
+                showLoading(true);
+                nodeFetch('/api/makeup/' + encodeURIComponent(editingMakeupId), {
+                    method: 'PUT',
+                    body: JSON.stringify(body)
+                }).then(onDone).catch(handleError);
+                return;
+            }
+            showLoading(true);
+            google.script.run
+                .withSuccessHandler(onDone)
+                .withFailureHandler(handleError)
+                .updateMakeupLesson(
+                    editingMakeupId, body.classId, body.studentId, body.studentName,
+                    body.dateStr, body.startTime, body.endTime, body.notes
+                );
+            return;
+        }
         if (!apiPost('/api/makeup', body, onDone)) {
             google.script.run
                 .withSuccessHandler(onDone)
@@ -6993,6 +8995,28 @@
                     body.dateStr, body.startTime, body.endTime, body.notes
                 );
         }
+    }
+
+    function deleteMakeupLessonItem(item) {
+        if (!item || !item.makeupId) return;
+        appConfirm('Delete this makeup lesson?\n' + item.studentName + ' · ' + item.dateStr, function() {
+            showLoading(true);
+            const onDone = function(res) {
+                showLoading(false);
+                appToast(res.message || 'Makeup deleted.');
+                if (selectedStudent) loadStudentStatsCharts();
+            };
+            if (nodeApiEnabled()) {
+                nodeFetch('/api/makeup/' + encodeURIComponent(item.makeupId), { method: 'DELETE' })
+                    .then(onDone)
+                    .catch(handleError);
+                return;
+            }
+            google.script.run
+                .withSuccessHandler(onDone)
+                .withFailureHandler(handleError)
+                .deleteMakeupLesson(item.makeupId);
+        }, { danger: true, okLabel: 'Delete' });
     }
 
     function renderStudentMakeupList(items) {
@@ -7005,12 +9029,26 @@
         items.forEach(function(m) {
             const div = document.createElement('div');
             div.className = 'makeup-history-item';
+            const statusBadge = m.status === 'Scheduled'
+                ? ' <span class="badge badge-makeup-scheduled">Scheduled</span>'
+                : (m.status === 'Cancelled' ? ' <span class="badge bg-secondary">Cancelled</span>' : '');
             div.innerHTML =
                 '<div><strong>' + escapeHtml(m.dateStr) + '</strong> · ' +
                 escapeHtml(m.startTime) + '–' + escapeHtml(m.endTime) +
                 ' <span class="badge bg-light text-dark">' + escapeHtml(String(m.durationHours)) + 'h</span>' +
+                statusBadge +
                 (m.notes ? '<div class="text-muted">' + escapeHtml(m.notes) + '</div>' : '') +
+                '</div>' +
+                '<div class="makeup-history-actions">' +
+                '<button type="button" class="btn btn-outline-primary btn-sm" data-edit-makeup title="Edit"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="btn btn-outline-danger btn-sm" data-del-makeup title="Delete"><i class="fa-solid fa-trash"></i></button>' +
                 '</div>';
+            div.querySelector('[data-edit-makeup]').addEventListener('click', function() {
+                openMakeupModalForEdit(m);
+            });
+            div.querySelector('[data-del-makeup]').addEventListener('click', function() {
+                deleteMakeupLessonItem(m);
+            });
             box.appendChild(div);
         });
     }
@@ -7036,6 +9074,8 @@
             const tardy = abs.map(function(a) { return a.tardy; });
             const absent = abs.map(function(a) { return a.absent; });
 
+            const chartTheme = chartThemeOptions();
+
             vocabTrendChartInst = new Chart(document.getElementById('vocabTrendChart'), {
                 type: 'line',
                 data: {
@@ -7043,8 +9083,8 @@
                     datasets: [{
                         label: 'Vocab avg (pts)',
                         data: vocabData,
-                        borderColor: '#3b9edd',
-                        backgroundColor: 'rgba(59,158,221,0.15)',
+                        borderColor: '#5dade2',
+                        backgroundColor: isDarkTheme() ? 'rgba(59,158,221,0.28)' : 'rgba(59,158,221,0.15)',
                         tension: 0.25,
                         fill: true,
                         spanGaps: true
@@ -7053,8 +9093,11 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { min: 0, max: 100, ticks: { stepSize: 10 } } }
+                    plugins: { legend: { display: false, labels: { color: chartTheme.legendColor } } },
+                    scales: {
+                        x: { ticks: { color: chartTheme.tickColor }, grid: { color: chartTheme.gridColor } },
+                        y: { min: 0, max: 100, ticks: { stepSize: 10, color: chartTheme.tickColor }, grid: { color: chartTheme.gridColor } }
+                    }
                 }
             });
 
@@ -7071,8 +9114,11 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
-                    scales: { x: { stacked: true }, y: { stacked: true, ticks: { stepSize: 1 } } }
+                    plugins: { legend: { position: 'bottom', labels: { color: chartTheme.legendColor } } },
+                    scales: {
+                        x: { stacked: true, ticks: { color: chartTheme.tickColor }, grid: { color: chartTheme.gridColor } },
+                        y: { stacked: true, ticks: { stepSize: 1, color: chartTheme.tickColor }, grid: { color: chartTheme.gridColor } }
+                    }
                 }
             });
         };
@@ -7098,24 +9144,64 @@
         }
     }
 
+    function dateToMonthKey(dateStr) {
+        if (!dateStr || String(dateStr).length < 7) return '';
+        return String(dateStr).slice(0, 7);
+    }
+
+    function formatHistoryMonthLabel(monthKey) {
+        if (!monthKey) return '';
+        const parts = monthKey.split('-');
+        if (parts.length < 2) return monthKey;
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+        if (Number.isNaN(d.getTime())) return monthKey;
+        return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function pickDefaultHistoryMonth(records) {
+        const attendanceDate = document.getElementById('attendanceDate').value;
+        const todayMonth = dateToMonthKey(attendanceDate || localTodayISO());
+        if ((records || []).some(function(r) { return dateToMonthKey(r.dateStr) === todayMonth; })) {
+            return todayMonth;
+        }
+        if (!records || !records.length) return todayMonth;
+        return dateToMonthKey(records[records.length - 1].dateStr) || todayMonth;
+    }
+
     function renderStudentHistory(records) {
+        studentHistoryAllRecords = records || [];
+        const monthInput = document.getElementById('studentHistoryMonth');
+        if (monthInput && !monthInput.dataset.userPicked) {
+            monthInput.value = pickDefaultHistoryMonth(studentHistoryAllRecords);
+        }
+        renderFilteredStudentHistory();
+    }
+
+    function renderFilteredStudentHistory() {
         const tbody = document.getElementById('studentHistoryBody');
+        const monthInput = document.getElementById('studentHistoryMonth');
+        const monthKey = monthInput ? monthInput.value : '';
+        const records = monthKey
+            ? studentHistoryAllRecords.filter(function(r) { return dateToMonthKey(r.dateStr) === monthKey; })
+            : studentHistoryAllRecords.slice();
         tbody.innerHTML = '';
 
-        if (!records || records.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-muted py-4">No saved records. Add a date row below.</td></tr>`;
-            document.getElementById('detailSummary').innerText = '0 records';
+        if (!records.length) {
+            const monthLabel = formatHistoryMonthLabel(monthKey);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted py-4">No records for ' +
+                escapeHtml(monthLabel || 'this month') + '. Add a date row below.</td></tr>';
+            document.getElementById('detailSummary').innerText = (monthLabel || 'This month') + ' · 0 records';
             showLoading(false);
             return;
         }
 
-        // 요약 계산
-        let attend = 0, tardy = 0, absent = 0;
+        let attend = 0, tardy = 0, absent = 0, leave = 0;
         let sum = 0, scoreCount = 0;
-        records.forEach(r => {
+        records.forEach(function(r) {
             if (r.attendance === '출석') attend++;
             else if (r.attendance === '지각') tardy++;
             else if (r.attendance === '결석') absent++;
+            else if (r.attendance === '휴원') leave++;
             if (typeof r.vocabScore === 'number' && !Number.isNaN(r.vocabScore) && r.vocabScore > 0) {
                 sum += r.vocabScore;
                 scoreCount++;
@@ -7128,9 +9214,15 @@
             }
         });
         const avg = scoreCount ? Math.round((sum / scoreCount) * 10) / 10 : '-';
-        document.getElementById('detailSummary').innerText = `${records.length} records · Present ${attend} · Tardy ${tardy} · Absent ${absent} · Avg ${avg} pts`;
+        const monthLabel = formatHistoryMonthLabel(monthKey);
+        document.getElementById('detailSummary').innerText =
+            (monthLabel ? monthLabel + ' · ' : '') +
+            records.length + ' records · Present ' + attend + ' · Tardy ' + tardy + ' · Absent ' + absent +
+            (leave ? ' · Leave ' + leave : '') + ' · Avg ' + avg + ' pts';
 
-        records.forEach(r => tbody.appendChild(buildHistoryRow(r.dateStr, r.attendance, r.vocabScore)));
+        records.forEach(function(r) {
+            tbody.appendChild(buildHistoryRow(r.dateStr, r.attendance, r.vocabScore));
+        });
         showLoading(false);
     }
 
@@ -7143,11 +9235,12 @@
                     <option value="출석" ${attendance === '출석' ? 'selected' : ''}>Present</option>
                     <option value="지각" ${attendance === '지각' ? 'selected' : ''}>Tardy</option>
                     <option value="결석" ${attendance === '결석' ? 'selected' : ''}>Absent</option>
+                    <option value="휴원" ${attendance === '휴원' ? 'selected' : ''}>Leave (휴원)</option>
                 </select>
             </td>
             <td>
                 <div class="d-flex justify-content-center align-items-center">
-                    <input type="number" class="form-control form-control-sm vocab-input history-score" min="0" max="100" value="${(vocabScore ?? 0)}">
+                    <input type="number" class="form-control form-control-sm vocab-input history-score" min="0" max="100" value="${vocabInputDisplayValue(vocabScore)}" placeholder="">
                     <span class="ms-2 text-muted fw-bold">pts</span>
                 </div>
             </td>
@@ -7165,12 +9258,18 @@
     function addEmptyHistoryRow() {
         const tbody = document.getElementById('studentHistoryBody');
 
-        // "기록 없음" 안내 row 제거
         if (tbody.children.length === 1 && tbody.children[0].children.length === 1) {
             tbody.innerHTML = '';
         }
 
-        tbody.prepend(buildHistoryRow('', '출석', 0));
+        const monthKey = document.getElementById('studentHistoryMonth').value;
+        const today = document.getElementById('attendanceDate').value || localTodayISO();
+        let defaultDate = today;
+        if (monthKey && !today.startsWith(monthKey)) {
+            defaultDate = monthKey + '-01';
+        }
+
+        tbody.prepend(buildHistoryRow(defaultDate, '출석', 0));
     }
 
     function saveHistoryRow(tr) {
@@ -7183,7 +9282,8 @@
         }
 
         const attendance = tr.querySelector('.history-attendance').value;
-        const vocabScore = Number(tr.querySelector('.history-score').value);
+        const vocabRaw = tr.querySelector('.history-score').value;
+        const vocabScore = vocabRaw === '' ? 0 : Number(vocabRaw);
 
         showLoading(true);
         if (!apiPost('/api/student-record', {
@@ -7235,7 +9335,8 @@
     const ATT_MAP = {
         '출석': { label: 'O', cls: 'att-present' },
         '지각': { label: '△', cls: 'att-tardy' },
-        '결석': { label: 'X', cls: 'att-absent' }
+        '결석': { label: 'X', cls: 'att-absent' },
+        '휴원': { label: '휴', cls: 'att-leave' }
     };
 
     function openReport() {
@@ -7336,7 +9437,7 @@
             <h4 class="mb-0"><i class="fa-solid fa-chalkboard-user"></i> ${escapeHtml(cls.name)}</h4>
             <div class="text-end">
                 <div class="fw-bold">${monthLabel} Monthly Report</div>
-                <div class="report-legend">O = Present &nbsp; △ = Tardy &nbsp; X = Absent &nbsp; (number = Vocab)</div>
+                <div class="report-legend">O = Present &nbsp; △ = Tardy &nbsp; X = Absent &nbsp; (number = Vocab) &nbsp; M = Makeup</div>
             </div>
         `;
         wrap.appendChild(header);
@@ -7357,6 +9458,33 @@
         // 클래스별 요약표
         wrap.appendChild(buildSummaryTable(cls));
 
+        const makeupSec = buildMakeupSection(cls);
+        if (makeupSec) wrap.appendChild(makeupSec);
+
+        return wrap;
+    }
+
+    function buildMakeupSection(cls) {
+        if (!cls.makeupSessions || !cls.makeupSessions.length) return null;
+        const wrap = document.createElement('div');
+        wrap.className = 'report-block';
+        let html = '<div class="report-makeup-title"><i class="fa-solid fa-clock-rotate-left"></i> Makeup lessons this month</div>';
+        html += '<table class="report-summary-table"><thead><tr>' +
+            '<th class="name-col">Student</th><th>Date</th><th>Time</th><th>Hrs</th><th>Status</th><th>Notes</th>' +
+            '</tr></thead><tbody>';
+        cls.makeupSessions.forEach(function(m) {
+            let status = 'Done';
+            if (m.status === 'Scheduled') status = 'Scheduled';
+            else if (m.status === 'Cancelled') status = 'Cancelled';
+            html += '<tr><td class="name-col">' + escapeHtml(m.studentName) + '</td>' +
+                '<td>' + escapeHtml(m.dateStr) + '</td>' +
+                '<td>' + escapeHtml(m.startTime) + '–' + escapeHtml(m.endTime) + '</td>' +
+                '<td>' + escapeHtml(String(m.durationHours)) + '</td>' +
+                '<td>' + escapeHtml(status) + '</td>' +
+                '<td>' + escapeHtml(m.notes || '') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        wrap.innerHTML = html;
         return wrap;
     }
 
@@ -7385,7 +9513,8 @@
             if (!meta) {
                 thead += '<th class="report-pad-cell"></th>';
             } else {
-                thead += '<th>' + formatReportDateHeader(meta) + '</th>';
+                const cls = meta.isMakeupColumn ? ' report-makeup-col' : '';
+                thead += '<th class="' + cls.trim() + '">' + formatReportDateHeader(meta) + '</th>';
             }
         });
         thead += '</tr></thead>';
@@ -7415,20 +9544,36 @@
             return '<td class="report-holiday-cell"><span class="cell-holiday">' +
                 escapeHtml(dateMeta.holiday) + '</span></td>';
         }
+        if (cell && cell.attendance === '보강') {
+            const timeLine = (cell.makeup)
+                ? '<span class="cell-makeup">' + escapeHtml(cell.makeup.startTime) + '–' + escapeHtml(cell.makeup.endTime) + '</span>'
+                : '';
+            const tdCls = dateMeta.isMakeupColumn ? ' report-makeup-col' : '';
+            return '<td class="' + tdCls.trim() + '"><span class="cell-makeup cell-makeup-primary">보강</span>' + timeLine + '</td>';
+        }
         if (cell && cell.attendance) {
             const att = ATT_MAP[cell.attendance] || { label: '·', cls: '' };
             const score = (cell.vocabScore === '' || cell.vocabScore === null || cell.vocabScore === undefined)
                 ? '' : cell.vocabScore;
+            const makeupLine = (cell.makeup)
+                ? '<span class="cell-makeup">M ' + escapeHtml(cell.makeup.startTime) + '–' + escapeHtml(cell.makeup.endTime) + '</span>'
+                : '';
             return '<td><span class="cell-att ' + att.cls + '">' + att.label + '</span>' +
-                '<span class="cell-score">' + score + '</span></td>';
+                '<span class="cell-score">' + score + '</span>' + makeupLine + '</td>';
         }
-        return '<td class="report-empty-cell"><span class="cell-att text-muted">·</span></td>';
+        if (cell && cell.makeup) {
+            return '<td class="report-empty-cell"><span class="cell-makeup">M ' +
+                escapeHtml(cell.makeup.startTime) + '–' + escapeHtml(cell.makeup.endTime) + '</span></td>';
+        }
+        const emptyCls = dateMeta.isMakeupColumn ? ' report-makeup-col' : ' report-empty-cell';
+        return '<td class="' + emptyCls.trim() + '"><span class="cell-att text-muted">·</span></td>';
     }
 
     function formatReportDateHeader(meta) {
         const p = meta.dateStr.split('-');
         const short = Number(p[1]) + '/' + Number(p[2]);
-        return short + '<span class="report-dow">' + escapeHtml(meta.dayLabel || '') + '</span>';
+        const makeupTag = meta.isMakeupColumn ? '<span class="report-dow">보강</span>' : '';
+        return short + '<span class="report-dow">' + escapeHtml(meta.dayLabel || '') + '</span>' + makeupTag;
     }
 
     function buildSummaryTable(cls) {
@@ -7436,7 +9581,7 @@
         wrap.className = 'report-block';
 
         let html = '<table class="report-summary-table"><thead><tr>' +
-            '<th class="name-col">Student</th><th>Present</th><th>Tardy</th><th>Absent</th><th>Avg Vocab</th>' +
+            '<th class="name-col">Student</th><th>Present</th><th>Tardy</th><th>Absent</th><th>Avg Vocab</th><th>Makeup</th><th>Makeup hrs</th>' +
             '</tr></thead><tbody>';
 
         cls.students.forEach(function(std) {
@@ -7453,8 +9598,11 @@
                 if (!Number.isNaN(v) && v > 0) { sum += v; scoreCount++; }
             });
             const avg = scoreCount ? Math.round((sum / scoreCount) * 10) / 10 : '-';
+            const makeupCount = std.makeupCount || 0;
+            const makeupHours = std.makeupHours || 0;
             html += `<tr><td class="name-col">${escapeHtml(std.name)}</td>` +
-                `<td>${present}</td><td>${tardy}</td><td>${absent}</td><td>${avg}</td></tr>`;
+                `<td>${present}</td><td>${tardy}</td><td>${absent}</td><td>${avg}</td>` +
+                `<td>${makeupCount}</td><td>${makeupHours || '—'}</td></tr>`;
         });
         html += '</tbody></table>';
         wrap.innerHTML = html;

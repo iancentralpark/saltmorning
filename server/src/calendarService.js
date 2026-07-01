@@ -3,6 +3,7 @@ const { getSheetRows } = require('./sheets');
 const { parseHomeworkDate } = require('./dateUtils');
 const { readClassEvents } = require('./sidebarService');
 const { getHolidaysForMonth } = require('./holiday');
+const { getScheduledMakeupsForMonth } = require('./makeupService');
 
 function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate();
@@ -38,6 +39,7 @@ async function getClassCalendarData(classId, year, month, allowedDays) {
   const allowed = (allowedDays || []).map(Number).filter(n => !isNaN(n));
   const holidays = await getHolidaysForMonth(year, month);
   const events = await readClassEvents(classId);
+  const makeupEvents = await getScheduledMakeupsForMonth(classId, year, month);
   const homework = await readHomeworkForClass(classId);
 
   const numDays = daysInMonth(year, month);
@@ -57,7 +59,15 @@ async function getClassCalendarData(classId, year, month, allowedDays) {
       offReason,
       events: events
         .filter(e => e.eventDate === dateStr)
-        .map(e => ({ eventId: e.eventId, description: e.description })),
+        .map(e => ({ eventId: e.eventId, description: e.description, type: 'event' }))
+        .concat(makeupEvents
+          .filter(e => e.eventDate === dateStr)
+          .map(e => ({
+            eventId: e.eventId,
+            description: e.description,
+            type: 'makeup',
+            makeupId: e.makeupId
+          }))),
       homework: homework
         .filter(h => h.assignedDate === dateStr)
         .map(h => ({

@@ -66,12 +66,21 @@ async function addClassTextbook(classId, name, type, unitType, totalUnits, start
   return { textbookId: id, message: 'Textbook added.' };
 }
 
-async function promoteNextQueuedTextbook(classId) {
+function findNextQueuedTextbookForType(items, completedType) {
+  const want = String(completedType || '').trim();
+  if (!want) return null;
+  for (let i = 0; i < items.length; i++) {
+    if (String(items[i].type || '').trim() === want) return items[i];
+  }
+  return null;
+}
+
+async function promoteNextQueuedTextbook(classId, completedType) {
   const q = await readTextbookQueueForClass(classId);
-  if (!q.items.length) return null;
-  const next = q.items[0];
+  const next = findNextQueuedTextbookForType(q.items, completedType);
+  if (!next) return null;
   if (!isQueueItemReady(next)) {
-    return { skipped: true, reason: 'incomplete', name: next.name };
+    return { skipped: true, reason: 'incomplete', name: next.name, type: next.type };
   }
   const added = await addClassTextbook(classId, next.name, next.type, next.unitType, next.totalUnits, null);
   await deleteRow(TEXTBOOK_SHEETS.QUEUE, next.row);
@@ -153,19 +162,26 @@ async function completeClassTextbook(textbookId) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] !== textbookId) continue;
     const classId = data[i][1];
+    const completedType = String(data[i][3] || '').trim();
     await updateRange(TEXTBOOK_SHEETS.BOOKS, `H${i + 1}:I${i + 1}`, [['Completed', now]]);
-    const next = await promoteNextQueuedTextbook(classId);
+    const next = await promoteNextQueuedTextbook(classId, completedType);
     cacheDeletePrefix('sidebar_v1_');
     if (next && next.skipped) {
       return {
-        message: 'Textbook marked complete. "' + next.name + '" is next in queue but still needs type & total — edit it in Up Next.',
+        message: 'Textbook marked complete. Next ' + (next.type || completedType) + ' in queue ("' + next.name + '") still needs type & total — edit it in Up Next.',
         queueBlocked: true
       };
     }
     if (next) {
       return {
-        message: 'Textbook marked complete. Now reading: "' + next.name + '".',
+        message: 'Textbook marked complete. Now reading: "' + next.name + '" (' + next.type + ').',
         nextTextbook: next
+      };
+    }
+    if (completedType) {
+      return {
+        message: 'Textbook marked complete. No ' + completedType + ' book is queued in Up Next.',
+        queueBlocked: false
       };
     }
     return { message: 'Textbook marked complete. Progress history is kept in the sheet.' };

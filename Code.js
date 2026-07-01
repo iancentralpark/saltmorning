@@ -2,6 +2,10 @@
 function doGet(e) {
   const params = (e && e.parameter) ? e.parameter : {};
 
+  if (params.page === 'icon') {
+    return serveAppIcon_();
+  }
+
   if (params.page === 'timer') {
     const min = Math.max(0, parseInt(params.min, 10) || 0);
     const sec = Math.max(0, Math.min(59, parseInt(params.sec, 10) || 0));
@@ -65,6 +69,11 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+function serveAppIcon_() {
+  const bytes = Utilities.base64Decode(getAppIconBase64_());
+  return ContentService.createTextOutput(bytes).setMimeType(ContentService.MimeType.PNG);
+}
+
 // 스프레드시트 ID 설정 (연결할 구글 시트 ID를 입력하세요)
 const SPREADSHEET_ID = "1XNZYW16PWijfNZPe3knwLnTw5Be_x_BoCeL3G1WO7jg";
 
@@ -92,6 +101,13 @@ function perfCachePutJson_(key, obj, seconds) {
 
 function invalidateClassSidebarCache_(classId) {
   CacheService.getScriptCache().remove('sidebar_v1_' + String(classId));
+}
+
+function invalidateAllClassSidebarCaches_() {
+  const data = getSS().getSheetByName('Class_List').getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0]) invalidateClassSidebarCache_(data[i][0]);
+  }
 }
 
 function invalidateInitialClassesCache_() {
@@ -194,38 +210,28 @@ function buildClassSidebarFromCtx_(ctx) {
     events.push({
       eventId: String(evRows[i][0]),
       eventDate: eventDate,
-      description: String(evRows[i][3] || '')
+      description: String(evRows[i][3] || ''),
+      type: 'event'
     });
   }
-  events.sort(function(a, b) {
+  const makeupEvents = getUpcomingMakeupEvents_(classId);
+  const allEvents = events.concat(makeupEvents);
+  allEvents.sort(function(a, b) {
     if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
+    const aMakeup = a.type === 'makeup' ? 0 : 1;
+    const bMakeup = b.type === 'makeup' ? 0 : 1;
+    if (aMakeup !== bMakeup) return aMakeup - bMakeup;
     return a.description.localeCompare(b.description);
   });
 
-  let video = {
-    videoUrl: 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
-    videoId: DEFAULT_YOUTUBE_VIDEO_ID,
-    embedUrl: youtubeEmbedUrl_(DEFAULT_YOUTUBE_VIDEO_ID)
-  };
   const vidRows = ctx.sheetRows(VIDEO_SHEET);
-  for (let i = 1; i < vidRows.length; i++) {
-    if (String(vidRows[i][0]) !== classId) continue;
-    const raw = String(vidRows[i][1] || '').trim();
-    let videoId = DEFAULT_YOUTUBE_VIDEO_ID;
-    try { videoId = parseYoutubeVideoId_(raw); } catch (e) { videoId = DEFAULT_YOUTUBE_VIDEO_ID; }
-    video = {
-      videoUrl: raw || ('https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID),
-      videoId: videoId,
-      embedUrl: youtubeEmbedUrl_(videoId)
-    };
-    break;
-  }
+  const video = resolveSharedClassVideoFromRows_(vidRows, classId);
 
   return {
     rules: rulesResult,
     books: { students: booksStudents },
     announcement: announcement,
-    events: { events: events },
+    events: { events: allEvents },
     video: video
   };
 }
@@ -309,6 +315,9 @@ function buildClassAttendanceFromCtx_(ctx, dateStr) {
   }
 
   const pendingMap = buildPendingHomeworkCountsFromCtx_(ctx, classId);
+  const leaveMap = getActiveLeavesByClass_(classId, dateStr);
+  const allActiveLeaves = getAllActiveLeavesByClass_(classId);
+  const plannedMap = getPlannedByClassAndDate_(classId, dateStr);
 
   let allowedDays = [1, 2, 3, 4, 5];
   const classData = ctx.sheetRows('Class_List');
@@ -357,32 +366,37 @@ function buildClassAttendanceFromCtx_(ctx, dateStr) {
       chambitWeekRead: weekRead,
       chambitWeekRequired: weekRequiredCount
     };
-    if (existingMap[student.id]) {
-      return {
-        id: student.id,
-        name: student.name,
-        attendance: existingMap[student.id].attendance,
-        vocabScore: existingMap[student.id].vocabScore,
-        dollars: balanceMap[student.id] ?? 0,
-        pendingHomework: base.pendingHomework,
-        chambitRead: base.chambitRead,
-        chambitCombo: base.chambitCombo,
-        chambitWeekRead: base.chambitWeekRead,
-        chambitWeekRequired: base.chambitWeekRequired
-      };
+    const leaveOnDate = leaveMap[sid] || null;
+    const activeLeave = allActiveLeaves[sid] || null;
+    const onLeave = !!leaveOnDate;
+    const leaveInfo = leaveOnDate || activeLeave;
+    const planned = plannedMap[sid] || null;
+    let attendance;
+    if (onLeave) {
+      attendance = '휴원';
+    } else if (existingMap[student.id]) {
+      attendance = existingMap[student.id].attendance;
+    } else if (planned) {
+      attendance = planned.type;
+    } else {
+      attendance = '출석';
     }
-    return {
+    const row = {
       id: student.id,
       name: student.name,
-      attendance: '출석',
-      vocabScore: 0,
+      attendance: attendance,
+      vocabScore: existingMap[student.id] ? existingMap[student.id].vocabScore : 0,
       dollars: balanceMap[student.id] ?? 0,
+      onLeave: onLeave,
+      leaveInfo: leaveInfo,
+      plannedNotice: planned,
       pendingHomework: base.pendingHomework,
       chambitRead: base.chambitRead,
       chambitCombo: base.chambitCombo,
       chambitWeekRead: base.chambitWeekRead,
       chambitWeekRequired: base.chambitWeekRequired
     };
+    return row;
   });
 }
 
@@ -541,6 +555,17 @@ function buildClassHomeworkFromCtx_(ctx, dateStr) {
     last = lastFromLog || lastFromClassroom;
   }
   if (last && last.sortTime) delete last.sortTime;
+
+  if (last) {
+    const students = getEnrolledStudents_(classId);
+    const nameById = {};
+    students.forEach(function(s) { nameById[String(s.id)] = s.name; });
+    if (last.items && last.items.length) {
+      last.items = enrichHomeworkItemsForDisplay_(last.items, nameById);
+    } else if (last.description) {
+      last.items = parseClassroomDescriptionToItems_(last.description);
+    }
+  }
 
   return {
     classroomLinked: !!(map && map.courseId),
@@ -750,6 +775,22 @@ function getMonthlyReport(classId, year, month) {
     dateSet[cid][rDate] = true;
   }
 
+  const makeupByClass = {};
+  try {
+    const makeupSheet = ss.getSheetByName(MAKEUP_SHEET_NAME);
+    if (makeupSheet) {
+      const makeupData = makeupSheet.getDataRange().getValues();
+      for (let i = 1; i < makeupData.length; i++) {
+        const dateStr = String(makeupData[i][4] || '');
+        if (dateStr.slice(0, 7) !== monthPrefix) continue;
+        const cid = String(makeupData[i][1] || '');
+        if (!makeupByClass[cid]) makeupByClass[cid] = [];
+        const lesson = rowToMakeupLesson_(makeupData[i]);
+        makeupByClass[cid].push(lesson);
+      }
+    }
+  } catch (e) { /* sheet may not exist */ }
+
   // 클래스별 리포트 구성
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const holidays = getHolidaysForMonth_(y, m);
@@ -757,37 +798,92 @@ function getMonthlyReport(classId, year, month) {
   classList.forEach(function(cls) {
     const allowed = cls.allowedDays && cls.allowedDays.length ? cls.allowedDays : [1, 2, 3, 4, 5];
     const numDays = new Date(y, m, 0).getDate();
-    const dates = [];
+    const scheduledDates = [];
     for (let d = 1; d <= numDays; d++) {
       const dateStr = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
       const dow = new Date(dateStr + 'T12:00:00').getDay();
       if (allowed.indexOf(dow) === -1) continue;
-      dates.push({
+      scheduledDates.push({
         dateStr: dateStr,
         dayLabel: dayLabels[dow],
         holiday: holidays[dateStr] || ''
       });
     }
+    const scheduledSet = {};
+    scheduledDates.forEach(function(d) { scheduledSet[d.dateStr] = true; });
+
+    const classMakeups = makeupByClass[cls.id] || [];
+    const completedMakeups = classMakeups.filter(function(mu) {
+      return mu.status === MAKEUP_STATUS_COMPLETED;
+    });
+    const extraDateStrs = [];
+    completedMakeups.forEach(function(mu) {
+      if (!scheduledSet[mu.dateStr] && extraDateStrs.indexOf(mu.dateStr) === -1) {
+        extraDateStrs.push(mu.dateStr);
+      }
+    });
+    extraDateStrs.sort();
+    const extraDates = extraDateStrs.map(function(dateStr) {
+      const dow = new Date(dateStr + 'T12:00:00').getDay();
+      return {
+        dateStr: dateStr,
+        dayLabel: dayLabels[dow],
+        holiday: holidays[dateStr] || '',
+        isMakeupColumn: true
+      };
+    });
+    const dates = scheduledDates.concat(extraDates).sort(function(a, b) {
+      return a.dateStr < b.dateStr ? -1 : (a.dateStr > b.dateStr ? 1 : 0);
+    });
 
     const students = (studentsByClass[cls.id] || []).map(function(std) {
+      const sessions = completedMakeups.filter(function(mu) { return mu.studentId === std.id; });
+      const makeupHours = Math.round(sessions.reduce(function(s, mu) {
+        return s + (mu.durationHours || 0);
+      }, 0) * 100) / 100;
       const cells = dates.map(function(d) {
+        var muOnDate = null;
+        for (let k = 0; k < sessions.length; k++) {
+          if (sessions[k].dateStr === d.dateStr) { muOnDate = sessions[k]; break; }
+        }
+        if (d.isMakeupColumn) {
+          return {
+            attendance: muOnDate ? '보강' : null,
+            vocabScore: null,
+            holiday: d.holiday || '',
+            makeup: muOnDate,
+            isMakeupOnly: true
+          };
+        }
         if (d.holiday) {
-          return { attendance: null, vocabScore: null, holiday: d.holiday };
+          return { attendance: null, vocabScore: null, holiday: d.holiday, makeup: null };
         }
         const rec = recordMap[cls.id] && recordMap[cls.id][d.dateStr] && recordMap[cls.id][d.dateStr][std.id];
         if (rec && rec.attendance) {
-          return { attendance: rec.attendance, vocabScore: rec.vocabScore, holiday: '' };
+          return { attendance: rec.attendance, vocabScore: rec.vocabScore, holiday: '', makeup: muOnDate };
         }
-        return { attendance: null, vocabScore: null, holiday: '' };
+        if (muOnDate) {
+          return { attendance: '보강', vocabScore: null, holiday: '', makeup: muOnDate };
+        }
+        return { attendance: null, vocabScore: null, holiday: '', makeup: null };
       });
-      return { id: std.id, name: std.name, cells: cells };
+      return {
+        id: std.id,
+        name: std.name,
+        makeupCount: sessions.length,
+        makeupHours: makeupHours,
+        cells: cells
+      };
     });
     report.push({
       id: cls.id,
       name: cls.name,
       allowedDays: allowed,
       dates: dates,
-      students: students
+      students: students,
+      makeupSessions: classMakeups.filter(function(mu) {
+        return mu.status !== MAKEUP_STATUS_CANCELLED;
+      })
     });
   });
 
@@ -805,11 +901,11 @@ function saveAttendanceData(classId, dateStr, records) {
   const ss = getSS();
   const sheet = ss.getSheetByName('Attendance_Data');
   const data = sheet.getDataRange().getValues();
+  const leaveMap = getActiveLeavesByClass_(classId, dateStr);
   
-  // 효율적인 업데이트를 위해 행 위치 추적 변수 설정
-  // 기존 행들의 위치를 기억하고 덮어쓰기 위함
   for(let k = 0; k < records.length; k++) {
     const rec = records[k];
+    if (leaveMap[String(rec.studentId)]) rec.attendance = '휴원';
     let foundRow = -1;
     
     for(let i = 1; i < data.length; i++) {
@@ -881,21 +977,86 @@ function updateStudentRecord(classId, studentId, dateStr, attendance, vocabScore
 
 // ===== Makeup lessons =====
 var MAKEUP_SHEET_NAME = 'Makeup_Lessons';
+var MAKEUP_STATUS_SCHEDULED = 'Scheduled';
+var MAKEUP_STATUS_COMPLETED = 'Completed';
+var MAKEUP_STATUS_CANCELLED = 'Cancelled';
+var MAKEUP_KNOWN_STATUSES = [MAKEUP_STATUS_SCHEDULED, MAKEUP_STATUS_COMPLETED, MAKEUP_STATUS_CANCELLED];
+
+function makeupTodayStr_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function resolveMakeupStatus_(dateStr, status, options) {
+  options = options || {};
+  const s = String(status || '').trim();
+  if (options.explicitStatus && MAKEUP_KNOWN_STATUSES.indexOf(s) !== -1) return s;
+  if (s === MAKEUP_STATUS_CANCELLED) return MAKEUP_STATUS_CANCELLED;
+  if (String(dateStr) > makeupTodayStr_()) return MAKEUP_STATUS_SCHEDULED;
+  return MAKEUP_STATUS_COMPLETED;
+}
+
+function rowToMakeupLesson_(row) {
+  const statusCell = String(row[9] || '').trim();
+  let status;
+  let recordedAt;
+  if (MAKEUP_KNOWN_STATUSES.indexOf(statusCell) !== -1) {
+    status = statusCell;
+    recordedAt = String(row[10] || '');
+  } else {
+    recordedAt = statusCell;
+    status = resolveMakeupStatus_(String(row[4] || ''), '', {});
+  }
+  return {
+    makeupId: String(row[0] || ''),
+    classId: String(row[1] || ''),
+    studentId: String(row[2] || ''),
+    studentName: String(row[3] || ''),
+    dateStr: String(row[4] || ''),
+    startTime: String(row[5] || ''),
+    endTime: String(row[6] || ''),
+    durationHours: Number(row[7]) || 0,
+    notes: String(row[8] || ''),
+    status: status,
+    recordedAt: recordedAt
+  };
+}
+
+function formatMakeupEventDescription_(lesson) {
+  const notes = String(lesson.notes || '').trim();
+  return 'Makeup: ' + lesson.studentName + ' · ' + lesson.startTime + '–' + lesson.endTime +
+    (notes ? ' — ' + notes : '');
+}
+
+function makeupToEvent_(lesson) {
+  return {
+    eventId: lesson.makeupId,
+    eventDate: lesson.dateStr,
+    description: formatMakeupEventDescription_(lesson),
+    type: 'makeup',
+    makeupId: lesson.makeupId,
+    studentId: lesson.studentId,
+    studentName: lesson.studentName,
+    startTime: lesson.startTime,
+    endTime: lesson.endTime,
+    status: lesson.status
+  };
+}
 
 function ensureMakeupSheet_() {
   const ss = getSS();
   let sheet = ss.getSheetByName(MAKEUP_SHEET_NAME);
+  const headers = [
+    'MakeupID', 'ClassID', 'StudentID', 'StudentName', 'Date',
+    'StartTime', 'EndTime', 'DurationHours', 'Notes', 'Status', 'RecordedAt'
+  ];
   if (!sheet) {
     sheet = ss.insertSheet(MAKEUP_SHEET_NAME);
-    sheet.appendRow([
-      'MakeupID', 'ClassID', 'StudentID', 'StudentName', 'Date',
-      'StartTime', 'EndTime', 'DurationHours', 'Notes', 'RecordedAt'
-    ]);
+    sheet.appendRow(headers);
   } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      'MakeupID', 'ClassID', 'StudentID', 'StudentName', 'Date',
-      'StartTime', 'EndTime', 'DurationHours', 'Notes', 'RecordedAt'
-    ]);
+    sheet.appendRow(headers);
+  } else if (String(sheet.getRange(1, 1).getValue()) === 'MakeupID' &&
+      String(sheet.getRange(1, 10).getValue()) !== 'Status') {
+    sheet.getRange(1, 10, 1, 11).setValues([['Status', 'RecordedAt']]);
   }
   return sheet;
 }
@@ -932,24 +1093,27 @@ function getMakeupLessons(classId, studentId) {
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]) !== classId) continue;
     if (studentId && String(data[i][2]) !== studentId) continue;
-    rows.push({
-      makeupId: String(data[i][0] || ''),
-      classId: String(data[i][1] || ''),
-      studentId: String(data[i][2] || ''),
-      studentName: String(data[i][3] || ''),
-      dateStr: String(data[i][4] || ''),
-      startTime: String(data[i][5] || ''),
-      endTime: String(data[i][6] || ''),
-      durationHours: Number(data[i][7]) || 0,
-      notes: String(data[i][8] || ''),
-      recordedAt: String(data[i][9] || '')
-    });
+    rows.push(rowToMakeupLesson_(data[i]));
   }
   rows.sort(function(a, b) {
     if (a.dateStr !== b.dateStr) return a.dateStr < b.dateStr ? 1 : -1;
     return a.startTime < b.startTime ? 1 : -1;
   });
   return rows;
+}
+
+function getUpcomingMakeupEvents_(classId) {
+  const today = makeupTodayStr_();
+  return getMakeupLessons(classId, '').filter(function(m) {
+    return m.status === MAKEUP_STATUS_SCHEDULED && m.dateStr >= today;
+  }).map(makeupToEvent_);
+}
+
+function getScheduledMakeupsForMonth_(classId, year, month) {
+  const monthPrefix = year + '-' + String(month).padStart(2, '0');
+  return getMakeupLessons(classId, '').filter(function(m) {
+    return m.status === MAKEUP_STATUS_SCHEDULED && m.dateStr.slice(0, 7) === monthPrefix;
+  }).map(makeupToEvent_);
 }
 
 function saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, endTime, notes) {
@@ -963,6 +1127,7 @@ function saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, e
   if (!startTime || !endTime) throw new Error('Start and end time are required (HH:mm).');
   const durationHours = calcMakeupDurationHours_(startTime, endTime);
   if (durationHours == null) throw new Error('End time must be after start time.');
+  const resolvedStatus = resolveMakeupStatus_(dateStr, '', {});
   if (!studentName) {
     const students = getEnrolledStudents_(classId);
     for (let i = 0; i < students.length; i++) {
@@ -978,13 +1143,97 @@ function saveMakeupLesson(classId, studentId, studentName, dateStr, startTime, e
   const recordedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
   sheet.appendRow([
     makeupId, classId, studentId, studentName, dateStr,
-    startTime, endTime, durationHours, notes, recordedAt
+    startTime, endTime, durationHours, notes, resolvedStatus, recordedAt
   ]);
+  invalidateClassSidebarCache_(classId);
+  const verb = resolvedStatus === MAKEUP_STATUS_SCHEDULED ? 'Makeup scheduled' : 'Makeup recorded';
   return {
     makeupId: makeupId,
-    message: 'Makeup recorded: ' + studentName + ' · ' + dateStr + ' · ' +
+    status: resolvedStatus,
+    message: verb + ': ' + studentName + ' · ' + dateStr + ' · ' +
       startTime + '–' + endTime + ' (' + durationHours + 'h)',
     durationHours: durationHours
+  };
+}
+
+function findMakeupRowIndex_(makeupId) {
+  ensureMakeupSheet_();
+  const sheet = getSS().getSheetByName(MAKEUP_SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  makeupId = String(makeupId || '').trim();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === makeupId) return i + 1;
+  }
+  return -1;
+}
+
+function updateMakeupLesson(makeupId, classId, studentId, studentName, dateStr, startTime, endTime, notes) {
+  const row = findMakeupRowIndex_(makeupId);
+  if (row < 0) throw new Error('Makeup record not found.');
+  const sheet = getSS().getSheetByName(MAKEUP_SHEET_NAME);
+  const current = rowToMakeupLesson_(sheet.getRange(row, 1, 1, 11).getValues()[0]);
+  classId = String(classId != null ? classId : current.classId).trim();
+  studentId = String(studentId != null ? studentId : current.studentId).trim();
+  studentName = String(studentName != null ? studentName : current.studentName).trim();
+  dateStr = String(dateStr != null ? dateStr : current.dateStr).trim();
+  startTime = String(startTime != null ? startTime : current.startTime).trim();
+  endTime = String(endTime != null ? endTime : current.endTime).trim();
+  notes = String(notes != null ? notes : current.notes).trim();
+  const resolvedStatus = resolveMakeupStatus_(dateStr, current.status, {});
+  const durationHours = calcMakeupDurationHours_(startTime, endTime);
+  if (durationHours == null) throw new Error('End time must be after start time.');
+  if (!studentName) {
+    const students = getEnrolledStudents_(classId);
+    for (let i = 0; i < students.length; i++) {
+      if (String(students[i].id) === studentId) { studentName = students[i].name; break; }
+    }
+    studentName = studentName || studentId;
+  }
+  sheet.getRange(row, 1, 1, 11).setValues([[
+    current.makeupId, classId, studentId, studentName, dateStr,
+    startTime, endTime, durationHours, notes, resolvedStatus,
+    current.recordedAt || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss')
+  ]]);
+  invalidateClassSidebarCache_(classId);
+  const verb = resolvedStatus === MAKEUP_STATUS_SCHEDULED ? 'Makeup schedule updated' : 'Makeup updated';
+  return {
+    makeupId: current.makeupId,
+    status: resolvedStatus,
+    message: verb + ': ' + studentName + ' · ' + dateStr + ' · ' +
+      startTime + '–' + endTime + ' (' + durationHours + 'h)',
+    durationHours: durationHours
+  };
+}
+
+function deleteMakeupLesson(makeupId) {
+  const row = findMakeupRowIndex_(makeupId);
+  if (row < 0) throw new Error('Makeup record not found.');
+  const sheet = getSS().getSheetByName(MAKEUP_SHEET_NAME);
+  const current = rowToMakeupLesson_(sheet.getRange(row, 1, 1, 11).getValues()[0]);
+  invalidateClassSidebarCache_(current.classId);
+  sheet.deleteRow(row);
+  return {
+    makeupId: current.makeupId,
+    message: 'Makeup deleted: ' + current.studentName + ' · ' + current.dateStr
+  };
+}
+
+function setMakeupLessonStatus(makeupId, status) {
+  status = String(status || '').trim();
+  if (MAKEUP_KNOWN_STATUSES.indexOf(status) === -1) throw new Error('Invalid makeup status.');
+  const row = findMakeupRowIndex_(makeupId);
+  if (row < 0) throw new Error('Makeup record not found.');
+  const sheet = getSS().getSheetByName(MAKEUP_SHEET_NAME);
+  const current = rowToMakeupLesson_(sheet.getRange(row, 1, 1, 11).getValues()[0]);
+  sheet.getRange(row, 10).setValue(status);
+  invalidateClassSidebarCache_(current.classId);
+  let verb = 'Makeup updated';
+  if (status === MAKEUP_STATUS_COMPLETED) verb = 'Makeup completed';
+  if (status === MAKEUP_STATUS_CANCELLED) verb = 'Makeup cancelled';
+  return {
+    makeupId: current.makeupId,
+    status: status,
+    message: verb + ': ' + current.studentName + ' · ' + current.dateStr
   };
 }
 
@@ -1699,12 +1948,21 @@ function isQueueItemReady_(item) {
   return Number.isFinite(total) && total > 0;
 }
 
-function promoteNextQueuedTextbook_(classId) {
+function findNextQueuedTextbookForType_(items, completedType) {
+  const want = String(completedType || '').trim();
+  if (!want) return null;
+  for (let i = 0; i < items.length; i++) {
+    if (String(items[i].type || '').trim() === want) return items[i];
+  }
+  return null;
+}
+
+function promoteNextQueuedTextbook_(classId, completedType) {
   const q = readTextbookQueueForClass_(classId);
-  if (!q.items.length) return null;
-  const next = q.items[0];
+  const next = findNextQueuedTextbookForType_(q.items, completedType);
+  if (!next) return null;
   if (!isQueueItemReady_(next)) {
-    return { skipped: true, reason: 'incomplete', name: next.name };
+    return { skipped: true, reason: 'incomplete', name: next.name, type: next.type };
   }
   const added = addClassTextbook(classId, next.name, next.type, next.unitType, next.totalUnits, null);
   q.sheet.deleteRow(next.row);
@@ -1846,7 +2104,7 @@ function updateClassTextbook(textbookId, name, type, unitType, totalUnits, start
   throw new Error('Textbook not found.');
 }
 
-/** Mark textbook complete — promotes next queued book if any. */
+/** Mark textbook complete — promotes next queued book of the same type if any. */
 function completeClassTextbook(textbookId) {
   ensureTextbookSheets_();
   const ss = getSS();
@@ -1863,19 +2121,26 @@ function completeClassTextbook(textbookId) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] !== textbookId) continue;
     const classId = data[i][1];
+    const completedType = String(data[i][3] || '').trim();
     sheet.getRange(i + 1, statusCol).setValue('Completed');
     if (completedCol > 0) sheet.getRange(i + 1, completedCol).setValue(now);
-    const next = promoteNextQueuedTextbook_(classId);
+    const next = promoteNextQueuedTextbook_(classId, completedType);
     if (next && next.skipped) {
       return {
-        message: 'Textbook marked complete. "' + next.name + '" is next in queue but still needs type & total — edit it in Up Next.',
+        message: 'Textbook marked complete. Next ' + (next.type || completedType) + ' in queue ("' + next.name + '") still needs type & total — edit it in Up Next.',
         queueBlocked: true
       };
     }
     if (next) {
       return {
-        message: 'Textbook marked complete. Now reading: "' + next.name + '".',
+        message: 'Textbook marked complete. Now reading: "' + next.name + '" (' + next.type + ').',
         nextTextbook: next
+      };
+    }
+    if (completedType) {
+      return {
+        message: 'Textbook marked complete. No ' + completedType + ' book is queued in Up Next.',
+        queueBlocked: false
       };
     }
     return { message: 'Textbook marked complete. Progress history is kept in the sheet.' };
@@ -2245,14 +2510,39 @@ function readClassEvents_(classId) {
 function getClassUpcomingEvents(classId) {
   const tz = Session.getScriptTimeZone();
   const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
-  const events = readClassEvents_(classId).filter(function(e) {
+  const regular = readClassEvents_(classId).filter(function(e) {
     return e.eventDate >= today;
+  }).map(function(e) {
+    e.type = 'event';
+    return e;
+  });
+  const makeup = getUpcomingMakeupEvents_(classId);
+  const events = regular.concat(makeup);
+  events.sort(function(a, b) {
+    if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
+    const aMakeup = a.type === 'makeup' ? 0 : 1;
+    const bMakeup = b.type === 'makeup' ? 0 : 1;
+    if (aMakeup !== bMakeup) return aMakeup - bMakeup;
+    return a.description.localeCompare(b.description);
   });
   return { events: events };
 }
 
 function getClassEventsEditData(classId) {
-  return { events: readClassEvents_(classId) };
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const regular = readClassEvents_(classId).filter(function(e) {
+    return e.eventDate >= today;
+  }).map(function(e) {
+    e.type = 'event';
+    return e;
+  });
+  const makeup = getUpcomingMakeupEvents_(classId);
+  const events = regular.concat(makeup);
+  events.sort(function(a, b) {
+    if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
+    return a.description.localeCompare(b.description);
+  });
+  return { events: events };
 }
 
 function addClassEvent(classId, dateStr, description) {
@@ -2315,6 +2605,7 @@ function getClassCalendarData(classId, year, month, allowedDays) {
   const allowed = chambitNormalizeAllowedDays_(allowedDays);
   const holidays = getHolidaysForMonth_(year, month);
   const events = readClassEvents_(classId);
+  const makeupEvents = getScheduledMakeupsForMonth_(classId, year, month);
   const homework = readHomeworkLogForClass_(classId);
   const numDays = new Date(year, month, 0).getDate();
   const days = {};
@@ -2332,8 +2623,10 @@ function getClassCalendarData(classId, year, month, allowedDays) {
       offDay: !!offReason,
       offReason: offReason,
       events: events.filter(function(e) { return e.eventDate === dateStr; }).map(function(e) {
-        return { eventId: e.eventId, description: e.description };
-      }),
+        return { eventId: e.eventId, description: e.description, type: 'event' };
+      }).concat(makeupEvents.filter(function(e) { return e.eventDate === dateStr; }).map(function(e) {
+        return { eventId: e.eventId, description: e.description, type: 'makeup', makeupId: e.makeupId };
+      })),
       homework: homework.filter(function(h) { return h.assignedDate === dateStr; }).map(function(h) {
         return { homeworkId: h.homeworkId, title: h.title, description: h.description };
       })
@@ -2343,9 +2636,10 @@ function getClassCalendarData(classId, year, month, allowedDays) {
   return { year: year, month: month, classId: classId, allowedDays: allowed, days: days };
 }
 
-// ===== Class Video (per class, YouTube embed) =====
+// ===== Class Video (shared YouTube embed for all classes) =====
 const VIDEO_SHEET = 'Class_Video';
 const DEFAULT_YOUTUBE_VIDEO_ID = 'gmqG2h84_Cs';
+const GLOBAL_VIDEO_CLASS_ID_ = '*';
 
 function parseYoutubeVideoId_(urlOrId) {
   const s = String(urlOrId || '').trim();
@@ -2366,6 +2660,51 @@ function youtubeEmbedUrl_(videoId) {
   return 'https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1';
 }
 
+function defaultVideoPayload_() {
+  return {
+    videoUrl: 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
+    videoId: DEFAULT_YOUTUBE_VIDEO_ID,
+    embedUrl: youtubeEmbedUrl_(DEFAULT_YOUTUBE_VIDEO_ID)
+  };
+}
+
+function videoPayloadFromRaw_(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return defaultVideoPayload_();
+  let videoId = DEFAULT_YOUTUBE_VIDEO_ID;
+  try {
+    videoId = parseYoutubeVideoId_(trimmed);
+  } catch (e) {
+    videoId = DEFAULT_YOUTUBE_VIDEO_ID;
+  }
+  return {
+    videoUrl: trimmed || ('https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID),
+    videoId: videoId,
+    embedUrl: youtubeEmbedUrl_(videoId)
+  };
+}
+
+function resolveSharedClassVideoFromRows_(rows, classId) {
+  if (!rows || rows.length < 2) return defaultVideoPayload_();
+  let globalRaw = '';
+  let classRaw = '';
+  let latestRaw = '';
+  let latestTs = '';
+  for (let i = 1; i < rows.length; i++) {
+    const cid = String(rows[i][0] || '');
+    const raw = String(rows[i][1] || '').trim();
+    if (!raw) continue;
+    const updatedAt = String(rows[i][2] || '');
+    if (cid === GLOBAL_VIDEO_CLASS_ID_ || cid === '_all') globalRaw = raw;
+    if (classId && cid === String(classId)) classRaw = raw;
+    if (updatedAt >= latestTs) {
+      latestTs = updatedAt;
+      latestRaw = raw;
+    }
+  }
+  return videoPayloadFromRaw_(globalRaw || latestRaw || classRaw);
+}
+
 function ensureClassVideoSheet_() {
   const ss = getSS();
   let sheet = ss.getSheetByName(VIDEO_SHEET);
@@ -2380,27 +2719,7 @@ function getClassVideo(classId) {
   ensureClassVideoSheet_();
   const sheet = getSS().getSheetByName(VIDEO_SHEET);
   const data = sheet.getDataRange().getValues();
-  const idStr = String(classId);
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) !== idStr) continue;
-    const raw = String(data[i][1] || '').trim();
-    let videoId = DEFAULT_YOUTUBE_VIDEO_ID;
-    try {
-      videoId = parseYoutubeVideoId_(raw);
-    } catch (e) {
-      videoId = DEFAULT_YOUTUBE_VIDEO_ID;
-    }
-    return {
-      videoUrl: raw || 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
-      videoId: videoId,
-      embedUrl: youtubeEmbedUrl_(videoId)
-    };
-  }
-  return {
-    videoUrl: 'https://www.youtube.com/watch?v=' + DEFAULT_YOUTUBE_VIDEO_ID,
-    videoId: DEFAULT_YOUTUBE_VIDEO_ID,
-    embedUrl: youtubeEmbedUrl_(DEFAULT_YOUTUBE_VIDEO_ID)
-  };
+  return resolveSharedClassVideoFromRows_(data, classId);
 }
 
 function saveClassVideo(classId, videoUrl) {
@@ -2412,22 +2731,41 @@ function saveClassVideo(classId, videoUrl) {
   const data = sheet.getDataRange().getValues();
   const tz = Session.getScriptTimeZone();
   const now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
-  const idStr = String(classId);
-  let found = -1;
+
+  const classData = getSS().getSheetByName('Class_List').getDataRange().getValues();
+  const classIds = {};
+  classIds[GLOBAL_VIDEO_CLASS_ID_] = true;
+  for (let i = 1; i < classData.length; i++) {
+    if (classData[i][0]) classIds[String(classData[i][0])] = true;
+  }
+
+  const rowByClass = {};
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === idStr) {
-      found = i + 1;
-      break;
+    rowByClass[String(data[i][0])] = i + 1;
+  }
+
+  const appends = [];
+  for (const cid in classIds) {
+    if (!classIds.hasOwnProperty(cid)) continue;
+    const rowNum = rowByClass[cid];
+    if (rowNum) {
+      sheet.getRange(rowNum, 2, rowNum, 3).setValues([[normalized, now]]);
+    } else {
+      appends.push([cid, normalized, now]);
     }
   }
-  if (found > 0) {
-    sheet.getRange(found, 2, 1, 2).setValues([[normalized, now]]);
-  } else {
-    sheet.appendRow([classId, normalized, now]);
+  for (let i = 1; i < data.length; i++) {
+    const cid = String(data[i][0]);
+    if (classIds[cid]) continue;
+    sheet.getRange(i + 1, 2, i + 1, 3).setValues([[normalized, now]]);
   }
-  invalidateClassSidebarCache_(classId);
+  for (let j = 0; j < appends.length; j++) {
+    sheet.appendRow(appends[j]);
+  }
+
+  invalidateAllClassSidebarCaches_();
   return {
-    message: 'Video saved.',
+    message: 'Video saved for all classes.',
     videoUrl: normalized,
     videoId: videoId,
     embedUrl: youtubeEmbedUrl_(videoId)
@@ -2663,6 +3001,53 @@ function formatHomeworkForClassLog_(items, nameById) {
     lines.push(desc && title.indexOf(desc) === -1 ? (title + ' ' + desc) : title);
   }
   return lines.join('\n');
+}
+
+function parseClassroomDescriptionToItems_(description) {
+  const text = String(description || '').trim();
+  if (!text) return [];
+  let blocks = text.split(/\n\n+/).map(function(b) { return b.trim(); }).filter(Boolean);
+  if (blocks.length === 1 && /^\d+\.\s/m.test(text)) {
+    blocks = text.split(/\n(?=\d+\.\s)/).map(function(b) { return b.trim(); }).filter(Boolean);
+  }
+  const items = [];
+  for (let b = 0; b < blocks.length; b++) {
+    const lines = blocks[b].split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    if (!lines.length) continue;
+    const headMatch = lines[0].match(/^\d+\.\s*(.+)$/);
+    if (!headMatch) continue;
+    const title = headMatch[1].trim();
+    const descParts = [];
+    for (let i = 1; i < lines.length; i++) {
+      descParts.push(lines[i].replace(/^\s{2,}/, '').trim());
+    }
+    let hasNamePrefix = false;
+    const colon = title.indexOf(':');
+    if (colon > 0) {
+      const prefix = title.slice(0, colon).trim();
+      hasNamePrefix = /^[A-Za-z][A-Za-z'-]*(?:\s*,\s*[A-Za-z][A-Za-z'-]*)*$/.test(prefix);
+    }
+    items.push({
+      title: title,
+      description: descParts.join(' ').trim(),
+      targetStudentIds: [],
+      targetType: hasNamePrefix ? 'individual' : 'all',
+      displayTitle: title
+    });
+  }
+  return items;
+}
+
+function enrichHomeworkItemsForDisplay_(items, nameById) {
+  return (items || []).map(function(it) {
+    return {
+      title: it.title,
+      description: it.description,
+      targetStudentIds: it.targetStudentIds || [],
+      targetType: it.targetType,
+      displayTitle: it.displayTitle || formatHomeworkItemDisplayTitle_(it, nameById)
+    };
+  });
 }
 
 function parseItemsFromRows_(itemRows, validHomeworkIds) {
@@ -2905,13 +3290,15 @@ function getLatestClassroomHomework_(courseId, excludeDateStr) {
       if (excludeDateStr && assignedDate === excludeDateStr) return;
       const sortTime = created.getTime();
       if (!best || sortTime > best.sortTime) {
+        const description = String(cw.description || '');
         best = {
           title: String(cw.title || ''),
-          description: String(cw.description || ''),
+          description: description,
           assignedDate: assignedDate,
           source: 'classroom',
           classroomWorkId: String(cw.id || ''),
-          sortTime: sortTime
+          sortTime: sortTime,
+          items: parseClassroomDescriptionToItems_(description)
         };
       }
     });
@@ -3292,18 +3679,50 @@ function withdrawStudent(classId, studentId) {
   };
 }
 
-function generateNextStudentId_(classId) {
-  classId = String(classId);
+function parseStudentIdNumber_(studentId) {
+  const m = String(studentId || '').match(/^S(\d+)$/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function collectUsedStudentIds_() {
+  const used = {};
   let maxNum = 0;
-  const sheet = getSS().getSheetByName('Student_List');
-  if (!sheet) throw new Error('Student_List sheet not found.');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][2]) !== classId) continue;
-    const m = String(data[i][0]).match(/^S(\d+)$/i);
-    if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+  const ss = getSS();
+  const listSheet = ss.getSheetByName('Student_List');
+  if (listSheet) {
+    const data = listSheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      const sid = String(data[i][0] || '').trim();
+      if (!sid) continue;
+      used[sid] = true;
+      const num = parseStudentIdNumber_(sid);
+      if (num != null) maxNum = Math.max(maxNum, num);
+    }
   }
-  return 'S' + String(maxNum + 1).padStart(3, '0');
+  const archiveSheet = ss.getSheetByName('Student_Withdrawn');
+  if (archiveSheet && archiveSheet.getLastRow() > 0) {
+    const withdrawn = archiveSheet.getDataRange().getValues();
+    for (let i = 1; i < withdrawn.length; i++) {
+      const sid = String(withdrawn[i][1] || '').trim();
+      if (!sid) continue;
+      used[sid] = true;
+      const num = parseStudentIdNumber_(sid);
+      if (num != null) maxNum = Math.max(maxNum, num);
+    }
+  }
+  return { used: used, maxNum: maxNum };
+}
+
+/** Next Student_ID across all classes — never reuse an existing S### id. */
+function generateNextStudentId_() {
+  const collected = collectUsedStudentIds_();
+  let nextNum = collected.maxNum + 1;
+  let candidate;
+  do {
+    candidate = 'S' + String(nextNum).padStart(3, '0');
+    nextNum += 1;
+  } while (collected.used[candidate]);
+  return candidate;
 }
 
 function addEnrolledStudent(classId, name, loginId, loginPassword) {
@@ -3332,7 +3751,7 @@ function addEnrolledStudent(classId, name, loginId, loginPassword) {
     }
   }
 
-  const studentId = generateNextStudentId_(classId);
+  const studentId = generateNextStudentId_();
   sheet.appendRow([studentId, name, classId, 'Enrolled', loginId, loginPassword]);
   return {
     studentId: studentId,
@@ -3340,4 +3759,462 @@ function addEnrolledStudent(classId, name, loginId, loginPassword) {
     classId: classId,
     message: name + ' (' + studentId + ') added to the class.'
   };
+}
+
+// ===== Student leave of absence (휴원) =====
+var STUDENT_LEAVE_SHEET_ = 'Student_Leave';
+var LEAVE_STATUS_ACTIVE_ = 'Active';
+var LEAVE_STATUS_ENDED_ = 'Ended';
+
+function ensureLeaveSheet_() {
+  const ss = getSS();
+  let sheet = ss.getSheetByName(STUDENT_LEAVE_SHEET_);
+  if (!sheet) {
+    sheet = ss.insertSheet(STUDENT_LEAVE_SHEET_);
+    sheet.appendRow(['LeaveID', 'StudentID', 'Name', 'ClassID', 'StartDate', 'EndDate', 'Reason', 'Status', 'CreatedAt', 'EndedAt']);
+  }
+}
+
+function normalizeLeaveDate_(value) {
+  const tz = Session.getScriptTimeZone();
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+  }
+  const s = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  throw new Error('Invalid date format.');
+}
+
+function compareLeaveDate_(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function isDateInLeaveRange_(dateStr, startDate, endDate) {
+  dateStr = normalizeLeaveDate_(dateStr);
+  startDate = normalizeLeaveDate_(startDate);
+  endDate = normalizeLeaveDate_(endDate);
+  return compareLeaveDate_(dateStr, startDate) >= 0 && compareLeaveDate_(dateStr, endDate) <= 0;
+}
+
+function getAllActiveLeavesByClass_(classId) {
+  ensureLeaveSheet_();
+  const sheet = getSS().getSheetByName(STUDENT_LEAVE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  const map = {};
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) !== String(classId)) continue;
+    if (String(data[i][7]) !== LEAVE_STATUS_ACTIVE_) continue;
+    const startDate = normalizeLeaveDate_(data[i][4]);
+    const endDate = normalizeLeaveDate_(data[i][5]);
+    if (compareLeaveDate_(endDate, today) < 0) continue;
+    const sid = String(data[i][1]);
+    map[sid] = {
+      leaveId: String(data[i][0]),
+      startDate: startDate,
+      endDate: endDate,
+      reason: String(data[i][6] || '')
+    };
+  }
+  return map;
+}
+
+function getActiveLeavesByClass_(classId, dateStr) {
+  const all = getAllActiveLeavesByClass_(classId);
+  dateStr = normalizeLeaveDate_(dateStr);
+  const map = {};
+  for (const sid in all) {
+    if (!all.hasOwnProperty(sid)) continue;
+    const leave = all[sid];
+    if (isDateInLeaveRange_(dateStr, leave.startDate, leave.endDate)) {
+      map[sid] = leave;
+    }
+  }
+  return map;
+}
+
+function upsertAttendanceRecord_(classId, studentId, dateStr, attendance, vocabScore) {
+  saveAttendanceData(classId, dateStr, [{
+    studentId: studentId,
+    attendance: attendance,
+    vocabScore: vocabScore || 0
+  }]);
+}
+
+function addDaysLeave_(dateStr, days) {
+  const p = String(dateStr).split('-');
+  const dt = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  dt.setDate(dt.getDate() + days);
+  return Utilities.formatDate(dt, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function backfillLeaveAttendance_(classId, studentId, startDate, endDate) {
+  const ss = getSS();
+  const sheet = ss.getSheetByName('Attendance_Data');
+  const data = sheet.getDataRange().getValues();
+  const tz = Session.getScriptTimeZone();
+  const rowsToAppend = [];
+  let cur = normalizeLeaveDate_(startDate);
+  const end = normalizeLeaveDate_(endDate);
+
+  while (compareLeaveDate_(cur, end) <= 0) {
+    let foundRow = -1;
+    for (let i = 1; i < data.length; i++) {
+      const rDate = Utilities.formatDate(new Date(data[i][0]), tz, 'yyyy-MM-dd');
+      if (rDate === cur && String(data[i][1]) === String(classId) && String(data[i][2]) === String(studentId)) {
+        foundRow = i + 1;
+        break;
+      }
+    }
+    if (foundRow !== -1) {
+      sheet.getRange(foundRow, 4).setValue('휴원');
+      sheet.getRange(foundRow, 5).setValue(0);
+      data[foundRow - 1][3] = '휴원';
+      data[foundRow - 1][4] = 0;
+    } else {
+      rowsToAppend.push([cur, classId, studentId, '휴원', 0]);
+      data.push([cur, classId, studentId, '휴원', 0]);
+    }
+    cur = addDaysLeave_(cur, 1);
+  }
+
+  if (rowsToAppend.length) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, startRow + rowsToAppend.length - 1, 5).setValues(rowsToAppend);
+  }
+}
+
+function startStudentLeave(classId, studentId, startDate, endDate, reason) {
+  classId = String(classId || '').trim();
+  studentId = String(studentId || '').trim();
+  startDate = normalizeLeaveDate_(startDate);
+  endDate = normalizeLeaveDate_(endDate);
+  reason = String(reason || '').trim();
+  if (!classId || !studentId) throw new Error('classId and studentId are required.');
+  if (compareLeaveDate_(endDate, startDate) < 0) {
+    throw new Error('End date must be on or after start date.');
+  }
+
+  const listSheet = getSS().getSheetByName('Student_List');
+  const data = listSheet.getDataRange().getValues();
+  let name = studentId;
+  let found = false;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== studentId || String(data[i][2]) !== classId) continue;
+    found = true;
+    name = String(data[i][1] || studentId);
+    const status = String(data[i][3] || '').trim();
+    if (status === 'Withdrawn') throw new Error('Withdrawn students cannot be placed on leave.');
+    if (status !== 'Enrolled') throw new Error('Only enrolled students can take leave.');
+    break;
+  }
+  if (!found) throw new Error('Student not found in this class.');
+
+  ensureLeaveSheet_();
+  const leaveSheet = getSS().getSheetByName(STUDENT_LEAVE_SHEET_);
+  const leaveData = leaveSheet.getDataRange().getValues();
+  for (let i = 1; i < leaveData.length; i++) {
+    if (String(leaveData[i][1]) !== studentId || String(leaveData[i][3]) !== classId) continue;
+    if (String(leaveData[i][7]) !== LEAVE_STATUS_ACTIVE_) continue;
+    const exStart = normalizeLeaveDate_(leaveData[i][4]);
+    const exEnd = normalizeLeaveDate_(leaveData[i][5]);
+    if (compareLeaveDate_(startDate, exEnd) <= 0 && compareLeaveDate_(exStart, endDate) <= 0) {
+      throw new Error('This leave overlaps an existing active leave (' + exStart + ' – ' + exEnd + ').');
+    }
+  }
+
+  const tz = Session.getScriptTimeZone();
+  const leaveId = 'LV_' + classId + '_' + studentId + '_' + Date.now();
+  const createdAt = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+  leaveSheet.appendRow([leaveId, studentId, name, classId, startDate, endDate, reason, LEAVE_STATUS_ACTIVE_, createdAt, '']);
+  backfillLeaveAttendance_(classId, studentId, startDate, endDate);
+  return {
+    leaveId: leaveId,
+    studentId: studentId,
+    name: name,
+    classId: classId,
+    startDate: startDate,
+    endDate: endDate,
+    reason: reason,
+    message: name + ' is on leave from ' + startDate + ' to ' + endDate + '.'
+  };
+}
+
+function endStudentLeave(leaveId) {
+  ensureLeaveSheet_();
+  leaveId = String(leaveId || '').trim();
+  const sheet = getSS().getSheetByName(STUDENT_LEAVE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== leaveId) continue;
+    if (String(data[i][7]) !== LEAVE_STATUS_ACTIVE_) throw new Error('This leave is not active.');
+    const endedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+    sheet.getRange(i + 1, 8, i + 1, 10).setValues([[LEAVE_STATUS_ENDED_, data[i][8], endedAt]]);
+    return {
+      leaveId: leaveId,
+      studentId: String(data[i][1]),
+      classId: String(data[i][3]),
+      message: String(data[i][2] || 'Student') + '\'s leave has ended.'
+    };
+  }
+  throw new Error('Leave record not found.');
+}
+
+function listStudentLeaves(classId, studentId) {
+  ensureLeaveSheet_();
+  const sheet = getSS().getSheetByName(STUDENT_LEAVE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  const leaves = [];
+  for (let i = 1; i < data.length; i++) {
+    if (classId && String(data[i][3]) !== String(classId)) continue;
+    if (studentId && String(data[i][1]) !== String(studentId)) continue;
+    leaves.push({
+      leaveId: String(data[i][0]),
+      studentId: String(data[i][1]),
+      name: String(data[i][2] || ''),
+      classId: String(data[i][3]),
+      startDate: normalizeLeaveDate_(data[i][4]),
+      endDate: normalizeLeaveDate_(data[i][5]),
+      reason: String(data[i][6] || ''),
+      status: String(data[i][7] || ''),
+      createdAt: String(data[i][8] || ''),
+      endedAt: String(data[i][9] || '')
+    });
+  }
+  leaves.sort(function(a, b) {
+    if (a.startDate !== b.startDate) return a.startDate < b.startDate ? 1 : -1;
+    return a.createdAt < b.createdAt ? 1 : -1;
+  });
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  let active = null;
+  for (let j = 0; j < leaves.length; j++) {
+    if (leaves[j].status !== LEAVE_STATUS_ACTIVE_) continue;
+    if (compareLeaveDate_(leaves[j].endDate, today) < 0) continue;
+    active = leaves[j];
+    break;
+  }
+  return { leaves: leaves, active: active };
+}
+
+// --- Student planned attendance (advance notice) ---
+
+var STUDENT_PLANNED_ATTENDANCE_SHEET_ = 'Student_Planned_Attendance';
+var PLANNED_STATUS_ACTIVE_ = 'Active';
+var PLANNED_STATUS_CANCELLED_ = 'Cancelled';
+
+function ensurePlannedAttendanceSheet_() {
+  const ss = getSS();
+  let sheet = ss.getSheetByName(STUDENT_PLANNED_ATTENDANCE_SHEET_);
+  if (!sheet) {
+    sheet = ss.insertSheet(STUDENT_PLANNED_ATTENDANCE_SHEET_);
+    sheet.appendRow(['NoticeID', 'StudentID', 'Name', 'ClassID', 'Date', 'Type', 'Note', 'Status', 'CreatedAt']);
+    return;
+  }
+  const first = sheet.getRange(1, 1, 1, 9).getValues()[0];
+  if (String(first[0]) !== 'NoticeID') {
+    sheet.insertRowBefore(1);
+    sheet.getRange(1, 1, 1, 9).setValues([['NoticeID', 'StudentID', 'Name', 'ClassID', 'Date', 'Type', 'Note', 'Status', 'CreatedAt']]);
+  }
+}
+
+function normalizePlannedDate_(value) {
+  if (!value) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return s;
+}
+
+function getClassAllowedDays_(classId) {
+  const data = getSS().getSheetByName('Class_List').getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(classId)) {
+      return chambitNormalizeAllowedDays_(data[i][3]);
+    }
+  }
+  return [1, 2, 3, 4, 5];
+}
+
+function isPlannedClassDay_(dateStr, allowedDays, holiday) {
+  if (holiday) return false;
+  const dow = new Date(dateStr + 'T12:00:00').getDay();
+  return !allowedDays.length || allowedDays.indexOf(dow) !== -1;
+}
+
+function getPlannedByClassAndDate_(classId, dateStr) {
+  ensurePlannedAttendanceSheet_();
+  const sheet = getSS().getSheetByName(STUDENT_PLANNED_ATTENDANCE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  const map = {};
+  dateStr = normalizePlannedDate_(dateStr);
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) !== String(classId)) continue;
+    if (String(data[i][7]) !== PLANNED_STATUS_ACTIVE_) continue;
+    const rowDate = normalizePlannedDate_(data[i][4]);
+    if (rowDate !== dateStr) continue;
+    const sid = String(data[i][1]);
+    map[sid] = {
+      noticeId: String(data[i][0]),
+      type: String(data[i][5] || ''),
+      note: String(data[i][6] || '')
+    };
+  }
+  return map;
+}
+
+function listPlannedAttendance(classId, studentId) {
+  ensurePlannedAttendanceSheet_();
+  const sheet = getSS().getSheetByName(STUDENT_PLANNED_ATTENDANCE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  const items = [];
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  for (let i = 1; i < data.length; i++) {
+    if (classId && String(data[i][3]) !== String(classId)) continue;
+    if (studentId && String(data[i][1]) !== String(studentId)) continue;
+    if (String(data[i][7]) !== PLANNED_STATUS_ACTIVE_) continue;
+    const dateStr = normalizePlannedDate_(data[i][4]);
+    if (compareLeaveDate_(dateStr, today) < 0) continue;
+    items.push({
+      noticeId: String(data[i][0]),
+      studentId: String(data[i][1]),
+      name: String(data[i][2] || ''),
+      classId: String(data[i][3]),
+      dateStr: dateStr,
+      type: String(data[i][5] || ''),
+      note: String(data[i][6] || ''),
+      status: String(data[i][7] || ''),
+      createdAt: String(data[i][8] || '')
+    });
+  }
+  items.sort(function(a, b) {
+    if (a.dateStr !== b.dateStr) return a.dateStr < b.dateStr ? -1 : 1;
+    return a.createdAt < b.createdAt ? -1 : 1;
+  });
+  return { items: items };
+}
+
+function getPlannedAttendanceCalendar(classId, studentId, year, month) {
+  year = Number(year);
+  month = Number(month);
+  if (!classId || !studentId) throw new Error('classId and studentId are required.');
+  if (!year || !month || month < 1 || month > 12) {
+    throw new Error('year and month (1–12) are required.');
+  }
+  const allowedDays = getClassAllowedDays_(classId);
+  const holidays = getHolidaysForMonth_(year, month);
+  const plannedList = listPlannedAttendance(classId, studentId).items || [];
+  const plannedByDate = {};
+  for (let i = 0; i < plannedList.length; i++) {
+    const p = plannedList[i];
+    plannedByDate[p.dateStr] = { noticeId: p.noticeId, type: p.type, note: p.note };
+  }
+  const numDays = new Date(year, month, 0).getDate();
+  const days = {};
+  for (let d = 1; d <= numDays; d++) {
+    const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const holiday = holidays[dateStr] || '';
+    const classDay = isPlannedClassDay_(dateStr, allowedDays, holiday);
+    days[dateStr] = {
+      holiday: holiday,
+      classDay: classDay,
+      offDay: !classDay,
+      planned: plannedByDate[dateStr] || null
+    };
+  }
+  return { year: year, month: month, classId: classId, studentId: studentId, allowedDays: allowedDays, days: days };
+}
+
+function createPlannedAttendance(classId, studentId, dateStr, type, note) {
+  classId = String(classId || '').trim();
+  studentId = String(studentId || '').trim();
+  dateStr = normalizePlannedDate_(dateStr);
+  type = String(type || '').trim();
+  note = String(note || '').trim();
+  if (!classId || !studentId) throw new Error('classId and studentId are required.');
+  if (type !== '결석' && type !== '지각') throw new Error('Type must be Absent or Tardy.');
+
+  const listSheet = getSS().getSheetByName('Student_List');
+  const listData = listSheet.getDataRange().getValues();
+  let name = studentId;
+  let found = false;
+  for (let i = 1; i < listData.length; i++) {
+    if (String(listData[i][0]) !== studentId || String(listData[i][2]) !== classId) continue;
+    found = true;
+    name = String(listData[i][1] || studentId);
+    if (String(listData[i][3] || '').trim() !== 'Enrolled') {
+      throw new Error('Only enrolled students can receive advance notice.');
+    }
+    break;
+  }
+  if (!found) throw new Error('Student not found in this class.');
+
+  const allowedDays = getClassAllowedDays_(classId);
+  const parts = dateStr.split('-');
+  const holidays = getHolidaysForMonth_(Number(parts[0]), Number(parts[1]));
+  const holiday = holidays[dateStr] || '';
+  if (!isPlannedClassDay_(dateStr, allowedDays, holiday)) {
+    if (holiday) throw new Error('Cannot plan attendance on a public holiday.');
+    throw new Error('This date is not a scheduled class day for this class.');
+  }
+
+  ensurePlannedAttendanceSheet_();
+  const sheet = getSS().getSheetByName(STUDENT_PLANNED_ATTENDANCE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== studentId || String(data[i][3]) !== classId) continue;
+    if (String(data[i][7]) !== PLANNED_STATUS_ACTIVE_) continue;
+    if (normalizePlannedDate_(data[i][4]) === dateStr) {
+      throw new Error('Advance notice already exists for this date. Remove it first to change.');
+    }
+  }
+
+  const tz = Session.getScriptTimeZone();
+  const noticeId = 'PN_' + classId + '_' + studentId + '_' + Date.now();
+  const createdAt = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
+  sheet.appendRow([noticeId, studentId, name, classId, dateStr, type, note, PLANNED_STATUS_ACTIVE_, createdAt]);
+
+  const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  if (compareLeaveDate_(dateStr, today) <= 0) {
+    const leaveMap = getActiveLeavesByClass_(classId, dateStr);
+    if (!leaveMap[studentId]) {
+      upsertAttendanceRecord_(classId, studentId, dateStr, type, 0);
+    }
+  }
+
+  const typeLabel = type === '지각' ? 'Tardy' : 'Absent';
+  return {
+    noticeId: noticeId,
+    studentId: studentId,
+    name: name,
+    classId: classId,
+    dateStr: dateStr,
+    type: type,
+    message: name + ': ' + typeLabel + ' advance notice saved for ' + dateStr + '.'
+  };
+}
+
+function cancelPlannedAttendance(noticeId) {
+  ensurePlannedAttendanceSheet_();
+  noticeId = String(noticeId || '').trim();
+  const sheet = getSS().getSheetByName(STUDENT_PLANNED_ATTENDANCE_SHEET_);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== noticeId) continue;
+    if (String(data[i][7]) !== PLANNED_STATUS_ACTIVE_) throw new Error('This advance notice is not active.');
+    sheet.getRange(i + 1, 8).setValue(PLANNED_STATUS_CANCELLED_);
+    const dateStr = normalizePlannedDate_(data[i][4]);
+    return {
+      noticeId: noticeId,
+      studentId: String(data[i][1]),
+      classId: String(data[i][3]),
+      message: 'Advance notice removed for ' + dateStr + '.'
+    };
+  }
+  throw new Error('Advance notice not found.');
 }

@@ -1,6 +1,29 @@
-const { LUCKY_DRAW_SHEET, TIMEZONE } = require('./config');
-const { getSheetRows, appendRows, deleteRows } = require('./sheets');
+const { LUCKY_DRAW_SHEET, TIMEZONE, STUDENT_LIST_SHEET } = require('./config');
+const { getSheetRows, appendRows, deleteRows, updateRange } = require('./sheets');
 const { formatDateTimeNow } = require('./dateUtils');
+
+function groupLuckyTickets(tickets) {
+  const map = new Map();
+  const order = [];
+  for (const t of tickets) {
+    const key = String(t.tier || '').trim() + '\0' + String(t.prizeText || '').trim();
+    if (!map.has(key)) {
+      map.set(key, {
+        tier: t.tier,
+        prizeText: t.prizeText,
+        count: 0,
+        ticketIds: [],
+        drawnAt: t.drawnAt || ''
+      });
+      order.push(key);
+    }
+    const g = map.get(key);
+    g.count += 1;
+    g.ticketIds.push(t.ticketId);
+    if ((t.drawnAt || '') > (g.drawnAt || '')) g.drawnAt = t.drawnAt;
+  }
+  return order.map((k) => map.get(k));
+}
 
 async function ensureLuckyDrawSheet() {
   let data;
@@ -92,6 +115,65 @@ async function countStudentTickets(classId, studentId) {
   return tickets.length;
 }
 
+async function findTicketRow_(ticketId) {
+  const data = await getSheetRows(LUCKY_DRAW_SHEET);
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === ticketId) {
+      return {
+        row: i + 1,
+        ticketId: String(data[i][0]),
+        classId: String(data[i][1]),
+        studentId: String(data[i][2]),
+        tier: String(data[i][3] || ''),
+        prizeText: String(data[i][4] || ''),
+        drawnAt: String(data[i][5] || '')
+      };
+    }
+  }
+  return null;
+}
+
+async function assertStudentInClass_(classId, studentId) {
+  classId = String(classId);
+  studentId = String(studentId);
+  const data = await getSheetRows(STUDENT_LIST_SHEET);
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== studentId) continue;
+    if (String(data[i][2]) !== classId) {
+      throw new Error('Student is not in this class.');
+    }
+    if (String(data[i][3] || '').trim() !== 'Enrolled') {
+      throw new Error('Student is not enrolled.');
+    }
+    return String(data[i][1] || studentId);
+  }
+  throw new Error('Student not found.');
+}
+
+async function transferLuckyTicket(ticketId, toStudentId) {
+  await ensureLuckyDrawSheet();
+  ticketId = String(ticketId);
+  toStudentId = String(toStudentId);
+  const row = await findTicketRow_(ticketId);
+  if (!row) throw new Error('Ticket not found.');
+  if (row.studentId === toStudentId) {
+    throw new Error('This student already owns the ticket.');
+  }
+  await assertStudentInClass_(row.classId, toStudentId);
+  await updateRange(LUCKY_DRAW_SHEET, 'C' + row.row, [[toStudentId]]);
+  return {
+    message: 'Ticket transferred.',
+    ticketId,
+    classId: row.classId,
+    fromStudentId: row.studentId,
+    toStudentId,
+    tier: row.tier,
+    prizeText: row.prizeText,
+    fromRemainingCount: await countStudentTickets(row.classId, row.studentId),
+    toRemainingCount: await countStudentTickets(row.classId, toStudentId)
+  };
+}
+
 async function getLuckyDrawCountsByClass(classId) {
   await ensureLuckyDrawSheet();
   classId = String(classId);
@@ -106,9 +188,11 @@ async function getLuckyDrawCountsByClass(classId) {
 }
 
 module.exports = {
+  groupLuckyTickets,
   saveLuckyDrawTicket,
   listStudentLuckyTickets,
   redeemLuckyTicket,
+  transferLuckyTicket,
   getLuckyDrawCountsByClass,
   countStudentTickets
 };

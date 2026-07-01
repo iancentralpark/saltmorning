@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dice</title>
@@ -310,6 +319,32 @@
             font-size: 0.78rem;
             color: var(--muted);
         }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 10% 12%, rgba(255, 159, 67, 0.1), transparent 38%),
+                radial-gradient(circle at 90% 8%, rgba(59, 158, 221, 0.14), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 48%, #141a23 100%);
+        }
+        [data-theme="dark"] .shell {
+            background: rgba(30, 36, 46, 0.97);
+            border-color: rgba(46, 204, 113, 0.35);
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 16px 40px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .title { color: #b8d9f5; }
+        [data-theme="dark"] .mode-toggle { background: #2d3644; }
+        [data-theme="dark"] .mode-btn:not(.active) { color: var(--muted); }
+        [data-theme="dark"] .mode-btn:not(.active):hover { color: var(--text); }
+        [data-theme="dark"] .result-num { color: #b8d9f5; }
+        [data-theme="dark"] .shell.mode-two .result-num { color: var(--muted); }
+        [data-theme="dark"] .total-row { color: #7dcea0; }
+        [data-theme="dark"] .die-face { background: #eef2f7; }
+        [data-theme="dark"] .pip { background: #1e242e; }
     </style>
 </head>
 <body>

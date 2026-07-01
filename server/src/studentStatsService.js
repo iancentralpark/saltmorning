@@ -44,6 +44,7 @@ async function getStudentStats(classId, studentId, period) {
     if (r.attendance === '출석') absenceBuckets[label].present++;
     else if (r.attendance === '지각') absenceBuckets[label].tardy++;
     else if (r.attendance === '결석') absenceBuckets[label].absent++;
+    // 휴원 is excluded from present/tardy/absent counts
 
     const score = normalizeVocab(r.vocabScore);
     if (score != null) {

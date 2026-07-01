@@ -11,9 +11,11 @@ const { getSheetRows, updateRange } = require('./sheets');
 const { formatSheetDate, formatDateInTz, chambitWeekMonday, chambitWeekSunday, chambitAddDays } = require('./dateUtils');
 const { getHolidayName } = require('./holiday');
 const { getStudentHistory } = require('./studentService');
+const { getMakeupLessons } = require('./makeupService');
 const { getStudentHomeworkStatus, buildClassHomeworkFromCtx } = require('./homeworkService');
 const { buildRequestContext } = require('./sheets');
 const { signStudentToken } = require('./studentAuth');
+const { listStudentLuckyTickets, groupLuckyTickets } = require('./luckyDrawService');
 
 const LOGIN_ID_COL = 4;
 const LOGIN_PW_COL = 5;
@@ -204,12 +206,18 @@ async function getStudentDashboard(studentId, classId) {
     }
   }
 
-  const [attendance, homeworkStatus, chambit, dollars] = await Promise.all([
+  const [attendance, homeworkStatus, chambit, dollars, makeup, luckyTicketsRaw] = await Promise.all([
     getStudentHistory(classId, studentId),
     getStudentHomeworkStatus(classId, studentId),
     getStudentChambit(classId, studentId, today),
-    getStudentDollars(studentId)
+    getStudentDollars(studentId),
+    getMakeupLessons(classId, studentId),
+    listStudentLuckyTickets(classId, studentId)
   ]);
+  const luckyDraw = {
+    totalCount: luckyTicketsRaw.length,
+    tickets: groupLuckyTickets(luckyTicketsRaw)
+  };
 
   const ctx = await buildRequestContext(classId);
   const hwPanel = await buildClassHomeworkFromCtx(ctx, today);
@@ -218,7 +226,7 @@ async function getStudentDashboard(studentId, classId) {
   const lastItems = lastHw && lastHw.items
     ? filterHomeworkItemsForStudent(
       lastHw.items.map(it => ({
-        title: it.title,
+        title: it.displayTitle || it.title,
         description: it.description,
         studentIds: it.targetStudentIds || [],
         isChambit: false
@@ -278,7 +286,9 @@ async function getStudentDashboard(studentId, classId) {
       completed: homeworkStatus.completed || []
     },
     chambit,
-    dollars
+    dollars,
+    makeup,
+    luckyDraw
   };
 }
 
