@@ -5,7 +5,7 @@ const { getServiceAccountAuthOptions } = require('./googleCredentials');
 let sheetsApi = null;
 let sheetIdCache = null;
 const sheetRowsCache = new Map();
-const SHEET_ROWS_CACHE_SEC = 60;
+const SHEET_ROWS_CACHE_SEC = 300;
 
 function invalidateSheetRowsCache(sheetName) {
   if (sheetName) sheetRowsCache.delete(sheetName);
@@ -110,6 +110,26 @@ async function deleteRow(sheetName, rowIndex1Based) {
   await deleteRows(sheetName, [rowIndex1Based]);
 }
 
+function invalidateSheetIdCache() {
+  sheetIdCache = null;
+}
+
+async function batchUpdateRanges(updates) {
+  if (!updates.length) return;
+  const sheets = await getSheetsApi();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data: updates.map(function(u) {
+        return { range: sheetRange(u.sheetName, u.a1), values: u.values };
+      })
+    }
+  });
+  const names = new Set(updates.map(function(u) { return u.sheetName; }));
+  names.forEach(function(name) { invalidateSheetRowsCache(name); });
+}
+
 async function buildRequestContext(classId) {
   const idStr = String(classId);
   const rowCache = {};
@@ -126,10 +146,13 @@ async function buildRequestContext(classId) {
 
 module.exports = {
   getSheetRows,
+  getSheetIdMap,
   updateRange,
   appendRows,
   deleteRow,
   deleteRows,
+  batchUpdateRanges,
   buildRequestContext,
-  invalidateSheetRowsCache
+  invalidateSheetRowsCache,
+  invalidateSheetIdCache
 };

@@ -11,6 +11,7 @@ const {
   listMyClassroomCourses,
   linkClassToClassroom,
   saveAndPostHomework,
+  syncHomeworkClassroomForClassDate,
   getStudentHomeworkStatus,
   setHomeworkCompletion,
   setHomeworkFixNote,
@@ -31,9 +32,22 @@ const {
 } = require('./makeupService');
 const { studentLogin, getStudentDashboard } = require('./studentPortalService');
 const { requireStudentAuth } = require('./studentAuth');
+const { getBuddyStatus, askEnglishBuddy } = require('./englishBuddyService');
+const {
+  getThread,
+  markMessagesRead,
+  getStudentUnreadCount,
+  getInboxForClass,
+  getGlobalInbox,
+  getUnreadTotalForClass,
+  getUnreadTotalGlobal,
+  studentSendMessage,
+  teacherSendMessage
+} = require('./messageService');
 const {
   groupLuckyTickets,
   saveLuckyDrawTicket,
+  purchaseLuckyDrawTicket,
   listStudentLuckyTickets,
   redeemLuckyTicket,
   transferLuckyTicket
@@ -58,7 +72,7 @@ const {
   cancelPlannedAttendance
 } = require('./plannedAttendanceService');
 const { addEnrolledStudent } = require('./studentListService');
-const { applyDollarAdjustment } = require('./dollarService');
+const { applyDollarAdjustment, getStudentDollarBalance } = require('./dollarService');
 const { toggleChambitRead, setChambitComboManual } = require('./chambitService');
 const {
   getClassTextbookData,
@@ -88,9 +102,22 @@ const {
 } = require('./sidebarService');
 const { getClassCalendarData } = require('./calendarService');
 const { saveClassLogEntry, getClassLogEntry } = require('./classLogService');
+const { isGeminiConfigured, askGemini } = require('./geminiService');
 const { buildRequestContext } = require('./sheets');
+const { TEACHER_GATE_PASSWORD, TEACHER_APP_URL, LUCKY_DRAW_PURCHASE_COST } = require('./config');
 
 const router = express.Router();
+
+router.post('/teacher-gate', (req, res) => {
+  if (!TEACHER_GATE_PASSWORD) {
+    return res.status(503).json({ error: 'Teacher access is not configured yet.' });
+  }
+  const password = String((req.body && req.body.password) || '');
+  if (password !== TEACHER_GATE_PASSWORD) {
+    return res.status(401).json({ error: 'Incorrect password.' });
+  }
+  res.json({ ok: true, redirectUrl: TEACHER_APP_URL });
+});
 
 router.get('/health', (req, res) => {
   res.json({
@@ -98,8 +125,29 @@ router.get('/health', (req, res) => {
     service: 'mrpark-class-api',
     phase: 3,
     classroomOAuth: isClassroomConfigured(),
-    classroomViaGas: process.env.CLASSROOM_ON_NODE !== 'true'
+    classroomViaGas: process.env.CLASSROOM_ON_NODE !== 'true',
+    gemini: isGeminiConfigured()
   });
+});
+
+router.get('/gemini/status', (req, res) => {
+  res.json({ configured: isGeminiConfigured() });
+});
+
+router.post('/gemini/ask', async (req, res) => {
+  try {
+    const prompt = String(req.body.prompt || '').trim();
+    if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    const result = await askGemini(prompt, history);
+    if (!result.ok) {
+      return res.status(result.fallbackWeb ? 503 : 502).json(result);
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('POST /gemini/ask', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
 });
 
 router.get('/initial', async (req, res) => {
@@ -306,6 +354,17 @@ router.delete('/makeup/:makeupId', async (req, res) => {
     res.json(await deleteMakeupLesson(makeupId));
   } catch (e) {
     console.error('DELETE /makeup', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/dollar/balance', async (req, res) => {
+  try {
+    const studentId = req.query.studentId;
+    if (!studentId) return res.status(400).json({ error: 'studentId is required' });
+    res.json({ studentId: String(studentId), balance: await getStudentDollarBalance(studentId) });
+  } catch (e) {
+    console.error('GET /dollar/balance', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });
@@ -596,6 +655,17 @@ router.post('/homework/post', async (req, res) => {
   }
 });
 
+router.post('/homework/sync-classroom', async (req, res) => {
+  try {
+    const { classId, dateStr } = req.body || {};
+    if (!classId || !dateStr) return res.status(400).json({ error: 'classId and dateStr are required' });
+    res.json(await syncHomeworkClassroomForClassDate(classId, dateStr));
+  } catch (e) {
+    console.error('POST /homework/sync-classroom', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
 router.get('/homework/student', async (req, res) => {
   try {
     const { classId, studentId } = req.query;
@@ -668,6 +738,25 @@ router.put('/lucky-draw/config', async (req, res) => {
   } catch (e) {
     console.error('PUT /lucky-draw/config', e);
     res.status(400).json({ error: e.message || 'Save failed' });
+  }
+});
+
+router.post('/lucky-draw/purchase', async (req, res) => {
+  try {
+    const { classId, studentId, tier, prizeText } = req.body || {};
+    if (!classId || !studentId || !prizeText) {
+      return res.status(400).json({ error: 'classId, studentId, and prizeText are required' });
+    }
+    res.json(await purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, LUCKY_DRAW_PURCHASE_COST));
+  } catch (e) {
+    console.error('POST /lucky-draw/purchase', e);
+    const status = e.code === 'INSUFFICIENT_DOLLARS' ? 402 : 500;
+    res.status(status).json({
+      error: e.message || 'Purchase failed',
+      code: e.code || undefined,
+      balance: e.balance,
+      cost: e.cost || LUCKY_DRAW_PURCHASE_COST
+    });
   }
 });
 
@@ -858,6 +947,135 @@ router.get('/student/dashboard', requireStudentAuth, async (req, res) => {
     res.json(await getStudentDashboard(studentId, classId));
   } catch (e) {
     console.error('GET /student/dashboard', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/student/messages', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const messages = await getThread(classId, studentId, req.query.limit);
+    await markMessagesRead(classId, studentId, 'student');
+    res.json({ messages });
+  } catch (e) {
+    console.error('GET /student/messages', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/student/messages', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const body = req.body && req.body.body;
+    const studentName = req.body && req.body.studentName;
+    const message = await studentSendMessage(studentId, classId, studentName, body);
+    res.json({ ok: true, message });
+  } catch (e) {
+    console.error('POST /student/messages', e);
+    res.status(400).json({ error: e.message || 'Send failed' });
+  }
+});
+
+router.get('/student/messages/unread-count', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json({ count: await getStudentUnreadCount(studentId, classId) });
+  } catch (e) {
+    console.error('GET /student/messages/unread-count', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/student/english-buddy/status', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId } = req.studentSession;
+    res.json(getBuddyStatus(studentId));
+  } catch (e) {
+    console.error('GET /student/english-buddy/status', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/student/english-buddy', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId } = req.studentSession;
+    const prompt = String(req.body.prompt || '').trim();
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    const result = await askEnglishBuddy(studentId, prompt, history);
+    res.json(result);
+  } catch (e) {
+    console.error('POST /student/english-buddy', e);
+    const msg = e.message || 'Request failed';
+    const status = /today/i.test(msg) ? 429 : 400;
+    res.status(status).json({ error: msg });
+  }
+});
+
+router.get('/messages/inbox-all', async (req, res) => {
+  try {
+    res.json({ inbox: await getGlobalInbox() });
+  } catch (e) {
+    console.error('GET /messages/inbox-all', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/messages/unread-total-all', async (req, res) => {
+  try {
+    res.json({ count: await getUnreadTotalGlobal() });
+  } catch (e) {
+    console.error('GET /messages/unread-total-all', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/messages/inbox', async (req, res) => {
+  try {
+    const classId = req.query.classId;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json({ inbox: await getInboxForClass(classId) });
+  } catch (e) {
+    console.error('GET /messages/inbox', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/messages/thread', async (req, res) => {
+  try {
+    const { classId, studentId } = req.query;
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    const messages = await getThread(classId, studentId, req.query.limit);
+    await markMessagesRead(classId, studentId, 'teacher');
+    res.json({ messages });
+  } catch (e) {
+    console.error('GET /messages/thread', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/messages', async (req, res) => {
+  try {
+    const { classId, studentId, studentName, body } = req.body || {};
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    const message = await teacherSendMessage(classId, studentId, studentName, body);
+    res.json({ ok: true, message });
+  } catch (e) {
+    console.error('POST /messages', e);
+    res.status(400).json({ error: e.message || 'Send failed' });
+  }
+});
+
+router.get('/messages/unread-total', async (req, res) => {
+  try {
+    const classId = req.query.classId;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json({ count: await getUnreadTotalForClass(classId) });
+  } catch (e) {
+    console.error('GET /messages/unread-total', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });

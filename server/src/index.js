@@ -14,9 +14,14 @@ function isAllowedCorsOrigin(origin) {
   if (!origin) return true;
   if (origin === 'https://script.google.com') return true;
   if (/^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/i.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/i.test(origin)) return true;
+  // Student portal + API on the same Railway host
+  if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.up\.railway\.app$/i.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.railway\.app$/i.test(origin)) return true;
+  if (/^https:\/\/(www\.)?mrpark\.online$/i.test(origin)) return true;
   const corsOrigins = process.env.CORS_ORIGINS;
   if (corsOrigins) {
-    return corsOrigins.split(',').map(s => s.trim()).includes(origin);
+    return corsOrigins.split(',').map(s => s.trim()).filter(Boolean).includes(origin);
   }
   return true;
 }
@@ -26,7 +31,8 @@ app.use(cors({
     if (isAllowedCorsOrigin(origin)) {
       callback(null, origin || true);
     } else {
-      callback(new Error('Not allowed by CORS: ' + origin));
+      console.warn('CORS blocked origin:', origin);
+      callback(null, false);
     }
   }
 }));
@@ -45,10 +51,7 @@ app.get('/class', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.json({
-    name: 'Mr.Park Class API',
-    endpoints: ['/api/health', '/api/session', '/api/work', '/api/attendance', '/student', '/class']
-  });
+  res.sendFile(path.join(__dirname, '..', 'public', 'Home.html'));
 });
 
 if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {

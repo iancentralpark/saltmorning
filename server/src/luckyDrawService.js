@@ -1,6 +1,7 @@
-const { LUCKY_DRAW_SHEET, TIMEZONE, STUDENT_LIST_SHEET } = require('./config');
+const { LUCKY_DRAW_SHEET, TIMEZONE, STUDENT_LIST_SHEET, LUCKY_DRAW_PURCHASE_COST } = require('./config');
 const { getSheetRows, appendRows, deleteRows, updateRange } = require('./sheets');
 const { formatDateTimeNow } = require('./dateUtils');
+const { getStudentDollarBalance, applyDollarAdjustment } = require('./dollarService');
 
 function groupLuckyTickets(tickets) {
   const map = new Map();
@@ -69,6 +70,37 @@ async function saveLuckyDrawTicket(classId, studentId, tier, prizeText) {
   const drawnAt = formatDateTimeNow(TIMEZONE);
   await appendRows(LUCKY_DRAW_SHEET, [[ticketId, classId, studentId, tier, prizeText, drawnAt]]);
   return { ticketId, tier, prizeText, drawnAt };
+}
+
+async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost) {
+  cost = Number(cost);
+  if (!Number.isFinite(cost) || cost <= 0) {
+    cost = LUCKY_DRAW_PURCHASE_COST;
+  }
+  classId = String(classId);
+  studentId = String(studentId);
+  await assertStudentInClass_(classId, studentId);
+  const balance = await getStudentDollarBalance(studentId);
+  if (balance < cost) {
+    const err = new Error('Not enough dollars. Lucky Draw costs $' + cost + ' (balance: $' + balance + ').');
+    err.code = 'INSUFFICIENT_DOLLARS';
+    err.balance = balance;
+    err.cost = cost;
+    throw err;
+  }
+  const { newBalance } = await applyDollarAdjustment(
+    classId,
+    studentId,
+    -cost,
+    'Lucky Draw purchase ($' + cost + ')'
+  );
+  const ticket = await saveLuckyDrawTicket(classId, studentId, tier, prizeText);
+  return {
+    ticket,
+    cost,
+    previousBalance: balance,
+    newBalance
+  };
 }
 
 async function listStudentLuckyTickets(classId, studentId) {
@@ -190,6 +222,7 @@ async function getLuckyDrawCountsByClass(classId) {
 module.exports = {
   groupLuckyTickets,
   saveLuckyDrawTicket,
+  purchaseLuckyDrawTicket,
   listStudentLuckyTickets,
   redeemLuckyTicket,
   transferLuckyTicket,

@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#3b9edd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Mr.Park Student Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?!= include('SnailSprite'); ?>
     <style>
         :root {
             --primary: #3b9edd;
@@ -33,7 +37,7 @@
                 linear-gradient(180deg, #dff4ff 0%, #fff8e7 60%, #fef9ef 100%);
             padding: 1rem 1rem 2.5rem;
         }
-        .wrap { max-width: 720px; margin: 0 auto; }
+        .wrap { max-width: 720px; margin: 0 auto; position: relative; z-index: 1; }
         h1, h2, h3 { font-family: 'Fredoka', sans-serif; margin: 0; }
         .brand {
             text-align: center;
@@ -193,6 +197,7 @@
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
+        .mobile-top-bar { display: none; }
         .welcome-name { font-family: 'Fredoka', sans-serif; font-size: 1.35rem; }
         .welcome-sub { color: var(--muted); font-size: 0.85rem; }
         .empty { color: var(--muted); font-size: 0.88rem; padding: 0.5rem 0; }
@@ -271,28 +276,547 @@
         }
         .makeup-item:last-child { border-bottom: none; }
         .makeup-item-meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
+        .msg-chat-wrap {
+            flex: 1;
+            min-height: 5.5rem;
+            max-height: none;
+            overflow-y: auto;
+            border: 1px solid rgba(59, 158, 221, 0.18);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+        .msg-chat-empty {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            padding: 1rem 0.5rem;
+        }
+        .msg-chat-thread { display: flex; flex-direction: column; gap: 0.45rem; }
+        .msg-bubble {
+            max-width: 92%;
+            padding: 0.45rem 0.65rem;
+            border-radius: 12px;
+            font-size: 0.86rem;
+            line-height: 1.42;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .msg-bubble-student {
+            align-self: flex-end;
+            background: linear-gradient(135deg, var(--primary), #5dade2);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .msg-bubble-teacher {
+            align-self: flex-start;
+            background: linear-gradient(135deg, #faf5ff, #eef6ff);
+            color: var(--text);
+            border: 1px solid rgba(59, 158, 221, 0.15);
+            border-bottom-left-radius: 4px;
+        }
+        .msg-bubble-thinking {
+            align-self: flex-start;
+            color: var(--muted);
+            font-style: italic;
+            border: 1px dashed rgba(59, 158, 221, 0.25);
+        }
+        .msg-form { display: flex; gap: 0.45rem; align-items: flex-end; }
+        .msg-input {
+            flex: 1;
+            min-height: 2.75rem;
+            max-height: 6rem;
+            resize: vertical;
+            border: 2px solid rgba(59, 158, 221, 0.25);
+            border-radius: 14px;
+            padding: 0.55rem 0.75rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+        .msg-send-btn {
+            flex-shrink: 0;
+            width: auto;
+            padding: 0.65rem 1rem;
+            font-size: 0.9rem;
+        }
+        .msg-unread-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #e67e22;
+            margin-left: 0.35rem;
+        }
+        .msg-float {
+            position: fixed;
+            left: 12px;
+            bottom: 12px;
+            width: min(300px, calc(100vw - 24px));
+            max-height: min(52vh, 400px);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 20px;
+            border: 2px solid rgba(59, 158, 221, 0.28);
+            box-shadow: 0 10px 36px rgba(59, 158, 221, 0.18), 0 4px 0 rgba(59, 158, 221, 0.08);
+            overflow: hidden;
+        }
+        #dashboardScreen { padding-bottom: min(50vh, 400px); }
+        body.portal-mobile #dashboardScreen { padding-bottom: 0; }
+        body:not(.portal-mobile) #msgFloat:not(.hidden) {
+            display: flex !important;
+            position: fixed;
+            left: 12px;
+            bottom: 12px;
+            width: min(300px, calc(100vw - 24px));
+            max-height: min(52vh, 400px);
+            z-index: 900;
+            margin: 0;
+        }
+        .msg-float.hidden { display: none !important; }
+        .msg-float-head {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.65rem 0.85rem;
+            background: linear-gradient(135deg, #dff4ff, #fff8e7);
+            border-bottom: 1px solid rgba(59, 158, 221, 0.15);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+            flex-shrink: 0;
+        }
+        .msg-float-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            padding: 0.55rem 0.65rem 0.65rem;
+        }
+        @media (max-width: 600px) {
+            .msg-float {
+                left: 8px;
+                bottom: 8px;
+                width: calc(100vw - 16px);
+                max-height: min(48vh, 360px);
+            }
+        }
+
+        /* ===== AI English Buddy ===== */
+        .buddy-float {
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            width: min(300px, calc(100vw - 24px));
+            max-height: min(52vh, 400px);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 20px;
+            border: 2px solid rgba(155, 89, 182, 0.28);
+            box-shadow: 0 10px 36px rgba(155, 89, 182, 0.18), 0 4px 0 rgba(155, 89, 182, 0.08);
+            overflow: hidden;
+        }
+        .buddy-float.hidden { display: none !important; }
+        body:not(.portal-mobile) #buddyFloat:not(.hidden) {
+            display: flex !important;
+            position: fixed;
+            right: 12px;
+            bottom: 12px;
+            width: min(300px, calc(100vw - 24px));
+            height: 50vh;
+            max-height: 50vh;
+            z-index: 900;
+            margin: 0;
+        }
+        .buddy-float-head {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.65rem 0.85rem;
+            background: linear-gradient(135deg, #e8daef, #dff4ff);
+            border-bottom: 1px solid rgba(155, 89, 182, 0.15);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #7d3c98;
+            flex-shrink: 0;
+        }
+        .buddy-remaining {
+            margin-left: auto;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #9b59b6;
+            font-family: 'Nunito', sans-serif;
+        }
+        .buddy-float-body {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            padding: 0.55rem 0.65rem 0.65rem;
+        }
+        .buddy-quick-btns {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 0.25rem;
+            margin-bottom: 0.4rem;
+            flex-shrink: 0;
+        }
+        .buddy-quick-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            border: 1px solid rgba(155, 89, 182, 0.25);
+            background: #faf5fc;
+            color: #7d3c98;
+            border-radius: 999px;
+            padding: 0.32rem 0.2rem;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.62rem;
+            font-weight: 800;
+            line-height: 1.2;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .buddy-quick-btn:hover { background: #f3e5f5; }
+        .buddy-chat-wrap {
+            flex: 1;
+            min-height: 5.5rem;
+            max-height: none;
+            overflow-y: auto;
+            border: 1px solid rgba(155, 89, 182, 0.12);
+            border-radius: 14px;
+            background: #fdfcfe;
+            padding: 0.45rem;
+            margin-bottom: 0.45rem;
+        }
+        .buddy-chat-empty {
+            color: var(--muted);
+            font-size: 0.82rem;
+            text-align: center;
+            padding: 1rem 0.5rem;
+        }
+        .buddy-chat-thread { display: flex; flex-direction: column; gap: 0.4rem; }
+        .buddy-bubble {
+            max-width: 92%;
+            padding: 0.5rem 0.65rem;
+            border-radius: 14px;
+            font-size: 0.86rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .buddy-bubble-user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #bb8fce, #9b59b6);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .buddy-bubble-ai {
+            align-self: flex-start;
+            background: #fff;
+            border: 1px solid rgba(155, 89, 182, 0.18);
+            border-bottom-left-radius: 4px;
+        }
+        .buddy-bubble-thinking {
+            opacity: 0.7;
+            font-style: italic;
+        }
+        .buddy-compose {
+            flex-shrink: 0;
+        }
+        .buddy-form {
+            display: flex;
+            gap: 0.4rem;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+        .buddy-input {
+            flex: 1;
+            resize: none;
+            border: 2px solid rgba(155, 89, 182, 0.22);
+            border-radius: 14px;
+            padding: 0.55rem 0.7rem;
+            font-family: inherit;
+            font-size: 0.88rem;
+            margin: 0;
+        }
+        .buddy-input:focus { outline: none; border-color: #9b59b6; }
+        .buddy-send-btn {
+            width: auto;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.88rem;
+            background: linear-gradient(135deg, #9b59b6, #bb8fce);
+        }
+
+        /* ===== Mobile app layout (phones) ===== */
+        @media (max-width: 767px) {
+            body {
+                padding: 0;
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+            .wrap {
+                max-width: none;
+                padding: 0.75rem 0.85rem 0;
+            }
+            body.portal-mobile.portal-login .wrap {
+                min-height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: max(1rem, env(safe-area-inset-top)) 1rem max(1.25rem, env(safe-area-inset-bottom));
+            }
+            body.portal-mobile.portal-login .brand {
+                margin-bottom: 1rem;
+            }
+            body.portal-mobile.portal-login .brand h1 { font-size: 1.45rem; }
+            body.portal-mobile.portal-login .brand p { font-size: 0.84rem; }
+            body.portal-mobile.portal-login .portal-brand-snail .snail-svg { width: 52px; height: 52px; }
+            #loginScreen.login-card {
+                margin: 0;
+                padding: 1.35rem 1.15rem 1.25rem;
+                border-radius: 24px;
+            }
+            #loginScreen.login-card .card-title { font-size: 1.15rem; }
+            #loginScreen.login-card input {
+                font-size: 16px;
+                padding: 0.85rem 1rem;
+                margin-bottom: 0.95rem;
+            }
+            #loginScreen.login-card .btn {
+                padding: 0.9rem 1.25rem;
+                font-size: 1.05rem;
+                min-height: 48px;
+            }
+            body.portal-mobile.portal-dashboard .brand { display: none; }
+            body.portal-mobile.portal-dashboard .wrap {
+                padding: 0 0 5.5rem;
+            }
+            body.portal-mobile.portal-dashboard #dashboardScreen {
+                padding-bottom: 0;
+            }
+            .mobile-top-bar {
+                position: sticky;
+                top: 0;
+                z-index: 50;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                padding: max(0.65rem, env(safe-area-inset-top)) 0.85rem 0.65rem;
+                margin: 0 -0.85rem 0.75rem;
+                background: rgba(223, 244, 255, 0.92);
+                backdrop-filter: blur(8px);
+                border-bottom: 1px solid rgba(59, 158, 221, 0.12);
+            }
+            .mobile-top-bar .welcome-name { font-size: 1.15rem; line-height: 1.2; }
+            .mobile-top-bar .welcome-sub { font-size: 0.78rem; }
+            .mobile-top-bar .btn-outline {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+                min-height: 40px;
+            }
+            .top-bar.desktop-only { display: none !important; }
+            body:not(.portal-mobile) .mobile-bottom-nav { display: none !important; }
+            .dashboard-panels { display: block; }
+            body.portal-mobile .dashboard-card {
+                display: none;
+                margin: 0 0.85rem 0.75rem;
+                padding: 1rem 1rem 1.05rem;
+                border-radius: 18px;
+            }
+            body.portal-mobile .dashboard-card.panel-active {
+                display: block;
+            }
+            body.portal-mobile .dashboard-card.msg-panel-card.panel-active {
+                display: flex;
+                flex-direction: column;
+                min-height: calc(100dvh - 7.5rem - env(safe-area-inset-top, 0) - env(safe-area-inset-bottom, 0));
+            }
+            body.portal-mobile .dashboard-card.buddy-panel-card {
+                position: static;
+                width: auto;
+                max-height: none;
+                z-index: auto;
+            }
+            body.portal-mobile .dashboard-card.buddy-panel-card.panel-active {
+                display: flex;
+                flex-direction: column;
+                min-height: calc(100dvh - 7.5rem - env(safe-area-inset-top, 0) - env(safe-area-inset-bottom, 0));
+            }
+            body.portal-mobile .msg-panel-card .msg-float-body {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            body.portal-mobile .msg-panel-card .msg-chat-wrap {
+                flex: 1;
+                max-height: none;
+                min-height: 12rem;
+            }
+            body.portal-mobile .buddy-panel-card .buddy-float-body {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+            body.portal-mobile .buddy-panel-card .buddy-chat-wrap {
+                flex: 1;
+                max-height: none;
+                min-height: 12rem;
+            }
+            .mobile-bottom-nav {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 800;
+                display: flex;
+                align-items: stretch;
+                justify-content: space-around;
+                gap: 0.15rem;
+                padding: 0.35rem 0.5rem max(0.45rem, env(safe-area-inset-bottom));
+                background: rgba(255, 255, 255, 0.97);
+                border-top: 1px solid rgba(59, 158, 221, 0.15);
+                box-shadow: 0 -6px 24px rgba(59, 158, 221, 0.1);
+            }
+            .mobile-nav-btn {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.15rem;
+                border: none;
+                background: transparent;
+                color: var(--muted);
+                font-family: 'Nunito', sans-serif;
+                font-size: 0.56rem;
+                font-weight: 800;
+                padding: 0.35rem 0.12rem;
+                border-radius: 12px;
+                min-height: 52px;
+                cursor: pointer;
+            }
+        .mobile-nav-btn i { font-size: 1.15rem; }
+        .mobile-nav-btn.active {
+            color: var(--primary-dark);
+            background: linear-gradient(135deg, rgba(59, 158, 221, 0.12), rgba(255, 159, 67, 0.1));
+        }
+        .mobile-nav-btn[data-mobile-tab="buddy"].active {
+            color: #7d3c98;
+            background: linear-gradient(135deg, rgba(155, 89, 182, 0.14), rgba(223, 244, 255, 0.2));
+        }
+        .mobile-nav-icon-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mobile-nav-badge {
+            position: absolute;
+            top: -7px;
+            right: -11px;
+            min-width: 17px;
+            height: 17px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 0.58rem;
+            font-weight: 800;
+            line-height: 17px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(231, 76, 60, 0.45);
+        }
+        .mobile-nav-badge.hidden { display: none !important; }
+            body.portal-mobile .stats {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.55rem;
+            }
+            body.portal-mobile .stat {
+                padding: 0.85rem 0.5rem;
+                border-radius: 16px;
+            }
+            body.portal-mobile .stat-val { font-size: 1.5rem; }
+            body.portal-mobile .month-tabs {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            body.portal-mobile .month-btn {
+                font-size: 0.68rem;
+                padding: 0.5rem 0.25rem;
+                min-height: 40px;
+            }
+            body.portal-mobile .hw-item,
+            body.portal-mobile .lucky-item {
+                padding: 0.85rem;
+            }
+            body.portal-mobile .collapse-toggle {
+                min-height: 44px;
+                font-size: 0.88rem;
+            }
+            body.portal-mobile #msgFloat {
+                position: static;
+                left: auto;
+                right: auto;
+                bottom: auto;
+                width: auto;
+                max-height: none;
+                margin: 0 0.85rem 0.75rem;
+                border-radius: 18px;
+                box-shadow: 0 6px 24px rgba(59, 158, 221, 0.12);
+            }
+            body.portal-mobile .msg-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            body.portal-mobile .msg-send-btn {
+                width: 100%;
+                min-height: 44px;
+            }
+            body.portal-mobile .msg-input { font-size: 16px; min-height: 44px; }
+        }
     </style>
 </head>
 <body>
 <div class="wrap">
     <div class="brand">
+        <div class="portal-brand-snail">
+            <svg class="snail-svg snail-mascot-md" role="img" aria-label="Snail mascot"><use href="#mrpark-snail"/></svg>
+        </div>
         <h1>Mr.Park Student Portal</h1>
         <p>Check your attendance, homework, dollars &amp; Chambit</p>
     </div>
 
-    <div id="loginScreen" class="card">
-        <div class="card-title"><i class="fa-solid fa-right-to-bracket"></i> Login</div>
-        <p class="empty" style="margin-top:0">Use the Login ID and Password from your teacher.</p>
-        <div id="loginError" class="error hidden"></div>
-        <label for="loginId">Login ID</label>
-        <input type="text" id="loginId" autocomplete="username" placeholder="e.g. ethan">
-        <label for="loginPassword">Password</label>
-        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Your password">
-        <button type="button" class="btn" id="loginBtn"><i class="fa-solid fa-door-open"></i> Enter</button>
+    <div id="loginScreen" class="card portal-card-cute login-card">
+        <form id="loginForm" novalidate autocomplete="on">
+            <div class="card-title"><i class="fa-solid fa-right-to-bracket"></i> Login</div>
+            <p class="empty" style="margin-top:0">Use the Login ID and Password from your teacher.</p>
+            <div id="loginError" class="error hidden"></div>
+            <label for="loginId">Login ID</label>
+            <input type="text" id="loginId" name="loginId" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" placeholder="e.g. ethan">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" name="password" autocomplete="current-password" placeholder="Your password">
+            <button type="submit" class="btn" id="loginBtn"><i class="fa-solid fa-door-open"></i> Enter</button>
+        </form>
     </div>
 
     <div id="dashboardScreen" class="hidden">
-        <div class="top-bar">
+        <div class="mobile-top-bar">
+            <div>
+                <div class="welcome-name" id="welcomeNameMobile">Student</div>
+                <div class="welcome-sub" id="welcomeClassMobile">Class</div>
+            </div>
+            <button type="button" class="btn btn-outline" id="logoutBtnMobile"><i class="fa-solid fa-right-from-bracket"></i> Out</button>
+        </div>
+        <div class="top-bar desktop-only">
             <div>
                 <div class="welcome-name" id="welcomeName">Student</div>
                 <div class="welcome-sub" id="welcomeClass">Class</div>
@@ -300,23 +824,77 @@
             <button type="button" class="btn btn-outline" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
         </div>
 
-        <div class="card">
+        <div class="dashboard-panels">
+        <div class="card portal-card-cute dashboard-card" data-panel="home">
             <div class="card-title"><i class="fa-solid fa-chart-simple"></i> My Stats</div>
             <div class="stats" id="statsGrid"></div>
         </div>
 
-        <div class="card">
+        <div class="card portal-card-cute dashboard-card" data-panel="home">
+            <div class="card-title"><i class="fa-solid fa-book-open-reader"></i> Chambit</div>
+            <div id="chambitBox"></div>
+        </div>
+
+        <div class="card portal-card-cute dashboard-card" data-panel="home">
+            <div class="card-title"><i class="fa-solid fa-ticket"></i> Lucky Draw Tickets</div>
+            <div id="luckyTicketsBox"><p class="empty">No tickets yet.</p></div>
+        </div>
+
+        <div class="card portal-card-cute dashboard-card" data-panel="homework">
             <div class="card-title"><i class="fa-solid fa-list-check"></i> Pending Homework</div>
             <div id="pendingBox"></div>
         </div>
 
-        <div class="card">
+        <div class="card portal-card-cute dashboard-card" data-panel="homework">
             <div class="card-title"><i class="fa-solid fa-book"></i> Today's Homework</div>
             <div id="todayBox"></div>
         </div>
 
-        <div class="card">
-            <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Attendance &amp; Vocab Scores</div>
+        <div id="msgFloat" class="msg-float dashboard-card msg-panel-card portal-card-cute hidden" data-panel="messages" aria-label="Message to Mr. Park">
+            <div class="msg-float-head">
+                <i class="fa-solid fa-comments"></i>
+                Message to Mr. Park
+                <span class="msg-unread-pill hidden" id="msgUnreadPill"><i class="fa-solid fa-circle"></i> <span id="msgUnreadCount">0</span> new</span>
+            </div>
+            <div class="msg-float-body">
+                <div class="msg-chat-wrap" id="msgChatWrap" aria-live="polite">
+                    <div class="msg-chat-empty" id="msgChatEmpty">Say hi or ask a question — Mr. Park will reply here.</div>
+                    <div class="msg-chat-thread" id="msgChatThread"></div>
+                </div>
+                <form class="msg-form" id="msgForm">
+                    <textarea class="msg-input" id="msgInput" rows="2" placeholder="Type a message…" aria-label="Message to Mr. Park"></textarea>
+                    <button type="submit" class="btn msg-send-btn" id="msgSendBtn"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="buddyFloat" class="buddy-float dashboard-card buddy-panel-card portal-card-cute hidden" data-panel="buddy" aria-label="AI English Buddy">
+            <div class="buddy-float-head">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                AI English Buddy
+                <span class="buddy-remaining" id="buddyRemaining"></span>
+            </div>
+            <div class="buddy-float-body">
+                <div class="buddy-chat-wrap" id="buddyChatWrap" aria-live="polite">
+                    <div class="buddy-chat-empty" id="buddyChatEmpty">Ask about words, essays, or sentences — I'll help you learn English!</div>
+                    <div class="buddy-chat-thread" id="buddyChatThread"></div>
+                </div>
+                <div class="buddy-compose">
+                    <div class="buddy-quick-btns">
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="Help me understand the word: ">📖 Word Help</button>
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="I want to write an essay about: ">💡 Essay Ideas</button>
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix='Make this sentence sound natural: "'>✨ Sound Native</button>
+                    </div>
+                    <form class="buddy-form" id="buddyForm">
+                        <textarea class="buddy-input" id="buddyInput" rows="2" placeholder="Type in English…" aria-label="Message for English Buddy"></textarea>
+                        <button type="submit" class="btn buddy-send-btn" id="buddySendBtn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="card portal-card-cute dashboard-card" data-panel="more">
+            <div class="card-title"><i class="fa-solid fa-calendar-check"></i> Attendance &amp; Scores</div>
             <button type="button" class="collapse-toggle" id="attToggle">
                 <span>View by Month</span>
                 <i class="fa-solid fa-chevron-down"></i>
@@ -335,24 +913,15 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-title"><i class="fa-solid fa-ticket"></i> Lucky Draw Tickets</div>
-            <div id="luckyTicketsBox"><p class="empty">No tickets yet.</p></div>
-        </div>
-
-        <div class="card">
+        <div class="card portal-card-cute dashboard-card" data-panel="more">
             <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Makeup Lessons</div>
             <div id="makeupBox"><p class="empty">No makeup lessons recorded yet.</p></div>
         </div>
 
-        <div class="card">
-            <div class="card-title"><i class="fa-solid fa-book-open-reader"></i> Chambit</div>
-            <div id="chambitBox"></div>
-        </div>
-
-        <div class="card">
+        <div class="card portal-card-cute dashboard-card" data-panel="more">
             <div class="card-title"><i class="fa-solid fa-dollar-sign"></i> Dollars</div>
             <div id="dollarBox"></div>
+        </div>
         </div>
     </div>
 
@@ -362,19 +931,53 @@
     </div>
 </div>
 
+<nav class="mobile-bottom-nav hidden" id="mobileBottomNav" aria-label="Main sections">
+    <button type="button" class="mobile-nav-btn active" data-mobile-tab="home">
+        <i class="fa-solid fa-house"></i><span>Home</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-mobile-tab="homework">
+        <i class="fa-solid fa-book"></i><span>Homework</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-mobile-tab="messages">
+        <span class="mobile-nav-icon-wrap">
+            <i class="fa-solid fa-comments"></i>
+            <span class="mobile-nav-badge hidden" id="msgNavBadge" aria-label="Unread messages">0</span>
+        </span>
+        <span>Mr. Park</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-mobile-tab="buddy">
+        <i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Buddy</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-mobile-tab="more">
+        <i class="fa-solid fa-ellipsis"></i><span>More</span>
+    </button>
+</nav>
+
 <script>
 (function() {
     var NODE_API = (function() {
-        if (location.hostname.indexOf('railway.app') !== -1) return location.origin;
+        var h = location.hostname;
+        if (h === 'mrpark.online' || h === 'www.mrpark.online' || h.indexOf('railway.app') !== -1) {
+            return location.origin;
+        }
         return 'https://mrpark-class-api-production.up.railway.app';
     })();
     var TOKEN_KEY = 'mrpark_student_token';
+    var STUDENT_KEY = 'mrpark_student_profile';
+    var msgPollTimer = null;
+    var MSG_POLL_MS = 5000;
+    var buddyChatHistory = [];
+    var buddyConfigured = false;
+    var buddyRemaining = 30;
     var MONTH_NAMES = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
+    var MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     var dashboardAttendance = [];
     var selectedAttMonth = null;
+    var mobileMq = window.matchMedia('(max-width: 767px)');
+    var activeMobilePanel = 'home';
 
     function $(id) { return document.getElementById(id); }
     function show(el) { el.classList.remove('hidden'); }
@@ -393,20 +996,40 @@
         return escapeHtml(val || '—');
     }
 
+    function parseApiResponse(res, text) {
+        var data = null;
+        if (text) {
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                throw new Error(res.ok
+                    ? 'Server sent an invalid response. Please try again.'
+                    : 'Server error (' + res.status + '). Please try again in a moment.');
+            }
+        }
+        if (!res.ok) {
+            throw new Error((data && data.error) || ('Request failed (' + res.status + ').'));
+        }
+        return data || {};
+    }
+
     function api(path, opts) {
         opts = opts || {};
-        var headers = { 'Content-Type': 'application/json' };
+        var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
         var token = sessionStorage.getItem(TOKEN_KEY);
         if (token) headers.Authorization = 'Bearer ' + token;
-        return fetch(NODE_API + path, {
+        var url = NODE_API + path;
+        return fetch(url, {
             method: opts.method || 'GET',
             headers: headers,
             body: opts.body ? JSON.stringify(opts.body) : undefined
         }).then(function(res) {
-            return res.json().then(function(data) {
-                if (!res.ok) throw new Error(data.error || 'Request failed');
-                return data;
+            return res.text().then(function(text) {
+                return parseApiResponse(res, text);
             });
+        }).catch(function(err) {
+            if (err && err.message) throw err;
+            throw new Error('Network error. Check your connection and try again.');
         });
     }
 
@@ -457,6 +1080,97 @@
         }).join('');
     }
 
+    function isPortalMobile() {
+        return document.body.classList.contains('portal-mobile');
+    }
+
+    function setMobilePanel(panel) {
+        activeMobilePanel = panel || 'home';
+        document.querySelectorAll('.dashboard-card').forEach(function(card) {
+            card.classList.toggle('panel-active', card.getAttribute('data-panel') === activeMobilePanel);
+        });
+        if (!isPortalMobile()) {
+            var msg = $('msgFloat');
+            if (msg && !msg.classList.contains('hidden')) msg.classList.add('panel-active');
+            var buddy = $('buddyFloat');
+            if (buddy && !buddy.classList.contains('hidden')) buddy.classList.add('panel-active');
+        }
+        document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-mobile-tab') === activeMobilePanel);
+        });
+        if (activeMobilePanel === 'messages') {
+            loadStudentMessages().catch(function() {});
+        }
+        if (activeMobilePanel === 'buddy') {
+            refreshBuddyStatus().catch(function() {});
+        }
+    }
+
+    function updatePortalLayoutMode() {
+        var onDash = !$('dashboardScreen').classList.contains('hidden');
+        var onLogin = !$('loginScreen').classList.contains('hidden');
+        document.body.classList.toggle('portal-mobile', mobileMq.matches);
+        document.body.classList.toggle('portal-dashboard', mobileMq.matches && onDash);
+        document.body.classList.toggle('portal-login', mobileMq.matches && onLogin);
+        var nav = $('mobileBottomNav');
+        if (mobileMq.matches && onDash) {
+            show(nav);
+            setMobilePanel(activeMobilePanel);
+        } else {
+            if (nav) hide(nav);
+            document.querySelectorAll('.dashboard-card').forEach(function(c) {
+                c.classList.add('panel-active');
+            });
+        }
+    }
+
+    function syncWelcomeNames(name, className) {
+        $('welcomeName').textContent = name;
+        $('welcomeClass').textContent = className;
+        var nm = $('welcomeNameMobile');
+        var cl = $('welcomeClassMobile');
+        if (nm) nm.textContent = name;
+        if (cl) cl.textContent = className;
+    }
+
+    function setMessagingActive(active) {
+        var form = $('msgForm');
+        if (!form) return;
+        if (active) form.removeAttribute('inert');
+        else form.setAttribute('inert', '');
+    }
+
+    function doLogout() {
+        stopMessagePolling();
+        sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(STUDENT_KEY);
+        setMessagingActive(false);
+        setBuddyActive(false);
+        clearBuddyChat();
+        hide($('buddyFloat'));
+        updateMsgUnreadBadge(0);
+        hide($('msgFloat'));
+        hide($('dashboardScreen'));
+        show($('loginScreen'));
+        $('loginPassword').value = '';
+        updatePortalLayoutMode();
+    }
+
+    function initMobilePortal() {
+        mobileMq.addEventListener('change', updatePortalLayoutMode);
+        document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setMobilePanel(btn.getAttribute('data-mobile-tab'));
+            });
+        });
+        $('logoutBtnMobile').addEventListener('click', doLogout);
+        updatePortalLayoutMode();
+    }
+
+    function monthLabel(m) {
+        return (isPortalMobile() ? MONTH_SHORT : MONTH_NAMES)[m - 1] || '';
+    }
+
     function setupAttendanceTabs(records) {
         dashboardAttendance = records || [];
         selectedAttMonth = null;
@@ -466,7 +1180,7 @@
             var cls = 'month-btn';
             if (counts[m]) cls += ' has-data';
             tabsHtml += '<button type="button" class="' + cls + '" data-month="' + m + '">' +
-                MONTH_NAMES[m - 1] + '</button>';
+                monthLabel(m) + '</button>';
         }
         $('monthTabs').innerHTML = tabsHtml;
         $('attMonthLabel').textContent = 'Select a month';
@@ -575,9 +1289,279 @@
         }).join('');
     }
 
+    function scrollMsgChat() {
+        var wrap = $('msgChatWrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function renderMsgEmpty() {
+        var thread = $('msgChatThread');
+        var empty = $('msgChatEmpty');
+        if (!thread || !empty) return;
+        empty.classList.toggle('hidden', thread.children.length > 0);
+    }
+
+    function renderMessages(messages) {
+        var thread = $('msgChatThread');
+        if (!thread) return;
+        thread.innerHTML = '';
+        (messages || []).forEach(function(m) {
+            var div = document.createElement('div');
+            div.className = 'msg-bubble ' + (m.sender === 'student' ? 'msg-bubble-student' : 'msg-bubble-teacher');
+            div.textContent = m.body || '';
+            thread.appendChild(div);
+        });
+        renderMsgEmpty();
+        scrollMsgChat();
+    }
+
+    function updateMsgUnreadBadge(count) {
+        count = Number(count) || 0;
+        var pill = $('msgUnreadPill');
+        var num = $('msgUnreadCount');
+        if (pill && num) {
+            num.textContent = String(count);
+            pill.classList.toggle('hidden', count <= 0);
+        }
+        var badge = $('msgNavBadge');
+        if (badge) {
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.classList.toggle('hidden', count <= 0);
+        }
+    }
+
+    function loadStudentMessages() {
+        return api('/api/student/messages').then(function(data) {
+            renderMessages(data.messages || []);
+            updateMsgUnreadBadge(0);
+        });
+    }
+
+    function pollStudentUnread() {
+        api('/api/student/messages/unread-count').then(function(data) {
+            if (activeMobilePanel === 'messages') return;
+            updateMsgUnreadBadge(data.count || 0);
+        }).catch(function() {});
+    }
+
+    function isStudentMessagesOpen() {
+        if (!sessionStorage.getItem(TOKEN_KEY)) return false;
+        if ($('dashboardScreen').classList.contains('hidden')) return false;
+        if (isPortalMobile()) return activeMobilePanel === 'messages';
+        var msg = $('msgFloat');
+        return msg && !msg.classList.contains('hidden');
+    }
+
+    function pollStudentMessages() {
+        if (document.visibilityState !== 'visible') return;
+        if (isStudentMessagesOpen()) {
+            loadStudentMessages().catch(function() {});
+            return;
+        }
+        pollStudentUnread();
+    }
+
+    function startMessagePolling() {
+        if (msgPollTimer) clearInterval(msgPollTimer);
+        pollStudentMessages();
+        msgPollTimer = setInterval(pollStudentMessages, MSG_POLL_MS);
+        document.addEventListener('visibilitychange', onStudentMessageVisibility);
+    }
+
+    function onStudentMessageVisibility() {
+        if (document.visibilityState === 'visible') pollStudentMessages();
+    }
+
+    function stopMessagePolling() {
+        document.removeEventListener('visibilitychange', onStudentMessageVisibility);
+        if (msgPollTimer) clearInterval(msgPollTimer);
+        msgPollTimer = null;
+    }
+
+    function submitStudentMessage(e) {
+        if (e) e.preventDefault();
+        var input = $('msgInput');
+        var btn = $('msgSendBtn');
+        var body = input ? input.value.trim() : '';
+        if (!body) return;
+        var profile = {};
+        try { profile = JSON.parse(sessionStorage.getItem(STUDENT_KEY) || '{}'); } catch (err) { profile = {}; }
+        if (btn) btn.disabled = true;
+        api('/api/student/messages', {
+            method: 'POST',
+            body: { body: body, studentName: profile.name || '' }
+        }).then(function() {
+            if (input) input.value = '';
+            return loadStudentMessages();
+        }).catch(function(err) {
+            alert(err.message || 'Could not send message.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    $('msgForm').addEventListener('submit', submitStudentMessage);
+    $('msgInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submitStudentMessage(e);
+        }
+    });
+
+    function updateBuddyRemaining(remaining) {
+        buddyRemaining = Number(remaining);
+        if (isNaN(buddyRemaining)) buddyRemaining = 0;
+        var el = $('buddyRemaining');
+        if (el) el.textContent = buddyRemaining + ' left today';
+    }
+
+    function refreshBuddyStatus() {
+        return api('/api/student/english-buddy/status').then(function(data) {
+            buddyConfigured = !!(data && data.configured);
+            updateBuddyRemaining(data && data.remaining != null ? data.remaining : 0);
+        }).catch(function() {
+            buddyConfigured = false;
+        });
+    }
+
+    function scrollBuddyChat() {
+        var wrap = $('buddyChatWrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function renderBuddyEmpty() {
+        var thread = $('buddyChatThread');
+        var empty = $('buddyChatEmpty');
+        if (!thread || !empty) return;
+        empty.classList.toggle('hidden', thread.children.length > 0);
+    }
+
+    function appendBuddyBubble(role, text, extraClass) {
+        var thread = $('buddyChatThread');
+        if (!thread) return;
+        var div = document.createElement('div');
+        div.className = 'buddy-bubble buddy-bubble-' + role + (extraClass ? ' ' + extraClass : '');
+        div.textContent = text;
+        thread.appendChild(div);
+        renderBuddyEmpty();
+        scrollBuddyChat();
+    }
+
+    function removeBuddyThinking() {
+        var el = $('buddyThinking');
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+        renderBuddyEmpty();
+    }
+
+    function clearBuddyChat() {
+        buddyChatHistory.length = 0;
+        var thread = $('buddyChatThread');
+        if (thread) thread.innerHTML = '';
+        renderBuddyEmpty();
+        var input = $('buddyInput');
+        if (input) input.value = '';
+    }
+
+    function setBuddyActive(active) {
+        var form = $('buddyForm');
+        if (!form) return;
+        if (active) form.removeAttribute('inert');
+        else form.setAttribute('inert', '');
+    }
+
+    function submitBuddyAsk(e) {
+        if (e) e.preventDefault();
+        var input = $('buddyInput');
+        var btn = $('buddySendBtn');
+        if (!input) return;
+        var prompt = input.value.trim();
+        if (!prompt) return;
+        if (!buddyConfigured) {
+            alert('English Buddy is not available right now. Please try again later.');
+            return;
+        }
+        if (buddyRemaining <= 0) {
+            alert('You have used all your English Buddy messages for today. Try again tomorrow!');
+            return;
+        }
+
+        appendBuddyBubble('user', prompt);
+        input.value = '';
+        var history = buddyChatHistory.slice();
+        buddyChatHistory.push({ role: 'user', text: prompt });
+
+        var thinking = document.createElement('div');
+        thinking.id = 'buddyThinking';
+        thinking.className = 'buddy-bubble buddy-bubble-ai buddy-bubble-thinking';
+        thinking.textContent = 'Thinking…';
+        $('buddyChatThread').appendChild(thinking);
+        renderBuddyEmpty();
+        scrollBuddyChat();
+        if (btn) btn.disabled = true;
+
+        api('/api/student/english-buddy', {
+            method: 'POST',
+            body: { prompt: prompt, history: history }
+        }).then(function(data) {
+            removeBuddyThinking();
+            var answer = String(data.answer || '').trim();
+            if (answer) {
+                appendBuddyBubble('ai', answer);
+                buddyChatHistory.push({ role: 'assistant', text: answer });
+            }
+            if (data.remaining != null) updateBuddyRemaining(data.remaining);
+        }).catch(function(err) {
+            removeBuddyThinking();
+            appendBuddyBubble('ai', err.message || 'Something went wrong.', 'buddy-bubble-thinking');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+            if (input) input.focus();
+        });
+    }
+
+    function applyBuddyQuickPrefix(prefix) {
+        if (isPortalMobile() && activeMobilePanel !== 'buddy') {
+            setMobilePanel('buddy');
+        }
+        var input = $('buddyInput');
+        if (!input) return;
+        input.value = prefix || '';
+        input.focus();
+        var len = input.value.length;
+        if (input.setSelectionRange) input.setSelectionRange(len, len);
+    }
+
+    $('buddyForm').addEventListener('submit', submitBuddyAsk);
+    $('buddyInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submitBuddyAsk(e);
+        }
+    });
+    document.querySelectorAll('.buddy-quick-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            applyBuddyQuickPrefix(btn.getAttribute('data-buddy-prefix') || '');
+        });
+    });
+
     function renderDashboard(data) {
-        $('welcomeName').textContent = data.profile.name;
-        $('welcomeClass').textContent = data.profile.className;
+        syncWelcomeNames(data.profile.name, data.profile.className);
+        sessionStorage.setItem(STUDENT_KEY, JSON.stringify({
+            id: data.profile.id,
+            name: data.profile.name,
+            classId: data.profile.classId,
+            className: data.profile.className
+        }));
+        pollStudentUnread();
+        if (!isPortalMobile()) loadStudentMessages().catch(function() {});
+        startMessagePolling();
+        refreshBuddyStatus().then(function() {
+            show($('buddyFloat'));
+            setBuddyActive(true);
+        }).catch(function() {
+            hide($('buddyFloat'));
+            setBuddyActive(false);
+        });
 
         var s = data.summary;
         $('statsGrid').innerHTML =
@@ -615,6 +1599,7 @@
             '</div>';
 
         renderDollarSection(data.dollars || { balance: 0, transactions: [] });
+        updatePortalLayoutMode();
     }
 
     function loadDashboard() {
@@ -624,6 +1609,8 @@
             .then(function(data) {
                 hide($('loadingScreen'));
                 show($('dashboardScreen'));
+                setMessagingActive(true);
+                show($('msgFloat'));
                 renderDashboard(data);
             })
             .catch(function(err) {
@@ -631,10 +1618,12 @@
                 hide($('loadingScreen'));
                 show($('loginScreen'));
                 showLoginError(err.message || 'Session expired. Please log in again.');
+                updatePortalLayoutMode();
             });
     }
 
-    $('loginBtn').addEventListener('click', function() {
+    function submitLogin(e) {
+        if (e) e.preventDefault();
         hide($('loginError'));
         var loginId = $('loginId').value.trim();
         var password = $('loginPassword').value.trim();
@@ -647,7 +1636,11 @@
             method: 'POST',
             body: { loginId: loginId, password: password }
         }).then(function(res) {
+            if (!res || !res.token) {
+                throw new Error('Login failed. Please try again.');
+            }
             sessionStorage.setItem(TOKEN_KEY, res.token);
+            if (res.student) sessionStorage.setItem(STUDENT_KEY, JSON.stringify(res.student));
             hide($('loginScreen'));
             loadDashboard();
         }).catch(function(err) {
@@ -655,18 +1648,14 @@
         }).finally(function() {
             $('loginBtn').disabled = false;
         });
-    });
+    }
 
-    $('loginPassword').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') $('loginBtn').click();
-    });
+    $('loginForm').addEventListener('submit', submitLogin);
 
-    $('logoutBtn').addEventListener('click', function() {
-        sessionStorage.removeItem(TOKEN_KEY);
-        hide($('dashboardScreen'));
-        show($('loginScreen'));
-        $('loginPassword').value = '';
-    });
+    $('logoutBtn').addEventListener('click', doLogout);
+
+    initMobilePortal();
+    setMessagingActive(false);
 
     if (sessionStorage.getItem(TOKEN_KEY)) {
         hide($('loginScreen'));

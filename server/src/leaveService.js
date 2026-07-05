@@ -5,7 +5,6 @@ const {
 } = require('./config');
 const { getSheetRows, updateRange, appendRows } = require('./sheets');
 const { formatDateTimeNow, formatSheetDate, chambitAddDays } = require('./dateUtils');
-const { batchUpsertAttendanceRecords } = require('./attendanceService');
 const { cacheDeletePrefix } = require('./cache');
 
 const LEAVE_STATUS_ACTIVE = 'Active';
@@ -167,6 +166,7 @@ async function getActiveLeaveRecord(classId, studentId) {
 }
 
 async function backfillLeaveAttendance(classId, studentId, startDate, endDate) {
+  const { batchUpsertAttendanceRecords } = require('./attendanceService');
   const records = [];
   eachDateInRange(startDate, endDate, (dateStr) => {
     records.push({
@@ -214,6 +214,12 @@ async function startStudentLeave(classId, studentId, startDate, endDate, reason)
     leaveId, studentId, name, classId, startDate, endDate, reason, LEAVE_STATUS_ACTIVE, createdAt, ''
   ]]);
   await backfillLeaveAttendance(classId, studentId, startDate, endDate);
+  try {
+    const { backfillLeaveInClassLog } = require('./classLogService');
+    await backfillLeaveInClassLog(classId, name, startDate, endDate);
+  } catch (e) {
+    console.warn('Class log leave backfill:', e.message);
+  }
   cacheDeletePrefix('sidebar_v1_');
 
   return {

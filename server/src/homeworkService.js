@@ -11,6 +11,20 @@ const {
   getManualPendingCountsByClass
 } = require('./manualHomeworkService');
 
+const classroomHomeworkCache = new Map();
+const CLASSROOM_HW_CACHE_MS = 5 * 60 * 1000;
+
+function invalidateClassroomHomeworkCache(courseId) {
+  if (!courseId) {
+    classroomHomeworkCache.clear();
+    return;
+  }
+  const prefix = String(courseId) + '|';
+  for (const key of classroomHomeworkCache.keys()) {
+    if (key.startsWith(prefix)) classroomHomeworkCache.delete(key);
+  }
+}
+
 function isCompletedCell(val) {
   return val === true || val === 'TRUE' || val === 'true' || val === 'Y' || val === 'Yes';
 }
@@ -502,6 +516,11 @@ async function syncHomeworkToClassroom(courseId, title, description, existingWor
 
 async function getLatestClassroomHomework(courseId, excludeDateStr) {
   if (!courseId || !isClassroomConfigured()) return null;
+
+  const cacheKey = String(courseId) + '|' + String(excludeDateStr || '');
+  const cached = classroomHomeworkCache.get(cacheKey);
+  if (cached && Date.now() < cached.expires) return cached.data;
+
   try {
     const classroom = await getClassroomApi();
     const resp = await classroom.courses.courseWork.list({
@@ -530,6 +549,7 @@ async function getLatestClassroomHomework(courseId, excludeDateStr) {
         };
       }
     }
+    classroomHomeworkCache.set(cacheKey, { data: best, expires: Date.now() + CLASSROOM_HW_CACHE_MS });
     return best;
   } catch (e) {
     return null;
@@ -733,6 +753,7 @@ async function saveAndPostHomework(classId, dateStr, title, items, options) {
     );
     if (synced.ok) {
       classroomWorkId = synced.workId;
+      invalidateClassroomHomeworkCache(map.courseId);
       classroomMsg = synced.updated
         ? ' Updated on Google Classroom.'
         : ' Posted to Google Classroom.';
@@ -784,6 +805,49 @@ async function saveAndPostHomework(classId, dateStr, title, items, options) {
   return {
     message: 'Homework saved (' + normalized.length + ' items).' + classroomMsg + classLogMsg,
     classLogHomework: formatHomeworkForClassLog(normalized, nameById)
+  };
+}
+
+/** Sync sheet homework for a class/date to Google Classroom (Node OAuth, else client falls back to GAS). */
+async function syncHomeworkClassroomForClassDate(classId, dateStr) {
+  await migrateLegacyHomeworkOnce();
+  const existing = await findHomeworkByClassDate(classId, dateStr);
+  if (!existing) {
+    return { ok: false, error: 'No homework saved for this date.' };
+  }
+  const map = await getClassroomMap(classId);
+  if (!map || !map.courseId) {
+    return { ok: true, skipped: true, message: 'No Classroom link.' };
+  }
+  if (!isClassroomConfigured()) {
+    return { ok: false, fallbackGas: true, error: 'Node Classroom OAuth not configured.' };
+  }
+  const synced = await syncHomeworkToClassroom(
+    map.courseId,
+    existing.title,
+    existing.description,
+    existing.classroomWorkId
+  );
+  if (!synced.ok) {
+    const err = String(synced.error || '');
+    if (/invalid_grant|oauth|not configured/i.test(err)) {
+      return { ok: false, fallbackGas: true, error: err };
+    }
+    return { ok: false, error: err };
+  }
+  invalidateClassroomHomeworkCache(map.courseId);
+  if (synced.workId && synced.workId !== existing.classroomWorkId) {
+    const row = await findHomeworkRow(existing.homeworkId);
+    if (row > 0) {
+      await updateRange(HOMEWORK_SHEETS.LOG, `F${row}`, [[synced.workId]]);
+    }
+  }
+  cacheDeletePrefix('sidebar_v1_');
+  return {
+    ok: true,
+    workId: synced.workId,
+    updated: !!synced.updated,
+    message: synced.updated ? 'Updated on Google Classroom.' : 'Posted to Google Classroom.'
   };
 }
 
@@ -1012,6 +1076,7 @@ module.exports = {
   listMyClassroomCourses,
   linkClassToClassroom,
   saveAndPostHomework,
+  syncHomeworkClassroomForClassDate,
   getStudentHomeworkStatus,
   getClassPendingHomework,
   setHomeworkCompletion,

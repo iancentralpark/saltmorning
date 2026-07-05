@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#3b9edd">
+    <title>Mr. Park's Class</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #3b9edd;
+            --primary-dark: #2a8fc9;
+            --accent: #ff9f43;
+            --text: #2d3436;
+            --muted: #636e72;
+            --shadow: 0 6px 0 rgba(59, 158, 221, 0.1), 0 14px 32px rgba(59, 158, 221, 0.14);
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Nunito', system-ui, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 14% 16%, rgba(255, 159, 67, 0.3), transparent 42%),
+                radial-gradient(circle at 86% 12%, rgba(59, 158, 221, 0.28), transparent 40%),
+                linear-gradient(180deg, #dff4ff 0%, #fff8e7 58%, #fef9ef 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: max(1.25rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+        }
+        .wrap {
+            width: min(440px, 100%);
+            text-align: center;
+        }
+        .brand-icon {
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 1rem;
+            border-radius: 28px;
+            background: linear-gradient(135deg, #fff, #e8f6ff);
+            border: 3px solid rgba(59, 158, 221, 0.35);
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+            color: var(--primary-dark);
+        }
+        h1 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: clamp(1.75rem, 6vw, 2.15rem);
+            margin: 0 0 0.35rem;
+            color: var(--primary-dark);
+        }
+        .sub {
+            margin: 0 0 2rem;
+            color: var(--muted);
+            font-size: 0.95rem;
+            line-height: 1.45;
+        }
+        .choice-grid {
+            display: grid;
+            gap: 0.85rem;
+        }
+        .choice-btn {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            width: 100%;
+            text-align: left;
+            border: none;
+            border-radius: 22px;
+            padding: 1.1rem 1.15rem;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: var(--shadow);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .choice-btn:hover { transform: translateY(-2px); }
+        .choice-btn:active { transform: translateY(1px); }
+        .choice-btn-student {
+            background: linear-gradient(135deg, #ffffff, #e8f6ff);
+            border: 2px solid rgba(59, 158, 221, 0.35);
+            color: var(--primary-dark);
+        }
+        .choice-btn-teacher {
+            background: linear-gradient(135deg, #fff8e7, #ffe8cc);
+            border: 2px solid rgba(255, 159, 67, 0.45);
+            color: #c05621;
+        }
+        .choice-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+            flex-shrink: 0;
+        }
+        .choice-btn-student .choice-icon {
+            background: rgba(59, 158, 221, 0.12);
+            color: var(--primary-dark);
+        }
+        .choice-btn-teacher .choice-icon {
+            background: rgba(255, 159, 67, 0.18);
+            color: #e67e22;
+        }
+        .choice-label {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+        .choice-hint {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            opacity: 0.75;
+            margin-top: 0.2rem;
+        }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(45, 52, 54, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            z-index: 100;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal-card {
+            width: min(380px, 100%);
+            background: #fff;
+            border-radius: 24px;
+            padding: 1.35rem 1.25rem 1.25rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+            border: 2px solid rgba(255, 159, 67, 0.35);
+        }
+        .modal-card h2 {
+            font-family: 'Fredoka', sans-serif;
+            margin: 0 0 0.35rem;
+            font-size: 1.25rem;
+            color: #c05621;
+        }
+        .modal-card p {
+            margin: 0 0 1rem;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+        .modal-card input {
+            width: 100%;
+            font-size: 16px;
+            padding: 0.85rem 1rem;
+            border: 2px solid rgba(255, 159, 67, 0.35);
+            border-radius: 14px;
+            margin-bottom: 0.75rem;
+            font-family: inherit;
+        }
+        .modal-error {
+            color: #c0392b;
+            font-size: 0.85rem;
+            font-weight: 700;
+            min-height: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .btn {
+            flex: 1;
+            border: none;
+            border-radius: 14px;
+            padding: 0.85rem 1rem;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #ff9f43, #ffb347);
+            color: #fff;
+            box-shadow: 0 4px 0 #e67e22;
+        }
+        .btn-primary:disabled { opacity: 0.65; cursor: wait; }
+        .btn-ghost {
+            background: #f1f3f5;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="brand-icon" aria-hidden="true"><i class="fa-solid fa-seedling"></i></div>
+    <h1>Mr. Park's Class</h1>
+    <p class="sub">Welcome! Choose how you're signing in.</p>
+    <div class="choice-grid">
+        <button type="button" class="choice-btn choice-btn-student" id="btnStudent">
+            <span class="choice-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+            <span>
+                <span class="choice-label">I'm a student</span>
+                <span class="choice-hint">Homework, scores &amp; messages</span>
+            </span>
+        </button>
+        <button type="button" class="choice-btn choice-btn-teacher" id="btnTeacher">
+            <span class="choice-icon"><i class="fa-solid fa-chalkboard-user"></i></span>
+            <span>
+                <span class="choice-label">I'm Mr. Park</span>
+                <span class="choice-hint">Teacher attendance &amp; class tools</span>
+            </span>
+        </button>
+    </div>
+</div>
+
+<div class="modal-backdrop" id="teacherModal" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
+    <div class="modal-card">
+        <h2 id="teacherModalTitle">Teacher access</h2>
+        <p>Enter the teacher password to open the class app.</p>
+        <form id="teacherForm">
+            <input type="password" id="teacherPassword" autocomplete="current-password" placeholder="Password" required>
+            <div class="modal-error" id="teacherError" aria-live="polite"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="teacherCancel">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="teacherSubmit">Enter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    var API = location.origin;
+
+    function $(id) { return document.getElementById(id); }
+
+    $('btnStudent').addEventListener('click', function() {
+        location.href = '/student';
+    });
+
+    function openTeacherModal() {
+        $('teacherError').textContent = '';
+        $('teacherPassword').value = '';
+        $('teacherModal').classList.add('open');
+        setTimeout(function() { $('teacherPassword').focus(); }, 80);
+    }
+
+    function closeTeacherModal() {
+        $('teacherModal').classList.remove('open');
+    }
+
+    $('btnTeacher').addEventListener('click', openTeacherModal);
+    $('teacherCancel').addEventListener('click', closeTeacherModal);
+    $('teacherModal').addEventListener('click', function(e) {
+        if (e.target === $('teacherModal')) closeTeacherModal();
+    });
+
+    $('teacherForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var pw = $('teacherPassword').value;
+        var btn = $('teacherSubmit');
+        var err = $('teacherError');
+        err.textContent = '';
+        btn.disabled = true;
+        fetch(API + '/api/teacher-gate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ password: pw })
+        }).then(function(res) {
+            return res.text().then(function(text) {
+                var data = {};
+                try { data = text ? JSON.parse(text) : {}; } catch (ex) { /* ignore */ }
+                if (!res.ok) throw new Error(data.error || 'Incorrect password.');
+                if (!data.redirectUrl) throw new Error('Could not open teacher app.');
+                location.href = data.redirectUrl;
+            });
+        }).catch(function(ex) {
+            err.textContent = ex.message || 'Could not sign in.';
+        }).finally(function() {
+            btn.disabled = false;
+        });
+    });
+})();
+</script>
+</body>
+</html>

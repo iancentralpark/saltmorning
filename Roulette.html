@@ -17,6 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?!= include('SnailSprite'); ?>
     <style>
         :root {
             --primary: #3b9edd;
@@ -426,16 +427,11 @@
     </style>
 </head>
 <body>
-    <span class="deco deco-a" aria-hidden="true">🎡</span>
-    <span class="deco deco-b" aria-hidden="true">🌟</span>
-    <span class="deco deco-c" aria-hidden="true">🎉</span>
     <div class="layout">
         <div class="wheel-wrap">
             <div class="wheel-header">
-                <div class="hero-emoji" aria-hidden="true">
-                    <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f3a2.png" alt="">
-                    <span style="font-size:1.5rem">🎯</span>
-                    <img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f31f.png" alt="">
+                <div class="hero-emoji popup-snail-mark" aria-hidden="true">
+                    <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
                 </div>
                 <h1>Spin the Wheel!</h1>
                 <div class="sub" id="classSubtitle">Class</div>

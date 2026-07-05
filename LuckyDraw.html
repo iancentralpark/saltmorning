@@ -17,6 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?!= include('SnailSprite'); ?>
     <style>
         :root { --text: #2d3436; --muted: #636e72; }
         * { box-sizing: border-box; }
@@ -246,9 +247,32 @@
             width: 100%; border: 2px solid rgba(241, 196, 15, 0.45); border-radius: 14px;
             padding: 0.65rem 0.75rem; font-family: 'Nunito', sans-serif; font-size: 0.95rem; font-weight: 700; background: #fff;
         }
+        .student-dollar-balance {
+            margin-top: 0.45rem;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #27ae60;
+            display: none;
+        }
+        body.paid-draw-mode .student-dollar-balance { display: block; }
+        .student-dollar-balance.low { color: #e67e22; }
+        .student-dollar-balance.empty { color: #c0392b; }
+        .shell.paid-draw-mode {
+            border-color: rgba(241, 196, 15, 0.65);
+            box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(241, 196, 15, 0.14);
+        }
+        .paid-mode-hint {
+            display: none;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #d68910;
+            margin: -0.35rem 0 0.65rem;
+        }
+        body.paid-draw-mode .paid-mode-hint { display: block; }
         .save-status { font-size: 0.8rem; font-weight: 700; color: #27ae60; min-height: 1.2rem; margin-top: 0.5rem; }
 
         .slot-machine {
+            position: relative;
             background: linear-gradient(180deg, #5d4037 0%, #3e2723 100%);
             border-radius: 20px;
             padding: 0.85rem 0.75rem 1rem;
@@ -262,7 +286,22 @@
             color: #ffecb3;
             margin-bottom: 0.5rem;
             text-transform: uppercase;
+            position: relative;
         }
+        .slot-egg-btn {
+            position: absolute;
+            top: -0.15rem;
+            right: 0;
+            width: 1.1rem;
+            height: 1.1rem;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            opacity: 0.07;
+            cursor: default;
+        }
+        .slot-egg-btn:focus { outline: none; }
         .slot-windows {
             display: flex;
             justify-content: center;
@@ -513,18 +552,25 @@
 <body>
     <div class="shell">
         <button type="button" class="edit-prizes-btn" id="editPrizesBtn" title="Edit prize list, weights, and tiers">Edit</button>
+        <div class="popup-snail-mark" aria-hidden="true">
+            <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+        </div>
         <h1 class="title"><i class="fa-solid fa-ticket"></i> Lucky Draw</h1>
         <p class="sub" id="classSub">Pick a student, pull the lever!</p>
+        <p class="paid-mode-hint" id="paidModeHint">Secret shop — $3 per draw</p>
 
         <div class="student-pick" id="studentPickWrap">
             <label for="studentSelect">Student</label>
             <select id="studentSelect">
                 <option value="">— Select student —</option>
             </select>
+            <div class="student-dollar-balance" id="studentDollarBalance" aria-live="polite"></div>
         </div>
 
         <div class="slot-machine" id="slotMachine">
-            <div class="slot-top">★ Lucky Slot ★</div>
+            <div class="slot-top">★ Lucky Slot ★
+                <button type="button" class="slot-egg-btn" id="dollarModeEgg" aria-hidden="true" tabindex="-1"></button>
+            </div>
             <div class="slot-windows">
                 <div class="slot-reel" id="reel"><div class="slot-strip"></div></div>
             </div>
@@ -589,6 +635,9 @@
         var LUCKY_DRAW_TIERS = [];
         var configReady = false;
 
+        var LUCKY_DRAW_COST = 3;
+        var currentStudentBalance = null;
+        var paidDrawMode = false;
         var IDLE_REEL_MESSAGES = [
             'Spin the reel!',
             'Pull the lever!',
@@ -913,16 +962,125 @@
             setTimeout(function() { box.innerHTML = ''; }, 2600);
         }
 
+        function updateStudentBalanceDisplay(balance) {
+            var el = document.getElementById('studentDollarBalance');
+            if (!el) return;
+            if (balance == null || balance === '') {
+                el.textContent = '';
+                el.className = 'student-dollar-balance';
+                return;
+            }
+            balance = Number(balance) || 0;
+            currentStudentBalance = balance;
+            el.textContent = 'Balance: $' + balance + ' · Lucky Draw costs $' + LUCKY_DRAW_COST;
+            el.className = 'student-dollar-balance' +
+                (balance < LUCKY_DRAW_COST ? (balance <= 0 ? ' empty' : ' low') : '');
+        }
+
+        function loadStudentBalance(studentId) {
+            if (!studentId) {
+                updateStudentBalanceDisplay(null);
+                return Promise.resolve();
+            }
+            return fetch(NODE_API + '/api/dollar/balance?studentId=' + encodeURIComponent(studentId))
+                .then(function(res) {
+                    return res.json().then(function(data) {
+                        if (!res.ok) throw new Error(data.error || 'Could not load balance');
+                        updateStudentBalanceDisplay(data.balance);
+                    });
+                })
+                .catch(function() {
+                    updateStudentBalanceDisplay(null);
+                });
+        }
+
+        function purchaseLuckyDrawForStudent(prize) {
+            var sel = document.getElementById('studentSelect');
+            var studentId = sel ? sel.value : '';
+            var statusEl = document.getElementById('saveStatus');
+            if (!CLASS_ID || !studentId || !prize) {
+                return Promise.reject(new Error('Select a student first.'));
+            }
+            if (statusEl) statusEl.textContent = 'Checking dollars…';
+            return fetch(NODE_API + '/api/lucky-draw/purchase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classId: CLASS_ID,
+                    studentId: studentId,
+                    tier: prize.tier.name,
+                    prizeText: prize.phrase
+                })
+            }).then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) {
+                        var err = new Error(data.error || 'Purchase failed');
+                        err.balance = data.balance;
+                        err.cost = data.cost;
+                        throw err;
+                    }
+                    updateStudentBalanceDisplay(data.newBalance);
+                    if (statusEl) {
+                        statusEl.textContent = 'Paid $' + (data.cost || LUCKY_DRAW_COST) + ' — saved for ' +
+                            (sel.options[sel.selectedIndex].text || 'student') + '!';
+                    }
+                    return data;
+                });
+            });
+        }
+
+        function updateDrawModeUi() {
+            document.body.classList.toggle('paid-draw-mode', paidDrawMode);
+            var shell = document.querySelector('.shell');
+            if (shell) shell.classList.toggle('paid-draw-mode', paidDrawMode);
+            var sub = document.getElementById('classSub');
+            if (sub && CLASS_NAME) {
+                sub.textContent = paidDrawMode
+                    ? (CLASS_NAME + ' — $' + LUCKY_DRAW_COST + ' per draw')
+                    : (CLASS_NAME + ' — pick a student, pull the lever!');
+            }
+            document.getElementById('leverLabel').textContent = paidDrawMode
+                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                : 'Pull the lever!';
+            var sel = document.getElementById('studentSelect');
+            if (paidDrawMode && sel && sel.value) {
+                loadStudentBalance(sel.value);
+            } else {
+                updateStudentBalanceDisplay(null);
+            }
+        }
+
+        function setPaidDrawMode(on) {
+            paidDrawMode = !!on;
+            updateDrawModeUi();
+            if (paidDrawMode) {
+                var hint = document.getElementById('paidModeHint');
+                if (hint) {
+                    hint.textContent = 'Secret shop unlocked — $' + LUCKY_DRAW_COST + ' per draw';
+                }
+            }
+        }
+
+        function initDollarModeEasterEgg() {
+            var egg = document.getElementById('dollarModeEgg');
+            if (!egg) return;
+            egg.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (isSpinning) return;
+                setPaidDrawMode(!paidDrawMode);
+            });
+        }
+
         function saveTicketForStudent(prize) {
             var sel = document.getElementById('studentSelect');
             var studentId = sel ? sel.value : '';
             var statusEl = document.getElementById('saveStatus');
             if (!CLASS_ID || !studentId || !prize) {
                 if (statusEl) statusEl.textContent = '';
-                return;
+                return Promise.resolve();
             }
             if (statusEl) statusEl.textContent = 'Saving ticket…';
-            fetch(NODE_API + '/api/lucky-draw/ticket', {
+            return fetch(NODE_API + '/api/lucky-draw/ticket', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -938,8 +1096,6 @@
                         statusEl.textContent = 'Saved for ' + (sel.options[sel.selectedIndex].text || 'student') + '!';
                     }
                 });
-            }).catch(function(err) {
-                if (statusEl) statusEl.textContent = 'Could not save: ' + (err.message || err);
             });
         }
 
@@ -964,8 +1120,6 @@
         }
 
         function initStudentSelect() {
-            var sub = document.getElementById('classSub');
-            if (sub && CLASS_NAME) sub.textContent = CLASS_NAME + ' — pick a student, pull the lever!';
             var sel = document.getElementById('studentSelect');
             if (!sel) return;
             (STUDENTS || []).forEach(function(st) {
@@ -974,9 +1128,14 @@
                 opt.textContent = st.name;
                 sel.appendChild(opt);
             });
+            sel.addEventListener('change', function() {
+                if (paidDrawMode) loadStudentBalance(sel.value);
+                else updateStudentBalanceDisplay(null);
+            });
             if (!CLASS_ID || !(STUDENTS || []).length) {
                 document.getElementById('studentPickWrap').style.display = 'none';
             }
+            updateDrawModeUi();
         }
 
         function showIdleReel() {
@@ -998,7 +1157,9 @@
             isSpinning = false;
             document.getElementById('resultPanel').classList.remove('show');
             document.getElementById('saveStatus').textContent = '';
-            document.getElementById('leverLabel').textContent = 'Pull the lever!';
+            document.getElementById('leverLabel').textContent = paidDrawMode
+                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                : 'Pull the lever!';
             document.getElementById('leverBtn').disabled = false;
             document.getElementById('drawAgainBtn').disabled = false;
             if (CLASS_ID && (STUDENTS || []).length) {
@@ -1006,6 +1167,35 @@
                 document.getElementById('studentSelect').disabled = false;
             }
             resetIdleReel();
+        }
+
+        async function pullLeverFree(currentPrize, lever, sel) {
+            document.getElementById('leverLabel').textContent = 'Spinning…';
+            var reel = document.getElementById('reel');
+            var count = buildReelStrip(reel, currentPrize.phrase, 44);
+            saveTicketForStudent(currentPrize).catch(function(err) {
+                var statusEl = document.getElementById('saveStatus');
+                if (statusEl) statusEl.textContent = 'Could not save: ' + (err.message || err);
+            });
+            await spinReel(reel, count);
+            setTimeout(function() { lever.classList.remove('pulled'); }, 400);
+            revealResult(currentPrize);
+        }
+
+        async function pullLeverPaid(currentPrize, lever, sel) {
+            if (sel && sel.value && currentStudentBalance != null && currentStudentBalance < LUCKY_DRAW_COST) {
+                alert('Not enough dollars. Lucky Draw costs $' + LUCKY_DRAW_COST +
+                    ' (balance: $' + currentStudentBalance + ').');
+                throw new Error('insufficient');
+            }
+            document.getElementById('leverLabel').textContent = 'Checking payment…';
+            await purchaseLuckyDrawForStudent(currentPrize);
+            document.getElementById('leverLabel').textContent = 'Spinning…';
+            var reel = document.getElementById('reel');
+            var count = buildReelStrip(reel, currentPrize.phrase, 44);
+            await spinReel(reel, count);
+            setTimeout(function() { lever.classList.remove('pulled'); }, 400);
+            revealResult(currentPrize);
         }
 
         async function pullLever() {
@@ -1023,28 +1213,25 @@
             lever.disabled = true;
             lever.classList.add('pulled');
             document.getElementById('drawAgainBtn').disabled = true;
-            document.getElementById('leverLabel').textContent = 'Spinning…';
             document.getElementById('resultPanel').classList.remove('show');
+            document.getElementById('saveStatus').textContent = '';
             if (sel) sel.disabled = true;
 
             try {
-                var reel = document.getElementById('reel');
-                var count = buildReelStrip(reel, currentPrize.phrase, 44);
-
-                saveTicketForStudent(currentPrize);
-
-                await spinReel(reel, count);
-
-                setTimeout(function() {
-                    lever.classList.remove('pulled');
-                }, 400);
-
-                revealResult(currentPrize);
+                if (paidDrawMode) await pullLeverPaid(currentPrize, lever, sel);
+                else await pullLeverFree(currentPrize, lever, sel);
             } catch (err) {
-                console.error(err);
-                document.getElementById('leverLabel').textContent = 'Something went wrong — try again';
+                if (err && err.message !== 'insufficient') {
+                    console.error(err);
+                    alert(err.message || 'Something went wrong — try again.');
+                }
+                document.getElementById('leverLabel').textContent = paidDrawMode
+                    ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                    : 'Pull the lever!';
+                document.getElementById('saveStatus').textContent = '';
                 lever.disabled = false;
                 lever.classList.remove('pulled');
+                if (sel) sel.disabled = false;
                 showIdleReel();
             } finally {
                 isSpinning = false;
@@ -1053,6 +1240,7 @@
         }
 
         initStudentSelect();
+        initDollarModeEasterEgg();
         loadLuckyDrawConfig();
         document.getElementById('leverBtn').addEventListener('click', pullLever);
         document.getElementById('drawAgainBtn').addEventListener('click', resetForNewSpin);

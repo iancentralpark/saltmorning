@@ -1,3 +1,7 @@
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
 // 1. 웹 앱 접속 시 HTML 화면을 렌더링하는 함수
 function doGet(e) {
   const params = (e && e.parameter) ? e.parameter : {};
@@ -3348,36 +3352,40 @@ function linkClassToClassroom(classId, courseId, courseName) {
 
 /** Post/update today's homework on Classroom after Node saved the sheet (no 7-day OAuth expiry). */
 function syncHomeworkClassroomForClassDate(classId, dateStr) {
-  ensureHomeworkSheets_();
-  const existing = findHomeworkByClassDate_(classId, dateStr);
-  if (!existing) {
-    return { ok: false, error: 'No homework saved for this date.' };
-  }
-  const map = getClassroomMap_(classId);
-  if (!map || !map.courseId) {
-    return { ok: true, skipped: true, message: 'No Classroom link.' };
-  }
-  const synced = syncHomeworkToClassroom_(
-    map.courseId,
-    existing.title,
-    existing.description,
-    existing.classroomWorkId
-  );
-  if (!synced.ok) {
-    return { ok: false, error: synced.error };
-  }
-  if (synced.workId && synced.workId !== existing.classroomWorkId) {
-    const row = findHomeworkRow_(existing.homeworkId);
-    if (row > 0) {
-      getSS().getSheetByName(HOMEWORK_SHEETS.LOG).getRange(row, 6).setValue(synced.workId);
+  try {
+    ensureHomeworkSheets_();
+    const existing = findHomeworkByClassDate_(classId, dateStr);
+    if (!existing) {
+      return { ok: false, error: 'No homework saved for this date.' };
     }
+    const map = getClassroomMap_(classId);
+    if (!map || !map.courseId) {
+      return { ok: true, skipped: true, message: 'No Classroom link.' };
+    }
+    const synced = syncHomeworkToClassroom_(
+      map.courseId,
+      existing.title,
+      existing.description,
+      existing.classroomWorkId
+    );
+    if (!synced.ok) {
+      return { ok: false, error: synced.error };
+    }
+    if (synced.workId && synced.workId !== existing.classroomWorkId) {
+      const row = findHomeworkRow_(existing.homeworkId);
+      if (row > 0) {
+        getSS().getSheetByName(HOMEWORK_SHEETS.LOG).getRange(row, 6).setValue(synced.workId);
+      }
+    }
+    return {
+      ok: true,
+      workId: synced.workId,
+      updated: !!synced.updated,
+      message: synced.updated ? 'Updated on Google Classroom.' : 'Posted to Google Classroom.'
+    };
+  } catch (e) {
+    return { ok: false, error: e.message || String(e) };
   }
-  return {
-    ok: true,
-    workId: synced.workId,
-    updated: !!synced.updated,
-    message: synced.updated ? 'Updated on Google Classroom.' : 'Posted to Google Classroom.'
-  };
 }
 
 function saveAndPostHomework(classId, dateStr, title, items) {

@@ -17,6 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?!= include('SnailSprite'); ?>
     <style>
         :root {
             --primary: #3b9edd;
@@ -349,6 +350,9 @@
 </head>
 <body>
     <div class="shell" id="diceShell">
+        <div class="popup-snail-mark" aria-hidden="true">
+            <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+        </div>
         <h1 class="title"><i class="fa-solid fa-dice"></i> Dice Roller</h1>
 
         <div class="mode-toggle" role="group" aria-label="Dice count">

@@ -4,10 +4,16 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1XNZYW16PWijfNZPe3knwLnTw5
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Seoul';
 const PORT = Number(process.env.PORT) || 8787;
 
+const TEACHER_GATE_PASSWORD = process.env.TEACHER_GATE_PASSWORD || '';
+const TEACHER_APP_URL = process.env.TEACHER_APP_URL ||
+  'https://script.google.com/macros/s/AKfycbynz8z_cX8GeKSzZNWt0cUg2PRyOlDHhZE1_XMoEMhlbdnNaHFZ9cfjrrabfB5odDleVQ/exec';
+
 module.exports = {
   SPREADSHEET_ID,
   TIMEZONE,
   PORT,
+  TEACHER_GATE_PASSWORD,
+  TEACHER_APP_URL,
   DOLLAR_SHEETS: { BALANCES: 'Dollar_Balances', TRANSACTIONS: 'Dollar_Transactions' },
   TEXTBOOK_SHEETS: {
     BOOKS: 'Class_Textbooks',
@@ -39,6 +45,7 @@ module.exports = {
   STUDENT_PLANNED_ATTENDANCE_SHEET: 'Student_Planned_Attendance',
   ATTENDANCE_SHEET: 'Attendance_Data',
   MAKEUP_SHEET: 'Makeup_Lessons',
+  MESSAGES_SHEET: 'Student_Messages',
   CLASS_LOG_SPREADSHEET_ID: process.env.CLASS_LOG_SPREADSHEET_ID ||
     '1kUbo820pEzNThBmIQmwVi5MCd1O888y1rtuxz2IH4H4',
   CLASS_LOG_TAB_BY_CLASS_ID: {
@@ -49,5 +56,6 @@ module.exports = {
   },
   DEFAULT_YOUTUBE_VIDEO_ID: 'gmqG2h84_Cs',
   KR_HOLIDAY_CALENDAR_ID: 'ko.south_korea#holiday@group.v.calendar.google.com',
+  LUCKY_DRAW_PURCHASE_COST: 3,
   CACHE_SEC: { SIDEBAR: 300, HOLIDAY: 21600, CLASSES: 600 }
 };

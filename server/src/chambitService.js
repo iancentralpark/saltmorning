@@ -6,8 +6,8 @@ const {
 } = require('./config');
 const { getSheetRows, appendRows, updateRange, deleteRow, deleteRows } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
-const { getHolidayName } = require('./holiday');
-const { syncChambitToClassLog } = require('./classLogService');
+const { getHolidayName, getHolidaysForMonth } = require('./holiday');
+const { syncChambitToClassLog, getClassLogRosterForMonth } = require('./classLogService');
 const { getEnrolledStudents } = require('./homeworkService');
 const {
   formatSheetDate,
@@ -28,13 +28,23 @@ function chambitNormalizeAllowedDays(allowedDays) {
 
 async function chambitGetRequiredDatesInWeek(weekMonday, allowedDays) {
   const days = chambitNormalizeAllowedDays(allowedDays);
+  const weekEnd = chambitAddDays(weekMonday, 6);
+  const startParts = chambitParseDate(weekMonday);
+  const endParts = chambitParseDate(weekEnd);
+
+  let holidayMap = await getHolidaysForMonth(startParts.y, startParts.m + 1);
+  if (endParts.y !== startParts.y || endParts.m !== startParts.m) {
+    const endHolidays = await getHolidaysForMonth(endParts.y, endParts.m + 1);
+    holidayMap = Object.assign({}, holidayMap, endHolidays);
+  }
+
   const required = [];
   for (let i = 0; i < 7; i++) {
     const ds = chambitAddDays(weekMonday, i);
     const p = chambitParseDate(ds);
     const dow = new Date(p.y, p.m, p.d).getDay();
     if (!days.includes(dow)) continue;
-    if (await getHolidayName(ds)) continue;
+    if (holidayMap[ds]) continue;
     required.push(ds);
   }
   return required;
@@ -163,8 +173,11 @@ async function setChambitComboManual(studentId, comboCount) {
 
 async function chambitSyncClassLog(classId, studentId, dateStr, read) {
   try {
-    const students = await getEnrolledStudents(classId);
-    const student = students.find(s => String(s.id) === String(studentId));
+    dateStr = formatSheetDate(dateStr);
+    const parts = dateStr.split('-');
+    const monthFirstDay = parts[0] + '-' + parts[1] + '-01';
+    const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
+    const student = roster.find(s => String(s.id) === String(studentId));
     if (!student) return { synced: false };
     return await syncChambitToClassLog(classId, student.name, dateStr, read);
   } catch (e) {

@@ -14,7 +14,7 @@ const {
 } = require('./config');
 const { cacheGet, cacheSet } = require('./cache');
 const { buildRequestContext } = require('./sheets');
-const { getHolidayName } = require('./holiday');
+const { getHolidayName, getHolidaysForMonth } = require('./holiday');
 const { buildPendingHomeworkCountsFromCtx } = require('./homeworkService');
 const {
   formatSheetDate,
@@ -52,14 +52,27 @@ function chambitNormalizeAllowedDays(allowedDays) {
 
 async function chambitGetRequiredDatesInWeek(weekMonday, allowedDays) {
   const days = chambitNormalizeAllowedDays(allowedDays);
+  const weekEnd = chambitAddDays(weekMonday, 6);
+  const startParts = weekMonday.split('-');
+  const endParts = weekEnd.split('-');
+  const startYear = Number(startParts[0]);
+  const startMonth = Number(startParts[1]);
+  const endYear = Number(endParts[0]);
+  const endMonth = Number(endParts[1]);
+
+  let holidayMap = await getHolidaysForMonth(startYear, startMonth);
+  if (endYear !== startYear || endMonth !== startMonth) {
+    const endHolidays = await getHolidaysForMonth(endYear, endMonth);
+    holidayMap = Object.assign({}, holidayMap, endHolidays);
+  }
+
   const required = [];
   for (let i = 0; i < 7; i++) {
     const ds = chambitAddDays(weekMonday, i);
     const p = ds.split('-');
     const dow = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay();
     if (!days.includes(dow)) continue;
-    const holiday = await getHolidayName(ds);
-    if (holiday) continue;
+    if (holidayMap[ds]) continue;
     required.push(ds);
   }
   return required;
@@ -406,9 +419,10 @@ async function getClassSessionData(classId, dateStr) {
   }
 
   const holidayName = await getHolidayName(dateStr);
-  const ctx = await buildRequestContext(classId);
-  const sidebar = await buildClassSidebarFromCtx(ctx);
-  cacheSet('sidebar_v1_' + classId, sidebar, CACHE_SEC.SIDEBAR);
+  const [sidebar, ctx] = await Promise.all([
+    getClassSidebarCached(classId),
+    buildRequestContext(classId)
+  ]);
 
   return {
     sidebar,

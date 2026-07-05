@@ -1,6 +1,17 @@
 const { DOLLAR_SHEETS } = require('./config');
 const { getSheetRows, updateRange, appendRows } = require('./sheets');
 
+async function getStudentDollarBalance(studentId) {
+  studentId = String(studentId);
+  const data = await getSheetRows(DOLLAR_SHEETS.BALANCES);
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === studentId) {
+      return Number(data[i][1]) || 0;
+    }
+  }
+  return 0;
+}
+
 async function applyDollarAdjustment(classId, studentId, amount, reason) {
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt === 0) {
@@ -33,4 +44,4 @@ async function applyDollarAdjustment(classId, studentId, amount, reason) {
   return { studentId, newBalance };
 }
 
-module.exports = { applyDollarAdjustment };
+module.exports = { getStudentDollarBalance, applyDollarAdjustment };

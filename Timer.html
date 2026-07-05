@@ -16,6 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <?!= include('SnailSprite'); ?>
     <style>
         * { box-sizing: border-box; }
         :root {
@@ -223,16 +224,9 @@
 </head>
 <body>
     <script>if (/\bembed=1\b/.test(location.search)) document.documentElement.classList.add('tool-embedded');</script>
-    <span class="deco deco-1" aria-hidden="true">📚</span>
-    <span class="deco deco-2" aria-hidden="true">⭐</span>
-    <span class="deco deco-3" aria-hidden="true">✏️</span>
-    <span class="deco deco-4" aria-hidden="true">🎯</span>
-
     <div class="timer-shell">
-        <div class="mascot-row" aria-hidden="true">
-            <img class="mascot-twemoji" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/23f0.png" alt="">
-            <div class="mascot-icon">⏱️</div>
-            <img class="mascot-twemoji" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f31f.png" alt="">
+        <div class="popup-snail-mark" aria-hidden="true">
+            <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
         </div>
         <div class="done-msg">🎉 Time's up! Great job! 🎉</div>
         <div class="label">Vocab Test Timer</div>

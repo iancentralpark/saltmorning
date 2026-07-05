@@ -28,6 +28,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <?!= include('SnailSprite'); ?>
     <style>
         :root {
             --app-font: 'Nunito', 'Fredoka', 'Segoe UI', Malgun Gothic, sans-serif;
@@ -109,22 +110,9 @@
             padding: 0.5rem 0 0.25rem;
         }
         .app-hero-icon {
-            width: 72px;
-            height: 72px;
+            width: 88px;
+            height: 88px;
             margin: 0 auto 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ff9f43 0%, #ff6b9d 40%, #3b9edd 100%);
-            color: #fff;
-            font-size: 2rem;
-            box-shadow: 0 6px 0 #e08a2e, 0 12px 28px rgba(255, 159, 67, 0.35);
-            animation: hero-bounce 2.5s ease-in-out infinite;
-        }
-        @keyframes hero-bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
         }
         .app-hero h1 {
             font-family: var(--app-heading);
@@ -524,6 +512,8 @@
             .sidebar-panel { width: min(240px, 46vw); max-height: min(50vh, 220px); }
             .sidebar-panel[data-sidebar-id="classTools"],
             .sidebar-panel[data-sidebar-id="youtube"] { max-height: none; }
+            .sidebar-panel[data-sidebar-id="googleSearch"] { max-height: min(68vh, 380px); }
+            .sidebar-panel[data-sidebar-id="googleSearch"].search-ai-gemini-mode { max-height: min(75vh, 480px); }
         }
         @media (max-width: 1279px) {
             .main-container {
@@ -855,7 +845,8 @@
             padding: 0.5rem 0;
         }
 
-        .sidebar-panel[data-sidebar-id="upcomingEvent"] { max-height: min(28vh, 220px); }
+        .sidebar-panel[data-sidebar-id="googleSearch"] { max-height: min(78vh, 520px); }
+        .sidebar-panel[data-sidebar-id="googleSearch"].search-ai-gemini-mode { max-height: min(82vh, 560px); }
         .sidebar-panel[data-sidebar-id="announcement"] { max-height: min(28vh, 220px); }
         .float-panel-card {
             background: #fff;
@@ -959,6 +950,179 @@
         }
         .google-search-btn:hover {
             transform: translateY(-1px);
+        }
+
+        /* ===== Search & Gemini tabs ===== */
+        .search-ai-tabs {
+            display: flex;
+            gap: 0.35rem;
+            padding: 0.45rem 0.75rem 0;
+        }
+        .search-ai-tab {
+            flex: 1;
+            border: 2px solid rgba(66, 133, 244, 0.25);
+            border-radius: 999px;
+            padding: 0.32rem 0.5rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            font-family: 'Nunito', sans-serif;
+            background: #fff;
+            color: #5f6b73;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .search-ai-tab.active[data-search-ai-tab="google"] {
+            background: linear-gradient(135deg, #4285f4, #5dade2);
+            color: #fff;
+            border-color: #3367d6;
+            box-shadow: 0 3px 0 #3367d6;
+        }
+        .search-ai-tab.active[data-search-ai-tab="gemini"] {
+            background: linear-gradient(135deg, #8e44ad, #5dade2 55%, #4285f4);
+            color: #fff;
+            border-color: #7d3c98;
+            box-shadow: 0 3px 0 #6c3483;
+        }
+        .search-ai-pane { display: block; }
+        .search-ai-pane.hidden-section { display: none !important; }
+        .gemini-panel-card {
+            border: 3px solid rgba(142, 68, 173, 0.38);
+            box-shadow: 0 6px 0 rgba(142, 68, 173, 0.12), 0 14px 32px rgba(93, 173, 226, 0.1);
+        }
+        .gemini-panel-card #geminiPane {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        .gemini-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            flex-shrink: 0;
+            padding: 0.5rem 0.75rem 0.85rem;
+        }
+        .gemini-input {
+            width: 100%;
+            min-height: 3.25rem;
+            resize: vertical;
+            border: 2px solid rgba(142, 68, 173, 0.32);
+            border-radius: 14px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.84rem;
+            font-weight: 600;
+            font-family: 'Nunito', sans-serif;
+            color: #1a1a1a;
+            line-height: 1.4;
+        }
+        .gemini-input:focus {
+            outline: none;
+            border-color: #8e44ad;
+            box-shadow: 0 0 0 3px rgba(142, 68, 173, 0.18);
+        }
+        .gemini-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .gemini-ask-btn {
+            flex: 1;
+            min-width: 5rem;
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.82rem;
+            font-weight: 800;
+            font-family: 'Nunito', sans-serif;
+            color: #fff;
+            background: linear-gradient(135deg, #8e44ad, #5dade2);
+            box-shadow: 0 4px 0 #6c3483;
+            cursor: pointer;
+        }
+        .gemini-ask-btn:disabled { opacity: 0.55; cursor: wait; }
+        .gemini-web-btn {
+            border: 2px solid rgba(142, 68, 173, 0.35);
+            border-radius: 999px;
+            padding: 0.42rem 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            background: #fff;
+            color: #6c3483;
+            cursor: pointer;
+        }
+        .gemini-status {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #636e72;
+            padding: 0 0.75rem 0.25rem;
+        }
+        .gemini-status.configured { color: #27ae60; }
+        .gemini-status.fallback { color: #b9770e; }
+        .gemini-chat-wrap {
+            margin: 0 0.65rem 0.5rem;
+            flex: 1;
+            min-height: 4.5rem;
+            max-height: none;
+            overflow-y: auto;
+            border: 1px solid rgba(142, 68, 173, 0.18);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.55);
+            padding: 0.45rem 0.5rem;
+        }
+        .gemini-chat-empty {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #95a5a6;
+            text-align: center;
+            padding: 1.25rem 0.5rem;
+            line-height: 1.45;
+        }
+        .gemini-chat-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .gemini-msg {
+            max-width: 92%;
+            padding: 0.45rem 0.65rem;
+            border-radius: 12px;
+            font-size: 0.81rem;
+            font-weight: 600;
+            line-height: 1.42;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .gemini-msg-user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #4285f4, #5dade2);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .gemini-msg-model {
+            align-self: flex-start;
+            background: linear-gradient(135deg, #faf5ff, #eef6ff);
+            color: #2d3436;
+            border: 1px solid rgba(142, 68, 173, 0.15);
+            border-bottom-left-radius: 4px;
+        }
+        .gemini-msg-thinking {
+            align-self: flex-start;
+            color: #636e72;
+            font-style: italic;
+            background: transparent;
+            border: 1px dashed rgba(142, 68, 173, 0.25);
+        }
+        .gemini-clear-btn {
+            border: 2px solid rgba(142, 68, 173, 0.28);
+            border-radius: 999px;
+            padding: 0.42rem 0.7rem;
+            font-size: 0.76rem;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            background: #fff;
+            color: #6c3483;
+            cursor: pointer;
         }
 
         .float-panel-title {
@@ -1854,10 +2018,17 @@
             font-size: 0.65rem;
             line-height: 1;
             border-radius: 999px;
+            border: none;
             background: linear-gradient(135deg, #ffeaa7, #fdcb6e) !important;
             color: #6d4c00 !important;
             font-weight: 800;
             box-sizing: border-box;
+            cursor: pointer;
+            transition: filter 0.15s, transform 0.15s;
+        }
+        .pending-hw-badge:hover {
+            filter: brightness(1.06);
+            transform: translateY(-1px);
         }
         .hw-classroom-badge { font-size: 0.75rem; font-weight: 700; }
         .hw-pending-list { text-align: left; }
@@ -1876,6 +2047,7 @@
         .hw-pending-item.class-pending-item {
             display: block;
         }
+        .hw-item-fix-note {
             font-size: 0.75rem;
             color: #c0392b;
             font-weight: 600;
@@ -2176,6 +2348,297 @@
         }
         .btn-lucky-row:hover { color: #fff; transform: translateY(-1px); }
         .btn-lucky-row.empty { opacity: 0.55; }
+        .btn-msg-row {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            margin: 0;
+            height: 1.35rem;
+            padding: 0 0.45rem;
+            flex: 0 0 auto;
+            white-space: nowrap;
+            border: none;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #5dade2, #3b9edd);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 800;
+            line-height: 1;
+            box-sizing: border-box;
+            box-shadow: 0 2px 0 #2980b9;
+            cursor: pointer;
+        }
+        .btn-msg-row:hover { color: #fff; transform: translateY(-1px); }
+        .btn-msg-row.has-unread { background: linear-gradient(135deg, #e67e22, #f39c12); box-shadow: 0 2px 0 #d35400; }
+        .student-msg-modal-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            min-height: 16rem;
+        }
+        .student-msg-chat-wrap {
+            flex: 1;
+            min-height: 10rem;
+            max-height: 18rem;
+            overflow-y: auto;
+            border: 1px solid rgba(59, 158, 221, 0.2);
+            border-radius: 14px;
+            background: rgba(248, 252, 255, 0.9);
+            padding: 0.5rem;
+        }
+        .student-msg-thread { display: flex; flex-direction: column; gap: 0.45rem; }
+        .student-msg-bubble {
+            max-width: 92%;
+            padding: 0.45rem 0.65rem;
+            border-radius: 12px;
+            font-size: 0.84rem;
+            line-height: 1.42;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .student-msg-bubble.from-student {
+            align-self: flex-start;
+            background: linear-gradient(135deg, #faf5ff, #eef6ff);
+            border: 1px solid rgba(59, 158, 221, 0.15);
+        }
+        .student-msg-bubble.from-teacher {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #3b9edd, #5dade2);
+            color: #fff;
+        }
+        .student-msg-empty {
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.85rem;
+            padding: 1.25rem 0.5rem;
+        }
+        .class-msg-unread-badge {
+            background: linear-gradient(135deg, #e67e22, #f39c12) !important;
+            color: #fff !important;
+        }
+
+        /* ===== Messenger floater (Kakao-style) ===== */
+        .messenger-float {
+            position: fixed;
+            right: 14px;
+            bottom: 14px;
+            z-index: 720;
+        }
+        .messenger-float.messenger-minimized .messenger-panel { display: none; }
+        .messenger-float:not(.messenger-minimized) .messenger-chip { display: none; }
+        .messenger-chip {
+            position: relative;
+            width: 52px;
+            height: 52px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b9edd, #5dade2 55%, #ff9f43);
+            color: #fff;
+            font-size: 1.25rem;
+            box-shadow: 0 6px 20px rgba(59, 158, 221, 0.35), 0 3px 0 #2980b9;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .messenger-chip:hover { transform: translateY(-2px); }
+        .messenger-chip-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 1.25rem;
+            height: 1.25rem;
+            padding: 0 0.3rem;
+            border-radius: 999px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            line-height: 1.25rem;
+            text-align: center;
+            border: 2px solid #fff;
+        }
+        .messenger-chip-badge.hidden-section { display: none !important; }
+        .messenger-panel {
+            width: min(340px, calc(100vw - 28px));
+            height: min(480px, calc(100vh - 100px));
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 20px;
+            border: 2px solid rgba(59, 158, 221, 0.25);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+        }
+        .messenger-head {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.65rem 0.75rem;
+            background: linear-gradient(135deg, #dff4ff, #fff8e7);
+            border-bottom: 1px solid rgba(59, 158, 221, 0.12);
+            flex-shrink: 0;
+        }
+        .messenger-head-title {
+            flex: 1;
+            font-family: var(--app-heading);
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--app-primary-dark);
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .messenger-head-btn {
+            border: none;
+            background: rgba(59, 158, 221, 0.12);
+            color: var(--app-primary-dark);
+            width: 2rem;
+            height: 2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .messenger-inbox-view {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .messenger-inbox-view.hidden-section { display: none !important; }
+        .messenger-inbox-empty {
+            padding: 2rem 1rem;
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.88rem;
+        }
+        .messenger-inbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            background: #fff;
+            padding: 0.75rem 0.85rem;
+            text-align: left;
+            cursor: pointer;
+        }
+        .messenger-inbox-item:hover { background: #f4fbff; }
+        .messenger-inbox-avatar {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b9edd, #5dade2);
+            color: #fff;
+            font-weight: 800;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .messenger-inbox-main { flex: 1; min-width: 0; }
+        .messenger-inbox-name {
+            font-weight: 800;
+            font-size: 0.88rem;
+            color: #2d3436;
+        }
+        .messenger-inbox-class {
+            font-size: 0.72rem;
+            color: #95a5a6;
+            font-weight: 700;
+        }
+        .messenger-inbox-preview {
+            font-size: 0.8rem;
+            color: #636e72;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 0.15rem;
+        }
+        .messenger-inbox-badge {
+            min-width: 1.35rem;
+            height: 1.35rem;
+            padding: 0 0.35rem;
+            border-radius: 999px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 800;
+            line-height: 1.35rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .messenger-chat-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .messenger-chat-view.hidden-section { display: none !important; }
+        .messenger-chat-thread {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            min-height: 0;
+        }
+        .messenger-chat-form {
+            flex-shrink: 0;
+            padding: 0.55rem 0.65rem 0.65rem;
+            border-top: 1px solid rgba(59, 158, 221, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+        .messenger-chat-input {
+            width: 100%;
+            min-height: 2.75rem;
+            resize: vertical;
+            border: 2px solid rgba(59, 158, 221, 0.22);
+            border-radius: 14px;
+            padding: 0.5rem 0.7rem;
+            font-size: 0.86rem;
+        }
+        .messenger-chat-send {
+            align-self: flex-end;
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 1rem;
+            font-weight: 800;
+            color: #fff;
+            background: linear-gradient(135deg, #3b9edd, #5dade2);
+            cursor: pointer;
+        }
+        .messenger-msg-bubble {
+            max-width: 88%;
+            padding: 0.45rem 0.65rem;
+            border-radius: 12px;
+            font-size: 0.84rem;
+            line-height: 1.42;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .messenger-msg-bubble.from-student {
+            align-self: flex-start;
+            background: linear-gradient(135deg, #faf5ff, #eef6ff);
+            border: 1px solid rgba(59, 158, 221, 0.15);
+        }
+        .messenger-msg-bubble.from-teacher {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #3b9edd, #5dade2);
+            color: #fff;
+        }
+        .messenger-chat-empty {
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.85rem;
+            padding: 1.5rem 0.5rem;
+        }
         .lucky-ticket-item {
             border-left: 4px solid #f1c40f;
             background: #fffdf5;
@@ -2737,6 +3200,30 @@
         [data-theme="dark"] .loading-overlay {
             background: rgba(10, 14, 20, 0.72);
         }
+        [data-theme="dark"] .class-pending-student {
+            background: var(--app-surface-3);
+            border-color: var(--app-border);
+        }
+        [data-theme="dark"] .class-pending-student-name { color: #b8d9f5; }
+        [data-theme="dark"] .class-pending-item-title { color: var(--app-text); }
+        [data-theme="dark"] .class-pending-item-desc,
+        [data-theme="dark"] .hw-pending-item .hw-item-desc { color: #b0bac5; }
+        [data-theme="dark"] .class-pending-item-fix,
+        [data-theme="dark"] .hw-item-fix-note { color: #f0a8a0; }
+        [data-theme="dark"] .class-pending-fix-form {
+            background: rgba(48, 38, 28, 0.75);
+            border-color: rgba(225, 112, 85, 0.35);
+        }
+        [data-theme="dark"] .class-pending-empty { color: var(--app-muted); }
+        [data-theme="dark"] #openClassPendingBtn.btn-warning {
+            background: linear-gradient(135deg, #a07020, #c49030);
+            border-color: #b88828;
+            color: #1a1408;
+        }
+        [data-theme="dark"] .pending-hw-badge {
+            background: linear-gradient(135deg, #c9a040, #e0b850) !important;
+            color: #2a1f08 !important;
+        }
         [data-theme="dark"] .class-rules-card,
         [data-theme="dark"] .books-return-card {
             background: var(--app-surface-solid);
@@ -2777,6 +3264,33 @@
             color: var(--app-text);
             border-color: var(--app-border);
         }
+        [data-theme="dark"] .search-ai-tab {
+            background: var(--app-surface-3);
+            color: var(--app-muted);
+            border-color: rgba(120, 160, 200, 0.25);
+        }
+        [data-theme="dark"] .gemini-input {
+            background: var(--app-surface-3);
+            color: var(--app-text);
+            border-color: rgba(160, 120, 200, 0.35);
+        }
+        [data-theme="dark"] .gemini-web-btn {
+            background: var(--app-surface-3);
+            color: #d7bde2;
+        }
+        [data-theme="dark"] .gemini-chat-wrap {
+            background: rgba(30, 38, 48, 0.65);
+            border-color: rgba(160, 120, 200, 0.25);
+        }
+        [data-theme="dark"] .gemini-msg-model {
+            background: linear-gradient(135deg, #2a2430, #243040);
+            color: var(--app-text);
+            border-color: rgba(160, 120, 200, 0.25);
+        }
+        [data-theme="dark"] .gemini-clear-btn {
+            background: var(--app-surface-3);
+            color: #d7bde2;
+        }
         [data-theme="dark"] .makeup-history-item {
             border-bottom-color: rgba(120, 140, 160, 0.2);
             color: var(--app-text);
@@ -2802,6 +3316,189 @@
         [data-theme="dark"] .report-summary-table th {
             background: var(--app-surface-3);
             color: var(--app-text);
+        }
+
+        .teacher-mobile-header,
+        .teacher-mobile-bottom-nav { display: none; }
+
+        @media (max-width: 767px) {
+            body.teacher-mobile {
+                padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0));
+            }
+            body.teacher-mobile .theme-toggle-btn { display: none !important; }
+            body.teacher-mobile .app-hero,
+            body.teacher-mobile .class-welcome-panel,
+            body.teacher-mobile .sidebar-panel,
+            body.teacher-mobile .sidebar-toolbar,
+            body.teacher-mobile .sidebar-compact-backdrop,
+            body.teacher-mobile .snail-float-deco { display: none !important; }
+            body.teacher-mobile .main-container {
+                margin-top: 0;
+                padding: 0.65rem 0.75rem 1rem;
+                max-width: none;
+                border-radius: 0;
+            }
+            body.teacher-mobile .teacher-mobile-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                margin: -0.65rem -0.75rem 0.75rem;
+                padding: max(0.55rem, env(safe-area-inset-top)) 0.75rem 0.55rem;
+                background: rgba(223, 244, 255, 0.95);
+                border-bottom: 1px solid rgba(59, 158, 221, 0.15);
+                position: sticky;
+                top: 0;
+                z-index: 60;
+                backdrop-filter: blur(8px);
+            }
+            body.teacher-mobile .teacher-mobile-header-title {
+                font-family: var(--app-heading);
+                font-size: 1.05rem;
+                font-weight: 700;
+                color: var(--app-primary-dark);
+            }
+            body.teacher-mobile .teacher-mobile-header-sub {
+                font-size: 0.72rem;
+                color: var(--app-muted);
+                font-weight: 700;
+            }
+            body.teacher-mobile .teacher-mobile-class-scroll {
+                display: flex;
+                gap: 0.4rem;
+                overflow-x: auto;
+                padding-bottom: 0.15rem;
+                -webkit-overflow-scrolling: touch;
+            }
+            body.teacher-mobile .teacher-mobile-class-scroll .class-btn {
+                flex-shrink: 0;
+                font-size: 0.82rem;
+                padding: 0.4rem 0.85rem;
+            }
+            body.teacher-mobile [data-teacher-panel] { display: none !important; }
+            body.teacher-mobile.teacher-show-panel [data-teacher-panel].teacher-panel-active:not(.hidden-section) { display: block !important; }
+            body.teacher-mobile .teacher-mobile-more-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.55rem;
+            }
+            body.teacher-mobile .teacher-more-btn {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.35rem;
+                min-height: 4.6rem;
+                border: 2px solid rgba(59, 158, 221, 0.18);
+                border-radius: 16px;
+                background: #fff;
+                color: var(--app-primary-dark);
+                font-family: var(--app-heading);
+                font-size: 0.78rem;
+                font-weight: 700;
+                padding: 0.55rem 0.35rem;
+                cursor: pointer;
+            }
+            body.teacher-mobile .teacher-more-btn i { font-size: 1.15rem; color: var(--app-primary); }
+            body.teacher-mobile .teacher-student-roster { display: flex; flex-direction: column; gap: 0.45rem; }
+            body.teacher-mobile .teacher-roster-card {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.5rem;
+                width: 100%;
+                border: 2px solid rgba(59, 158, 221, 0.15);
+                border-radius: 14px;
+                background: #fff;
+                padding: 0.7rem 0.85rem;
+                text-align: left;
+                cursor: pointer;
+            }
+            body.teacher-mobile .teacher-roster-name { font-weight: 800; font-size: 0.95rem; }
+            body.teacher-mobile .teacher-roster-meta { font-size: 0.72rem; color: var(--app-muted); margin-top: 0.1rem; }
+            body.teacher-mobile .btn-lucky-row { display: none !important; }
+            body.teacher-mobile #studentSection .table-responsive { font-size: 0.78rem; }
+            body.teacher-mobile #studentSection .status-toggle .btn { padding: 0.15rem 0.35rem; font-size: 0.68rem; }
+            body.teacher-mobile .teacher-mobile-bottom-nav { display: flex; }
+            body.teacher-mobile .teacher-mobile-nav-btn {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.12rem;
+                border: none;
+                background: transparent;
+                color: var(--app-muted);
+                font-size: 0.56rem;
+                font-weight: 800;
+                padding: 0.3rem 0.1rem;
+                border-radius: 10px;
+                min-height: 50px;
+                cursor: pointer;
+            }
+            body.teacher-mobile .teacher-mobile-nav-btn i { font-size: 1.05rem; }
+            body.teacher-mobile .teacher-mobile-nav-btn.active {
+                color: var(--app-primary-dark);
+                background: linear-gradient(135deg, rgba(59, 158, 221, 0.12), rgba(255, 159, 67, 0.08));
+            }
+            body.teacher-mobile .teacher-mobile-nav-icon-wrap { position: relative; display: inline-flex; }
+            body.teacher-mobile .teacher-mobile-nav-badge {
+                position: absolute;
+                top: -6px;
+                right: -10px;
+                min-width: 16px;
+                height: 16px;
+                padding: 0 4px;
+                border-radius: 999px;
+                background: #e74c3c;
+                color: #fff;
+                font-size: 0.58rem;
+                font-weight: 800;
+                line-height: 16px;
+                text-align: center;
+            }
+            body.teacher-mobile .teacher-mobile-nav-badge.hidden-section { display: none !important; }
+            body.teacher-mobile .teacher-mobile-bottom-nav {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 800;
+                align-items: stretch;
+                justify-content: space-around;
+                gap: 0.1rem;
+                padding: 0.35rem 0.35rem max(0.45rem, env(safe-area-inset-bottom));
+                background: rgba(255, 255, 255, 0.98);
+                border-top: 1px solid rgba(59, 158, 221, 0.15);
+                box-shadow: 0 -6px 24px rgba(59, 158, 221, 0.1);
+            }
+            body.teacher-mobile:not([data-teacher-tab="messages"]) #messengerFloat { display: none !important; }
+            body.teacher-mobile[data-teacher-tab="messages"] #messengerFloat {
+                display: block !important;
+                position: relative;
+                right: auto;
+                bottom: auto;
+                z-index: 1;
+                margin: 0;
+            }
+            body.teacher-mobile[data-teacher-tab="messages"] .messenger-chip { display: none !important; }
+            body.teacher-mobile[data-teacher-tab="messages"] .messenger-panel {
+                display: flex !important;
+                width: 100%;
+                height: calc(100dvh - 7.8rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+                max-height: none;
+            }
+            body.teacher-mobile[data-teacher-tab="messages"] #messengerMinimizeBtn { display: none; }
+            body.teacher-mobile #reportSection:not(.hidden-section) {
+                display: block !important;
+                position: fixed;
+                inset: 0;
+                z-index: 900;
+                background: var(--app-surface, #fff);
+                overflow-y: auto;
+                padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem calc(1rem + env(safe-area-inset-bottom));
+            }
         }
 
         @media print {
@@ -2854,9 +3551,21 @@
 
 <div id="sidebarCompactBackdrop" class="sidebar-compact-backdrop hidden-section no-print" aria-hidden="true"></div>
 
+<div id="snailCornerDeco" class="snail-float-deco snail-deco-br no-print hidden-section" aria-hidden="true">
+    <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+</div>
+
 <div class="container main-container">
+    <div id="teacherMobileHeader" class="teacher-mobile-header no-print">
+        <div>
+            <div class="teacher-mobile-header-title">Mr. Park Admin</div>
+            <div class="teacher-mobile-header-sub" id="teacherMobileHeaderSub">Pick a class to start</div>
+        </div>
+    </div>
     <header class="app-hero no-print">
-        <div class="app-hero-icon"><i class="fa-solid fa-star"></i></div>
+        <div class="app-hero-icon snail-hero-wrap">
+            <svg class="snail-svg" aria-hidden="true"><use href="#mrpark-snail"/></svg>
+        </div>
         <h1>Mr. Park's Class</h1>
         <p class="app-subtitle">Let's learn, play & grow together!</p>
         <div class="hero-actions">
@@ -2872,12 +3581,23 @@
         </div>
     </header>
 
-    <section class="app-section mb-4">
+    <section class="app-section mb-4" id="teacherClassSection" data-teacher-panel="shared">
         <div class="step-label"><span class="step-num">1</span><i class="fa-solid fa-list-check"></i> Select Class</div>
-        <div class="d-flex flex-wrap justify-content-center" id="classButtonGroup"></div>
+        <div class="d-flex flex-wrap justify-content-center teacher-mobile-class-scroll" id="classButtonGroup"></div>
     </section>
 
-    <div id="dateSection" class="row g-3 mb-4 app-panel hidden-section">
+    <div id="classWelcomePanel" class="class-welcome-panel no-print">
+        <div class="class-welcome-snail">
+            <svg class="snail-svg snail-mascot-lg" role="img" aria-label="Snail mascot"><use href="#mrpark-snail"/></svg>
+        </div>
+        <h2 class="class-welcome-title">Pick a class to start</h2>
+        <p class="class-welcome-text">
+            Choose a class above, then pick a date to open attendance and homework.
+        </p>
+        <div class="class-welcome-hint">Step 1 · Select your class</div>
+    </div>
+
+    <div id="dateSection" class="row g-3 mb-4 app-panel hidden-section" data-teacher-panel="today">
         <div class="col-md-6">
             <div class="step-label mb-2"><span class="step-num">2</span><i class="fa-solid fa-calendar-days"></i> Select Date</div>
             <input type="date" id="attendanceDate" class="form-control form-control-lg">
@@ -2889,7 +3609,7 @@
         </div>
     </div>
 
-    <div id="makeupOffDayBar" class="hidden-section mb-4 makeup-offday-bar no-print">
+    <div id="makeupOffDayBar" class="hidden-section mb-4 makeup-offday-bar no-print" data-teacher-panel="today">
         <div class="fw-bold mb-2"><i class="fa-solid fa-clock-rotate-left text-purple"></i> No class today — record or schedule a makeup lesson</div>
         <button type="button" class="btn btn-primary rounded-pill px-4 me-2" id="openMakeupPickerBtn">
             <i class="fa-solid fa-user-clock"></i> Record Makeup
@@ -2899,14 +3619,14 @@
         </button>
     </div>
 
-    <div id="hwLastSection" class="hidden-section mb-4 app-section">
+    <div id="hwLastSection" class="hidden-section mb-4 app-section" data-teacher-panel="homework">
         <div class="step-label mb-3"><span class="step-num">3</span><i class="fa-solid fa-clock-rotate-left"></i> Last Homework</div>
         <div id="hwLastDisplay" class="hw-display-panel">
             <div class="hw-display-empty"><i class="fa-solid fa-clipboard"></i>Loading…</div>
         </div>
     </div>
 
-    <div id="studentSection" class="hidden-section app-section mb-4">
+    <div id="studentSection" class="hidden-section app-section mb-4" data-teacher-panel="today">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="step-label mb-0"><span class="step-num">4</span><i class="fa-solid fa-users"></i> Students & Scores</div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -2948,7 +3668,7 @@
         </div>
     </div>
 
-    <div id="textbookSection" class="hidden-section mb-4 app-panel-white">
+    <div id="textbookSection" class="hidden-section mb-4 app-panel-white" data-teacher-panel="homework">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="step-label mb-0"><i class="fa-solid fa-book"></i> Textbooks & Progress</div>
             <button class="btn btn-sm btn-primary rounded-pill px-3" type="button" id="addTextbookBtn">
@@ -2972,7 +3692,7 @@
         </div>
     </div>
 
-    <div id="homeworkUploadSection" class="hidden-section mb-4 app-panel-white hw-upload-panel">
+    <div id="homeworkUploadSection" class="hidden-section mb-4 app-panel-white hw-upload-panel" data-teacher-panel="homework">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="step-label mb-0"><i class="fa-solid fa-paper-plane"></i> Post Today's Homework</div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -3002,7 +3722,7 @@
         </button>
     </div>
 
-    <div id="studentDetailSection" class="hidden-section">
+    <div id="studentDetailSection" class="hidden-section" data-teacher-panel="students">
         <div class="detail-header-card d-flex justify-content-between align-items-start flex-wrap gap-3">
             <div class="detail-header-back">
                 <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" type="button" id="backToMainBtn">
@@ -3058,7 +3778,7 @@
             <div id="studentMakeupList" class="makeup-history-list text-muted small">Loading…</div>
         </div>
 
-        <div class="app-panel-white mb-3">
+        <div class="app-panel-white mb-3" id="studentPendingHwPanel">
             <div class="step-label mb-2"><i class="fa-solid fa-hourglass-half"></i> Pending homework</div>
             <div id="hwStudentPending" class="hw-pending-list text-muted small">Loading…</div>
             <div class="border-top pt-3 mt-3">
@@ -3099,6 +3819,23 @@
         </div>
     </div>
 
+    <div id="teacherMobileStudentRoster" class="hidden-section app-section mb-4" data-teacher-panel="students">
+        <div class="step-label mb-3"><span class="step-num"><i class="fa-solid fa-users"></i></span> Students</div>
+        <div id="teacherMobileStudentRosterList" class="teacher-student-roster"></div>
+    </div>
+
+    <div id="teacherMobileMore" class="hidden-section app-section mb-4" data-teacher-panel="more">
+        <div class="step-label mb-3"><i class="fa-solid fa-sliders"></i> Admin Tools</div>
+        <div class="teacher-mobile-more-grid">
+            <button type="button" class="teacher-more-btn" data-trigger-click="openCalendarBtn"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
+            <button type="button" class="teacher-more-btn" data-trigger-click="openReportBtn"><i class="fa-solid fa-chart-line"></i> Monthly Report</button>
+            <button type="button" class="teacher-more-btn" data-trigger-click="openClassLogBtn"><i class="fa-solid fa-book-open"></i> Class Log</button>
+            <button type="button" class="teacher-more-btn" data-trigger-click="openClassPendingBtn"><i class="fa-solid fa-hourglass-half"></i> Pending HW</button>
+            <button type="button" class="teacher-more-btn" data-trigger-click="addStudentBtn"><i class="fa-solid fa-user-plus"></i> Add Student</button>
+            <button type="button" class="teacher-more-btn" id="teacherMobileThemeBtn"><i class="fa-solid fa-moon"></i> Dark Mode</button>
+        </div>
+    </div>
+
     <div id="reportSection" class="hidden-section">
         <div class="row g-3 align-items-end mb-3 app-panel no-print">
             <div class="col-md-3">
@@ -3127,6 +3864,17 @@
         <div id="reportContainer"></div>
     </div>
 </div>
+
+<nav class="teacher-mobile-bottom-nav no-print" id="teacherMobileBottomNav" aria-label="Teacher admin sections">
+    <button type="button" class="teacher-mobile-nav-btn active" data-teacher-tab="today"><i class="fa-solid fa-clipboard-check"></i><span>Today</span></button>
+    <button type="button" class="teacher-mobile-nav-btn" data-teacher-tab="homework"><i class="fa-solid fa-book"></i><span>Homework</span></button>
+    <button type="button" class="teacher-mobile-nav-btn" data-teacher-tab="students"><i class="fa-solid fa-users"></i><span>Students</span></button>
+    <button type="button" class="teacher-mobile-nav-btn" data-teacher-tab="messages">
+        <span class="teacher-mobile-nav-icon-wrap"><i class="fa-solid fa-comment-dots"></i><span class="teacher-mobile-nav-badge hidden-section" id="teacherMobileMsgBadge">0</span></span>
+        <span>Messages</span>
+    </button>
+    <button type="button" class="teacher-mobile-nav-btn" data-teacher-tab="more"><i class="fa-solid fa-ellipsis"></i><span>More</span></button>
+</nav>
 
 <aside id="upcomingEventFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="upcomingEvent" aria-label="Upcoming events">
     <div class="float-panel-card">
@@ -3262,19 +4010,38 @@
     </div>
 </aside>
 
-<aside id="googleSearchFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="googleSearch" aria-label="Google Search">
-    <div class="float-panel-card google-search-panel-card">
+<aside id="googleSearchFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="googleSearch" aria-label="Search and Gemini">
+    <div class="float-panel-card google-search-panel-card" id="searchAiCard">
         <div class="float-panel-head sidebar-panel-head">
             <span class="sidebar-drag-handle" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
-            <span class="float-panel-title"><i class="fa-brands fa-google"></i> Google Search</span>
+            <span class="float-panel-title"><i class="fa-solid fa-magnifying-glass"></i> Search &amp; AI</span>
             <div class="sidebar-head-actions">
                 <button type="button" class="sidebar-panel-hide-btn" data-sidebar-hide="googleSearch">Hide</button>
             </div>
         </div>
-        <form class="google-search-form" id="googleSearchForm" role="search">
-            <input type="search" class="google-search-input" id="googleSearchInput" placeholder="Search…" autocomplete="off" aria-label="Search query">
-            <button type="submit" class="google-search-btn" id="googleSearchBtn">Go</button>
-        </form>
+        <div class="search-ai-tabs" role="tablist" aria-label="Search or Gemini">
+            <button type="button" class="search-ai-tab active" data-search-ai-tab="google" role="tab" aria-selected="true" id="searchAiTabGoogle">Google</button>
+            <button type="button" class="search-ai-tab" data-search-ai-tab="gemini" role="tab" aria-selected="false" id="searchAiTabGemini"><i class="fa-solid fa-wand-magic-sparkles"></i> Ask Genius</button>
+        </div>
+        <div id="googleSearchPane" class="search-ai-pane" role="tabpanel" aria-labelledby="searchAiTabGoogle">
+            <form class="google-search-form" id="googleSearchForm" role="search">
+                <input type="search" class="google-search-input" id="googleSearchInput" placeholder="Search…" autocomplete="off" aria-label="Search query">
+                <button type="submit" class="google-search-btn" id="googleSearchBtn">Go</button>
+            </form>
+        </div>
+        <div id="geminiPane" class="search-ai-pane hidden-section" role="tabpanel" aria-labelledby="searchAiTabGemini">
+            <div class="gemini-chat-wrap" id="geminiChatWrap" aria-live="polite">
+                <div class="gemini-chat-empty" id="geminiChatEmpty">Chat with Ask Genius here — lesson ideas, vocab, grammar…</div>
+                <div class="gemini-chat-thread" id="geminiChatThread"></div>
+            </div>
+            <form class="gemini-form" id="geminiForm">
+                <textarea class="gemini-input" id="geminiInput" rows="2" placeholder="Type a message… (Enter to send)" aria-label="Message for Ask Genius"></textarea>
+                <div class="gemini-actions">
+                    <button type="submit" class="gemini-ask-btn" id="geminiAskBtn"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                    <button type="button" class="gemini-clear-btn" id="geminiClearBtn" title="Clear chat">Clear</button>
+                </div>
+            </form>
+        </div>
     </div>
 </aside>
 
@@ -3766,6 +4533,31 @@
     </div>
 </div>
 
+<!-- Messenger floater -->
+<div id="messengerFloat" class="messenger-float messenger-minimized no-print hidden-section" aria-label="Student messages">
+    <button type="button" class="messenger-chip" id="messengerChip" title="Messages">
+        <i class="fa-solid fa-comment-dots"></i>
+        <span class="messenger-chip-badge hidden-section" id="messengerChipBadge">0</span>
+    </button>
+    <div class="messenger-panel" id="messengerPanel">
+        <div class="messenger-head">
+            <button type="button" class="messenger-head-btn hidden-section" id="messengerBackBtn" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
+            <div class="messenger-head-title" id="messengerHeadTitle">Messages</div>
+            <button type="button" class="messenger-head-btn" id="messengerMinimizeBtn" title="Minimize"><i class="fa-solid fa-minus"></i></button>
+        </div>
+        <div class="messenger-inbox-view" id="messengerInboxView">
+            <div id="messengerInboxList"></div>
+        </div>
+        <div class="messenger-chat-view hidden-section" id="messengerChatView">
+            <div class="messenger-chat-thread" id="messengerChatThread" aria-live="polite"></div>
+            <form class="messenger-chat-form" id="messengerChatForm">
+                <textarea class="messenger-chat-input" id="messengerChatInput" rows="2" placeholder="Reply… (Enter to send)"></textarea>
+                <button type="submit" class="messenger-chat-send" id="messengerChatSendBtn"><i class="fa-solid fa-paper-plane"></i> Send</button>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Makeup lesson modal -->
 <div class="modal fade app-modal" id="makeupModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -4007,16 +4799,34 @@
     let chambitSetTarget = null;
     let sidebarsCollapsed = false;
     let loadedStudents = [];
+    let messengerInbox = [];
+    let messagePollTimer = null;
+    const MSG_POLL_MS = 5000;
+    let activeMessageClassId = '';
+    let activeMessageStudentId = '';
+    let activeMessageStudentName = '';
     let luckyModalStudentId = '';
     let studentHistoryAllRecords = [];
     let sidebarLayout = null;
 
-    const clientSessionCache = {
-        sidebarKey: '',
-        sidebar: null,
-        workKey: '',
-        work: null
-    };
+    const clientSessionCacheByClass = new Map();
+
+    function sessionCacheFor(classId) {
+        const key = String(classId || '');
+        if (!clientSessionCacheByClass.has(key)) {
+            clientSessionCacheByClass.set(key, {
+                sidebarKey: '',
+                sidebar: null,
+                workKey: '',
+                work: null
+            });
+        }
+        return clientSessionCacheByClass.get(key);
+    }
+
+    function activeSessionCache() {
+        return selectedClass ? sessionCacheFor(selectedClass.id) : { sidebarKey: '', sidebar: null, workKey: '', work: null };
+    }
 
     const SIDEBAR_LAYOUT_KEY = 'mrpark_sidebar_layout_v3';
     const SIDEBAR_IDS = [
@@ -4030,15 +4840,144 @@
         announcement: { el: 'announcementFloat', label: 'Announcement', icon: 'fa-bullhorn' },
         classRules: { el: 'classRulesFloat', label: 'Class Rules', icon: 'fa-scroll' },
         youtube: { el: 'youtubeFloat', label: 'Vocab Timer', icon: 'fa-stopwatch' },
-        googleSearch: { el: 'googleSearchFloat', label: 'Google Search', icon: 'fa-google', iconBrand: true }
+        googleSearch: { el: 'googleSearchFloat', label: 'Search & AI', icon: 'fa-magnifying-glass' }
     };
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const WORK_SECTION_IDS = ['hwLastSection', 'studentSection', 'textbookSection', 'homeworkUploadSection'];
+    const TEACHER_MOBILE_TABS = {
+        today: ['shared', 'today'],
+        homework: ['shared', 'homework'],
+        students: ['shared', 'students'],
+        messages: [],
+        more: ['more']
+    };
+    var teacherMobileMq = window.matchMedia('(max-width: 767px)');
+    var activeTeacherTab = 'today';
+    var lastTeacherMobileStudents = [];
+
+    function isTeacherMobile() {
+        return document.body.classList.contains('teacher-mobile');
+    }
+
+    function updateTeacherMobileHeader() {
+        var sub = document.getElementById('teacherMobileHeaderSub');
+        if (!sub) return;
+        if (!selectedClass) {
+            sub.textContent = 'Pick a class to start';
+            return;
+        }
+        var dateStr = document.getElementById('attendanceDate') && document.getElementById('attendanceDate').value;
+        sub.textContent = selectedClass.name + (dateStr ? ' · ' + dateStr : '');
+    }
+
+    function applyTeacherMobilePanels() {
+        if (!isTeacherMobile()) return;
+        document.body.classList.add('teacher-show-panel');
+        var panels = TEACHER_MOBILE_TABS[activeTeacherTab] || [];
+        document.querySelectorAll('[data-teacher-panel]').forEach(function(el) {
+            var key = el.getAttribute('data-teacher-panel');
+            var show = panels.indexOf(key) !== -1;
+            if (key === 'students' && activeTeacherTab === 'students') {
+                var detailOpen = !document.getElementById('studentDetailSection').classList.contains('hidden-section');
+                if (key === 'students' && el.id === 'teacherMobileStudentRoster') {
+                    show = !detailOpen;
+                }
+                if (el.id === 'studentDetailSection') {
+                    show = detailOpen;
+                }
+            }
+            el.classList.toggle('teacher-panel-active', show);
+        });
+        document.body.setAttribute('data-teacher-tab', activeTeacherTab);
+        document.querySelectorAll('.teacher-mobile-nav-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-teacher-tab') === activeTeacherTab);
+        });
+        if (activeTeacherTab === 'messages') {
+            setMessengerMinimized(false);
+            refreshMessengerInbox().catch(function() {});
+        }
+        updateTeacherMobileHeader();
+    }
+
+    function setTeacherMobileTab(tab) {
+        activeTeacherTab = tab || 'today';
+        applyTeacherMobilePanels();
+    }
+
+    function applyTeacherMobileMode() {
+        var mobile = teacherMobileMq.matches;
+        document.body.classList.toggle('teacher-mobile', mobile);
+        if (mobile) {
+            hideSidePanels();
+            hideSidebarToggle();
+            applyTeacherMobilePanels();
+        } else {
+            document.body.classList.remove('teacher-show-panel');
+            document.body.removeAttribute('data-teacher-tab');
+            document.querySelectorAll('[data-teacher-panel]').forEach(function(el) {
+                el.classList.remove('teacher-panel-active');
+            });
+            if (selectedClass) {
+                showSidePanels();
+                showSidebarToggle();
+            }
+        }
+    }
+
+    function initTeacherMobile() {
+        teacherMobileMq.addEventListener('change', applyTeacherMobileMode);
+        applyTeacherMobileMode();
+        document.querySelectorAll('.teacher-mobile-nav-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setTeacherMobileTab(btn.getAttribute('data-teacher-tab'));
+            });
+        });
+        document.querySelectorAll('[data-trigger-click]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var target = document.getElementById(btn.getAttribute('data-trigger-click'));
+                if (target) target.click();
+            });
+        });
+        var themeBtn = document.getElementById('teacherMobileThemeBtn');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', toggleTheme);
+        }
+        var dateEl = document.getElementById('attendanceDate');
+        if (dateEl) {
+            dateEl.addEventListener('change', updateTeacherMobileHeader);
+        }
+    }
+
+    function renderMobileStudentRoster(students) {
+        lastTeacherMobileStudents = students || [];
+        var list = document.getElementById('teacherMobileStudentRosterList');
+        if (!list) return;
+        if (!students || !students.length) {
+            list.innerHTML = '<p class="text-muted small mb-0">No enrolled students in this class.</p>';
+            return;
+        }
+        list.innerHTML = students.map(function(std) {
+            var meta = [];
+            if (std.pendingHomework > 0) meta.push(std.pendingHomework + ' pending HW');
+            if (std.onLeave) meta.push('On leave');
+            if (std.attendance) meta.push(std.attendance);
+            return '<button type="button" class="teacher-roster-card" data-roster-id="' + escapeHtml(std.id) + '" data-roster-name="' + escapeHtml(std.name) + '">' +
+                '<div><div class="teacher-roster-name">' + escapeHtml(std.name) + '</div>' +
+                (meta.length ? '<div class="teacher-roster-meta">' + escapeHtml(meta.join(' · ')) + '</div>' : '') +
+                '</div><i class="fa-solid fa-chevron-right text-muted"></i></button>';
+        }).join('');
+        list.querySelectorAll('.teacher-roster-card').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                openStudentDetail(btn.getAttribute('data-roster-id'), btn.getAttribute('data-roster-name'));
+            });
+        });
+    }
 
     function setWorkSectionsHidden(hidden) {
         WORK_SECTION_IDS.forEach(function(id) {
             document.getElementById(id).classList.toggle('hidden-section', hidden);
         });
+        if (isTeacherMobile()) applyTeacherMobilePanels();
     }
 
     const TOOL_POPUP_TITLES = {
@@ -4087,11 +5026,20 @@
     }
 
     function getSidebarStackRight() {
-        return SIDEBAR_STACK_RIGHT.filter(isSidebarIdVisibleOnDevice);
+        let stack = SIDEBAR_STACK_RIGHT.filter(isSidebarIdVisibleOnDevice);
+        if (shouldUseCompactSidebars() && isSidebarIdVisibleOnDevice('googleSearch')) {
+            stack = stack.filter(function(id) { return id !== 'googleSearch'; });
+            stack.push('googleSearch');
+        }
+        return stack;
     }
 
     function getSidebarStackLeft() {
-        return SIDEBAR_STACK_LEFT.filter(isSidebarIdVisibleOnDevice);
+        let stack = SIDEBAR_STACK_LEFT.filter(isSidebarIdVisibleOnDevice);
+        if (shouldUseCompactSidebars()) {
+            stack = stack.filter(function(id) { return id !== 'googleSearch'; });
+        }
+        return stack;
     }
 
     function applyVocabTimerDeviceLayout() {
@@ -4390,6 +5338,7 @@
         document.getElementById('sidebarResetBtn').addEventListener('click', resetSidebarLayout);
         initSidebarSystem();
         applyVocabTimerDeviceLayout();
+        initTeacherMobile();
         document.getElementById('youtubeTimerBtn').addEventListener('click', openYoutubeTimer);
         document.getElementById('timerCustomBtn').addEventListener('click', openCustomTimer);
         document.getElementById('customTimerMin').addEventListener('keydown', function(e) {
@@ -4439,6 +5388,17 @@
         document.getElementById('editClassVideoBtn').addEventListener('click', openClassVideoModal);
         document.getElementById('saveClassVideoBtn').addEventListener('click', saveClassVideoFromModal);
         document.getElementById('googleSearchForm').addEventListener('submit', submitGoogleSearch);
+        initSearchAiTabs();
+        document.getElementById('geminiForm').addEventListener('submit', submitGeminiAsk);
+        document.getElementById('geminiClearBtn').addEventListener('click', clearGeminiChat);
+        document.getElementById('geminiInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitGeminiAsk(e);
+            }
+        });
+        refreshGeminiStatus();
+        initMessenger();
         document.getElementById('editUpcomingEventBtn').addEventListener('click', openUpcomingEventsModal);
         document.getElementById('showEventAddFormBtn').addEventListener('click', showEventAddForm);
         document.getElementById('saveNewEventBtn').addEventListener('click', saveNewClassEvent);
@@ -4537,6 +5497,74 @@
         appAlert(err && err.message ? err.message : String(err), 'error');
     }
 
+    function handleQuietError(err) {
+        console.warn('[quiet]', err && err.message ? err.message : String(err));
+    }
+
+    function finishHomeworkPost(dateStr, items, baseMsg, kind) {
+        showLoading(false);
+        if (kind === 'warning') appAlert(baseMsg, 'warning');
+        else appToast(baseMsg);
+        syncClassLogHomeworkDraft(dateStr, items);
+        refreshWorkDataQuiet();
+        loadHomeworkPanel(dateStr);
+    }
+
+    function applyHomeworkClassroomSyncResult(baseMsg, cr, onFallbackGas) {
+        if (cr && cr.fallbackGas && onFallbackGas) {
+            onFallbackGas();
+            return true;
+        }
+        let msg = baseMsg;
+        if (cr && cr.ok && !cr.skipped) {
+            msg = baseMsg + ' ' + (cr.message || 'Posted to Google Classroom.');
+            return msg;
+        }
+        if (cr && cr.skipped) return baseMsg;
+        if (cr && !cr.ok) return baseMsg + ' (Classroom: ' + (cr.error || 'failed') + ')';
+        return baseMsg;
+    }
+
+    function syncHomeworkClassroomAfterSave(dateStr, items, baseMsg) {
+        function runGasSync() {
+            google.script.run
+                .withSuccessHandler(function(cr) {
+                    const msg = applyHomeworkClassroomSyncResult(baseMsg, cr);
+                    const kind = (cr && !cr.ok && !cr.skipped) ? 'warning' : null;
+                    finishHomeworkPost(dateStr, items, msg, kind);
+                })
+                .withFailureHandler(function(err) {
+                    finishHomeworkPost(
+                        dateStr,
+                        items,
+                        baseMsg + ' (Classroom: ' + (err.message || String(err)) + ')',
+                        'warning'
+                    );
+                })
+                .syncHomeworkClassroomForClassDate(selectedClass.id, dateStr);
+        }
+        if (!nodeApiEnabled()) {
+            runGasSync();
+            return;
+        }
+        nodeFetch('/api/homework/sync-classroom', {
+            method: 'POST',
+            body: JSON.stringify({ classId: selectedClass.id, dateStr: dateStr })
+        })
+            .then(function(cr) {
+                if (cr && cr.fallbackGas) {
+                    runGasSync();
+                    return;
+                }
+                const msg = applyHomeworkClassroomSyncResult(baseMsg, cr);
+                const kind = (cr && !cr.ok && !cr.skipped) ? 'warning' : null;
+                finishHomeworkPost(dateStr, items, msg, kind);
+            })
+            .catch(function() {
+                runGasSync();
+            });
+    }
+
     // 클래스 버튼 동적 생성
     function initClassButtons(data) {
         globalClasses = data.classes;
@@ -4552,13 +5580,22 @@
             btn.onclick = () => selectClass(cls, btn);
             container.appendChild(btn);
         });
+        updateClassWelcomePanel();
         showLoading(false);
+    }
+
+    function updateClassWelcomePanel() {
+        const panel = document.getElementById('classWelcomePanel');
+        const corner = document.getElementById('snailCornerDeco');
+        if (panel) panel.classList.toggle('hidden-section', !!selectedClass);
+        if (corner) corner.classList.toggle('hidden-section', !selectedClass);
     }
 
     // 클래스 버튼 탭 했을 때 행동
     function selectClass(cls, btnElement) {
         selectedClass = cls;
         selectedStudent = null;
+        updateClassWelcomePanel();
         
         // 버튼 Active 토글 스타일 입히기
         document.querySelectorAll('.class-btn').forEach(b => b.classList.remove('is-active'));
@@ -4567,19 +5604,23 @@
         // 날짜 선택 섹션 열기
         document.getElementById('dateSection').classList.remove('hidden-section');
         document.getElementById('selectedClassBadge').innerText = cls.name;
+        updateTeacherMobileHeader();
         
         // 리포트 화면이 열려 있었다면 닫기
         document.getElementById('reportSection').classList.add('hidden-section');
 
-        invalidateClientSessionCache();
         document.getElementById('studentDetailSection').classList.add('hidden-section');
         applySidebarResponsiveMode();
-        if (shouldUseCompactSidebars()) {
-            sidebarsCollapsed = true;
+        if (isTeacherMobile()) {
+            hideSidePanels();
+            hideSidebarToggle();
+            setTeacherMobileTab('today');
+        } else if (shouldUseCompactSidebars()) {
+            sidebarsCollapsed = false;
             updateSidebarToggleLabel();
             reconcileSidebarLayoutForDevice();
             prepareSidebarChipLayout();
-            hideSidePanels();
+            showSidePanels();
         } else {
             showSidePanels();
         }
@@ -4617,6 +5658,7 @@
     }
 
     function shouldUseCompactSidebars() {
+        if (isTeacherMobile()) return false;
         if (isTabletLikeDevice()) return true;
         return isSidebarCompactViewport() || sidebarWouldOverlapMain();
     }
@@ -4624,9 +5666,9 @@
     function reconcileSidebarLayoutForDevice() {
         if (!sidebarLayout) return;
         if (!isTabletLikeDevice()) return;
-        const stale = sidebarLayout.version !== 3 || !sidebarLayout.tabletChip;
+        const stale = sidebarLayout.version !== 5 || !sidebarLayout.tabletChip;
         if (!stale) return;
-        sidebarLayout = { version: 3, tabletChip: true, panels: {} };
+        sidebarLayout = { version: 5, tabletChip: true, panels: {} };
         mergeSidebarDefaults(false);
         saveSidebarLayout();
     }
@@ -4685,6 +5727,7 @@
     function forceAllSidebarChips() {
         prepareSidebarChipLayout();
         revealSidebarPanelsDom();
+        if (shouldUseCompactSidebars()) reflowCompactSidebarStacks();
     }
 
     function ensureSidebarsVisibleForInteraction() {
@@ -4721,28 +5764,55 @@
     }
 
     function compactSidebarLayout() {
+        getVisibleSidebarIds().forEach(function(id) {
+            if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
+            sidebarLayout.panels[id].userHidden = true;
+        });
+        reflowCompactSidebarStacks();
+        saveSidebarLayout();
+    }
+
+    /** Stack chips; when one panel is expanded, push chips below it down. */
+    function reflowCompactSidebarStacks() {
+        if (!shouldUseCompactSidebars() || !sidebarLayout) return;
         const w = window.innerWidth;
-        const chipW = 44;
+        const h = window.innerHeight;
+        const chipH = 44;
         const gap = 8;
         const startTop = 58;
-        let leftY = startTop;
-        let rightY = startTop;
-        getSidebarStackLeft().forEach(function(id) {
-            if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
-            sidebarLayout.panels[id].left = 6;
-            sidebarLayout.panels[id].top = leftY;
-            sidebarLayout.panels[id].userHidden = true;
-            leftY += chipW + gap;
-        });
-        getSidebarStackRight().forEach(function(id) {
-            if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
-            sidebarLayout.panels[id].left = Math.max(6, w - chipW - 6);
-            sidebarLayout.panels[id].top = rightY;
-            sidebarLayout.panels[id].userHidden = true;
-            rightY += chipW + gap;
-        });
-        applySidebarPositions();
+        const panelW = getCompactExpandedPanelWidth();
+
+        function assignStack(order, isRight) {
+            let y = startTop;
+            order.forEach(function(id) {
+                if (!isSidebarIdVisibleOnDevice(id)) return;
+                if (!sidebarLayout.panels[id]) sidebarLayout.panels[id] = {};
+                const p = sidebarLayout.panels[id];
+                const el = getSidebarEl(id);
+                const expanded = !p.userHidden;
+                if (isRight) {
+                    p.left = Math.max(6, w - (expanded ? panelW : chipH) - 6);
+                } else {
+                    p.left = 6;
+                }
+                let blockH = chipH;
+                if (expanded && el) {
+                    blockH = el.offsetHeight;
+                    if (blockH < 48) blockH = getSidebarPanelHeight(id);
+                    blockH = Math.min(blockH, Math.round(h * 0.78));
+                    const maxTop = Math.max(56, h - blockH - 8);
+                    p.top = Math.min(Math.max(56, y), maxTop);
+                } else {
+                    p.top = Math.min(y, Math.max(56, h - chipH - 8));
+                }
+                y = p.top + blockH + gap;
+            });
+        }
+
         getVisibleSidebarIds().forEach(function(id) { applySidebarPanelState(id); });
+        assignStack(getSidebarStackLeft(), false);
+        assignStack(getSidebarStackRight(), true);
+        applySidebarPositions();
         updateSidebarCompactBackdrop();
     }
 
@@ -4778,7 +5848,11 @@
         document.body.classList.toggle('sidebar-compact', compact);
         if (!sidebarLayout) loadSidebarLayout();
         if (compact && selectedClass && !sidebarsCollapsed) {
-            compactSidebarLayout();
+            const anyExpanded = getVisibleSidebarIds().some(function(id) {
+                return sidebarLayout.panels[id] && !sidebarLayout.panels[id].userHidden;
+            });
+            if (anyExpanded) reflowCompactSidebarStacks();
+            else compactSidebarLayout();
             saveSidebarLayout();
         }
         updateSidebarCompactBackdrop();
@@ -4790,7 +5864,7 @@
         upcomingEvent: 190,
         classTools: 380,
         booksReturn: 210,
-        googleSearch: 120,
+        googleSearch: 340,
         announcement: 190,
         classRules: 230,
         youtube: 200
@@ -4862,7 +5936,7 @@
     function resetSidebarLayout() {
         if (!sidebarLayout) loadSidebarLayout();
         if (shouldUseCompactSidebars()) {
-            sidebarLayout = { version: 3, tabletChip: true, panels: {} };
+            sidebarLayout = { version: 5, tabletChip: true, panels: {} };
             mergeSidebarDefaults(false);
             if (selectedClass && !sidebarsCollapsed) {
                 forceAllSidebarChips();
@@ -4942,7 +6016,7 @@
                 }
             }
         } catch (e) { /* ignore */ }
-        sidebarLayout = { version: 3, tabletChip: isTabletLikeDevice(), panels: {} };
+        sidebarLayout = { version: 5, tabletChip: isTabletLikeDevice(), panels: {} };
         mergeSidebarDefaults(false);
     }
 
@@ -4996,6 +6070,12 @@
                 el.classList.remove('hidden-section');
                 applySidebarPanelState(id);
             }
+            if (shouldUseCompactSidebars()) {
+                requestAnimationFrame(function() {
+                    reflowCompactSidebarStacks();
+                    saveSidebarLayout();
+                });
+            }
         }
         updateSidebarCompactBackdrop();
     }
@@ -5011,16 +6091,16 @@
                 applySidebarPanelState(other);
             });
             sidebarLayout.panels[id].userHidden = false;
-            saveSidebarLayout();
+            applySidebarPanelState(id);
             const el = getSidebarEl(id);
-            if (el) {
-                el.classList.remove('hidden-section');
-                applySidebarPanelState(id);
-            }
+            if (el) el.classList.remove('hidden-section');
             requestAnimationFrame(function() {
-                positionExpandedSidebarInPlace(id);
-                saveSidebarLayout();
-                updateSidebarCompactBackdrop();
+                reflowCompactSidebarStacks();
+                requestAnimationFrame(function() {
+                    reflowCompactSidebarStacks();
+                    saveSidebarLayout();
+                    updateSidebarCompactBackdrop();
+                });
             });
             return;
         }
@@ -5247,14 +6327,8 @@
                 const anyExpanded = getVisibleSidebarIds().some(function(id) {
                     return sidebarLayout.panels[id] && !sidebarLayout.panels[id].userHidden;
                 });
-                if (anyExpanded) {
-                    getVisibleSidebarIds().forEach(function(id) {
-                        const p = sidebarLayout.panels[id];
-                        if (p && !p.userHidden) positionExpandedSidebarInPlace(id);
-                    });
-                } else {
-                    compactSidebarLayout();
-                }
+                if (anyExpanded) reflowCompactSidebarStacks();
+                else compactSidebarLayout();
                 saveSidebarLayout();
             } else if (!shouldUseCompactSidebars()) {
                 mergeSidebarDefaults(false);
@@ -5331,6 +6405,145 @@
         openGoogleSearch(input.value);
     }
 
+    let geminiApiConfigured = false;
+    const geminiChatHistory = [];
+
+    function scrollGeminiChatToBottom() {
+        const wrap = document.getElementById('geminiChatWrap');
+        if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function renderGeminiChatEmpty() {
+        const empty = document.getElementById('geminiChatEmpty');
+        const thread = document.getElementById('geminiChatThread');
+        if (!empty || !thread) return;
+        const hasMessages = thread.children.length > 0;
+        empty.classList.toggle('hidden-section', hasMessages);
+    }
+
+    function appendGeminiChatBubble(role, text, extraClass) {
+        const thread = document.getElementById('geminiChatThread');
+        if (!thread) return null;
+        const div = document.createElement('div');
+        div.className = 'gemini-msg gemini-msg-' + role + (extraClass ? ' ' + extraClass : '');
+        div.textContent = text;
+        thread.appendChild(div);
+        renderGeminiChatEmpty();
+        scrollGeminiChatToBottom();
+        return div;
+    }
+
+    function removeGeminiThinkingBubble() {
+        const el = document.getElementById('geminiThinkingBubble');
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+        renderGeminiChatEmpty();
+    }
+
+    function clearGeminiChat() {
+        geminiChatHistory.length = 0;
+        const thread = document.getElementById('geminiChatThread');
+        if (thread) thread.innerHTML = '';
+        renderGeminiChatEmpty();
+        const input = document.getElementById('geminiInput');
+        if (input) input.value = '';
+    }
+
+    function setSearchAiTab(tab) {
+        const isGemini = tab === 'gemini';
+        document.querySelectorAll('.search-ai-tab').forEach(function(btn) {
+            const active = btn.getAttribute('data-search-ai-tab') === tab;
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.getElementById('googleSearchPane').classList.toggle('hidden-section', isGemini);
+        document.getElementById('geminiPane').classList.toggle('hidden-section', !isGemini);
+        const card = document.getElementById('searchAiCard');
+        if (card) {
+            card.classList.toggle('google-search-panel-card', !isGemini);
+            card.classList.toggle('gemini-panel-card', isGemini);
+        }
+        const panel = document.getElementById('googleSearchFloat');
+        if (panel) panel.classList.toggle('search-ai-gemini-mode', isGemini);
+    }
+
+    function initSearchAiTabs() {
+        document.querySelectorAll('.search-ai-tab').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setSearchAiTab(btn.getAttribute('data-search-ai-tab'));
+            });
+        });
+    }
+
+    function refreshGeminiStatus() {
+        if (!nodeApiEnabled()) {
+            geminiApiConfigured = false;
+            return;
+        }
+        nodeFetch('/api/gemini/status')
+            .then(function(data) {
+                geminiApiConfigured = !!(data && data.configured);
+            })
+            .catch(function() {
+                geminiApiConfigured = false;
+            });
+    }
+
+    function submitGeminiAsk(e) {
+        if (e) e.preventDefault();
+        const input = document.getElementById('geminiInput');
+        const askBtn = document.getElementById('geminiAskBtn');
+        if (!input) return;
+        const prompt = input.value.trim();
+        if (!prompt) {
+            appAlert('Enter a message for Ask Genius.');
+            return;
+        }
+        if (!nodeApiEnabled()) {
+            appAlert('Node API is not connected — cannot chat in the sidebar.');
+            return;
+        }
+        if (!geminiApiConfigured) {
+            appToast('Railway에 GEMINI_API_KEY를 추가하면 여기서 채팅할 수 있어요.', 5000);
+            return;
+        }
+
+        appendGeminiChatBubble('user', prompt);
+        input.value = '';
+        const history = geminiChatHistory.slice();
+        geminiChatHistory.push({ role: 'user', text: prompt });
+
+        const thinking = document.createElement('div');
+        thinking.id = 'geminiThinkingBubble';
+        thinking.className = 'gemini-msg gemini-msg-thinking';
+        thinking.textContent = 'Genius is thinking…';
+        document.getElementById('geminiChatThread').appendChild(thinking);
+        renderGeminiChatEmpty();
+        scrollGeminiChatToBottom();
+        if (askBtn) askBtn.disabled = true;
+
+        nodeFetch('/api/gemini/ask', {
+            method: 'POST',
+            body: JSON.stringify({ prompt: prompt, history: history })
+        })
+            .then(function(data) {
+                removeGeminiThinkingBubble();
+                const answer = String(data.answer || '').trim();
+                if (answer) {
+                    appendGeminiChatBubble('model', answer);
+                    geminiChatHistory.push({ role: 'assistant', text: answer });
+                }
+            })
+            .catch(function(err) {
+                removeGeminiThinkingBubble();
+                const msg = (err && err.message) ? err.message : String(err);
+                appendGeminiChatBubble('model', 'Error: ' + msg, 'gemini-msg-thinking');
+            })
+            .finally(function() {
+                if (askBtn) askBtn.disabled = false;
+                input.focus();
+            });
+    }
+
     function renderClassVideo(data) {
         currentClassVideoUrl = (data && data.videoUrl) || youtubeWatchUrlFromVideoData(data) || '';
         if (!isVocabTimerSidebarSupported()) return;
@@ -5381,8 +6594,8 @@
                 currentClassVideoUrl = res.videoUrl || '';
                 renderClassVideo(res);
                 invalidateClientSidebarCache();
-                if (clientSessionCache.sidebar) {
-                    clientSessionCache.sidebar.video = res;
+                if (activeSessionCache().sidebar) {
+                    activeSessionCache().sidebar.video = res;
                 }
                 appToast(res.message || 'Video saved for all classes.');
                 bootstrap.Modal.getInstance(document.getElementById('classVideoModal')).hide();
@@ -5393,8 +6606,8 @@
                     currentClassVideoUrl = res.videoUrl || '';
                     renderClassVideo(res);
                     invalidateClientSidebarCache();
-                    if (clientSessionCache.sidebar) {
-                        clientSessionCache.sidebar.video = res;
+                    if (activeSessionCache().sidebar) {
+                        activeSessionCache().sidebar.video = res;
                     }
                     appToast(res.message || 'Video saved for all classes.');
                     bootstrap.Modal.getInstance(document.getElementById('classVideoModal')).hide();
@@ -5485,8 +6698,8 @@
         if (!apiPost('/api/announcement', { classId: selectedClass.id, text: text }, function(res) {
                 currentAnnouncementText = res.text || '';
                 renderAnnouncement(res);
-                if (clientSessionCache.sidebar) {
-                    clientSessionCache.sidebar.announcement = { text: currentAnnouncementText };
+                if (activeSessionCache().sidebar) {
+                    activeSessionCache().sidebar.announcement = { text: currentAnnouncementText };
                 }
                 bootstrap.Modal.getInstance(document.getElementById('announcementModal')).hide();
             })) {
@@ -5495,8 +6708,8 @@
                     showLoading(false);
                     currentAnnouncementText = res.text || '';
                     renderAnnouncement(res);
-                    if (clientSessionCache.sidebar) {
-                        clientSessionCache.sidebar.announcement = { text: currentAnnouncementText };
+                    if (activeSessionCache().sidebar) {
+                        activeSessionCache().sidebar.announcement = { text: currentAnnouncementText };
                     }
                     bootstrap.Modal.getInstance(document.getElementById('announcementModal')).hide();
                 })
@@ -6145,19 +7358,29 @@
         }
     }
 
-    function invalidateClientWorkCache() {
-        clientSessionCache.workKey = '';
-        clientSessionCache.work = null;
+    function invalidateClientWorkCache(classId) {
+        const id = classId || (selectedClass && selectedClass.id);
+        if (!id) return;
+        const cache = sessionCacheFor(id);
+        cache.workKey = '';
+        cache.work = null;
     }
 
-    function invalidateClientSidebarCache() {
-        clientSessionCache.sidebarKey = '';
-        clientSessionCache.sidebar = null;
+    function invalidateClientSidebarCache(classId) {
+        const id = classId || (selectedClass && selectedClass.id);
+        if (!id) return;
+        const cache = sessionCacheFor(id);
+        cache.sidebarKey = '';
+        cache.sidebar = null;
     }
 
-    function invalidateClientSessionCache() {
-        invalidateClientSidebarCache();
-        invalidateClientWorkCache();
+    function invalidateClientSessionCache(classId) {
+        if (classId) {
+            invalidateClientSidebarCache(classId);
+            invalidateClientWorkCache(classId);
+            return;
+        }
+        if (selectedClass) invalidateClientSessionCache(selectedClass.id);
     }
 
     function applySidebarBundle(sidebar) {
@@ -6174,6 +7397,7 @@
         renderStudents(work.students);
         renderTextbookPanel(work.textbook);
         renderHomeworkPanel(work.homework, dateInput);
+        if (isTeacherMobile()) applyTeacherMobilePanels();
     }
 
     function applyScheduleResultFromWork(dateInput, holidayName, work) {
@@ -6221,17 +7445,17 @@
             nodeFetch('/api/work?classId=' + encodeURIComponent(selectedClass.id) +
                 '&date=' + encodeURIComponent(dateInput))
                 .then(function(work) {
-                    clientSessionCache.workKey = selectedClass.id + '|' + dateInput;
-                    clientSessionCache.work = work;
+                    activeSessionCache().workKey = selectedClass.id + '|' + dateInput;
+                    activeSessionCache().work = work;
                     applyWorkPanels(work, dateInput);
                 })
-                .catch(handleError);
+                .catch(handleQuietError);
             return;
         }
         google.script.run
             .withSuccessHandler(function(work) {
-                clientSessionCache.workKey = selectedClass.id + '|' + dateInput;
-                clientSessionCache.work = work;
+                activeSessionCache().workKey = selectedClass.id + '|' + dateInput;
+                activeSessionCache().work = work;
                 applyWorkPanels(work, dateInput);
             })
             .withFailureHandler(handleError)
@@ -6254,8 +7478,8 @@
             nodeFetch('/api/sidebar?classId=' + encodeURIComponent(selectedClass.id))
                 .then(function(sidebar) {
                     if (!quiet) showLoading(false);
-                    clientSessionCache.sidebarKey = selectedClass.id;
-                    clientSessionCache.sidebar = sidebar;
+                    activeSessionCache().sidebarKey = selectedClass.id;
+                    activeSessionCache().sidebar = sidebar;
                     applySidebarBundle(sidebar);
                 })
                 .catch(handleError);
@@ -6264,8 +7488,8 @@
         google.script.run
             .withSuccessHandler(function(sidebar) {
                 if (!quiet) showLoading(false);
-                clientSessionCache.sidebarKey = selectedClass.id;
-                clientSessionCache.sidebar = sidebar;
+                activeSessionCache().sidebarKey = selectedClass.id;
+                activeSessionCache().sidebar = sidebar;
                 applySidebarBundle(sidebar);
             })
             .withFailureHandler(handleError)
@@ -6277,11 +7501,12 @@
         const dateInput = document.getElementById('attendanceDate').value || '';
         const sidebarKey = selectedClass.id;
         const workKey = sidebarKey + '|' + dateInput;
+        const cache = activeSessionCache();
 
-        if (!forceReload && clientSessionCache.sidebarKey === sidebarKey && clientSessionCache.sidebar) {
-            applySidebarBundle(clientSessionCache.sidebar);
-            if (dateInput && clientSessionCache.workKey === workKey && clientSessionCache.work) {
-                applyScheduleResultFromWork(dateInput, clientSessionCache.work.holidayName, clientSessionCache.work);
+        if (!forceReload && cache.sidebarKey === sidebarKey && cache.sidebar) {
+            applySidebarBundle(cache.sidebar);
+            if (dateInput && cache.workKey === workKey && cache.work) {
+                applyScheduleResultFromWork(dateInput, cache.work.holidayName, cache.work);
                 return;
             }
             if (dateInput) {
@@ -6295,17 +7520,26 @@
         showLoading(true);
 
         if (nodeApiEnabled()) {
-            nodeFetch('/api/session?classId=' + encodeURIComponent(selectedClass.id) +
-                '&date=' + encodeURIComponent(dateInput))
-                .then(function(data) {
+            const sidebarUrl = '/api/sidebar?classId=' + encodeURIComponent(selectedClass.id);
+            const workUrl = dateInput
+                ? '/api/work?classId=' + encodeURIComponent(selectedClass.id) +
+                    '&date=' + encodeURIComponent(dateInput)
+                : '';
+            const sidebarPromise = nodeFetch(sidebarUrl);
+            const workPromise = workUrl ? nodeFetch(workUrl) : Promise.resolve(null);
+
+            Promise.all([sidebarPromise, workPromise])
+                .then(function(results) {
                     showLoading(false);
-                    clientSessionCache.sidebarKey = sidebarKey;
-                    clientSessionCache.sidebar = data.sidebar;
-                    applySidebarBundle(data.sidebar);
-                    if (data.work) {
-                        clientSessionCache.workKey = workKey;
-                        clientSessionCache.work = data.work;
-                        applyScheduleResultFromWork(dateInput, data.holidayName, data.work);
+                    const sidebar = results[0];
+                    const work = results[1];
+                    cache.sidebarKey = sidebarKey;
+                    cache.sidebar = sidebar;
+                    applySidebarBundle(sidebar);
+                    if (work) {
+                        cache.workKey = workKey;
+                        cache.work = work;
+                        applyScheduleResultFromWork(dateInput, work.holidayName, work);
                     } else if (dateInput) {
                         checkScheduleAndLoad(true);
                     } else {
@@ -6319,12 +7553,12 @@
         google.script.run
             .withSuccessHandler(function(data) {
                 showLoading(false);
-                clientSessionCache.sidebarKey = sidebarKey;
-                clientSessionCache.sidebar = data.sidebar;
+                cache.sidebarKey = sidebarKey;
+                cache.sidebar = data.sidebar;
                 applySidebarBundle(data.sidebar);
                 if (data.work) {
-                    clientSessionCache.workKey = workKey;
-                    clientSessionCache.work = data.work;
+                    cache.workKey = workKey;
+                    cache.work = data.work;
                     applyScheduleResultFromWork(dateInput, data.holidayName, data.work);
                 } else if (dateInput) {
                     checkScheduleAndLoad(true);
@@ -6343,7 +7577,7 @@
         if (!apiPost('/api/rules', { classId: selectedClass.id, rulesText: text }, function(res) {
                 currentClassRulesText = rulesDataToText(res);
                 renderClassRules(res);
-                clientSessionCache.sidebar = Object.assign({}, clientSessionCache.sidebar || {}, { rules: res });
+                activeSessionCache().sidebar = Object.assign({}, activeSessionCache().sidebar || {}, { rules: res });
                 bootstrap.Modal.getInstance(document.getElementById('classRulesModal')).hide();
             })) {
             google.script.run
@@ -6351,7 +7585,7 @@
                     showLoading(false);
                     currentClassRulesText = rulesDataToText(res);
                     renderClassRules(res);
-                    clientSessionCache.sidebar = Object.assign({}, clientSessionCache.sidebar || {}, { rules: res });
+                    activeSessionCache().sidebar = Object.assign({}, activeSessionCache().sidebar || {}, { rules: res });
                     bootstrap.Modal.getInstance(document.getElementById('classRulesModal')).hide();
                 })
                 .withFailureHandler(handleError)
@@ -6367,8 +7601,8 @@
         if (!dateInput) return;
 
         const workKey = selectedClass.id + '|' + dateInput;
-        if (!forceReload && clientSessionCache.workKey === workKey && clientSessionCache.work) {
-            applyScheduleResultFromWork(dateInput, clientSessionCache.work.holidayName, clientSessionCache.work);
+        if (!forceReload && activeSessionCache().workKey === workKey && activeSessionCache().work) {
+            applyScheduleResultFromWork(dateInput, activeSessionCache().work.holidayName, activeSessionCache().work);
             return;
         }
 
@@ -6383,8 +7617,8 @@
                 '&date=' + encodeURIComponent(dateInput))
                 .then(function(work) {
                     showLoading(false);
-                    clientSessionCache.workKey = workKey;
-                    clientSessionCache.work = work;
+                    activeSessionCache().workKey = workKey;
+                    activeSessionCache().work = work;
                     applyScheduleResultFromWork(dateInput, work.holidayName, work);
                 })
                 .catch(handleError);
@@ -6394,8 +7628,8 @@
         google.script.run
             .withSuccessHandler(function(work) {
                 showLoading(false);
-                clientSessionCache.workKey = workKey;
-                clientSessionCache.work = work;
+                activeSessionCache().workKey = workKey;
+                activeSessionCache().work = work;
                 applyScheduleResultFromWork(dateInput, work.holidayName, work);
             })
             .withFailureHandler(handleError)
@@ -6434,7 +7668,7 @@
         if (!apiGet(q, function(data) { renderHomeworkPanel(data, dateStr); }, { loading: false })) {
             google.script.run
                 .withSuccessHandler(function(data) { renderHomeworkPanel(data, dateStr); })
-                .withFailureHandler(handleError)
+                .withFailureHandler(handleQuietError)
                 .getClassHomeworkData(selectedClass.id, dateStr);
         }
     }
@@ -6737,33 +7971,7 @@
                 items: items,
                 skipClassroom: true
             }, function(res) {
-                const baseMsg = String(res.message || res);
-                google.script.run
-                    .withSuccessHandler(function(cr) {
-                        showLoading(false);
-                        let msg = baseMsg;
-                        if (cr && cr.ok && !cr.skipped) {
-                            msg = baseMsg + ' ' + (cr.message || 'Posted to Google Classroom.');
-                            appToast(msg);
-                        } else if (cr && cr.skipped) {
-                            appToast(baseMsg);
-                        } else if (cr && !cr.ok) {
-                            appAlert(baseMsg + ' (Classroom: ' + (cr.error || 'failed') + ')', 'warning');
-                        } else {
-                            appToast(baseMsg);
-                        }
-                        syncClassLogHomeworkDraft(dateStr, items);
-                        refreshWorkDataQuiet();
-                        loadHomeworkPanel(dateStr);
-                    })
-                    .withFailureHandler(function(err) {
-                        showLoading(false);
-                        appAlert(baseMsg + ' (Classroom: ' + (err.message || String(err)) + ')', 'warning');
-                        syncClassLogHomeworkDraft(dateStr, items);
-                        refreshWorkDataQuiet();
-                        loadHomeworkPanel(dateStr);
-                    })
-                    .syncHomeworkClassroomForClassDate(selectedClass.id, dateStr);
+                syncHomeworkClassroomAfterSave(dateStr, items, String(res.message || res));
             }, { loading: false })) {
             google.script.run
                 .withSuccessHandler(function(msg) {
@@ -7299,15 +8507,7 @@
 
     // 백엔드로부터 명단(및 기존데이터) 받아와서 테이블 그리기
     function loadStudentTable(dateStr) {
-        showLoading(true);
-        const q = '/api/attendance?classId=' + encodeURIComponent(selectedClass.id) +
-            '&date=' + encodeURIComponent(dateStr);
-        if (!apiGet(q, renderStudents)) {
-            google.script.run
-                .withSuccessHandler(renderStudents)
-                .withFailureHandler(handleError)
-                .getClassAttendanceData(selectedClass.id, dateStr);
-        }
+        refreshWorkDataQuiet();
     }
 
     function vocabInputDisplayValue(score) {
@@ -7324,6 +8524,7 @@
         if(students.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">No enrolled students in this class.</td></tr>`;
             document.getElementById('studentSection').classList.remove('hidden-section');
+            renderMobileStudentRoster([]);
             showLoading(false);
             return;
         }
@@ -7337,7 +8538,7 @@
             }
             
             const pendingBadge = (std.pendingHomework > 0)
-                ? `<span class="badge bg-warning text-dark pending-hw-badge" title="Pending homework items">${std.pendingHomework} pending</span>`
+                ? `<button type="button" class="badge bg-warning text-dark pending-hw-badge" data-pending-hw-btn title="View pending homework">${std.pendingHomework} pending</button>`
                 : '';
             const leaveBadge = (!std.onLeave && std.leaveInfo)
                 ? `<span class="badge bg-secondary leave-upcoming-badge" title="Scheduled leave">휴원 ${escapeHtml(std.leaveInfo.startDate)}–${escapeHtml(std.leaveInfo.endDate)}</span>`
@@ -7417,6 +8618,8 @@
             `;
 
             tr.querySelector('.student-name-btn').addEventListener('click', () => openStudentDetail(std.id, std.name));
+            const pendingBtn = tr.querySelector('[data-pending-hw-btn]');
+            if (pendingBtn) bindPendingHomeworkBadge(pendingBtn, std.id, std.name);
             tr.querySelector('[data-lucky-btn]').addEventListener('click', function(e) {
                 e.stopPropagation();
                 openLuckyTicketsModal(std.id, std.name);
@@ -7429,6 +8632,7 @@
         });
 
         document.getElementById('studentSection').classList.remove('hidden-section');
+        renderMobileStudentRoster(students);
         showLoading(false);
     }
 
@@ -7606,15 +8810,23 @@
         document.getElementById('studentDetailSection').classList.add('hidden-section');
         setWorkSectionsHidden(false);
         updateMakeupOffDayBar(false);
-        showSidePanels();
-        showSidebarToggle();
+        if (isTeacherMobile()) {
+            hideSidePanels();
+            hideSidebarToggle();
+            setTeacherMobileTab('students');
+            applyTeacherMobilePanels();
+        } else {
+            showSidePanels();
+            showSidebarToggle();
+        }
         if (selectedClass) {
             invalidateClientWorkCache();
             checkScheduleAndLoad(true);
         }
     }
 
-    function openStudentDetail(studentId, studentName) {
+    function openStudentDetail(studentId, studentName, options) {
+        options = options || {};
         if (!selectedClass) return;
         selectedStudent = { id: studentId, name: studentName };
 
@@ -7629,12 +8841,35 @@
         hideSidePanels();
         hideSidebarToggle();
         document.getElementById('studentDetailSection').classList.remove('hidden-section');
+        if (isTeacherMobile()) {
+            setTeacherMobileTab('students');
+        }
 
         loadStudentHistory();
         loadStudentStatsCharts();
         loadStudentHomework();
         loadStudentLeavePanel();
         loadStudentPlannedPanel();
+
+        if (options.scrollToPending) {
+            setTimeout(function() {
+                const el = document.getElementById('studentPendingHwPanel');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 120);
+        }
+    }
+
+    function openStudentPendingHomework(studentId, studentName) {
+        openStudentDetail(studentId, studentName, { scrollToPending: true });
+    }
+
+    function bindPendingHomeworkBadge(badge, studentId, studentName) {
+        if (!badge) return;
+        badge.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openStudentPendingHomework(studentId, studentName);
+        });
     }
 
     function loadStudentHomework() {
@@ -8042,10 +9277,15 @@
         const luckyBtn = badgesRow.querySelector('[data-lucky-btn]');
         if (pending > 0) {
             if (!badge) {
-                badge = document.createElement('span');
+                badge = document.createElement('button');
+                badge.type = 'button';
                 badge.className = 'badge bg-warning text-dark pending-hw-badge';
-                badge.title = 'Pending homework items';
+                badge.setAttribute('data-pending-hw-btn', '');
+                badge.title = 'View pending homework';
                 badgesRow.insertBefore(badge, luckyBtn || null);
+                const sid = tr.getAttribute('data-student-id');
+                const nameEl = tr.querySelector('.student-name-btn');
+                bindPendingHomeworkBadge(badge, sid, nameEl ? nameEl.textContent.trim() : '');
             }
             badge.textContent = pending + ' pending';
         } else if (badge) {
@@ -8062,6 +9302,222 @@
         const n = Number(count) || 0;
         span.textContent = String(n);
         btn.classList.toggle('empty', n === 0);
+    }
+
+    function stopMessagePolling() {
+        document.removeEventListener('visibilitychange', onMessengerVisibility);
+        if (messagePollTimer) clearInterval(messagePollTimer);
+        messagePollTimer = null;
+    }
+
+    function pollMessengerMessages() {
+        if (!nodeApiEnabled()) return;
+        refreshMessengerInbox().then(function() {
+            if (activeMessageClassId && activeMessageStudentId &&
+                !document.getElementById('messengerChatView').classList.contains('hidden-section')) {
+                loadMessengerThread();
+            }
+        });
+    }
+
+    function onMessengerVisibility() {
+        if (document.visibilityState === 'visible') pollMessengerMessages();
+    }
+
+    function messengerPreviewText(row) {
+        const prefix = row.lastSender === 'teacher' ? 'You: ' : '';
+        const body = String(row.lastMessage || '').trim();
+        if (!body) return 'No messages yet';
+        return prefix + body;
+    }
+
+    function messengerInitial(name) {
+        const n = String(name || '?').trim();
+        return n ? n.charAt(0).toUpperCase() : '?';
+    }
+
+    function updateMessengerChipBadge(total) {
+        const badge = document.getElementById('messengerChipBadge');
+        if (!badge) return;
+        total = Number(total) || 0;
+        badge.textContent = total > 99 ? '99+' : String(total);
+        badge.classList.toggle('hidden-section', total <= 0);
+        var navBadge = document.getElementById('teacherMobileMsgBadge');
+        if (navBadge) {
+            navBadge.textContent = total > 99 ? '99+' : String(total);
+            navBadge.classList.toggle('hidden-section', total <= 0);
+        }
+    }
+
+    function setMessengerMinimized(minimized) {
+        const floater = document.getElementById('messengerFloat');
+        if (!floater) return;
+        floater.classList.toggle('messenger-minimized', minimized);
+    }
+
+    function showMessengerInboxView() {
+        document.getElementById('messengerInboxView').classList.remove('hidden-section');
+        document.getElementById('messengerChatView').classList.add('hidden-section');
+        document.getElementById('messengerBackBtn').classList.add('hidden-section');
+        document.getElementById('messengerHeadTitle').textContent = 'Messages';
+        activeMessageClassId = '';
+        activeMessageStudentId = '';
+        activeMessageStudentName = '';
+    }
+
+    function showMessengerChatView(title) {
+        document.getElementById('messengerInboxView').classList.add('hidden-section');
+        document.getElementById('messengerChatView').classList.remove('hidden-section');
+        document.getElementById('messengerBackBtn').classList.remove('hidden-section');
+        document.getElementById('messengerHeadTitle').textContent = title || 'Chat';
+    }
+
+    function renderMessengerInboxList() {
+        const list = document.getElementById('messengerInboxList');
+        if (!list) return;
+        if (!messengerInbox.length) {
+            list.innerHTML = '<div class="messenger-inbox-empty">No messages yet.<br>When a student writes, it appears here.</div>';
+            return;
+        }
+        list.innerHTML = messengerInbox.map(function(row) {
+            const unread = Number(row.unreadCount) || 0;
+            const badge = unread > 0
+                ? '<span class="messenger-inbox-badge">' + (unread > 99 ? '99+' : unread) + '</span>'
+                : '';
+            return '<button type="button" class="messenger-inbox-item" data-msg-class="' + escapeHtml(row.classId) +
+                '" data-msg-student="' + escapeHtml(row.studentId) + '" data-msg-name="' + escapeHtml(row.studentName) + '">' +
+                '<span class="messenger-inbox-avatar">' + escapeHtml(messengerInitial(row.studentName)) + '</span>' +
+                '<span class="messenger-inbox-main">' +
+                '<div class="messenger-inbox-name">' + escapeHtml(row.studentName || row.studentId) + '</div>' +
+                '<div class="messenger-inbox-class">' + escapeHtml(row.className || row.classId) + '</div>' +
+                '<div class="messenger-inbox-preview">' + escapeHtml(messengerPreviewText(row)) + '</div>' +
+                '</span>' + badge + '</button>';
+        }).join('');
+        list.querySelectorAll('.messenger-inbox-item').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                openMessengerChat(
+                    btn.getAttribute('data-msg-class'),
+                    btn.getAttribute('data-msg-student'),
+                    btn.getAttribute('data-msg-name')
+                );
+            });
+        });
+    }
+
+    function refreshMessengerInbox() {
+        if (!nodeApiEnabled()) return Promise.resolve();
+        return nodeFetch('/api/messages/inbox-all')
+            .then(function(data) {
+                messengerInbox = data.inbox || [];
+                let total = 0;
+                messengerInbox.forEach(function(row) { total += row.unreadCount || 0; });
+                updateMessengerChipBadge(total);
+                if (!document.getElementById('messengerChatView').classList.contains('hidden-section')) {
+                    return;
+                }
+                renderMessengerInboxList();
+            })
+            .catch(function() {});
+    }
+
+    function renderMessengerThread(messages) {
+        const thread = document.getElementById('messengerChatThread');
+        if (!thread) return;
+        thread.innerHTML = '';
+        if (!messages || !messages.length) {
+            thread.innerHTML = '<div class="messenger-chat-empty">No messages yet. Say hello!</div>';
+            return;
+        }
+        messages.forEach(function(m) {
+            const div = document.createElement('div');
+            div.className = 'messenger-msg-bubble ' + (m.sender === 'student' ? 'from-student' : 'from-teacher');
+            div.textContent = m.body || '';
+            thread.appendChild(div);
+        });
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+    function loadMessengerThread() {
+        if (!activeMessageClassId || !activeMessageStudentId) return Promise.resolve();
+        return nodeFetch('/api/messages/thread?classId=' + encodeURIComponent(activeMessageClassId) +
+            '&studentId=' + encodeURIComponent(activeMessageStudentId))
+            .then(function(data) {
+                renderMessengerThread(data.messages || []);
+                return refreshMessengerInbox();
+            });
+    }
+
+    function openMessengerChat(classId, studentId, studentName) {
+        activeMessageClassId = classId;
+        activeMessageStudentId = studentId;
+        activeMessageStudentName = studentName || '';
+        document.getElementById('messengerChatInput').value = '';
+        showMessengerChatView(studentName || 'Student');
+        renderMessengerThread([]);
+        setMessengerMinimized(false);
+        loadMessengerThread();
+    }
+
+    function openMessengerFromChip() {
+        setMessengerMinimized(false);
+        showMessengerInboxView();
+        refreshMessengerInbox();
+    }
+
+    function submitMessengerReply(e) {
+        if (e) e.preventDefault();
+        if (!activeMessageClassId || !activeMessageStudentId) return;
+        const input = document.getElementById('messengerChatInput');
+        const btn = document.getElementById('messengerChatSendBtn');
+        const body = input ? input.value.trim() : '';
+        if (!body) return;
+        if (btn) btn.disabled = true;
+        nodeFetch('/api/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+                classId: activeMessageClassId,
+                studentId: activeMessageStudentId,
+                studentName: activeMessageStudentName,
+                body: body
+            })
+        }).then(function() {
+            if (input) input.value = '';
+            return loadMessengerThread();
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not send message.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    function startMessagePolling() {
+        stopMessagePolling();
+        if (!nodeApiEnabled()) return;
+        pollMessengerMessages();
+        messagePollTimer = setInterval(pollMessengerMessages, MSG_POLL_MS);
+        document.addEventListener('visibilitychange', onMessengerVisibility);
+    }
+
+    function initMessenger() {
+        const floater = document.getElementById('messengerFloat');
+        if (!floater || !nodeApiEnabled()) return;
+        floater.classList.remove('hidden-section');
+        document.getElementById('messengerChip').addEventListener('click', openMessengerFromChip);
+        document.getElementById('messengerMinimizeBtn').addEventListener('click', function() {
+            setMessengerMinimized(true);
+        });
+        document.getElementById('messengerBackBtn').addEventListener('click', function() {
+            showMessengerInboxView();
+            refreshMessengerInbox();
+        });
+        document.getElementById('messengerChatForm').addEventListener('submit', submitMessengerReply);
+        document.getElementById('messengerChatInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitMessengerReply(e);
+            }
+        });
+        startMessagePolling();
     }
 
     function openLuckyTicketsModal(studentId, studentName) {
@@ -8641,8 +10097,7 @@
             appToast((res && res.message) ? res.message : (name + ' withdrawn.'));
             if (selectedStudent && selectedStudent.id === studentId) backToMain();
             const dateStr = document.getElementById('attendanceDate').value;
-            loadStudentTable(dateStr);
-            refreshWorkDataQuiet();
+            if (dateStr) refreshWorkDataQuiet();
         };
         if (!apiPost('/api/students/withdraw', body, onDone)) {
             google.script.run
@@ -8693,7 +10148,6 @@
             appToast((res && res.message) ? res.message : 'Student added.');
             const dateStr = document.getElementById('attendanceDate').value;
             if (dateStr) {
-                loadStudentTable(dateStr);
                 refreshWorkDataQuiet();
             }
         };
@@ -9342,6 +10796,7 @@
     function openReport() {
         hideSidePanels();
         hideSidebarToggle();
+        if (isTeacherMobile()) setTeacherMobileTab('more');
         // 다른 섹션 숨기기
         document.getElementById('dateSection').classList.add('hidden-section');
         setWorkSectionsHidden(true);
@@ -9373,7 +10828,10 @@
 
     function closeReport() {
         document.getElementById('reportSection').classList.add('hidden-section');
-        // 클래스가 선택돼 있으면 출결 화면으로, 아니면 첫 화면
+        if (isTeacherMobile()) {
+            applyTeacherMobilePanels();
+            return;
+        }
         if (selectedClass && document.getElementById('attendanceDate').value) {
             document.getElementById('dateSection').classList.remove('hidden-section');
             checkScheduleAndLoad();

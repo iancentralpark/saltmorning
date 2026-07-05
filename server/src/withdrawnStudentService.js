@@ -4,7 +4,7 @@ const {
   TIMEZONE
 } = require('./config');
 const { getSheetRows, updateRange, appendRows } = require('./sheets');
-const { formatDateTimeNow } = require('./dateUtils');
+const { formatDateTimeNow, formatSheetDate } = require('./dateUtils');
 const { cacheDelete, cacheDeletePrefix } = require('./cache');
 
 const STATUS_COL = 3;
@@ -97,6 +97,14 @@ async function withdrawStudent(classId, studentId) {
 
   cacheDeletePrefix('sidebar_v1_');
   cacheDelete('classes_v1');
+
+  try {
+    const { backfillWithdrawnInClassLog } = require('./classLogService');
+    const wd = formatSheetDate(withdrawnAt);
+    await backfillWithdrawnInClassLog(classId, name, wd);
+  } catch (e) {
+    console.warn('Class log withdraw backfill:', e.message);
+  }
 
   return {
     withdrawalId,
