@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Parent — Salt Morning Class</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <div id="loginView" class="card">
+    <h2>Parent login</h2>
+    <form id="loginForm" class="form-grid">
+      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <a href="/">← Back</a>
+    </form>
+  </div>
+
+  <div id="appView" class="hidden">
+    <div class="topbar">
+      <div class="brand" id="welcomeText">Parent</div>
+      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="announcements" type="button">Announcements</button>
+      <button class="tab" data-tab="messages" type="button">Messages</button>
+    </div>
+    <div id="tabAnnouncements" class="card">
+      <div id="announceList"></div>
+    </div>
+    <div id="tabMessages" class="card hidden">
+      <p id="childInfo" style="color:var(--muted);font-size:.9rem"></p>
+      <div class="msg-list" id="msgList"></div>
+      <form id="msgForm" class="form-grid" style="margin-top:0.75rem">
+        <textarea id="msgInput" placeholder="Message your child's teacher…" maxlength="500"></textarea>
+        <button class="btn btn-primary" type="submit">Send</button>
+        <div class="error" id="msgError"></div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+(function() {
+  const role = 'parent';
+  const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    hide($('tabAnnouncements')); hide($('tabMessages'));
+    show(name === 'announcements' ? $('tabAnnouncements') : $('tabMessages'));
+    if (name === 'messages') loadMessages();
+    if (name === 'announcements') loadAnnouncements();
+  }
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  async function loadAnnouncements() {
+    const data = await api('/api/parent/announcements', {}, role);
+    $('announceList').innerHTML = (data.announcements || []).map(a =>
+      '<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">' +
+      '<strong>' + escapeHtml(a.title) + '</strong>' +
+      '<div style="color:var(--muted);font-size:.8rem;margin:.25rem 0">' + escapeHtml(a.postedAt) + '</div>' +
+      '<div>' + escapeHtml(a.body) + '</div></div>'
+    ).join('') || '<p style="color:var(--muted)">No announcements yet.</p>';
+  }
+
+  async function loadMessages() {
+    const data = await api('/api/parent/messages', {}, role);
+    $('childInfo').textContent = 'Child: ' + (data.studentName || '') + ' · ' + (data.className || '');
+    $('msgList').innerHTML = (data.messages || []).map(m =>
+      '<div class="msg ' + escapeHtml(m.sender) + '">' +
+      '<div class="msg-meta">' + escapeHtml(m.sender) + ' · ' + escapeHtml(m.createdAt) + '</div>' +
+      escapeHtml(m.body) + '</div>'
+    ).join('') || '<p style="color:var(--muted)">No messages yet.</p>';
+  }
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginError').textContent = '';
+    try {
+      const data = await api('/api/auth/parent/login', {
+        method: 'POST',
+        body: { loginId: $('loginId').value, password: $('password').value }
+      });
+      setToken(role, data.token);
+      setProfile(role, data.profile);
+      bootApp();
+    } catch (err) { $('loginError').textContent = err.message; }
+  });
+
+  $('msgForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('msgError').textContent = '';
+    try {
+      await api('/api/parent/messages', { method: 'POST', body: { body: $('msgInput').value } }, role);
+      $('msgInput').value = '';
+      loadMessages();
+    } catch (err) { $('msgError').textContent = err.message; }
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
+  });
+
+  function bootApp() {
+    const p = getProfile(role);
+    if (!p) return;
+    hide($('loginView')); show($('appView'));
+    $('welcomeText').textContent = 'Hi, ' + p.name;
+    loadAnnouncements();
+  }
+
+  if (getToken(role)) bootApp();
+})();
+</script>
+</body>
+</html>

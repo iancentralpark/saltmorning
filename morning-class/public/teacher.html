@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Teacher — Salt Morning Class</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <div id="loginView" class="card">
+    <h2>Teacher login</h2>
+    <form id="loginForm" class="form-grid">
+      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <a href="/">← Back</a>
+    </form>
+  </div>
+
+  <div id="classesView" class="hidden">
+    <div class="topbar">
+      <div class="brand" id="welcomeText">My Classes</div>
+      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+    </div>
+    <div class="card">
+      <div class="section-title">Homeroom</div>
+      <div class="class-list" id="homeroomList"></div>
+      <div class="section-title">Assigned classes</div>
+      <div class="class-list" id="assignedList"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Lesson plans</div>
+      <button class="btn btn-primary" id="newPlanBtn" type="button">New lesson plan</button>
+      <div id="planList" style="margin-top:0.75rem"></div>
+    </div>
+  </div>
+
+  <div id="classView" class="hidden">
+    <div class="topbar">
+      <div>
+        <button class="btn btn-ghost" id="backBtn" type="button">← Classes</button>
+        <div class="brand" id="classTitle"></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="attendance" type="button">Attendance</button>
+      <button class="tab" data-tab="grades" type="button">Daily grades</button>
+      <button class="tab" data-tab="report" type="button">Report card</button>
+      <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
+    </div>
+
+    <div id="panelAttendance" class="card">
+      <label>Date <input type="date" id="attDate"></label>
+      <div class="table-wrap" style="margin-top:0.75rem">
+        <table><thead><tr><th>Student</th><th>Status</th><th>Quiz</th></tr></thead><tbody id="attBody"></tbody></table>
+      </div>
+      <button class="btn btn-primary" id="saveAttBtn" type="button" style="margin-top:0.75rem">Save attendance</button>
+      <div class="error" id="attError"></div>
+    </div>
+
+    <div id="panelGrades" class="card hidden">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <input type="date" id="gradeDate">
+        <input id="gradeSubject" placeholder="Subject (e.g. English)">
+        <button class="btn btn-primary" id="loadGradesBtn" type="button">Load</button>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Student</th><th>Score</th><th>Max</th><th>Note</th></tr></thead><tbody id="gradeBody"></tbody></table>
+      </div>
+      <button class="btn btn-primary" id="saveGradesBtn" type="button" style="margin-top:0.75rem">Save grades</button>
+      <div class="error" id="gradeError"></div>
+    </div>
+
+    <div id="panelReport" class="card hidden">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <input id="reportTerm" value="Term1" placeholder="Term">
+        <input id="reportSubject" placeholder="Subject filter">
+        <button class="btn btn-primary" id="loadReportBtn" type="button">Load</button>
+      </div>
+      <div id="reportBody"></div>
+      <div class="error" id="reportError"></div>
+    </div>
+
+    <div id="panelLesson" class="card hidden">
+      <form id="lessonForm" class="form-grid">
+        <input id="lpSubject" placeholder="Subject">
+        <input type="date" id="lpWeek">
+        <input id="lpTitle" placeholder="Lesson title">
+        <textarea id="lpObjectives" placeholder="Objectives"></textarea>
+        <textarea id="lpMaterials" placeholder="Materials"></textarea>
+        <textarea id="lpProcedure" placeholder="Procedure (lesson flow)"></textarea>
+        <textarea id="lpHomework" placeholder="Homework"></textarea>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button class="btn btn-ghost" type="button" id="saveDraftBtn">Save draft</button>
+          <button class="btn btn-primary" type="button" id="submitPlanBtn">Submit to admin</button>
+          <button class="btn btn-ghost" type="button" id="viewPlanBtn">Preview</button>
+        </div>
+        <div class="error" id="lessonError"></div>
+      </form>
+      <div id="lessonPreview" class="lp-view hidden"></div>
+    </div>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+(function() {
+  const role = 'teacher';
+  const { api, getToken, setToken, getProfile, setProfile, $, show, hide, todayISO, escapeHtml } = SaltApp;
+  let currentClass = null;
+  let currentPlanId = null;
+  let attOptions = ['출석', '지각', '결석', '조퇴', '휴원'];
+  let roster = [];
+
+  function classCard(c, isHomeroom) {
+    const subj = (c.subjects && c.subjects.length) ? c.subjects.join(', ') : (isHomeroom ? 'All subjects' : '');
+    return '<div class="class-card" data-id="' + escapeHtml(c.classId) + '" data-name="' + escapeHtml(c.className) + '" data-subjects="' + escapeHtml(subj) + '">' +
+      '<strong>' + escapeHtml(c.className) + '</strong><br><small>' + escapeHtml(c.classId) + ' · ' + escapeHtml(subj) + '</small></div>';
+  }
+
+  async function loadClasses() {
+    const data = await api('/api/teacher/classes', {}, role);
+    $('homeroomList').innerHTML = (data.homeroom || []).map(c => classCard(c, true)).join('') ||
+      '<p style="color:var(--muted)">No homeroom assigned.</p>';
+    $('assignedList').innerHTML = (data.assigned || []).map(c => classCard(c, false)).join('') ||
+      '<p style="color:var(--muted)">No other classes assigned.</p>';
+    document.querySelectorAll('.class-card').forEach(el => {
+      el.addEventListener('click', () => openClass({
+        classId: el.dataset.id,
+        className: el.dataset.name,
+        subjects: el.dataset.subjects
+      }));
+    });
+    loadPlanList();
+  }
+
+  async function loadPlanList() {
+    const data = await api('/api/teacher/lesson-plans', {}, role);
+    $('planList').innerHTML = (data.plans || []).slice(0, 8).map(p =>
+      '<div class="class-card" data-plan="' + escapeHtml(p.planId) + '">' +
+      '<strong>' + escapeHtml(p.title || 'Untitled') + '</strong><br><small>' +
+      escapeHtml(p.classId) + ' · ' + escapeHtml(p.subject) + ' · ' + escapeHtml(p.status) + '</small></div>'
+    ).join('') || '<p style="color:var(--muted)">No lesson plans yet.</p>';
+    document.querySelectorAll('[data-plan]').forEach(el => {
+      el.addEventListener('click', async () => {
+        const data = await api('/api/teacher/lesson-plans/' + el.dataset.plan, {}, role);
+        if (!data.plan) return;
+        const p = data.plan;
+        const cls = { classId: p.classId, className: p.classId, subjects: p.subject };
+        openClass(cls);
+        switchTab('lesson');
+        fillLessonForm(p);
+      });
+    });
+  }
+
+  function openClass(cls) {
+    currentClass = cls;
+    currentPlanId = null;
+    hide($('classesView')); show($('classView'));
+    $('classTitle').textContent = cls.className;
+    $('attDate').value = todayISO();
+    $('gradeDate').value = todayISO();
+    $('gradeSubject').value = (cls.subjects && cls.subjects !== 'All subjects') ? cls.subjects.split(',')[0].trim() : 'English';
+    $('lpSubject').value = $('gradeSubject').value;
+    $('lpWeek').value = todayISO();
+    switchTab('attendance');
+    loadAttendance();
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('#classView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    ['panelAttendance','panelGrades','panelReport','panelLesson'].forEach(id => hide($(id)));
+    const map = { attendance: 'panelAttendance', grades: 'panelGrades', report: 'panelReport', lesson: 'panelLesson' };
+    show($(map[name]));
+    if (name === 'grades') loadGrades();
+    if (name === 'report') loadReport();
+  }
+
+  document.querySelectorAll('#classView .tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  async function loadAttendance() {
+    const data = await api('/api/teacher/class/' + currentClass.classId + '/attendance?date=' + $('attDate').value, {}, role);
+    attOptions = data.options || attOptions;
+    $('attBody').innerHTML = (data.students || []).map(s => {
+      const opts = attOptions.map(o => '<option value="' + escapeHtml(o) + '"' + (s.attendance === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('');
+      return '<tr data-sid="' + escapeHtml(s.studentId) + '"><td>' + escapeHtml(s.name) + '</td>' +
+        '<td><select class="att-select">' + opts + '</select></td>' +
+        '<td><input type="number" class="att-quiz" value="' + (s.vocabScore || 0) + '" style="width:70px"></td></tr>';
+    }).join('');
+  }
+
+  $('attDate').addEventListener('change', loadAttendance);
+  $('saveAttBtn').addEventListener('click', async () => {
+    $('attError').textContent = '';
+    const records = [];
+    document.querySelectorAll('#attBody tr').forEach(tr => {
+      records.push({
+        studentId: tr.dataset.sid,
+        attendance: tr.querySelector('.att-select').value,
+        vocabScore: Number(tr.querySelector('.att-quiz').value) || 0
+      });
+    });
+    try {
+      await api('/api/teacher/class/' + currentClass.classId + '/attendance', {
+        method: 'POST', body: { date: $('attDate').value, records }
+      }, role);
+      $('attError').style.color = '#16a34a';
+      $('attError').textContent = 'Saved.';
+    } catch (e) { $('attError').style.color = '#dc2626'; $('attError').textContent = e.message; }
+  });
+
+  async function loadGrades() {
+    const subject = $('gradeSubject').value.trim();
+    if (!subject) return;
+    const data = await api('/api/teacher/class/' + currentClass.classId + '/grades/daily?date=' + $('gradeDate').value + '&subject=' + encodeURIComponent(subject), {}, role);
+    const map = {};
+    (data.grades || []).forEach(g => { map[g.studentId] = g; });
+    const rosterData = await api('/api/teacher/class/' + currentClass.classId + '/roster', {}, role);
+    roster = rosterData.students || [];
+    $('gradeBody').innerHTML = roster.map(s => {
+      const g = map[s.studentId] || {};
+      return '<tr data-sid="' + escapeHtml(s.studentId) + '"><td>' + escapeHtml(s.name) + '</td>' +
+        '<td><input type="number" class="g-score" value="' + (g.score || '') + '" style="width:70px"></td>' +
+        '<td><input type="number" class="g-max" value="' + (g.maxScore || 100) + '" style="width:70px"></td>' +
+        '<td><input class="g-note" value="' + escapeHtml(g.note || '') + '"></td></tr>';
+    }).join('');
+  }
+
+  $('loadGradesBtn').addEventListener('click', loadGrades);
+  $('saveGradesBtn').addEventListener('click', async () => {
+    $('gradeError').textContent = '';
+    const entries = [];
+    document.querySelectorAll('#gradeBody tr').forEach(tr => {
+      entries.push({
+        studentId: tr.dataset.sid,
+        score: tr.querySelector('.g-score').value,
+        maxScore: tr.querySelector('.g-max').value,
+        note: tr.querySelector('.g-note').value
+      });
+    });
+    try {
+      await api('/api/teacher/class/' + currentClass.classId + '/grades/daily', {
+        method: 'POST',
+        body: { date: $('gradeDate').value, subject: $('gradeSubject').value, entries }
+      }, role);
+      $('gradeError').style.color = '#16a34a';
+      $('gradeError').textContent = 'Saved.';
+    } catch (e) { $('gradeError').style.color = '#dc2626'; $('gradeError').textContent = e.message; }
+  });
+
+  async function loadReport() {
+    const term = $('reportTerm').value.trim();
+    const subject = $('reportSubject').value.trim();
+    const q = '?term=' + encodeURIComponent(term) + (subject ? '&subject=' + encodeURIComponent(subject) : '');
+    const data = await api('/api/teacher/class/' + currentClass.classId + '/report-card' + q, {}, role);
+    let html = '';
+    (data.summary || []).forEach(st => {
+      html += '<h3>' + escapeHtml(st.name) + '</h3><table><thead><tr><th>Field</th><th>Score</th><th>Comment</th></tr></thead><tbody>';
+      Object.keys(st.subjects || {}).forEach(sub => {
+        (st.subjects[sub] || []).forEach(f => {
+          const key = st.studentId + '|' + sub + '|' + f.fieldKey;
+          html += '<tr data-key="' + escapeHtml(key) + '" data-sid="' + escapeHtml(st.studentId) + '" data-sub="' + escapeHtml(sub) + '" data-field="' + escapeHtml(f.fieldKey) + '">' +
+            '<td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
+            '<td><input class="rc-score" type="number" value="' + (f.score != null ? f.score : '') + '" style="width:70px"></td>' +
+            '<td><input class="rc-comment" value="' + escapeHtml(f.comment || '') + '"></td></tr>';
+        });
+      });
+      html += '</tbody></table>';
+    });
+    $('reportBody').innerHTML = html || '<p style="color:var(--muted)">No report card fields configured.</p>';
+  }
+
+  $('loadReportBtn').addEventListener('click', loadReport);
+  $('reportBody').addEventListener('change', async () => {
+    /* batch save on explicit button could be added; auto-save per row for MVP skip */
+  });
+
+  function fillLessonForm(p) {
+    currentPlanId = p.planId;
+    $('lpSubject').value = p.subject || '';
+    $('lpWeek').value = (p.weekStart || '').slice(0, 10);
+    $('lpTitle').value = p.title || '';
+    $('lpObjectives').value = p.objectives || '';
+    $('lpMaterials').value = p.materials || '';
+    $('lpProcedure').value = p.procedure || '';
+    $('lpHomework').value = p.homework || '';
+  }
+
+  async function saveLesson(submit) {
+    $('lessonError').textContent = '';
+    try {
+      const data = await api('/api/teacher/lesson-plans', {
+        method: 'POST',
+        body: {
+          planId: currentPlanId,
+          classId: currentClass.classId,
+          subject: $('lpSubject').value,
+          weekStart: $('lpWeek').value,
+          title: $('lpTitle').value,
+          objectives: $('lpObjectives').value,
+          materials: $('lpMaterials').value,
+          procedure: $('lpProcedure').value,
+          homework: $('lpHomework').value,
+          submit: !!submit
+        }
+      }, role);
+      currentPlanId = data.plan.planId;
+      $('lessonError').style.color = '#16a34a';
+      $('lessonError').textContent = submit ? 'Submitted to admin.' : 'Draft saved.';
+      loadPlanList();
+    } catch (e) { $('lessonError').style.color = '#dc2626'; $('lessonError').textContent = e.message; }
+  }
+
+  $('saveDraftBtn').addEventListener('click', () => saveLesson(false));
+  $('submitPlanBtn').addEventListener('click', () => saveLesson(true));
+  $('viewPlanBtn').addEventListener('click', () => {
+    const box = $('lessonPreview');
+    box.innerHTML = '<h2>' + escapeHtml($('lpTitle').value) + '</h2>' +
+      '<div class="lp-block"><h3>Objectives</h3><pre>' + escapeHtml($('lpObjectives').value) + '</pre></div>' +
+      '<div class="lp-block"><h3>Materials</h3><pre>' + escapeHtml($('lpMaterials').value) + '</pre></div>' +
+      '<div class="lp-block"><h3>Procedure</h3><pre>' + escapeHtml($('lpProcedure').value) + '</pre></div>' +
+      '<div class="lp-block"><h3>Homework</h3><pre>' + escapeHtml($('lpHomework').value) + '</pre></div>';
+    show(box);
+  });
+
+  $('newPlanBtn').addEventListener('click', () => {
+    if (!currentClass) {
+      alert('Open a class first, or create a plan from the class Lesson plan tab.');
+      return;
+    }
+    openClass(currentClass);
+    switchTab('lesson');
+    currentPlanId = null;
+    $('lpTitle').value = '';
+    $('lpObjectives').value = '';
+    $('lpMaterials').value = '';
+    $('lpProcedure').value = '';
+    $('lpHomework').value = '';
+  });
+
+  $('backBtn').addEventListener('click', () => {
+    hide($('classView')); show($('classesView'));
+    currentClass = null;
+  });
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginError').textContent = '';
+    try {
+      const data = await api('/api/auth/teacher/login', {
+        method: 'POST',
+        body: { loginId: $('loginId').value, password: $('password').value }
+      });
+      setToken(role, data.token);
+      setProfile(role, data.profile);
+      bootApp();
+    } catch (err) { $('loginError').textContent = err.message; }
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
+  });
+
+  function bootApp() {
+    const p = getProfile(role);
+    if (!p) return;
+    hide($('loginView')); show($('classesView'));
+    $('welcomeText').textContent = 'Hi, ' + p.name;
+    loadClasses();
+  }
+
+  if (getToken(role)) bootApp();
+})();
+</script>
+</body>
+</html>

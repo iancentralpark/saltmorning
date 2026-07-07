@@ -1,0 +1,109 @@
+:root {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --text: #1e293b;
+  --muted: #64748b;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --student: #0ea5e9;
+  --parent: #8b5cf6;
+  --teacher: #f59e0b;
+  --border: #e2e8f0;
+  --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --radius: 16px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 40%);
+  min-height: 100vh;
+}
+a { color: var(--primary); text-decoration: none; }
+.shell { max-width: 960px; margin: 0 auto; padding: 1rem; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-bottom: 1rem;
+}
+.brand { font-weight: 700; font-size: 1.1rem; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.choice-grid { display: grid; gap: 0.85rem; max-width: 440px; margin: 0 auto; }
+.choice-btn {
+  display: flex; align-items: center; gap: 1rem;
+  width: 100%; text-align: left;
+  border: 2px solid var(--border);
+  border-radius: 18px; padding: 1rem 1.1rem;
+  background: #fff; cursor: pointer; font: inherit;
+  transition: transform .15s ease;
+}
+.choice-btn:hover { transform: translateY(-2px); }
+.choice-btn .icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; color: #fff;
+}
+.choice-student .icon { background: var(--student); }
+.choice-parent .icon { background: var(--parent); }
+.choice-teacher .icon { background: var(--teacher); }
+.choice-label { display: block; font-weight: 700; }
+.choice-hint { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+.landing { text-align: center; padding: 2rem 1rem; }
+.landing h1 { margin: 0 0 0.35rem; font-size: 1.8rem; }
+.landing p { color: var(--muted); margin: 0 0 1.5rem; }
+.form-grid { display: grid; gap: 0.75rem; max-width: 360px; margin: 0 auto; }
+input, select, textarea, button {
+  font: inherit;
+}
+input, select, textarea {
+  width: 100%; padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border); border-radius: 12px;
+}
+textarea { min-height: 100px; resize: vertical; }
+.btn {
+  border: none; border-radius: 12px; padding: 0.7rem 1rem;
+  cursor: pointer; font-weight: 600;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-ghost { background: #eef2ff; color: var(--primary-dark); }
+.btn-block { width: 100%; }
+.error { color: #dc2626; font-size: 0.9rem; min-height: 1.2rem; }
+.hidden { display: none !important; }
+.tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.tab {
+  border: 1px solid var(--border); background: #fff;
+  border-radius: 999px; padding: 0.45rem 0.9rem; cursor: pointer;
+}
+.tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.class-list { display: grid; gap: 0.65rem; }
+.class-card {
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 0.9rem 1rem; cursor: pointer; background: #fff;
+}
+.class-card:hover { border-color: var(--primary); }
+.class-card small { color: var(--muted); }
+.section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 1rem 0 0.5rem; }
+.msg-list { display: grid; gap: 0.6rem; max-height: 320px; overflow: auto; }
+.msg {
+  border-radius: 12px; padding: 0.65rem 0.8rem; max-width: 85%;
+}
+.msg.student, .msg.parent { background: #e0f2fe; margin-right: auto; }
+.msg.teacher { background: #fef3c7; margin-left: auto; }
+.msg-meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.2rem; }
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: left; }
+.lp-view h2 { margin-top: 0; }
+.lp-block { margin-bottom: 1rem; }
+.lp-block h3 { margin: 0 0 0.35rem; font-size: 0.95rem; color: var(--muted); }
+.lp-block pre {
+  white-space: pre-wrap; font-family: inherit; margin: 0;
+  background: #f8fafc; padding: 0.75rem; border-radius: 10px;
+}

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Student — Salt Morning Class</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<div class="shell">
+  <div id="loginView" class="card">
+    <h2>Student login</h2>
+    <form id="loginForm" class="form-grid">
+      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <a href="/">← Back</a>
+    </form>
+  </div>
+
+  <div id="appView" class="hidden">
+    <div class="topbar">
+      <div class="brand" id="welcomeText">Student</div>
+      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="buddy" type="button">AI English Buddy</button>
+      <button class="tab" data-tab="messages" type="button">Messages</button>
+    </div>
+    <div id="tabBuddy" class="card">
+      <p id="buddyStatus" style="color:var(--muted);font-size:.9rem"></p>
+      <div id="buddyChat" style="min-height:180px;margin:0.75rem 0"></div>
+      <form id="buddyForm" class="form-grid">
+        <textarea id="buddyInput" placeholder="Ask about vocabulary or essay help…" maxlength="800"></textarea>
+        <button class="btn btn-primary" type="submit">Send</button>
+        <div class="error" id="buddyError"></div>
+      </form>
+    </div>
+    <div id="tabMessages" class="card hidden">
+      <div class="msg-list" id="msgList"></div>
+      <form id="msgForm" class="form-grid" style="margin-top:0.75rem">
+        <textarea id="msgInput" placeholder="Message your teacher…" maxlength="500"></textarea>
+        <button class="btn btn-primary" type="submit">Send</button>
+        <div class="error" id="msgError"></div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+<script>
+(function() {
+  const role = 'student';
+  const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+  let buddyHistory = [];
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    hide($('tabBuddy')); hide($('tabMessages'));
+    show(name === 'buddy' ? $('tabBuddy') : $('tabMessages'));
+    if (name === 'messages') loadMessages();
+  }
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  function renderBuddy() {
+    const box = $('buddyChat');
+    box.innerHTML = buddyHistory.map(h =>
+      '<div class="msg ' + h.role + '"><div class="msg-meta">' + escapeHtml(h.role) + '</div>' + escapeHtml(h.text) + '</div>'
+    ).join('') || '<p style="color:var(--muted)">Say hello to AI English Buddy!</p>';
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function loadBuddyStatus() {
+    try {
+      const s = await api('/api/student/english-buddy/status', {}, role);
+      $('buddyStatus').textContent = s.configured
+        ? ('Remaining today: ' + s.remaining + ' / ' + s.dailyLimit)
+        : 'AI English Buddy will be available when GEMINI_API_KEY is configured.';
+    } catch (e) { $('buddyStatus').textContent = ''; }
+  }
+
+  async function loadMessages() {
+    const data = await api('/api/student/messages', {}, role);
+    $('msgList').innerHTML = (data.messages || []).map(m =>
+      '<div class="msg ' + escapeHtml(m.sender) + '">' +
+      '<div class="msg-meta">' + escapeHtml(m.sender) + ' · ' + escapeHtml(m.createdAt) + '</div>' +
+      escapeHtml(m.body) + '</div>'
+    ).join('') || '<p style="color:var(--muted)">No messages yet.</p>';
+    api('/api/student/messages/read', { method: 'POST' }, role).catch(() => {});
+  }
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginError').textContent = '';
+    try {
+      const data = await api('/api/auth/student/login', {
+        method: 'POST',
+        body: { loginId: $('loginId').value, password: $('password').value }
+      });
+      setToken(role, data.token);
+      setProfile(role, data.profile);
+      bootApp();
+    } catch (err) {
+      $('loginError').textContent = err.message;
+    }
+  });
+
+  $('buddyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('buddyError').textContent = '';
+    const message = $('buddyInput').value.trim();
+    if (!message) return;
+    buddyHistory.push({ role: 'student', text: message });
+    renderBuddy();
+    $('buddyInput').value = '';
+    try {
+      const data = await api('/api/student/english-buddy', {
+        method: 'POST',
+        body: { message, history: buddyHistory.slice(0, -1) }
+      }, role);
+      buddyHistory.push({ role: 'buddy', text: data.reply });
+      renderBuddy();
+      loadBuddyStatus();
+    } catch (err) {
+      $('buddyError').textContent = err.message;
+    }
+  });
+
+  $('msgForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('msgError').textContent = '';
+    try {
+      await api('/api/student/messages', { method: 'POST', body: { body: $('msgInput').value } }, role);
+      $('msgInput').value = '';
+      loadMessages();
+    } catch (err) { $('msgError').textContent = err.message; }
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
+  });
+
+  function bootApp() {
+    const p = getProfile(role);
+    if (!p) return;
+    hide($('loginView')); show($('appView'));
+    $('welcomeText').textContent = 'Hi, ' + p.name;
+    loadBuddyStatus();
+    renderBuddy();
+  }
+
+  if (getToken(role)) bootApp();
+})();
+</script>
+</body>
+</html>
