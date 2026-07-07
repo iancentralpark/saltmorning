@@ -6,9 +6,10 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "prestart": "node -e \"const fs=require('fs');const path=require('path');const root=path.join(__dirname,'..');const src=path.join(root,'Student.html');const sprite=path.join(root,'SnailSprite.html');const out=path.join(__dirname,'public','Student.html');if(fs.existsSync(src)){fs.mkdirSync(path.dirname(out),{recursive:true});let html=fs.readFileSync(src,'utf8');if(fs.existsSync(sprite)){html=html.replace(/<\\?!= include\\('SnailSprite'\\); \\?>/g,fs.readFileSync(sprite,'utf8'));}fs.writeFileSync(out,html);}\"",
+    "prestart": "node scripts/build-public.js",
     "dev": "node --watch src/index.js",
     "check-setup": "node scripts/check-setup.js",
+    "init-sheets": "node scripts/init-spreadsheet.js",
     "setup": "node scripts/setup.js",
     "oauth-setup": "node scripts/oauth-setup.js",
     "railway-env": "node scripts/railway-env.js"
