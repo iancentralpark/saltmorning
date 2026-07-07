@@ -107,3 +107,59 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
   white-space: pre-wrap; font-family: inherit; margin: 0;
   background: #f8fafc; padding: 0.75rem; border-radius: 10px;
 }
+
+/* —— Attendance (teacher) —— */
+.att-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: end; margin-bottom: 0.75rem; }
+.att-date-label { font-weight: 600; font-size: 0.9rem; }
+.att-alert { padding: 0.65rem 0.85rem; border-radius: 12px; margin-bottom: 0.85rem; font-size: 0.92rem; }
+.att-alert-ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.att-alert-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.att-student-list { display: grid; gap: 0.75rem; }
+.att-student-card {
+  border: 1px solid var(--border); border-radius: 14px; padding: 0.85rem 1rem; background: #fafbfc;
+}
+.att-student-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: start; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.att-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.att-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; font-weight: 600; }
+.att-badge-planned { background: #fef3c7; color: #92400e; }
+.att-badge-excused { background: #dbeafe; color: #1d4ed8; }
+.att-save-status { font-size: 0.75rem; color: var(--muted); }
+.att-save-status.ok { color: #16a34a; }
+.att-save-status.err { color: #dc2626; }
+.att-btn-row { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.att-status-btn {
+  border: 2px solid var(--border); background: #fff; border-radius: 10px;
+  padding: 0.45rem 0.85rem; font-weight: 700; cursor: pointer; font-size: 0.88rem;
+}
+.att-present.active { background: #dcfce7; border-color: #22c55e; color: #166534; }
+.att-tardy.active { background: #fef9c3; border-color: #eab308; color: #854d0e; }
+.att-absent.active { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+.att-excuse-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.55rem; }
+.att-excuse-toggle.active { background: #dbeafe; color: #1d4ed8; }
+.att-excuse-input { flex: 1; min-width: 160px; }
+.att-quiz-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 0.55rem; font-size: 0.9rem; }
+.att-quiz-input { width: 4.5rem; margin-left: 0.35rem; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.modal {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 100;
+}
+.modal-card {
+  background: #fff; border-radius: 16px; padding: 1.25rem; width: min(420px, 100%);
+  max-height: 90vh; overflow: auto; box-shadow: var(--shadow);
+}
+.modal-wide { width: min(960px, 100%); }
+.planned-item { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.report-scroll { overflow: auto; margin-bottom: 1rem; }
+.report-table { border-collapse: collapse; font-size: 0.78rem; min-width: 100%; }
+.report-table th, .report-table td { border: 1px solid var(--border); padding: 0.25rem 0.35rem; text-align: center; }
+.report-table .name-col { text-align: left; min-width: 100px; position: sticky; left: 0; background: #fff; }
+.report-summary { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 0.5rem; }
+.report-summary th, .report-summary td { border-bottom: 1px solid var(--border); padding: 0.4rem; text-align: left; }
+.sym-present { color: #16a34a; font-weight: 700; }
+.sym-tardy { color: #ca8a04; font-weight: 700; }
+.sym-absent { color: #dc2626; font-weight: 700; }
+.holiday-cell { background: #f1f5f9; color: #64748b; }
+.empty-cell { color: #cbd5e1; }
+.err { color: #dc2626; }

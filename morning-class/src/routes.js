@@ -3,7 +3,14 @@ const { isGeminiConfigured } = require('./services/geminiService');
 const { loginStudent, loginParent, loginTeacher } = require('./services/authService');
 const { requireRole } = require('./auth/tokenAuth');
 const { getTeacherClasses, getClassRoster } = require('./services/teacherPortalService');
-const { getAttendanceForDate, saveAttendance } = require('./services/attendanceService');
+const { getAttendanceForDate, saveAttendance, getClassWorkData, upsertStudentRecord } = require('./services/attendanceService');
+const {
+  listPlannedAttendance,
+  getPlannedAttendanceCalendar,
+  createPlannedAttendance,
+  cancelPlannedAttendance
+} = require('./services/plannedAttendanceService');
+const { getMonthlyReport } = require('./services/reportService');
 const {
   loadMessagesForStudent,
   sendMessage,
@@ -76,6 +83,89 @@ router.get('/teacher/class/:classId/roster', requireRole('teacher'), async (req,
     res.json({ students });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load roster.' });
+  }
+});
+
+router.get('/teacher/class/:classId/work', requireRole('teacher'), async (req, res) => {
+  try {
+    const data = await getClassWorkData(req.params.classId, req.query.date);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load class work.' });
+  }
+});
+
+router.post('/teacher/class/:classId/attendance/record', requireRole('teacher'), async (req, res) => {
+  try {
+    const { studentId, date, attendance, vocabScore, excuse } = req.body || {};
+    if (!studentId || !date || !attendance) {
+      return res.status(400).json({ error: 'studentId, date, and attendance are required.' });
+    }
+    const result = await upsertStudentRecord(
+      req.params.classId,
+      studentId,
+      date,
+      attendance,
+      vocabScore,
+      excuse
+    );
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save record.' });
+  }
+});
+
+router.get('/teacher/class/:classId/planned-attendance', requireRole('teacher'), async (req, res) => {
+  try {
+    const items = await listPlannedAttendance(req.params.classId, req.query.studentId);
+    res.json({ items });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load planned attendance.' });
+  }
+});
+
+router.get('/teacher/class/:classId/planned-attendance/calendar', requireRole('teacher'), async (req, res) => {
+  try {
+    const { studentId, year, month } = req.query;
+    const data = await getPlannedAttendanceCalendar(
+      req.params.classId,
+      studentId,
+      year,
+      month
+    );
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load calendar.' });
+  }
+});
+
+router.post('/teacher/class/:classId/planned-attendance', requireRole('teacher'), async (req, res) => {
+  try {
+    const { studentId, dateStr, type, note } = req.body || {};
+    const result = await createPlannedAttendance(req.params.classId, studentId, dateStr, type, note);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save planned attendance.' });
+  }
+});
+
+router.post('/teacher/class/:classId/planned-attendance/cancel', requireRole('teacher'), async (req, res) => {
+  try {
+    const result = await cancelPlannedAttendance(req.body.noticeId);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not cancel notice.' });
+  }
+});
+
+router.get('/teacher/class/:classId/monthly-report', requireRole('teacher'), async (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear();
+    const month = req.query.month || (new Date().getMonth() + 1);
+    const data = await getMonthlyReport(req.params.classId, year, month);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not build report.' });
   }
 });
 

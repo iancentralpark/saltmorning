@@ -23,7 +23,7 @@ const SHEETS = [
   { name: 'Student_Withdrawn', headers: ['WithdrawalID', 'StudentID', 'Name', 'ClassID', 'LoginID', 'LoginPassword', 'PreviousStatus', 'WithdrawnAt'] },
   { name: 'Student_Leave', headers: ['LeaveID', 'StudentID', 'Name', 'ClassID', 'StartDate', 'EndDate', 'Reason', 'Status', 'CreatedAt', 'EndedAt'] },
   { name: 'Student_Planned_Attendance', headers: ['NoticeID', 'StudentID', 'Name', 'ClassID', 'Date', 'Type', 'Note', 'Status', 'CreatedAt'] },
-  { name: 'Attendance_Data', headers: ['Date', 'ClassID', 'StudentID', 'Attendance', 'VocabScore'] },
+  { name: 'Attendance_Data', headers: ['Date', 'ClassID', 'StudentID', 'Attendance', 'VocabScore', 'Excuse'] },
   { name: 'Classroom_Map', headers: ['ClassID', 'CourseID', 'CourseName'] },
   { name: 'Homework_Log', headers: ['HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt'] },
   { name: 'Homework_Items', headers: ['ItemID', 'HomeworkID', 'SortOrder', 'Title', 'Description', 'TargetStudentIDs'] },

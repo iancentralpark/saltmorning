@@ -51,13 +51,13 @@
       <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
     </div>
 
-    <div id="panelAttendance" class="card">
-      <label>Date <input type="date" id="attDate"></label>
-      <div class="table-wrap" style="margin-top:0.75rem">
-        <table><thead><tr><th>Student</th><th>Status</th><th>Quiz</th></tr></thead><tbody id="attBody"></tbody></table>
+    <div id="panelAttendance" class="card att-panel">
+      <div class="att-toolbar">
+        <label class="att-date-label">Date <input type="date" id="attDate"></label>
+        <button type="button" class="btn btn-primary" id="monthlyReportBtn">Monthly Report</button>
       </div>
-      <button class="btn btn-primary" id="saveAttBtn" type="button" style="margin-top:0.75rem">Save attendance</button>
-      <div class="error" id="attError"></div>
+      <div id="attScheduleAlert" class="att-alert"></div>
+      <div id="attStudentList" class="att-student-list"></div>
     </div>
 
     <div id="panelGrades" class="card hidden">
@@ -103,15 +103,52 @@
     </div>
   </div>
 </div>
+
+<div id="plannedModal" class="modal hidden" role="dialog">
+  <div class="modal-card">
+    <h3>Plan absence — <span id="plannedStudentName"></span></h3>
+    <form id="plannedForm" class="form-grid">
+      <input type="date" id="plannedDate" required>
+      <select id="plannedType">
+        <option value="결석">Absent</option>
+        <option value="지각">Tardy</option>
+      </select>
+      <input id="plannedNote" placeholder="Note (optional)" maxlength="200">
+      <button class="btn btn-primary" type="submit">Save advance notice</button>
+      <div class="error" id="plannedError"></div>
+    </form>
+    <div id="plannedList" style="margin-top:1rem"></div>
+    <button type="button" class="btn btn-ghost" id="plannedModalClose" style="margin-top:0.75rem">Close</button>
+  </div>
+</div>
+
+<div id="monthlyReportModal" class="modal hidden" role="dialog">
+  <div class="modal-card modal-wide">
+    <h3>Monthly Report</h3>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+      <input type="number" id="reportYear" min="2020" max="2100" style="width:5rem">
+      <input type="number" id="reportMonth" min="1" max="12" style="width:4rem">
+      <button type="button" class="btn btn-primary" id="monthlyReportRun">Generate</button>
+      <button type="button" class="btn btn-ghost" id="monthlyReportClose">Close</button>
+    </div>
+    <div id="monthlyReportBody"></div>
+  </div>
+</div>
+
 <script src="/js/app.js"></script>
+<script src="/js/teacher-attendance.js"></script>
 <script>
 (function() {
   const role = 'teacher';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, todayISO, escapeHtml } = SaltApp;
   let currentClass = null;
   let currentPlanId = null;
-  let attOptions = ['출석', '지각', '결석', '조퇴', '휴원'];
   let roster = [];
+
+  SaltAttendance.init({
+    $, show, hide, escapeHtml, todayISO, api,
+    getClass: () => currentClass
+  });
 
   function classCard(c, isHomeroom) {
     const subj = (c.subjects && c.subjects.length) ? c.subjects.join(', ') : (isHomeroom ? 'All subjects' : '');
@@ -166,7 +203,7 @@
     $('lpSubject').value = $('gradeSubject').value;
     $('lpWeek').value = todayISO();
     switchTab('attendance');
-    loadAttendance();
+    SaltAttendance.onClassOpen();
   }
 
   function switchTab(name) {
@@ -176,41 +213,11 @@
     show($(map[name]));
     if (name === 'grades') loadGrades();
     if (name === 'report') loadReport();
+    if (name === 'attendance') SaltAttendance.loadWork();
   }
 
   document.querySelectorAll('#classView .tab').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  async function loadAttendance() {
-    const data = await api('/api/teacher/class/' + currentClass.classId + '/attendance?date=' + $('attDate').value, {}, role);
-    attOptions = data.options || attOptions;
-    $('attBody').innerHTML = (data.students || []).map(s => {
-      const opts = attOptions.map(o => '<option value="' + escapeHtml(o) + '"' + (s.attendance === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>').join('');
-      return '<tr data-sid="' + escapeHtml(s.studentId) + '"><td>' + escapeHtml(s.name) + '</td>' +
-        '<td><select class="att-select">' + opts + '</select></td>' +
-        '<td><input type="number" class="att-quiz" value="' + (s.vocabScore || 0) + '" style="width:70px"></td></tr>';
-    }).join('');
-  }
-
-  $('attDate').addEventListener('change', loadAttendance);
-  $('saveAttBtn').addEventListener('click', async () => {
-    $('attError').textContent = '';
-    const records = [];
-    document.querySelectorAll('#attBody tr').forEach(tr => {
-      records.push({
-        studentId: tr.dataset.sid,
-        attendance: tr.querySelector('.att-select').value,
-        vocabScore: Number(tr.querySelector('.att-quiz').value) || 0
-      });
-    });
-    try {
-      await api('/api/teacher/class/' + currentClass.classId + '/attendance', {
-        method: 'POST', body: { date: $('attDate').value, records }
-      }, role);
-      $('attError').style.color = '#16a34a';
-      $('attError').textContent = 'Saved.';
-    } catch (e) { $('attError').style.color = '#dc2626'; $('attError').textContent = e.message; }
   });
 
   async function loadGrades() {
