@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Admin — Salt Morning Class</title>
+  <link rel="stylesheet" href="/css/app.css?v=20260708libs">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="shell">
+  <div id="loginView" class="card">
+    <h2>Admin login</h2>
+    <form id="loginForm" class="form-grid">
+      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <a href="/">← Back</a>
+    </form>
+  </div>
+
+  <div id="adminView" class="hidden">
+    <div class="topbar">
+      <div class="brand" id="welcomeText">Salt Admin</div>
+      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="monitor" type="button">Monitoring</button>
+      <button class="tab" data-tab="lessons" type="button">Lesson plans</button>
+      <button class="tab" data-tab="teachers" type="button">Teachers</button>
+      <button class="tab" data-tab="classes" type="button">Classes</button>
+      <button class="tab" data-tab="students" type="button">Students</button>
+      <button class="tab" data-tab="timetables" type="button">Timetables</button>
+      <button class="tab" data-tab="terms" type="button">Term dates</button>
+    </div>
+
+    <div id="panelMonitor" class="card">
+      <div class="admin-toolbar">
+        <select id="monitorClass"><option value="">All classes</option></select>
+        <select id="monitorType">
+          <option value="">All activity</option>
+          <option value="attendance">Attendance</option>
+          <option value="grade">Grades</option>
+          <option value="lesson_plan">Lesson plans</option>
+          <option value="planned_absence">Planned absences</option>
+          <option value="message">Messages</option>
+        </select>
+        <button type="button" class="btn btn-primary" id="monitorRefresh">Refresh</button>
+      </div>
+      <div id="monitorFeed" class="table-wrap"></div>
+    </div>
+
+    <div id="panelLessons" class="card hidden lp-cal-panel">
+      <div class="admin-toolbar">
+        <select id="lpAdminTeacher"><option value="">All teachers</option></select>
+        <select id="lpAdminClass"><option value="">All classes</option></select>
+      </div>
+      <div class="lp-cal-toolbar">
+        <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
+        <strong class="lp-month-label"></strong>
+        <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
+        <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
+      </div>
+      <div id="lpAdminLayout" class="lp-cal-layout">
+        <div class="lp-cal-main">
+          <div id="lpAdminCalendar"><p class="muted">Loading…</p></div>
+        </div>
+        <aside id="lpAdminDrawer" class="lp-drawer hidden">
+          <div class="lp-drawer-head">
+            <div>
+              <div class="lp-drawer-date" id="lpAdminDrawerDate"></div>
+              <div class="lp-drawer-meta" id="lpAdminDrawerMeta"></div>
+            </div>
+            <button type="button" class="btn btn-ghost" id="lpAdminDrawerClose" aria-label="Close">✕</button>
+          </div>
+          <div id="lpAdminDrawerBody"></div>
+        </aside>
+      </div>
+    </div>
+
+    <div id="panelTeachers" class="card hidden">
+      <h3>Teachers</h3>
+      <div id="teacherList" class="table-wrap" style="margin-bottom:1rem"></div>
+      <h3>Add / edit teacher</h3>
+      <form id="teacherForm" class="form-grid admin-form-grid">
+        <input type="hidden" id="teacherId">
+        <input id="teacherName" placeholder="Full name" required>
+        <input id="teacherLoginId" placeholder="Login ID" required>
+        <input id="teacherPassword" type="password" placeholder="Password (required for new)">
+        <input id="teacherHomeroom" placeholder="Homeroom class ID (e.g. C001)">
+        <select id="teacherRole">
+          <option value="Teacher">Teacher</option>
+          <option value="Director">Director</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Save teacher</button>
+        <div class="error" id="teacherError"></div>
+      </form>
+
+      <h3 style="margin-top:1.5rem">Class &amp; subject assignments</h3>
+      <p class="muted small">Admin 배정은 Class_Teachers에 저장됩니다. 선생님이 직접 추가한 과목은 Teacher_Class_Subjects입니다.</p>
+      <div id="assignmentList" class="table-wrap" style="margin-bottom:1rem"></div>
+      <h3>Add assignment</h3>
+      <form id="assignmentForm" class="form-grid admin-form-grid">
+        <select id="assignTeacher" required></select>
+        <select id="assignClass" required></select>
+        <select id="assignType">
+          <option value="Subject">Subject teacher</option>
+          <option value="Homeroom">Homeroom (sheet row)</option>
+        </select>
+        <input id="assignSubject" placeholder="Subject (e.g. Math)" list="assignSubjectList">
+        <datalist id="assignSubjectList"></datalist>
+        <button type="submit" class="btn btn-primary">Add assignment</button>
+        <div class="error" id="assignmentError"></div>
+      </form>
+    </div>
+
+    <div id="panelClasses" class="card hidden">
+      <h3>Classes</h3>
+      <p class="muted small">Create classes and import students from the registry one at a time. Timetables for students and teachers will be added later.</p>
+      <div id="classRegistryMount"></div>
+    </div>
+
+    <div id="panelTerms" class="card hidden">
+      <h3>Term dates by class</h3>
+      <p class="muted small">Teachers use the active term automatically. Set date ranges here.</p>
+      <div id="termList" class="table-wrap" style="margin-bottom:1rem"></div>
+      <h3>Add / update term</h3>
+      <form id="termForm" class="form-grid admin-form-grid">
+        <select id="termClassId" required></select>
+        <input id="termLabel" placeholder="Term label (e.g. Term1)" required>
+        <label>Start <input type="date" id="termStart" required></label>
+        <label>End <input type="date" id="termEnd" required></label>
+        <button type="submit" class="btn btn-primary">Save term</button>
+        <div class="error" id="termError"></div>
+      </form>
+    </div>
+
+    <div id="panelStudents" class="card hidden">
+      <h3>Student registry</h3>
+      <p class="muted small">Master student list for photos, school records, and future class enrollment. Class assignment is optional until you import students into a class.</p>
+      <div id="studentRegistryMount"></div>
+    </div>
+
+    <div id="panelTimetables" class="card hidden">
+      <h3>Timetables</h3>
+      <p class="muted small">Configure bell schedule (periods, recess, lunch), set subject hours per week, then auto-generate with OR-Tools.</p>
+      <div id="timetableSetupMount"></div>
+      <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border-soft)">
+      <h4>Manual view / edit</h4>
+      <div id="timetableMount"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/teacher-lesson.js?v=20260708libs"></script>
+<script src="/js/messenger.js?v=20260708libs"></script>
+<script src="/js/student-registry.js?v=20260709registry"></script>
+<script src="/js/class-registry.js?v=20260709classes"></script>
+<script src="/js/timetable.js?v=20260709tt"></script>
+<script src="/js/timetable-setup.js?v=20260709ttsetup"></script>
+<script>
+(function() {
+  const role = 'admin';
+  const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+  let classes = [];
+  let teachers = [];
+
+  SaltTimetable.init({ api, escapeHtml, role });
+
+  SaltLesson.init({
+    $, show, hide, escapeHtml, api, role: 'admin',
+    getClass: () => null
+  });
+
+  $('lpAdminTeacher').addEventListener('change', () => SaltLesson.loadAdminCalendar());
+  $('lpAdminClass').addEventListener('change', () => SaltLesson.loadAdminCalendar());
+
+  function syncClassDropdowns() {
+    const opts = '<option value="">All classes</option>' +
+      classes.map(c => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
+    $('monitorClass').innerHTML = opts;
+    $('lpAdminClass').innerHTML = opts;
+    $('termClassId').innerHTML = classes.map(c =>
+      '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + ' (' + escapeHtml(c.classId) + ')</option>'
+    ).join('');
+    if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.setClasses) {
+      SaltStudentRegistry.setClasses(classes);
+    }
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms'].forEach(id => hide($(id)));
+    const map = {
+      monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
+      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables', terms: 'panelTerms'
+    };
+    show($(map[name]));
+    if (name === 'monitor') loadMonitor();
+    if (name === 'lessons') SaltLesson.onAdminOpen();
+    if (name === 'teachers') { loadTeachers(); loadAssignments(); }
+    if (name === 'classes') SaltClassRegistry.open();
+    if (name === 'students') SaltStudentRegistry.open();
+    if (name === 'timetables') loadTimetables();
+    if (name === 'terms') loadTerms();
+  }
+
+  async function loadTimetables() {
+    const [sData, tData] = await Promise.all([
+      api('/api/admin/students', {}, role),
+      api('/api/admin/teachers', {}, role)
+    ]);
+    teachers = tData.teachers || [];
+    await SaltTimetableSetup.open($('timetableSetupMount'), {
+      api, escapeHtml, classes, teachers
+    });
+    await SaltTimetable.openAdmin($('timetableMount'), {
+      students: sData.students || [],
+      teachers: teachers
+    });
+  }
+
+  document.querySelectorAll('#adminView .tab').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  async function loadClasses() {
+    const data = await api('/api/admin/classes', {}, role);
+    classes = data.classes || [];
+    syncClassDropdowns();
+    const tData = await api('/api/admin/teachers', {}, role);
+    teachers = tData.teachers || [];
+    $('lpAdminTeacher').innerHTML = '<option value="">All teachers</option>' +
+      teachers.map(t => '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>').join('');
+    $('assignTeacher').innerHTML = teachers.map(t =>
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+    ).join('');
+    $('assignClass').innerHTML = classes.map(c =>
+      '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>'
+    ).join('');
+  }
+
+  async function loadAssignments() {
+    const data = await api('/api/admin/class-assignments', {}, role);
+    const assignments = data.assignments || [];
+    $('assignSubjectList').innerHTML =
+      ['English', 'Math', 'Science', 'Reading', 'Writing', 'Grammar'].map((s) =>
+        '<option value="' + escapeHtml(s) + '">'
+      ).join('');
+
+    if (!assignments.length) {
+      $('assignmentList').innerHTML = '<p class="muted">No assignments yet.</p>';
+      return;
+    }
+    let html = '<table class="grades-table"><thead><tr><th>Teacher</th><th>Class</th><th>Type</th><th>Subject</th><th>Source</th><th></th></tr></thead><tbody>';
+    assignments.forEach((a) => {
+      html += '<tr><td>' + escapeHtml(a.teacherName) + '</td><td>' + escapeHtml(a.className) + '</td>' +
+        '<td>' + escapeHtml(a.assignmentType) + '</td><td>' + escapeHtml(a.subject) + '</td>' +
+        '<td>' + escapeHtml(a.source) + '</td>' +
+        '<td><button type="button" class="btn btn-ghost" data-assign-source="' + escapeHtml(a.source) + '" data-assign-row="' + a.rowIndex + '">Remove</button></td></tr>';
+    });
+    html += '</tbody></table>';
+    $('assignmentList').innerHTML = html;
+    document.querySelectorAll('[data-assign-row]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Remove this assignment?')) return;
+        $('assignmentError').textContent = '';
+        try {
+          await api('/api/admin/class-assignments', {
+            method: 'DELETE',
+            body: { source: btn.dataset.assignSource, rowIndex: Number(btn.dataset.assignRow) }
+          }, role);
+          loadAssignments();
+        } catch (err) {
+          $('assignmentError').textContent = err.message;
+        }
+      });
+    });
+  }
+
+  $('assignmentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('assignmentError').textContent = '';
+    try {
+      await api('/api/admin/class-assignments', {
+        method: 'POST',
+        body: {
+          teacherId: $('assignTeacher').value,
+          classId: $('assignClass').value,
+          assignmentType: $('assignType').value,
+          subject: $('assignSubject').value
+        }
+      }, role);
+      $('assignmentError').style.color = '#16a34a';
+      $('assignmentError').textContent = 'Assignment added.';
+      $('assignSubject').value = '';
+      loadAssignments();
+    } catch (err) {
+      $('assignmentError').style.color = '#dc2626';
+      $('assignmentError').textContent = err.message;
+    }
+  });
+
+  const typeLabels = {
+    attendance: 'Attendance',
+    grade: 'Grade',
+    lesson_plan: 'Lesson plan',
+    planned_absence: 'Planned absence',
+    message: 'Message'
+  };
+
+  async function loadMonitor() {
+    $('monitorFeed').innerHTML = '<p class="muted">Loading…</p>';
+    const q = '?limit=100' +
+      ($('monitorClass').value ? '&classId=' + encodeURIComponent($('monitorClass').value) : '') +
+      ($('monitorType').value ? '&type=' + encodeURIComponent($('monitorType').value) : '');
+    const data = await api('/api/admin/monitoring' + q, {}, role);
+    const feed = data.feed || [];
+    if (!feed.length) {
+      $('monitorFeed').innerHTML = '<p class="muted">No activity yet.</p>';
+      return;
+    }
+    let html = '<table class="grades-table admin-feed"><thead><tr><th>When</th><th>Type</th><th>Class</th><th>Who</th><th>Detail</th></tr></thead><tbody>';
+    feed.forEach(it => {
+      const who = it.studentName || it.teacherName || it.studentId || it.teacherId || '—';
+      html += '<tr><td>' + escapeHtml(String(it.at).slice(0, 16)) + '</td>' +
+        '<td>' + escapeHtml(typeLabels[it.type] || it.type) + '</td>' +
+        '<td>' + escapeHtml(it.className || it.classId || '—') + '</td>' +
+        '<td>' + escapeHtml(who) + '</td>' +
+        '<td>' + escapeHtml(it.summary || '') + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    $('monitorFeed').innerHTML = html;
+  }
+
+  $('monitorRefresh').addEventListener('click', loadMonitor);
+  $('monitorClass').addEventListener('change', loadMonitor);
+  $('monitorType').addEventListener('change', loadMonitor);
+
+  async function loadTeachers() {
+    const data = await api('/api/admin/teachers', {}, role);
+    const teachers = data.teachers || [];
+    let html = '<table class="grades-table"><thead><tr><th>Name</th><th>Login</th><th>Homeroom</th><th>Role</th><th></th></tr></thead><tbody>';
+    teachers.forEach(t => {
+      html += '<tr><td>' + escapeHtml(t.name) + '</td><td>' + escapeHtml(t.loginId) + '</td>' +
+        '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td><td>' + escapeHtml(t.staffRole) + '</td>' +
+        '<td><button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button></td></tr>';
+    });
+    html += '</tbody></table>';
+    $('teacherList').innerHTML = html || '<p class="muted">No teachers.</p>';
+    $('assignTeacher').innerHTML = teachers.map(t =>
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+    ).join('');
+    document.querySelectorAll('[data-edit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = teachers.find(x => x.teacherId === btn.dataset.edit);
+        if (!t) return;
+        $('teacherId').value = t.teacherId;
+        $('teacherName').value = t.name;
+        $('teacherLoginId').value = t.loginId;
+        $('teacherPassword').value = '';
+        $('teacherHomeroom').value = t.homeroomClassId || '';
+        $('teacherRole').value = t.staffRole || 'Teacher';
+      });
+    });
+  }
+
+  $('teacherForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('teacherError').textContent = '';
+    try {
+      await api('/api/admin/teachers', {
+        method: 'POST',
+        body: {
+          teacherId: $('teacherId').value,
+          name: $('teacherName').value,
+          loginId: $('teacherLoginId').value,
+          password: $('teacherPassword').value,
+          homeroomClassId: $('teacherHomeroom').value,
+          staffRole: $('teacherRole').value
+        }
+      }, role);
+      $('teacherId').value = '';
+      $('teacherForm').reset();
+      $('teacherError').style.color = '#16a34a';
+      $('teacherError').textContent = 'Saved.';
+      loadTeachers();
+    } catch (err) {
+      $('teacherError').style.color = '#dc2626';
+      $('teacherError').textContent = err.message;
+    }
+  });
+
+  async function loadTerms() {
+    const data = await api('/api/admin/terms', {}, role);
+    const terms = data.terms || [];
+    let html = '<table class="grades-table"><thead><tr><th>Class</th><th>Term</th><th>Start</th><th>End</th></tr></thead><tbody>';
+    terms.forEach(t => {
+      const cls = classes.find(c => c.classId === t.classId);
+      html += '<tr><td>' + escapeHtml(cls ? cls.name : t.classId) + '</td><td>' + escapeHtml(t.label) + '</td>' +
+        '<td>' + escapeHtml(t.startDate) + '</td><td>' + escapeHtml(t.endDate) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    $('termList').innerHTML = html || '<p class="muted">No terms configured.</p>';
+  }
+
+  $('termForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('termError').textContent = '';
+    try {
+      await api('/api/admin/terms', {
+        method: 'POST',
+        body: {
+          classId: $('termClassId').value,
+          label: $('termLabel').value,
+          startDate: $('termStart').value,
+          endDate: $('termEnd').value
+        }
+      }, role);
+      $('termError').style.color = '#16a34a';
+      $('termError').textContent = 'Term saved.';
+      loadTerms();
+    } catch (err) {
+      $('termError').style.color = '#dc2626';
+      $('termError').textContent = err.message;
+    }
+  });
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginError').textContent = '';
+    try {
+      const data = await api('/api/auth/admin/login', {
+        method: 'POST',
+        body: { loginId: $('loginId').value, password: $('password').value }
+      });
+      setToken(role, data.token);
+      setProfile(role, data.profile);
+      bootApp();
+    } catch (err) { $('loginError').textContent = err.message; }
+  });
+
+  $('logoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
+  });
+
+  async function bootApp() {
+    const p = getProfile(role);
+    if (!p) return;
+    hide($('loginView')); show($('adminView'));
+    $('welcomeText').textContent = 'Hi, ' + p.name;
+    await loadClasses();
+    SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
+    SaltClassRegistry.init({
+      api, escapeHtml, mount: 'classRegistryMount',
+      onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
+    });
+    switchTab('monitor');
+    SaltMessenger.init(role);
+  }
+
+  if (getToken(role)) bootApp();
+})();
+</script>
+</body>
+</html>

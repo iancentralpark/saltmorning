@@ -1,7 +1,8 @@
 const {
   STUDENT_LIST_SHEET,
   PARENT_LIST_SHEET,
-  TEACHER_LIST_SHEET
+  TEACHER_LIST_SHEET,
+  ADMIN_LIST_SHEET
 } = require('../config');
 const { getSheetRows } = require('../sheets');
 const { signToken } = require('../auth/tokenAuth');
@@ -105,4 +106,31 @@ async function loginTeacher(loginId, password) {
   throw new Error('Login ID or password is incorrect.');
 }
 
-module.exports = { loginStudent, loginParent, loginTeacher };
+async function loginAdmin(loginId, password) {
+  loginId = String(loginId || '').trim();
+  password = String(password || '').trim();
+  if (!loginId || !password) throw new Error('Enter login ID and password.');
+
+  const { ensureAdminSheet } = require('./adminService');
+  await ensureAdminSheet();
+  const rows = await getSheetRows(ADMIN_LIST_SHEET);
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2] || '').trim() !== loginId) continue;
+    if (String(rows[i][3] || '').trim() !== password) continue;
+    const profile = {
+      adminId: String(rows[i][0]),
+      name: String(rows[i][1] || 'Admin')
+    };
+    return {
+      token: signToken({
+        role: 'admin',
+        adminId: profile.adminId,
+        name: profile.name
+      }),
+      profile
+    };
+  }
+  throw new Error('Login ID or password is incorrect.');
+}
+
+module.exports = { loginStudent, loginParent, loginTeacher, loginAdmin };

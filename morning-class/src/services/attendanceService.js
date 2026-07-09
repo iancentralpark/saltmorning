@@ -11,10 +11,8 @@ const { getPlannedByClassAndDate } = require('./plannedAttendanceService');
 
 const VALID_STATUS = ['출석', '지각', '결석'];
 
-function normalizeVocabScore(val) {
-  if (val === '' || val == null) return 0;
-  const n = Number(val);
-  return Number.isFinite(n) ? n : 0;
+function normalizeNote(val) {
+  return String(val == null ? '' : val).trim();
 }
 
 function countsAsPresent(attendance, excuse) {
@@ -26,20 +24,25 @@ function countsAsPresent(attendance, excuse) {
 function parseAttendanceRow(row) {
   return {
     attendance: String(row[3] || ''),
-    vocabScore: normalizeVocabScore(row[4]),
+    note: normalizeNote(row[4]),
     excuse: String(row[5] || '').trim()
   };
 }
 
-async function ensureExcuseColumn() {
+async function ensureAttendanceColumns() {
   const data = await getSheetRows(ATTENDANCE_SHEET);
   if (!data.length) {
-    await appendRows(ATTENDANCE_SHEET, [['Date', 'ClassID', 'StudentID', 'Attendance', 'VocabScore', 'Excuse']]);
+    await appendRows(ATTENDANCE_SHEET, [['Date', 'ClassID', 'StudentID', 'Attendance', 'Note', 'Excuse']]);
     return;
   }
   const header = (data[0] || []).map((c) => String(c || '').trim());
-  if (header[5] === 'Excuse') return;
-  if (header[0] === 'Date') {
+  if (header[0] !== 'Date') return;
+  if (header[4] === 'VocabScore') {
+    await updateRange(ATTENDANCE_SHEET, 'E1', [['Note']]);
+  } else if (!header[4]) {
+    await updateRange(ATTENDANCE_SHEET, 'E1', [['Note']]);
+  }
+  if (header[5] !== 'Excuse') {
     await updateRange(ATTENDANCE_SHEET, 'F1', [['Excuse']]);
   }
 }
@@ -69,7 +72,7 @@ async function getClassScheduleInfo(classId, dateStr) {
 }
 
 async function getClassWorkData(classId, dateStr) {
-  await ensureExcuseColumn();
+  await ensureAttendanceColumns();
   classId = String(classId);
   dateStr = dateStr || todayStr();
 
@@ -101,13 +104,11 @@ async function getClassWorkData(classId, dateStr) {
     let excuse = rec.excuse || '';
     if (!rec.attendance && planned) {
       attendance = planned.type;
-      excuse = planned.note || '';
     }
     return {
       studentId: s.studentId,
       name: s.name,
       attendance,
-      vocabScore: rec.vocabScore || 0,
       excuse,
       plannedNotice: planned || null,
       countsAsPresent: countsAsPresent(attendance, excuse)
@@ -122,19 +123,18 @@ async function getClassWorkData(classId, dateStr) {
   };
 }
 
-async function upsertStudentRecord(classId, studentId, dateStr, attendance, vocabScore, excuse) {
-  await ensureExcuseColumn();
+async function upsertStudentRecord(classId, studentId, dateStr, attendance, note, excuse) {
+  await ensureAttendanceColumns();
   classId = String(classId);
   studentId = String(studentId);
   dateStr = String(dateStr);
   attendance = String(attendance || '').trim();
+  note = normalizeNote(note);
   excuse = String(excuse || '').trim();
 
   if (!VALID_STATUS.includes(attendance)) {
     throw new Error('Invalid attendance status.');
   }
-
-  const vocab = normalizeVocabScore(vocabScore);
   const data = await getSheetRows(ATTENDANCE_SHEET);
   let foundRow = -1;
   for (let i = 1; i < data.length; i++) {
@@ -145,18 +145,18 @@ async function upsertStudentRecord(classId, studentId, dateStr, attendance, voca
     break;
   }
 
-  const values = [[attendance, vocab, excuse]];
+  const values = [[attendance, note, excuse]];
   if (foundRow !== -1) {
     await updateRange(ATTENDANCE_SHEET, `D${foundRow}:F${foundRow}`, values);
   } else {
-    await appendRows(ATTENDANCE_SHEET, [[dateStr, classId, studentId, attendance, vocab, excuse]]);
+    await appendRows(ATTENDANCE_SHEET, [[dateStr, classId, studentId, attendance, note, excuse]]);
   }
 
   return {
     saved: true,
     studentId,
     attendance,
-    vocabScore: vocab,
+    note,
     excuse,
     countsAsPresent: countsAsPresent(attendance, excuse)
   };
@@ -173,7 +173,6 @@ async function getAttendanceForDate(classId, dateStr) {
       studentId: s.studentId,
       name: s.name,
       attendance: s.attendance,
-      vocabScore: s.vocabScore,
       excuse: s.excuse
     }))
   };
@@ -186,7 +185,7 @@ async function saveAttendance(classId, dateStr, records) {
       rec.studentId,
       dateStr,
       rec.attendance,
-      rec.vocabScore,
+      rec.note,
       rec.excuse
     );
   }
@@ -197,7 +196,7 @@ module.exports = {
   VALID_STATUS,
   countsAsPresent,
   parseAttendanceRow,
-  ensureExcuseColumn,
+  ensureAttendanceColumns,
   getClassWorkData,
   upsertStudentRecord,
   getAttendanceForDate,

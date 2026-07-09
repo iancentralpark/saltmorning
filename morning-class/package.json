@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "solver": "python3 solver/main.py",
+    "solver:install": "pip3 install -r solver/requirements.txt",
     "init-sheets": "node scripts/init-spreadsheet.js",
     "check-setup": "node scripts/check-setup.js"
   },
@@ -17,6 +19,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "googleapis": "^144.0.0"
+    "googleapis": "^144.0.0",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.8.1"
   }
 }

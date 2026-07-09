@@ -33,6 +33,23 @@ function parsePlannedRow(row) {
   };
 }
 
+function datesInRange(startStr, endStr) {
+  startStr = normalizeDateStr(startStr);
+  endStr = normalizeDateStr(endStr);
+  if (endStr < startStr) throw new Error('End date must be on or after start date.');
+  const dates = [];
+  const cursor = new Date(startStr + 'T12:00:00');
+  const end = new Date(endStr + 'T12:00:00');
+  while (cursor <= end) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, '0');
+    const d = String(cursor.getDate()).padStart(2, '0');
+    dates.push(y + '-' + m + '-' + d);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
 async function getClassAllowedDays(classId) {
   const data = await getSheetRows(CLASS_LIST_SHEET);
   for (let i = 1; i < data.length; i++) {
@@ -71,6 +88,23 @@ async function getPlannedByClassAndDate(classId, dateStr) {
   return map;
 }
 
+async function getPlannedForClassMonth(classId, year, month) {
+  classId = String(classId);
+  const monthPrefix = year + '-' + String(month).padStart(2, '0');
+  const data = await getSheetRows(STUDENT_PLANNED_ATTENDANCE_SHEET);
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) !== classId) continue;
+    if (String(data[i][7]) !== STATUS_ACTIVE) continue;
+    const dateStr = formatSheetDate(data[i][4]);
+    if (!dateStr.startsWith(monthPrefix)) continue;
+    const item = parsePlannedRow(data[i]);
+    if (!map[dateStr]) map[dateStr] = {};
+    map[dateStr][item.studentId] = { type: item.type, note: item.note };
+  }
+  return map;
+}
+
 async function listPlannedAttendance(classId, studentId) {
   classId = String(classId || '');
   studentId = String(studentId || '');
@@ -85,7 +119,7 @@ async function listPlannedAttendance(classId, studentId) {
     if (item.dateStr < today) continue;
     items.push(item);
   }
-  items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  items.sort((a, b) => a.dateStr.localeCompare(b.dateStr) || a.noticeId.localeCompare(b.noticeId));
   return items;
 }
 
@@ -129,10 +163,47 @@ async function assertClassDay(classId, dateStr) {
   }
 }
 
-async function createPlannedAttendance(classId, studentId, dateStr, type, note) {
+async function resolveStudent(classId, studentId) {
+  const listData = await getSheetRows(STUDENT_LIST_SHEET, { skipCache: true });
+  for (let i = 1; i < listData.length; i++) {
+    if (String(listData[i][0]) !== studentId || String(listData[i][2]) !== classId) continue;
+    if (String(listData[i][3] || '').trim() !== 'Enrolled') {
+      throw new Error('Only enrolled students can receive advance notice.');
+    }
+    return String(listData[i][1] || '');
+  }
+  throw new Error('Student not found in this class.');
+}
+
+async function hasActivePlanned(classId, studentId, dateStr) {
+  const data = await getSheetRows(STUDENT_PLANNED_ATTENDANCE_SHEET, { skipCache: true });
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== studentId || String(data[i][3]) !== classId) continue;
+    if (String(data[i][7]) !== STATUS_ACTIVE) continue;
+    if (formatSheetDate(data[i][4]) === dateStr) return true;
+  }
+  return false;
+}
+
+async function createPlannedAttendanceOne(classId, studentId, name, dateStr, type, note) {
+  const noticeId = 'PN_' + classId + '_' + studentId + '_' + dateStr.replace(/-/g, '') + '_' + Date.now();
+  await appendRows(STUDENT_PLANNED_ATTENDANCE_SHEET, [[
+    noticeId, studentId, name, classId, dateStr, type, note, STATUS_ACTIVE, formatDateTimeNow(TIMEZONE)
+  ]]);
+
+  if (dateStr <= todayStr()) {
+    const { upsertStudentRecord } = require('./attendanceService');
+    await upsertStudentRecord(classId, studentId, dateStr, type, '', '');
+  }
+
+  return { noticeId, dateStr };
+}
+
+async function createPlannedAttendance(classId, studentId, startDateStr, endDateStr, type, note) {
   classId = String(classId).trim();
   studentId = String(studentId).trim();
-  dateStr = normalizeDateStr(dateStr);
+  startDateStr = normalizeDateStr(startDateStr);
+  endDateStr = normalizeDateStr(endDateStr || startDateStr);
   type = String(type || '').trim();
   note = String(note || '').trim();
   if (!classId || !studentId) throw new Error('classId and studentId are required.');
@@ -140,50 +211,52 @@ async function createPlannedAttendance(classId, studentId, dateStr, type, note) 
     throw new Error('Type must be Absent or Tardy.');
   }
 
-  const listData = await getSheetRows(STUDENT_LIST_SHEET, { skipCache: true });
-  let name = '';
-  let found = false;
-  for (let i = 1; i < listData.length; i++) {
-    if (String(listData[i][0]) !== studentId || String(listData[i][2]) !== classId) continue;
-    if (String(listData[i][3] || '').trim() !== 'Enrolled') {
-      throw new Error('Only enrolled students can receive advance notice.');
+  const name = await resolveStudent(classId, studentId);
+  const allowedDays = await getClassAllowedDays(classId);
+  const allDates = datesInRange(startDateStr, endDateStr);
+  const holidaysByMonth = {};
+
+  const created = [];
+  const skipped = [];
+
+  for (const dateStr of allDates) {
+    const ym = dateStr.split('-');
+    const y = Number(ym[0]);
+    const m = Number(ym[1]);
+    const monthKey = y + '-' + m;
+    if (!holidaysByMonth[monthKey]) {
+      holidaysByMonth[monthKey] = await getHolidaysForMonth(y, m);
     }
-    name = String(listData[i][1] || '');
-    found = true;
-    break;
-  }
-  if (!found) throw new Error('Student not found in this class.');
-
-  await assertClassDay(classId, dateStr);
-
-  const data = await getSheetRows(STUDENT_PLANNED_ATTENDANCE_SHEET, { skipCache: true });
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]) !== studentId || String(data[i][3]) !== classId) continue;
-    if (String(data[i][7]) !== STATUS_ACTIVE) continue;
-    if (formatSheetDate(data[i][4]) === dateStr) {
-      throw new Error('Advance notice already exists for this date.');
+    const holiday = holidaysByMonth[monthKey][dateStr] || '';
+    if (!isClassDay(dateStr, allowedDays, holiday)) {
+      skipped.push({ dateStr, reason: holiday ? 'holiday' : 'not a class day' });
+      continue;
     }
+    if (await hasActivePlanned(classId, studentId, dateStr)) {
+      skipped.push({ dateStr, reason: 'already planned' });
+      continue;
+    }
+    const row = await createPlannedAttendanceOne(classId, studentId, name, dateStr, type, note);
+    created.push(row);
   }
 
-  const noticeId = 'PN_' + classId + '_' + studentId + '_' + Date.now();
-  await appendRows(STUDENT_PLANNED_ATTENDANCE_SHEET, [[
-    noticeId, studentId, name, classId, dateStr, type, note, STATUS_ACTIVE, formatDateTimeNow(TIMEZONE)
-  ]]);
-
-  if (dateStr <= todayStr()) {
-    const { upsertStudentRecord } = require('./attendanceService');
-    await upsertStudentRecord(classId, studentId, dateStr, type, 0, note);
+  if (!created.length) {
+    throw new Error('No class days in this range could be planned. Check dates and existing notices.');
   }
+
+  const rangeLabel = created.length === 1
+    ? created[0].dateStr
+    : created[0].dateStr + ' → ' + created[created.length - 1].dateStr;
 
   return {
-    noticeId,
+    created,
+    skipped,
     studentId,
     name,
     classId,
-    dateStr,
     type,
     note,
-    message: name + ': advance ' + (type === TYPE_TARDY ? 'tardy' : 'absent') + ' saved for ' + dateStr + '.'
+    message: name + ': ' + (type === TYPE_TARDY ? 'tardy' : 'absent') + ' planned for ' + created.length + ' class day(s) (' + rangeLabel + ').'
   };
 }
 
@@ -206,6 +279,7 @@ module.exports = {
   TYPE_ABSENT,
   TYPE_TARDY,
   getPlannedByClassAndDate,
+  getPlannedForClassMonth,
   listPlannedAttendance,
   getPlannedAttendanceCalendar,
   createPlannedAttendance,

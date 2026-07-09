@@ -2,11 +2,16 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const { bootstrapCredentials } = require('./bootstrapCredentials');
 bootstrapCredentials();
 
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { PORT } = require('./config');
 const apiRoutes = require('./routes');
+const { initRealtime } = require('./realtime');
+const { ensureBellScheduleSheet } = require('./services/bellScheduleService');
+const { ensureRequirementsSheet } = require('./services/timetableRequirementsService');
+const { ensureTimetableSheet } = require('./services/timetableService');
 
 const app = express();
 app.use(cors());
@@ -27,12 +32,24 @@ app.get('/teacher', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'teacher.html'));
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+initRealtime(server);
+
+server.listen(PORT, () => {
   console.log('Salt Morning Class listening on http://localhost:' + PORT);
+  Promise.all([
+    ensureTimetableSheet(),
+    ensureBellScheduleSheet(),
+    ensureRequirementsSheet()
+  ]).catch((e) => console.warn('Timetable sheet init:', e.message));
 });
 
 module.exports = app;

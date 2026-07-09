@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/app.css?v=20260708ag2">
+  <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
 <div class="shell">
@@ -29,12 +32,36 @@
       <div class="class-list" id="homeroomList"></div>
       <div class="section-title">Assigned classes</div>
       <div class="class-list" id="assignedList"></div>
+      <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.5rem">
+        <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
+        <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
+      </div>
+      <p class="muted small" style="margin-top:0.35rem">View student records and your weekly teaching schedule.</p>
+    </div>
+  </div>
+
+  <div id="studentsView" class="hidden">
+    <div class="topbar">
+      <div>
+        <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Classes</button>
+        <div class="brand">Student directory</div>
+      </div>
+      <button class="btn btn-ghost" id="studentsLogoutBtn" type="button">Log out</button>
     </div>
     <div class="card">
-      <div class="section-title">Lesson plans</div>
-      <button class="btn btn-primary" id="newPlanBtn" type="button">New lesson plan</button>
-      <div id="planList" style="margin-top:0.75rem"></div>
+      <div id="teacherStudentRegistryMount"></div>
     </div>
+  </div>
+
+  <div id="timetableView" class="hidden">
+    <div class="topbar">
+      <div>
+        <button class="btn btn-ghost" id="timetableBackBtn" type="button">← Classes</button>
+        <div class="brand">My timetable</div>
+      </div>
+      <button class="btn btn-ghost" id="timetableLogoutBtn" type="button">Log out</button>
+    </div>
+    <div class="card" id="teacherTimetableMount"></div>
   </div>
 
   <div id="classView" class="hidden">
@@ -46,7 +73,7 @@
     </div>
     <div class="tabs">
       <button class="tab active" data-tab="attendance" type="button">Attendance</button>
-      <button class="tab" data-tab="grades" type="button">Daily grades</button>
+      <button class="tab" data-tab="grades" type="button">Grades</button>
       <button class="tab" data-tab="report" type="button">Report card</button>
       <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
     </div>
@@ -60,17 +87,19 @@
       <div id="attStudentList" class="att-student-list"></div>
     </div>
 
-    <div id="panelGrades" class="card hidden">
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-        <input type="date" id="gradeDate">
-        <input id="gradeSubject" placeholder="Subject (e.g. English)">
-        <button class="btn btn-primary" id="loadGradesBtn" type="button">Load</button>
+    <div id="panelGrades" class="card hidden grades-panel">
+      <div class="grades-toolbar-minimal">
+        <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
+        <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
+        <span id="gradeContextLabel" class="muted small"></span>
       </div>
-      <div class="table-wrap">
-        <table><thead><tr><th>Student</th><th>Score</th><th>Max</th><th>Note</th></tr></thead><tbody id="gradeBody"></tbody></table>
+      <input type="hidden" id="gradeTerm">
+      <input type="hidden" id="gradeSubject">
+      <div id="gradeWeightSummary" class="grade-weight-summary"></div>
+      <div id="gradebookWrap" class="gb-wrap">
+        <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
       </div>
-      <button class="btn btn-primary" id="saveGradesBtn" type="button" style="margin-top:0.75rem">Save grades</button>
-      <div class="error" id="gradeError"></div>
+      <div class="error" id="gradesError"></div>
     </div>
 
     <div id="panelReport" class="card hidden">
@@ -83,24 +112,96 @@
       <div class="error" id="reportError"></div>
     </div>
 
-    <div id="panelLesson" class="card hidden">
-      <form id="lessonForm" class="form-grid">
-        <input id="lpSubject" placeholder="Subject">
-        <input type="date" id="lpWeek">
-        <input id="lpTitle" placeholder="Lesson title">
-        <textarea id="lpObjectives" placeholder="Objectives"></textarea>
-        <textarea id="lpMaterials" placeholder="Materials"></textarea>
-        <textarea id="lpProcedure" placeholder="Procedure (lesson flow)"></textarea>
-        <textarea id="lpHomework" placeholder="Homework"></textarea>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-          <button class="btn btn-ghost" type="button" id="saveDraftBtn">Save draft</button>
-          <button class="btn btn-primary" type="button" id="submitPlanBtn">Submit to admin</button>
-          <button class="btn btn-ghost" type="button" id="viewPlanBtn">Preview</button>
+    <div id="panelLesson" class="card hidden lp-cal-panel">
+      <div id="lpGradeWeights" class="lp-weights-box"></div>
+      <div id="lpSubjectsClass" class="lp-subjects-panel"></div>
+      <div class="lp-cal-toolbar">
+        <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
+        <strong class="lp-month-label"></strong>
+        <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
+        <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
+      </div>
+      <div id="lpCalLayout" class="lp-cal-layout">
+        <div class="lp-cal-main">
+          <div id="lpCalendarMount"><p class="muted">Loading calendar…</p></div>
         </div>
-        <div class="error" id="lessonError"></div>
-      </form>
-      <div id="lessonPreview" class="lp-view hidden"></div>
+      </div>
     </div>
+  </div>
+</div>
+
+<div id="lpDrawerBackdrop" class="lp-lesson-backdrop hidden" aria-hidden="true"></div>
+<aside id="lpLessonDrawer" class="lp-lesson-drawer" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="lp-drawer-head">
+    <div>
+      <div class="lp-drawer-date" id="lpDrawerDate">Select a lesson</div>
+      <div class="lp-drawer-meta" id="lpDrawerMeta"></div>
+    </div>
+    <button type="button" class="btn btn-ghost" id="lpDrawerClose" aria-label="Close">✕</button>
+  </div>
+  <div class="lp-field">
+    <div class="lp-field-label">Subject</div>
+    <select id="lpSubjectSelect"></select>
+    <p class="muted small" id="lpSubjectHint">My subjects에서 과목을 추가할 수 있습니다.</p>
+  </div>
+  <div class="lp-field">
+    <div class="lp-field-label">Title</div>
+    <input id="lpTitle" placeholder="Lesson title">
+  </div>
+  <div class="lp-field lp-field-objectives">
+    <div class="lp-field-label">Objectives</div>
+    <textarea id="lpObjectives" placeholder="Students will be able to…" rows="3"></textarea>
+  </div>
+  <div class="lp-field lp-field-procedure">
+    <div class="lp-field-label">Procedure</div>
+    <textarea id="lpProcedure" placeholder="Lesson flow" rows="4"></textarea>
+  </div>
+  <div class="lp-field lp-field-homework">
+    <div class="lp-field-label">Homework</div>
+    <textarea id="lpHomework" placeholder="Assignments" rows="3"></textarea>
+  </div>
+  <div class="lp-field lp-field-etc">
+    <div class="lp-field-label">ETC</div>
+    <textarea id="lpEtc" placeholder="Notes, accommodations, materials…" rows="3"></textarea>
+  </div>
+  <div class="lp-drawer-actions">
+    <button type="button" class="btn btn-ghost" id="lpSaveDraftBtn">Save draft</button>
+    <button type="button" class="btn btn-primary" id="lpSubmitBtn">Submit</button>
+  </div>
+  <div class="error" id="lpDrawerError"></div>
+</aside>
+
+<div id="gradeColumnModal" class="modal hidden" role="dialog">
+  <div class="modal-card">
+    <h3>Add grade column</h3>
+    <p class="muted small">Pick a category from your grade weights. A new column appears on the right.</p>
+    <form id="gradeColumnForm" class="form-grid">
+      <label>Category <select id="colCategory" required></select></label>
+      <input id="colTitle" placeholder="Title (optional, e.g. Pop quiz 3)" maxlength="80">
+      <label>Date <input type="date" id="colDate" required></label>
+      <label>Max score <input type="number" id="colMaxScore" value="100" min="1" required></label>
+      <button type="submit" class="btn btn-primary">Add column</button>
+      <div class="error" id="colError"></div>
+    </form>
+    <button type="button" class="btn btn-ghost" id="gradeColumnClose" style="margin-top:0.75rem">Cancel</button>
+  </div>
+</div>
+
+<div id="gradeWeightsModal" class="modal hidden" role="dialog">
+  <div class="modal-card modal-wide">
+    <h3>Grade weights — <span id="gradeWeightsTitle"></span></h3>
+    <p class="muted small">Categories must total <strong>100%</strong>. Recurring items (Daily Quiz, Assignment…) use the <em>average</em> of all entries. Exams use a <em>single</em> score.</p>
+    <div id="gradeWeightRows" class="gw-editor"></div>
+    <div class="gw-add-row">
+      <select id="gradeWeightPresetSelect"></select>
+      <button type="button" class="btn btn-ghost" id="gradeWeightAdd">Add category</button>
+      <strong id="gradeWeightTotal"></strong>
+    </div>
+    <div style="display:flex;gap:0.5rem;margin-top:1rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-primary" id="gradeWeightsSave">Save weights</button>
+      <button type="button" class="btn btn-ghost" id="gradeWeightsClose">Close</button>
+    </div>
+    <div class="error" id="gradeWeightsError"></div>
   </div>
 </div>
 
@@ -108,13 +209,17 @@
   <div class="modal-card">
     <h3>Plan absence — <span id="plannedStudentName"></span></h3>
     <form id="plannedForm" class="form-grid">
-      <input type="date" id="plannedDate" required>
+      <div class="planned-range">
+        <label>From <input type="date" id="plannedStartDate" required></label>
+        <label>To <input type="date" id="plannedEndDate" required></label>
+      </div>
       <select id="plannedType">
         <option value="결석">Absent</option>
         <option value="지각">Tardy</option>
       </select>
-      <input id="plannedNote" placeholder="Note (optional)" maxlength="200">
+      <input id="plannedNote" placeholder="Reason (optional, e.g. family trip)" maxlength="200">
       <button class="btn btn-primary" type="submit">Save advance notice</button>
+      <p class="muted small">Only scheduled class days (Mon–Fri, excluding holidays) in the range are marked.</p>
       <div class="error" id="plannedError"></div>
     </form>
     <div id="plannedList" style="margin-top:1rem"></div>
@@ -135,19 +240,40 @@
   </div>
 </div>
 
-<script src="/js/app.js"></script>
-<script src="/js/teacher-attendance.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js?v=20260708ag"></script>
+<script src="/js/teacher-attendance.js?v=20260708ag"></script>
+<script src="/js/teacher-grades.js?v=20260708quota"></script>
+<script src="/js/teacher-lesson.js?v=20260708ag"></script>
+<script src="/js/messenger.js?v=20260708ag"></script>
+<script src="/js/student-registry.js?v=20260709registry"></script>
+<script src="/js/timetable.js?v=20260709tt"></script>
 <script>
 (function() {
   const role = 'teacher';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, todayISO, escapeHtml } = SaltApp;
   let currentClass = null;
-  let currentPlanId = null;
-  let roster = [];
 
   SaltAttendance.init({
     $, show, hide, escapeHtml, todayISO, api,
     getClass: () => currentClass
+  });
+
+  SaltGrades.init({
+    $, show, hide, escapeHtml, todayISO, api,
+    getClass: () => currentClass,
+    switchTab
+  });
+
+  SaltLesson.init({
+    $, show, hide, escapeHtml, api, role,
+    getClass: () => currentClass,
+    onClassOpenExtra: async () => {
+      await SaltGrades.loadActiveTerm();
+      SaltGrades.loadLessonWeights();
+    }
   });
 
   function classCard(c, isHomeroom) {
@@ -169,39 +295,54 @@
         subjects: el.dataset.subjects
       }));
     });
-    loadPlanList();
+    const teacherClasses = [].concat(data.homeroom || [], data.assigned || []);
+    const seen = new Set();
+    const classOpts = [];
+    teacherClasses.forEach((c) => {
+      if (!c.classId || seen.has(c.classId)) return;
+      seen.add(c.classId);
+      classOpts.push({ classId: c.classId, name: c.className });
+    });
+    SaltStudentRegistry.setClasses(classOpts);
   }
 
-  async function loadPlanList() {
-    const data = await api('/api/teacher/lesson-plans', {}, role);
-    $('planList').innerHTML = (data.plans || []).slice(0, 8).map(p =>
-      '<div class="class-card" data-plan="' + escapeHtml(p.planId) + '">' +
-      '<strong>' + escapeHtml(p.title || 'Untitled') + '</strong><br><small>' +
-      escapeHtml(p.classId) + ' · ' + escapeHtml(p.subject) + ' · ' + escapeHtml(p.status) + '</small></div>'
-    ).join('') || '<p style="color:var(--muted)">No lesson plans yet.</p>';
-    document.querySelectorAll('[data-plan]').forEach(el => {
-      el.addEventListener('click', async () => {
-        const data = await api('/api/teacher/lesson-plans/' + el.dataset.plan, {}, role);
-        if (!data.plan) return;
-        const p = data.plan;
-        const cls = { classId: p.classId, className: p.classId, subjects: p.subject };
-        openClass(cls);
-        switchTab('lesson');
-        fillLessonForm(p);
-      });
-    });
-  }
+  $('openStudentsBtn').addEventListener('click', () => {
+    hide($('classesView'));
+    show($('studentsView'));
+    SaltStudentRegistry.open();
+  });
+
+  $('openTimetableBtn').addEventListener('click', () => {
+    hide($('classesView'));
+    show($('timetableView'));
+    SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', '', '');
+  });
+
+  $('timetableBackBtn').addEventListener('click', () => {
+    hide($('timetableView'));
+    show($('classesView'));
+  });
+
+  $('timetableLogoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
+  });
+
+  $('studentsBackBtn').addEventListener('click', () => {
+    hide($('studentsView'));
+    show($('classesView'));
+  });
+
+  $('studentsLogoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
+  });
 
   function openClass(cls) {
     currentClass = cls;
-    currentPlanId = null;
     hide($('classesView')); show($('classView'));
     $('classTitle').textContent = cls.className;
     $('attDate').value = todayISO();
-    $('gradeDate').value = todayISO();
     $('gradeSubject').value = (cls.subjects && cls.subjects !== 'All subjects') ? cls.subjects.split(',')[0].trim() : 'English';
-    $('lpSubject').value = $('gradeSubject').value;
-    $('lpWeek').value = todayISO();
+    $('reportTerm').value = $('gradeTerm').value || 'Term1';
     switchTab('attendance');
     SaltAttendance.onClassOpen();
   }
@@ -211,52 +352,14 @@
     ['panelAttendance','panelGrades','panelReport','panelLesson'].forEach(id => hide($(id)));
     const map = { attendance: 'panelAttendance', grades: 'panelGrades', report: 'panelReport', lesson: 'panelLesson' };
     show($(map[name]));
-    if (name === 'grades') loadGrades();
+    if (name === 'grades') SaltGrades.onClassOpen();
     if (name === 'report') loadReport();
+    if (name === 'lesson') SaltLesson.onClassOpen();
     if (name === 'attendance') SaltAttendance.loadWork();
   }
 
   document.querySelectorAll('#classView .tab').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-
-  async function loadGrades() {
-    const subject = $('gradeSubject').value.trim();
-    if (!subject) return;
-    const data = await api('/api/teacher/class/' + currentClass.classId + '/grades/daily?date=' + $('gradeDate').value + '&subject=' + encodeURIComponent(subject), {}, role);
-    const map = {};
-    (data.grades || []).forEach(g => { map[g.studentId] = g; });
-    const rosterData = await api('/api/teacher/class/' + currentClass.classId + '/roster', {}, role);
-    roster = rosterData.students || [];
-    $('gradeBody').innerHTML = roster.map(s => {
-      const g = map[s.studentId] || {};
-      return '<tr data-sid="' + escapeHtml(s.studentId) + '"><td>' + escapeHtml(s.name) + '</td>' +
-        '<td><input type="number" class="g-score" value="' + (g.score || '') + '" style="width:70px"></td>' +
-        '<td><input type="number" class="g-max" value="' + (g.maxScore || 100) + '" style="width:70px"></td>' +
-        '<td><input class="g-note" value="' + escapeHtml(g.note || '') + '"></td></tr>';
-    }).join('');
-  }
-
-  $('loadGradesBtn').addEventListener('click', loadGrades);
-  $('saveGradesBtn').addEventListener('click', async () => {
-    $('gradeError').textContent = '';
-    const entries = [];
-    document.querySelectorAll('#gradeBody tr').forEach(tr => {
-      entries.push({
-        studentId: tr.dataset.sid,
-        score: tr.querySelector('.g-score').value,
-        maxScore: tr.querySelector('.g-max').value,
-        note: tr.querySelector('.g-note').value
-      });
-    });
-    try {
-      await api('/api/teacher/class/' + currentClass.classId + '/grades/daily', {
-        method: 'POST',
-        body: { date: $('gradeDate').value, subject: $('gradeSubject').value, entries }
-      }, role);
-      $('gradeError').style.color = '#16a34a';
-      $('gradeError').textContent = 'Saved.';
-    } catch (e) { $('gradeError').style.color = '#dc2626'; $('gradeError').textContent = e.message; }
   });
 
   async function loadReport() {
@@ -265,91 +368,41 @@
     const q = '?term=' + encodeURIComponent(term) + (subject ? '&subject=' + encodeURIComponent(subject) : '');
     const data = await api('/api/teacher/class/' + currentClass.classId + '/report-card' + q, {}, role);
     let html = '';
+
+    if (data.computed && data.computed.length && subject) {
+      html += '<h3>Calculated grades (' + escapeHtml(subject) + ')</h3>';
+      html += '<p class="muted small">From grade weights + entries. Use Sync on Grades tab to push to stored report card.</p>';
+      html += '<table class="grades-table"><thead><tr><th>Student</th><th>Term grade</th>';
+      (data.weights || []).forEach((w) => { html += '<th>' + escapeHtml(w.label) + '</th>'; });
+      html += '</tr></thead><tbody>';
+      data.computed.forEach((st) => {
+        html += '<tr><td>' + escapeHtml(st.name) + '</td><td><strong>' + (st.weightedTotal != null ? st.weightedTotal : '—') + '</strong></td>';
+        (st.categories || []).forEach((c) => {
+          html += '<td>' + (c.categoryPercent != null ? c.categoryPercent + '%' : '—') + '</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+    }
+
     (data.summary || []).forEach(st => {
       html += '<h3>' + escapeHtml(st.name) + '</h3><table><thead><tr><th>Field</th><th>Score</th><th>Comment</th></tr></thead><tbody>';
       Object.keys(st.subjects || {}).forEach(sub => {
         (st.subjects[sub] || []).forEach(f => {
-          const key = st.studentId + '|' + sub + '|' + f.fieldKey;
-          html += '<tr data-key="' + escapeHtml(key) + '" data-sid="' + escapeHtml(st.studentId) + '" data-sub="' + escapeHtml(sub) + '" data-field="' + escapeHtml(f.fieldKey) + '">' +
-            '<td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
-            '<td><input class="rc-score" type="number" value="' + (f.score != null ? f.score : '') + '" style="width:70px"></td>' +
-            '<td><input class="rc-comment" value="' + escapeHtml(f.comment || '') + '"></td></tr>';
+          html += '<tr><td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
+            '<td>' + (f.score != null ? f.score : '—') + '</td>' +
+            '<td>' + escapeHtml(f.comment || '') + '</td></tr>';
         });
       });
       html += '</tbody></table>';
     });
-    $('reportBody').innerHTML = html || '<p style="color:var(--muted)">No report card fields configured.</p>';
+    $('reportBody').innerHTML = html || '<p style="color:var(--muted)">Select a subject and load. Set grade weights on the Grades tab first.</p>';
   }
 
   $('loadReportBtn').addEventListener('click', loadReport);
-  $('reportBody').addEventListener('change', async () => {
-    /* batch save on explicit button could be added; auto-save per row for MVP skip */
-  });
-
-  function fillLessonForm(p) {
-    currentPlanId = p.planId;
-    $('lpSubject').value = p.subject || '';
-    $('lpWeek').value = (p.weekStart || '').slice(0, 10);
-    $('lpTitle').value = p.title || '';
-    $('lpObjectives').value = p.objectives || '';
-    $('lpMaterials').value = p.materials || '';
-    $('lpProcedure').value = p.procedure || '';
-    $('lpHomework').value = p.homework || '';
-  }
-
-  async function saveLesson(submit) {
-    $('lessonError').textContent = '';
-    try {
-      const data = await api('/api/teacher/lesson-plans', {
-        method: 'POST',
-        body: {
-          planId: currentPlanId,
-          classId: currentClass.classId,
-          subject: $('lpSubject').value,
-          weekStart: $('lpWeek').value,
-          title: $('lpTitle').value,
-          objectives: $('lpObjectives').value,
-          materials: $('lpMaterials').value,
-          procedure: $('lpProcedure').value,
-          homework: $('lpHomework').value,
-          submit: !!submit
-        }
-      }, role);
-      currentPlanId = data.plan.planId;
-      $('lessonError').style.color = '#16a34a';
-      $('lessonError').textContent = submit ? 'Submitted to admin.' : 'Draft saved.';
-      loadPlanList();
-    } catch (e) { $('lessonError').style.color = '#dc2626'; $('lessonError').textContent = e.message; }
-  }
-
-  $('saveDraftBtn').addEventListener('click', () => saveLesson(false));
-  $('submitPlanBtn').addEventListener('click', () => saveLesson(true));
-  $('viewPlanBtn').addEventListener('click', () => {
-    const box = $('lessonPreview');
-    box.innerHTML = '<h2>' + escapeHtml($('lpTitle').value) + '</h2>' +
-      '<div class="lp-block"><h3>Objectives</h3><pre>' + escapeHtml($('lpObjectives').value) + '</pre></div>' +
-      '<div class="lp-block"><h3>Materials</h3><pre>' + escapeHtml($('lpMaterials').value) + '</pre></div>' +
-      '<div class="lp-block"><h3>Procedure</h3><pre>' + escapeHtml($('lpProcedure').value) + '</pre></div>' +
-      '<div class="lp-block"><h3>Homework</h3><pre>' + escapeHtml($('lpHomework').value) + '</pre></div>';
-    show(box);
-  });
-
-  $('newPlanBtn').addEventListener('click', () => {
-    if (!currentClass) {
-      alert('Open a class first, or create a plan from the class Lesson plan tab.');
-      return;
-    }
-    openClass(currentClass);
-    switchTab('lesson');
-    currentPlanId = null;
-    $('lpTitle').value = '';
-    $('lpObjectives').value = '';
-    $('lpMaterials').value = '';
-    $('lpProcedure').value = '';
-    $('lpHomework').value = '';
-  });
 
   $('backBtn').addEventListener('click', () => {
+    SaltLesson.closeDrawer();
     hide($('classView')); show($('classesView'));
     currentClass = null;
   });
@@ -377,7 +430,12 @@
     if (!p) return;
     hide($('loginView')); show($('classesView'));
     $('welcomeText').textContent = 'Hi, ' + p.name;
+    SaltTimetable.init({ api, escapeHtml, role });
+    SaltStudentRegistry.init({
+      role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
+    });
     loadClasses();
+    SaltMessenger.init(role);
   }
 
   if (getToken(role)) bootApp();

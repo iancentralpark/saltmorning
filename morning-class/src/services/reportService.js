@@ -7,6 +7,7 @@ const { getSheetRows } = require('../sheets');
 const { formatSheetDate } = require('../dateUtils');
 const { getHolidaysForMonth } = require('../holiday');
 const { countsAsPresent, parseAttendanceRow } = require('./attendanceService');
+const { getPlannedForClassMonth } = require('./plannedAttendanceService');
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const ATT_MAP = {
@@ -79,6 +80,11 @@ async function getMonthlyReport(classId, year, month) {
     recordMap[cid][rDate][sid] = parseAttendanceRow(attendData[i]);
   }
 
+  const plannedByClass = {};
+  for (const cls of classList) {
+    plannedByClass[cls.id] = await getPlannedForClassMonth(cls.id, y, m);
+  }
+
   const report = [];
   for (const cls of classList) {
     const dates = buildScheduledDates(y, m, cls.allowedDays, holidays);
@@ -87,33 +93,34 @@ async function getMonthlyReport(classId, year, month) {
       let tardy = 0;
       let absent = 0;
       let excusedCount = 0;
-      let sum = 0;
-      let scoreCount = 0;
 
       const cells = dates.map((d) => {
         if (d.holiday) {
-          return { attendance: null, vocabScore: null, holiday: d.holiday, excused: false };
+          return { attendance: null, holiday: d.holiday, excused: false, planned: false };
         }
-        const rec = recordMap[cls.id] && recordMap[cls.id][d.dateStr] && recordMap[cls.id][d.dateStr][std.id];
+        let rec = recordMap[cls.id] && recordMap[cls.id][d.dateStr] && recordMap[cls.id][d.dateStr][std.id];
+        let planned = false;
+        if ((!rec || !rec.attendance) && plannedByClass[cls.id] && plannedByClass[cls.id][d.dateStr]) {
+          const p = plannedByClass[cls.id][d.dateStr][std.id];
+          if (p) {
+            rec = { attendance: p.type, excuse: '', note: p.note || '' };
+            planned = true;
+          }
+        }
         if (!rec || !rec.attendance) {
-          return { attendance: null, vocabScore: null, holiday: '', excused: false };
+          return { attendance: null, holiday: '', excused: false, planned: false };
         }
         const isExcused = !!(rec.excuse && (rec.attendance === '지각' || rec.attendance === '결석'));
         if (countsAsPresent(rec.attendance, rec.excuse)) present++;
         else if (rec.attendance === '지각') tardy++;
         else if (rec.attendance === '결석') absent++;
         if (isExcused) excusedCount++;
-        const v = Number(rec.vocabScore);
-        if (Number.isFinite(v) && v > 0) {
-          sum += v;
-          scoreCount++;
-        }
         return {
           attendance: rec.attendance,
-          vocabScore: rec.vocabScore,
           holiday: '',
           excuse: rec.excuse,
-          excused: isExcused
+          excused: isExcused,
+          planned
         };
       });
 
@@ -124,8 +131,7 @@ async function getMonthlyReport(classId, year, month) {
           present,
           tardy,
           absent,
-          excused: excusedCount,
-          avgVocab: scoreCount ? Math.round((sum / scoreCount) * 10) / 10 : null
+          excused: excusedCount
         },
         cells
       };
