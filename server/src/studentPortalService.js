@@ -16,6 +16,8 @@ const { getStudentHomeworkStatus, buildClassHomeworkFromCtx } = require('./homew
 const { buildRequestContext } = require('./sheets');
 const { signStudentToken } = require('./studentAuth');
 const { listStudentLuckyTickets, groupLuckyTickets } = require('./luckyDrawService');
+const { isSupabaseEnabled } = require('./supabaseClient');
+const supabaseStudent = require('./supabaseStudentService');
 
 const LOGIN_ID_COL = 4;
 const LOGIN_PW_COL = 5;
@@ -35,6 +37,7 @@ async function ensureStudentLoginColumns() {
 }
 
 async function getClassNameMap() {
+  if (isSupabaseEnabled()) return supabaseStudent.getClassNameMap();
   const rows = await getSheetRows(CLASS_LIST_SHEET);
   const map = {};
   for (let i = 1; i < rows.length; i++) {
@@ -45,6 +48,7 @@ async function getClassNameMap() {
 }
 
 async function findStudentByLogin(loginId, password) {
+  if (isSupabaseEnabled()) return supabaseStudent.findStudentByLogin(loginId, password);
   await ensureStudentLoginColumns();
   loginId = String(loginId || '').trim();
   password = String(password || '').trim();
@@ -210,12 +214,17 @@ async function getStudentDashboard(studentId, classId) {
   const today = formatDateInTz(new Date(), TIMEZONE);
   const classNames = await getClassNameMap();
 
-  const data = await getSheetRows(STUDENT_LIST_SHEET);
   let name = studentId;
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === studentId) {
-      name = String(data[i][1] || studentId);
-      break;
+  if (isSupabaseEnabled()) {
+    const profile = await supabaseStudent.getStudentById(studentId);
+    if (profile) name = String(profile.name || studentId);
+  } else {
+    const data = await getSheetRows(STUDENT_LIST_SHEET);
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === studentId) {
+        name = String(data[i][1] || studentId);
+        break;
+      }
     }
   }
 
@@ -305,8 +314,42 @@ async function getStudentDashboard(studentId, classId) {
   };
 }
 
+async function changeStudentPassword(studentId, currentPassword, newPassword) {
+  if (isSupabaseEnabled()) {
+    return supabaseStudent.changeStudentPassword(studentId, currentPassword, newPassword);
+  }
+  await ensureStudentLoginColumns();
+  currentPassword = String(currentPassword || '').trim();
+  newPassword = String(newPassword || '').trim();
+  if (!currentPassword || !newPassword) {
+    throw new Error('Enter current and new password.');
+  }
+  if (newPassword.length < 4) {
+    throw new Error('New password must be at least 4 characters.');
+  }
+  if (currentPassword === newPassword) {
+    throw new Error('New password must be different from your current password.');
+  }
+
+  const data = await getSheetRows(STUDENT_LIST_SHEET, { skipCache: true });
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) !== String(studentId)) continue;
+    if (String(data[i][3] || '').trim() !== 'Enrolled') {
+      throw new Error('This account is not active.');
+    }
+    const rowPw = String(data[i][LOGIN_PW_COL] || '').trim();
+    if (rowPw !== currentPassword) {
+      throw new Error('Current password is incorrect.');
+    }
+    await updateRange(STUDENT_LIST_SHEET, 'F' + (i + 1), [[newPassword]]);
+    return { ok: true, message: 'Password updated.' };
+  }
+  throw new Error('Student not found.');
+}
+
 module.exports = {
   ensureStudentLoginColumns,
   studentLogin,
-  getStudentDashboard
+  getStudentDashboard,
+  changeStudentPassword
 };

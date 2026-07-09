@@ -1,7 +1,14 @@
 const { LUCKY_DRAW_SHEET, TIMEZONE, STUDENT_LIST_SHEET, LUCKY_DRAW_PURCHASE_COST } = require('./config');
-const { getSheetRows, appendRows, deleteRows, updateRange } = require('./sheets');
+const { getSheetRows, appendRows, deleteRows, updateRange, invalidateSheetRowsCache } = require('./sheets');
 const { formatDateTimeNow } = require('./dateUtils');
 const { getStudentDollarBalance, applyDollarAdjustment } = require('./dollarService');
+const { invalidateWorkCache } = require('./sessionService');
+const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+
+function afterLuckyDrawWrite(classId) {
+  if (classId) invalidateWorkCache(classId);
+  invalidateSheetRowsCache(LUCKY_DRAW_SHEET);
+}
 
 function groupLuckyTickets(tickets) {
   const map = new Map();
@@ -27,6 +34,8 @@ function groupLuckyTickets(tickets) {
 }
 
 async function ensureLuckyDrawSheet() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return;
   let data;
   try {
     data = await getSheetRows(LUCKY_DRAW_SHEET);
@@ -95,6 +104,7 @@ async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost
     'Lucky Draw purchase ($' + cost + ')'
   );
   const ticket = await saveLuckyDrawTicket(classId, studentId, tier, prizeText);
+  afterLuckyDrawWrite(classId);
   return {
     ticket,
     cost,
@@ -127,15 +137,38 @@ async function listStudentLuckyTickets(classId, studentId) {
 async function redeemLuckyTicket(ticketId) {
   await ensureLuckyDrawSheet();
   ticketId = String(ticketId);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { data, error: readErr } = await db.from('lucky_draw_tickets')
+      .select('class_id, student_id')
+      .eq('ticket_id', ticketId)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!data) throw new Error('Ticket not found.');
+    const classId = String(data.class_id);
+    const studentId = String(data.student_id);
+    const { error } = await db.from('lucky_draw_tickets').delete().eq('ticket_id', ticketId);
+    if (error) throw new Error(error.message);
+    afterLuckyDrawWrite(classId);
+    return {
+      message: 'Ticket removed.',
+      ticketId,
+      studentId,
+      remainingCount: await countStudentTickets(classId, studentId)
+    };
+  }
   const data = await getSheetRows(LUCKY_DRAW_SHEET);
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === ticketId) {
+      const classId = String(data[i][1]);
+      const studentId = String(data[i][2]);
       await deleteRows(LUCKY_DRAW_SHEET, [i + 1]);
+      afterLuckyDrawWrite(classId);
       return {
         message: 'Ticket removed.',
         ticketId,
-        studentId: String(data[i][2]),
-        remainingCount: await countStudentTickets(String(data[i][1]), String(data[i][2]))
+        studentId,
+        remainingCount: await countStudentTickets(classId, studentId)
       };
     }
   }
@@ -192,7 +225,14 @@ async function transferLuckyTicket(ticketId, toStudentId) {
     throw new Error('This student already owns the ticket.');
   }
   await assertStudentInClass_(row.classId, toStudentId);
-  await updateRange(LUCKY_DRAW_SHEET, 'C' + row.row, [[toStudentId]]);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('lucky_draw_tickets').update({ student_id: toStudentId }).eq('ticket_id', ticketId);
+    if (error) throw new Error(error.message);
+  } else {
+    await updateRange(LUCKY_DRAW_SHEET, 'C' + row.row, [[toStudentId]]);
+  }
+  afterLuckyDrawWrite(row.classId);
   return {
     message: 'Ticket transferred.',
     ticketId,

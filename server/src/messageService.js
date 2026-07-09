@@ -190,8 +190,9 @@ async function markMessagesRead(classId, studentId, reader) {
       values: [[now]]
     });
   });
-  if (!updates.length) return;
+  if (!updates.length) return 0;
   await batchUpdateRanges(updates);
+  return updates.length;
 }
 
 async function getStudentUnreadCount(studentId, classId) {
@@ -302,16 +303,21 @@ async function teacherSendMessage(classId, studentId, studentName, body) {
   });
 }
 
-module.exports = {
-  ensureMessagesSheet,
-  getClassLabel,
-  getThread,
-  markMessagesRead,
-  getStudentUnreadCount,
-  getInboxForClass,
-  getGlobalInbox,
-  getUnreadTotalForClass,
-  getUnreadTotalGlobal,
-  studentSendMessage,
-  teacherSendMessage
-};
+module.exports = (function() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return require('./supabaseMessageService');
+  console.warn('[messages] Supabase disabled — using Google Sheets Student_Messages (legacy)');
+  return {
+    ensureMessagesSheet,
+    getClassLabel,
+    getThread,
+    markMessagesRead,
+    getStudentUnreadCount,
+    getInboxForClass,
+    getGlobalInbox,
+    getUnreadTotalForClass,
+    getUnreadTotalGlobal,
+    studentSendMessage,
+    teacherSendMessage
+  };
+})();

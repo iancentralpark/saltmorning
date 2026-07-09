@@ -6,6 +6,8 @@ const LOGIN_ID_COL = 4;
 const LOGIN_PW_COL = 5;
 
 async function ensureStudentLoginColumns() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return;
   const data = await getSheetRows(STUDENT_LIST_SHEET);
   if (!data.length) return;
   const header = data[0] || [];
@@ -19,12 +21,26 @@ async function ensureStudentLoginColumns() {
   await updateRange(STUDENT_LIST_SHEET, 'A1:F1', [next]);
 }
 
-async function buildClassStudentDirectory(classId) {
+async function buildClassStudentDirectory(classId, ctx) {
   classId = String(classId);
   const nameMap = {};
   const statusMap = {};
 
-  const data = await getSheetRows(STUDENT_LIST_SHEET);
+  async function loadStudents() {
+    if (ctx && typeof ctx.sheetRows === 'function') {
+      return ctx.sheetRows(STUDENT_LIST_SHEET);
+    }
+    return getSheetRows(STUDENT_LIST_SHEET);
+  }
+
+  async function loadWithdrawn() {
+    if (ctx && typeof ctx.sheetRows === 'function') {
+      return ctx.sheetRows(STUDENT_WITHDRAWN_SHEET);
+    }
+    return getSheetRows(STUDENT_WITHDRAWN_SHEET);
+  }
+
+  const data = await loadStudents();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][2]) !== classId) continue;
     const sid = String(data[i][0]);
@@ -33,7 +49,7 @@ async function buildClassStudentDirectory(classId) {
   }
 
   try {
-    const withdrawn = await getSheetRows(STUDENT_WITHDRAWN_SHEET);
+    const withdrawn = await loadWithdrawn();
     for (let i = 1; i < withdrawn.length; i++) {
       if (String(withdrawn[i][3]) !== classId) continue;
       const sid = String(withdrawn[i][1]);

@@ -12,15 +12,27 @@
     "init-sheets": "node scripts/init-spreadsheet.js",
     "setup": "node scripts/setup.js",
     "oauth-setup": "node scripts/oauth-setup.js",
-    "railway-env": "node scripts/railway-env.js"
+    "railway-env": "node scripts/railway-env.js",
+    "supabase:import-phase1": "node scripts/supabase-import-phase1.js",
+    "supabase:import-phase2": "node scripts/supabase-import-phase2.js",
+    "supabase:import-phase3": "node scripts/supabase-import-phase3.js",
+    "supabase:import-phase4": "node scripts/supabase-import-phase4.js",
+    "supabase:backfill-passwords": "node scripts/supabase-backfill-login-passwords.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "@3d-dice/dice-box": "^1.1.4",
+    "@ai-sdk/google": "^4.0.10",
+    "@supabase/supabase-js": "^2.49.1",
+    "ai": "^7.0.18",
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "googleapis": "^144.0.0"
+    "googleapis": "^144.0.0",
+    "socket.io": "^4.8.3",
+    "spin-wheel": "^5.0.2"
   }
 }

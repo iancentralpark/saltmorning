@@ -1,4 +1,10 @@
 const express = require('express');
+const { isSupabaseEnabled, shouldSyncPasswordsToSheet } = require('./supabaseClient');
+const {
+  listPortalLoginsForClass,
+  resetPortalPasswordByTeacher
+} = require('./supabaseStudentService');
+const { syncStudentPasswordToSheet } = require('./studentPasswordSync');
 const { getInitialData } = require('./initialService');
 const {
   getClassSessionData,
@@ -20,7 +26,7 @@ const {
 } = require('./homeworkService');
 const { saveAttendanceData } = require('./attendanceService');
 const { getMonthlyReport } = require('./reportService');
-const { getStudentHistory, updateStudentRecord } = require('./studentService');
+const { getStudentHistory, updateStudentRecord, deleteStudentRecord } = require('./studentService');
 const { getStudentStats } = require('./studentStatsService');
 const {
   listClassStudents,
@@ -30,9 +36,17 @@ const {
   deleteMakeupLesson,
   setMakeupStatus
 } = require('./makeupService');
-const { studentLogin, getStudentDashboard } = require('./studentPortalService');
+const { studentLogin, getStudentDashboard, changeStudentPassword } = require('./studentPortalService');
 const { requireStudentAuth } = require('./studentAuth');
-const { getBuddyStatus, askEnglishBuddy } = require('./englishBuddyService');
+const {
+  signTeacherToken,
+  verifyTeacherToken,
+  readTeacherTokenFromRequest,
+  requireTeacherAuth,
+  setTeacherAuthCookie,
+  clearTeacherAuthCookie
+} = require('./teacherAuth');
+const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy } = require('./englishBuddyService');
 const {
   getThread,
   markMessagesRead,
@@ -102,13 +116,28 @@ const {
 } = require('./sidebarService');
 const { getClassCalendarData } = require('./calendarService');
 const { saveClassLogEntry, getClassLogEntry } = require('./classLogService');
-const { isGeminiConfigured, askGemini } = require('./geminiService');
+const { isGeminiConfigured, askGemini, streamAskGemini, teacherGeminiOptions, getGeminiCallStats } = require('./geminiService');
+const { notifyNewMessage, notifyThreadRead, isRealtimeEnabled } = require('./realtime');
 const { buildRequestContext } = require('./sheets');
-const { TEACHER_GATE_PASSWORD, TEACHER_APP_URL, LUCKY_DRAW_PURCHASE_COST } = require('./config');
+const { TEACHER_GATE_PASSWORD, LUCKY_DRAW_PURCHASE_COST } = require('./config');
 
 const router = express.Router();
 
-router.post('/teacher-gate', (req, res) => {
+const PUBLIC_API_ROUTES = new Set([
+  'GET /health',
+  'POST /teacher/login',
+  'POST /teacher-gate',
+  'POST /student/login'
+]);
+
+function isPublicApiRoute(req) {
+  const key = req.method + ' ' + req.path;
+  if (PUBLIC_API_ROUTES.has(key)) return true;
+  if (req.path.startsWith('/student/')) return true;
+  return false;
+}
+
+function issueTeacherLogin(req, res) {
   if (!TEACHER_GATE_PASSWORD) {
     return res.status(503).json({ error: 'Teacher access is not configured yet.' });
   }
@@ -116,17 +145,64 @@ router.post('/teacher-gate', (req, res) => {
   if (password !== TEACHER_GATE_PASSWORD) {
     return res.status(401).json({ error: 'Incorrect password.' });
   }
-  res.json({ ok: true, redirectUrl: TEACHER_APP_URL });
+  const token = signTeacherToken();
+  setTeacherAuthCookie(res, req, token);
+  res.json({ ok: true, token });
+}
+
+router.use((req, res, next) => {
+  if (isPublicApiRoute(req)) return next();
+  return requireTeacherAuth(req, res, next);
+});
+
+router.post('/teacher/login', issueTeacherLogin);
+
+router.post('/teacher-gate', issueTeacherLogin);
+
+router.post('/teacher/logout', (req, res) => {
+  clearTeacherAuthCookie(res, req);
+  res.json({ ok: true });
+});
+
+router.get('/teacher/session', (req, res) => {
+  const token = readTeacherTokenFromRequest(req);
+  const session = verifyTeacherToken(token);
+  if (!session) return res.status(401).json({ error: 'Teacher login required.' });
+  res.json({ ok: true, token: token });
 });
 
 router.get('/health', (req, res) => {
   res.json({
     ok: true,
     service: 'mrpark-class-api',
-    phase: 3,
+    portalBuild: '2026-07-09.22',
+    pwaEnabled: true,
+    phase: 5,
+    supabase: isSupabaseEnabled(),
+    supabasePhase1: isSupabaseEnabled() ? ['classes', 'students', 'messages'] : null,
+    supabasePhase2: isSupabaseEnabled()
+      ? ['dollars', 'attendance', 'homework', 'classroom_map']
+      : null,
+    supabasePhase3: isSupabaseEnabled()
+      ? ['chambit', 'textbooks', 'lucky_draw', 'makeup', 'leave', 'library', 'sidebar', 'withdrawn']
+      : null,
+    supabasePhase4: isSupabaseEnabled()
+      ? ['class_log_daily', 'class_log_student_marks']
+      : null,
+    supabasePhase5: isSupabaseEnabled() ? ['students.login_password'] : null,
+    supabaseMigrationComplete: isSupabaseEnabled(),
+    messagesViaSupabase: isSupabaseEnabled(),
+    classLogDualWrite: isSupabaseEnabled(),
+    realtimeMessenger: isRealtimeEnabled(),
+    geminiViaAiSdk: true,
     classroomOAuth: isClassroomConfigured(),
     classroomViaGas: process.env.CLASSROOM_ON_NODE !== 'true',
-    gemini: isGeminiConfigured()
+    gemini: isGeminiConfigured(),
+    geminiCallsToday: getGeminiCallStats(),
+    telegram: !!(
+      String(process.env.TELEGRAM_BOT_TOKEN || '').trim() &&
+      String(process.env.TELEGRAM_CHAT_ID || '').trim()
+    )
   });
 });
 
@@ -139,7 +215,7 @@ router.post('/gemini/ask', async (req, res) => {
     const prompt = String(req.body.prompt || '').trim();
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
     const history = Array.isArray(req.body.history) ? req.body.history : [];
-    const result = await askGemini(prompt, history);
+    const result = await askGemini(prompt, history, teacherGeminiOptions());
     if (!result.ok) {
       return res.status(result.fallbackWeb ? 503 : 502).json(result);
     }
@@ -147,6 +223,20 @@ router.post('/gemini/ask', async (req, res) => {
   } catch (e) {
     console.error('POST /gemini/ask', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/gemini/ask-stream', async (req, res) => {
+  try {
+    const prompt = String(req.body.prompt || '').trim();
+    if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    await streamAskGemini(res, prompt, history, teacherGeminiOptions());
+  } catch (e) {
+    console.error('POST /gemini/ask-stream', e);
+    if (!res.headersSent) {
+      res.status(500).json({ error: e.message || 'Server error' });
+    }
   }
 });
 
@@ -278,6 +368,20 @@ router.post('/student-record', async (req, res) => {
   }
 });
 
+router.delete('/student-record', async (req, res) => {
+  try {
+    const { classId, studentId, dateStr } = req.query || {};
+    if (!classId || !studentId || !dateStr) {
+      return res.status(400).json({ error: 'classId, studentId, and dateStr are required' });
+    }
+    const message = await deleteStudentRecord(classId, studentId, dateStr);
+    res.json({ message });
+  } catch (e) {
+    console.error('DELETE /student-record', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
 router.get('/student-stats', async (req, res) => {
   try {
     const { classId, studentId, period } = req.query;
@@ -297,6 +401,40 @@ router.get('/students', async (req, res) => {
   } catch (e) {
     console.error('GET /students', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/students/portal-logins', async (req, res) => {
+  try {
+    const classId = req.query.classId;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Portal login lookup requires Supabase.' });
+    }
+    res.json({
+      students: await listPortalLoginsForClass(classId, {
+        skipCache: req.query.fresh === '1' || req.query.fresh === 'true'
+      })
+    });
+  } catch (e) {
+    console.error('GET /students/portal-logins', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/students/portal-password/reset', async (req, res) => {
+  try {
+    const { studentId, newPassword } = req.body || {};
+    if (!studentId) return res.status(400).json({ error: 'studentId is required' });
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Password reset requires Supabase.' });
+    }
+    res.json(await resetPortalPasswordByTeacher(studentId, newPassword));
+  } catch (e) {
+    console.error('POST /students/portal-password/reset', e);
+    const msg = e.message || 'Reset failed';
+    const status = /Enter|characters|not active|not found/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 
@@ -914,7 +1052,15 @@ router.post('/students/planned-attendance/cancel', async (req, res) => {
 router.post('/students/enroll', async (req, res) => {
   try {
     const { classId, name, loginId, loginPassword } = req.body || {};
-    res.json(await addEnrolledStudent(classId, name, loginId, loginPassword));
+    const result = await addEnrolledStudent(classId, name, loginId, loginPassword);
+    if (isSupabaseEnabled() && loginPassword && shouldSyncPasswordsToSheet()) {
+      try {
+        await syncStudentPasswordToSheet(result.studentId, String(loginPassword).trim());
+      } catch (e) {
+        console.error('enroll sheet password sync', e);
+      }
+    }
+    res.json(result);
   } catch (e) {
     console.error('POST /students/enroll', e);
     res.status(400).json({ error: e.message || 'Enroll failed' });
@@ -941,6 +1087,22 @@ router.post('/student/login', async (req, res) => {
   }
 });
 
+router.post('/student/change-password', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId } = req.studentSession;
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    if (String(newPassword || '').trim() !== String(confirmPassword || '').trim()) {
+      return res.status(400).json({ error: 'New passwords do not match.' });
+    }
+    res.json(await changeStudentPassword(studentId, currentPassword, newPassword));
+  } catch (e) {
+    console.error('POST /student/change-password', e);
+    const msg = e.message || 'Request failed';
+    const status = /incorrect|match|Enter|different|characters|not active/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
+  }
+});
+
 router.get('/student/dashboard', requireStudentAuth, async (req, res) => {
   try {
     const { studentId, classId } = req.studentSession;
@@ -955,10 +1117,27 @@ router.get('/student/messages', requireStudentAuth, async (req, res) => {
   try {
     const { studentId, classId } = req.studentSession;
     const messages = await getThread(classId, studentId, req.query.limit);
-    await markMessagesRead(classId, studentId, 'student');
+    try {
+      const marked = await markMessagesRead(classId, studentId, 'student');
+      if (marked > 0) notifyThreadRead(classId, studentId, 'student');
+    } catch (readErr) {
+      console.error('GET /student/messages mark read', readErr);
+    }
     res.json({ messages });
   } catch (e) {
     console.error('GET /student/messages', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/student/messages/mark-read', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const marked = await markMessagesRead(classId, studentId, 'student');
+    if (marked > 0) notifyThreadRead(classId, studentId, 'student');
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('POST /student/messages/mark-read', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });
@@ -969,6 +1148,7 @@ router.post('/student/messages', requireStudentAuth, async (req, res) => {
     const body = req.body && req.body.body;
     const studentName = req.body && req.body.studentName;
     const message = await studentSendMessage(studentId, classId, studentName, body);
+    notifyNewMessage(classId, studentId, message);
     res.json({ ok: true, message });
   } catch (e) {
     console.error('POST /student/messages', e);
@@ -1011,6 +1191,22 @@ router.post('/student/english-buddy', requireStudentAuth, async (req, res) => {
   }
 });
 
+router.post('/student/english-buddy/stream', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId } = req.studentSession;
+    const prompt = String(req.body.prompt || '').trim();
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    await streamEnglishBuddy(res, studentId, prompt, history);
+  } catch (e) {
+    console.error('POST /student/english-buddy/stream', e);
+    const msg = e.message || 'Request failed';
+    const status = /today/i.test(msg) ? 429 : 400;
+    if (!res.headersSent) {
+      res.status(status).json({ error: msg });
+    }
+  }
+});
+
 router.get('/messages/inbox-all', async (req, res) => {
   try {
     res.json({ inbox: await getGlobalInbox() });
@@ -1047,10 +1243,30 @@ router.get('/messages/thread', async (req, res) => {
       return res.status(400).json({ error: 'classId and studentId are required' });
     }
     const messages = await getThread(classId, studentId, req.query.limit);
-    await markMessagesRead(classId, studentId, 'teacher');
+    try {
+      const marked = await markMessagesRead(classId, studentId, 'teacher');
+      if (marked > 0) notifyThreadRead(classId, studentId, 'teacher');
+    } catch (readErr) {
+      console.error('GET /messages/thread mark read', readErr);
+    }
     res.json({ messages });
   } catch (e) {
     console.error('GET /messages/thread', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/messages/mark-read', async (req, res) => {
+  try {
+    const { classId, studentId } = req.body || {};
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    const marked = await markMessagesRead(classId, studentId, 'teacher');
+    if (marked > 0) notifyThreadRead(classId, studentId, 'teacher');
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('POST /messages/mark-read', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });
@@ -1062,6 +1278,7 @@ router.post('/messages', async (req, res) => {
       return res.status(400).json({ error: 'classId and studentId are required' });
     }
     const message = await teacherSendMessage(classId, studentId, studentName, body);
+    notifyNewMessage(classId, studentId, message);
     res.json({ ok: true, message });
   } catch (e) {
     console.error('POST /messages', e);

@@ -1,8 +1,15 @@
 const { CLASS_LIST_SHEET, CACHE_SEC } = require('./config');
 const { getSheetRows } = require('./sheets');
 const { cacheGet, cacheSet } = require('./cache');
+const { isSupabaseEnabled } = require('./supabaseClient');
+const { getInitialClasses } = require('./supabaseStudentService');
 
 async function getInitialData() {
+  if (isSupabaseEnabled()) {
+    const classes = await getInitialClasses();
+    return { classes };
+  }
+
   const cached = cacheGet('initial_classes_v1');
   if (cached) return cached;
 

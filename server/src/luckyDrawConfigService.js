@@ -80,6 +80,19 @@ function normalizeTierInput(tier, index) {
 }
 
 async function ensureSheetWithHeaders(sheetName, headers) {
+  const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    if (sheetName === LUCKY_DRAW_TIERS_SHEET) {
+      const { count } = await db.from('lucky_draw_tiers').select('*', { count: 'exact', head: true });
+      return (count || 0) > 0;
+    }
+    if (sheetName === LUCKY_DRAW_PRIZES_SHEET) {
+      const { count } = await db.from('lucky_draw_prizes').select('*', { count: 'exact', head: true });
+      return (count || 0) > 0;
+    }
+    return true;
+  }
   let data;
   try {
     data = await getSheetRows(sheetName, { skipCache: true });
@@ -207,23 +220,89 @@ async function replaceSheetDataRows(sheetName, bodyRows) {
   invalidateSheetRowsCache(sheetName);
 }
 
+async function saveLuckyDrawConfigSupabase(tiers) {
+  const { getSupabase } = require('./supabaseClient');
+  const db = getSupabase();
+  if (!db) throw new Error('Supabase is not configured.');
+
+  const tierIds = tiers.map(function(tier) { return tier.id; });
+  const seenIds = new Set();
+  for (const id of tierIds) {
+    if (seenIds.has(id)) throw new Error('Duplicate tier id: ' + id);
+    seenIds.add(id);
+  }
+
+  const { data: oldTiers, error: loadErr } = await db.from('lucky_draw_tiers').select('tier_id');
+  if (loadErr) throw new Error(loadErr.message);
+
+  const removeIds = (oldTiers || [])
+    .map(function(row) { return String(row.tier_id || ''); })
+    .filter(function(id) { return id && !seenIds.has(id); });
+
+  if (removeIds.length) {
+    const { error } = await db.from('lucky_draw_tiers').delete().in('tier_id', removeIds);
+    if (error) throw new Error(error.message);
+  }
+
+  const tierPayload = tiers.map(function(tier, index) {
+    return {
+      tier_id: tier.id,
+      tier_name: tier.name,
+      weight: tier.weight,
+      sort_order: tier.sortOrder || index + 1,
+      active: tier.active
+    };
+  });
+  const { error: tierErr } = await db.from('lucky_draw_tiers').upsert(tierPayload, { onConflict: 'tier_id' });
+  if (tierErr) throw new Error(tierErr.message);
+
+  const { error: prizeDelErr } = await db.from('lucky_draw_prizes').delete().in('tier_id', tierIds);
+  if (prizeDelErr) throw new Error(prizeDelErr.message);
+
+  const prizePayload = [];
+  tiers.forEach(function(tier) {
+    tier.items.forEach(function(prizeText, prizeIndex) {
+      prizePayload.push({
+        tier_id: tier.id,
+        prize_text: prizeText,
+        sort_order: prizeIndex + 1,
+        active: true
+      });
+    });
+  });
+  if (prizePayload.length) {
+    const { error: prizeErr } = await db.from('lucky_draw_prizes').insert(prizePayload);
+    if (prizeErr) throw new Error(prizeErr.message);
+  }
+
+  invalidateSheetRowsCache(LUCKY_DRAW_TIERS_SHEET);
+  invalidateSheetRowsCache(LUCKY_DRAW_PRIZES_SHEET);
+}
+
 async function saveLuckyDrawConfig(tiersInput) {
   if (!Array.isArray(tiersInput) || !tiersInput.length) {
     throw new Error('At least one tier is required.');
   }
   await ensureLuckyDrawConfigSheets();
   const tiers = tiersInput.map(normalizeTierInput);
-  const tierRows = tiers.map(function(tier, index) {
-    return [tier.id, tier.name, tier.weight, tier.sortOrder || index + 1, tier.active ? 'Y' : 'N'];
-  });
-  const prizeRows = [];
-  tiers.forEach(function(tier) {
-    tier.items.forEach(function(prizeText, prizeIndex) {
-      prizeRows.push([tier.id, prizeText, prizeIndex + 1, 'Y']);
+
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    await saveLuckyDrawConfigSupabase(tiers);
+  } else {
+    const tierRows = tiers.map(function(tier, index) {
+      return [tier.id, tier.name, tier.weight, tier.sortOrder || index + 1, tier.active ? 'Y' : 'N'];
     });
-  });
-  await replaceSheetDataRows(LUCKY_DRAW_TIERS_SHEET, tierRows);
-  await replaceSheetDataRows(LUCKY_DRAW_PRIZES_SHEET, prizeRows);
+    const prizeRows = [];
+    tiers.forEach(function(tier) {
+      tier.items.forEach(function(prizeText, prizeIndex) {
+        prizeRows.push([tier.id, prizeText, prizeIndex + 1, 'Y']);
+      });
+    });
+    await replaceSheetDataRows(LUCKY_DRAW_TIERS_SHEET, tierRows);
+    await replaceSheetDataRows(LUCKY_DRAW_PRIZES_SHEET, prizeRows);
+  }
+
   const config = await getLuckyDrawConfig();
   return {
     message: 'Lucky Draw prizes saved.',

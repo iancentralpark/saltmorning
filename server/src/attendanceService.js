@@ -1,9 +1,40 @@
 const { formatSheetDate } = require('./dateUtils');
-const { getSheetRows, updateRange, appendRows } = require('./sheets');
+const { getSheetRows, updateRange, appendRows, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
+const { invalidateWorkCache } = require('./sessionService');
 const { getActiveLeavesByClass } = require('./leaveService');
+const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 const ATTENDANCE_SHEET = 'Attendance_Data';
+
+function normalizeVocabScore(val) {
+  if (val === '' || val == null) return null;
+  const n = Number(val);
+  return Number.isFinite(n) ? n : null;
+}
+
+function afterAttendanceWrite(classId, dateStr) {
+  cacheDeletePrefix('sidebar_v1_');
+  invalidateWorkCache(classId, dateStr);
+  invalidateSheetRowsCache(ATTENDANCE_SHEET);
+}
+
+async function upsertAttendanceBatchSupabase(classId, records) {
+  const db = getSupabase();
+  const payload = records.map(function(rec) {
+    return {
+      record_date: String(rec.dateStr),
+      class_id: String(classId),
+      student_id: String(rec.studentId),
+      attendance: String(rec.attendance || ''),
+      vocab_score: normalizeVocabScore(rec.vocabScore)
+    };
+  });
+  const { error } = await db.from('attendance_records').upsert(payload, {
+    onConflict: 'record_date,class_id,student_id'
+  });
+  if (error) throw new Error(error.message);
+}
 
 async function saveAttendanceData(classId, dateStr, records) {
   classId = String(classId);
@@ -17,6 +48,20 @@ async function saveAttendanceData(classId, dateStr, records) {
     if (leaveMap[String(rec.studentId)]) {
       rec.attendance = '휴원';
     }
+  }
+
+  if (isSupabaseEnabled()) {
+    const batch = records.map(function(rec) {
+      return {
+        dateStr,
+        studentId: rec.studentId,
+        attendance: rec.attendance,
+        vocabScore: rec.vocabScore
+      };
+    });
+    await upsertAttendanceBatchSupabase(classId, batch);
+    afterAttendanceWrite(classId, dateStr);
+    return 'Saved successfully!';
   }
 
   const data = await getSheetRows(ATTENDANCE_SHEET);
@@ -55,7 +100,7 @@ async function saveAttendanceData(classId, dateStr, records) {
     await appendRows(ATTENDANCE_SHEET, appends);
   }
 
-  cacheDeletePrefix('sidebar_v1_');
+  afterAttendanceWrite(classId, dateStr);
   return 'Saved successfully!';
 }
 
@@ -71,6 +116,21 @@ async function upsertAttendanceRecord(classId, studentId, dateStr, attendance, v
 async function batchUpsertAttendanceRecords(classId, records) {
   if (!Array.isArray(records) || !records.length) return;
   classId = String(classId);
+
+  if (isSupabaseEnabled()) {
+    const batch = records.map(function(rec) {
+      return {
+        dateStr: String(rec.dateStr),
+        studentId: rec.studentId,
+        attendance: rec.attendance,
+        vocabScore: rec.vocabScore
+      };
+    });
+    await upsertAttendanceBatchSupabase(classId, batch);
+    const dates = new Set(records.map(function(rec) { return String(rec.dateStr); }));
+    dates.forEach(function(dateStr) { afterAttendanceWrite(classId, dateStr); });
+    return;
+  }
 
   const data = await getSheetRows(ATTENDANCE_SHEET);
   const updates = [];
@@ -107,7 +167,8 @@ async function batchUpsertAttendanceRecords(classId, records) {
   if (appends.length) {
     await appendRows(ATTENDANCE_SHEET, appends);
   }
-  cacheDeletePrefix('sidebar_v1_');
+  const dates = new Set(records.map(function(rec) { return String(rec.dateStr); }));
+  dates.forEach(function(dateStr) { afterAttendanceWrite(classId, dateStr); });
 }
 
 module.exports = { saveAttendanceData, upsertAttendanceRecord, batchUpsertAttendanceRecords };

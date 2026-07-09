@@ -1,16 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script>
+        // GAS deployments serve stale HTML — use the Railway student portal.
+        (function() {
+            var h = (location.hostname || '').toLowerCase();
+            if (h.indexOf('googleusercontent.com') === -1 && h !== 'script.google.com') return;
+            location.replace('https://mrpark.online/student');
+        })();
+    </script>
+    <script>
+        (function() {
+            var PORTAL_BUILD = '2026-07-09.23';
+            window.PORTAL_BUILD = PORTAL_BUILD;
+            var KEY = 'mrpark_portal_build';
+            try {
+                var seen = localStorage.getItem(KEY);
+                if (seen === PORTAL_BUILD) return;
+                var justReloaded = sessionStorage.getItem('mrpark_portal_reloaded') === PORTAL_BUILD;
+                localStorage.setItem(KEY, PORTAL_BUILD);
+                if (seen && !justReloaded) {
+                    sessionStorage.setItem('mrpark_portal_reloaded', PORTAL_BUILD);
+                    var url = new URL(location.href);
+                    url.searchParams.set('_v', Date.now().toString(36));
+                    location.replace(url.toString());
+                }
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#3b9edd">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Mr.Park Student Portal</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=3">
+    <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/css/messenger-ui.css">
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/autosize@6.0.1/dist/autosize.min.js" defer></script>
+    <script src="/js/messenger-realtime.js" defer></script>
+    <script src="/js/messenger-ui.js" defer></script>
     <style>
     .mrpark-snail-sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
     .snail-svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
@@ -172,6 +211,17 @@
             --shadow: 0 6px 0 rgba(59, 158, 221, 0.08), 0 12px 28px rgba(59, 158, 221, 0.12);
         }
         * { box-sizing: border-box; }
+        /* iOS auto-zoom guard: editable controls must compute to >= 16px on touch
+           devices, otherwise iOS zooms the page on focus and can get stuck. */
+        @media (pointer: coarse) {
+            input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+            select,
+            textarea {
+                font-size: 16px !important;
+                -webkit-text-size-adjust: 100%;
+                text-size-adjust: 100%;
+            }
+        }
         body {
             margin: 0;
             min-height: 100vh;
@@ -343,6 +393,81 @@
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
+        .top-bar-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-shrink: 0;
+        }
+        .portal-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .portal-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 40, 60, 0.45);
+        }
+        .portal-modal-card {
+            position: relative;
+            width: min(100%, 380px);
+            background: #fff;
+            border-radius: 20px;
+            border: 2px solid rgba(59, 158, 221, 0.22);
+            box-shadow: 0 16px 48px rgba(59, 158, 221, 0.18);
+            padding: 1rem 1.1rem 1.15rem;
+        }
+        .portal-modal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.85rem;
+        }
+        .portal-modal-head h2 {
+            margin: 0;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.15rem;
+            color: var(--primary-dark);
+        }
+        .portal-modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--muted);
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .portal-modal-close:hover { background: rgba(0, 0, 0, 0.1); }
+        .change-pw-form label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            margin: 0.55rem 0 0.3rem;
+        }
+        .change-pw-form label:first-child { margin-top: 0; }
+        .change-pw-form input {
+            width: 100%;
+            margin-bottom: 0;
+        }
+        .change-pw-form .btn { margin-top: 0.85rem; }
+        .change-pw-success {
+            background: #eafaf1;
+            color: #1e8449;
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.9rem;
+            margin-top: 0.75rem;
+        }
         .mobile-top-bar { display: none; }
         .welcome-name { font-family: 'Fredoka', sans-serif; font-size: 1.35rem; }
         .welcome-sub { color: var(--muted); font-size: 0.85rem; }
@@ -424,69 +549,102 @@
         .makeup-item-meta { color: var(--muted); font-size: 0.78rem; margin-top: 0.15rem; }
         .msg-chat-wrap {
             flex: 1;
-            min-height: 5.5rem;
+            min-height: 0;
             max-height: none;
             overflow-y: auto;
-            border: 1px solid rgba(59, 158, 221, 0.18);
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.7);
-            padding: 0.5rem;
-            margin-bottom: 0.65rem;
+            -webkit-overflow-scrolling: touch;
+            background: #b2c7d9;
+            padding: 0.65rem 0.7rem;
+            margin-bottom: 0;
         }
         .msg-chat-empty {
             text-align: center;
-            color: var(--muted);
-            font-size: 0.85rem;
-            padding: 1rem 0.5rem;
+            color: #636e72;
+            font-size: 0.875rem;
+            padding: 1.5rem 0.5rem;
         }
         .msg-chat-thread { display: flex; flex-direction: column; gap: 0.45rem; }
+        .msg-row { display: flex; align-items: flex-end; gap: 0.35rem; max-width: 100%; animation: msg-row-in 0.22s ease-out; }
+        @keyframes msg-row-in {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-live-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #27ae60;
+            box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
+            display: inline-block;
+            margin-left: 0.35rem;
+        }
+        .msg-live-dot.hidden { display: none !important; }
+        .msg-row.mine { justify-content: flex-end; }
+        .msg-row.theirs { justify-content: flex-start; }
+        .msg-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-end;
+            gap: 0.1rem;
+            flex-shrink: 0;
+            padding-bottom: 0.1rem;
+        }
+        .msg-row.theirs .msg-meta { align-items: flex-start; }
+        .msg-time { font-size: 0.6875rem; color: #95a5a6; white-space: nowrap; }
+        .msg-read-mark { font-size: 0.6875rem; color: #f7b731; font-weight: 800; line-height: 1; white-space: nowrap; }
         .msg-bubble {
-            max-width: 92%;
-            padding: 0.45rem 0.65rem;
-            border-radius: 12px;
-            font-size: 0.86rem;
-            line-height: 1.42;
+            max-width: 78%;
+            padding: 0.55rem 0.75rem;
+            border-radius: 16px;
+            font-size: 1rem;
+            line-height: 1.4;
             white-space: pre-wrap;
             word-break: break-word;
         }
         .msg-bubble-student {
-            align-self: flex-end;
-            background: linear-gradient(135deg, var(--primary), #5dade2);
-            color: #fff;
-            border-bottom-right-radius: 4px;
+            background: #fee500;
+            color: #191600;
+            border-bottom-right-radius: 6px;
         }
         .msg-bubble-teacher {
-            align-self: flex-start;
-            background: linear-gradient(135deg, #faf5ff, #eef6ff);
+            background: #fff;
             color: var(--text);
-            border: 1px solid rgba(59, 158, 221, 0.15);
-            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(59, 158, 221, 0.18);
+            border-bottom-left-radius: 6px;
         }
-        .msg-bubble-thinking {
-            align-self: flex-start;
-            color: var(--muted);
-            font-style: italic;
-            border: 1px dashed rgba(59, 158, 221, 0.25);
+        .msg-form {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-shrink: 0;
+            background: #fff;
+            padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom, 0));
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
-        .msg-form { display: flex; gap: 0.45rem; align-items: flex-end; }
         .msg-input {
             flex: 1;
-            min-height: 2.75rem;
-            max-height: 6rem;
-            resize: vertical;
-            border: 2px solid rgba(59, 158, 221, 0.25);
-            border-radius: 14px;
-            padding: 0.55rem 0.75rem;
+            min-height: 40px;
+            max-height: 5rem;
+            resize: none;
+            border: 1.5px solid rgba(59, 158, 221, 0.22);
+            border-radius: 20px;
+            padding: 0.5rem 0.85rem;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 16px !important;
             margin-bottom: 0;
+            background: #f4f7fa;
+            touch-action: manipulation;
         }
+        .msg-input:focus { outline: none; border-color: var(--primary); }
         .msg-send-btn {
             flex-shrink: 0;
-            width: auto;
-            padding: 0.65rem 1rem;
-            font-size: 0.9rem;
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 1rem;
         }
+        .msg-send-btn .send-label { display: none; }
         .msg-unread-pill {
             display: inline-flex;
             align-items: center;
@@ -518,10 +676,40 @@
             position: fixed;
             left: 12px;
             bottom: 12px;
-            width: min(300px, calc(100vw - 24px));
-            max-height: min(52vh, 400px);
+            width: 360px;
+            height: 380px;
+            min-width: 280px;
+            min-height: 300px;
+            max-width: min(520px, calc(100vw - 24px));
+            max-height: min(85vh, 720px);
+            overflow: hidden;
             z-index: 900;
             margin: 0;
+        }
+        .msg-resize-grip {
+            display: none;
+        }
+        body:not(.portal-mobile) #msgFloat:not(.hidden) .msg-resize-grip {
+            display: block;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            z-index: 40;
+            cursor: nesw-resize;
+            touch-action: none;
+            border-top-right-radius: 18px;
+            background:
+                linear-gradient(225deg, transparent 0 42%, rgba(59, 158, 221, 0.2) 42% 48%, transparent 48%),
+                linear-gradient(225deg, transparent 0 58%, rgba(59, 158, 221, 0.45) 58% 64%, transparent 64%),
+                linear-gradient(225deg, transparent 0 74%, rgba(59, 158, 221, 0.7) 74% 80%, transparent 80%);
+        }
+        body:not(.portal-mobile) #msgFloat:not(.hidden) .msg-resize-grip:hover {
+            background:
+                linear-gradient(225deg, transparent 0 42%, rgba(42, 128, 185, 0.35) 42% 48%, transparent 48%),
+                linear-gradient(225deg, transparent 0 58%, rgba(42, 128, 185, 0.55) 58% 64%, transparent 64%),
+                linear-gradient(225deg, transparent 0 74%, rgba(42, 128, 185, 0.85) 74% 80%, transparent 80%);
         }
         .msg-float.hidden { display: none !important; }
         .msg-float-head {
@@ -536,6 +724,103 @@
             font-weight: 600;
             color: var(--primary-dark);
             flex-shrink: 0;
+        }
+        .float-head-icon {
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+        .float-head-title {
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .float-panel-toggle {
+            margin-left: auto;
+            flex-shrink: 0;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.06);
+            color: inherit;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            font-size: 0.8rem;
+        }
+        .float-panel-toggle:hover { background: rgba(0, 0, 0, 0.1); }
+        body:not(.portal-mobile) .msg-float:not(.panel-collapsed):not(.hidden) .float-panel-toggle,
+        body:not(.portal-mobile) .buddy-float:not(.panel-collapsed):not(.hidden) .float-panel-toggle {
+            display: inline-flex;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed:not(.hidden),
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed:not(.hidden) {
+            width: 56px !important;
+            height: 56px !important;
+            min-width: 56px !important;
+            min-height: 56px !important;
+            max-width: 56px !important;
+            max-height: 56px !important;
+            border-radius: 28px;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed:not(.hidden):hover,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed:not(.hidden):hover {
+            transform: scale(1.05);
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .msg-float-body,
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .msg-resize-grip,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .buddy-float-body,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .buddy-resize-grip {
+            display: none !important;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .msg-float-head,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .buddy-float-head {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            border: none;
+            border-radius: inherit;
+            justify-content: center;
+            position: relative;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .float-head-title,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .float-head-title,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .buddy-remaining,
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .float-panel-toggle,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .float-panel-toggle {
+            display: none !important;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .float-head-icon,
+        body:not(.portal-mobile) #buddyFloat.panel-collapsed .float-head-icon {
+            font-size: 1.35rem;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .msg-unread-pill:not(.hidden) {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            margin: 0;
+            padding: 0;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 0.62rem;
+            font-weight: 800;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            border: 2px solid #fff;
+        }
+        body:not(.portal-mobile) #msgFloat.panel-collapsed .msg-unread-pill i {
+            display: none;
         }
         .msg-float-body {
             display: flex;
@@ -575,11 +860,50 @@
             position: fixed;
             right: 12px;
             bottom: 12px;
-            width: min(300px, calc(100vw - 24px));
-            height: 50vh;
-            max-height: 50vh;
+            width: 360px;
+            height: 380px;
+            min-width: 280px;
+            min-height: 300px;
+            max-width: min(520px, calc(100vw - 24px));
+            max-height: min(85vh, 720px);
+            overflow: hidden;
             z-index: 900;
             margin: 0;
+        }
+        .buddy-resize-grip {
+            display: none;
+        }
+        body:not(.portal-mobile) #buddyFloat:not(.hidden) .buddy-resize-grip {
+            display: block;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            z-index: 40;
+            cursor: nwse-resize;
+            touch-action: none;
+            border-top-left-radius: 18px;
+            background:
+                linear-gradient(315deg, transparent 0 42%, rgba(155, 89, 182, 0.2) 42% 48%, transparent 48%),
+                linear-gradient(315deg, transparent 0 58%, rgba(155, 89, 182, 0.45) 58% 64%, transparent 64%),
+                linear-gradient(315deg, transparent 0 74%, rgba(155, 89, 182, 0.7) 74% 80%, transparent 80%);
+        }
+        body:not(.portal-mobile) #buddyFloat:not(.hidden) .buddy-resize-grip:hover {
+            background:
+                linear-gradient(315deg, transparent 0 42%, rgba(125, 60, 152, 0.35) 42% 48%, transparent 48%),
+                linear-gradient(315deg, transparent 0 58%, rgba(125, 60, 152, 0.55) 58% 64%, transparent 64%),
+                linear-gradient(315deg, transparent 0 74%, rgba(125, 60, 152, 0.85) 74% 80%, transparent 80%);
+        }
+        body.buddy-resize-active,
+        body.portal-chat-resize-active {
+            user-select: none;
+        }
+        body.buddy-resize-active {
+            cursor: nwse-resize;
+        }
+        body.portal-chat-resize-active {
+            cursor: nesw-resize;
         }
         .buddy-float-head {
             display: flex;
@@ -611,64 +935,64 @@
         .buddy-quick-btns {
             display: flex;
             flex-wrap: nowrap;
-            gap: 0.25rem;
-            margin-bottom: 0.4rem;
+            gap: 0.35rem;
+            margin-bottom: 0.45rem;
             flex-shrink: 0;
         }
         .buddy-quick-btn {
             flex: 1 1 0;
             min-width: 0;
-            border: 1px solid rgba(155, 89, 182, 0.25);
+            border: 1.5px solid rgba(155, 89, 182, 0.35);
             background: #faf5fc;
             color: #7d3c98;
-            border-radius: 999px;
-            padding: 0.32rem 0.2rem;
+            border-radius: 10px;
+            padding: 0.5rem 0.25rem;
             font-family: 'Nunito', sans-serif;
-            font-size: 0.62rem;
+            font-size: 0.75rem;
             font-weight: 800;
             line-height: 1.2;
-            white-space: nowrap;
+            text-align: center;
             cursor: pointer;
+            touch-action: manipulation;
         }
-        .buddy-quick-btn:hover { background: #f3e5f5; }
+        .buddy-quick-btn:active { background: #f3e5f5; }
         .buddy-chat-wrap {
             flex: 1;
-            min-height: 5.5rem;
+            min-height: 0;
             max-height: none;
             overflow-y: auto;
-            border: 1px solid rgba(155, 89, 182, 0.12);
-            border-radius: 14px;
-            background: #fdfcfe;
-            padding: 0.45rem;
-            margin-bottom: 0.45rem;
+            -webkit-overflow-scrolling: touch;
+            background: #e8daef;
+            padding: 0.65rem 0.7rem;
+            margin-bottom: 0;
         }
         .buddy-chat-empty {
-            color: var(--muted);
-            font-size: 0.82rem;
+            color: #636e72;
+            font-size: 0.875rem;
             text-align: center;
-            padding: 1rem 0.5rem;
+            padding: 1.5rem 0.5rem;
         }
-        .buddy-chat-thread { display: flex; flex-direction: column; gap: 0.4rem; }
+        .buddy-chat-thread { display: flex; flex-direction: column; gap: 0.45rem; }
         .buddy-bubble {
-            max-width: 92%;
-            padding: 0.5rem 0.65rem;
-            border-radius: 14px;
-            font-size: 0.86rem;
-            line-height: 1.45;
+            max-width: 78%;
+            padding: 0.55rem 0.75rem;
+            border-radius: 16px;
+            font-size: 1rem;
+            line-height: 1.4;
             white-space: pre-wrap;
             word-break: break-word;
         }
         .buddy-bubble-user {
             align-self: flex-end;
-            background: linear-gradient(135deg, #bb8fce, #9b59b6);
-            color: #fff;
-            border-bottom-right-radius: 4px;
+            background: #fee500;
+            color: #191600;
+            border-bottom-right-radius: 6px;
         }
         .buddy-bubble-ai {
             align-self: flex-start;
             background: #fff;
             border: 1px solid rgba(155, 89, 182, 0.18);
-            border-bottom-left-radius: 4px;
+            border-bottom-left-radius: 6px;
         }
         .buddy-bubble-thinking {
             opacity: 0.7;
@@ -676,33 +1000,49 @@
         }
         .buddy-compose {
             flex-shrink: 0;
+            background: #fff;
+            padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom, 0));
+            border-top: 1px solid rgba(0, 0, 0, 0.08);
         }
         .buddy-form {
             display: flex;
-            gap: 0.4rem;
-            align-items: flex-end;
+            gap: 0.5rem;
+            align-items: center;
             flex-shrink: 0;
         }
         .buddy-input {
             flex: 1;
             resize: none;
-            border: 2px solid rgba(155, 89, 182, 0.22);
-            border-radius: 14px;
-            padding: 0.55rem 0.7rem;
+            border: 1.5px solid rgba(155, 89, 182, 0.22);
+            border-radius: 20px;
+            padding: 0.5rem 0.85rem;
             font-family: inherit;
-            font-size: 0.88rem;
+            font-size: 16px !important;
             margin: 0;
+            min-height: 40px;
+            max-height: 5rem;
+            background: #fdfcfe;
+            touch-action: manipulation;
         }
         .buddy-input:focus { outline: none; border-color: #9b59b6; }
         .buddy-send-btn {
-            width: auto;
-            padding: 0.6rem 0.85rem;
-            font-size: 0.88rem;
+            flex-shrink: 0;
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 1rem;
             background: linear-gradient(135deg, #9b59b6, #bb8fce);
         }
 
         /* ===== Mobile app layout (phones) ===== */
         @media (max-width: 767px) {
+            html.portal-mobile-root {
+                -webkit-text-size-adjust: 100%;
+                text-size-adjust: 100%;
+                font-size: 16px;
+            }
             body {
                 padding: 0;
                 padding-bottom: env(safe-area-inset-bottom, 0);
@@ -744,6 +1084,112 @@
             body.portal-mobile.portal-dashboard .wrap {
                 padding: 0 0 5.5rem;
             }
+            /* Chat tabs: lock page scroll; only the message thread scrolls */
+            html.portal-mobile-root.portal-chat-tab {
+                overflow: hidden;
+                height: 100%;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"],
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] {
+                overflow: hidden;
+                height: 100dvh;
+                padding: 0 !important;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] .wrap,
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .wrap {
+                padding: 0;
+                height: 100dvh;
+                overflow: hidden;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] #dashboardScreen,
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] #dashboardScreen {
+                height: 100%;
+                overflow: hidden;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] .dashboard-panels,
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .dashboard-panels {
+                height: 0;
+                overflow: hidden;
+                flex: none;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] #msgFloat.panel-active:not(.hidden),
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] #buddyFloat.panel-active:not(.hidden) {
+                position: fixed;
+                left: 0;
+                right: 0;
+                top: var(--portal-top-h, 3.5rem);
+                bottom: var(--portal-nav-h, calc(3.5rem + env(safe-area-inset-bottom, 0px)));
+                width: auto !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                z-index: 840;
+                display: flex !important;
+                flex-direction: column;
+                margin: 0;
+                padding: 0;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                overflow: hidden;
+            }
+            /* Pin compose bars above the bottom tab bar (not behind it) */
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] .msg-form {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: var(--portal-nav-h, calc(3.5rem + env(safe-area-inset-bottom, 0px)));
+                z-index: 900;
+                padding: 0.55rem 0.75rem !important;
+                margin: 0;
+                background: #fff;
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] .msg-chat-wrap {
+                padding-bottom: calc(var(--portal-compose-h, 3.5rem) + 0.25rem);
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .buddy-compose {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: var(--portal-nav-h, calc(3.5rem + env(safe-area-inset-bottom, 0px)));
+                z-index: 900;
+                margin: 0;
+                background: #fff;
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .buddy-chat-wrap {
+                padding-bottom: calc(var(--portal-buddy-compose-h, 7.5rem) + 0.25rem);
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .buddy-form {
+                padding: 0.55rem 0.75rem !important;
+            }
+            body.portal-mobile.keyboard-open[data-mobile-tab="messages"] .msg-form,
+            body.portal-mobile.keyboard-open[data-mobile-tab="buddy"] .buddy-compose {
+                bottom: var(--kb-inset, 0);
+            }
+            body.portal-mobile.keyboard-open[data-mobile-tab="messages"] #msgFloat.panel-active:not(.hidden),
+            body.portal-mobile.keyboard-open[data-mobile-tab="buddy"] #buddyFloat.panel-active:not(.hidden) {
+                bottom: var(--kb-inset, 0);
+            }
+            body.portal-mobile .msg-panel-card .msg-form,
+            body.portal-mobile .buddy-panel-card .buddy-compose {
+                position: relative;
+                z-index: 2;
+            }
+            body.portal-mobile.keyboard-open .buddy-compose,
+            body.portal-mobile.keyboard-open .buddy-form {
+                padding-bottom: 0.5rem !important;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] .mobile-top-bar,
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .mobile-top-bar {
+                position: fixed;
+                left: 0;
+                right: 0;
+                top: 0;
+                margin: 0;
+                z-index: 950;
+            }
             body.portal-mobile.portal-dashboard #dashboardScreen {
                 padding-bottom: 0;
             }
@@ -780,43 +1226,83 @@
             body.portal-mobile .dashboard-card.panel-active {
                 display: block;
             }
-            body.portal-mobile .dashboard-card.msg-panel-card.panel-active {
-                display: flex;
-                flex-direction: column;
-                min-height: calc(100dvh - 7.5rem - env(safe-area-inset-top, 0) - env(safe-area-inset-bottom, 0));
-            }
-            body.portal-mobile .dashboard-card.buddy-panel-card {
-                position: static;
-                width: auto;
-                max-height: none;
-                z-index: auto;
-            }
+            body.portal-mobile .dashboard-card.msg-panel-card.panel-active,
             body.portal-mobile .dashboard-card.buddy-panel-card.panel-active {
                 display: flex;
                 flex-direction: column;
-                min-height: calc(100dvh - 7.5rem - env(safe-area-inset-top, 0) - env(safe-area-inset-bottom, 0));
-            }
-            body.portal-mobile .msg-panel-card .msg-float-body {
+                margin: 0;
+                padding: 0;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
                 flex: 1;
-                display: flex;
-                flex-direction: column;
                 min-height: 0;
+                overflow: hidden;
             }
-            body.portal-mobile .msg-panel-card .msg-chat-wrap {
-                flex: 1;
-                max-height: none;
-                min-height: 12rem;
+            body.portal-mobile .msg-panel-card .msg-float-head,
+            body.portal-mobile .buddy-panel-card .buddy-float-head {
+                padding: 0.65rem 0.85rem;
+                font-size: 0.9375rem;
+                flex-shrink: 0;
             }
+            body.portal-mobile .msg-panel-card .msg-float-body,
             body.portal-mobile .buddy-panel-card .buddy-float-body {
                 flex: 1;
                 display: flex;
                 flex-direction: column;
                 min-height: 0;
+                overflow: hidden;
+                padding: 0;
             }
+            body.portal-mobile .msg-panel-card .msg-chat-wrap,
             body.portal-mobile .buddy-panel-card .buddy-chat-wrap {
                 flex: 1;
+                min-height: 0;
                 max-height: none;
-                min-height: 12rem;
+                border-radius: 0;
+                overflow-y: auto;
+            }
+            body.portal-mobile .msg-panel-card .msg-form,
+            body.portal-mobile .buddy-panel-card .buddy-compose {
+                flex-shrink: 0;
+                position: relative;
+                z-index: 2;
+                touch-action: manipulation;
+            }
+            body.portal-mobile .msg-input,
+            body.portal-mobile .buddy-input,
+            body.portal-mobile .msg-send-btn,
+            body.portal-mobile .buddy-send-btn,
+            body.portal-mobile .buddy-quick-btn {
+                touch-action: manipulation;
+            }
+            body.portal-mobile.portal-dashboard[data-mobile-tab="messages"] .msg-form,
+            body.portal-mobile.portal-dashboard[data-mobile-tab="buddy"] .buddy-form {
+                padding-bottom: 0.55rem;
+            }
+            body.portal-mobile .msg-panel-card .msg-chat-thread .msg-bubble,
+            body.portal-mobile .buddy-panel-card .buddy-bubble {
+                font-size: 1rem;
+                padding: 0.55rem 0.75rem;
+            }
+            body.portal-mobile .buddy-panel-card .buddy-quick-btns {
+                gap: 0.4rem;
+                margin-bottom: 0.5rem;
+                padding: 0 0.75rem;
+                padding-top: 0.45rem;
+            }
+            body.portal-mobile .buddy-panel-card .buddy-quick-btn {
+                font-size: 0.75rem;
+                padding: 0.55rem 0.3rem;
+                min-height: 38px;
+                border-radius: 10px;
+            }
+            body.portal-mobile .buddy-panel-card .buddy-compose {
+                padding: 0;
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+            }
+            body.portal-mobile .buddy-panel-card .buddy-form {
+                padding: 0.55rem 0.75rem 0.55rem;
             }
             .mobile-bottom-nav {
                 position: fixed;
@@ -844,14 +1330,14 @@
                 background: transparent;
                 color: var(--muted);
                 font-family: 'Nunito', sans-serif;
-                font-size: 0.56rem;
+                font-size: 0.65rem;
                 font-weight: 800;
                 padding: 0.35rem 0.12rem;
                 border-radius: 12px;
                 min-height: 52px;
                 cursor: pointer;
             }
-        .mobile-nav-btn i { font-size: 1.15rem; }
+        .mobile-nav-btn i { font-size: 1.25rem; }
         .mobile-nav-btn.active {
             color: var(--primary-dark);
             background: linear-gradient(135deg, rgba(59, 158, 221, 0.12), rgba(255, 159, 67, 0.1));
@@ -908,26 +1394,71 @@
                 min-height: 44px;
                 font-size: 0.88rem;
             }
-            body.portal-mobile #msgFloat {
+            /* Ensure desktop float styles don't leak into mobile panels */
+            body.portal-mobile.portal-dashboard:not([data-mobile-tab="messages"]):not([data-mobile-tab="buddy"]) #msgFloat,
+            body.portal-mobile.portal-dashboard:not([data-mobile-tab="messages"]):not([data-mobile-tab="buddy"]) #buddyFloat {
                 position: static;
-                left: auto;
-                right: auto;
-                bottom: auto;
                 width: auto;
+                height: auto;
+                min-width: 0;
+                min-height: 0;
                 max-height: none;
-                margin: 0 0.85rem 0.75rem;
-                border-radius: 18px;
-                box-shadow: 0 6px 24px rgba(59, 158, 221, 0.12);
+                max-width: none;
+                resize: none;
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                border: none;
+            }
+            body.portal-mobile .msg-resize-grip,
+            body.portal-mobile .buddy-resize-grip {
+                display: none !important;
             }
             body.portal-mobile .msg-form {
-                flex-direction: column;
-                align-items: stretch;
+                flex-direction: row;
+                align-items: center;
+                gap: 0.5rem;
+                flex-shrink: 0;
             }
-            body.portal-mobile .msg-send-btn {
-                width: 100%;
-                min-height: 44px;
+            body.portal-mobile input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]),
+            body.portal-mobile select,
+            body.portal-mobile textarea {
+                font-size: 16px !important;
+                -webkit-text-size-adjust: 100% !important;
+                text-size-adjust: 100% !important;
+                touch-action: manipulation;
             }
-            body.portal-mobile .msg-input { font-size: 16px; min-height: 44px; }
+            body.portal-mobile .msg-input,
+            body.portal-mobile .buddy-input {
+                font-size: 16px !important;
+                min-height: 40px;
+                border-radius: 20px;
+                padding: 0.5rem 0.85rem;
+            }
+            body.portal-mobile .msg-send-btn,
+            body.portal-mobile .buddy-send-btn {
+                width: 40px;
+                height: 40px;
+                min-width: 40px;
+                min-height: 40px;
+                border-radius: 50%;
+                padding: 0;
+            }
+            body.portal-mobile.keyboard-open.portal-dashboard .wrap {
+                padding-bottom: 0 !important;
+            }
+            body.portal-mobile.keyboard-open .mobile-bottom-nav {
+                display: none !important;
+            }
+            body.portal-mobile.keyboard-open .msg-form,
+            body.portal-mobile.keyboard-open .buddy-compose,
+            body.portal-mobile.keyboard-open .buddy-form {
+                padding-bottom: 0.5rem !important;
+            }
+            body.portal-mobile .mobile-top-bar .welcome-name { font-size: 1.3rem; }
+            body.portal-mobile .mobile-top-bar .welcome-sub { font-size: 0.88rem; }
+            body.portal-mobile .card-title { font-size: 1.1rem; }
+            body.portal-mobile .hw-item-title { font-size: 1rem; }
         }
     </style>
 </head>
@@ -947,7 +1478,7 @@
             <p class="empty" style="margin-top:0">Use the Login ID and Password from your teacher.</p>
             <div id="loginError" class="error hidden"></div>
             <label for="loginId">Login ID</label>
-            <input type="text" id="loginId" name="loginId" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" placeholder="e.g. ethan">
+            <input type="text" id="loginId" name="loginId" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" placeholder="e.g. kaigreen">
             <label for="loginPassword">Password</label>
             <input type="password" id="loginPassword" name="password" autocomplete="current-password" placeholder="Your password">
             <button type="submit" class="btn" id="loginBtn"><i class="fa-solid fa-door-open"></i> Enter</button>
@@ -960,14 +1491,20 @@
                 <div class="welcome-name" id="welcomeNameMobile">Student</div>
                 <div class="welcome-sub" id="welcomeClassMobile">Class</div>
             </div>
-            <button type="button" class="btn btn-outline" id="logoutBtnMobile"><i class="fa-solid fa-right-from-bracket"></i> Out</button>
+            <div class="top-bar-actions">
+                <button type="button" class="btn btn-outline" id="changePwBtnMobile" aria-label="Change password" title="Change password"><i class="fa-solid fa-key"></i></button>
+                <button type="button" class="btn btn-outline" id="logoutBtnMobile"><i class="fa-solid fa-right-from-bracket"></i> Out</button>
+            </div>
         </div>
         <div class="top-bar desktop-only">
             <div>
                 <div class="welcome-name" id="welcomeName">Student</div>
                 <div class="welcome-sub" id="welcomeClass">Class</div>
             </div>
-            <button type="button" class="btn btn-outline" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
+            <div class="top-bar-actions">
+                <button type="button" class="btn btn-outline" id="changePwBtn"><i class="fa-solid fa-key"></i> Password</button>
+                <button type="button" class="btn btn-outline" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i> Log out</button>
+            </div>
         </div>
 
         <div class="dashboard-panels">
@@ -997,10 +1534,12 @@
         </div>
 
         <div id="msgFloat" class="msg-float dashboard-card msg-panel-card portal-card-cute hidden" data-panel="messages" aria-label="Message to Mr. Park">
-            <div class="msg-float-head">
-                <i class="fa-solid fa-comments"></i>
-                Message to Mr. Park
+            <div class="msg-float-head" id="msgFloatHead" title="Open messages">
+                <i class="fa-solid fa-comments float-head-icon" aria-hidden="true"></i>
+                <span class="float-head-title">Message to Mr. Park</span>
                 <span class="msg-unread-pill hidden" id="msgUnreadPill"><i class="fa-solid fa-circle"></i> <span id="msgUnreadCount">0</span> new</span>
+                <span class="msg-live-dot hidden" id="msgLiveDot" title="Live"></span>
+                <button type="button" class="float-panel-toggle" id="msgFloatToggle" aria-label="Minimize messages" title="Minimize"><i class="fa-solid fa-minus"></i></button>
             </div>
             <div class="msg-float-body">
                 <div class="msg-chat-wrap" id="msgChatWrap" aria-live="polite">
@@ -1008,17 +1547,19 @@
                     <div class="msg-chat-thread" id="msgChatThread"></div>
                 </div>
                 <form class="msg-form" id="msgForm">
-                    <textarea class="msg-input" id="msgInput" rows="2" placeholder="Type a message…" aria-label="Message to Mr. Park"></textarea>
-                    <button type="submit" class="btn msg-send-btn" id="msgSendBtn"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                    <textarea class="msg-input" id="msgInput" rows="1" placeholder="메시지 입력" aria-label="Message to Mr. Park"></textarea>
+                    <button type="submit" class="btn msg-send-btn" id="msgSendBtn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i><span class="send-label">Send</span></button>
                 </form>
             </div>
+            <div class="msg-resize-grip" id="msgResizeGrip" role="separator" aria-label="Resize message window" title="Drag to resize"></div>
         </div>
 
         <div id="buddyFloat" class="buddy-float dashboard-card buddy-panel-card portal-card-cute hidden" data-panel="buddy" aria-label="AI English Buddy">
-            <div class="buddy-float-head">
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                AI English Buddy
+            <div class="buddy-float-head" id="buddyFloatHead" title="Open AI English Buddy">
+                <i class="fa-solid fa-wand-magic-sparkles float-head-icon" aria-hidden="true"></i>
+                <span class="float-head-title">AI English Buddy</span>
                 <span class="buddy-remaining" id="buddyRemaining"></span>
+                <button type="button" class="float-panel-toggle" id="buddyFloatToggle" aria-label="Minimize AI Buddy" title="Minimize"><i class="fa-solid fa-minus"></i></button>
             </div>
             <div class="buddy-float-body">
                 <div class="buddy-chat-wrap" id="buddyChatWrap" aria-live="polite">
@@ -1027,16 +1568,17 @@
                 </div>
                 <div class="buddy-compose">
                     <div class="buddy-quick-btns">
-                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="Help me understand the word: ">📖 Word Help</button>
-                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="I want to write an essay about: ">💡 Essay Ideas</button>
-                        <button type="button" class="buddy-quick-btn" data-buddy-prefix='Make this sentence sound natural: "'>✨ Sound Native</button>
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="Help me understand the word: ">Word Help</button>
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="I want to write a 5-paragraph essay about: ">Essay Help</button>
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix='Make this sentence sound natural: "'>Sound Native</button>
                     </div>
                     <form class="buddy-form" id="buddyForm">
-                        <textarea class="buddy-input" id="buddyInput" rows="2" placeholder="Type in English…" aria-label="Message for English Buddy"></textarea>
+                        <textarea class="buddy-input" id="buddyInput" rows="1" placeholder="Type in English…" aria-label="Message for English Buddy"></textarea>
                         <button type="submit" class="btn buddy-send-btn" id="buddySendBtn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
                     </form>
                 </div>
             </div>
+            <div class="buddy-resize-grip" id="buddyResizeGrip" role="separator" aria-label="Resize chat window" title="Drag to resize"></div>
         </div>
 
         <div class="card portal-card-cute dashboard-card" data-panel="more">
@@ -1075,6 +1617,27 @@
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p>Loading…</p>
     </div>
+
+    <div id="changePwModal" class="portal-modal hidden" role="dialog" aria-modal="true" aria-labelledby="changePwTitle">
+        <div class="portal-modal-backdrop" id="changePwBackdrop"></div>
+        <div class="portal-modal-card">
+            <div class="portal-modal-head">
+                <h2 id="changePwTitle">Change Password</h2>
+                <button type="button" class="portal-modal-close" id="changePwClose" aria-label="Close">&times;</button>
+            </div>
+            <form class="change-pw-form" id="changePwForm">
+                <label for="changePwCurrent">Current password</label>
+                <input type="password" id="changePwCurrent" autocomplete="current-password" required>
+                <label for="changePwNew">New password</label>
+                <input type="password" id="changePwNew" autocomplete="new-password" required minlength="4">
+                <label for="changePwConfirm">Confirm new password</label>
+                <input type="password" id="changePwConfirm" autocomplete="new-password" required minlength="4">
+                <div id="changePwError" class="error hidden"></div>
+                <div id="changePwSuccess" class="change-pw-success hidden">Password updated successfully.</div>
+                <button type="submit" class="btn" id="changePwSubmitBtn">Save new password</button>
+            </form>
+        </div>
+    </div>
 </div>
 
 <nav class="mobile-bottom-nav hidden" id="mobileBottomNav" aria-label="Main sections">
@@ -1106,15 +1669,39 @@
         if (h === 'mrpark.online' || h === 'www.mrpark.online' || h.indexOf('railway.app') !== -1) {
             return location.origin;
         }
-        return 'https://mrpark-class-api-production.up.railway.app';
+        return 'https://mrpark.online';
     })();
     var TOKEN_KEY = 'mrpark_student_token';
     var STUDENT_KEY = 'mrpark_student_profile';
+    // Persist login on the device so students stay signed in after closing the app.
+    // Falls back to sessionStorage only if localStorage is unavailable (private mode).
+    var authStore = (function() {
+        try {
+            var t = '__mrpark_test__';
+            window.localStorage.setItem(t, '1');
+            window.localStorage.removeItem(t);
+            return window.localStorage;
+        } catch (e) {
+            return window.sessionStorage;
+        }
+    })();
     var msgPollTimer = null;
-    var MSG_POLL_MS = 5000;
+    var MSG_POLL_MS = 120000;
+    var MSG_POLL_FALLBACK_MS = 15000;
+    var MSG_THREAD_REFRESH_MS = 30000;
+    var messengerRealtimeReady = false;
+    var studentSocketRetryTimer = null;
+    var studentThreadMessages = [];
+    var studentKnownIds = {};
+    var pendingRealtimeMessages = {};
+    var activeStudentThreadKey = '';
+    var markReadTimer = null;
+    var chatLayoutRaf = 0;
+    var studentMessagesLoadSeq = 0;
     var buddyChatHistory = [];
     var buddyConfigured = false;
-    var buddyRemaining = 30;
+    var buddyRemaining = 100;
+    var buddySending = false;
     var MONTH_NAMES = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
@@ -1162,13 +1749,14 @@
     function api(path, opts) {
         opts = opts || {};
         var headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-        var token = sessionStorage.getItem(TOKEN_KEY);
+        var token = authStore.getItem(TOKEN_KEY);
         if (token) headers.Authorization = 'Bearer ' + token;
         var url = NODE_API + path;
         return fetch(url, {
             method: opts.method || 'GET',
             headers: headers,
-            body: opts.body ? JSON.stringify(opts.body) : undefined
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+            cache: opts.cache || 'default'
         }).then(function(res) {
             return res.text().then(function(text) {
                 return parseApiResponse(res, text);
@@ -1230,8 +1818,80 @@
         return document.body.classList.contains('portal-mobile');
     }
 
+    function clearChatPanelInlineLayout() {
+        ['msgFloat', 'buddyFloat'].forEach(function(id) {
+            var el = $(id);
+            if (!el) return;
+            ['width', 'height', 'left', 'right', 'top', 'bottom', 'min-width', 'min-height', 'max-width', 'max-height'].forEach(function(prop) {
+                el.style.removeProperty(prop);
+            });
+        });
+    }
+
+    function resetMobileKeyboardLayoutState() {
+        document.body.classList.remove('keyboard-open');
+        document.documentElement.style.removeProperty('--kb-inset');
+        window.__portalVvBase = 0;
+        if (window.visualViewport) {
+            window.__portalVvBase = window.visualViewport.height;
+        }
+    }
+
+    function measurePortalChrome() {
+        if (!isPortalMobile()) return;
+        var nav = $('mobileBottomNav');
+        var top = document.querySelector('.mobile-top-bar');
+        var msgForm = $('msgForm');
+        var buddyCompose = document.querySelector('.buddy-compose');
+        var root = document.documentElement;
+        if (nav && !nav.classList.contains('hidden')) {
+            var nh = Math.ceil(nav.getBoundingClientRect().height);
+            if (nh > 0) root.style.setProperty('--portal-nav-h', nh + 'px');
+        } else {
+            root.style.setProperty('--portal-nav-h', 'calc(3.5rem + env(safe-area-inset-bottom, 0px))');
+        }
+        if (top) root.style.setProperty('--portal-top-h', top.getBoundingClientRect().height + 'px');
+        if (msgForm) {
+            var mh = Math.ceil(msgForm.getBoundingClientRect().height);
+            if (mh > 0) root.style.setProperty('--portal-compose-h', mh + 'px');
+        }
+        if (buddyCompose) {
+            var bh = Math.ceil(buddyCompose.getBoundingClientRect().height);
+            if (bh > 0) root.style.setProperty('--portal-buddy-compose-h', bh + 'px');
+        }
+    }
+
+    function refreshChatLayoutFull() {
+        if (!isPortalMobile()) return;
+        if (activeMobilePanel !== 'messages' && activeMobilePanel !== 'buddy') return;
+        clearChatPanelInlineLayout();
+        resetMobileKeyboardLayoutState();
+        measurePortalChrome();
+        updateMobileKeyboardLayout();
+        if (activeMobilePanel === 'messages') scrollMsgChat();
+        else scrollBuddyChat();
+    }
+
+    function scheduleChatLayoutRefresh() {
+        if (!isPortalMobile()) return;
+        if (activeMobilePanel !== 'messages' && activeMobilePanel !== 'buddy') return;
+        if (chatLayoutRaf) return;
+        chatLayoutRaf = requestAnimationFrame(function() {
+            chatLayoutRaf = 0;
+            measurePortalChrome();
+            if (activeMobilePanel === 'messages') scrollMsgChat();
+            else scrollBuddyChat();
+        });
+    }
+
     function setMobilePanel(panel) {
+        var prevPanel = activeMobilePanel;
         activeMobilePanel = panel || 'home';
+        document.body.setAttribute('data-mobile-tab', activeMobilePanel);
+        document.documentElement.classList.toggle(
+            'portal-chat-tab',
+            activeMobilePanel === 'messages' || activeMobilePanel === 'buddy'
+        );
         document.querySelectorAll('.dashboard-card').forEach(function(card) {
             card.classList.toggle('panel-active', card.getAttribute('data-panel') === activeMobilePanel);
         });
@@ -1244,11 +1904,17 @@
         document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
             btn.classList.toggle('active', btn.getAttribute('data-mobile-tab') === activeMobilePanel);
         });
-        if (activeMobilePanel === 'messages') {
+        if (activeMobilePanel === 'messages' && prevPanel !== 'messages') {
             loadStudentMessages().catch(function() {});
+            ensureStudentMessengerRealtime();
+            requestAnimationFrame(refreshChatLayoutFull);
         }
         if (activeMobilePanel === 'buddy') {
             refreshBuddyStatus().catch(function() {});
+        } else if (activeMobilePanel === 'messages' && prevPanel === 'messages') {
+            /* already on messages — no layout burst */
+        } else if (activeMobilePanel === 'messages' || activeMobilePanel === 'buddy') {
+            requestAnimationFrame(refreshChatLayoutFull);
         }
     }
 
@@ -1256,17 +1922,23 @@
         var onDash = !$('dashboardScreen').classList.contains('hidden');
         var onLogin = !$('loginScreen').classList.contains('hidden');
         document.body.classList.toggle('portal-mobile', mobileMq.matches);
+        document.documentElement.classList.toggle('portal-mobile-root', mobileMq.matches);
         document.body.classList.toggle('portal-dashboard', mobileMq.matches && onDash);
         document.body.classList.toggle('portal-login', mobileMq.matches && onLogin);
         var nav = $('mobileBottomNav');
         if (mobileMq.matches && onDash) {
+            clearChatPanelInlineLayout();
             show(nav);
             setMobilePanel(activeMobilePanel);
+            requestAnimationFrame(measurePortalChrome);
+            syncDesktopChatPanelCollapse();
         } else {
             if (nav) hide(nav);
             document.querySelectorAll('.dashboard-card').forEach(function(c) {
                 c.classList.add('panel-active');
             });
+            applyStoredDesktopChatPanelSizes();
+            syncDesktopChatPanelCollapse();
         }
     }
 
@@ -1288,8 +1960,10 @@
 
     function doLogout() {
         stopMessagePolling();
-        sessionStorage.removeItem(TOKEN_KEY);
-        sessionStorage.removeItem(STUDENT_KEY);
+        clearStudentMessengerState();
+        activeStudentThreadKey = '';
+        authStore.removeItem(TOKEN_KEY);
+        authStore.removeItem(STUDENT_KEY);
         setMessagingActive(false);
         setBuddyActive(false);
         clearBuddyChat();
@@ -1302,14 +1976,104 @@
         updatePortalLayoutMode();
     }
 
+    function updateMobileKeyboardLayout() {
+        var vv = window.visualViewport;
+        var root = document.documentElement;
+        var chatTab = activeMobilePanel === 'messages' || activeMobilePanel === 'buddy';
+        if (!vv || !isPortalMobile() || !chatTab) {
+            document.body.classList.remove('keyboard-open');
+            root.style.removeProperty('--kb-inset');
+            window.__portalVvBase = 0;
+            return;
+        }
+        if (!window.__portalVvBase || vv.height > window.__portalVvBase * 0.92) {
+            window.__portalVvBase = vv.height;
+        }
+        var focusOnChat = document.activeElement === $('msgInput') || document.activeElement === $('buddyInput');
+        var kb = Math.max(0, window.innerHeight - vv.height);
+        var shrunk = window.__portalVvBase - vv.height;
+        var open = focusOnChat || kb > 80 || shrunk > 80;
+        document.body.classList.toggle('keyboard-open', open);
+        if (open) {
+            root.style.setProperty('--kb-inset', kb + 'px');
+            window.scrollTo(0, 0);
+            requestAnimationFrame(function() {
+                if (activeMobilePanel === 'messages') scrollMsgChat();
+                else scrollBuddyChat();
+            });
+        } else {
+            root.style.removeProperty('--kb-inset');
+            window.__portalVvBase = vv.height;
+        }
+    }
+
+    function nudgeMobileKeyboardLayout() {
+        updateMobileKeyboardLayout();
+        setTimeout(updateMobileKeyboardLayout, 120);
+        setTimeout(updateMobileKeyboardLayout, 320);
+    }
+
     function initMobilePortal() {
-        mobileMq.addEventListener('change', updatePortalLayoutMode);
+        mobileMq.addEventListener('change', function() {
+            updatePortalLayoutMode();
+            if (isPortalMobile()) {
+                clearChatPanelInlineLayout();
+                resetMobileKeyboardLayoutState();
+                if (activeMobilePanel === 'messages' || activeMobilePanel === 'buddy') {
+                    requestAnimationFrame(refreshChatLayoutFull);
+                }
+            } else {
+                measurePortalChrome();
+            }
+        });
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() {
+                updatePortalLayoutMode();
+                if (isPortalMobile() && (activeMobilePanel === 'messages' || activeMobilePanel === 'buddy')) {
+                    scheduleChatLayoutRefresh();
+                }
+            }, 120);
+        });
         document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 setMobilePanel(btn.getAttribute('data-mobile-tab'));
             });
         });
         $('logoutBtnMobile').addEventListener('click', doLogout);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', updateMobileKeyboardLayout);
+            window.visualViewport.addEventListener('scroll', updateMobileKeyboardLayout);
+        }
+        window.addEventListener('resize', function() {
+            measurePortalChrome();
+            if (isPortalMobile() && (activeMobilePanel === 'messages' || activeMobilePanel === 'buddy')) {
+                scheduleChatLayoutRefresh();
+            }
+        });
+        ['msgInput', 'buddyInput'].forEach(function(id) {
+            var el = $(id);
+            if (!el) return;
+            el.addEventListener('focus', nudgeMobileKeyboardLayout);
+            el.addEventListener('blur', function() {
+                setTimeout(updateMobileKeyboardLayout, 120);
+            });
+        });
+        var msgForm = $('msgForm');
+        if (msgForm) {
+            msgForm.addEventListener('click', function(e) {
+                if (e.target.closest('.msg-send-btn')) return;
+                var inp = $('msgInput');
+                if (inp) inp.focus();
+            });
+        }
+        var buddyForm = $('buddyForm');
+        if (buddyForm) {
+            buddyForm.addEventListener('click', function(e) {
+                if (e.target.closest('.buddy-send-btn')) return;
+                var inp = $('buddyInput');
+                if (inp) inp.focus();
+            });
+        }
         updatePortalLayoutMode();
     }
 
@@ -1447,18 +2211,300 @@
         empty.classList.toggle('hidden', thread.children.length > 0);
     }
 
-    function renderMessages(messages) {
+    function fmtMsgTime(createdAt) {
+        var d = createdAt ? new Date(createdAt) : null;
+        if (!d || isNaN(d.getTime())) return '';
+        var hh = d.getHours(), mm = d.getMinutes();
+        var ampm = hh < 12 ? 'AM' : 'PM';
+        var h12 = hh % 12; if (h12 === 0) h12 = 12;
+        return h12 + ':' + (mm < 10 ? '0' + mm : mm) + ' ' + ampm;
+    }
+
+    function setStudentMsgLiveDot(on) {
+        var dot = $('msgLiveDot');
+        if (dot) dot.classList.toggle('hidden', !on);
+    }
+
+    function normalizeThreadId(tid) {
+        return String(tid || '').trim();
+    }
+
+    function getStudentProfile() {
+        try {
+            var profile = JSON.parse(authStore.getItem(STUDENT_KEY) || '{}');
+            var studentId = profile.studentId || profile.id;
+            if (!studentId || !profile.classId) return null;
+            return { studentId: String(studentId), classId: String(profile.classId) };
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function currentStudentThreadId() {
+        var profile = getStudentProfile();
+        if (!profile) return '';
+        return normalizeThreadId(profile.classId + '|' + profile.studentId);
+    }
+
+    function clearStudentMessengerState() {
+        studentThreadMessages = [];
+        studentKnownIds = {};
+        pendingRealtimeMessages = {};
+        if (markReadTimer) {
+            clearTimeout(markReadTimer);
+            markReadTimer = null;
+        }
         var thread = $('msgChatThread');
-        if (!thread) return;
-        thread.innerHTML = '';
-        (messages || []).forEach(function(m) {
-            var div = document.createElement('div');
-            div.className = 'msg-bubble ' + (m.sender === 'student' ? 'msg-bubble-student' : 'msg-bubble-teacher');
-            div.textContent = m.body || '';
-            thread.appendChild(div);
+        if (thread) thread.innerHTML = '';
+        renderMsgEmpty();
+    }
+
+    function resetStudentThreadCache(messages) {
+        studentThreadMessages = (messages || []).slice();
+        studentKnownIds = {};
+        studentThreadMessages.forEach(function(m) {
+            if (m && m.messageId) studentKnownIds[m.messageId] = true;
         });
+    }
+
+    function mergeStudentThreadFromServer(serverMessages) {
+        var serverList = serverMessages || [];
+        var serverIds = {};
+        serverList.forEach(function(m) {
+            if (m && m.messageId) {
+                serverIds[m.messageId] = true;
+                if (pendingRealtimeMessages[m.messageId]) {
+                    delete pendingRealtimeMessages[m.messageId];
+                }
+            }
+        });
+        var extras = [];
+        Object.keys(pendingRealtimeMessages).forEach(function(id) {
+            if (!serverIds[id]) extras.push(pendingRealtimeMessages[id]);
+        });
+        if (!extras.length) {
+            resetStudentThreadCache(serverList);
+            return;
+        }
+        var merged = serverList.concat(extras);
+        merged.sort(function(a, b) {
+            return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+        });
+        resetStudentThreadCache(merged);
+    }
+
+    function buildStudentMsgRow(m) {
+        if (window.MrParkMessengerUI) {
+            return MrParkMessengerUI.buildRow(m, 0, [m], 'student');
+        }
+        var mine = m.sender === 'student';
+        var row = document.createElement('div');
+        row.className = 'msg-row ' + (mine ? 'mine' : 'theirs');
+        if (m.messageId) row.setAttribute('data-message-id', m.messageId);
+
+        var bubble = document.createElement('div');
+        bubble.className = 'msg-bubble ' + (mine ? 'msg-bubble-student' : 'msg-bubble-teacher');
+        bubble.textContent = m.body || '';
+
+        var meta = document.createElement('span');
+        meta.className = 'msg-meta';
+        if (mine && !m.read) {
+            var rm = document.createElement('span');
+            rm.className = 'msg-read-mark';
+            rm.textContent = '1';
+            meta.appendChild(rm);
+        }
+        var t = fmtMsgTime(m.createdAt);
+        if (t) {
+            var ts = document.createElement('span');
+            ts.className = 'msg-time';
+            ts.textContent = t;
+            meta.appendChild(ts);
+        }
+
+        if (mine) { row.appendChild(meta); row.appendChild(bubble); }
+        else { row.appendChild(bubble); row.appendChild(meta); }
+        return row;
+    }
+
+    function appendStudentMessageIfNew(m) {
+        if (!m || !m.messageId || studentKnownIds[m.messageId]) return false;
+        studentKnownIds[m.messageId] = true;
+        pendingRealtimeMessages[m.messageId] = m;
+        studentThreadMessages.push(m);
+        studentThreadMessages.sort(function(a, b) {
+            return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+        });
+
+        var thread = $('msgChatThread');
+        if (!thread) return true;
+        var sortedIdx = -1;
+        for (var i = 0; i < studentThreadMessages.length; i++) {
+            if (studentThreadMessages[i].messageId === m.messageId) {
+                sortedIdx = i;
+                break;
+            }
+        }
+        if (sortedIdx >= 0 && sortedIdx < studentThreadMessages.length - 1) {
+            renderMessages(studentThreadMessages, true);
+            return true;
+        }
+        thread.appendChild(buildStudentMsgRow(m));
         renderMsgEmpty();
         scrollMsgChat();
+        return true;
+    }
+
+    function patchStudentReadMarks() {
+        var thread = $('msgChatThread');
+        if (!thread) return;
+        if (window.MrParkMessengerUI) {
+            MrParkMessengerUI.patchReadMarks(thread, 'student');
+            return;
+        }
+        thread.querySelectorAll('.msg-row.mine .msg-read-mark').forEach(function(el) {
+            el.remove();
+        });
+    }
+
+    function scheduleStudentMarkRead() {
+        if (!isStudentMessagesOpen()) return;
+        if (markReadTimer) clearTimeout(markReadTimer);
+        markReadTimer = setTimeout(function() {
+            markReadTimer = null;
+            api('/api/student/messages/mark-read', { method: 'POST' }).catch(function() {});
+        }, 800);
+    }
+
+    function handleStudentRealtimeMessage(payload) {
+        var tid = normalizeThreadId(payload && payload.threadId);
+        var myTid = currentStudentThreadId();
+        if (tid && myTid && tid !== myTid) return;
+        var msg = payload && payload.message;
+        if (!msg) return;
+        if (!appendStudentMessageIfNew(msg)) return;
+        scheduleStudentMarkRead();
+        if (!isStudentMessagesOpen()) pollStudentUnread();
+    }
+
+    function handleStudentRealtimeRead(payload) {
+        var tid = normalizeThreadId(payload && payload.threadId);
+        if (tid && tid !== currentStudentThreadId()) return;
+        if (!payload || payload.role !== 'teacher') return;
+        studentThreadMessages.forEach(function(m) {
+            if (m.sender === 'student') m.read = true;
+        });
+        patchStudentReadMarks();
+    }
+
+    var studentMessengerHandlers = {
+        onConnect: function() {
+            setStudentMsgLiveDot(true);
+            syncStudentMsgPolling();
+            if (isStudentMessagesOpen()) {
+                loadStudentMessages().catch(function() {});
+            }
+            var profile = getStudentProfile();
+            if (profile && window.MrParkMessengerRealtime) {
+                MrParkMessengerRealtime.joinThread(
+                    MrParkMessengerRealtime.threadId(profile.classId, profile.studentId)
+                );
+            }
+        },
+        onDisconnect: function() {
+            setStudentMsgLiveDot(false);
+            messengerRealtimeReady = false;
+            syncStudentMsgPolling();
+        },
+        onMessage: handleStudentRealtimeMessage,
+        onThreadsChanged: function() {
+            if (isStudentMessagesOpen()) {
+                if (!window.MrParkMessengerRealtime || !MrParkMessengerRealtime.isConnected()) {
+                    loadStudentMessages().catch(function() {});
+                }
+            } else {
+                pollStudentUnread();
+            }
+        },
+        onRead: handleStudentRealtimeRead,
+        onFallbackPoll: pollStudentMessages
+    };
+
+    function ensureStudentMessengerRealtime() {
+        if (!authStore.getItem(TOKEN_KEY)) return;
+        if (window.MrParkMessengerRealtime) {
+            if (!MrParkMessengerRealtime.isConnected()) {
+                messengerRealtimeReady = MrParkMessengerRealtime.connect(
+                    NODE_API.replace(/\/$/, ''),
+                    function() { return authStore.getItem(TOKEN_KEY) || ''; },
+                    studentMessengerHandlers
+                );
+            }
+            return;
+        }
+        if (studentSocketRetryTimer) return;
+        studentSocketRetryTimer = setTimeout(function() {
+            studentSocketRetryTimer = null;
+            ensureStudentMessengerRealtime();
+        }, 200);
+    }
+
+    function syncStudentMsgPolling() {
+        if (msgPollTimer) clearInterval(msgPollTimer);
+        msgPollTimer = null;
+        var ms = isStudentMessagesOpen() ? MSG_THREAD_REFRESH_MS : MSG_POLL_FALLBACK_MS;
+        msgPollTimer = setInterval(pollStudentMessages, ms);
+    }
+
+    function autoGrowStudentMsgInput() {
+        var input = $('msgInput');
+        if (!input) return;
+        if (window.MrParkMessengerUI) {
+            MrParkMessengerUI.autoGrow(input, 120);
+            return;
+        }
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    }
+
+    function studentThreadFingerprint(messages) {
+        if (window.MrParkMessengerUI) return MrParkMessengerUI.fingerprint(messages);
+        return (messages || []).map(function(m) {
+            return (m.messageId || '') + ':' + (m.read ? '1' : '0') + ':' + (m.body || '');
+        }).join('|');
+    }
+
+    function renderMessages(messages, skipLayout) {
+        var thread = $('msgChatThread');
+        if (!thread) return;
+        if (window.MrParkMessengerUI) {
+            if (!MrParkMessengerUI.renderThread(thread, messages, { theme: 'student' })) {
+                if (!skipLayout && isPortalMobile() && activeMobilePanel === 'messages') {
+                    requestAnimationFrame(refreshChatLayoutFull);
+                }
+                return;
+            }
+        } else {
+            var fp = studentThreadFingerprint(messages);
+            if (thread.dataset.msgFp === fp) {
+                if (!skipLayout && isPortalMobile() && activeMobilePanel === 'messages') {
+                    requestAnimationFrame(refreshChatLayoutFull);
+                }
+                return;
+            }
+            thread.dataset.msgFp = fp;
+            thread.innerHTML = '';
+            (messages || []).forEach(function(m) {
+                thread.appendChild(buildStudentMsgRow(m));
+            });
+        }
+        renderMsgEmpty();
+        scrollMsgChat();
+        if (!skipLayout && isPortalMobile() && activeMobilePanel === 'messages') {
+            scheduleChatLayoutRefresh();
+        } else if (!isPortalMobile()) {
+            requestAnimationFrame(autoGrowMsgFloat);
+        }
     }
 
     function updateMsgUnreadBadge(count) {
@@ -1477,9 +2523,13 @@
     }
 
     function loadStudentMessages() {
-        return api('/api/student/messages').then(function(data) {
-            renderMessages(data.messages || []);
+        var seq = ++studentMessagesLoadSeq;
+        return api('/api/student/messages', { cache: 'no-store' }).then(function(data) {
+            if (seq !== studentMessagesLoadSeq) return;
+            mergeStudentThreadFromServer(data.messages || []);
+            renderMessages(studentThreadMessages, true);
             updateMsgUnreadBadge(0);
+            scrollMsgChat();
         });
     }
 
@@ -1491,7 +2541,7 @@
     }
 
     function isStudentMessagesOpen() {
-        if (!sessionStorage.getItem(TOKEN_KEY)) return false;
+        if (!authStore.getItem(TOKEN_KEY)) return false;
         if ($('dashboardScreen').classList.contains('hidden')) return false;
         if (isPortalMobile()) return activeMobilePanel === 'messages';
         var msg = $('msgFloat');
@@ -1501,7 +2551,9 @@
     function pollStudentMessages() {
         if (document.visibilityState !== 'visible') return;
         if (isStudentMessagesOpen()) {
-            loadStudentMessages().catch(function() {});
+            if (!window.MrParkMessengerRealtime || !MrParkMessengerRealtime.isConnected()) {
+                loadStudentMessages().catch(function() {});
+            }
             return;
         }
         pollStudentUnread();
@@ -1510,8 +2562,9 @@
     function startMessagePolling() {
         if (msgPollTimer) clearInterval(msgPollTimer);
         pollStudentMessages();
-        msgPollTimer = setInterval(pollStudentMessages, MSG_POLL_MS);
+        syncStudentMsgPolling();
         document.addEventListener('visibilitychange', onStudentMessageVisibility);
+        ensureStudentMessengerRealtime();
     }
 
     function onStudentMessageVisibility() {
@@ -1522,6 +2575,14 @@
         document.removeEventListener('visibilitychange', onStudentMessageVisibility);
         if (msgPollTimer) clearInterval(msgPollTimer);
         msgPollTimer = null;
+        if (markReadTimer) {
+            clearTimeout(markReadTimer);
+            markReadTimer = null;
+        }
+        if (window.MrParkMessengerRealtime) {
+            MrParkMessengerRealtime.disconnect();
+            messengerRealtimeReady = false;
+        }
     }
 
     function submitStudentMessage(e) {
@@ -1531,14 +2592,21 @@
         var body = input ? input.value.trim() : '';
         if (!body) return;
         var profile = {};
-        try { profile = JSON.parse(sessionStorage.getItem(STUDENT_KEY) || '{}'); } catch (err) { profile = {}; }
+        try { profile = JSON.parse(authStore.getItem(STUDENT_KEY) || '{}'); } catch (err) { profile = {}; }
         if (btn) btn.disabled = true;
         api('/api/student/messages', {
             method: 'POST',
             body: { body: body, studentName: profile.name || '' }
-        }).then(function() {
-            if (input) input.value = '';
-            return loadStudentMessages();
+        }).then(function(res) {
+            if (input) {
+                input.value = '';
+                autoGrowStudentMsgInput();
+            }
+            if (res && res.message) {
+                appendStudentMessageIfNew(res.message);
+            } else {
+                return loadStudentMessages();
+            }
         }).catch(function(err) {
             alert(err.message || 'Could not send message.');
         }).finally(function() {
@@ -1547,7 +2615,9 @@
     }
 
     $('msgForm').addEventListener('submit', submitStudentMessage);
+    $('msgInput').addEventListener('input', autoGrowStudentMsgInput);
     $('msgInput').addEventListener('keydown', function(e) {
+        if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             submitStudentMessage(e);
@@ -1568,6 +2638,197 @@
         }).catch(function() {
             buddyConfigured = false;
         });
+    }
+
+    var MSG_FLOAT_SIZE_KEY = 'mrpark_msg_float_size';
+    var BUDDY_FLOAT_SIZE_KEY = 'mrpark_buddy_float_size';
+    var CHAT_FLOAT_DEFAULT_W = 360;
+    var CHAT_FLOAT_DEFAULT_H = 380;
+
+    function getChatFloatLimits() {
+        return {
+            minW: 280,
+            minH: 300,
+            maxW: Math.min(520, window.innerWidth - 24),
+            maxH: Math.min(Math.round(window.innerHeight * 0.85), 720)
+        };
+    }
+
+    function clampChatFloatSize(w, h) {
+        var lim = getChatFloatLimits();
+        return {
+            w: Math.max(lim.minW, Math.min(lim.maxW, w)),
+            h: Math.max(lim.minH, Math.min(lim.maxH, h))
+        };
+    }
+
+    function applyStoredChatPanelSize(panelId, storageKey) {
+        if (isPortalMobile()) return;
+        var el = $(panelId);
+        if (!el) return;
+        var w = CHAT_FLOAT_DEFAULT_W;
+        var h = CHAT_FLOAT_DEFAULT_H;
+        try {
+            var raw = localStorage.getItem(storageKey);
+            if (raw) {
+                var s = JSON.parse(raw);
+                if (s && s.w > 0 && s.h > 0) {
+                    w = s.w;
+                    h = s.h;
+                }
+            }
+        } catch (e) {}
+        var c = clampChatFloatSize(w, h);
+        el.style.width = c.w + 'px';
+        el.style.height = c.h + 'px';
+    }
+
+    function applyStoredDesktopChatPanelSizes() {
+        applyStoredChatPanelSize('msgFloat', MSG_FLOAT_SIZE_KEY);
+        applyStoredChatPanelSize('buddyFloat', BUDDY_FLOAT_SIZE_KEY);
+    }
+
+    function persistChatPanelSize(panelId, storageKey) {
+        if (isPortalMobile()) return;
+        var el = $(panelId);
+        if (!el || el.classList.contains('hidden') || el.classList.contains('panel-collapsed')) return;
+        try {
+            localStorage.setItem(storageKey, JSON.stringify({
+                w: el.offsetWidth,
+                h: el.offsetHeight
+            }));
+        } catch (e) {}
+    }
+
+    function measureChatPanelContentHeight(panelId, headSel, composeSel, wrapId, threadId) {
+        var el = $(panelId);
+        if (!el) return 0;
+        var head = el.querySelector(headSel);
+        var compose = el.querySelector(composeSel);
+        var thread = $(threadId);
+        var wrap = $(wrapId);
+        if (!thread || !wrap) return 0;
+        var bodyEl = head ? head.parentElement : null;
+        var bodyStyle = bodyEl ? window.getComputedStyle(bodyEl) : null;
+        var bodyPadPx = bodyStyle
+            ? parseFloat(bodyStyle.paddingTop) + parseFloat(bodyStyle.paddingBottom)
+            : 24;
+        var wrapStyle = window.getComputedStyle(wrap);
+        var wrapPadPx = parseFloat(wrapStyle.paddingTop) + parseFloat(wrapStyle.paddingBottom);
+        var headH = head ? head.offsetHeight : 0;
+        var composeH = compose ? compose.offsetHeight : 0;
+        return headH + bodyPadPx + composeH + wrapPadPx + thread.scrollHeight;
+    }
+
+    function autoGrowChatPanel(panelId, storageKey, headSel, composeSel, wrapId, threadId, scrollFn) {
+        if (isPortalMobile()) return;
+        var el = $(panelId);
+        if (!el || el.classList.contains('hidden') || el.classList.contains('panel-collapsed')) return;
+        var wrap = $(wrapId);
+        var thread = $(threadId);
+        if (!wrap || !thread || thread.children.length === 0) return;
+
+        var overflow = wrap.scrollHeight > wrap.clientHeight + 2;
+        if (!overflow) return;
+
+        var lim = getChatFloatLimits();
+        var want = measureChatPanelContentHeight(panelId, headSel, composeSel, wrapId, threadId);
+        var next = Math.max(el.offsetHeight, want);
+        next = Math.max(lim.minH, Math.min(lim.maxH, next));
+        if (next <= el.offsetHeight) return;
+
+        el.style.height = next + 'px';
+        persistChatPanelSize(panelId, storageKey);
+        if (scrollFn) scrollFn();
+    }
+
+    function autoGrowMsgFloat() {
+        autoGrowChatPanel(
+            'msgFloat',
+            MSG_FLOAT_SIZE_KEY,
+            '.msg-float-head',
+            '.msg-form',
+            'msgChatWrap',
+            'msgChatThread',
+            scrollMsgChat
+        );
+    }
+
+    function autoGrowBuddyFloat() {
+        autoGrowChatPanel(
+            'buddyFloat',
+            BUDDY_FLOAT_SIZE_KEY,
+            '.buddy-float-head',
+            '.buddy-compose',
+            'buddyChatWrap',
+            'buddyChatThread',
+            scrollBuddyChat
+        );
+    }
+
+    function initChatPanelDragResize(opts) {
+        var el = $(opts.panelId);
+        var grip = $(opts.gripId);
+        if (!el || !grip) return;
+
+        var dragging = false;
+        var startX = 0;
+        var startY = 0;
+        var startW = 0;
+        var startH = 0;
+        var growFromLeft = opts.anchor === 'right';
+
+        function onPointerDown(e) {
+            if (isPortalMobile()) return;
+            if (el.classList.contains('panel-collapsed')) return;
+            e.preventDefault();
+            dragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            startW = el.offsetWidth;
+            startH = el.offsetHeight;
+            grip.setPointerCapture(e.pointerId);
+            document.body.classList.add(opts.resizeBodyClass || 'portal-chat-resize-active');
+        }
+
+        function onPointerMove(e) {
+            if (!dragging) return;
+            var lim = getChatFloatLimits();
+            var dx = growFromLeft ? (startX - e.clientX) : (e.clientX - startX);
+            var dy = startY - e.clientY;
+            var w = Math.max(lim.minW, Math.min(lim.maxW, startW + dx));
+            var h = Math.max(lim.minH, Math.min(lim.maxH, startH + dy));
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+        }
+
+        function endDrag(e) {
+            if (!dragging) return;
+            dragging = false;
+            document.body.classList.remove(opts.resizeBodyClass || 'portal-chat-resize-active');
+            try { grip.releasePointerCapture(e.pointerId); } catch (err) {}
+            persistChatPanelSize(opts.panelId, opts.storageKey);
+        }
+
+        grip.addEventListener('pointerdown', onPointerDown);
+        grip.addEventListener('pointermove', onPointerMove);
+        grip.addEventListener('pointerup', endDrag);
+        grip.addEventListener('pointercancel', endDrag);
+    }
+
+    function initChatPanelResizeObserver(panelId, storageKey) {
+        var el = $(panelId);
+        if (!el || typeof ResizeObserver === 'undefined') return;
+        var lastW = 0;
+        var lastH = 0;
+        var ro = new ResizeObserver(function() {
+            if (isPortalMobile() || el.classList.contains('hidden')) return;
+            if (el.offsetWidth === lastW && el.offsetHeight === lastH) return;
+            lastW = el.offsetWidth;
+            lastH = el.offsetHeight;
+            persistChatPanelSize(panelId, storageKey);
+        });
+        ro.observe(el);
     }
 
     function scrollBuddyChat() {
@@ -1591,9 +2852,18 @@
         thread.appendChild(div);
         renderBuddyEmpty();
         scrollBuddyChat();
+        requestAnimationFrame(autoGrowBuddyFloat);
+    }
+
+    var buddyThinkingTimers = [];
+
+    function clearBuddyThinkingTimers() {
+        buddyThinkingTimers.forEach(clearTimeout);
+        buddyThinkingTimers = [];
     }
 
     function removeBuddyThinking() {
+        clearBuddyThinkingTimers();
         var el = $('buddyThinking');
         if (el && el.parentNode) el.parentNode.removeChild(el);
         renderBuddyEmpty();
@@ -1617,6 +2887,7 @@
 
     function submitBuddyAsk(e) {
         if (e) e.preventDefault();
+        if (buddySending) return;
         var input = $('buddyInput');
         var btn = $('buddySendBtn');
         if (!input) return;
@@ -1643,23 +2914,96 @@
         $('buddyChatThread').appendChild(thinking);
         renderBuddyEmpty();
         scrollBuddyChat();
+        requestAnimationFrame(autoGrowBuddyFloat);
+        clearBuddyThinkingTimers();
+        var essayMode = /\b(essay|5-paragraph|write about)\b/i.test(prompt) ||
+            buddyChatHistory.some(function(m) { return /\b(essay|5-paragraph|write about)\b/i.test(m.text || ''); });
+        buddyThinkingTimers.push(setTimeout(function() {
+            if ($('buddyThinking')) $('buddyThinking').textContent = essayMode ? 'Working on your essay…' : 'Still thinking…';
+        }, 5000));
+        buddyThinkingTimers.push(setTimeout(function() {
+            if ($('buddyThinking')) $('buddyThinking').textContent = 'Almost there…';
+        }, 12000));
         if (btn) btn.disabled = true;
+        buddySending = true;
 
-        api('/api/student/english-buddy', {
+        var headers = { 'Content-Type': 'application/json', Accept: 'text/event-stream' };
+        var token = authStore.getItem(TOKEN_KEY);
+        if (token) headers.Authorization = 'Bearer ' + token;
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var clientTimer = controller ? setTimeout(function() { controller.abort(); }, 50000) : null;
+
+        fetch(NODE_API + '/api/student/english-buddy/stream', {
             method: 'POST',
-            body: { prompt: prompt, history: history }
-        }).then(function(data) {
-            removeBuddyThinking();
-            var answer = String(data.answer || '').trim();
-            if (answer) {
-                appendBuddyBubble('ai', answer);
-                buddyChatHistory.push({ role: 'assistant', text: answer });
+            headers: headers,
+            body: JSON.stringify({ prompt: prompt, history: history }),
+            signal: controller ? controller.signal : undefined
+        }).then(function(res) {
+            if (!res.ok) {
+                return res.json().catch(function() { return {}; }).then(function(body) {
+                    throw new Error(body.error || res.statusText || 'English Buddy failed');
+                });
             }
-            if (data.remaining != null) updateBuddyRemaining(data.remaining);
+            if (!res.body || !res.body.getReader) {
+                return res.json().then(function(data) {
+                    removeBuddyThinking();
+                    var answer = String(data.answer || '').trim();
+                    if (answer) {
+                        appendBuddyBubble('ai', answer);
+                        buddyChatHistory.push({ role: 'assistant', text: answer });
+                    }
+                    if (data.remaining != null) updateBuddyRemaining(data.remaining);
+                });
+            }
+            removeBuddyThinking();
+            var bubble = document.createElement('div');
+            bubble.className = 'buddy-bubble buddy-bubble-ai';
+            $('buddyChatThread').appendChild(bubble);
+            renderBuddyEmpty();
+            var reader = res.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+            var answer = '';
+            function pump() {
+                return reader.read().then(function(chunk) {
+                    if (chunk.done) return answer;
+                    buffer += decoder.decode(chunk.value, { stream: true });
+                    var parts = buffer.split('\n\n');
+                    buffer = parts.pop() || '';
+                    parts.forEach(function(block) {
+                        block.split('\n').forEach(function(line) {
+                            if (!line.startsWith('data:')) return;
+                            var payload;
+                            try { payload = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
+                            if (payload.error) throw new Error(payload.error);
+                            if (payload.text) {
+                                answer += payload.text;
+                                bubble.textContent = answer;
+                                scrollBuddyChat();
+                            }
+                            if (payload.done) {
+                                if (payload.answer) answer = payload.answer;
+                                if (payload.remaining != null) updateBuddyRemaining(payload.remaining);
+                            }
+                        });
+                    });
+                    return pump();
+                });
+            }
+            return pump().then(function(finalAnswer) {
+                var text = String(finalAnswer || '').trim();
+                if (text) buddyChatHistory.push({ role: 'assistant', text: text });
+            });
         }).catch(function(err) {
             removeBuddyThinking();
-            appendBuddyBubble('ai', err.message || 'Something went wrong.', 'buddy-bubble-thinking');
+            var msg = (err && err.message) ? err.message : String(err);
+            if (err && err.name === 'AbortError') {
+                msg = 'English Buddy took too long. Please try a shorter message.';
+            }
+            appendBuddyBubble('ai', msg, 'buddy-bubble-thinking');
         }).finally(function() {
+            if (clientTimer) clearTimeout(clientTimer);
+            buddySending = false;
             if (btn) btn.disabled = false;
             if (input) input.focus();
         });
@@ -1679,6 +3023,7 @@
 
     $('buddyForm').addEventListener('submit', submitBuddyAsk);
     $('buddyInput').addEventListener('keydown', function(e) {
+        if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             submitBuddyAsk(e);
@@ -1691,19 +3036,31 @@
     });
 
     function renderDashboard(data) {
+        var sessionKey = String(data.profile.classId) + '|' + String(data.profile.id);
+        if (sessionKey !== activeStudentThreadKey) {
+            clearStudentMessengerState();
+            if (window.MrParkMessengerRealtime) {
+                MrParkMessengerRealtime.disconnect();
+                messengerRealtimeReady = false;
+            }
+            activeStudentThreadKey = sessionKey;
+        }
         syncWelcomeNames(data.profile.name, data.profile.className);
-        sessionStorage.setItem(STUDENT_KEY, JSON.stringify({
+        authStore.setItem(STUDENT_KEY, JSON.stringify({
+            studentId: data.profile.id,
             id: data.profile.id,
             name: data.profile.name,
             classId: data.profile.classId,
             className: data.profile.className
         }));
         pollStudentUnread();
-        if (!isPortalMobile()) loadStudentMessages().catch(function() {});
+        loadStudentMessages().catch(function() {});
         startMessagePolling();
         refreshBuddyStatus().then(function() {
             show($('buddyFloat'));
+            applyStoredDesktopChatPanelSizes();
             setBuddyActive(true);
+            requestAnimationFrame(autoGrowBuddyFloat);
         }).catch(function() {
             hide($('buddyFloat'));
             setBuddyActive(false);
@@ -1746,6 +3103,7 @@
 
         renderDollarSection(data.dollars || { balance: 0, transactions: [] });
         updatePortalLayoutMode();
+        setTimeout(measurePortalChrome, 0);
     }
 
     function loadDashboard() {
@@ -1757,10 +3115,12 @@
                 show($('dashboardScreen'));
                 setMessagingActive(true);
                 show($('msgFloat'));
+                applyStoredDesktopChatPanelSizes();
                 renderDashboard(data);
+                requestAnimationFrame(autoGrowMsgFloat);
             })
             .catch(function(err) {
-                sessionStorage.removeItem(TOKEN_KEY);
+                authStore.removeItem(TOKEN_KEY);
                 hide($('loadingScreen'));
                 show($('loginScreen'));
                 showLoginError(err.message || 'Session expired. Please log in again.');
@@ -1785,8 +3145,18 @@
             if (!res || !res.token) {
                 throw new Error('Login failed. Please try again.');
             }
-            sessionStorage.setItem(TOKEN_KEY, res.token);
-            if (res.student) sessionStorage.setItem(STUDENT_KEY, JSON.stringify(res.student));
+            authStore.setItem(TOKEN_KEY, res.token);
+            clearStudentMessengerState();
+            activeStudentThreadKey = '';
+            if (res.student) {
+                authStore.setItem(STUDENT_KEY, JSON.stringify({
+                    studentId: res.student.studentId || res.student.id,
+                    id: res.student.studentId || res.student.id,
+                    name: res.student.name,
+                    classId: res.student.classId,
+                    className: res.student.className
+                }));
+            }
             hide($('loginScreen'));
             loadDashboard();
         }).catch(function(err) {
@@ -1798,15 +3168,221 @@
 
     $('loginForm').addEventListener('submit', submitLogin);
 
+    function showChangePwError(msg) {
+        var el = $('changePwError');
+        var ok = $('changePwSuccess');
+        if (ok) hide(ok);
+        if (!el) return;
+        if (msg) {
+            el.textContent = msg;
+            show(el);
+        } else {
+            el.textContent = '';
+            hide(el);
+        }
+    }
+
+    function openChangePwModal() {
+        var modal = $('changePwModal');
+        if (!modal) return;
+        show(modal);
+        showChangePwError('');
+        hide($('changePwSuccess'));
+        ['changePwCurrent', 'changePwNew', 'changePwConfirm'].forEach(function(id) {
+            var input = $(id);
+            if (input) input.value = '';
+        });
+        var current = $('changePwCurrent');
+        if (current) current.focus();
+    }
+
+    function closeChangePwModal() {
+        hide($('changePwModal'));
+        showChangePwError('');
+        hide($('changePwSuccess'));
+    }
+
+    function submitChangePassword(e) {
+        if (e) e.preventDefault();
+        showChangePwError('');
+        hide($('changePwSuccess'));
+        var current = $('changePwCurrent').value.trim();
+        var next = $('changePwNew').value.trim();
+        var confirm = $('changePwConfirm').value.trim();
+        if (!current || !next || !confirm) {
+            showChangePwError('Fill in all password fields.');
+            return;
+        }
+        if (next !== confirm) {
+            showChangePwError('New passwords do not match.');
+            return;
+        }
+        if (next.length < 4) {
+            showChangePwError('New password must be at least 4 characters.');
+            return;
+        }
+        var btn = $('changePwSubmitBtn');
+        if (btn) btn.disabled = true;
+        api('/api/student/change-password', {
+            method: 'POST',
+            body: {
+                currentPassword: current,
+                newPassword: next,
+                confirmPassword: confirm
+            }
+        }).then(function() {
+            show($('changePwSuccess'));
+            ['changePwCurrent', 'changePwNew', 'changePwConfirm'].forEach(function(id) {
+                var input = $(id);
+                if (input) input.value = '';
+            });
+            setTimeout(closeChangePwModal, 1200);
+        }).catch(function(err) {
+            showChangePwError(err.message || 'Could not change password.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    $('changePwForm').addEventListener('submit', submitChangePassword);
+    $('changePwBtn').addEventListener('click', openChangePwModal);
+    $('changePwBtnMobile').addEventListener('click', openChangePwModal);
+    $('changePwClose').addEventListener('click', closeChangePwModal);
+    $('changePwBackdrop').addEventListener('click', closeChangePwModal);
+
     $('logoutBtn').addEventListener('click', doLogout);
 
     initMobilePortal();
     setMessagingActive(false);
 
-    if (sessionStorage.getItem(TOKEN_KEY)) {
+    function setChatPanelCollapsed(opts, collapsed) {
+        if (isPortalMobile()) return;
+        var el = $(opts.panelId);
+        if (!el) return;
+        el.classList.toggle('panel-collapsed', !!collapsed);
+        var head = $(opts.headId);
+        var toggle = $(opts.toggleId);
+        if (head) head.title = collapsed ? opts.expandTitle : '';
+        if (toggle) {
+            toggle.setAttribute('aria-label', collapsed ? opts.expandLabel : opts.collapseLabel);
+            toggle.setAttribute('title', collapsed ? opts.expandTitle : opts.collapseTitle);
+        }
+        try {
+            localStorage.setItem(opts.collapsedKey, collapsed ? '1' : '0');
+        } catch (e) {}
+        if (!collapsed && !el.classList.contains('hidden')) {
+            applyStoredChatPanelSize(opts.panelId, opts.storageKey);
+            requestAnimationFrame(function() {
+                if (opts.panelId === 'msgFloat') autoGrowMsgFloat();
+                else autoGrowBuddyFloat();
+            });
+        }
+    }
+
+    function syncDesktopChatPanelCollapse() {
+        var msg = $('msgFloat');
+        var buddy = $('buddyFloat');
+        if (isPortalMobile()) {
+            if (msg) msg.classList.remove('panel-collapsed');
+            if (buddy) buddy.classList.remove('panel-collapsed');
+            return;
+        }
+        try {
+            if (msg) msg.classList.toggle('panel-collapsed', localStorage.getItem('mrpark_msg_float_collapsed') === '1');
+            if (buddy) buddy.classList.toggle('panel-collapsed', localStorage.getItem('mrpark_buddy_float_collapsed') === '1');
+        } catch (e) {}
+    }
+
+    function initChatPanelCollapse(opts) {
+        var el = $(opts.panelId);
+        var head = $(opts.headId);
+        var toggle = $(opts.toggleId);
+        if (!el) return;
+
+        var collapsed = false;
+        try {
+            collapsed = localStorage.getItem(opts.collapsedKey) === '1';
+        } catch (e) {}
+        setChatPanelCollapsed(opts, collapsed);
+
+        if (toggle) {
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (isPortalMobile()) return;
+                setChatPanelCollapsed(opts, true);
+            });
+        }
+
+        if (head) {
+            head.addEventListener('click', function(e) {
+                if (isPortalMobile()) return;
+                if (!el.classList.contains('panel-collapsed')) return;
+                if (e.target.closest('.float-panel-toggle')) return;
+                setChatPanelCollapsed(opts, false);
+            });
+        }
+    }
+
+    initChatPanelDragResize({
+        panelId: 'msgFloat',
+        gripId: 'msgResizeGrip',
+        storageKey: MSG_FLOAT_SIZE_KEY,
+        anchor: 'left',
+        resizeBodyClass: 'portal-chat-resize-active'
+    });
+    initChatPanelDragResize({
+        panelId: 'buddyFloat',
+        gripId: 'buddyResizeGrip',
+        storageKey: BUDDY_FLOAT_SIZE_KEY,
+        anchor: 'right',
+        resizeBodyClass: 'buddy-resize-active'
+    });
+
+    initChatPanelResizeObserver('msgFloat', MSG_FLOAT_SIZE_KEY);
+    initChatPanelResizeObserver('buddyFloat', BUDDY_FLOAT_SIZE_KEY);
+
+    initChatPanelCollapse({
+        panelId: 'msgFloat',
+        headId: 'msgFloatHead',
+        toggleId: 'msgFloatToggle',
+        storageKey: MSG_FLOAT_SIZE_KEY,
+        collapsedKey: 'mrpark_msg_float_collapsed',
+        collapseLabel: 'Minimize messages',
+        collapseTitle: 'Minimize',
+        expandLabel: 'Open messages',
+        expandTitle: 'Open messages'
+    });
+    initChatPanelCollapse({
+        panelId: 'buddyFloat',
+        headId: 'buddyFloatHead',
+        toggleId: 'buddyFloatToggle',
+        storageKey: BUDDY_FLOAT_SIZE_KEY,
+        collapsedKey: 'mrpark_buddy_float_collapsed',
+        collapseLabel: 'Minimize AI Buddy',
+        collapseTitle: 'Minimize',
+        expandLabel: 'Open AI English Buddy',
+        expandTitle: 'Open AI English Buddy'
+    });
+
+    window.addEventListener('resize', function() {
+        if (isPortalMobile()) return;
+        applyStoredDesktopChatPanelSizes();
+    });
+
+    function bootStudentPortal() {
+        if (!authStore.getItem(TOKEN_KEY)) return;
         hide($('loginScreen'));
         loadDashboard();
     }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootStudentPortal);
+    } else {
+        bootStudentPortal();
+    }
+    window.addEventListener('load', function() {
+        ensureStudentMessengerRealtime();
+    });
 })();
 </script>
 </body>

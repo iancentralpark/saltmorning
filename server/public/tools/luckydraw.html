@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Draw</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+    .mrpark-snail-sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+    .snail-svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+    .snail-mascot-xl { width: 120px; height: 120px; opacity: 0.92; }
+    .snail-mascot-lg { width: 88px; height: 88px; opacity: 0.9; }
+    .snail-mascot-md { width: 64px; height: 64px; opacity: 0.85; }
+    .snail-mascot-sm { width: 48px; height: 48px; opacity: 0.82; }
+    .snail-mascot-xs { width: 32px; height: 32px; opacity: 0.8; }
+    .snail-wiggle { animation: snail-wiggle 5s ease-in-out infinite; }
+    .snail-bounce { animation: snail-bounce 4s ease-in-out infinite; }
+    @keyframes snail-wiggle {
+        0%, 100% { transform: rotate(-2deg) translateY(0); }
+        50% { transform: rotate(2deg) translateY(-4px); }
+    }
+    @keyframes snail-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    .snail-float-deco {
+        position: fixed;
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
+        line-height: 0;
+        opacity: 0.38;
+    }
+    .snail-float-deco .snail-svg { filter: none; }
+    .snail-deco-tl { top: 2%; left: 1.5%; animation: snail-drift-a 6s ease-in-out infinite; }
+    .snail-deco-br { bottom: 3%; right: 1.5%; animation: snail-drift-d 6.5s ease-in-out infinite 0.8s; }
+    .snail-deco-br .snail-svg { transform: scaleX(-1); }
+    @keyframes snail-drift-a {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+    @keyframes snail-drift-d {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    .snail-hero-wrap {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.65);
+        border: 2px solid rgba(59, 158, 221, 0.22);
+        box-shadow: 0 4px 16px rgba(59, 158, 221, 0.1);
+    }
+    .snail-hero-wrap .snail-svg { width: 58px; height: 58px; opacity: 0.95; }
+    .class-welcome-panel {
+        text-align: center;
+        margin: 1.25rem 0 0.5rem;
+        padding: 1.5rem 1.25rem 1.65rem;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(59, 158, 221, 0.2);
+        box-shadow: 0 4px 18px rgba(59, 158, 221, 0.08);
+    }
+    .class-welcome-snail { margin-bottom: 0.65rem; }
+    .class-welcome-title {
+        font-family: 'Fredoka', 'Nunito', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #2a8fc9;
+        margin: 0 0 0.4rem;
+    }
+    .class-welcome-text {
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: #636e72;
+        margin: 0 0 0.85rem;
+        max-width: 26rem;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.5;
+    }
+    .class-welcome-hint {
+        display: inline-block;
+        padding: 0.45rem 1rem;
+        border-radius: 999px;
+        background: rgba(59, 158, 221, 0.1);
+        color: #2a8fc9;
+        font-family: 'Fredoka', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+        border: 1px solid rgba(59, 158, 221, 0.18);
+    }
+    .portal-brand-snail { margin-bottom: 0.25rem; opacity: 0.92; }
+    .portal-card-cute {
+        border: 1px solid rgba(59, 158, 221, 0.18) !important;
+        box-shadow: 0 4px 14px rgba(59, 158, 221, 0.08) !important;
+    }
+    .popup-snail-mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.35rem;
+        opacity: 0.88;
+    }
+    [data-theme="dark"] .class-welcome-panel {
+        background: rgba(30, 38, 48, 0.65);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .class-welcome-title { color: #7ec8f0; }
+    [data-theme="dark"] .class-welcome-text { color: #a8b8c8; }
+    [data-theme="dark"] .class-welcome-hint {
+        background: rgba(59, 158, 221, 0.12);
+        color: #9ed0f5;
+        border-color: rgba(100, 160, 210, 0.2);
+    }
+    [data-theme="dark"] .snail-hero-wrap {
+        background: rgba(36, 48, 64, 0.7);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .snail-float-deco { opacity: 0.28; }
+    @media (max-width: 600px) {
+        .snail-mascot-xl { width: 100px; height: 100px; }
+        .class-welcome-title { font-size: 1.3rem; }
+    }
+</style>
+<svg class="mrpark-snail-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="mrpark-snail" viewBox="0 0 200 200">
+        <ellipse cx="100" cy="178" rx="58" ry="11" fill="#000" opacity="0.1"/>
+        <circle cx="118" cy="98" r="54" fill="#FFB347"/>
+        <circle cx="118" cy="98" r="44" fill="#FF9F43"/>
+        <path d="M118 56 C94 56 82 78 94 98 C82 118 94 140 118 140 C142 140 154 118 142 98 C154 78 142 56 118 56 Z" fill="none" stroke="#E67E22" stroke-width="5" stroke-linecap="round"/>
+        <path d="M118 70 C104 70 96 84 104 98 C96 112 104 126 118 126 C132 126 140 112 132 98 C140 84 132 70 118 70 Z" fill="none" stroke="#D35400" stroke-width="4" stroke-linecap="round"/>
+        <ellipse cx="72" cy="128" rx="48" ry="32" fill="#7DCEA0"/>
+        <ellipse cx="48" cy="102" rx="28" ry="24" fill="#58D68D"/>
+        <ellipse cx="34" cy="92" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <ellipse cx="60" cy="90" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <circle cx="36" cy="94" r="6" fill="#2d3436"/>
+        <circle cx="62" cy="92" r="6" fill="#2d3436"/>
+        <circle cx="38" cy="91" r="2.2" fill="#fff"/>
+        <circle cx="64" cy="89" r="2.2" fill="#fff"/>
+        <ellipse cx="26" cy="104" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <ellipse cx="72" cy="102" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <path d="M40 110 Q50 122 66 112" fill="none" stroke="#27AE60" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M30 84 Q24 64 22 48" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <path d="M56 82 Q64 60 68 44" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <circle cx="22" cy="46" r="7" fill="#FF6B9D"/>
+        <circle cx="68" cy="42" r="7" fill="#3B9EDD"/>
+    </symbol>
+</svg>
+
+    <style>
+        :root { --text: #2d3436; --muted: #636e72; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Nunito', system-ui, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 10%, rgba(255, 215, 0, 0.28), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(155, 89, 182, 0.25), transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(59, 158, 221, 0.2), transparent 45%),
+                linear-gradient(180deg, #fff8e1 0%, #fffdf5 45%, #f3f8ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .shell {
+            width: min(100%, 460px);
+            background: rgba(255, 255, 255, 0.97);
+            border: 3px solid rgba(241, 196, 15, 0.55);
+            border-radius: 24px;
+            box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(155, 89, 182, 0.14);
+            padding: 1.25rem 1.35rem 1.4rem;
+            text-align: center;
+            position: relative;
+        }
+        .edit-prizes-btn {
+            position: absolute;
+            top: 0.85rem;
+            right: 0.9rem;
+            border: 2px solid rgba(241, 196, 15, 0.55);
+            border-radius: 999px;
+            background: #fffdf5;
+            color: #8d6e00;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.22rem 0.62rem;
+            cursor: pointer;
+            line-height: 1.2;
+            transition: transform 0.12s, background 0.12s;
+        }
+        .edit-prizes-btn:hover {
+            background: #fff8e1;
+            transform: translateY(-1px);
+        }
+        .edit-prizes-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        .config-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 120;
+            background: rgba(45, 52, 54, 0.45);
+            padding: 0.75rem;
+            align-items: center;
+            justify-content: center;
+        }
+        .config-overlay.show { display: flex; }
+        .config-panel {
+            width: min(100%, 520px);
+            max-height: min(92vh, 720px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 3px solid rgba(241, 196, 15, 0.55);
+            border-radius: 18px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+        }
+        .config-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.8rem 0.95rem;
+            border-bottom: 2px solid rgba(241, 196, 15, 0.25);
+            background: #fffdf5;
+        }
+        .config-panel-title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #6d4c00;
+            margin: 0;
+        }
+        .config-panel-close {
+            border: none;
+            background: transparent;
+            color: #636e72;
+            font-size: 1.2rem;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0.15rem 0.35rem;
+        }
+        .config-panel-body {
+            padding: 0.85rem 0.95rem;
+            overflow-y: auto;
+            text-align: left;
+        }
+        .config-panel-note {
+            font-size: 0.78rem;
+            color: #636e72;
+            font-weight: 700;
+            margin: 0 0 0.65rem;
+            line-height: 1.4;
+        }
+        .config-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.55rem;
+        }
+        .config-weight-total {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #636e72;
+        }
+        .config-weight-total.warn { color: #e67e22; }
+        .config-tier-card {
+            border: 2px solid rgba(241, 196, 15, 0.35);
+            border-radius: 12px;
+            background: #fffdf8;
+            padding: 0.7rem;
+            margin-bottom: 0.65rem;
+        }
+        .config-tier-head {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            align-items: flex-end;
+            margin-bottom: 0.45rem;
+        }
+        .config-tier-head label {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #636e72;
+            margin-bottom: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .config-tier-head input,
+        .config-tier-head select {
+            width: 100%;
+            border: 2px solid rgba(241, 196, 15, 0.35);
+            border-radius: 10px;
+            padding: 0.35rem 0.45rem;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+        .config-field-id { width: 6.5rem; }
+        .config-field-name { flex: 1 1 7rem; min-width: 7rem; }
+        .config-field-weight { width: 4.5rem; }
+        .config-field-active { width: 4.8rem; }
+        .config-tier-items {
+            width: 100%;
+            min-height: 5.5rem;
+            border: 2px solid rgba(241, 196, 15, 0.35);
+            border-radius: 10px;
+            padding: 0.45rem 0.55rem;
+            font-family: 'Nunito', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            resize: vertical;
+        }
+        .config-btn {
+            border: none;
+            border-radius: 999px;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 0.82rem;
+            padding: 0.42rem 0.85rem;
+            cursor: pointer;
+        }
+        .config-btn-primary {
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #fff;
+            box-shadow: 0 3px 0 #d68910;
+        }
+        .config-btn-secondary {
+            background: #ecf0f1;
+            color: #636e72;
+        }
+        .config-btn-danger {
+            background: #fff;
+            border: 2px solid rgba(231, 76, 60, 0.45);
+            color: #e74c3c;
+            padding: 0.35rem 0.55rem;
+        }
+        .config-panel-foot {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.45rem;
+            padding: 0.75rem 0.95rem;
+            border-top: 2px solid rgba(241, 196, 15, 0.25);
+            background: #fffdf5;
+        }
+        .config-status {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #27ae60;
+            min-height: 1rem;
+            margin-top: 0.35rem;
+        }
+        .title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.55rem;
+            font-weight: 700;
+            margin: 0 0 0.35rem;
+            color: #6d4c00;
+        }
+        .title i { color: #f1c40f; margin-right: 0.3rem; }
+        .sub { font-size: 0.88rem; color: var(--muted); margin: 0 0 0.75rem; font-weight: 700; }
+        .student-pick { margin-bottom: 1rem; text-align: left; }
+        .student-pick label {
+            display: block; font-size: 0.78rem; font-weight: 800; color: var(--muted);
+            margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .student-pick select {
+            width: 100%; border: 2px solid rgba(241, 196, 15, 0.45); border-radius: 14px;
+            padding: 0.65rem 0.75rem; font-family: 'Nunito', sans-serif; font-size: 0.95rem; font-weight: 700; background: #fff;
+        }
+        .student-dollar-balance {
+            margin-top: 0.45rem;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #27ae60;
+            display: none;
+        }
+        body.paid-draw-mode .student-dollar-balance { display: block; }
+        .student-dollar-balance.low { color: #e67e22; }
+        .student-dollar-balance.empty { color: #c0392b; }
+        .shell.paid-draw-mode {
+            border-color: rgba(241, 196, 15, 0.65);
+            box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(241, 196, 15, 0.14);
+        }
+        .paid-mode-hint {
+            display: none;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #d68910;
+            margin: -0.35rem 0 0.65rem;
+        }
+        body.paid-draw-mode .paid-mode-hint { display: block; }
+        .save-status { font-size: 0.8rem; font-weight: 700; color: #27ae60; min-height: 1.2rem; margin-top: 0.5rem; }
+
+        .slot-stage {
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: 0.15rem;
+            margin-bottom: 0.55rem;
+        }
+        .slot-machine {
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 0;
+            background:
+                linear-gradient(165deg, #8d6e63 0%, #5d4037 18%, #4e342e 42%, #3e2723 72%, #2c1810 100%);
+            border-radius: 22px 22px 18px 18px;
+            padding: 0.65rem 0.7rem 0.75rem;
+            border: 3px solid #bcaaa4;
+            box-shadow:
+                0 10px 0 #1a0f0a,
+                0 20px 40px rgba(0, 0, 0, 0.28),
+                inset 0 2px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -3px 8px rgba(0, 0, 0, 0.35);
+            animation: slot-glow 2.8s ease-in-out infinite;
+            overflow: hidden;
+        }
+        .slot-machine::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: linear-gradient(
+                125deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                transparent 28%,
+                transparent 72%,
+                rgba(0, 0, 0, 0.12) 100%
+            );
+        }
+        .slot-machine.is-spinning {
+            animation: slot-glow-fast 0.45s ease-in-out infinite;
+        }
+        @keyframes slot-glow {
+            0%, 100% {
+                box-shadow:
+                    0 10px 0 #1a0f0a,
+                    0 20px 40px rgba(0, 0, 0, 0.28),
+                    0 0 20px rgba(255, 213, 79, 0.28),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.14);
+            }
+            50% {
+                box-shadow:
+                    0 10px 0 #1a0f0a,
+                    0 20px 40px rgba(0, 0, 0, 0.28),
+                    0 0 36px rgba(255, 213, 79, 0.55),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.2);
+            }
+        }
+        @keyframes slot-glow-fast {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.08); }
+        }
+        .slot-marquee {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.32rem;
+            padding: 0.35rem 0.45rem 0.5rem;
+            margin: -0.15rem -0.2rem 0.45rem;
+            background: linear-gradient(180deg, #2c1810, #1a0f0a);
+            border-radius: 14px 14px 8px 8px;
+            border-bottom: 2px solid rgba(255, 202, 40, 0.35);
+            position: relative;
+            z-index: 1;
+        }
+        .slot-bulb {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: radial-gradient(circle at 32% 28%, #fffde7, #ffeb3b 42%, #f57f17 88%);
+            box-shadow:
+                0 0 5px rgba(255, 152, 0, 0.65),
+                0 0 10px rgba(255, 193, 7, 0.35),
+                inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+            animation: bulb-chase 2s ease-in-out infinite;
+        }
+        .slot-machine.is-spinning .slot-bulb {
+            animation-duration: 0.28s;
+        }
+        .slot-bulb:nth-child(1) { animation-delay: 0s; }
+        .slot-bulb:nth-child(2) { animation-delay: 0.13s; }
+        .slot-bulb:nth-child(3) { animation-delay: 0.26s; }
+        .slot-bulb:nth-child(4) { animation-delay: 0.39s; }
+        .slot-bulb:nth-child(5) { animation-delay: 0.52s; }
+        .slot-bulb:nth-child(6) { animation-delay: 0.65s; }
+        .slot-bulb:nth-child(7) { animation-delay: 0.78s; }
+        .slot-bulb:nth-child(8) { animation-delay: 0.91s; }
+        .slot-bulb:nth-child(9) { animation-delay: 1.04s; }
+        .slot-bulb:nth-child(10) { animation-delay: 1.17s; }
+        .slot-bulb:nth-child(11) { animation-delay: 1.3s; }
+        .slot-bulb:nth-child(12) { animation-delay: 1.43s; }
+        .slot-bulb:nth-child(13) { animation-delay: 1.56s; }
+        @keyframes bulb-chase {
+            0%, 40%, 100% { opacity: 0.32; filter: brightness(0.75); transform: scale(0.9); }
+            20% { opacity: 1; filter: brightness(1.35); transform: scale(1.12); }
+        }
+        .slot-top {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.82rem;
+            letter-spacing: 0.24em;
+            color: #fff8e1;
+            margin-bottom: 0.55rem;
+            text-transform: uppercase;
+            position: relative;
+            text-shadow:
+                0 0 14px rgba(255, 235, 59, 0.55),
+                0 2px 0 rgba(0, 0, 0, 0.45);
+            padding: 0.42rem 0.65rem;
+            border-radius: 12px;
+            background:
+                linear-gradient(180deg, #e53935 0%, #c62828 38%, #8e0000 100%);
+            border: 2px solid #ffca28;
+            box-shadow:
+                inset 0 2px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -3px 6px rgba(0, 0, 0, 0.25),
+                0 4px 0 rgba(0, 0, 0, 0.28);
+            z-index: 1;
+        }
+        .slot-egg-btn {
+            position: absolute;
+            top: -0.15rem;
+            right: 0;
+            width: 1.1rem;
+            height: 1.1rem;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            opacity: 0.07;
+            cursor: default;
+        }
+        .slot-egg-btn:focus { outline: none; }
+        .slot-windows {
+            position: relative;
+            z-index: 1;
+            padding: 0.5rem;
+            border-radius: 16px;
+            background:
+                linear-gradient(180deg, #1a0f0a 0%, #0d0806 50%, #1a0f0a 100%);
+            border: 2px solid #6d4c41;
+            box-shadow:
+                inset 0 5px 16px rgba(0, 0, 0, 0.75),
+                inset 0 -2px 8px rgba(255, 193, 7, 0.06),
+                0 0 0 1px rgba(255, 202, 40, 0.25);
+        }
+        .slot-window-glass {
+            position: relative;
+            border-radius: 12px;
+            padding: 3px;
+            background: linear-gradient(180deg, #ffd54f, #ff8f00, #ffd54f);
+            box-shadow: 0 0 18px rgba(255, 193, 7, 0.22);
+        }
+        .slot-payline {
+            position: absolute;
+            left: 5%;
+            right: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 80px;
+            border: 2px solid rgba(255, 235, 59, 0.9);
+            border-radius: 10px;
+            pointer-events: none;
+            z-index: 5;
+            box-shadow:
+                0 0 14px rgba(255, 235, 59, 0.45),
+                inset 0 0 16px rgba(255, 235, 59, 0.1);
+        }
+        .slot-payline::before,
+        .slot-payline::after {
+            content: '◆';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.55rem;
+            color: #ffeb3b;
+            text-shadow: 0 0 8px #ff9800;
+        }
+        .slot-payline::before { left: -0.55rem; }
+        .slot-payline::after { right: -0.55rem; }
+
+        .slot-reel {
+            width: min(100%, 320px);
+            height: 80px;
+            overflow: hidden;
+            border-radius: 9px;
+            background:
+                linear-gradient(180deg, #1e1e2f 0%, #12121c 45%, #1e1e2f 100%);
+            border: 2px solid #3e2723;
+            box-shadow:
+                inset 0 0 22px rgba(0, 0, 0, 0.9),
+                inset 0 2px 10px rgba(255, 255, 255, 0.04);
+            position: relative;
+            margin: 0 auto;
+        }
+        .slot-reel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(0, 0, 0, 0.62) 0%,
+                transparent 26%,
+                transparent 74%,
+                rgba(0, 0, 0, 0.62) 100%
+            );
+            pointer-events: none;
+            z-index: 3;
+            border-radius: 7px;
+        }
+        .slot-reel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                108deg,
+                rgba(255, 255, 255, 0.16) 0%,
+                transparent 32%,
+                transparent 68%,
+                rgba(255, 255, 255, 0.06) 100%
+            );
+            pointer-events: none;
+            z-index: 4;
+            border-radius: 7px;
+        }
+        .slot-reel.spinning-fast .slot-strip { filter: blur(2.5px); }
+        .slot-reel.spinning-slow .slot-strip { filter: blur(0.6px); }
+        .slot-strip { will-change: transform; }
+        .slot-item {
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.15;
+            padding: 0.35rem 0.85rem;
+            text-align: center;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.22);
+            position: relative;
+            overflow: hidden;
+        }
+        .slot-item::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0.14) 0%,
+                transparent 42%,
+                rgba(0, 0, 0, 0.12) 100%
+            );
+            pointer-events: none;
+        }
+        .slot-item.idle-msg {
+            background: linear-gradient(135deg, #ffe082 0%, #ffb300 38%, #ff8f00 100%);
+            font-size: 1.12rem;
+            letter-spacing: 0.04em;
+            color: #4e342e;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+        .slot-base-trim {
+            height: 6px;
+            margin: 0.55rem 0.15rem 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #5d4037, #ffd54f, #ff8f00, #ffd54f, #5d4037);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            position: relative;
+            z-index: 1;
+        }
+
+        .lever-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0 0.35rem 0.2rem;
+            flex-shrink: 0;
+        }
+        .lever-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .lever-btn {
+            position: relative;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .lever-btn:disabled { cursor: not-allowed; opacity: 0.65; }
+        .lever-arm {
+            width: 14px;
+            height: 62px;
+            margin: 0 auto;
+            background: linear-gradient(90deg, #6d0000, #c62828 35%, #ef5350 52%, #8e0000);
+            border-radius: 7px 7px 3px 3px;
+            box-shadow:
+                2px 0 0 rgba(0, 0, 0, 0.3),
+                inset -2px 0 5px rgba(0, 0, 0, 0.2),
+                inset 1px 0 0 rgba(255, 255, 255, 0.12);
+            transform-origin: bottom center;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .lever-btn.pulled .lever-arm { transform: rotate(32deg); }
+        .lever-knob {
+            width: 42px;
+            height: 42px;
+            margin: -8px auto 0;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 28% 22%, #fff9c4, #ffeb3b 32%, #f9a825 58%, #e65100 88%);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            box-shadow:
+                0 6px 0 #7f1d1d,
+                0 10px 20px rgba(0, 0, 0, 0.35),
+                inset 0 -4px 8px rgba(0, 0, 0, 0.22),
+                inset 0 2px 4px rgba(255, 255, 255, 0.35);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .lever-btn.pulled .lever-knob {
+            transform: translateY(8px) scale(0.94);
+            box-shadow:
+                0 3px 0 #7f1d1d,
+                0 6px 14px rgba(0, 0, 0, 0.3),
+                inset 0 -2px 6px rgba(0, 0, 0, 0.2);
+        }
+        .lever-base {
+            width: 34px;
+            height: 16px;
+            margin-top: -2px;
+            border-radius: 4px 4px 8px 8px;
+            background: linear-gradient(180deg, #9e9e9e, #616161 55%, #424242);
+            border: 2px solid #bdbdbd;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+        .lever-label {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #6d4c00;
+            margin-top: 0.4rem;
+            text-align: center;
+        }
+
+        .result-panel {
+            display: none;
+            margin-top: 0.5rem;
+            padding: 0.85rem 0.75rem;
+            border-radius: 16px;
+            background: linear-gradient(160deg, #fffef5, #fff8e1);
+            border: 2px solid rgba(241, 196, 15, 0.45);
+        }
+        .result-panel.show { display: block; animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes pop-in {
+            from { opacity: 0; transform: scale(0.92) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .tier-badge {
+            display: inline-block;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.28rem 0.75rem;
+            border-radius: 999px;
+            margin-bottom: 0.5rem;
+            color: #fff;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+        }
+        .prize-text {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: #2d3436;
+        }
+        .slot-hint {
+            font-size: 0.82rem;
+            color: var(--muted);
+            font-weight: 700;
+            margin: 0.35rem 0 0;
+        }
+        .btn-again {
+            margin-top: 0.75rem;
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1.25rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 0.92rem;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #fff;
+            box-shadow: 0 4px 0 #d68910;
+        }
+        .btn-again:hover { transform: translateY(-2px); }
+        .btn-again:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 99; }
+        .confetti span {
+            position: absolute; width: 8px; height: 8px; border-radius: 2px;
+            animation: confetti-fall 1.8s ease-out forwards;
+        }
+        @keyframes confetti-fall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        .sym-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        .sym-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .sym-unique { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .sym-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .sym-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .sym-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
+        .sym-custom { background: linear-gradient(135deg, #636e72, #2d3436); }
+
+        .tier-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        .tier-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
+        .tier-unique { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .tier-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
+        .tier-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .tier-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
+        .tier-custom { background: linear-gradient(135deg, #636e72, #2d3436); }
+
+        .machine-shake { animation: machine-shake 0.35s ease-in-out; }
+        @keyframes machine-shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-3px); }
+            40% { transform: translateX(3px); }
+            60% { transform: translateX(-2px); }
+            80% { transform: translateX(2px); }
+        }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 12% 10%, rgba(255, 215, 0, 0.1), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(155, 89, 182, 0.12), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 45%, #141a23 100%);
+        }
+        [data-theme="dark"] .shell {
+            background: rgba(30, 36, 46, 0.97);
+            border-color: rgba(241, 196, 15, 0.35);
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 18px 42px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .title { color: #f5d76e; }
+        [data-theme="dark"] .edit-prizes-btn {
+            background: #2d3644;
+            color: #f5d76e;
+            border-color: rgba(241, 196, 15, 0.35);
+        }
+        [data-theme="dark"] .student-pick select {
+            background: #2d3644;
+            color: var(--text);
+            border-color: rgba(241, 196, 15, 0.35);
+        }
+        [data-theme="dark"] .lever-label,
+        [data-theme="dark"] .slot-hint { color: var(--muted); }
+        [data-theme="dark"] .slot-machine {
+            border-color: rgba(188, 170, 164, 0.45);
+            box-shadow:
+                0 10px 0 #0a0604,
+                0 20px 40px rgba(0, 0, 0, 0.45),
+                inset 0 2px 0 rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="dark"] .slot-marquee {
+            background: linear-gradient(180deg, #120a08, #0a0604);
+        }
+        [data-theme="dark"] .slot-windows {
+            border-color: rgba(109, 76, 65, 0.65);
+        }
+        [data-theme="dark"] .lever-base {
+            border-color: #757575;
+        }
+        [data-theme="dark"] .result-panel {
+            background: linear-gradient(160deg, #252c38, #1e242e);
+            border-color: rgba(241, 196, 15, 0.3);
+        }
+        [data-theme="dark"] .prize-text { color: var(--text); }
+        [data-theme="dark"] .config-panel,
+        [data-theme="dark"] .config-panel-head,
+        [data-theme="dark"] .config-panel-foot {
+            background: #1e242e;
+            border-color: rgba(241, 196, 15, 0.25);
+        }
+        [data-theme="dark"] .config-panel-title { color: #f5d76e; }
+        [data-theme="dark"] .config-panel-note,
+        [data-theme="dark"] .config-weight-total { color: var(--muted); }
+        [data-theme="dark"] .config-tier-card {
+            background: #252c38;
+            border-color: rgba(241, 196, 15, 0.25);
+        }
+        [data-theme="dark"] .config-tier-head input,
+        [data-theme="dark"] .config-tier-head select,
+        [data-theme="dark"] .config-tier-items {
+            background: #2d3644;
+            color: var(--text);
+            border-color: rgba(120, 160, 200, 0.3);
+        }
+        [data-theme="dark"] .config-btn-secondary {
+            background: #364152;
+            color: var(--text);
+        }
+    </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#3b9edd">
+</head>
+<body>
+    <div class="shell">
+        <button type="button" class="edit-prizes-btn" id="editPrizesBtn" title="Edit prize list, weights, and tiers">Edit</button>
+        <div class="popup-snail-mark" aria-hidden="true">
+            <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+        </div>
+        <h1 class="title"><i class="fa-solid fa-ticket"></i> Lucky Draw</h1>
+        <p class="sub" id="classSub">Pick a student, pull the lever!</p>
+        <p class="paid-mode-hint" id="paidModeHint">Secret shop — $3 per draw</p>
+
+        <div class="student-pick" id="studentPickWrap">
+            <label for="studentSelect">Student</label>
+            <select id="studentSelect">
+                <option value="">— Select student —</option>
+            </select>
+            <div class="student-dollar-balance" id="studentDollarBalance" aria-live="polite"></div>
+        </div>
+
+        <div class="slot-stage">
+            <div class="slot-machine" id="slotMachine">
+                <div class="slot-marquee" aria-hidden="true">
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span>
+                </div>
+                <div class="slot-top">★ Lucky Slot ★
+                    <button type="button" class="slot-egg-btn" id="dollarModeEgg" aria-hidden="true" tabindex="-1"></button>
+                </div>
+                <div class="slot-windows">
+                    <div class="slot-window-glass">
+                        <div class="slot-reel" id="reel"><div class="slot-strip"></div></div>
+                        <div class="slot-payline" aria-hidden="true"></div>
+                    </div>
+                </div>
+                <div class="slot-base-trim" aria-hidden="true"></div>
+            </div>
+            <div class="lever-column">
+                <div class="lever-wrap">
+                    <button type="button" class="lever-btn" id="leverBtn" aria-label="Pull lever">
+                        <div class="lever-knob"></div>
+                        <div class="lever-arm"></div>
+                    </button>
+                </div>
+                <div class="lever-base" aria-hidden="true"></div>
+            </div>
+        </div>
+        <div class="lever-label" id="leverLabel">Pull the lever!</div>
+
+        <div class="result-panel" id="resultPanel">
+            <div id="tierBadge" class="tier-badge tier-common">Common</div>
+            <div id="prizeText" class="prize-text">Prize</div>
+            <p class="slot-hint" id="resultHint"></p>
+            <div class="save-status" id="saveStatus"></div>
+            <button type="button" class="btn-again" id="drawAgainBtn">Spin again</button>
+        </div>
+    </div>
+
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+    <div class="config-overlay" id="configOverlay" aria-hidden="true">
+        <div class="config-panel" role="dialog" aria-labelledby="configPanelTitle">
+            <div class="config-panel-head">
+                <h2 class="config-panel-title" id="configPanelTitle">Lucky Draw Prizes</h2>
+                <button type="button" class="config-panel-close" id="configCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="config-panel-body">
+                <p class="config-panel-note">Edit tier names, weights, and prizes. Changes apply to new spins right away.</p>
+                <div class="config-toolbar">
+                    <div class="config-weight-total" id="configWeightTotal">Total active weight: —</div>
+                    <button type="button" class="config-btn config-btn-primary" id="addTierBtn">+ Add tier</button>
+                </div>
+                <div id="configEditorBody"><p class="config-panel-note">Loading…</p></div>
+                <div class="config-status" id="configSaveStatus"></div>
+            </div>
+            <div class="config-panel-foot">
+                <button type="button" class="config-btn config-btn-secondary" id="configCancelBtn">Cancel</button>
+                <button type="button" class="config-btn config-btn-primary" id="configSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var _ldParams = new URLSearchParams(location.search);
+        var CLASS_ID = _ldParams.get('classId') || '';
+        var CLASS_NAME = _ldParams.get('className') || 'Class';
+        var STUDENTS = [];
+        var NODE_API = location.origin.replace(/\/$/, '');
+function toolFetch(url, opts) {
+        opts = opts || {};
+        opts.credentials = 'same-origin';
+        var headers = opts.headers || {};
+        try {
+            var token = localStorage.getItem('mrpark_teacher_token') || '';
+            if (token) headers.Authorization = 'Bearer ' + token;
+        } catch (e) { /* ignore */ }
+        opts.headers = headers;
+        return fetch(url, opts);
+    }
+
+
+        var FALLBACK_LUCKY_DRAW_TIERS = [
+            { id: 'common', name: 'Common', weight: 35, items: ['1 Haribo','2 Haribos','Bathroom/Water Priority','1 Vocab Hint','Free Stationery Rental','5% Vocab Magic Pass','3 Haribos'] },
+            { id: 'rare', name: 'Rare', weight: 25, items: ['10% Vocab Magic Pass','2 Vocab Hints','1 Minute more vocab test','Handshake with Mr. Park',"Mr. Park's Silly Face",'5 Haribos'] },
+            { id: 'unique', name: 'Unique', weight: 20, items: ['15% Vocab Magic Pass','High-five with Mr. Park','1 Minute Timestone','1 Day Chambit Pass','Combo Shield','Wrong Answer Eraser'] },
+            { id: 'legendary', name: 'Legendary', weight: 13, items: ['20% Vocab Magic Pass','2 Minutes Freedom Bell','2 Minutes Timestone',"The King's Throne"] },
+            { id: 'mythical', name: 'Mythical', weight: 5, items: ['Name The Teacher','3 Minutes Freedom Bell','Be a Commander!','3 Minutes Timestone'] },
+            { id: 'godlike', name: 'Godlike', weight: 2, items: ['The Forbidden Word','5 Minutes Freedom Bell','Double Dollars'] }
+        ];
+        var KNOWN_TIER_STYLE_IDS = ['common', 'rare', 'unique', 'legendary', 'mythical', 'godlike'];
+        var LUCKY_DRAW_TIERS = [];
+        var configReady = false;
+
+        var LUCKY_DRAW_COST = 3;
+        var currentStudentBalance = null;
+        var paidDrawMode = false;
+        var IDLE_REEL_MESSAGES = [
+            'Spin the reel!',
+            'Pull the lever!',
+            'Feeling lucky?',
+            "What's your prize?",
+            'Here we go!'
+        ];
+        var ITEM_H = 80;
+        var SPIN_FAST_MS = 3200;
+        var SPIN_SLOW_MS = 3800;
+        var currentPrize = null;
+        var isSpinning = false;
+        var tierById = {};
+        var phraseToTierId = {};
+
+        var configDraft = [];
+
+        function apiJson(res) {
+            return res.text().then(function(text) {
+                var data = {};
+                if (text) {
+                    try { data = JSON.parse(text); } catch (e) {
+                        throw new Error(text.slice(0, 120) || 'Invalid server response');
+                    }
+                }
+                if (!res.ok) throw new Error(data.error || ('Save failed (' + res.status + ')'));
+                return data;
+            });
+        }
+
+        function escapeHtml(text) {
+            return String(text == null ? '' : text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function slugifyTierId(name) {
+            return String(name || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '') || 'tier';
+        }
+
+        function updateConfigWeightTotal() {
+            var box = document.getElementById('configEditorBody');
+            var totalEl = document.getElementById('configWeightTotal');
+            if (!box || !totalEl) return;
+            var total = 0;
+            box.querySelectorAll('.config-tier-card').forEach(function(card) {
+                if (card.querySelector('[data-field="active"]').value !== '1') return;
+                total += Number(card.querySelector('[data-field="weight"]').value) || 0;
+            });
+            totalEl.textContent = 'Total active weight: ' + total;
+            totalEl.classList.toggle('warn', total !== 100);
+        }
+
+        function renderConfigEditor() {
+            var box = document.getElementById('configEditorBody');
+            if (!box) return;
+            if (!configDraft.length) {
+                box.innerHTML = '<p class="config-panel-note">No tiers yet. Add one to get started.</p>';
+                updateConfigWeightTotal();
+                return;
+            }
+            box.innerHTML = configDraft.map(function(tier, index) {
+                var itemsText = (tier.items || []).join('\n');
+                var activeVal = tier.active === false ? '0' : '1';
+                return '<div class="config-tier-card" data-tier-index="' + index + '">' +
+                    '<div class="config-tier-head">' +
+                    '<div class="config-field-id"><label>Tier ID</label><input type="text" data-field="id" value="' + escapeHtml(tier.id || '') + '"></div>' +
+                    '<div class="config-field-name"><label>Name</label><input type="text" data-field="name" value="' + escapeHtml(tier.name || '') + '"></div>' +
+                    '<div class="config-field-weight"><label>Weight</label><input type="number" min="0" step="1" data-field="weight" value="' + escapeHtml(String(tier.weight == null ? 0 : tier.weight)) + '"></div>' +
+                    '<div class="config-field-active"><label>Active</label><select data-field="active">' +
+                    '<option value="1"' + (activeVal === '1' ? ' selected' : '') + '>Yes</option>' +
+                    '<option value="0"' + (activeVal === '0' ? ' selected' : '') + '>No</option></select></div>' +
+                    '<button type="button" class="config-btn config-btn-danger" data-remove-tier title="Remove tier"><i class="fa-solid fa-trash"></i></button>' +
+                    '</div>' +
+                    '<label class="config-panel-note" style="margin-bottom:0.25rem;">Prizes (one per line)</label>' +
+                    '<textarea class="config-tier-items" data-field="items" rows="4">' + escapeHtml(itemsText) + '</textarea>' +
+                    '</div>';
+            }).join('');
+            box.querySelectorAll('[data-field="weight"], [data-field="active"]').forEach(function(el) {
+                el.addEventListener('input', updateConfigWeightTotal);
+                el.addEventListener('change', updateConfigWeightTotal);
+            });
+            box.querySelectorAll('[data-remove-tier]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var card = btn.closest('.config-tier-card');
+                    configDraft.splice(Number(card.getAttribute('data-tier-index')), 1);
+                    renderConfigEditor();
+                });
+            });
+            updateConfigWeightTotal();
+        }
+
+        function collectConfigFromEditor() {
+            var tiers = [];
+            document.getElementById('configEditorBody').querySelectorAll('.config-tier-card').forEach(function(card, index) {
+                var id = card.querySelector('[data-field="id"]').value.trim() ||
+                    slugifyTierId(card.querySelector('[data-field="name"]').value) ||
+                    ('tier_' + (index + 1));
+                var name = card.querySelector('[data-field="name"]').value.trim();
+                var weight = Number(card.querySelector('[data-field="weight"]').value) || 0;
+                var active = card.querySelector('[data-field="active"]').value === '1';
+                var items = card.querySelector('[data-field="items"]').value
+                    .split('\n')
+                    .map(function(line) { return line.trim(); })
+                    .filter(Boolean);
+                tiers.push({ id: id, name: name, weight: weight, active: active, sortOrder: index + 1, items: items });
+            });
+            return tiers;
+        }
+
+        function openConfigEditor() {
+            if (isSpinning) return;
+            var overlay = document.getElementById('configOverlay');
+            var statusEl = document.getElementById('configSaveStatus');
+            if (statusEl) statusEl.textContent = '';
+            document.getElementById('configEditorBody').innerHTML = '<p class="config-panel-note">Loading…</p>';
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+            toolFetch(NODE_API + '/api/lucky-draw/config')
+                .then(function(res) { return apiJson(res); })
+                .then(function(data) {
+                        configDraft = (data.tiers || []).map(function(tier) {
+                            return {
+                                id: tier.id,
+                                name: tier.name,
+                                weight: tier.weight,
+                                active: tier.active !== false,
+                                items: (tier.items || []).slice()
+                            };
+                        });
+                        renderConfigEditor();
+                })
+                .catch(function(err) {
+                    document.getElementById('configEditorBody').innerHTML =
+                        '<p class="config-panel-note" style="color:#e74c3c;">' + escapeHtml(err.message || 'Load failed') + '</p>';
+                });
+        }
+
+        function closeConfigEditor() {
+            var overlay = document.getElementById('configOverlay');
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        function saveConfigEditor() {
+            var statusEl = document.getElementById('configSaveStatus');
+            var saveBtn = document.getElementById('configSaveBtn');
+            var tiers = collectConfigFromEditor();
+            if (!tiers.length) {
+                alert('Add at least one tier.');
+                return;
+            }
+            for (var i = 0; i < tiers.length; i++) {
+                if (!tiers[i].name) {
+                    alert('Each tier needs a name.');
+                    return;
+                }
+                if (!tiers[i].items.length) {
+                    alert('Tier "' + tiers[i].name + '" needs at least one prize.');
+                    return;
+                }
+            }
+            if (statusEl) statusEl.textContent = 'Saving…';
+            if (saveBtn) saveBtn.disabled = true;
+            toolFetch(NODE_API + '/api/lucky-draw/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tiers: tiers })
+            })
+                .then(function(res) { return apiJson(res); })
+                .then(function(data) {
+                    configDraft = tiers;
+                    applyLuckyDrawTiers(data.activeTiers || data.tiers || tiers);
+                    if (statusEl) statusEl.textContent = 'Saved!';
+                    closeConfigEditor();
+                    resetIdleReel();
+                })
+                .catch(function(err) {
+                    if (statusEl) statusEl.textContent = err.message || 'Save failed';
+                    alert(err.message || 'Save failed');
+                })
+                .finally(function() {
+                    if (saveBtn) saveBtn.disabled = false;
+                });
+        }
+
+        function rebuildTierIndexes() {
+            tierById = {};
+            phraseToTierId = {};
+            LUCKY_DRAW_TIERS.forEach(function(t) {
+                tierById[t.id] = t;
+                (t.items || []).forEach(function(phrase) { phraseToTierId[phrase] = t.id; });
+            });
+        }
+
+        function applyLuckyDrawTiers(tiers) {
+            LUCKY_DRAW_TIERS = (tiers || []).filter(function(t) {
+                return t && t.items && t.items.length && Number(t.weight) > 0;
+            });
+            if (!LUCKY_DRAW_TIERS.length) LUCKY_DRAW_TIERS = FALLBACK_LUCKY_DRAW_TIERS.slice();
+            rebuildTierIndexes();
+            configReady = true;
+        }
+
+        function loadLuckyDrawConfig() {
+            var lever = document.getElementById('leverBtn');
+            if (lever) lever.disabled = true;
+            document.getElementById('leverLabel').textContent = 'Loading prizes…';
+            return toolFetch(NODE_API + '/api/lucky-draw/config')
+                .then(function(res) { return apiJson(res); })
+                .then(function(data) {
+                        applyLuckyDrawTiers(data.activeTiers || data.tiers || []);
+                })
+                .catch(function() {
+                    applyLuckyDrawTiers(FALLBACK_LUCKY_DRAW_TIERS);
+                })
+                .then(function() {
+                    if (lever) lever.disabled = false;
+                    document.getElementById('leverLabel').textContent = 'Pull the lever!';
+                    resetIdleReel();
+                });
+        }
+
+        function pickPrize() {
+            var totalWeight = LUCKY_DRAW_TIERS.reduce(function(sum, tier) {
+                return sum + (Number(tier.weight) || 0);
+            }, 0);
+            if (!totalWeight) return { tier: LUCKY_DRAW_TIERS[0], phrase: LUCKY_DRAW_TIERS[0].items[0] };
+            var roll = Math.random() * totalWeight;
+            var cumulative = 0;
+            for (var i = 0; i < LUCKY_DRAW_TIERS.length; i++) {
+                cumulative += Number(LUCKY_DRAW_TIERS[i].weight) || 0;
+                if (roll < cumulative) {
+                    var tier = LUCKY_DRAW_TIERS[i];
+                    return { tier: tier, phrase: tier.items[Math.floor(Math.random() * tier.items.length)] };
+                }
+            }
+            var fallback = LUCKY_DRAW_TIERS[0];
+            return { tier: fallback, phrase: fallback.items[0] };
+        }
+
+        function randomPhrase() {
+            var tier = LUCKY_DRAW_TIERS[Math.floor(Math.random() * LUCKY_DRAW_TIERS.length)];
+            return tier.items[Math.floor(Math.random() * tier.items.length)];
+        }
+
+        function symClass(tierId) {
+            return 'sym-' + (KNOWN_TIER_STYLE_IDS.indexOf(tierId) >= 0 ? tierId : 'custom');
+        }
+        function tierClass(tierId) {
+            return 'tier-' + (KNOWN_TIER_STYLE_IDS.indexOf(tierId) >= 0 ? tierId : 'custom');
+        }
+
+        function prizeItemHtml(phrase) {
+            var tierId = phraseToTierId[phrase] || 'common';
+            return '<div class="slot-item ' + symClass(tierId) + '">' + phrase + '</div>';
+        }
+
+        function buildReelStrip(reelEl, finalPhrase, length) {
+            length = length || 40;
+            var phrases = [];
+            for (var i = 0; i < length - 1; i++) phrases.push(randomPhrase());
+            phrases.push(finalPhrase);
+            var strip = reelEl.querySelector('.slot-strip');
+            strip.style.transition = 'none';
+            strip.style.transform = 'translateY(0)';
+            strip.innerHTML = phrases.map(prizeItemHtml).join('');
+            return phrases.length;
+        }
+
+        function spinReel(reelEl, itemCount) {
+            return new Promise(function(resolve) {
+                var strip = reelEl.querySelector('.slot-strip');
+                var machine = document.getElementById('slotMachine');
+                var slowStartIndex = Math.max(itemCount - 10, Math.floor(itemCount * 0.72));
+                var fastEndY = -(slowStartIndex * ITEM_H);
+                var finalY = -((itemCount - 1) * ITEM_H);
+                var fastStart = performance.now();
+                var slowStart = 0;
+
+                reelEl.classList.add('spinning-fast');
+                if (machine) machine.classList.add('is-spinning');
+                strip.style.transition = 'none';
+
+                function finishSpin() {
+                    reelEl.classList.remove('spinning-slow');
+                    if (machine) machine.classList.remove('is-spinning');
+                    resolve();
+                }
+
+                function easeOutCubic(t) {
+                    return 1 - Math.pow(1 - t, 3);
+                }
+
+                function fastFrame(now) {
+                    var progress = Math.min((now - fastStart) / SPIN_FAST_MS, 1);
+                    var y = fastEndY * progress;
+                    strip.style.transform = 'translateY(' + y + 'px)';
+                    if (progress < 1) {
+                        requestAnimationFrame(fastFrame);
+                    } else {
+                        reelEl.classList.remove('spinning-fast');
+                        reelEl.classList.add('spinning-slow');
+                        slowStart = performance.now();
+                        requestAnimationFrame(slowFrame);
+                    }
+                }
+
+                function slowFrame(now) {
+                    var progress = Math.min((now - slowStart) / SPIN_SLOW_MS, 1);
+                    var eased = easeOutCubic(progress);
+                    var y = fastEndY + (finalY - fastEndY) * eased;
+                    strip.style.transform = 'translateY(' + y + 'px)';
+                    if (progress < 1) {
+                        requestAnimationFrame(slowFrame);
+                    } else {
+                        finishSpin();
+                    }
+                }
+
+                requestAnimationFrame(fastFrame);
+            });
+        }
+
+        function showConfetti(count) {
+            var box = document.getElementById('confetti');
+            box.innerHTML = '';
+            var colors = ['#f1c40f', '#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#e67e22'];
+            for (var i = 0; i < count; i++) {
+                var el = document.createElement('span');
+                el.style.left = Math.random() * 100 + '%';
+                el.style.background = colors[i % colors.length];
+                el.style.animationDelay = (Math.random() * 0.4) + 's';
+                el.style.animationDuration = (1.2 + Math.random() * 1.2) + 's';
+                box.appendChild(el);
+            }
+            setTimeout(function() { box.innerHTML = ''; }, 2600);
+        }
+
+        function updateStudentBalanceDisplay(balance) {
+            var el = document.getElementById('studentDollarBalance');
+            if (!el) return;
+            if (balance == null || balance === '') {
+                el.textContent = '';
+                el.className = 'student-dollar-balance';
+                return;
+            }
+            balance = Number(balance) || 0;
+            currentStudentBalance = balance;
+            el.textContent = 'Balance: $' + balance + ' · Lucky Draw costs $' + LUCKY_DRAW_COST;
+            el.className = 'student-dollar-balance' +
+                (balance < LUCKY_DRAW_COST ? (balance <= 0 ? ' empty' : ' low') : '');
+        }
+
+        function loadStudentBalance(studentId) {
+            if (!studentId) {
+                updateStudentBalanceDisplay(null);
+                return Promise.resolve();
+            }
+            return toolFetch(NODE_API + '/api/dollar/balance?studentId=' + encodeURIComponent(studentId))
+                .then(function(res) {
+                    return res.json().then(function(data) {
+                        if (!res.ok) throw new Error(data.error || 'Could not load balance');
+                        updateStudentBalanceDisplay(data.balance);
+                    });
+                })
+                .catch(function() {
+                    updateStudentBalanceDisplay(null);
+                });
+        }
+
+        function purchaseLuckyDrawForStudent(prize) {
+            var sel = document.getElementById('studentSelect');
+            var studentId = sel ? sel.value : '';
+            var statusEl = document.getElementById('saveStatus');
+            if (!CLASS_ID || !studentId || !prize) {
+                return Promise.reject(new Error('Select a student first.'));
+            }
+            if (statusEl) statusEl.textContent = 'Checking dollars…';
+            return toolFetch(NODE_API + '/api/lucky-draw/purchase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classId: CLASS_ID,
+                    studentId: studentId,
+                    tier: prize.tier.name,
+                    prizeText: prize.phrase
+                })
+            }).then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) {
+                        var err = new Error(data.error || 'Purchase failed');
+                        err.balance = data.balance;
+                        err.cost = data.cost;
+                        throw err;
+                    }
+                    updateStudentBalanceDisplay(data.newBalance);
+                    if (statusEl) {
+                        statusEl.textContent = 'Paid $' + (data.cost || LUCKY_DRAW_COST) + ' — saved for ' +
+                            (sel.options[sel.selectedIndex].text || 'student') + '!';
+                    }
+                    return data;
+                });
+            });
+        }
+
+        function updateDrawModeUi() {
+            document.body.classList.toggle('paid-draw-mode', paidDrawMode);
+            var shell = document.querySelector('.shell');
+            if (shell) shell.classList.toggle('paid-draw-mode', paidDrawMode);
+            var sub = document.getElementById('classSub');
+            if (sub && CLASS_NAME) {
+                sub.textContent = paidDrawMode
+                    ? (CLASS_NAME + ' — $' + LUCKY_DRAW_COST + ' per draw')
+                    : (CLASS_NAME + ' — pick a student, pull the lever!');
+            }
+            document.getElementById('leverLabel').textContent = paidDrawMode
+                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                : 'Pull the lever!';
+            var sel = document.getElementById('studentSelect');
+            if (paidDrawMode && sel && sel.value) {
+                loadStudentBalance(sel.value);
+            } else {
+                updateStudentBalanceDisplay(null);
+            }
+        }
+
+        function setPaidDrawMode(on) {
+            paidDrawMode = !!on;
+            updateDrawModeUi();
+            if (paidDrawMode) {
+                var hint = document.getElementById('paidModeHint');
+                if (hint) {
+                    hint.textContent = 'Secret shop unlocked — $' + LUCKY_DRAW_COST + ' per draw';
+                }
+            }
+        }
+
+        function initDollarModeEasterEgg() {
+            var egg = document.getElementById('dollarModeEgg');
+            if (!egg) return;
+            egg.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (isSpinning) return;
+                setPaidDrawMode(!paidDrawMode);
+            });
+        }
+
+        function saveTicketForStudent(prize) {
+            var sel = document.getElementById('studentSelect');
+            var studentId = sel ? sel.value : '';
+            var statusEl = document.getElementById('saveStatus');
+            if (!CLASS_ID || !studentId || !prize) {
+                if (statusEl) statusEl.textContent = '';
+                return Promise.resolve();
+            }
+            if (statusEl) statusEl.textContent = 'Saving ticket…';
+            return toolFetch(NODE_API + '/api/lucky-draw/ticket', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classId: CLASS_ID,
+                    studentId: studentId,
+                    tier: prize.tier.name,
+                    prizeText: prize.phrase
+                })
+            }).then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) throw new Error(data.error || 'Save failed');
+                    if (statusEl) {
+                        statusEl.textContent = 'Saved for ' + (sel.options[sel.selectedIndex].text || 'student') + '!';
+                    }
+                });
+            });
+        }
+
+        function revealResult(prize) {
+            var tier = prize.tier;
+            var badge = document.getElementById('tierBadge');
+            badge.textContent = tier.name;
+            badge.className = 'tier-badge ' + tierClass(tier.id);
+            document.getElementById('prizeText').textContent = prize.phrase;
+            document.getElementById('resultHint').textContent = 'Jackpot!';
+            document.getElementById('resultPanel').classList.add('show');
+            document.getElementById('leverLabel').textContent = 'Nice pull!';
+
+            var id = tier.id;
+            if (id === 'legendary' || id === 'mythical' || id === 'godlike') {
+                showConfetti(id === 'godlike' ? 70 : id === 'mythical' ? 50 : 35);
+            }
+            document.getElementById('slotMachine').classList.add('machine-shake');
+            setTimeout(function() {
+                document.getElementById('slotMachine').classList.remove('machine-shake');
+            }, 380);
+        }
+
+        function initStudentSelect() {
+            var sel = document.getElementById('studentSelect');
+            if (!sel) return;
+            (STUDENTS || []).forEach(function(st) {
+                var opt = document.createElement('option');
+                opt.value = st.id;
+                opt.textContent = st.name;
+                sel.appendChild(opt);
+            });
+            sel.addEventListener('change', function() {
+                if (paidDrawMode) loadStudentBalance(sel.value);
+                else updateStudentBalanceDisplay(null);
+            });
+            if (!CLASS_ID || !(STUDENTS || []).length) {
+                document.getElementById('studentPickWrap').style.display = 'none';
+            }
+            updateDrawModeUi();
+        }
+
+        function showIdleReel() {
+            var reel = document.getElementById('reel');
+            var strip = reel.querySelector('.slot-strip');
+            var msg = IDLE_REEL_MESSAGES[Math.floor(Math.random() * IDLE_REEL_MESSAGES.length)];
+            strip.style.transition = 'none';
+            strip.style.transform = 'translateY(0)';
+            strip.innerHTML = '<div class="slot-item idle-msg">' + msg + '</div>';
+            reel.classList.remove('spinning-fast', 'spinning-slow');
+        }
+
+        function resetIdleReel() {
+            showIdleReel();
+        }
+
+        function resetForNewSpin() {
+            currentPrize = null;
+            isSpinning = false;
+            document.getElementById('resultPanel').classList.remove('show');
+            document.getElementById('saveStatus').textContent = '';
+            document.getElementById('leverLabel').textContent = paidDrawMode
+                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                : 'Pull the lever!';
+            document.getElementById('leverBtn').disabled = false;
+            document.getElementById('drawAgainBtn').disabled = false;
+            if (CLASS_ID && (STUDENTS || []).length) {
+                document.getElementById('studentPickWrap').style.display = 'block';
+                document.getElementById('studentSelect').disabled = false;
+            }
+            resetIdleReel();
+        }
+
+        async function pullLeverFree(currentPrize, lever, sel) {
+            document.getElementById('leverLabel').textContent = 'Spinning…';
+            var reel = document.getElementById('reel');
+            var count = buildReelStrip(reel, currentPrize.phrase, 44);
+            saveTicketForStudent(currentPrize).catch(function(err) {
+                var statusEl = document.getElementById('saveStatus');
+                if (statusEl) statusEl.textContent = 'Could not save: ' + (err.message || err);
+            });
+            await spinReel(reel, count);
+            setTimeout(function() { lever.classList.remove('pulled'); }, 400);
+            revealResult(currentPrize);
+        }
+
+        async function pullLeverPaid(currentPrize, lever, sel) {
+            if (sel && sel.value && currentStudentBalance != null && currentStudentBalance < LUCKY_DRAW_COST) {
+                alert('Not enough dollars. Lucky Draw costs $' + LUCKY_DRAW_COST +
+                    ' (balance: $' + currentStudentBalance + ').');
+                throw new Error('insufficient');
+            }
+            document.getElementById('leverLabel').textContent = 'Checking payment…';
+            await purchaseLuckyDrawForStudent(currentPrize);
+            document.getElementById('leverLabel').textContent = 'Spinning…';
+            var reel = document.getElementById('reel');
+            var count = buildReelStrip(reel, currentPrize.phrase, 44);
+            await spinReel(reel, count);
+            setTimeout(function() { lever.classList.remove('pulled'); }, 400);
+            revealResult(currentPrize);
+        }
+
+        async function pullLever() {
+            if (isSpinning || !configReady) return;
+            var sel = document.getElementById('studentSelect');
+            if (CLASS_ID && sel && !sel.value) {
+                alert('Please select a student first.');
+                return;
+            }
+
+            isSpinning = true;
+            currentPrize = pickPrize();
+
+            var lever = document.getElementById('leverBtn');
+            lever.disabled = true;
+            lever.classList.add('pulled');
+            document.getElementById('drawAgainBtn').disabled = true;
+            document.getElementById('resultPanel').classList.remove('show');
+            document.getElementById('saveStatus').textContent = '';
+            if (sel) sel.disabled = true;
+
+            try {
+                if (paidDrawMode) await pullLeverPaid(currentPrize, lever, sel);
+                else await pullLeverFree(currentPrize, lever, sel);
+            } catch (err) {
+                if (err && err.message !== 'insufficient') {
+                    console.error(err);
+                    alert(err.message || 'Something went wrong — try again.');
+                }
+                document.getElementById('leverLabel').textContent = paidDrawMode
+                    ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                    : 'Pull the lever!';
+                document.getElementById('saveStatus').textContent = '';
+                lever.disabled = false;
+                lever.classList.remove('pulled');
+                if (sel) sel.disabled = false;
+                var machine = document.getElementById('slotMachine');
+                if (machine) machine.classList.remove('is-spinning');
+                showIdleReel();
+            } finally {
+                isSpinning = false;
+                document.getElementById('drawAgainBtn').disabled = false;
+            }
+        }
+
+        function bootstrapLuckyDraw() {
+            if (!CLASS_ID) {
+                initStudentSelect();
+                initDollarModeEasterEgg();
+                loadLuckyDrawConfig();
+                return;
+            }
+            var api = location.origin.replace(/\/$/, '');
+            fetch(api + '/api/students?classId=' + encodeURIComponent(CLASS_ID), { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(list) {
+                    STUDENTS = Array.isArray(list) ? list : [];
+                    initStudentSelect();
+                    initDollarModeEasterEgg();
+                    loadLuckyDrawConfig();
+                })
+                .catch(function() {
+                    initStudentSelect();
+                    initDollarModeEasterEgg();
+                    loadLuckyDrawConfig();
+                });
+        }
+        bootstrapLuckyDraw();
+        document.getElementById('leverBtn').addEventListener('click', pullLever);
+        document.getElementById('drawAgainBtn').addEventListener('click', resetForNewSpin);
+        document.getElementById('editPrizesBtn').addEventListener('click', openConfigEditor);
+        document.getElementById('configCloseBtn').addEventListener('click', closeConfigEditor);
+        document.getElementById('configCancelBtn').addEventListener('click', closeConfigEditor);
+        document.getElementById('configSaveBtn').addEventListener('click', saveConfigEditor);
+        document.getElementById('addTierBtn').addEventListener('click', function() {
+            configDraft.push({
+                id: 'tier_' + (configDraft.length + 1),
+                name: 'New Tier',
+                weight: 0,
+                active: true,
+                items: ['New prize']
+            });
+            renderConfigEditor();
+        });
+        document.getElementById('configOverlay').addEventListener('click', function(e) {
+            if (e.target === e.currentTarget) closeConfigEditor();
+        });
+    </script>
+</body>
+</html>

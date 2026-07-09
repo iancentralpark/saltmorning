@@ -10,10 +10,21 @@ const {
   EVENTS_SHEET,
   VIDEO_SHEET,
   CHAMBIT_DAILY_SHEET,
-  CHAMBIT_COMBO_SHEET
+  CHAMBIT_COMBO_SHEET,
+  LUCKY_DRAW_SHEET,
+  STUDENT_LEAVE_SHEET,
+  STUDENT_PLANNED_ATTENDANCE_SHEET,
+  MAKEUP_SHEET,
+  ATTENDANCE_SHEET,
+  CLASS_LIST_SHEET,
+  STUDENT_LIST_SHEET,
+  STUDENT_WITHDRAWN_SHEET,
+  MANUAL_PENDING_SHEET
 } = require('./config');
 const { cacheGet, cacheSet } = require('./cache');
 const { buildRequestContext } = require('./sheets');
+const { runBatched } = require('./supabaseBatch');
+const { isSupabaseEnabled } = require('./supabaseClient');
 const { getHolidayName, getHolidaysForMonth } = require('./holiday');
 const { buildPendingHomeworkCountsFromCtx } = require('./homeworkService');
 const {
@@ -29,11 +40,82 @@ const {
 } = require('./dateUtils');
 const { resolveSharedClassVideoFromRows } = require('./youtube');
 const { buildClassHomeworkFromCtx } = require('./homeworkService');
-const { getLuckyDrawCountsByClass } = require('./luckyDrawService');
-const { getActiveLeavesByClass, getAllActiveLeavesByClass } = require('./leaveService');
-const { getPlannedByClassAndDate } = require('./plannedAttendanceService');
 const { buildClassStudentDirectory } = require('./studentListService');
-const { getUpcomingMakeupEvents } = require('./makeupService');
+
+const WORK_CACHE_SEC = 300;
+const workCache = new Map();
+
+function sessionContextOptions(classId, dateStr) {
+  if (!isSupabaseEnabled()) return undefined;
+  const opts = { supabaseFilter: true };
+  if (dateStr) opts.dateStr = String(dateStr);
+  return opts;
+}
+
+function getWorkCache(classId, dateStr) {
+  const entry = workCache.get(String(classId) + '|' + String(dateStr));
+  if (!entry || Date.now() >= entry.expires) return null;
+  return entry.data;
+}
+
+function setWorkCache(classId, dateStr, data) {
+  workCache.set(String(classId) + '|' + String(dateStr), {
+    data,
+    expires: Date.now() + WORK_CACHE_SEC * 1000
+  });
+}
+
+function invalidateWorkCache(classId, dateStr) {
+  if (classId != null && classId !== '' && dateStr) {
+    workCache.delete(String(classId) + '|' + String(dateStr));
+    return;
+  }
+  if (classId != null && classId !== '') {
+    const prefix = String(classId) + '|';
+    for (const key of workCache.keys()) {
+      if (key.startsWith(prefix)) workCache.delete(key);
+    }
+    return;
+  }
+  workCache.clear();
+}
+
+async function prefetchCtxSheets(ctx, sheetNames) {
+  const unique = [];
+  const seen = {};
+  (sheetNames || []).forEach(function(name) {
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    unique.push(name);
+  });
+  await runBatched(unique, function(name) { return ctx.sheetRows(name); }, 5);
+}
+
+const SIDEBAR_SHEETS = [
+  RULES_SHEET, STUDENT_LIST_SHEET, STUDENT_WITHDRAWN_SHEET, LIBRARY_SHEET,
+  ANNOUNCE_SHEET, EVENTS_SHEET, VIDEO_SHEET, MAKEUP_SHEET
+];
+
+const WORK_SHEETS = [
+  STUDENT_LIST_SHEET, ATTENDANCE_SHEET, DOLLAR_SHEETS.BALANCES,
+  CHAMBIT_DAILY_SHEET, CHAMBIT_COMBO_SHEET, LUCKY_DRAW_SHEET,
+  STUDENT_LEAVE_SHEET, STUDENT_PLANNED_ATTENDANCE_SHEET, CLASS_LIST_SHEET,
+  TEXTBOOK_SHEETS.BOOKS, TEXTBOOK_SHEETS.PROGRESS, TEXTBOOK_SHEETS.QUEUE,
+  HOMEWORK_SHEETS.MAP, HOMEWORK_SHEETS.LOG, HOMEWORK_SHEETS.ITEMS,
+  HOMEWORK_SHEETS.COMPLETION, MANUAL_PENDING_SHEET
+];
+
+const SESSION_SHEETS = (function() {
+  const seen = {};
+  const out = [];
+  SIDEBAR_SHEETS.concat(WORK_SHEETS).forEach(function(name) {
+    if (!seen[name]) {
+      seen[name] = true;
+      out.push(name);
+    }
+  });
+  return out;
+})();
 
 function parseRulesText(text) {
   return String(text || '')
@@ -90,6 +172,96 @@ function getEnrolledStudentsFromRows(studentData, classId) {
   return out;
 }
 
+function isDateInLeaveRange(dateStr, startDate, endDate) {
+  return dateStr >= startDate && dateStr <= endDate;
+}
+
+function buildLuckyMapFromRows(data, classId) {
+  const counts = {};
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== classId) continue;
+    const sid = String(data[i][2]);
+    counts[sid] = (counts[sid] || 0) + 1;
+  }
+  return counts;
+}
+
+function buildAllActiveLeavesFromRows(data, classId) {
+  const today = formatSheetDate(new Date());
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) !== classId) continue;
+    if (String(data[i][7]) !== 'Active') continue;
+    const leave = {
+      leaveId: String(data[i][0]),
+      studentId: String(data[i][1]),
+      startDate: formatSheetDate(data[i][4]),
+      endDate: formatSheetDate(data[i][5]),
+      reason: String(data[i][6] || '')
+    };
+    if (leave.endDate < today) continue;
+    map[leave.studentId] = leave;
+  }
+  return map;
+}
+
+function filterLeavesByDate(allLeaves, dateStr) {
+  dateStr = formatSheetDate(dateStr);
+  const map = {};
+  Object.keys(allLeaves).forEach(function(studentId) {
+    const leave = allLeaves[studentId];
+    if (isDateInLeaveRange(dateStr, leave.startDate, leave.endDate)) {
+      map[studentId] = leave;
+    }
+  });
+  return map;
+}
+
+function buildPlannedMapFromRows(data, classId, dateStr) {
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) !== classId) continue;
+    if (String(data[i][7]) !== 'Active') continue;
+    const rowDate = formatSheetDate(data[i][4]);
+    if (dateStr && rowDate !== formatSheetDate(dateStr)) continue;
+    map[String(data[i][1])] = {
+      noticeId: String(data[i][0]),
+      type: String(data[i][5] || ''),
+      note: String(data[i][6] || '')
+    };
+  }
+  return map;
+}
+
+function buildUpcomingMakeupEventsFromRows(data, classId) {
+  const today = formatDateInTz(new Date(), TIMEZONE);
+  const events = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]) !== classId) continue;
+    const status = String(data[i][9] || '');
+    const date = formatSheetDate(data[i][4]);
+    if (status !== 'Scheduled' || date < today) continue;
+    const studentName = String(data[i][3] || '');
+    const startTime = String(data[i][5] || '');
+    const endTime = String(data[i][6] || '');
+    const notes = String(data[i][8] || '').trim();
+    events.push({
+      eventId: String(data[i][0]),
+      eventDate: date,
+      description: 'Makeup: ' + studentName + ' · ' + startTime + '–' + endTime +
+        (notes ? ' — ' + notes : ''),
+      type: 'makeup',
+      makeupId: String(data[i][0]),
+      studentId: String(data[i][2]),
+      studentName,
+      startTime,
+      endTime,
+      status
+    });
+  }
+  return events;
+}
+
 function isQueueItemReady(item) {
   const allowed = ['Vocab', 'Novel', 'Non-fiction', 'Grammar'];
   if (!String(item.name || '').trim()) return false;
@@ -111,7 +283,7 @@ async function buildClassSidebarFromCtx(ctx) {
     break;
   }
 
-  const { nameMap } = await buildClassStudentDirectory(classId);
+  const { nameMap } = await buildClassStudentDirectory(classId, ctx);
 
   const byStudent = {};
   const libRows = await ctx.sheetRows(LIBRARY_SHEET);
@@ -149,7 +321,7 @@ async function buildClassSidebarFromCtx(ctx) {
       type: 'event'
     });
   }
-  const makeupEvents = await getUpcomingMakeupEvents(classId);
+  const makeupEvents = buildUpcomingMakeupEventsFromRows(await ctx.sheetRows(MAKEUP_SHEET), classId);
   const allEvents = events.concat(makeupEvents);
   allEvents.sort((a, b) => {
     if (a.eventDate !== b.eventDate) return a.eventDate < b.eventDate ? -1 : 1;
@@ -171,13 +343,14 @@ async function buildClassSidebarFromCtx(ctx) {
   };
 }
 
-async function getClassSidebarCached(classId) {
+async function getClassSidebarCached(classId, ctx) {
   const idStr = String(classId);
   const cacheKey = 'sidebar_v1_' + idStr;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
-  const ctx = await buildRequestContext(idStr);
-  const data = await buildClassSidebarFromCtx(ctx);
+  const localCtx = ctx || await buildRequestContext(idStr, sessionContextOptions(idStr));
+  if (!ctx) await prefetchCtxSheets(localCtx, SIDEBAR_SHEETS);
+  const data = await buildClassSidebarFromCtx(localCtx);
   cacheSet(cacheKey, data, CACHE_SEC.SIDEBAR);
   return data;
 }
@@ -197,7 +370,7 @@ function buildChambitWeekReadMap(dailyRows, classId, weekMonday, weekSunday) {
 
 async function buildClassAttendanceFromCtx(ctx, dateStr) {
   const classId = ctx.classId;
-  const students = getEnrolledStudentsFromRows(await ctx.sheetRows('Student_List'), classId);
+  const students = getEnrolledStudentsFromRows(await ctx.sheetRows(STUDENT_LIST_SHEET), classId);
 
   const balanceMap = {};
   const balancesData = await ctx.sheetRows(DOLLAR_SHEETS.BALANCES);
@@ -208,24 +381,29 @@ async function buildClassAttendanceFromCtx(ctx, dateStr) {
   }
 
   const existingMap = {};
-  const attendData = await ctx.sheetRows('Attendance_Data');
+  const attendData = await ctx.sheetRows(ATTENDANCE_SHEET);
   for (let i = 1; i < attendData.length; i++) {
     const rDate = formatSheetDate(attendData[i][0]);
     if (rDate !== dateStr || String(attendData[i][1]) !== classId) continue;
-    existingMap[attendData[i][2]] = {
+    const vocabRaw = attendData[i][4];
+    const vocabNum = vocabRaw === '' || vocabRaw == null ? 0 : Number(vocabRaw);
+    existingMap[String(attendData[i][2])] = {
       attendance: attendData[i][3],
-      vocabScore: attendData[i][4]
+      vocabScore: Number.isFinite(vocabNum) ? vocabNum : 0
     };
   }
 
   const pendingMap = await buildPendingHomeworkCountsFromCtx(ctx, classId);
-  const luckyMap = await getLuckyDrawCountsByClass(classId);
-  const leaveMap = await getActiveLeavesByClass(classId, dateStr);
-  const allActiveLeaves = await getAllActiveLeavesByClass(classId);
-  const plannedMap = await getPlannedByClassAndDate(classId, dateStr);
+  const luckyRows = await ctx.sheetRows(LUCKY_DRAW_SHEET);
+  const leaveRows = await ctx.sheetRows(STUDENT_LEAVE_SHEET);
+  const plannedRows = await ctx.sheetRows(STUDENT_PLANNED_ATTENDANCE_SHEET);
+  const luckyMap = buildLuckyMapFromRows(luckyRows, classId);
+  const allActiveLeaves = buildAllActiveLeavesFromRows(leaveRows, classId);
+  const leaveMap = filterLeavesByDate(allActiveLeaves, dateStr);
+  const plannedMap = buildPlannedMapFromRows(plannedRows, classId, dateStr);
 
   let allowedDays = [1, 2, 3, 4, 5];
-  const classData = await ctx.sheetRows('Class_List');
+  const classData = await ctx.sheetRows(CLASS_LIST_SHEET);
   for (let i = 1; i < classData.length; i++) {
     if (String(classData[i][0]) === classId) {
       allowedDays = chambitNormalizeAllowedDays(classData[i][3]);
@@ -280,28 +458,26 @@ async function buildClassAttendanceFromCtx(ctx, dateStr) {
     let attendance;
     if (onLeave) {
       attendance = '휴원';
-    } else if (existingMap[student.id]) {
-      attendance = existingMap[student.id].attendance;
-    } else if (planned) {
-      attendance = planned.type;
+    } else if (existingMap[sid]) {
+      attendance = existingMap[sid].attendance;
     } else {
-      attendance = '출석';
+      attendance = '';
     }
     const baseStudent = {
       onLeave,
       leaveInfo,
       plannedNotice: planned,
       attendance,
-      vocabScore: existingMap[student.id] ? existingMap[student.id].vocabScore : 0,
+      vocabScore: existingMap[sid] ? existingMap[sid].vocabScore : 0,
       dollars: balanceMap[student.id] ?? 0,
       ...base
     };
-    if (existingMap[student.id]) {
+    if (existingMap[sid]) {
       return {
         id: student.id,
         name: student.name,
         ...baseStudent,
-        vocabScore: existingMap[student.id].vocabScore
+        vocabScore: existingMap[sid].vocabScore
       };
     }
     return {
@@ -395,14 +571,20 @@ async function getClassWorkData(classId, dateStr) {
   dateStr = String(dateStr || '').trim();
   if (!classId || !dateStr) throw new Error('Class and date are required.');
 
+  const cached = getWorkCache(classId, dateStr);
+  if (cached) return cached;
+
   const holidayName = await getHolidayName(dateStr);
-  const ctx = await buildRequestContext(classId);
-  return {
-    holidayName,
-    students: await buildClassAttendanceFromCtx(ctx, dateStr),
-    textbook: await buildClassTextbookFromCtx(ctx, dateStr),
-    homework: await buildClassHomeworkFromCtx(ctx, dateStr)
-  };
+  const ctx = await buildRequestContext(classId, sessionContextOptions(classId, dateStr));
+  await prefetchCtxSheets(ctx, WORK_SHEETS);
+  const [students, textbook, homework] = await Promise.all([
+    buildClassAttendanceFromCtx(ctx, dateStr),
+    buildClassTextbookFromCtx(ctx, dateStr),
+    buildClassHomeworkFromCtx(ctx, dateStr)
+  ]);
+  const result = { holidayName, students, textbook, homework };
+  setWorkCache(classId, dateStr, result);
+  return result;
 }
 
 async function getClassSessionData(classId, dateStr) {
@@ -418,21 +600,43 @@ async function getClassSessionData(classId, dateStr) {
     };
   }
 
+  const sidebarCacheKey = 'sidebar_v1_' + classId;
+  const cachedSidebar = cacheGet(sidebarCacheKey);
+  const cachedWork = getWorkCache(classId, dateStr);
+
+  if (cachedSidebar && cachedWork) {
+    return {
+      sidebar: cachedSidebar,
+      holidayName: cachedWork.holidayName || '',
+      work: cachedWork
+    };
+  }
+
   const holidayName = await getHolidayName(dateStr);
-  const [sidebar, ctx] = await Promise.all([
-    getClassSidebarCached(classId),
-    buildRequestContext(classId)
-  ]);
+  const ctx = await buildRequestContext(classId, sessionContextOptions(classId, dateStr));
+  await prefetchCtxSheets(ctx, SESSION_SHEETS);
+
+  const sidebar = cachedSidebar || await (async function() {
+    const data = await buildClassSidebarFromCtx(ctx);
+    cacheSet(sidebarCacheKey, data, CACHE_SEC.SIDEBAR);
+    return data;
+  })();
+
+  let work = cachedWork;
+  if (!work) {
+    const [students, textbook, homework] = await Promise.all([
+      buildClassAttendanceFromCtx(ctx, dateStr),
+      buildClassTextbookFromCtx(ctx, dateStr),
+      buildClassHomeworkFromCtx(ctx, dateStr)
+    ]);
+    work = { holidayName, students, textbook, homework };
+    setWorkCache(classId, dateStr, work);
+  }
 
   return {
     sidebar,
-    holidayName,
-    work: {
-      holidayName,
-      students: await buildClassAttendanceFromCtx(ctx, dateStr),
-      textbook: await buildClassTextbookFromCtx(ctx, dateStr),
-      homework: await buildClassHomeworkFromCtx(ctx, dateStr)
-    }
+    holidayName: work.holidayName || holidayName,
+    work
   };
 }
 
@@ -441,5 +645,6 @@ module.exports = {
   getClassWorkData,
   getClassSidebarCached,
   buildClassAttendanceFromCtx,
-  buildClassTextbookFromCtx
+  buildClassTextbookFromCtx,
+  invalidateWorkCache
 };

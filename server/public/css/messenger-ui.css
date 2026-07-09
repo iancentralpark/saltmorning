@@ -1,0 +1,28 @@
+/* Shared messenger polish — complements teacher/student portal styles */
+.msg-date-sep,
+.messenger-date-sep {
+    text-align: center;
+    margin: 0.65rem 0;
+    font-size: 0.72rem;
+    color: #7f8c8d;
+    font-weight: 600;
+}
+
+.msg-date-sep span,
+.messenger-date-sep span {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.messenger-chat-thread,
+.msg-chat-thread {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.messenger-chat-input,
+.msg-input {
+    transition: height 0.12s ease;
+}

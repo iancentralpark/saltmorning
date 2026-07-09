@@ -6,6 +6,7 @@ const {
 const { getSheetRows, updateRange, appendRows } = require('./sheets');
 const { formatDateTimeNow, formatSheetDate, chambitAddDays } = require('./dateUtils');
 const { cacheDeletePrefix } = require('./cache');
+const { invalidateWorkCache } = require('./sessionService');
 
 const LEAVE_STATUS_ACTIVE = 'Active';
 const LEAVE_STATUS_ENDED = 'Ended';
@@ -44,6 +45,8 @@ function eachDateInRange(startDate, endDate, fn) {
 }
 
 async function ensureLeaveSheet() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return;
   let data;
   try {
     data = await getSheetRows(STUDENT_LEAVE_SHEET);
@@ -221,6 +224,7 @@ async function startStudentLeave(classId, studentId, startDate, endDate, reason)
     console.warn('Class log leave backfill:', e.message);
   }
   cacheDeletePrefix('sidebar_v1_');
+  invalidateWorkCache(classId);
 
   return {
     leaveId,
@@ -248,8 +252,9 @@ async function endStudentLeave(leaveId) {
     }
     const endedAt = formatDateTimeNow(TIMEZONE);
     await updateRange(STUDENT_LEAVE_SHEET, 'H' + (i + 1) + ':J' + (i + 1), [[LEAVE_STATUS_ENDED, data[i][8], endedAt]]);
-    cacheDeletePrefix('sidebar_v1_');
     const leave = parseLeaveRow(data[i]);
+    cacheDeletePrefix('sidebar_v1_');
+    invalidateWorkCache(leave.classId);
     return {
       leaveId,
       studentId: leave.studentId,

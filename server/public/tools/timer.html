@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+    .mrpark-snail-sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+    .snail-svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+    .snail-mascot-xl { width: 120px; height: 120px; opacity: 0.92; }
+    .snail-mascot-lg { width: 88px; height: 88px; opacity: 0.9; }
+    .snail-mascot-md { width: 64px; height: 64px; opacity: 0.85; }
+    .snail-mascot-sm { width: 48px; height: 48px; opacity: 0.82; }
+    .snail-mascot-xs { width: 32px; height: 32px; opacity: 0.8; }
+    .snail-wiggle { animation: snail-wiggle 5s ease-in-out infinite; }
+    .snail-bounce { animation: snail-bounce 4s ease-in-out infinite; }
+    @keyframes snail-wiggle {
+        0%, 100% { transform: rotate(-2deg) translateY(0); }
+        50% { transform: rotate(2deg) translateY(-4px); }
+    }
+    @keyframes snail-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    .snail-float-deco {
+        position: fixed;
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
+        line-height: 0;
+        opacity: 0.38;
+    }
+    .snail-float-deco .snail-svg { filter: none; }
+    .snail-deco-tl { top: 2%; left: 1.5%; animation: snail-drift-a 6s ease-in-out infinite; }
+    .snail-deco-br { bottom: 3%; right: 1.5%; animation: snail-drift-d 6.5s ease-in-out infinite 0.8s; }
+    .snail-deco-br .snail-svg { transform: scaleX(-1); }
+    @keyframes snail-drift-a {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+    @keyframes snail-drift-d {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    .snail-hero-wrap {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.65);
+        border: 2px solid rgba(59, 158, 221, 0.22);
+        box-shadow: 0 4px 16px rgba(59, 158, 221, 0.1);
+    }
+    .snail-hero-wrap .snail-svg { width: 58px; height: 58px; opacity: 0.95; }
+    .class-welcome-panel {
+        text-align: center;
+        margin: 1.25rem 0 0.5rem;
+        padding: 1.5rem 1.25rem 1.65rem;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(59, 158, 221, 0.2);
+        box-shadow: 0 4px 18px rgba(59, 158, 221, 0.08);
+    }
+    .class-welcome-snail { margin-bottom: 0.65rem; }
+    .class-welcome-title {
+        font-family: 'Fredoka', 'Nunito', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #2a8fc9;
+        margin: 0 0 0.4rem;
+    }
+    .class-welcome-text {
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: #636e72;
+        margin: 0 0 0.85rem;
+        max-width: 26rem;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.5;
+    }
+    .class-welcome-hint {
+        display: inline-block;
+        padding: 0.45rem 1rem;
+        border-radius: 999px;
+        background: rgba(59, 158, 221, 0.1);
+        color: #2a8fc9;
+        font-family: 'Fredoka', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+        border: 1px solid rgba(59, 158, 221, 0.18);
+    }
+    .portal-brand-snail { margin-bottom: 0.25rem; opacity: 0.92; }
+    .portal-card-cute {
+        border: 1px solid rgba(59, 158, 221, 0.18) !important;
+        box-shadow: 0 4px 14px rgba(59, 158, 221, 0.08) !important;
+    }
+    .popup-snail-mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.35rem;
+        opacity: 0.88;
+    }
+    [data-theme="dark"] .class-welcome-panel {
+        background: rgba(30, 38, 48, 0.65);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .class-welcome-title { color: #7ec8f0; }
+    [data-theme="dark"] .class-welcome-text { color: #a8b8c8; }
+    [data-theme="dark"] .class-welcome-hint {
+        background: rgba(59, 158, 221, 0.12);
+        color: #9ed0f5;
+        border-color: rgba(100, 160, 210, 0.2);
+    }
+    [data-theme="dark"] .snail-hero-wrap {
+        background: rgba(36, 48, 64, 0.7);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .snail-float-deco { opacity: 0.28; }
+    @media (max-width: 600px) {
+        .snail-mascot-xl { width: 100px; height: 100px; }
+        .class-welcome-title { font-size: 1.3rem; }
+    }
+</style>
+<svg class="mrpark-snail-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="mrpark-snail" viewBox="0 0 200 200">
+        <ellipse cx="100" cy="178" rx="58" ry="11" fill="#000" opacity="0.1"/>
+        <circle cx="118" cy="98" r="54" fill="#FFB347"/>
+        <circle cx="118" cy="98" r="44" fill="#FF9F43"/>
+        <path d="M118 56 C94 56 82 78 94 98 C82 118 94 140 118 140 C142 140 154 118 142 98 C154 78 142 56 118 56 Z" fill="none" stroke="#E67E22" stroke-width="5" stroke-linecap="round"/>
+        <path d="M118 70 C104 70 96 84 104 98 C96 112 104 126 118 126 C132 126 140 112 132 98 C140 84 132 70 118 70 Z" fill="none" stroke="#D35400" stroke-width="4" stroke-linecap="round"/>
+        <ellipse cx="72" cy="128" rx="48" ry="32" fill="#7DCEA0"/>
+        <ellipse cx="48" cy="102" rx="28" ry="24" fill="#58D68D"/>
+        <ellipse cx="34" cy="92" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <ellipse cx="60" cy="90" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <circle cx="36" cy="94" r="6" fill="#2d3436"/>
+        <circle cx="62" cy="92" r="6" fill="#2d3436"/>
+        <circle cx="38" cy="91" r="2.2" fill="#fff"/>
+        <circle cx="64" cy="89" r="2.2" fill="#fff"/>
+        <ellipse cx="26" cy="104" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <ellipse cx="72" cy="102" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <path d="M40 110 Q50 122 66 112" fill="none" stroke="#27AE60" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M30 84 Q24 64 22 48" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <path d="M56 82 Q64 60 68 44" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <circle cx="22" cy="46" r="7" fill="#FF6B9D"/>
+        <circle cx="68" cy="42" r="7" fill="#3B9EDD"/>
+    </symbol>
+</svg>
+
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --primary: #3b9edd;
+            --primary-dark: #2a8fc9;
+            --accent: #ff9f43;
+            --accent-2: #ff6b9d;
+            --success: #2ecc71;
+            --text: #2d3436;
+            --muted: #636e72;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(circle at 12% 18%, rgba(255, 159, 67, 0.35), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(59, 158, 221, 0.35), transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(255, 107, 157, 0.2), transparent 45%),
+                linear-gradient(180deg, #dff4ff 0%, #fff8e7 55%, #fef9ef 100%);
+            color: var(--text);
+            font-family: 'Nunito', system-ui, sans-serif;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.3;
+            background-image: radial-gradient(circle, rgba(59, 158, 221, 0.2) 1.5px, transparent 1.5px);
+            background-size: 26px 26px;
+        }
+        body.done {
+            background:
+                radial-gradient(circle at 50% 30%, rgba(255, 107, 107, 0.35), transparent 50%),
+                linear-gradient(180deg, #ffeaa7 0%, #fab1a0 50%, #ff7675 100%);
+            animation: pulse-bg 0.8s ease-in-out infinite alternate;
+        }
+        @keyframes pulse-bg { from { filter: brightness(1); } to { filter: brightness(1.06); } }
+
+        .deco {
+            position: fixed;
+            pointer-events: none;
+            user-select: none;
+            z-index: 0;
+            opacity: 0.85;
+        }
+        .deco-1 { top: 8%; left: 6%; font-size: 2rem; animation: float 3s ease-in-out infinite; }
+        .deco-2 { top: 10%; right: 8%; font-size: 1.75rem; animation: float 3.5s ease-in-out infinite 0.5s; }
+        .deco-3 { bottom: 12%; left: 10%; font-size: 1.6rem; animation: float 4s ease-in-out infinite 1s; }
+        .deco-4 { bottom: 10%; right: 6%; font-size: 2.1rem; animation: float 3.2s ease-in-out infinite 0.3s; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(6deg); }
+        }
+
+        .timer-shell {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 1.75rem 2rem 1.65rem;
+            background: #fff;
+            border: 3px solid rgba(255, 159, 67, 0.45);
+            border-radius: 28px;
+            box-shadow: 0 8px 0 rgba(255, 159, 67, 0.18), 0 20px 40px rgba(59, 158, 221, 0.15);
+            min-width: min(100%, 340px);
+        }
+
+        .mascot-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+        .mascot-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff9f43, #ff6b9d, #3b9edd);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.65rem;
+            box-shadow: 0 4px 0 #e08a2e;
+            animation: mascot-bounce 2.5s ease-in-out infinite;
+        }
+        @keyframes mascot-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .mascot-twemoji {
+            width: 36px;
+            height: 36px;
+        }
+
+        .label {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 0.35rem;
+        }
+        .label-sub {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+        #display {
+            font-family: 'Fredoka', sans-serif;
+            font-size: min(24vmin, 6.5rem);
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            margin: 0.15rem 0 1.1rem;
+            color: var(--primary-dark);
+            text-shadow: 3px 3px 0 rgba(255, 159, 67, 0.25);
+        }
+        #display.done {
+            color: #e74c3c;
+            text-shadow: 3px 3px 0 rgba(255, 234, 167, 0.8);
+        }
+        .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+        .controls-adjust { margin-bottom: 0.85rem; }
+        button {
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1.15rem;
+            font-size: 0.9rem;
+            font-weight: 800;
+            font-family: 'Nunito', sans-serif;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        button:hover:not(:disabled) { transform: translateY(-2px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-adjust-min {
+            background: #fff;
+            color: var(--muted);
+            min-width: 5.5rem;
+            border: 2px solid rgba(99, 110, 114, 0.25);
+            box-shadow: 0 3px 0 rgba(99, 110, 114, 0.12);
+        }
+        .btn-adjust-plus {
+            background: linear-gradient(135deg, var(--primary), #5dade2);
+            color: #fff;
+            min-width: 5.5rem;
+            box-shadow: 0 4px 0 var(--primary-dark);
+        }
+        .btn-pause {
+            background: linear-gradient(135deg, #f39c12, #ff9f43);
+            color: #fff;
+            box-shadow: 0 4px 0 #e67e22;
+        }
+        .btn-reset {
+            background: #fff;
+            color: var(--primary-dark);
+            border: 2px solid rgba(59, 158, 221, 0.35);
+            box-shadow: 0 3px 0 rgba(59, 158, 221, 0.15);
+        }
+        .done-msg {
+            display: none;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 600;
+            color: #c0392b;
+            margin-bottom: 0.5rem;
+        }
+        body.done .done-msg { display: block; }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 12% 18%, rgba(255, 159, 67, 0.12), transparent 40%),
+                radial-gradient(circle at 88% 12%, rgba(59, 158, 221, 0.16), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 55%, #141a23 100%);
+        }
+        [data-theme="dark"] body::before { opacity: 0.1; }
+        [data-theme="dark"] .timer-shell {
+            background: #1e242e;
+            border-color: rgba(120, 160, 200, 0.4);
+            box-shadow: 0 8px 0 rgba(0, 0, 0, 0.22), 0 20px 40px rgba(0, 0, 0, 0.35);
+        }
+        [data-theme="dark"] .label,
+        [data-theme="dark"] #display { color: #b8d9f5; text-shadow: none; }
+        [data-theme="dark"] .label-sub { color: var(--muted); }
+        [data-theme="dark"] .btn-adjust-min,
+        [data-theme="dark"] .btn-reset {
+            background: #2d3644;
+            color: #b8d9f5;
+            border-color: rgba(120, 160, 200, 0.35);
+        }
+    </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#3b9edd">
+</head>
+<body>
+    <script>if (/\bembed=1\b/.test(location.search)) document.documentElement.classList.add('tool-embedded');</script>
+    <div class="timer-shell">
+        <div class="popup-snail-mark" aria-hidden="true">
+            <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+        </div>
+        <div class="done-msg">🎉 Time's up! Great job! 🎉</div>
+        <div class="label">Vocab Test Timer</div>
+        <div class="label-sub" id="timerLabelSub"></div>
+        <div id="display">00:00</div>
+        <div class="controls controls-adjust">
+            <button type="button" class="btn-adjust-min" id="minus10Btn">−10 sec</button>
+            <button type="button" class="btn-adjust-plus" id="plus10Btn">+10 sec</button>
+        </div>
+        <div class="controls">
+            <button type="button" class="btn-pause" id="pauseBtn">Pause</button>
+            <button type="button" class="btn-reset" id="resetBtn">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        const _timerParams = new URLSearchParams(location.search);
+        const _timerMin = Math.max(0, parseInt(_timerParams.get('min'), 10) || 0);
+        const _timerSec = Math.max(0, Math.min(59, parseInt(_timerParams.get('sec'), 10) || 0));
+        const TOTAL = Math.max(1, _timerMin * 60 + _timerSec);
+        (function() {
+            const el = document.getElementById('timerLabelSub');
+            if (!el) return;
+            el.textContent = _timerMin > 0 && _timerSec > 0
+                ? (_timerMin + ' min ' + _timerSec + ' sec')
+                : (_timerMin > 0 ? (_timerMin + ' min') : (_timerSec + ' sec'));
+        })();
+        let remaining = TOTAL;
+        let paused = false;
+        let done = false;
+        let tickId = null;
+
+        const display = document.getElementById('display');
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+        function render() {
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            display.textContent = pad(m) + ':' + pad(s);
+            document.title = display.textContent + ' — Timer';
+        }
+
+        function beep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                [0, 0.35, 0.7].forEach(function(delay) {
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.connect(g);
+                    g.connect(ctx.destination);
+                    o.frequency.value = 880;
+                    g.gain.value = 0.15;
+                    o.start(ctx.currentTime + delay);
+                    o.stop(ctx.currentTime + delay + 0.2);
+                });
+            } catch (e) { /* ignore */ }
+        }
+
+        function onFinish() {
+            done = true;
+            remaining = 0;
+            render();
+            display.classList.add('done');
+            document.body.classList.add('done');
+            pauseBtn.disabled = true;
+            beep();
+        }
+
+        function tick() {
+            if (paused || done) return;
+            remaining -= 1;
+            if (remaining <= 0) {
+                clearInterval(tickId);
+                onFinish();
+                return;
+            }
+            render();
+        }
+
+        function start() {
+            if (tickId) clearInterval(tickId);
+            tickId = setInterval(tick, 1000);
+        }
+
+        function clearDoneState() {
+            done = false;
+            display.classList.remove('done');
+            document.body.classList.remove('done');
+            pauseBtn.disabled = false;
+        }
+
+        function adjustSeconds(delta) {
+            if (done) {
+                if (delta <= 0) return;
+                clearDoneState();
+                remaining = delta;
+                render();
+                start();
+                return;
+            }
+            remaining += delta;
+            if (remaining <= 0) {
+                if (tickId) clearInterval(tickId);
+                tickId = null;
+                onFinish();
+                return;
+            }
+            render();
+        }
+
+        document.getElementById('minus10Btn').addEventListener('click', function() {
+            adjustSeconds(-10);
+        });
+
+        document.getElementById('plus10Btn').addEventListener('click', function() {
+            adjustSeconds(10);
+        });
+
+        pauseBtn.addEventListener('click', function() {
+            if (done) return;
+            paused = !paused;
+            pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            done = false;
+            paused = false;
+            remaining = TOTAL;
+            display.classList.remove('done');
+            document.body.classList.remove('done');
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = 'Pause';
+            render();
+            start();
+        });
+
+        render();
+        start();
+    </script>
+</body>
+</html>

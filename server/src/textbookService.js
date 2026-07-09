@@ -2,11 +2,12 @@ const {
   TEXTBOOK_SHEETS,
   TIMEZONE
 } = require('./config');
-const { getSheetRows, updateRange, appendRows, deleteRow } = require('./sheets');
+const { getSheetRows, updateRange, appendRows, deleteRow, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
 const { formatSheetDate, formatDateStr, formatDateTimeNow } = require('./dateUtils');
 const { buildRequestContext } = require('./sheets');
-const { buildClassTextbookFromCtx } = require('./sessionService');
+const { buildClassTextbookFromCtx, invalidateWorkCache } = require('./sessionService');
+const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 function isQueueItemReady(item) {
   const allowed = ['Vocab', 'Novel', 'Non-fiction', 'Grammar'];
@@ -191,29 +192,65 @@ async function completeClassTextbook(textbookId) {
 
 async function saveTextbookProgress(classId, dateStr, records) {
   if (!dateStr) throw new Error('Date is required.');
-  const data = await getSheetRows(TEXTBOOK_SHEETS.PROGRESS);
+  classId = String(classId);
+  dateStr = formatSheetDate(dateStr);
+
+  const payload = [];
   for (const rec of records || []) {
     const pos = Number(rec.position);
     if (!rec.textbookId || !Number.isFinite(pos) || pos < 0) continue;
+    payload.push({
+      textbookId: String(rec.textbookId),
+      position: pos
+    });
+  }
+  if (!payload.length) throw new Error('No valid progress records to save.');
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const rows = payload.map(function(rec) {
+      return {
+        record_date: dateStr,
+        class_id: classId,
+        textbook_id: rec.textbookId,
+        position: rec.position
+      };
+    });
+    const { error } = await db.from('textbook_progress').upsert(rows, {
+      onConflict: 'record_date,class_id,textbook_id'
+    });
+    if (error) throw new Error(error.message);
+    afterTextbookProgressWrite(classId, dateStr);
+    return 'Textbook progress saved.';
+  }
+
+  const data = await getSheetRows(TEXTBOOK_SHEETS.PROGRESS, { skipCache: true });
+  for (const rec of payload) {
     let foundRow = -1;
     for (let i = 1; i < data.length; i++) {
       if (formatSheetDate(data[i][0]) === dateStr &&
-          data[i][1] === classId &&
-          data[i][2] === rec.textbookId) {
+          String(data[i][1]) === classId &&
+          String(data[i][2]) === rec.textbookId) {
         foundRow = i + 1;
         break;
       }
     }
     if (foundRow !== -1) {
-      await updateRange(TEXTBOOK_SHEETS.PROGRESS, `D${foundRow}`, [[pos]]);
-      data[foundRow - 1][3] = pos;
+      await updateRange(TEXTBOOK_SHEETS.PROGRESS, `D${foundRow}`, [[rec.position]]);
+      data[foundRow - 1][3] = rec.position;
     } else {
-      await appendRows(TEXTBOOK_SHEETS.PROGRESS, [[dateStr, classId, rec.textbookId, pos]]);
-      data.push([dateStr, classId, rec.textbookId, pos]);
+      await appendRows(TEXTBOOK_SHEETS.PROGRESS, [[dateStr, classId, rec.textbookId, rec.position]]);
+      data.push([dateStr, classId, rec.textbookId, rec.position]);
     }
   }
-  cacheDeletePrefix('sidebar_v1_');
+  afterTextbookProgressWrite(classId, dateStr);
   return 'Textbook progress saved.';
+}
+
+function afterTextbookProgressWrite(classId, dateStr) {
+  cacheDeletePrefix('sidebar_v1_');
+  invalidateWorkCache(classId, dateStr);
+  invalidateSheetRowsCache(TEXTBOOK_SHEETS.PROGRESS);
 }
 
 async function getClassTextbookData(classId, dateStr) {

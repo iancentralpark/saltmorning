@@ -4,10 +4,12 @@ const {
   CHAMBIT_WEEK_SHEET,
   TIMEZONE
 } = require('./config');
-const { getSheetRows, appendRows, updateRange, deleteRow, deleteRows } = require('./sheets');
+const { getSheetRows, appendRows, updateRange, deleteRow, deleteRows, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
+const { invalidateWorkCache } = require('./sessionService');
+const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { getHolidayName, getHolidaysForMonth } = require('./holiday');
-const { syncChambitToClassLog, getClassLogRosterForMonth } = require('./classLogService');
+const { syncChambitToClassLog } = require('./classLogService');
 const { getEnrolledStudents } = require('./homeworkService');
 const {
   formatSheetDate,
@@ -72,9 +74,31 @@ async function chambitIsWeekComplete(studentId, classId, weekMonday, allowedDays
   return required.every(ds => readSet[ds]);
 }
 
+function afterChambitWrite(classId, dateStr) {
+  cacheDeletePrefix('sidebar_v1_');
+  if (classId) invalidateWorkCache(classId, dateStr || undefined);
+  invalidateSheetRowsCache(CHAMBIT_DAILY_SHEET);
+  invalidateSheetRowsCache(CHAMBIT_COMBO_SHEET);
+  invalidateSheetRowsCache(CHAMBIT_WEEK_SHEET);
+}
+
+async function lookupStudentClassId(studentId) {
+  if (!isSupabaseEnabled()) return null;
+  const db = getSupabase();
+  const { data, error } = await db.from('students').select('class_id').eq('id', String(studentId)).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? String(data.class_id || '') : null;
+}
+
 async function chambitGetComboCount(studentId) {
-  const data = await getSheetRows(CHAMBIT_COMBO_SHEET);
   const sid = String(studentId);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { data, error } = await db.from('chambit_combo').select('combo_count').eq('student_id', sid).maybeSingle();
+    if (error) throw new Error(error.message);
+    return Number(data?.combo_count) || 0;
+  }
+  const data = await getSheetRows(CHAMBIT_COMBO_SHEET);
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === sid) return Number(data[i][1]) || 0;
   }
@@ -82,10 +106,22 @@ async function chambitGetComboCount(studentId) {
 }
 
 async function chambitSetComboCount(studentId, count) {
-  const data = await getSheetRows(CHAMBIT_COMBO_SHEET);
   const now = formatDateTimeNow(TIMEZONE);
   const sid = String(studentId);
   const safe = Math.max(0, Math.min(5, Number(count) || 0));
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('chambit_combo').upsert({
+      student_id: sid,
+      combo_count: safe,
+      updated_at: now
+    }, { onConflict: 'student_id' });
+    if (error) throw new Error(error.message);
+    const classId = await lookupStudentClassId(sid);
+    afterChambitWrite(classId);
+    return safe;
+  }
+  const data = await getSheetRows(CHAMBIT_COMBO_SHEET);
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === sid) {
       await updateRange(CHAMBIT_COMBO_SHEET, `B${i + 1}:C${i + 1}`, [[safe, now]]);
@@ -103,9 +139,19 @@ async function chambitIncrementCombo(studentId) {
 }
 
 async function chambitHasWeekAward(studentId, weekKey) {
-  const data = await getSheetRows(CHAMBIT_WEEK_SHEET);
   const sid = String(studentId);
   const wk = String(weekKey);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { data, error } = await db.from('chambit_week_awards')
+      .select('student_id')
+      .eq('student_id', sid)
+      .eq('week_key', wk)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return !!data;
+  }
+  const data = await getSheetRows(CHAMBIT_WEEK_SHEET);
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === sid && String(data[i][1]) === wk) return true;
   }
@@ -115,12 +161,30 @@ async function chambitHasWeekAward(studentId, weekKey) {
 async function chambitMarkWeekAward(studentId, weekKey) {
   if (await chambitHasWeekAward(studentId, weekKey)) return;
   const now = formatDateTimeNow(TIMEZONE);
+  const sid = String(studentId);
+  const wk = String(weekKey);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('chambit_week_awards').upsert({
+      student_id: sid,
+      week_key: wk,
+      awarded_at: now
+    }, { onConflict: 'student_id,week_key' });
+    if (error) throw new Error(error.message);
+    return;
+  }
   await appendRows(CHAMBIT_WEEK_SHEET, [[studentId, weekKey, now]]);
 }
 
 async function chambitClearWeekAwards(studentId) {
-  const data = await getSheetRows(CHAMBIT_WEEK_SHEET);
   const sid = String(studentId);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('chambit_week_awards').delete().eq('student_id', sid);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const data = await getSheetRows(CHAMBIT_WEEK_SHEET);
   const rows = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === sid) rows.push(i + 1);
@@ -129,10 +193,30 @@ async function chambitClearWeekAwards(studentId) {
 }
 
 async function chambitSetDailyRead(classId, studentId, dateStr, read) {
-  const data = await getSheetRows(CHAMBIT_DAILY_SHEET);
   const ds = formatSheetDate(dateStr);
   const sid = String(studentId);
   const cid = String(classId);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    if (read) {
+      const { error } = await db.from('chambit_daily').upsert({
+        record_date: ds,
+        class_id: cid,
+        student_id: sid
+      }, { onConflict: 'record_date,class_id,student_id' });
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await db.from('chambit_daily').delete().match({
+        record_date: ds,
+        class_id: cid,
+        student_id: sid
+      });
+      if (error) throw new Error(error.message);
+    }
+    afterChambitWrite(cid, ds);
+    return;
+  }
+  const data = await getSheetRows(CHAMBIT_DAILY_SHEET);
   let foundRow = -1;
   for (let i = 1; i < data.length; i++) {
     if (formatSheetDate(data[i][0]) === ds &&
@@ -167,17 +251,14 @@ async function setChambitComboManual(studentId, comboCount) {
     throw new Error('Combo must be between 0 and 5.');
   }
   const safe = await chambitSetComboCount(studentId, count);
-  cacheDeletePrefix('sidebar_v1_');
   return { studentId, chambitCombo: safe };
 }
 
 async function chambitSyncClassLog(classId, studentId, dateStr, read) {
   try {
     dateStr = formatSheetDate(dateStr);
-    const parts = dateStr.split('-');
-    const monthFirstDay = parts[0] + '-' + parts[1] + '-01';
-    const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
-    const student = roster.find(s => String(s.id) === String(studentId));
+    const enrolled = await getEnrolledStudents(classId);
+    const student = enrolled.find(s => String(s.id) === String(studentId));
     if (!student) return { synced: false };
     return await syncChambitToClassLog(classId, student.name, dateStr, read);
   } catch (e) {
@@ -211,7 +292,7 @@ async function toggleChambitRead(classId, studentId, dateStr, action, allowedDay
     const weekMonday = chambitWeekMonday(dateStr);
     const weekRequired = await chambitGetRequiredDatesInWeek(weekMonday, allowedDays);
     const weekProg = await chambitWeekProgress(studentId, classId, weekMonday, weekRequired);
-    cacheDeletePrefix('sidebar_v1_');
+    afterChambitWrite(classId, dateStr);
     const classLog = await chambitSyncClassLog(classId, studentId, dateStr, true);
     return {
       studentId,
@@ -231,7 +312,7 @@ async function toggleChambitRead(classId, studentId, dateStr, action, allowedDay
     const weekMonday = chambitWeekMonday(dateStr);
     const weekRequired = await chambitGetRequiredDatesInWeek(weekMonday, allowedDays);
     const weekProg = await chambitWeekProgress(studentId, classId, weekMonday, weekRequired);
-    cacheDeletePrefix('sidebar_v1_');
+    afterChambitWrite(classId, dateStr);
     const classLog = await chambitSyncClassLog(classId, studentId, dateStr, false);
     return {
       studentId,

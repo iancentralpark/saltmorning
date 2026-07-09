@@ -14,6 +14,20 @@ function cacheSet(key, value, ttlSec) {
   store.set(key, { value, expires: Date.now() + ttlSec * 1000 });
 }
 
+function cacheGetVersioned(key, generation) {
+  const entry = cacheGet(key);
+  if (!entry || entry.generation !== generation) return null;
+  return entry.value;
+}
+
+function cacheSetVersioned(key, value, ttlSec, generation) {
+  store.set(key, {
+    value: value,
+    generation: generation,
+    expires: Date.now() + ttlSec * 1000
+  });
+}
+
 function cacheDelete(key) {
   store.delete(key);
 }
@@ -24,4 +38,11 @@ function cacheDeletePrefix(prefix) {
   }
 }
 
-module.exports = { cacheGet, cacheSet, cacheDelete, cacheDeletePrefix };
+module.exports = {
+  cacheGet,
+  cacheSet,
+  cacheGetVersioned,
+  cacheSetVersioned,
+  cacheDelete,
+  cacheDeletePrefix
+};

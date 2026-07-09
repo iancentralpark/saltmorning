@@ -5,15 +5,12 @@ const TIMEZONE = process.env.TIMEZONE || 'Asia/Seoul';
 const PORT = Number(process.env.PORT) || 8787;
 
 const TEACHER_GATE_PASSWORD = process.env.TEACHER_GATE_PASSWORD || '';
-const TEACHER_APP_URL = process.env.TEACHER_APP_URL ||
-  'https://script.google.com/macros/s/AKfycbynz8z_cX8GeKSzZNWt0cUg2PRyOlDHhZE1_XMoEMhlbdnNaHFZ9cfjrrabfB5odDleVQ/exec';
 
 module.exports = {
   SPREADSHEET_ID,
   TIMEZONE,
   PORT,
   TEACHER_GATE_PASSWORD,
-  TEACHER_APP_URL,
   DOLLAR_SHEETS: { BALANCES: 'Dollar_Balances', TRANSACTIONS: 'Dollar_Transactions' },
   TEXTBOOK_SHEETS: {
     BOOKS: 'Class_Textbooks',
@@ -57,5 +54,5 @@ module.exports = {
   DEFAULT_YOUTUBE_VIDEO_ID: 'gmqG2h84_Cs',
   KR_HOLIDAY_CALENDAR_ID: 'ko.south_korea#holiday@group.v.calendar.google.com',
   LUCKY_DRAW_PURCHASE_COST: 3,
-  CACHE_SEC: { SIDEBAR: 300, HOLIDAY: 21600, CLASSES: 600 }
+  CACHE_SEC: { SIDEBAR: 600, HOLIDAY: 21600, CLASSES: 600 }
 };

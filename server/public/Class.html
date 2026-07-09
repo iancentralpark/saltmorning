@@ -1,30 +1,16 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Mr.Park Class">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#3b9edd">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
-  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=2">
-  <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png?v=2">
-  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=2">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <title>Mr.Park Class</title>
-  <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e8f4fc; }
-    iframe { border: 0; width: 100%; height: 100%; display: block; }
-  </style>
+  <script>
+    // Legacy iframe shell — redirect to top-level teacher app (fixes mobile back + keyboard).
+    location.replace('/class' + location.search + location.hash);
+  </script>
 </head>
 <body>
-  <iframe
-    id="appFrame"
-    title="Mr.Park Class"
-    src="https://script.google.com/macros/s/AKfycbynz8z_cX8GeKSzZNWt0cUg2PRyOlDHhZE1_XMoEMhlbdnNaHFZ9cfjrrabfB5odDleVQ/exec"
-    allow="accelerometer *; autoplay *; clipboard-read *; clipboard-write *; encrypted-media *; fullscreen *; geolocation *; gyroscope *; picture-in-picture *; screen-wake-lock *; web-share *"
-    referrerpolicy="no-referrer-when-downgrade"
-  ></iframe>
+  <p>Opening Mr. Park Class…</p>
 </body>
 </html>

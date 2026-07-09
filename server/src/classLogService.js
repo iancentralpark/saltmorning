@@ -554,6 +554,38 @@ async function applyLessonHomeworkFormat(tabName, lessonRow1, hwRow1, col) {
   ]);
 }
 
+async function findDateColumnForDate(tabName, monthStart0, config, dateStr) {
+  const dateRow1 = monthStart0 + rowOffset(config, 'date') + 1;
+  const dateRow = await readSheetRow(tabName, dateRow1);
+  let col = findDateColumnInRow(dateRow, dateStr);
+  if (col >= 0) return col;
+
+  const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
+  const shortRow = await readSheetRow(tabName, shortRow1);
+  return findDateColumnInRow(shortRow, dateStr);
+}
+
+async function syncChambitToClassLogSupabase(classId, studentName, dateStr, read) {
+  const config = getTabConfig(classId);
+  if (!config) return { synced: false, reason: 'no_tab_config' };
+
+  dateStr = formatSheetDate(dateStr);
+  const monthFirstDay = monthHeaderToFirstDay(monthHeaderForDate(dateStr));
+  const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
+  const student = roster.find(s => matchStudentName(s.name, studentName));
+  if (!student) return { synced: false, reason: 'not_in_roster', studentName };
+
+  const { getActiveLeavesByClass } = require('./leaveService');
+  const [leaveMap, withdrawalMap] = await Promise.all([
+    getActiveLeavesByClass(classId, dateStr),
+    getWithdrawalDateMap(classId)
+  ]);
+  const mark = getChambitMarkForStudent(student.id, dateStr, read, leaveMap, withdrawalMap);
+  const store = require('./supabaseClassLogStore');
+  await store.upsertStudentMark(classId, student.name, dateStr, mark);
+  return { synced: true, tab: config.tab, mark, source: 'supabase' };
+}
+
 async function syncChambitToClassLog(classId, studentName, dateStr, read) {
   const config = getTabConfig(classId);
   if (!config) return { synced: false, reason: 'no_tab_config' };
@@ -561,10 +593,51 @@ async function syncChambitToClassLog(classId, studentName, dateStr, read) {
   dateStr = formatSheetDate(dateStr);
   const monthHeader = monthHeaderForDate(dateStr);
   const monthFirstDay = monthHeaderToFirstDay(monthHeader);
-  const monthStart0 = await ensureMonthBlockStart(config.tab, config, monthHeader, classId);
-  const colA = await getClassLogColumnA(config.tab, 400);
 
+  let colA = await getClassLogColumnA(config.tab, 400);
+  let monthStart0 = findMonthBlockStart(colA, monthHeader);
+  if (monthStart0 < 0) {
+    monthStart0 = await ensureMonthBlockStart(config.tab, config, monthHeader, classId);
+    colA = await getClassLogColumnA(config.tab, 400);
+  }
   const blockEnd0 = findNextMonthStart(colA, monthStart0);
+
+  const existingCol = await findDateColumnForDate(config.tab, monthStart0, config, dateStr);
+  if (existingCol >= 0) {
+    const studentRow1 = await findStudentRow(
+      config.tab, monthStart0, config, studentName, blockEnd0
+    );
+    if (studentRow1 >= 0) {
+      const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
+      const student = roster.find(s => matchStudentName(s.name, studentName));
+      if (student) {
+        const { getActiveLeavesByClass } = require('./leaveService');
+        const [leaveMap, withdrawalMap] = await Promise.all([
+          getActiveLeavesByClass(classId, dateStr),
+          getWithdrawalDateMap(classId)
+        ]);
+        const mark = getChambitMarkForStudent(student.id, dateStr, read, leaveMap, withdrawalMap);
+        await updateClassLogRange(config.tab, a1Cell(studentRow1, existingCol), [[mark]]);
+        const quickResult = {
+          synced: true,
+          tab: config.tab,
+          cell: a1Cell(studentRow1, existingCol),
+          mark
+        };
+        const { isSupabaseEnabled } = require('./supabaseClient');
+        if (isSupabaseEnabled()) {
+          try {
+            await syncChambitToClassLogSupabase(classId, studentName, dateStr, read);
+            quickResult.mirroredToSupabase = true;
+          } catch (err) {
+            console.error('syncChambitToClassLog supabase mirror', err.message || err);
+          }
+        }
+        return quickResult;
+      }
+    }
+  }
+
   await ensureStudentRows(config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay);
   const { col } = await ensureDateColumn(
     config.tab, monthStart0, config, blockEnd0, dateStr, classId
@@ -594,12 +667,24 @@ async function syncChambitToClassLog(classId, studentName, dateStr, read) {
   await updateClassLogRange(config.tab, a1Cell(studentRow1, col), [[mark]]);
   await applyChambitMarkFormat(config.tab, studentRow1, col);
 
-  return {
+  const result = {
     synced: true,
     tab: config.tab,
     cell: a1Cell(studentRow1, col),
     mark
   };
+
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    try {
+      await syncChambitToClassLogSupabase(classId, studentName, dateStr, read);
+      result.mirroredToSupabase = true;
+    } catch (err) {
+      console.error('syncChambitToClassLog supabase mirror', err.message || err);
+    }
+  }
+
+  return result;
 }
 
 async function saveClassLogEntry(classId, dateStr, lesson, homework, writing) {
@@ -638,7 +723,27 @@ async function saveClassLogEntry(classId, dateStr, lesson, homework, writing) {
     await applyLessonHomeworkFormat(config.tab, lessonRow1, hwRow1, col);
   }
 
-  return { message: 'Class log saved.', tab: config.tab, date: dateStr, column: colLetter(col) };
+  const result = {
+    message: 'Class log saved.',
+    tab: config.tab,
+    date: dateStr,
+    column: colLetter(col),
+    source: 'sheet'
+  };
+
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    try {
+      await require('./supabaseClassLogStore').saveClassLogEntry(
+        classId, dateStr, lesson, homework, writing
+      );
+      result.mirroredToSupabase = true;
+    } catch (err) {
+      console.error('saveClassLogEntry supabase mirror', err.message || err);
+    }
+  }
+
+  return result;
 }
 
 async function getClassLogEntry(classId, dateStr) {
@@ -651,36 +756,37 @@ async function getClassLogEntry(classId, dateStr) {
   const monthHeader = monthHeaderForDate(dateStr);
   const colA = await getClassLogColumnA(config.tab, 250);
   const monthStart0 = findMonthBlockStart(colA, monthHeader);
-  if (monthStart0 < 0) {
-    return { configured: true, found: false, lesson: '', homework: '', writing: '' };
+  if (monthStart0 >= 0) {
+    const dateRow1 = monthStart0 + rowOffset(config, 'date') + 1;
+    let dateRow = await readSheetRow(config.tab, dateRow1);
+    let col = findDateColumnInRow(dateRow, dateStr);
+    if (col < 0) {
+      const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
+      const shortRow = await readSheetRow(config.tab, shortRow1);
+      col = findDateColumnInRow(shortRow, dateStr);
+    }
+    if (col >= 0) {
+      const lessonRow1 = monthStart0 + rowOffset(config, 'lesson') + 1;
+      const hwRow1 = monthStart0 + rowOffset(config, 'homework') + 1;
+      const writingRow1 = monthStart0 + rowOffset(config, 'writing') + 1;
+      const lessonRow = await readSheetRow(config.tab, lessonRow1);
+      const hwRow = await readSheetRow(config.tab, hwRow1);
+      const writingRow = await readSheetRow(config.tab, writingRow1);
+      const lesson = String(lessonRow[col] || '').trim();
+      const homework = String(hwRow[col] || '').trim();
+      const writing = String(writingRow[col] || '').trim();
+      if (lesson || homework || writing) {
+        return { configured: true, found: true, lesson, homework, writing, source: 'sheet' };
+      }
+    }
   }
 
-  const dateRow1 = monthStart0 + rowOffset(config, 'date') + 1;
-  let dateRow = await readSheetRow(config.tab, dateRow1);
-  let col = findDateColumnInRow(dateRow, dateStr);
-  if (col < 0) {
-    const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
-    const shortRow = await readSheetRow(config.tab, shortRow1);
-    col = findDateColumnInRow(shortRow, dateStr);
-  }
-  if (col < 0) {
-    return { configured: true, found: false, lesson: '', homework: '', writing: '' };
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    return require('./supabaseClassLogStore').getDaily(classId, dateStr);
   }
 
-  const lessonRow1 = monthStart0 + rowOffset(config, 'lesson') + 1;
-  const hwRow1 = monthStart0 + rowOffset(config, 'homework') + 1;
-  const writingRow1 = monthStart0 + rowOffset(config, 'writing') + 1;
-  const lessonRow = await readSheetRow(config.tab, lessonRow1);
-  const hwRow = await readSheetRow(config.tab, hwRow1);
-  const writingRow = await readSheetRow(config.tab, writingRow1);
-
-  return {
-    configured: true,
-    found: true,
-    lesson: String(lessonRow[col] || '').trim(),
-    homework: String(hwRow[col] || '').trim(),
-    writing: String(writingRow[col] || '').trim()
-  };
+  return { configured: true, found: false, lesson: '', homework: '', writing: '' };
 }
 
 function monthEndDate(dateStr) {
@@ -695,6 +801,7 @@ function monthEndDate(dateStr) {
 async function backfillClassLogMarkRange(classId, studentName, fromDateStr, toDateStr, mark) {
   const config = getTabConfig(classId);
   if (!config) return;
+
   fromDateStr = formatSheetDate(fromDateStr);
   toDateStr = formatSheetDate(toDateStr);
   if (!fromDateStr || !toDateStr || compareDateStr(fromDateStr, toDateStr) > 0) return;
@@ -717,6 +824,17 @@ async function backfillClassLogMarkRange(classId, studentName, fromDateStr, toDa
     if (compareDateStr(colDate, fromDateStr) < 0 || compareDateStr(colDate, toDateStr) > 0) continue;
     await updateClassLogRange(tabName, a1Cell(studentRow1, c), [[mark]]);
     await applyChambitMarkFormat(tabName, studentRow1, c);
+  }
+
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    try {
+      await require('./supabaseClassLogStore').backfillMarkRange(
+        classId, studentName, fromDateStr, toDateStr, mark
+      );
+    } catch (err) {
+      console.error('backfillClassLogMarkRange supabase mirror', err.message || err);
+    }
   }
 }
 

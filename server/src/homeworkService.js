@@ -1,6 +1,8 @@
 const { HOMEWORK_SHEETS, STUDENT_LIST_SHEET, TIMEZONE } = require('./config');
-const { getSheetRows, updateRange, appendRows, deleteRows, buildRequestContext } = require('./sheets');
+const { getSheetRows, updateRange, appendRows, deleteRows, buildRequestContext, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
+const { invalidateWorkCache } = require('./sessionService');
+const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { parseHomeworkDate, formatDateTimeNow, formatDateInTz } = require('./dateUtils');
 const { isClassroomConfigured, getClassroomApi } = require('./classroomAuth');
 const {
@@ -259,16 +261,24 @@ async function ensureHomeworkTargetStudentColumn() {
 
 async function migrateLegacyHomeworkOnce() {
   if (legacyHomeworkMigrated) return;
-  await ensureHomeworkItemsSheet();
-  await ensureCompletionFixNoteColumn();
-  await ensureHomeworkTargetStudentColumn();
-  await migrateLegacyHomework();
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (!isSupabaseEnabled()) {
+    await ensureHomeworkItemsSheet();
+    await ensureCompletionFixNoteColumn();
+    await ensureHomeworkTargetStudentColumn();
+    await migrateLegacyHomework();
+  }
   legacyHomeworkMigrated = true;
 }
 
-async function getEnrolledStudents(classId) {
-  const data = await getSheetRows(STUDENT_LIST_SHEET);
+async function getEnrolledStudents(classId, ctx) {
   const idStr = String(classId);
+  let data;
+  if (ctx && typeof ctx.sheetRows === 'function') {
+    data = await ctx.sheetRows(STUDENT_LIST_SHEET);
+  } else {
+    data = await getSheetRows(STUDENT_LIST_SHEET);
+  }
   const out = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][2]) === idStr && data[i][3] === 'Enrolled') {
@@ -620,7 +630,7 @@ async function buildClassHomeworkFromCtx(ctx, dateStr) {
   if (last && last.sortTime) delete last.sortTime;
 
   if (last) {
-    const students = await getEnrolledStudents(classId);
+    const students = await getEnrolledStudents(classId, ctx);
     const nameById = {};
     students.forEach(s => { nameById[String(s.id)] = s.name; });
     if (last.items && last.items.length) {
@@ -670,7 +680,7 @@ async function buildPendingHomeworkCountsFromCtx(ctx, classId) {
     }
   }
 
-  const manualCounts = await getManualPendingCountsByClass(classId);
+  const manualCounts = await getManualPendingCountsByClass(classId, ctx);
   Object.keys(manualCounts).forEach(sid => {
     counts[sid] = (counts[sid] || 0) + manualCounts[sid];
   });
@@ -830,7 +840,14 @@ async function syncHomeworkClassroomForClassDate(classId, dateStr) {
   );
   if (!synced.ok) {
     const err = String(synced.error || '');
-    if (/invalid_grant|oauth|not configured/i.test(err)) {
+    if (/invalid_grant/i.test(err)) {
+      return {
+        ok: false,
+        fallbackGas: true,
+        error: 'invalid_grant — Google OAuth refresh token expired. Re-run npm run oauth-setup and update Railway GOOGLE_OAUTH_REFRESH_TOKEN.'
+      };
+    }
+    if (/oauth|not configured/i.test(err)) {
       return { ok: false, fallbackGas: true, error: err };
     }
     return { ok: false, error: err };
@@ -1000,6 +1017,27 @@ async function findCompletionRow(itemId, studentId) {
   return -1;
 }
 
+async function afterHomeworkWrite(classId) {
+  if (classId) invalidateWorkCache(classId);
+  invalidateSheetRowsCache(HOMEWORK_SHEETS.COMPLETION);
+}
+
+async function upsertHomeworkCompletionSupabase(itemId, studentId, done, completedAt, fixNote) {
+  const db = getSupabase();
+  const payload = {
+    item_id: String(itemId),
+    student_id: String(studentId),
+    completed: !!done,
+    completed_at: done && completedAt ? new Date(completedAt).toISOString() : null
+  };
+  if (fixNote !== undefined) payload.fix_note = String(fixNote);
+  else if (done) payload.fix_note = '';
+  const { error } = await db.from('homework_completion').upsert(payload, {
+    onConflict: 'item_id,student_id'
+  });
+  if (error) throw new Error(error.message);
+}
+
 async function setHomeworkCompletion(itemId, studentId, completed, classId) {
   if (isManualPendingId(itemId)) {
     if (!completed) {
@@ -1009,7 +1047,7 @@ async function setHomeworkCompletion(itemId, studentId, completed, classId) {
         pendingCount: classId ? await countPendingItemsForStudent(classId, studentId) : null
       };
     }
-    const result = await completeManualPending(itemId);
+    const result = await completeManualPending(itemId, classId);
     return {
       message: result.message,
       studentId: result.studentId,
@@ -1017,9 +1055,21 @@ async function setHomeworkCompletion(itemId, studentId, completed, classId) {
     };
   }
   await migrateLegacyHomeworkOnce();
-  const found = await findCompletionRow(itemId, studentId);
   const done = !!completed;
   const at = done ? formatDateTimeNow(TIMEZONE) : '';
+  if (isSupabaseEnabled()) {
+    await upsertHomeworkCompletionSupabase(itemId, studentId, done, at);
+    await afterHomeworkWrite(classId);
+    const pendingCount = classId
+      ? await countPendingItemsForStudent(classId, studentId)
+      : null;
+    return {
+      message: done ? 'Marked complete.' : 'Marked pending.',
+      studentId: String(studentId),
+      pendingCount
+    };
+  }
+  const found = await findCompletionRow(itemId, studentId);
   if (found > 0) {
     if (done) {
       await updateRange(HOMEWORK_SHEETS.COMPLETION, `C${found}:E${found}`, [[done, at, '']]);
@@ -1029,6 +1079,7 @@ async function setHomeworkCompletion(itemId, studentId, completed, classId) {
   } else {
     await appendRows(HOMEWORK_SHEETS.COMPLETION, [[itemId, studentId, done, at, '']]);
   }
+  await afterHomeworkWrite(classId);
   const pendingCount = classId
     ? await countPendingItemsForStudent(classId, studentId)
     : null;
@@ -1041,7 +1092,7 @@ async function setHomeworkCompletion(itemId, studentId, completed, classId) {
 
 async function setHomeworkFixNote(itemId, studentId, fixNote, classId) {
   if (isManualPendingId(itemId)) {
-    const result = await setManualPendingFixNote(itemId, fixNote);
+    const result = await setManualPendingFixNote(itemId, fixNote, classId);
     return {
       ...result,
       pendingCount: classId ? await countPendingItemsForStudent(classId, studentId) : null
@@ -1049,12 +1100,24 @@ async function setHomeworkFixNote(itemId, studentId, fixNote, classId) {
   }
   await migrateLegacyHomeworkOnce();
   fixNote = String(fixNote || '').trim();
+  if (isSupabaseEnabled()) {
+    await upsertHomeworkCompletionSupabase(itemId, studentId, false, null, fixNote);
+    await afterHomeworkWrite(classId);
+    return {
+      message: fixNote ? 'Fix note saved.' : 'Fix note cleared.',
+      studentId: String(studentId),
+      itemId: String(itemId),
+      fixNote,
+      pendingCount: classId ? await countPendingItemsForStudent(classId, studentId) : null
+    };
+  }
   const found = await findCompletionRow(itemId, studentId);
   if (found > 0) {
     await updateRange(HOMEWORK_SHEETS.COMPLETION, `E${found}`, [[fixNote]]);
   } else {
     await appendRows(HOMEWORK_SHEETS.COMPLETION, [[itemId, studentId, false, '', fixNote]]);
   }
+  await afterHomeworkWrite(classId);
   return {
     message: fixNote ? 'Fix note saved.' : 'Fix note cleared.',
     studentId: String(studentId),

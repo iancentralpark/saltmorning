@@ -4,7 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#3b9edd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <title>Mr. Park's Class</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=3">
+    <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png?v=3">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=3">
+    <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
@@ -219,73 +227,21 @@
     </div>
 </div>
 
-<div class="modal-backdrop" id="teacherModal" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
-    <div class="modal-card">
-        <h2 id="teacherModalTitle">Teacher access</h2>
-        <p>Enter the teacher password to open the class app.</p>
-        <form id="teacherForm">
-            <input type="password" id="teacherPassword" autocomplete="current-password" placeholder="Password" required>
-            <div class="modal-error" id="teacherError" aria-live="polite"></div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-ghost" id="teacherCancel">Cancel</button>
-                <button type="submit" class="btn btn-primary" id="teacherSubmit">Enter</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
 (function() {
-    var API = location.origin;
-
     function $(id) { return document.getElementById(id); }
 
     $('btnStudent').addEventListener('click', function() {
         location.href = '/student';
     });
 
-    function openTeacherModal() {
-        $('teacherError').textContent = '';
-        $('teacherPassword').value = '';
-        $('teacherModal').classList.add('open');
-        setTimeout(function() { $('teacherPassword').focus(); }, 80);
-    }
-
-    function closeTeacherModal() {
-        $('teacherModal').classList.remove('open');
-    }
-
-    $('btnTeacher').addEventListener('click', openTeacherModal);
-    $('teacherCancel').addEventListener('click', closeTeacherModal);
-    $('teacherModal').addEventListener('click', function(e) {
-        if (e.target === $('teacherModal')) closeTeacherModal();
+    $('btnTeacher').addEventListener('click', function() {
+        location.href = '/class';
     });
 
-    $('teacherForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var pw = $('teacherPassword').value;
-        var btn = $('teacherSubmit');
-        var err = $('teacherError');
-        err.textContent = '';
-        btn.disabled = true;
-        fetch(API + '/api/teacher-gate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ password: pw })
-        }).then(function(res) {
-            return res.text().then(function(text) {
-                var data = {};
-                try { data = text ? JSON.parse(text) : {}; } catch (ex) { /* ignore */ }
-                if (!res.ok) throw new Error(data.error || 'Incorrect password.');
-                if (!data.redirectUrl) throw new Error('Could not open teacher app.');
-                location.href = data.redirectUrl;
-            });
-        }).catch(function(ex) {
-            err.textContent = ex.message || 'Could not sign in.';
-        }).finally(function() {
-            btn.disabled = false;
-        });
-    });
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function() {});
+    }
 })();
 </script>
 </body>

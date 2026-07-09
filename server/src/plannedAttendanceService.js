@@ -10,6 +10,7 @@ const { upsertAttendanceRecord } = require('./attendanceService');
 const { getActiveLeavesByClass } = require('./leaveService');
 const { getHolidaysForMonth } = require('./holiday');
 const { cacheDeletePrefix } = require('./cache');
+const { invalidateWorkCache } = require('./sessionService');
 
 const STATUS_ACTIVE = 'Active';
 const STATUS_CANCELLED = 'Cancelled';
@@ -34,6 +35,8 @@ function parseYearMonth(dateStr) {
 }
 
 async function ensurePlannedSheet() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return;
   let data;
   try {
     data = await getSheetRows(STUDENT_PLANNED_ATTENDANCE_SHEET);
@@ -243,6 +246,7 @@ async function createPlannedAttendance(classId, studentId, dateStr, type, note) 
   }
 
   cacheDeletePrefix('sidebar_v1_');
+  invalidateWorkCache(classId, dateStr);
   const typeLabel = type === TYPE_TARDY ? 'Tardy' : 'Absent';
   return {
     noticeId,
@@ -273,6 +277,7 @@ async function cancelPlannedAttendance(noticeId) {
     );
     cacheDeletePrefix('sidebar_v1_');
     const item = parsePlannedRow(data[i]);
+    invalidateWorkCache(item.classId, item.dateStr);
     return {
       noticeId,
       studentId: item.studentId,

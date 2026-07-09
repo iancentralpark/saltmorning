@@ -1,0 +1,55 @@
+{
+  "name": "Mr. Park's Class",
+  "short_name": "Mr.Park",
+  "description": "Student portal and teacher tools for Mr. Park's English classes.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#dff4ff",
+  "theme_color": "#3b9edd",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Student Portal",
+      "short_name": "Student",
+      "url": "/student",
+      "icons": [{ "src": "/icon-512.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Teacher Class",
+      "short_name": "Class",
+      "url": "/class",
+      "icons": [{ "src": "/icon-512.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Dice",
+      "short_name": "Dice",
+      "url": "/tools/dice",
+      "icons": [{ "src": "/icon-512.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Roulette",
+      "short_name": "Roulette",
+      "url": "/tools/roulette",
+      "icons": [{ "src": "/icon-512.png", "sizes": "512x512" }]
+    }
+  ]
+}

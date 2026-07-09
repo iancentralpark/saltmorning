@@ -91,6 +91,8 @@ function makeupToEvent(lesson) {
 }
 
 async function ensureMakeupSheet() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return;
   let data;
   try {
     data = await getSheetRows(MAKEUP_SHEET, { skipCache: true });

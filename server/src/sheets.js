@@ -1,6 +1,9 @@
 const { google } = require('googleapis');
 const { SPREADSHEET_ID } = require('./config');
 const { getServiceAccountAuthOptions } = require('./googleCredentials');
+const { isSupabaseEnabled } = require('./supabaseClient');
+const supabaseAdapter = require('./supabaseSheetAdapter');
+const filteredRows = require('./supabaseFilteredRows');
 
 let sheetsApi = null;
 let sheetIdCache = null;
@@ -44,14 +47,20 @@ async function getSheetRows(sheetName, options) {
     return cached.data;
   }
 
-  const sheets = await getSheetsApi();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: sheetRange(sheetName),
-    valueRenderOption: 'FORMATTED_VALUE',
-    dateTimeRenderOption: 'FORMATTED_STRING'
-  });
-  const data = res.data.values || [[]];
+  let data;
+  if (supabaseAdapter.usesSupabaseSheet(sheetName)) {
+    data = await supabaseAdapter.getRows(sheetName);
+  } else {
+    const sheets = await getSheetsApi();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: sheetRange(sheetName),
+      valueRenderOption: 'FORMATTED_VALUE',
+      dateTimeRenderOption: 'FORMATTED_STRING'
+    });
+    data = res.data.values || [[]];
+  }
+
   sheetRowsCache.set(sheetName, {
     data,
     expires: Date.now() + SHEET_ROWS_CACHE_SEC * 1000
@@ -60,6 +69,12 @@ async function getSheetRows(sheetName, options) {
 }
 
 async function updateRange(sheetName, a1, values) {
+  if (supabaseAdapter.usesSupabaseSheet(sheetName)) {
+    await supabaseAdapter.updateRange(sheetName, a1, values);
+    invalidateSheetRowsCache(sheetName);
+    return;
+  }
+
   const sheets = await getSheetsApi();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
@@ -71,6 +86,12 @@ async function updateRange(sheetName, a1, values) {
 }
 
 async function appendRows(sheetName, rows) {
+  if (supabaseAdapter.usesSupabaseSheet(sheetName)) {
+    await supabaseAdapter.appendRows(sheetName, rows);
+    invalidateSheetRowsCache(sheetName);
+    return;
+  }
+
   const sheets = await getSheetsApi();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
@@ -84,6 +105,12 @@ async function appendRows(sheetName, rows) {
 
 async function deleteRows(sheetName, rowIndices1Based) {
   if (!rowIndices1Based.length) return;
+  if (supabaseAdapter.usesSupabaseSheet(sheetName)) {
+    await supabaseAdapter.deleteRows(sheetName, rowIndices1Based);
+    invalidateSheetRowsCache(sheetName);
+    return;
+  }
+
   const idMap = await getSheetIdMap();
   const sheetId = idMap[sheetName];
   if (sheetId == null) throw new Error('Sheet not found: ' + sheetName);
@@ -116,27 +143,49 @@ function invalidateSheetIdCache() {
 
 async function batchUpdateRanges(updates) {
   if (!updates.length) return;
+  const supabaseUpdates = updates.filter(function(u) {
+    return supabaseAdapter.usesSupabaseSheet(u.sheetName);
+  });
+  const sheetUpdates = updates.filter(function(u) {
+    return !supabaseAdapter.usesSupabaseSheet(u.sheetName);
+  });
+  for (const u of supabaseUpdates) {
+    await supabaseAdapter.updateRange(u.sheetName, u.a1, u.values);
+    invalidateSheetRowsCache(u.sheetName);
+  }
+  if (!sheetUpdates.length) return;
+
   const sheets = await getSheetsApi();
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
       valueInputOption: 'USER_ENTERED',
-      data: updates.map(function(u) {
+      data: sheetUpdates.map(function(u) {
         return { range: sheetRange(u.sheetName, u.a1), values: u.values };
       })
     }
   });
-  const names = new Set(updates.map(function(u) { return u.sheetName; }));
+  const names = new Set(sheetUpdates.map(function(u) { return u.sheetName; }));
   names.forEach(function(name) { invalidateSheetRowsCache(name); });
 }
 
-async function buildRequestContext(classId) {
+async function buildRequestContext(classId, options) {
   const idStr = String(classId);
   const rowCache = {};
+  const opts = options || {};
+  const useFiltered = opts.supabaseFilter && isSupabaseEnabled();
+  const filterOpts = useFiltered ? { dateStr: opts.dateStr || '', _cache: {} } : null;
 
   async function sheetRows(name) {
     if (!rowCache[name]) {
-      rowCache[name] = await getSheetRows(name);
+      if (filterOpts) {
+        const filtered = await filteredRows.getRowsFiltered(name, idStr, filterOpts);
+        rowCache[name] = filtered != null
+          ? filtered
+          : await getSheetRows(name);
+      } else {
+        rowCache[name] = await getSheetRows(name);
+      }
     }
     return rowCache[name];
   }

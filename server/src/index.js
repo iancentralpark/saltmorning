@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const { PORT } = require('./config');
 const apiRoutes = require('./routes');
+const { verifyTeacherToken, readTeacherTokenFromRequest } = require('./teacherAuth');
 
 const app = express();
 
@@ -46,8 +47,43 @@ app.get('/student', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'Student.html'));
 });
 
-app.get('/class', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'Class.html'));
+function sendTeacherApp(req, res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'Teacher.html'));
+}
+
+function redirectTeacherLogin(req, res) {
+  const next = encodeURIComponent(req.originalUrl || '/class');
+  res.redirect('/teacher-login?next=' + next);
+}
+
+function requireTeacherPage(req, res, next) {
+  const token = readTeacherTokenFromRequest(req);
+  if (verifyTeacherToken(token)) return next();
+  return redirectTeacherLogin(req, res);
+}
+
+app.get('/teacher-login', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'TeacherLogin.html'));
+});
+
+app.get('/class', requireTeacherPage, sendTeacherApp);
+
+app.get('/teacher', requireTeacherPage, sendTeacherApp);
+
+const TOOL_PAGES = {
+  timer: 'timer.html',
+  dice: 'dice.html',
+  roulette: 'roulette.html',
+  luckydraw: 'luckydraw.html'
+};
+
+app.get('/tools/:tool', requireTeacherPage, (req, res) => {
+  const file = TOOL_PAGES[String(req.params.tool || '').toLowerCase()];
+  if (!file) return res.status(404).send('Tool not found');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tools', file));
 });
 
 app.get('/', (req, res) => {
@@ -61,8 +97,34 @@ if (process.env.CLASSROOM_ON_NODE === 'true' && !process.env.GOOGLE_OAUTH_REFRES
   console.warn('CLASSROOM_ON_NODE=true but GOOGLE_OAUTH_REFRESH_TOKEN missing. Run: npm run oauth-setup');
 }
 
-app.listen(PORT, () => {
+const http = require('http');
+const { initRealtime } = require('./realtime');
+
+const server = http.createServer(app);
+initRealtime(server);
+
+server.listen(PORT, () => {
   console.log('Mr.Park Class API listening on http://localhost:' + PORT);
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    setImmediate(function() {
+      const { warmSheetPortalLoginCache, canReadSheetPortalLogins } = require('./studentPasswordSync');
+      const { getSupabase } = require('./supabaseClient');
+      const { queryStudents } = require('./supabaseStudentColumns');
+      (async function() {
+        try {
+          const tasks = [queryStudents(getSupabase(), { orderBy: 'name' })];
+          if (await canReadSheetPortalLogins()) {
+            tasks.push(warmSheetPortalLoginCache());
+          }
+          await Promise.all(tasks);
+          console.log('Portal caches warmed');
+        } catch (e) {
+          console.warn('Portal warmup:', e.message || e);
+        }
+      })();
+    });
+  }
 });
 
 module.exports = app;

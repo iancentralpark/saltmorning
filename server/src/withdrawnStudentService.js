@@ -12,6 +12,8 @@ const LOGIN_ID_COL = 4;
 const LOGIN_PW_COL = 5;
 
 async function ensureWithdrawnSheet() {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) return;
   let data;
   try {
     data = await getSheetRows(STUDENT_WITHDRAWN_SHEET);

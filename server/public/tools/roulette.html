@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roulette</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+    .mrpark-snail-sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+    .snail-svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+    .snail-mascot-xl { width: 120px; height: 120px; opacity: 0.92; }
+    .snail-mascot-lg { width: 88px; height: 88px; opacity: 0.9; }
+    .snail-mascot-md { width: 64px; height: 64px; opacity: 0.85; }
+    .snail-mascot-sm { width: 48px; height: 48px; opacity: 0.82; }
+    .snail-mascot-xs { width: 32px; height: 32px; opacity: 0.8; }
+    .snail-wiggle { animation: snail-wiggle 5s ease-in-out infinite; }
+    .snail-bounce { animation: snail-bounce 4s ease-in-out infinite; }
+    @keyframes snail-wiggle {
+        0%, 100% { transform: rotate(-2deg) translateY(0); }
+        50% { transform: rotate(2deg) translateY(-4px); }
+    }
+    @keyframes snail-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    .snail-float-deco {
+        position: fixed;
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
+        line-height: 0;
+        opacity: 0.38;
+    }
+    .snail-float-deco .snail-svg { filter: none; }
+    .snail-deco-tl { top: 2%; left: 1.5%; animation: snail-drift-a 6s ease-in-out infinite; }
+    .snail-deco-br { bottom: 3%; right: 1.5%; animation: snail-drift-d 6.5s ease-in-out infinite 0.8s; }
+    .snail-deco-br .snail-svg { transform: scaleX(-1); }
+    @keyframes snail-drift-a {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+    @keyframes snail-drift-d {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    .snail-hero-wrap {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.65);
+        border: 2px solid rgba(59, 158, 221, 0.22);
+        box-shadow: 0 4px 16px rgba(59, 158, 221, 0.1);
+    }
+    .snail-hero-wrap .snail-svg { width: 58px; height: 58px; opacity: 0.95; }
+    .class-welcome-panel {
+        text-align: center;
+        margin: 1.25rem 0 0.5rem;
+        padding: 1.5rem 1.25rem 1.65rem;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(59, 158, 221, 0.2);
+        box-shadow: 0 4px 18px rgba(59, 158, 221, 0.08);
+    }
+    .class-welcome-snail { margin-bottom: 0.65rem; }
+    .class-welcome-title {
+        font-family: 'Fredoka', 'Nunito', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #2a8fc9;
+        margin: 0 0 0.4rem;
+    }
+    .class-welcome-text {
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: #636e72;
+        margin: 0 0 0.85rem;
+        max-width: 26rem;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.5;
+    }
+    .class-welcome-hint {
+        display: inline-block;
+        padding: 0.45rem 1rem;
+        border-radius: 999px;
+        background: rgba(59, 158, 221, 0.1);
+        color: #2a8fc9;
+        font-family: 'Fredoka', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+        border: 1px solid rgba(59, 158, 221, 0.18);
+    }
+    .portal-brand-snail { margin-bottom: 0.25rem; opacity: 0.92; }
+    .portal-card-cute {
+        border: 1px solid rgba(59, 158, 221, 0.18) !important;
+        box-shadow: 0 4px 14px rgba(59, 158, 221, 0.08) !important;
+    }
+    .popup-snail-mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.35rem;
+        opacity: 0.88;
+    }
+    [data-theme="dark"] .class-welcome-panel {
+        background: rgba(30, 38, 48, 0.65);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .class-welcome-title { color: #7ec8f0; }
+    [data-theme="dark"] .class-welcome-text { color: #a8b8c8; }
+    [data-theme="dark"] .class-welcome-hint {
+        background: rgba(59, 158, 221, 0.12);
+        color: #9ed0f5;
+        border-color: rgba(100, 160, 210, 0.2);
+    }
+    [data-theme="dark"] .snail-hero-wrap {
+        background: rgba(36, 48, 64, 0.7);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .snail-float-deco { opacity: 0.28; }
+    @media (max-width: 600px) {
+        .snail-mascot-xl { width: 100px; height: 100px; }
+        .class-welcome-title { font-size: 1.3rem; }
+    }
+</style>
+<svg class="mrpark-snail-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="mrpark-snail" viewBox="0 0 200 200">
+        <ellipse cx="100" cy="178" rx="58" ry="11" fill="#000" opacity="0.1"/>
+        <circle cx="118" cy="98" r="54" fill="#FFB347"/>
+        <circle cx="118" cy="98" r="44" fill="#FF9F43"/>
+        <path d="M118 56 C94 56 82 78 94 98 C82 118 94 140 118 140 C142 140 154 118 142 98 C154 78 142 56 118 56 Z" fill="none" stroke="#E67E22" stroke-width="5" stroke-linecap="round"/>
+        <path d="M118 70 C104 70 96 84 104 98 C96 112 104 126 118 126 C132 126 140 112 132 98 C140 84 132 70 118 70 Z" fill="none" stroke="#D35400" stroke-width="4" stroke-linecap="round"/>
+        <ellipse cx="72" cy="128" rx="48" ry="32" fill="#7DCEA0"/>
+        <ellipse cx="48" cy="102" rx="28" ry="24" fill="#58D68D"/>
+        <ellipse cx="34" cy="92" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <ellipse cx="60" cy="90" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <circle cx="36" cy="94" r="6" fill="#2d3436"/>
+        <circle cx="62" cy="92" r="6" fill="#2d3436"/>
+        <circle cx="38" cy="91" r="2.2" fill="#fff"/>
+        <circle cx="64" cy="89" r="2.2" fill="#fff"/>
+        <ellipse cx="26" cy="104" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <ellipse cx="72" cy="102" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <path d="M40 110 Q50 122 66 112" fill="none" stroke="#27AE60" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M30 84 Q24 64 22 48" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <path d="M56 82 Q64 60 68 44" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <circle cx="22" cy="46" r="7" fill="#FF6B9D"/>
+        <circle cx="68" cy="42" r="7" fill="#3B9EDD"/>
+    </symbol>
+</svg>
+
+    <style>
+        :root {
+            --primary: #3b9edd;
+            --primary-dark: #2a8fc9;
+            --accent: #ff9f43;
+            --accent-2: #ff6b9d;
+            --bg: #dff4ff;
+            --panel: rgba(255, 255, 255, 0.95);
+            --text: #2d3436;
+            --muted: #636e72;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Nunito', system-ui, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 8% 12%, rgba(255, 159, 67, 0.28), transparent 38%),
+                radial-gradient(circle at 92% 8%, rgba(59, 158, 221, 0.32), transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(255, 107, 157, 0.18), transparent 45%),
+                linear-gradient(180deg, #dff4ff 0%, #fff8e7 48%, #fef9ef 100%);
+            position: relative;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.28;
+            background-image: radial-gradient(circle, rgba(59, 158, 221, 0.18) 1.5px, transparent 1.5px);
+            background-size: 28px 28px;
+            z-index: 0;
+        }
+        .deco {
+            position: fixed;
+            pointer-events: none;
+            font-size: 1.75rem;
+            z-index: 0;
+            animation: deco-float 3.5s ease-in-out infinite;
+        }
+        .deco-a { top: 4%; left: 3%; animation-delay: 0s; }
+        .deco-b { top: 6%; right: 4%; animation-delay: 0.6s; }
+        .deco-c { bottom: 5%; left: 5%; animation-delay: 1.2s; }
+        @keyframes deco-float {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+        .layout {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.25rem;
+            padding: 1.25rem;
+            max-width: 1100px;
+            margin: 0 auto;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        .wheel-wrap {
+            flex: 1 1 380px;
+            max-width: 520px;
+            background: var(--panel);
+            border-radius: 24px;
+            border: 3px solid rgba(255, 159, 67, 0.4);
+            box-shadow: 0 6px 0 rgba(255, 159, 67, 0.15), 0 16px 40px rgba(59, 158, 221, 0.12);
+            padding: 1.25rem;
+        }
+        .wheel-header {
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+        .wheel-header .hero-emoji {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            margin-bottom: 0.35rem;
+        }
+        .wheel-header .hero-emoji img {
+            width: 32px;
+            height: 32px;
+        }
+        .wheel-header h1 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin: 0 0 0.2rem;
+            color: var(--primary-dark);
+            text-shadow: 2px 2px 0 rgba(255, 159, 67, 0.2);
+        }
+        .wheel-header .sub { font-size: 0.85rem; color: var(--muted); font-weight: 700; }
+        .canvas-box {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+            aspect-ratio: 1;
+        }
+        #wheelCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 50%;
+        }
+        .pointer {
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 14px solid transparent;
+            border-right: 14px solid transparent;
+            border-top: 28px solid #ff9f43;
+            filter: drop-shadow(0 3px 0 #e67e22);
+            z-index: 2;
+        }
+        .hub {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff9f43, #ff6b9d, #3b9edd);
+            border: 3px solid #fff;
+            box-shadow: 0 4px 0 #e08a2e;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.1rem;
+            animation: hub-spin-pulse 2s ease-in-out infinite;
+        }
+        @keyframes hub-spin-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.06); }
+        }
+        .spin-row {
+            display: flex;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        .btn-spin {
+            border: none;
+            border-radius: 999px;
+            padding: 0.8rem 2.75rem;
+            font-size: 1.15rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            color: #fff;
+            cursor: pointer;
+            background: linear-gradient(135deg, #3b9edd, #5dade2 55%, #ff9f43);
+            box-shadow: 0 5px 0 #2a8fc9, 0 10px 24px rgba(59, 158, 221, 0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-spin:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 0 #2a8fc9, 0 14px 28px rgba(59, 158, 221, 0.4);
+        }
+        .btn-spin:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        .sidebar {
+            flex: 0 1 320px;
+            width: 100%;
+            max-width: 340px;
+            background: var(--panel);
+            border-radius: 24px;
+            border: 3px solid rgba(59, 158, 221, 0.3);
+            box-shadow: 0 5px 0 rgba(59, 158, 221, 0.1), 0 16px 40px rgba(59, 158, 221, 0.1);
+            padding: 1.15rem;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 2.5rem);
+        }
+        .sidebar h2 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 0.75rem;
+            color: var(--primary-dark);
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 0.75rem;
+        }
+        .toolbar button {
+            flex: 1;
+            min-width: 4.5rem;
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 0.65rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: transform 0.12s;
+        }
+        .toolbar button:hover { transform: translateY(-1px); }
+        .btn-x2 {
+            background: linear-gradient(135deg, #ff9f43, #ff6b9d);
+            color: #fff;
+            box-shadow: 0 3px 0 #e08a2e;
+        }
+        .btn-reset {
+            background: #fff;
+            color: var(--primary-dark);
+            border: 2px solid rgba(59, 158, 221, 0.35) !important;
+        }
+        .add-row {
+            display: flex;
+            gap: 0.35rem;
+            margin-bottom: 0.75rem;
+        }
+        .add-row input {
+            flex: 1;
+            border: 2px solid rgba(59, 158, 221, 0.25);
+            border-radius: 14px;
+            padding: 0.45rem 0.65rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        .add-row input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(59, 158, 221, 0.15);
+        }
+        .btn-add {
+            border: none;
+            border-radius: 14px;
+            padding: 0 0.85rem;
+            font-weight: 800;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary), #5dade2);
+            box-shadow: 0 3px 0 var(--primary-dark);
+            cursor: pointer;
+        }
+        .entry-list {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 120px;
+            max-height: 420px;
+        }
+        .entry-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-bottom: 0.4rem;
+        }
+        .entry-item input {
+            flex: 1;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            padding: 0.35rem 0.5rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            font-weight: 600;
+        }
+        .entry-item .btn-rm {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(239, 68, 68, 0.12);
+            color: #be123c;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .entry-item .btn-rm:hover { background: rgba(239, 68, 68, 0.22); }
+        .count-hint {
+            font-size: 0.75rem;
+            color: var(--muted);
+            font-weight: 600;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(59, 158, 221, 0.35);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .overlay.show { display: flex; }
+        .winner-card {
+            background: #fff;
+            border-radius: 28px;
+            border: 3px solid rgba(255, 159, 67, 0.5);
+            padding: 2rem 2.25rem;
+            text-align: center;
+            max-width: 360px;
+            width: 100%;
+            box-shadow: 0 8px 0 rgba(255, 159, 67, 0.2), 0 24px 48px rgba(59, 158, 221, 0.2);
+            animation: pop 0.35s ease;
+        }
+        @keyframes pop {
+            from { transform: scale(0.85); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .winner-card .trophy-img {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 0.5rem;
+            display: block;
+        }
+        .winner-card .label {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 0.35rem;
+        }
+        .winner-card .name {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.85rem;
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 1.25rem;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+        .winner-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .winner-actions button {
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1.25rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .btn-remove-winner {
+            background: linear-gradient(135deg, #e74c3c, #ff6b6b);
+            color: #fff;
+            box-shadow: 0 3px 0 #c0392b;
+        }
+        .btn-dismiss {
+            background: #fff8e7;
+            color: var(--primary-dark);
+            border: 2px solid rgba(59, 158, 221, 0.3);
+        }
+        .empty-msg {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            padding: 2rem 0.5rem;
+        }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --panel: rgba(30, 36, 46, 0.97);
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 8% 12%, rgba(255, 159, 67, 0.1), transparent 38%),
+                radial-gradient(circle at 92% 8%, rgba(59, 158, 221, 0.14), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 48%, #141a23 100%);
+        }
+        [data-theme="dark"] body::before { opacity: 0.1; }
+        [data-theme="dark"] .wheel-wrap,
+        [data-theme="dark"] .sidebar {
+            background: var(--panel);
+            border-color: rgba(120, 160, 200, 0.35);
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 16px 40px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .wheel-header h1,
+        [data-theme="dark"] .sidebar h2 { color: #b8d9f5; text-shadow: none; }
+        [data-theme="dark"] .btn-reset,
+        [data-theme="dark"] .btn-dismiss {
+            background: #2d3644;
+            color: #b8d9f5;
+            border-color: rgba(120, 160, 200, 0.35) !important;
+        }
+        [data-theme="dark"] .add-row input,
+        [data-theme="dark"] .entry-item input {
+            background: #2d3644;
+            color: var(--text);
+            border-color: rgba(120, 160, 200, 0.3);
+        }
+        [data-theme="dark"] .winner-card {
+            background: #1e242e;
+            border-color: rgba(255, 159, 67, 0.35);
+            color: var(--text);
+        }
+        [data-theme="dark"] .winner-card .name { color: #fff; }
+        [data-theme="dark"] .count-hint { color: var(--muted); }
+    </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#3b9edd">
+</head>
+<body>
+    <div class="layout">
+        <div class="wheel-wrap">
+            <div class="wheel-header">
+                <div class="hero-emoji popup-snail-mark" aria-hidden="true">
+                    <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+                </div>
+                <h1>Spin the Wheel!</h1>
+                <div class="sub" id="classSubtitle">Class</div>
+            </div>
+            <div class="canvas-box">
+                <div class="pointer" aria-hidden="true"></div>
+                <canvas id="wheelCanvas" width="420" height="420" aria-label="Student roulette wheel"></canvas>
+                <div class="hub" aria-hidden="true"><i class="fa-solid fa-star"></i></div>
+            </div>
+            <div class="spin-row">
+                <button type="button" class="btn-spin" id="spinBtn">🎲 SPIN!</button>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <h2><i class="fa-solid fa-sliders"></i> Wheel list</h2>
+            <div class="toolbar">
+                <button type="button" class="btn-x2" id="x2Btn" title="Duplicate every name on the wheel">×2</button>
+                <button type="button" class="btn-reset" id="resetListBtn" title="Reload class roster">Reset list</button>
+            </div>
+            <div class="add-row">
+                <input type="text" id="addNameInput" placeholder="Add name…" maxlength="40">
+                <button type="button" class="btn-add" id="addNameBtn">Add</button>
+            </div>
+            <div class="entry-list" id="entryList"></div>
+            <div class="count-hint" id="countHint">0 on wheel</div>
+        </aside>
+    </div>
+
+    <div class="overlay" id="winnerOverlay" role="dialog" aria-modal="true">
+        <div class="winner-card">
+            <img class="trophy-img" src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f3c6.png" alt="">
+            <div class="label">🎉 We picked…</div>
+            <div class="name" id="winnerName">—</div>
+            <div class="winner-actions">
+                <button type="button" class="btn-remove-winner" id="removeWinnerBtn">Remove</button>
+                <button type="button" class="btn-dismiss" id="dismissWinnerBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const _rouletteParams = new URLSearchParams(location.search);
+        const CLASS_ID = _rouletteParams.get('classId') || '';
+        let CLASS_NAME = _rouletteParams.get('className') || 'Class';
+        let INITIAL_STUDENTS = [];
+
+        const MR_PARK_LABEL = 'Mr. Park';
+
+        const SEGMENT_COLORS = [
+            '#3b9edd', '#5dade2', '#ff9f43', '#ffb347',
+            '#ff6b9d', '#2ecc71', '#58d68d', '#f39c12',
+            '#85c1e9', '#fd79a8', '#ffeaa7', '#74b9ff'
+        ];
+
+        let entries = [];
+        let rotation = 0;
+        let spinning = false;
+        let animId = null;
+        let lastWinnerIndex = -1;
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        function uid() {
+            return 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+        }
+
+        function studentsToEntries(students) {
+            return (students || []).map(function(s) {
+                return { uid: uid(), id: s.id || '', label: (s.name || '').trim() || 'Student' };
+            }).filter(function(e) { return e.label; });
+        }
+
+        function buildDefaultEntries(students) {
+            const list = studentsToEntries(students);
+            list.push({ uid: uid(), id: 'mr_park', label: MR_PARK_LABEL });
+            return list;
+        }
+
+        function resizeCanvas() {
+            const box = canvas.parentElement;
+            const size = Math.min(box.clientWidth, 420);
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            canvas.width = Math.floor(size * dpr);
+            canvas.height = Math.floor(size * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawWheel();
+        }
+
+        function drawWheel() {
+            const size = canvas.width / dpr;
+            const cx = size / 2;
+            const cy = size / 2;
+            const r = size / 2 - 8;
+
+            ctx.clearRect(0, 0, size, size);
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate((rotation * Math.PI) / 180);
+
+            const n = entries.length;
+            if (n === 0) {
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fill();
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = '600 14px Fredoka, Nunito, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Add students →', 0, 0);
+                ctx.restore();
+                return;
+            }
+
+            const slice = (Math.PI * 2) / n;
+            for (let i = 0; i < n; i++) {
+                const start = i * slice - Math.PI / 2;
+                const end = start + slice;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, r, start, end);
+                ctx.closePath();
+                ctx.fillStyle = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                drawRadialLabel(entries[i].label, start + slice / 2, r, n);
+            }
+
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        /**
+         * Reference-style radial labels, placed on the outer (wider) part of each slice
+         * so font can stay larger even with many segments.
+         */
+        function drawRadialLabel(label, mid, radius, n) {
+            const raw = (label || '').trim();
+            if (!raw) return;
+
+            const slice = (Math.PI * 2) / n;
+            const hubClear = radius * 0.20;
+            const textOuterR = radius * 0.91;
+            const textAnchorR = textOuterR - 5;
+
+            const arcAvail = 2 * textAnchorR * Math.sin(slice / 2) * 0.94;
+            const radialAvail = textAnchorR - hubClear - 6;
+            const maxWidth = Math.min(arcAvail, radialAvail);
+
+            let fontSize = Math.min(18, Math.max(9, arcAvail * 0.52));
+            let text = raw;
+
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            function setFont() {
+                ctx.font = '700 ' + fontSize + 'px Fredoka, Nunito, sans-serif';
+            }
+
+            setFont();
+            let textW = ctx.measureText(text).width;
+
+            while (textW > maxWidth && fontSize > 7) {
+                fontSize -= 0.5;
+                setFont();
+                textW = ctx.measureText(text).width;
+            }
+
+            if (textW > maxWidth) {
+                let lo = 1;
+                let hi = raw.length;
+                setFont();
+                while (lo < hi) {
+                    const midLen = Math.ceil((lo + hi) / 2);
+                    const candidate = raw.slice(0, midLen) + '…';
+                    if (ctx.measureText(candidate).width <= maxWidth) {
+                        lo = midLen;
+                    } else {
+                        hi = midLen - 1;
+                    }
+                }
+                text = raw.slice(0, Math.max(1, lo - 1)) + '…';
+                setFont();
+            }
+
+            ctx.save();
+            ctx.translate(Math.cos(mid) * textAnchorR, Math.sin(mid) * textAnchorR);
+            ctx.rotate(mid);
+            ctx.shadowColor = 'rgba(30, 27, 75, 0.35)';
+            ctx.shadowBlur = 2;
+            ctx.fillText(text, 0, 0);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        function indexAtPointer(degRot) {
+            const n = entries.length;
+            if (n === 0) return -1;
+            const slice = 360 / n;
+            const norm = ((360 - (degRot % 360)) % 360);
+            return Math.floor(norm / slice) % n;
+        }
+
+        /** Landing point within a slice — biased toward edges, not dead center. */
+        function pickLandingOffset(sliceDeg) {
+            const r = Math.random();
+            if (r < 0.38) {
+                return sliceDeg * (0.05 + Math.random() * 0.14);
+            }
+            if (r < 0.76) {
+                return sliceDeg * (0.81 + Math.random() * 0.13);
+            }
+            return sliceDeg * (0.32 + Math.random() * 0.36);
+        }
+
+        /** Fast start, long slow finish — builds suspense near the end. */
+        function easeOutSpin(t) {
+            return 1 - Math.pow(1 - t, 4.8);
+        }
+
+        function spin() {
+            if (spinning || entries.length < 2) return;
+            spinning = true;
+            document.getElementById('spinBtn').disabled = true;
+
+            const n = entries.length;
+            const slice = 360 / n;
+            const winIndex = Math.floor(Math.random() * n);
+            lastWinnerIndex = winIndex;
+
+            const landingOffset = pickLandingOffset(slice);
+            const landingAngle = winIndex * slice + landingOffset;
+
+            const targetMod = (360 - landingAngle) % 360;
+            const currentMod = ((rotation % 360) + 360) % 360;
+            let delta = (targetMod - currentMod + 360) % 360;
+            if (delta < 45) delta += 360;
+
+            const extraSpins = 6 + Math.floor(Math.random() * 3);
+            const finalRotation = rotation + extraSpins * 360 + delta;
+
+            const nearUpperEdge = landingOffset > slice * 0.78;
+            const useOvershoot = nearUpperEdge && Math.random() < 0.55;
+            const overshootDeg = useOvershoot
+                ? slice * (0.02 + Math.random() * 0.05)
+                : 0;
+            const peakRotation = finalRotation + overshootDeg;
+
+            const startRot = rotation;
+            const duration = 7200 + Math.random() * 1800;
+            const startTime = performance.now();
+            const settleStart = 0.84;
+
+            function frame(now) {
+                const t = Math.min(1, (now - startTime) / duration);
+                let rot;
+
+                if (useOvershoot) {
+                    if (t < settleStart) {
+                        const p = easeOutSpin(t / settleStart);
+                        rot = startRot + (peakRotation - startRot) * p;
+                    } else {
+                        const st = (t - settleStart) / (1 - settleStart);
+                        const settle = 1 - Math.pow(1 - st, 3.2);
+                        rot = peakRotation - overshootDeg * settle;
+                    }
+                } else {
+                    rot = startRot + (finalRotation - startRot) * easeOutSpin(t);
+                }
+
+                if (t > 0.93 && t < 1) {
+                    rot += Math.sin((t - 0.93) * 55) * (1 - t) * 1.8;
+                }
+
+                rotation = rot;
+                drawWheel();
+
+                if (t < 1) {
+                    animId = requestAnimationFrame(frame);
+                } else {
+                    rotation = finalRotation;
+                    drawWheel();
+                    const idx = indexAtPointer(rotation);
+                    lastWinnerIndex = idx >= 0 ? idx : winIndex;
+                    spinning = false;
+                    document.getElementById('spinBtn').disabled = entries.length < 2;
+                    showWinner(entries[lastWinnerIndex]);
+                }
+            }
+            if (animId) cancelAnimationFrame(animId);
+            animId = requestAnimationFrame(frame);
+        }
+
+        function showWinner(entry) {
+            if (!entry) return;
+            document.getElementById('winnerName').textContent = entry.label;
+            document.getElementById('winnerOverlay').classList.add('show');
+        }
+
+        function hideWinner() {
+            document.getElementById('winnerOverlay').classList.remove('show');
+        }
+
+        function removeWinnerFromWheel() {
+            if (lastWinnerIndex >= 0 && lastWinnerIndex < entries.length) {
+                entries.splice(lastWinnerIndex, 1);
+                lastWinnerIndex = -1;
+                syncSidebar();
+                drawWheel();
+                updateSpinState();
+            }
+            hideWinner();
+        }
+
+        function syncSidebar() {
+            const list = document.getElementById('entryList');
+            list.innerHTML = '';
+            if (entries.length === 0) {
+                list.innerHTML = '<div class="empty-msg">No names on the wheel.<br>Add students or use Reset list.</div>';
+            } else {
+                entries.forEach(function(entry, i) {
+                    const row = document.createElement('div');
+                    row.className = 'entry-item';
+                    row.innerHTML =
+                        '<input type="text" value="" data-idx="' + i + '">' +
+                        '<button type="button" class="btn-rm" title="Remove" data-idx="' + i + '"><i class="fa-solid fa-xmark"></i></button>';
+                    const input = row.querySelector('input');
+                    input.value = entry.label;
+                    input.addEventListener('input', function() {
+                        entries[i].label = input.value.trim() || '—';
+                        drawWheel();
+                    });
+                    row.querySelector('.btn-rm').addEventListener('click', function() {
+                        entries.splice(i, 1);
+                        syncSidebar();
+                        drawWheel();
+                        updateSpinState();
+                    });
+                    list.appendChild(row);
+                });
+            }
+            document.getElementById('countHint').textContent = entries.length + ' on wheel';
+        }
+
+        function updateSpinState() {
+            document.getElementById('spinBtn').disabled = spinning || entries.length < 2;
+            document.getElementById('x2Btn').disabled = spinning || entries.length === 0;
+        }
+
+        function duplicateX2() {
+            if (entries.length === 0 || spinning) return;
+            const copies = entries.map(function(e) {
+                return { uid: uid(), id: e.id, label: e.label };
+            });
+            entries = entries.concat(copies);
+            syncSidebar();
+            drawWheel();
+            updateSpinState();
+        }
+
+        function addEntry() {
+            const input = document.getElementById('addNameInput');
+            const name = (input.value || '').trim();
+            if (!name) return;
+            entries.push({ uid: uid(), id: '', label: name });
+            input.value = '';
+            syncSidebar();
+            drawWheel();
+            updateSpinState();
+        }
+
+        function resetList() {
+            if (spinning) return;
+            entries = buildDefaultEntries(INITIAL_STUDENTS);
+            lastWinnerIndex = -1;
+            syncSidebar();
+            drawWheel();
+            updateSpinState();
+        }
+
+        function startRouletteApp() {
+        document.getElementById('classSubtitle').textContent = CLASS_NAME;
+        document.getElementById('spinBtn').addEventListener('click', spin);
+        document.getElementById('x2Btn').addEventListener('click', duplicateX2);
+        document.getElementById('resetListBtn').addEventListener('click', resetList);
+        document.getElementById('addNameBtn').addEventListener('click', addEntry);
+        document.getElementById('addNameInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') addEntry();
+        });
+        document.getElementById('removeWinnerBtn').addEventListener('click', removeWinnerFromWheel);
+        document.getElementById('dismissWinnerBtn').addEventListener('click', hideWinner);
+        document.getElementById('winnerOverlay').addEventListener('click', function(e) {
+            if (e.target === document.getElementById('winnerOverlay')) hideWinner();
+        });
+
+        entries = buildDefaultEntries(INITIAL_STUDENTS);
+        window.addEventListener('resize', resizeCanvas);
+        syncSidebar();
+        resizeCanvas();
+        updateSpinState();
+        }
+
+        function bootstrapRoulette() {
+            if (!CLASS_ID) { startRouletteApp(); return; }
+            var api = location.origin.replace(/\/$/, '');
+            fetch(api + '/api/students?classId=' + encodeURIComponent(CLASS_ID), { credentials: 'same-origin' })
+                .then(function(r) { return r.json(); })
+                .then(function(list) {
+                    INITIAL_STUDENTS = Array.isArray(list) ? list : [];
+                    startRouletteApp();
+                })
+                .catch(function() { startRouletteApp(); });
+        }
+        bootstrapRoulette();
+    </script>
+</body>
+</html>

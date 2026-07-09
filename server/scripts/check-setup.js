@@ -45,6 +45,13 @@ if (process.env.GOOGLE_OAUTH_REFRESH_TOKEN) {
   miss('OAuth refresh token', 'node scripts/oauth-setup.js');
 }
 
+const { isSupabaseEnabled } = require('../src/supabaseClient');
+if (isSupabaseEnabled()) {
+  ok('Supabase configured (Phase 1: login + messages + classes)');
+} else {
+  console.log('  · Supabase not configured (using Google Sheets for Phase 1 tables)');
+}
+
 console.log('');
 const ready = fs.existsSync(envPath) &&
   (fs.existsSync(saPath) || process.env.GOOGLE_SERVICE_ACCOUNT_JSON) &&

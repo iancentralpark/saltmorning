@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('mrpark_theme') === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+    .mrpark-snail-sprite { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+    .snail-svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+    .snail-mascot-xl { width: 120px; height: 120px; opacity: 0.92; }
+    .snail-mascot-lg { width: 88px; height: 88px; opacity: 0.9; }
+    .snail-mascot-md { width: 64px; height: 64px; opacity: 0.85; }
+    .snail-mascot-sm { width: 48px; height: 48px; opacity: 0.82; }
+    .snail-mascot-xs { width: 32px; height: 32px; opacity: 0.8; }
+    .snail-wiggle { animation: snail-wiggle 5s ease-in-out infinite; }
+    .snail-bounce { animation: snail-bounce 4s ease-in-out infinite; }
+    @keyframes snail-wiggle {
+        0%, 100% { transform: rotate(-2deg) translateY(0); }
+        50% { transform: rotate(2deg) translateY(-4px); }
+    }
+    @keyframes snail-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    .snail-float-deco {
+        position: fixed;
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
+        line-height: 0;
+        opacity: 0.38;
+    }
+    .snail-float-deco .snail-svg { filter: none; }
+    .snail-deco-tl { top: 2%; left: 1.5%; animation: snail-drift-a 6s ease-in-out infinite; }
+    .snail-deco-br { bottom: 3%; right: 1.5%; animation: snail-drift-d 6.5s ease-in-out infinite 0.8s; }
+    .snail-deco-br .snail-svg { transform: scaleX(-1); }
+    @keyframes snail-drift-a {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+    @keyframes snail-drift-d {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    .snail-hero-wrap {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.65);
+        border: 2px solid rgba(59, 158, 221, 0.22);
+        box-shadow: 0 4px 16px rgba(59, 158, 221, 0.1);
+    }
+    .snail-hero-wrap .snail-svg { width: 58px; height: 58px; opacity: 0.95; }
+    .class-welcome-panel {
+        text-align: center;
+        margin: 1.25rem 0 0.5rem;
+        padding: 1.5rem 1.25rem 1.65rem;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(59, 158, 221, 0.2);
+        box-shadow: 0 4px 18px rgba(59, 158, 221, 0.08);
+    }
+    .class-welcome-snail { margin-bottom: 0.65rem; }
+    .class-welcome-title {
+        font-family: 'Fredoka', 'Nunito', sans-serif;
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #2a8fc9;
+        margin: 0 0 0.4rem;
+    }
+    .class-welcome-text {
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: #636e72;
+        margin: 0 0 0.85rem;
+        max-width: 26rem;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.5;
+    }
+    .class-welcome-hint {
+        display: inline-block;
+        padding: 0.45rem 1rem;
+        border-radius: 999px;
+        background: rgba(59, 158, 221, 0.1);
+        color: #2a8fc9;
+        font-family: 'Fredoka', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+        border: 1px solid rgba(59, 158, 221, 0.18);
+    }
+    .portal-brand-snail { margin-bottom: 0.25rem; opacity: 0.92; }
+    .portal-card-cute {
+        border: 1px solid rgba(59, 158, 221, 0.18) !important;
+        box-shadow: 0 4px 14px rgba(59, 158, 221, 0.08) !important;
+    }
+    .popup-snail-mark {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.35rem;
+        opacity: 0.88;
+    }
+    [data-theme="dark"] .class-welcome-panel {
+        background: rgba(30, 38, 48, 0.65);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .class-welcome-title { color: #7ec8f0; }
+    [data-theme="dark"] .class-welcome-text { color: #a8b8c8; }
+    [data-theme="dark"] .class-welcome-hint {
+        background: rgba(59, 158, 221, 0.12);
+        color: #9ed0f5;
+        border-color: rgba(100, 160, 210, 0.2);
+    }
+    [data-theme="dark"] .snail-hero-wrap {
+        background: rgba(36, 48, 64, 0.7);
+        border-color: rgba(100, 140, 180, 0.25);
+    }
+    [data-theme="dark"] .snail-float-deco { opacity: 0.28; }
+    @media (max-width: 600px) {
+        .snail-mascot-xl { width: 100px; height: 100px; }
+        .class-welcome-title { font-size: 1.3rem; }
+    }
+</style>
+<svg class="mrpark-snail-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="mrpark-snail" viewBox="0 0 200 200">
+        <ellipse cx="100" cy="178" rx="58" ry="11" fill="#000" opacity="0.1"/>
+        <circle cx="118" cy="98" r="54" fill="#FFB347"/>
+        <circle cx="118" cy="98" r="44" fill="#FF9F43"/>
+        <path d="M118 56 C94 56 82 78 94 98 C82 118 94 140 118 140 C142 140 154 118 142 98 C154 78 142 56 118 56 Z" fill="none" stroke="#E67E22" stroke-width="5" stroke-linecap="round"/>
+        <path d="M118 70 C104 70 96 84 104 98 C96 112 104 126 118 126 C132 126 140 112 132 98 C140 84 132 70 118 70 Z" fill="none" stroke="#D35400" stroke-width="4" stroke-linecap="round"/>
+        <ellipse cx="72" cy="128" rx="48" ry="32" fill="#7DCEA0"/>
+        <ellipse cx="48" cy="102" rx="28" ry="24" fill="#58D68D"/>
+        <ellipse cx="34" cy="92" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <ellipse cx="60" cy="90" rx="12" ry="14" fill="#fff" stroke="#2d3436" stroke-width="1.5"/>
+        <circle cx="36" cy="94" r="6" fill="#2d3436"/>
+        <circle cx="62" cy="92" r="6" fill="#2d3436"/>
+        <circle cx="38" cy="91" r="2.2" fill="#fff"/>
+        <circle cx="64" cy="89" r="2.2" fill="#fff"/>
+        <ellipse cx="26" cy="104" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <ellipse cx="72" cy="102" rx="6" ry="3.5" fill="#FF6B9D" opacity="0.35"/>
+        <path d="M40 110 Q50 122 66 112" fill="none" stroke="#27AE60" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M30 84 Q24 64 22 48" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <path d="M56 82 Q64 60 68 44" stroke="#58D68D" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+        <circle cx="22" cy="46" r="7" fill="#FF6B9D"/>
+        <circle cx="68" cy="42" r="7" fill="#3B9EDD"/>
+    </symbol>
+</svg>
+
+    <style>
+        :root {
+            --primary: #3b9edd;
+            --primary-dark: #2a8fc9;
+            --text: #2d3436;
+            --muted: #636e72;
+            --die-size: 88px;
+            --throw-ms: 1450ms;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Nunito', system-ui, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 10% 12%, rgba(255, 159, 67, 0.28), transparent 38%),
+                radial-gradient(circle at 90% 8%, rgba(59, 158, 221, 0.32), transparent 42%),
+                radial-gradient(circle at 50% 95%, rgba(46, 204, 113, 0.18), transparent 45%),
+                linear-gradient(180deg, #dff4ff 0%, #fff8e7 48%, #fef9ef 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .shell {
+            width: min(100%, 420px);
+            background: rgba(255, 255, 255, 0.96);
+            border: 3px solid rgba(46, 204, 113, 0.45);
+            border-radius: 24px;
+            box-shadow: 0 6px 0 rgba(46, 204, 113, 0.15), 0 16px 40px rgba(59, 158, 221, 0.12);
+            padding: 1.25rem 1.35rem 1.35rem;
+            text-align: center;
+        }
+        .title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.45rem;
+            font-weight: 700;
+            margin: 0 0 0.85rem;
+            color: #1e4a6e;
+        }
+        .title i { color: #27ae60; margin-right: 0.25rem; }
+        .mode-toggle {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 0.85rem;
+            background: #f1f8ff;
+            border-radius: 999px;
+            padding: 0.25rem;
+        }
+        .mode-btn {
+            flex: 1;
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 0.6rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            background: transparent;
+            color: var(--muted);
+            transition: background 0.15s, color 0.15s;
+        }
+        .mode-btn.active {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            color: #fff;
+            box-shadow: 0 3px 0 #1e8449;
+        }
+        .mode-btn:not(.active):hover { color: var(--text); }
+
+        .dice-table {
+            background:
+                radial-gradient(ellipse at 50% 100%, rgba(39, 174, 96, 0.12), transparent 55%),
+                linear-gradient(180deg, #eefbf3 0%, #d8f3e4 100%);
+            border: 2px dashed rgba(39, 174, 96, 0.28);
+            border-radius: 20px;
+            padding: 0.85rem 0.65rem 0.55rem;
+            margin-bottom: 0.35rem;
+            overflow: hidden;
+        }
+        .dice-stage {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 1.35rem;
+            min-height: calc(var(--die-size) + 72px);
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .dice-stage.shaking {
+            animation: stage-shake 0.42s ease-out;
+        }
+        @keyframes stage-shake {
+            0%, 100% { transform: translate(0, 0); }
+            15% { transform: translate(-4px, 1px); }
+            30% { transform: translate(5px, -1px); }
+            45% { transform: translate(-3px, 0); }
+            60% { transform: translate(3px, 1px); }
+            75% { transform: translate(-1px, 0); }
+        }
+
+        .die-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        .die-wrap.hidden { display: none; }
+
+        .throw-stack {
+            position: relative;
+            width: var(--die-size);
+            height: calc(var(--die-size) + 34px);
+        }
+        .die-shadow {
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: calc(var(--die-size) * 0.78);
+            height: 16px;
+            margin-left: calc(var(--die-size) * -0.39);
+            background: radial-gradient(ellipse at center, rgba(45, 52, 54, 0.32) 0%, transparent 72%);
+            border-radius: 50%;
+            pointer-events: none;
+            transform-origin: center;
+            will-change: transform, opacity;
+        }
+        .die-shadow.throwing {
+            animation: shadow-flight var(--throw-ms) ease-out;
+        }
+        @keyframes shadow-flight {
+            0% { transform: translateX(0) scale(1); opacity: 0.32; }
+            12% { transform: translateX(calc(var(--tx) * 0.3)) scale(0.88); opacity: 0.28; }
+            38% { transform: translateX(calc(var(--tx) * 0.65)) scale(0.42); opacity: 0.1; }
+            58% { transform: translateX(var(--tx)) scale(1.18); opacity: 0.42; }
+            72% { transform: translateX(calc(var(--tx) * 1.05)) scale(0.72); opacity: 0.22; }
+            86% { transform: translateX(calc(var(--tx) * 1.02)) scale(1.06); opacity: 0.36; }
+            100% { transform: translateX(var(--tx)) scale(1); opacity: 0.32; }
+        }
+
+        .throw-body {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: var(--die-size);
+            height: var(--die-size);
+            will-change: transform;
+            transform-origin: center bottom;
+        }
+        .throw-body.throwing {
+            animation: dice-throw var(--throw-ms) cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+        }
+        @keyframes dice-throw {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+            }
+            10% {
+                transform: translate(calc(var(--tx) * 0.15), -52px) scale(1.06) rotate(calc(var(--spin) * -0.4));
+            }
+            28% {
+                transform: translate(calc(var(--tx) * 0.55), -78px) scale(1.04) rotate(calc(var(--spin) * 0.25));
+            }
+            48% {
+                transform: translate(calc(var(--tx) * 0.85), -24px) scale(1.02) rotate(calc(var(--spin) * 0.7));
+            }
+            58% {
+                transform: translate(var(--tx), 6px) scale(0.96) rotate(calc(var(--spin) * 0.85));
+            }
+            68% {
+                transform: translate(calc(var(--tx) * 1.04), -22px) scale(1.03) rotate(calc(var(--spin) * 0.92));
+            }
+            78% {
+                transform: translate(calc(var(--tx) * 1.06), 3px) scale(0.98) rotate(calc(var(--spin) * 0.97));
+            }
+            88% {
+                transform: translate(calc(var(--tx) * 1.03), -8px) scale(1.01) rotate(calc(var(--spin) * 0.99));
+            }
+            100% {
+                transform: translate(var(--tx), 0) scale(1) rotate(var(--spin));
+            }
+        }
+
+        .scene {
+            width: 100%;
+            height: 100%;
+            perspective: 640px;
+            perspective-origin: 50% 55%;
+        }
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateX(-12deg) rotateY(18deg);
+            transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .cube.rolling {
+            transition: none;
+            animation: roll-wild var(--throw-ms) linear;
+        }
+        @keyframes roll-wild {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            12% { transform: rotateX(360deg) rotateY(180deg) rotateZ(120deg); }
+            25% { transform: rotateX(540deg) rotateY(450deg) rotateZ(240deg); }
+            40% { transform: rotateX(810deg) rotateY(720deg) rotateZ(380deg); }
+            55% { transform: rotateX(990deg) rotateY(990deg) rotateZ(510deg); }
+            70% { transform: rotateX(1170deg) rotateY(1260deg) rotateZ(620deg); }
+            85% { transform: rotateX(1350deg) rotateY(1440deg) rotateZ(700deg); }
+            100% { transform: rotateX(1530deg) rotateY(1620deg) rotateZ(780deg); }
+        }
+
+        .face {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(145deg, #ffffff, #eef1f4);
+            border: 2.5px solid #2d3436;
+            border-radius: 16px;
+            display: grid;
+            grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+            padding: 10px;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.06);
+            backface-visibility: hidden;
+        }
+        .pip {
+            align-self: center;
+            justify-self: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #2d3436;
+        }
+        .pip.off { opacity: 0; }
+
+        .face-1 { transform: rotateY(0deg) translateZ(calc(var(--die-size) / 2)); }
+        .face-2 { transform: rotateY(90deg) translateZ(calc(var(--die-size) / 2)); }
+        .face-3 { transform: rotateY(180deg) translateZ(calc(var(--die-size) / 2)); }
+        .face-4 { transform: rotateY(-90deg) translateZ(calc(var(--die-size) / 2)); }
+        .face-5 { transform: rotateX(90deg) translateZ(calc(var(--die-size) / 2)); }
+        .face-6 { transform: rotateX(-90deg) translateZ(calc(var(--die-size) / 2)); }
+
+        .result-num {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
+            min-height: 2rem;
+            color: #1e4a6e;
+        }
+        .shell.mode-two .result-num {
+            font-size: 1.15rem;
+            min-height: 1.15rem;
+            color: #636e72;
+        }
+        .result-num.pop { animation: result-pop 0.35s ease; }
+        @keyframes result-pop {
+            0% { transform: scale(0.5); opacity: 0.3; }
+            60% { transform: scale(1.12); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .result-num.placeholder { color: #b2bec3; font-size: 1.5rem; }
+        .shell.mode-two .result-num.placeholder { font-size: 1rem; }
+
+        .total-row {
+            min-height: 2.5rem;
+            margin: 0.15rem 0 0.75rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 2.35rem;
+            line-height: 1.1;
+            color: #1e8449;
+        }
+        .total-row.pop { animation: total-pop 0.4s ease; }
+        @keyframes total-pop {
+            0% { transform: scale(0.6); opacity: 0.2; }
+            55% { transform: scale(1.08); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .total-row.hidden { visibility: hidden; min-height: 0; margin: 0; }
+
+        .roll-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1.6rem;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            color: #fff;
+            background: linear-gradient(135deg, #3b9edd, #5dade2);
+            box-shadow: 0 4px 0 var(--primary-dark);
+            transition: transform 0.12s, box-shadow 0.12s;
+        }
+        .roll-btn:hover { transform: translateY(-2px); }
+        .roll-btn:active { transform: translateY(1px); box-shadow: 0 2px 0 var(--primary-dark); }
+        .roll-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+        .hint {
+            margin: 0.75rem 0 0;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --text: #e8edf3;
+            --muted: #9aa3ad;
+        }
+        [data-theme="dark"] body {
+            background:
+                radial-gradient(circle at 10% 12%, rgba(255, 159, 67, 0.1), transparent 38%),
+                radial-gradient(circle at 90% 8%, rgba(59, 158, 221, 0.14), transparent 42%),
+                linear-gradient(180deg, #121820 0%, #171d27 48%, #141a23 100%);
+        }
+        [data-theme="dark"] .shell {
+            background: rgba(30, 36, 46, 0.97);
+            border-color: rgba(46, 204, 113, 0.35);
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.22), 0 16px 40px rgba(0, 0, 0, 0.3);
+        }
+        [data-theme="dark"] .title { color: #b8d9f5; }
+        [data-theme="dark"] .mode-toggle { background: #2d3644; }
+        [data-theme="dark"] .mode-btn:not(.active) { color: var(--muted); }
+        [data-theme="dark"] .mode-btn:not(.active):hover { color: var(--text); }
+        [data-theme="dark"] .result-num { color: #b8d9f5; }
+        [data-theme="dark"] .shell.mode-two .result-num { color: var(--muted); }
+        [data-theme="dark"] .total-row { color: #7dcea0; }
+        [data-theme="dark"] .die-face { background: #eef2f7; }
+        [data-theme="dark"] .pip { background: #1e242e; }
+    </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#3b9edd">
+</head>
+<body>
+    <div class="shell" id="diceShell">
+        <div class="popup-snail-mark" aria-hidden="true">
+            <svg class="snail-svg snail-mascot-sm"><use href="#mrpark-snail"/></svg>
+        </div>
+        <h1 class="title"><i class="fa-solid fa-dice"></i> Dice Roller</h1>
+
+        <div class="mode-toggle" role="group" aria-label="Dice count">
+            <button type="button" class="mode-btn active" id="mode1Btn" data-count="1">1 Die</button>
+            <button type="button" class="mode-btn" id="mode2Btn" data-count="2">2 Dice</button>
+        </div>
+
+        <div class="dice-table">
+            <div class="dice-stage" id="diceStage" title="Click to roll">
+                <div class="die-wrap" id="dieWrap1">
+                    <div class="throw-stack">
+                        <div class="die-shadow" id="shadow1"></div>
+                        <div class="throw-body" id="throw1">
+                            <div class="scene">
+                                <div class="cube" id="cube1" data-value="1"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result-num placeholder" id="result1">—</div>
+                </div>
+                <div class="die-wrap hidden" id="dieWrap2">
+                    <div class="throw-stack">
+                        <div class="die-shadow" id="shadow2"></div>
+                        <div class="throw-body" id="throw2">
+                            <div class="scene">
+                                <div class="cube" id="cube2" data-value="1"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result-num placeholder" id="result2">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="total-row hidden" id="totalRow"></div>
+
+        <button type="button" class="roll-btn" id="rollBtn"><i class="fa-solid fa-dice"></i> Roll</button>
+        <p class="hint">Tap the dice or Roll to throw</p>
+    </div>
+
+    <script>
+        (function() {
+            var THROW_MS = 1450;
+            var FACE_PIPS = {
+                1: [[2, 2]],
+                2: [[1, 1], [3, 3]],
+                3: [[1, 1], [2, 2], [3, 3]],
+                4: [[1, 1], [1, 3], [3, 1], [3, 3]],
+                5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]],
+                6: [[1, 1], [1, 2], [1, 3], [3, 1], [3, 2], [3, 3]]
+            };
+            var ROTATIONS = {
+                1: { x: 0, y: 0 },
+                2: { x: 0, y: -90 },
+                3: { x: 0, y: 180 },
+                4: { x: 0, y: 90 },
+                5: { x: -90, y: 0 },
+                6: { x: 90, y: 0 }
+            };
+
+            var diceCount = 1;
+            var rolling = false;
+
+            function buildCube(el) {
+                el.innerHTML = '';
+                for (var f = 1; f <= 6; f++) {
+                    var face = document.createElement('div');
+                    face.className = 'face face-' + f;
+                    var on = {};
+                    FACE_PIPS[f].forEach(function(p) { on[p[0] + '-' + p[1]] = true; });
+                    for (var r = 1; r <= 3; r++) {
+                        for (var c = 1; c <= 3; c++) {
+                            var pip = document.createElement('span');
+                            pip.className = 'pip' + (on[r + '-' + c] ? '' : ' off');
+                            face.appendChild(pip);
+                        }
+                    }
+                    el.appendChild(face);
+                }
+            }
+
+            function setThrowVars(throwBody, shadowEl) {
+                var tx = (Math.random() * 44 - 22).toFixed(1) + 'px';
+                var spin = (Math.random() * 50 - 25).toFixed(1) + 'deg';
+                throwBody.style.setProperty('--tx', tx);
+                throwBody.style.setProperty('--spin', spin);
+                shadowEl.style.setProperty('--tx', tx);
+            }
+
+            function setCubeRotation(cube, value, withSpin) {
+                var rot = ROTATIONS[value];
+                var x = rot.x - 12;
+                var y = rot.y + 18;
+                if (withSpin) {
+                    x += 360 * (2 + Math.floor(Math.random() * 2));
+                    y += 360 * (2 + Math.floor(Math.random() * 2));
+                }
+                cube.style.transform = 'rotateX(' + x + 'deg) rotateY(' + y + 'deg)';
+                cube.setAttribute('data-value', String(value));
+            }
+
+            function showResult(el, value) {
+                el.textContent = String(value);
+                el.classList.remove('placeholder');
+                el.classList.remove('pop');
+                void el.offsetWidth;
+                el.classList.add('pop');
+            }
+
+            function triggerStageShake(delay) {
+                setTimeout(function() {
+                    var stage = document.getElementById('diceStage');
+                    stage.classList.remove('shaking');
+                    void stage.offsetWidth;
+                    stage.classList.add('shaking');
+                    setTimeout(function() { stage.classList.remove('shaking'); }, 420);
+                }, delay);
+            }
+
+            function rollOne(cube, throwBody, shadowEl, resultEl, startDelay) {
+                return new Promise(function(resolve) {
+                    setTimeout(function() {
+                        var value = Math.floor(Math.random() * 6) + 1;
+                        setThrowVars(throwBody, shadowEl);
+                        resultEl.classList.add('placeholder');
+                        resultEl.textContent = '…';
+
+                        cube.classList.add('rolling');
+                        throwBody.classList.add('throwing');
+                        shadowEl.classList.add('throwing');
+                        triggerStageShake(780);
+
+                        setTimeout(function() {
+                            cube.classList.remove('rolling');
+                            throwBody.classList.remove('throwing');
+                            shadowEl.classList.remove('throwing');
+                            setCubeRotation(cube, value, true);
+                            showResult(resultEl, value);
+                            resolve(value);
+                        }, THROW_MS);
+                    }, startDelay);
+                });
+            }
+
+            function rollAll() {
+                if (rolling) return;
+                rolling = true;
+                document.getElementById('rollBtn').disabled = true;
+
+                var promises = [
+                    rollOne(
+                        document.getElementById('cube1'),
+                        document.getElementById('throw1'),
+                        document.getElementById('shadow1'),
+                        document.getElementById('result1'),
+                        0
+                    )
+                ];
+                if (diceCount === 2) {
+                    promises.push(rollOne(
+                        document.getElementById('cube2'),
+                        document.getElementById('throw2'),
+                        document.getElementById('shadow2'),
+                        document.getElementById('result2'),
+                        140
+                    ));
+                }
+
+                Promise.all(promises).then(function(values) {
+                    var totalRow = document.getElementById('totalRow');
+                    if (diceCount === 2) {
+                        totalRow.textContent = 'Total: ' + (values[0] + values[1]);
+                        totalRow.classList.remove('hidden');
+                        totalRow.classList.remove('pop');
+                        void totalRow.offsetWidth;
+                        totalRow.classList.add('pop');
+                    } else {
+                        totalRow.classList.add('hidden');
+                        totalRow.classList.remove('pop');
+                        totalRow.textContent = '';
+                    }
+                    rolling = false;
+                    document.getElementById('rollBtn').disabled = false;
+                });
+            }
+
+            function setMode(count) {
+                diceCount = count;
+                document.getElementById('diceShell').classList.toggle('mode-two', count === 2);
+                document.getElementById('mode1Btn').classList.toggle('active', count === 1);
+                document.getElementById('mode2Btn').classList.toggle('active', count === 2);
+                document.getElementById('dieWrap2').classList.toggle('hidden', count !== 2);
+                document.getElementById('totalRow').classList.toggle('hidden', count !== 2);
+                if (count === 1) document.getElementById('totalRow').textContent = '';
+            }
+
+            buildCube(document.getElementById('cube1'));
+            buildCube(document.getElementById('cube2'));
+            setCubeRotation(document.getElementById('cube1'), 1, false);
+            setCubeRotation(document.getElementById('cube2'), 1, false);
+
+            document.getElementById('mode1Btn').addEventListener('click', function() { setMode(1); });
+            document.getElementById('mode2Btn').addEventListener('click', function() { setMode(2); });
+            document.getElementById('rollBtn').addEventListener('click', rollAll);
+            document.getElementById('diceStage').addEventListener('click', rollAll);
+        })();
+    </script>
+</body>
+</html>
