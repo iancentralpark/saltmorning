@@ -624,6 +624,7 @@
             pointer-events: none;
             user-select: none;
             opacity: 0.88;
+            z-index: 1;
         }
         .stamp-mark-inner {
             width: 100%;
@@ -681,6 +682,16 @@
             margin-top: 0.45rem;
             text-align: center;
             line-height: 1.35;
+        }
+        .sidebar-stamp-launcher {
+            width: auto !important;
+            max-height: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .sidebar-stamp-launcher .sidebar-stamp-launcher-chip {
+            display: flex;
         }
         [data-theme="dark"] #stampBoardOverlay .stamp-board-window {
             background: #2d3436;
@@ -916,6 +927,7 @@
         .sidebar-panel[data-sidebar-id="youtube"] .sidebar-mini-chip { border-color: rgba(231, 76, 60, 0.45); color: #c0392b; }
         .sidebar-panel[data-sidebar-id="googleSearch"] .sidebar-mini-chip { border-color: rgba(66, 133, 244, 0.5); color: #4285f4; }
         .sidebar-panel[data-sidebar-id="marqueeTicker"] .sidebar-mini-chip { border-color: rgba(245, 197, 24, 0.55); color: #f39c12; }
+        .sidebar-panel[data-sidebar-id="stampBoard"] .sidebar-mini-chip { border-color: rgba(231, 76, 60, 0.5); color: #c0392b; }
 
         /* ===== Class LED ticker (iPad / desktop projection) ===== */
         .class-marquee-bar,
@@ -5489,7 +5501,7 @@
     <div class="stamp-board-window">
         <div class="stamp-board-head">
             <div class="stamp-board-head-title"><i class="fa-solid fa-stamp"></i> <span id="stampBoardTitle">Stamp Board</span></div>
-            <div class="stamp-board-head-hint">Click a column to stamp · 5 stamps = $1</div>
+            <div class="stamp-board-head-hint">Click a column to stamp · overlaps OK · 5 stamps = $1</div>
             <div class="stamp-board-head-actions">
                 <button type="button" class="stamp-board-cash-btn" id="stampBoardCashBtn" title="Cash in all stamps">Cash In</button>
                 <button type="button" class="stamp-board-close" id="stampBoardCloseBtn" title="Close" aria-label="Close">&times;</button>
@@ -5899,22 +5911,10 @@
     </div>
 </aside>
 
-<aside id="stampBoardFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="stampBoard" aria-label="Stamp Board">
-    <div class="float-panel-card">
-        <div class="float-panel-head sidebar-panel-head">
-            <span class="sidebar-drag-handle" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
-            <span class="float-panel-title"><i class="fa-solid fa-stamp"></i> Stamp Board</span>
-            <div class="sidebar-head-actions">
-                <button type="button" class="sidebar-panel-hide-btn" data-sidebar-hide="stampBoard">Hide</button>
-            </div>
-        </div>
-        <div class="sidebar-panel-full" style="padding: 0.65rem 0.75rem 0.75rem;">
-            <button type="button" class="sidebar-stamp-open-btn" id="openStampBoardBtn">
-                <i class="fa-solid fa-stamp"></i> Open Stamp Board
-            </button>
-            <div class="sidebar-stamp-note">Click anywhere in a student column to stamp.<br>5 stamps → $1 when the board is full.</div>
-        </div>
-    </div>
+<aside id="stampBoardFloat" class="sidebar-panel hidden-section no-print sidebar-stamp-launcher" data-sidebar-id="stampBoard" aria-label="Stamp Board">
+    <button type="button" class="sidebar-mini-chip sidebar-stamp-launcher-chip" data-sidebar-id="stampBoard" title="Stamp Board — tap to open">
+        <i class="fa-solid fa-stamp" aria-hidden="true"></i>
+    </button>
 </aside>
 
 <aside id="booksReturnFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="booksReturn" aria-label="Books to return">
@@ -8065,7 +8065,7 @@
         document.getElementById('openRouletteBtn').addEventListener('click', openRouletteWindow);
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
-        document.getElementById('openStampBoardBtn').addEventListener('click', loadStampBoardAndOpen);
+        initStampBoardSidebarLauncher();
         document.getElementById('stampBoardCloseBtn').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardBackdrop').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardCashBtn').addEventListener('click', cashInStampBoard);
@@ -8729,7 +8729,10 @@
                 const iconCls = meta.iconBrand ? 'fa-brands ' + meta.icon : 'fa-solid ' + meta.icon;
                 chip.innerHTML = '<i class="' + iconCls + '" aria-hidden="true"></i>';
                 panel.appendChild(chip);
-                attachSidebarDrag(chip, panel, id, function() { showSidebarPanelUser(id); });
+                attachSidebarDrag(chip, panel, id, function() {
+                    if (id === 'stampBoard') loadStampBoardAndOpen();
+                    else showSidebarPanelUser(id);
+                });
             }
         });
     }
@@ -8967,7 +8970,7 @@
         announcement: 190,
         classRules: 230,
         youtube: 200,
-        stampBoard: 160
+        stampBoard: 44
     };
 
     function getSidebarPanelHeight(id) {
@@ -14852,6 +14855,14 @@
     var stampBoardData = null;
     var stampBoardPlacing = false;
 
+    function initStampBoardSidebarLauncher() {
+        var panel = document.getElementById('stampBoardFloat');
+        if (!panel) return;
+        var chip = panel.querySelector('.sidebar-stamp-launcher-chip, .sidebar-mini-chip');
+        if (!chip) return;
+        attachSidebarDrag(chip, panel, 'stampBoard', function() { loadStampBoardAndOpen(); });
+    }
+
     function closeStampBoardOverlay() {
         var overlay = document.getElementById('stampBoardOverlay');
         if (!overlay) return;
@@ -14888,8 +14899,8 @@
             foot.className = 'stamp-board-col-foot';
             var count = (stampsByStudent[student.id] || []).length;
             foot.textContent = count + ' stamp' + (count === 1 ? '' : 's');
-            (stampsByStudent[student.id] || []).forEach(function(stamp) {
-                area.appendChild(createStampMarkEl(stamp));
+            (stampsByStudent[student.id] || []).forEach(function(stamp, idx) {
+                area.appendChild(createStampMarkEl(stamp, idx + 1));
             });
             area.addEventListener('click', onStampBoardColumnClick);
             col.appendChild(head);
@@ -14899,13 +14910,14 @@
         });
     }
 
-    function createStampMarkEl(stamp) {
+    function createStampMarkEl(stamp, zIndex) {
         var el = document.createElement('div');
         el.className = 'stamp-mark';
         el.dataset.stampId = stamp.id;
         el.style.left = stamp.xPct + '%';
         el.style.top = stamp.yPct + '%';
         el.style.transform = 'rotate(' + (stamp.rotDeg || 0) + 'deg)';
+        if (zIndex != null) el.style.zIndex = String(zIndex);
         el.innerHTML = '<div class="stamp-mark-inner"><div class="stamp-mark-line1">Mr. Park</div><div class="stamp-mark-line2">Great Job!</div></div>';
         return el;
     }

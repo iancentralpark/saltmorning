@@ -5,22 +5,11 @@ const { getEnrolledStudents } = require('./homeworkService');
 const { applyDollarAdjustment } = require('./dollarService');
 const { invalidateWorkCache } = require('./workCacheService');
 
-const STAMP_RADIUS_PCT = 9;
-const MIN_STAMP_GAP_PCT = 4;
+const STAMPS_PER_COLUMN_MAX = 24;
 
 function clampPct(n) {
-  return Math.max(STAMP_RADIUS_PCT, Math.min(100 - STAMP_RADIUS_PCT, Number(n) || 0));
-}
-
-function stampDistancePct(a, b) {
-  const dx = Number(a.x_pct) - Number(b.x_pct);
-  const dy = Number(a.y_pct) - Number(b.y_pct);
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-function stampsOverlap(a, b) {
-  const minDist = STAMP_RADIUS_PCT * 2 + MIN_STAMP_GAP_PCT;
-  return stampDistancePct(a, b) < minDist;
+  const margin = 3;
+  return Math.max(margin, Math.min(100 - margin, Number(n) || 0));
 }
 
 function normalizeStampRow(row) {
@@ -77,18 +66,6 @@ async function insertStamp(classId, studentId, xPct, yPct, rotDeg) {
   yPct = clampPct(yPct);
   rotDeg = Math.round(Number(rotDeg) || 0) % 360;
 
-  const board = await getStampBoard(classId);
-  const studentStamps = board.stamps.filter(s => s.studentId === studentId);
-  const candidate = { x_pct: xPct, y_pct: yPct };
-
-  for (let i = 0; i < studentStamps.length; i++) {
-    if (stampsOverlap(candidate, { x_pct: studentStamps[i].xPct, y_pct: studentStamps[i].yPct })) {
-      const err = new Error('No room here — try another spot in this column.');
-      err.code = 'STAMP_COLLISION';
-      throw err;
-    }
-  }
-
   if (isSupabaseEnabled()) {
     const db = getSupabase();
     const { data, error } = await db.from('stamp_board_stamps').insert({
@@ -110,29 +87,13 @@ async function insertStamp(classId, studentId, xPct, yPct, rotDeg) {
   return normalizeStampRow({ id: rowId, student_id: studentId, x_pct: xPct, y_pct: yPct, rot_deg: rotDeg });
 }
 
-function columnHasFreeSpot(existingStamps) {
-  const step = STAMP_RADIUS_PCT;
-  for (let y = STAMP_RADIUS_PCT; y <= 100 - STAMP_RADIUS_PCT; y += step) {
-    for (let x = STAMP_RADIUS_PCT; x <= 100 - STAMP_RADIUS_PCT; x += step) {
-      const candidate = { x_pct: x, y_pct: y };
-      let ok = true;
-      for (let i = 0; i < existingStamps.length; i++) {
-        if (stampsOverlap(candidate, { x_pct: existingStamps[i].xPct, y_pct: existingStamps[i].yPct })) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok) return true;
-    }
-  }
-  return false;
+function studentColumnFull(stamps, studentId) {
+  return stamps.filter(function(s) { return s.studentId === studentId; }).length >= STAMPS_PER_COLUMN_MAX;
 }
 
-function boardHasFreeSpot(stamps, studentIds) {
+function boardNeedsAutoRedeem(stamps, studentIds) {
   for (let i = 0; i < studentIds.length; i++) {
-    const sid = studentIds[i];
-    const col = stamps.filter(s => s.studentId === sid);
-    if (columnHasFreeSpot(col)) return true;
+    if (studentColumnFull(stamps, studentIds[i])) return true;
   }
   return false;
 }
@@ -216,8 +177,9 @@ async function addStamp(classId, studentId, xPct, yPct, rotDeg) {
   const stamp = await insertStamp(classId, studentId, xPct, yPct, rotDeg);
   const board = await getStampBoard(classId);
   const studentIds = board.students.map(s => s.id);
+  const stampsAfter = board.stamps.concat([stamp]);
 
-  if (!boardHasFreeSpot(board.stamps, studentIds)) {
+  if (boardNeedsAutoRedeem(stampsAfter, studentIds)) {
     const redemption = await redeemStampBoard(classId, { reason: 'stamp-board-auto' });
     return {
       stamp,
