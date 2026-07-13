@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-13.09';
+            var APP_BUILD = '2026-07-13.11';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -15036,7 +15036,7 @@
 
     // ===== Stamp Board (local-first, batched sync) =====
     var STAMP_BOARD_SYNC_MS = 15000;
-    var STAMP_BOARD_COLUMN_MAX = 24;
+    var STAMP_BOARD_COLUMN_MAX = 100;
     var stampBoardData = null;
     var stampBoardEraserMode = false;
     var stampBoardStore = {

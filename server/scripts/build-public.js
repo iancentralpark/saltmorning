@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PORTAL_BUILD = '2026-07-13.10';
+const PORTAL_BUILD = '2026-07-13.11';
 
 const serverDir = path.join(__dirname, '..');
 const repoRoot = path.join(serverDir, '..');

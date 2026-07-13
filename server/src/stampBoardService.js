@@ -1,11 +1,9 @@
-const { STAMP_BOARD_SHEET, STAMPS_PER_DOLLAR } = require('./config');
+const { STAMP_BOARD_SHEET, STAMPS_PER_DOLLAR, STAMPS_PER_COLUMN_MAX } = require('./config');
 const { getSheetRows, appendRows, deleteRow, invalidateSheetRowsCache } = require('./sheets');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { getEnrolledStudents } = require('./homeworkService');
 const { applyDollarAdjustment } = require('./dollarService');
 const { invalidateWorkCache } = require('./workCacheService');
-
-const STAMPS_PER_COLUMN_MAX = 24;
 
 function clampPct(n) {
   const margin = 3;
