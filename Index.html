@@ -598,17 +598,20 @@
             min-width: 0;
             display: flex;
             flex-direction: column;
-            border-right: 1px dashed rgba(99, 110, 114, 0.2);
+            background: rgba(255, 255, 255, 0.35);
         }
-        .stamp-board-col:last-child { border-right: none; }
+        .stamp-board-col + .stamp-board-col {
+            border-left: 2px solid rgba(59, 158, 221, 0.42);
+            box-shadow: -1px 0 0 rgba(255, 255, 255, 0.65);
+        }
         .stamp-board-col-head {
             text-align: center;
             font-family: 'Fredoka', sans-serif;
             font-weight: 700;
             font-size: 0.95rem;
             padding: 0.55rem 0.35rem;
-            background: rgba(59, 158, 221, 0.08);
-            border-bottom: 2px solid rgba(59, 158, 221, 0.2);
+            background: rgba(59, 158, 221, 0.12);
+            border-bottom: 2px solid rgba(59, 158, 221, 0.38);
             color: #2d3436;
             flex-shrink: 0;
         }
@@ -641,7 +644,8 @@
             font-size: 0.72rem;
             color: #636e72;
             padding: 0.3rem;
-            border-top: 1px solid rgba(99, 110, 114, 0.12);
+            border-top: 2px solid rgba(59, 158, 221, 0.28);
+            background: rgba(59, 158, 221, 0.05);
             flex-shrink: 0;
         }
         .stamp-mark {
@@ -726,7 +730,12 @@
             background: #2d3436;
             border-color: rgba(231, 76, 60, 0.35);
         }
-        [data-theme="dark"] .stamp-board-col-head { background: rgba(59, 158, 221, 0.15); color: #dfe6e9; }
+        [data-theme="dark"] .stamp-board-col + .stamp-board-col {
+            border-left-color: rgba(59, 158, 221, 0.55);
+            box-shadow: -1px 0 0 rgba(0, 0, 0, 0.25);
+        }
+        [data-theme="dark"] .stamp-board-col { background: rgba(0, 0, 0, 0.12); }
+        [data-theme="dark"] .stamp-board-col-head { background: rgba(59, 158, 221, 0.15); color: #dfe6e9; border-bottom-color: rgba(59, 158, 221, 0.45); }
         [data-theme="dark"] .stamp-board-head-hint,
         [data-theme="dark"] .stamp-board-col-foot { color: #b2bec3; }
         @media (max-width: 767px) {
