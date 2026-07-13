@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-13.05';
+            var APP_BUILD = '2026-07-13.06';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -654,10 +654,10 @@
         #stampBoardOverlay .stamp-board-window {
             position: relative;
             z-index: 1;
-            width: min(66vw, calc(100vw - 24px));
-            height: min(66vh, calc(100vh - 24px));
-            min-width: 320px;
-            min-height: 280px;
+            width: min(86vw, calc(100vw - 24px));
+            height: min(86vh, calc(100vh - 24px));
+            min-width: 416px;
+            min-height: 364px;
             background: #fffef8;
             border-radius: 18px;
             box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
