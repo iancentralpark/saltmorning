@@ -6,7 +6,7 @@ const {
 } = require('./config');
 const { getSheetRows, appendRows, updateRange, deleteRow, deleteRows, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { getHolidayName, getHolidaysForMonth } = require('./holiday');
 const { syncChambitToClassLog } = require('./classLogService');

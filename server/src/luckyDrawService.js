@@ -2,7 +2,7 @@ const { LUCKY_DRAW_SHEET, TIMEZONE, STUDENT_LIST_SHEET, LUCKY_DRAW_PURCHASE_COST
 const { getSheetRows, appendRows, deleteRows, updateRange, invalidateSheetRowsCache } = require('./sheets');
 const { formatDateTimeNow } = require('./dateUtils');
 const { getStudentDollarBalance, applyDollarAdjustment } = require('./dollarService');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 function afterLuckyDrawWrite(classId) {

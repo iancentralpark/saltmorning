@@ -1,7 +1,7 @@
 const { formatSheetDate } = require('./dateUtils');
 const { getSheetRows, updateRange, appendRows, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { getActiveLeavesByClass } = require('./leaveService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 

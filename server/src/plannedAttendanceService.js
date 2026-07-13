@@ -10,7 +10,7 @@ const { upsertAttendanceRecord } = require('./attendanceService');
 const { getActiveLeavesByClass } = require('./leaveService');
 const { getHolidaysForMonth } = require('./holiday');
 const { cacheDeletePrefix } = require('./cache');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 
 const STATUS_ACTIVE = 'Active';
 const STATUS_CANCELLED = 'Cancelled';

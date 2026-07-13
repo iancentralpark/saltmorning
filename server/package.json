@@ -32,6 +32,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^144.0.0",
+    "pg": "^8.22.0",
     "socket.io": "^4.8.3",
     "spin-wheel": "^5.0.2"
   }

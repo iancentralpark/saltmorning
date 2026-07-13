@@ -6,7 +6,7 @@ const {
 const { getSheetRows, updateRange, appendRows } = require('./sheets');
 const { formatDateTimeNow, formatSheetDate, chambitAddDays } = require('./dateUtils');
 const { cacheDeletePrefix } = require('./cache');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 
 const LEAVE_STATUS_ACTIVE = 'Active';
 const LEAVE_STATUS_ENDED = 'Ended';

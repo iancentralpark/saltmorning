@@ -26,6 +26,7 @@
         html.teacher-mobile-boot .sidebar-panel,
         html.teacher-mobile-boot .sidebar-toolbar,
         html.teacher-mobile-boot .sidebar-compact-backdrop,
+        html.teacher-mobile-boot .class-marquee-bar,
         html.teacher-mobile-boot .snail-float-deco,
         html.teacher-mobile-boot #toolOverlay,
         html.teacher-mobile-boot [data-teacher-panel] { display: none !important; }
@@ -48,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-09.23';
+            var APP_BUILD = '2026-07-13.01';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -633,6 +634,218 @@
             #whiteboardOverlay { display: none !important; }
         }
 
+        /* ===== Stamp Board ===== */
+        #stampBoardOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10070;
+            align-items: center;
+            justify-content: center;
+            padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        }
+        #stampBoardOverlay.show { display: flex; }
+        #stampBoardOverlay .stamp-board-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(45, 52, 54, 0.48);
+        }
+        #stampBoardOverlay .stamp-board-window {
+            position: relative;
+            z-index: 1;
+            width: min(66vw, calc(100vw - 24px));
+            height: min(66vh, calc(100vh - 24px));
+            min-width: 320px;
+            min-height: 280px;
+            background: #fffef8;
+            border-radius: 18px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 2px solid rgba(231, 76, 60, 0.25);
+        }
+        .stamp-board-head {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 1rem;
+            background: linear-gradient(135deg, #fff5f5 0%, #fffef8 100%);
+            border-bottom: 1px solid rgba(231, 76, 60, 0.15);
+            flex-shrink: 0;
+        }
+        .stamp-board-head-title {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            color: #c0392b;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+        .stamp-board-head-hint {
+            font-size: 0.78rem;
+            color: #636e72;
+            flex: 1;
+        }
+        .stamp-board-head-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .stamp-board-cash-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(39, 174, 96, 0.35);
+            background: rgba(39, 174, 96, 0.1);
+            color: #1e8449;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .stamp-board-cash-btn:hover { background: rgba(39, 174, 96, 0.18); }
+        .stamp-board-close {
+            border: none;
+            background: rgba(0, 0, 0, 0.06);
+            color: #636e72;
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .stamp-board-close:hover { background: rgba(231, 76, 60, 0.15); color: #c0392b; }
+        .stamp-board-grid {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .stamp-board-col {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px dashed rgba(99, 110, 114, 0.2);
+        }
+        .stamp-board-col:last-child { border-right: none; }
+        .stamp-board-col-head {
+            text-align: center;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 0.55rem 0.35rem;
+            background: rgba(59, 158, 221, 0.08);
+            border-bottom: 2px solid rgba(59, 158, 221, 0.2);
+            color: #2d3436;
+            flex-shrink: 0;
+        }
+        .stamp-board-col-area {
+            flex: 1;
+            position: relative;
+            cursor: crosshair;
+            background:
+                repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(99, 110, 114, 0.06) 23px, rgba(99, 110, 114, 0.06) 24px),
+                repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(99, 110, 114, 0.06) 23px, rgba(99, 110, 114, 0.06) 24px);
+            min-height: 120px;
+            overflow: hidden;
+        }
+        .stamp-board-col-area.is-busy { cursor: wait; }
+        .stamp-board-col-foot {
+            text-align: center;
+            font-size: 0.72rem;
+            color: #636e72;
+            padding: 0.3rem;
+            border-top: 1px solid rgba(99, 110, 114, 0.12);
+            flex-shrink: 0;
+        }
+        .stamp-mark {
+            position: absolute;
+            width: 72px;
+            height: 72px;
+            margin-left: -36px;
+            margin-top: -36px;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.88;
+        }
+        .stamp-mark-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 3px double #c0392b;
+            color: #c0392b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            line-height: 1.05;
+            background: rgba(231, 76, 60, 0.06);
+            box-shadow: inset 0 0 0 2px rgba(231, 76, 60, 0.12);
+        }
+        .stamp-mark-line1 { font-size: 0.62rem; letter-spacing: 0.02em; }
+        .stamp-mark-line2 { font-size: 0.58rem; margin-top: 1px; }
+        .stamp-board-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #b2bec3;
+            font-size: 0.9rem;
+            padding: 2rem;
+        }
+        .sidebar-stamp-open-btn {
+            width: 100%;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            padding: 0.65rem 0.75rem;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            box-shadow: 0 4px 14px rgba(231, 76, 60, 0.28);
+        }
+        .sidebar-stamp-open-btn:hover { filter: brightness(1.05); }
+        .sidebar-stamp-open-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            filter: none;
+        }
+        .sidebar-stamp-note {
+            font-size: 0.72rem;
+            color: #636e72;
+            margin-top: 0.45rem;
+            text-align: center;
+            line-height: 1.35;
+        }
+        [data-theme="dark"] #stampBoardOverlay .stamp-board-window {
+            background: #2d3436;
+            border-color: rgba(231, 76, 60, 0.35);
+        }
+        [data-theme="dark"] .stamp-board-col-head { background: rgba(59, 158, 221, 0.15); color: #dfe6e9; }
+        [data-theme="dark"] .stamp-board-head-hint,
+        [data-theme="dark"] .stamp-board-col-foot { color: #b2bec3; }
+        @media (max-width: 767px) {
+            #stampBoardOverlay .stamp-board-window {
+                width: calc(100vw - 16px);
+                height: calc(100vh - 16px);
+            }
+            .stamp-mark { width: 58px; height: 58px; margin-left: -29px; margin-top: -29px; }
+        }
+        @media print {
+            #stampBoardOverlay { display: none !important; }
+        }
+
         #toolOverlay {
             display: none;
             position: fixed;
@@ -848,6 +1061,231 @@
         .sidebar-panel[data-sidebar-id="classRules"] .sidebar-mini-chip { border-color: rgba(255, 159, 67, 0.45); color: #d35400; }
         .sidebar-panel[data-sidebar-id="youtube"] .sidebar-mini-chip { border-color: rgba(231, 76, 60, 0.45); color: #c0392b; }
         .sidebar-panel[data-sidebar-id="googleSearch"] .sidebar-mini-chip { border-color: rgba(66, 133, 244, 0.5); color: #4285f4; }
+        .sidebar-panel[data-sidebar-id="marqueeTicker"] .sidebar-mini-chip { border-color: rgba(245, 197, 24, 0.55); color: #f39c12; }
+
+        /* ===== Class LED ticker (iPad / desktop projection) ===== */
+        .class-marquee-bar,
+        .marquee-toolbar-btn { display: none; }
+        @media (min-width: 768px) {
+            body:not(.teacher-mobile) .class-marquee-bar { display: block; }
+            body:not(.teacher-mobile) .marquee-toolbar-btn { display: inline-flex; }
+        }
+        .class-marquee-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 610;
+            height: 52px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%),
+                repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 6px),
+                linear-gradient(180deg, #0d1f3c 0%, #071222 100%);
+            border-bottom: 3px solid #f5c518;
+            box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            transform: translateY(-110%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease;
+        }
+        .class-marquee-bar.is-open {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        body.marquee-bar-open:not(.teacher-mobile) {
+            padding-top: 52px;
+        }
+        body.marquee-bar-open:not(.teacher-mobile) .theme-toggle-btn {
+            top: calc(14px + 52px);
+        }
+        body.marquee-bar-open:not(.teacher-mobile) .sidebar-toolbar {
+            top: calc(14px + 52px);
+        }
+        .class-marquee-viewport {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            padding: 0 3rem 0 1rem;
+            mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+        }
+        .class-marquee-track {
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+            will-change: transform;
+            animation: class-marquee-scroll linear infinite;
+        }
+        .class-marquee-track.is-paused { animation-play-state: paused; }
+        .class-marquee-chunk {
+            display: inline-block;
+            padding-right: 4rem;
+            font-family: 'Segoe UI', 'Apple SD Gothic Neo', Malgun Gothic, sans-serif;
+            font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            color: #ffe566;
+            text-shadow:
+                0 0 8px rgba(255, 229, 102, 0.85),
+                0 0 18px rgba(255, 180, 0, 0.45),
+                0 2px 0 rgba(0, 0, 0, 0.55);
+        }
+        .class-marquee-chunk .marquee-sep {
+            color: #ff6b9d;
+            margin: 0 1.25rem;
+            text-shadow: 0 0 10px rgba(255, 107, 157, 0.8);
+        }
+        @keyframes class-marquee-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .class-marquee-track { animation: none; }
+            .class-marquee-viewport { justify-content: center; }
+            .class-marquee-chunk + .class-marquee-chunk { display: none; }
+        }
+        .class-marquee-close {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            width: 34px;
+            height: 34px;
+            border: 2px solid rgba(245, 197, 24, 0.55);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.35);
+            color: #ffe566;
+            font-size: 1.2rem;
+            line-height: 1;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .class-marquee-close:hover {
+            background: rgba(245, 197, 24, 0.18);
+            color: #fff;
+        }
+        .class-marquee-live-dot {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(245, 197, 24, 0.45);
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #ffb4b4;
+            text-transform: uppercase;
+            z-index: 2;
+        }
+        .class-marquee-live-dot::before {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #ff4d4d;
+            box-shadow: 0 0 8px #ff4d4d;
+            animation: marquee-live-blink 1.2s ease-in-out infinite;
+        }
+        @keyframes marquee-live-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+        .sidebar-panel[data-sidebar-id="marqueeTicker"] { max-height: min(42vh, 320px); }
+        .sidebar-panel[data-sidebar-id="marqueeTicker"] .float-panel-card {
+            border: 3px solid rgba(245, 197, 24, 0.42);
+            box-shadow: 0 6px 0 rgba(245, 197, 24, 0.12), 0 14px 32px rgba(7, 18, 34, 0.12);
+        }
+        .sidebar-panel[data-sidebar-id="marqueeTicker"] .float-panel-head {
+            background: linear-gradient(135deg, #fff9e6, #ffe8f3);
+        }
+        .marquee-control-body {
+            padding: 0.65rem 0.75rem 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        .marquee-control-body .form-label {
+            font-family: var(--app-heading);
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #1e4a6e;
+            margin-bottom: 0.2rem;
+        }
+        .marquee-control-body textarea {
+            min-height: 72px;
+            resize: vertical;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+        .marquee-speed-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .marquee-speed-row input[type="range"] { flex: 1; }
+        .marquee-speed-val {
+            min-width: 3.2rem;
+            text-align: right;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #d68910;
+        }
+        .marquee-control-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .marquee-control-actions .btn {
+            flex: 1 1 0;
+            min-width: 0;
+            font-weight: 800;
+            border-radius: 999px;
+        }
+        .btn-marquee-show {
+            background: linear-gradient(135deg, #f5c518, #f39c12);
+            border: none;
+            color: #1a1a1a;
+            box-shadow: 0 3px 0 #c8870d;
+        }
+        .btn-marquee-show:hover { color: #111; transform: translateY(-1px); }
+        .btn-marquee-hide {
+            background: linear-gradient(135deg, #5d6d7e, #34495e);
+            border: none;
+            color: #fff;
+            box-shadow: 0 3px 0 #2c3e50;
+        }
+        .btn-marquee-hide:hover { color: #fff; transform: translateY(-1px); }
+        .marquee-preview-led {
+            border-radius: 10px;
+            padding: 0.45rem 0.55rem;
+            background: #071222;
+            border: 2px solid rgba(245, 197, 24, 0.35);
+            color: #ffe566;
+            font-size: 0.78rem;
+            font-weight: 700;
+            min-height: 2rem;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .marquee-toolbar-btn.is-active {
+            background: linear-gradient(135deg, #f5c518, #f39c12);
+            color: #1a1a1a;
+            border-color: #d68910;
+        }
+        [data-theme="dark"] .sidebar-panel[data-sidebar-id="marqueeTicker"] .float-panel-head {
+            background: linear-gradient(135deg, #2c2410, #2a1a24);
+        }
+        [data-theme="dark"] .marquee-control-body .form-label { color: #d6e8f7; }
+
         .class-tools-panel-card {
             border: 3px solid rgba(255, 159, 67, 0.45);
             box-shadow: 0 6px 0 rgba(255, 159, 67, 0.12), 0 14px 32px rgba(59, 158, 221, 0.1);
@@ -2356,6 +2794,38 @@
             text-align: center;
             color: var(--app-muted);
             padding: 2rem 1rem;
+        }
+        .class-pending-add-panel {
+            border: 2px dashed rgba(59, 158, 221, 0.28);
+            border-radius: 14px;
+            padding: 0.85rem 0.95rem 0.95rem;
+            background: linear-gradient(180deg, rgba(232, 246, 255, 0.55), rgba(255, 255, 255, 0.9));
+        }
+        .class-pending-add-panel .step-label {
+            font-size: 0.82rem;
+            margin-bottom: 0.55rem;
+        }
+        .class-pending-student-actions {
+            display: inline-flex;
+            gap: 0.35rem;
+            margin-left: 0.35rem;
+            vertical-align: middle;
+        }
+        .class-pending-student-add-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 0.1rem 0.55rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #1e4a6e;
+            background: rgba(59, 158, 221, 0.14);
+        }
+        .class-pending-student-add-btn:hover {
+            background: rgba(59, 158, 221, 0.24);
+        }
+        [data-theme="dark"] .class-pending-add-panel {
+            background: linear-gradient(180deg, rgba(30, 74, 110, 0.35), rgba(20, 35, 50, 0.85));
+            border-color: rgba(93, 173, 226, 0.28);
         }
         .hw-items-editor { display: flex; flex-direction: column; gap: 0.65rem; }
         .hw-item-row {
@@ -5135,6 +5605,14 @@
     </div>
 </div>
 
+<div id="classMarqueeBar" class="class-marquee-bar hidden-section no-print" aria-live="polite" aria-label="Class ticker">
+    <span class="class-marquee-live-dot">Live</span>
+    <div class="class-marquee-viewport">
+        <div class="class-marquee-track is-paused" id="classMarqueeTrack"></div>
+    </div>
+    <button type="button" class="class-marquee-close" id="classMarqueeCloseBtn" title="Hide ticker" aria-label="Hide ticker">&times;</button>
+</div>
+
 <div id="whiteboardOverlay" class="no-print" aria-hidden="true">
     <button type="button" class="wb-exit" id="whiteboardExitBtn" title="Close white screen (Esc)">
         <i class="fa-solid fa-xmark"></i>
@@ -5149,6 +5627,21 @@
             <button type="button" class="tool-popup-close" id="toolOverlayCloseBtn" title="Close" aria-label="Close">&times;</button>
         </div>
         <iframe id="toolOverlayFrame" class="tool-overlay-frame" title="Class tool"></iframe>
+    </div>
+</div>
+
+<div id="stampBoardOverlay" class="no-print hidden-section" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Stamp Board">
+    <div class="stamp-board-backdrop" id="stampBoardBackdrop"></div>
+    <div class="stamp-board-window">
+        <div class="stamp-board-head">
+            <div class="stamp-board-head-title"><i class="fa-solid fa-stamp"></i> <span id="stampBoardTitle">Stamp Board</span></div>
+            <div class="stamp-board-head-hint">Click a column to stamp · 5 stamps = $1</div>
+            <div class="stamp-board-head-actions">
+                <button type="button" class="stamp-board-cash-btn" id="stampBoardCashBtn" title="Cash in all stamps">Cash In</button>
+                <button type="button" class="stamp-board-close" id="stampBoardCloseBtn" title="Close" aria-label="Close">&times;</button>
+            </div>
+        </div>
+        <div class="stamp-board-grid" id="stampBoardGrid"></div>
     </div>
 </div>
 
@@ -5552,6 +6045,24 @@
     </div>
 </aside>
 
+<aside id="stampBoardFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="stampBoard" aria-label="Stamp Board">
+    <div class="float-panel-card">
+        <div class="float-panel-head sidebar-panel-head">
+            <span class="sidebar-drag-handle" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
+            <span class="float-panel-title"><i class="fa-solid fa-stamp"></i> Stamp Board</span>
+            <div class="sidebar-head-actions">
+                <button type="button" class="sidebar-panel-hide-btn" data-sidebar-hide="stampBoard">Hide</button>
+            </div>
+        </div>
+        <div class="sidebar-panel-full" style="padding: 0.65rem 0.75rem 0.75rem;">
+            <button type="button" class="sidebar-stamp-open-btn" id="openStampBoardBtn">
+                <i class="fa-solid fa-stamp"></i> Open Stamp Board
+            </button>
+            <div class="sidebar-stamp-note">Click anywhere in a student column to stamp.<br>5 stamps → $1 when the board is full.</div>
+        </div>
+    </div>
+</aside>
+
 <aside id="booksReturnFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="booksReturn" aria-label="Books to return">
     <div class="books-return-card">
         <div class="books-return-head sidebar-panel-head">
@@ -5564,6 +6075,33 @@
         </div>
         <div class="books-return-list-wrap" id="booksReturnList">
             <div class="books-return-empty">Select a class</div>
+        </div>
+    </div>
+</aside>
+
+<aside id="marqueeTickerFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="marqueeTicker" aria-label="Class ticker">
+    <div class="float-panel-card">
+        <div class="float-panel-head sidebar-panel-head">
+            <span class="sidebar-drag-handle" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>
+            <span class="float-panel-title"><i class="fa-solid fa-tv"></i> Class Ticker</span>
+            <div class="sidebar-head-actions">
+                <button type="button" class="sidebar-panel-hide-btn" data-sidebar-hide="marqueeTicker">Hide</button>
+            </div>
+        </div>
+        <div class="marquee-control-body">
+            <label class="form-label" for="marqueeTextInput">Message for students</label>
+            <textarea class="form-control form-control-sm" id="marqueeTextInput" rows="3" placeholder="e.g. Vocab test in 5 minutes!"></textarea>
+            <label class="form-label" for="marqueeSpeedRange">Scroll speed</label>
+            <div class="marquee-speed-row">
+                <input type="range" class="form-range" id="marqueeSpeedRange" min="12" max="48" step="2" value="24">
+                <span class="marquee-speed-val" id="marqueeSpeedLabel">24</span>
+            </div>
+            <div class="marquee-preview-led" id="marqueePreviewLed">Preview appears here</div>
+            <div class="marquee-control-actions">
+                <button type="button" class="btn btn-marquee-show" id="marqueeShowBtn"><i class="fa-solid fa-play"></i> Show</button>
+                <button type="button" class="btn btn-marquee-hide" id="marqueeHideBtn"><i class="fa-solid fa-stop"></i> Hide</button>
+            </div>
+            <div class="form-text mb-0">Scrolls across the top of the screen for students on iPad / desktop projection.</div>
         </div>
     </div>
 </aside>
@@ -5660,6 +6198,9 @@
 </aside>
 
 <div class="sidebar-toolbar hidden-section no-print" id="sidebarToolbar">
+    <button type="button" class="sidebar-toggle-btn marquee-toolbar-btn" id="marqueeTickerToggleBtn" title="Show or hide class ticker">
+        <i class="fa-solid fa-tv"></i> Ticker
+    </button>
     <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Hide or show all side panels">
         <i class="fa-solid fa-eye-slash"></i> Hide sidebars
     </button>
@@ -6071,6 +6612,31 @@
             </div>
             <div class="modal-body">
                 <p class="small text-muted mb-2">Class: <strong id="classPendingModalClassName">—</strong></p>
+                <div class="class-pending-add-panel mb-3">
+                    <div class="step-label mb-2"><i class="fa-solid fa-plus"></i> Add pending homework</div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold mb-1" for="classManualHwStudentSelect">Student(s)</label>
+                            <select class="form-select form-select-sm" id="classManualHwStudentSelect">
+                                <option value="">Select student…</option>
+                                <option value="__all__">All enrolled students</option>
+                            </select>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label small fw-bold mb-1" for="classManualHwTitleInput">Title</label>
+                            <input type="text" class="form-control form-control-sm" id="classManualHwTitleInput" placeholder="e.g. Redo workbook p.12">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold mb-1" for="classManualHwDescInput">Description (optional)</label>
+                            <textarea class="form-control form-control-sm" id="classManualHwDescInput" rows="2" placeholder="Extra instructions for the student"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" id="classManualHwAddBtn">
+                                <i class="fa-solid fa-plus"></i> Add pending homework
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <div id="classPendingList" class="class-pending-list">
                     <div class="class-pending-empty">Loading…</div>
                 </div>
@@ -6537,17 +7103,19 @@
 
     const SIDEBAR_LAYOUT_KEY = 'mrpark_sidebar_layout_v3';
     const SIDEBAR_IDS = [
-        'upcomingEvent', 'classTools', 'booksReturn',
-        'announcement', 'classRules', 'youtube', 'googleSearch'
+        'upcomingEvent', 'classTools', 'booksReturn', 'marqueeTicker',
+        'announcement', 'classRules', 'youtube', 'googleSearch', 'stampBoard'
     ];
     const SIDEBAR_META = {
         upcomingEvent: { el: 'upcomingEventFloat', label: 'Upcoming Event', icon: 'fa-calendar-days' },
         classTools: { el: 'classToolsFloat', label: 'Class Tools', icon: 'fa-toolbox' },
         booksReturn: { el: 'booksReturnFloat', label: 'Books to return', icon: 'fa-book' },
+        marqueeTicker: { el: 'marqueeTickerFloat', label: 'Class Ticker', icon: 'fa-tv' },
         announcement: { el: 'announcementFloat', label: 'Announcement', icon: 'fa-bullhorn' },
         classRules: { el: 'classRulesFloat', label: 'Class Rules', icon: 'fa-scroll' },
         youtube: { el: 'youtubeFloat', label: 'Vocab Timer', icon: 'fa-stopwatch' },
-        googleSearch: { el: 'googleSearchFloat', label: 'Search & AI', icon: 'fa-magnifying-glass' }
+        googleSearch: { el: 'googleSearchFloat', label: 'Search & AI', icon: 'fa-magnifying-glass' },
+        stampBoard: { el: 'stampBoardFloat', label: 'Stamp Board', icon: 'fa-stamp' }
     };
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const WORK_SECTION_IDS = ['hwLastSection', 'studentSection', 'textbookSection', 'homeworkUploadSection'];
@@ -7593,6 +8161,10 @@
         // 월별 리포트 관련
         document.getElementById('openReportBtn').addEventListener('click', openReport);
         document.getElementById('openClassPendingBtn').addEventListener('click', openClassPendingModal);
+        document.getElementById('classManualHwAddBtn').addEventListener('click', submitClassManualHomework);
+        document.getElementById('classManualHwTitleInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); submitClassManualHomework(); }
+        });
         document.getElementById('openClassLogBtn').addEventListener('click', openClassLogModal);
         document.getElementById('saveClassLogBtn').addEventListener('click', saveClassLogFromModal);
         ['classLogLessonInput', 'classLogHomeworkInput', 'classLogWritingInput'].forEach(function(id) {
@@ -7620,6 +8192,7 @@
         document.getElementById('pickStudentAgainBtn').addEventListener('click', pickRandomStudent);
         document.getElementById('sidebarToggleBtn').addEventListener('click', toggleSidebarsCollapsed);
         document.getElementById('sidebarResetBtn').addEventListener('click', resetSidebarLayout);
+        initMarqueeSystem();
         initTeacherMobile();
         initSidebarSystem();
         applyVocabTimerDeviceLayout();
@@ -7632,11 +8205,18 @@
         document.getElementById('openRouletteBtn').addEventListener('click', openRouletteWindow);
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
+        document.getElementById('openStampBoardBtn').addEventListener('click', loadStampBoardAndOpen);
+        document.getElementById('stampBoardCloseBtn').addEventListener('click', closeStampBoardOverlay);
+        document.getElementById('stampBoardBackdrop').addEventListener('click', closeStampBoardOverlay);
+        document.getElementById('stampBoardCashBtn').addEventListener('click', cashInStampBoard);
         document.getElementById('toolOverlayCloseBtn').addEventListener('click', closeToolOverlay);
         document.getElementById('toolPopupBackdrop').addEventListener('click', closeToolOverlay);
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.getElementById('toolOverlay').classList.contains('show')) {
                 closeToolOverlay();
+            }
+            if (e.key === 'Escape' && document.getElementById('stampBoardOverlay').classList.contains('show')) {
+                closeStampBoardOverlay();
             }
         });
 
@@ -7997,6 +8577,219 @@
         }
         loadClassSession(false);
         if (!isTeacherMobile()) showSidebarToggle();
+        restoreMarqueeForClass(cls.id);
+    }
+
+    const MARQUEE_STORAGE_PREFIX = 'mrpark_marquee_v1_';
+    const MARQUEE_BAR_HEIGHT = 52;
+    var marqueeState = { text: '', speed: 24, barOpen: false };
+
+    function getMarqueeTopOffset() {
+        return document.body.classList.contains('marquee-bar-open') && isMarqueeSupported()
+            ? MARQUEE_BAR_HEIGHT
+            : 0;
+    }
+
+    function adjustSidebarsForMarquee() {
+        if (!sidebarLayout) return;
+        const floor = 58;
+        if (getMarqueeTopOffset()) {
+            getVisibleSidebarIds().forEach(function(id) {
+                const p = sidebarLayout.panels[id];
+                if (p && typeof p.top === 'number' && p.top < floor) p.top = floor;
+            });
+        }
+        applySidebarPositions();
+    }
+
+    function marqueeStorageKey(classId) {
+        return MARQUEE_STORAGE_PREFIX + String(classId || 'global');
+    }
+
+    function loadMarqueeState(classId) {
+        try {
+            const raw = localStorage.getItem(marqueeStorageKey(classId));
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveMarqueeState(classId) {
+        if (!classId) return;
+        try {
+            localStorage.setItem(marqueeStorageKey(classId), JSON.stringify(marqueeState));
+        } catch (e) { /* ignore */ }
+    }
+
+    function isMarqueeSupported() {
+        return !isTeacherMobile() && !isTeacherMobileViewport();
+    }
+
+    function syncMarqueePanelInputs() {
+        const input = document.getElementById('marqueeTextInput');
+        const range = document.getElementById('marqueeSpeedRange');
+        const label = document.getElementById('marqueeSpeedLabel');
+        const preview = document.getElementById('marqueePreviewLed');
+        if (input) input.value = marqueeState.text || '';
+        if (range) range.value = String(marqueeState.speed || 24);
+        if (label) label.textContent = String(marqueeState.speed || 24);
+        if (preview) {
+            preview.textContent = (marqueeState.text || '').trim() || 'Preview appears here';
+        }
+    }
+
+    function formatMarqueeHtml(text) {
+        const safe = escapeHtml(String(text || '').trim());
+        if (!safe) return '';
+        return safe.split(/\s*◆\s*/).join('<span class="marquee-sep">◆</span>');
+    }
+
+    function buildMarqueeTrack(text) {
+        const track = document.getElementById('classMarqueeTrack');
+        if (!track) return;
+        const content = String(text || '').trim();
+        if (!content) {
+            track.innerHTML = '';
+            track.classList.add('is-paused');
+            return;
+        }
+        const chunkHtml = formatMarqueeHtml(content) + '<span class="marquee-sep">◆</span>';
+        track.innerHTML =
+            '<span class="class-marquee-chunk">' + chunkHtml + '</span>' +
+            '<span class="class-marquee-chunk" aria-hidden="true">' + chunkHtml + '</span>';
+        updateMarqueeAnimation();
+        track.classList.remove('is-paused');
+    }
+
+    function updateMarqueeAnimation() {
+        const track = document.getElementById('classMarqueeTrack');
+        if (!track || !track.firstElementChild) return;
+        const speed = Math.max(12, Number(marqueeState.speed) || 24);
+        const chunkWidth = track.firstElementChild.offsetWidth || 600;
+        const duration = Math.max(8, Math.min(120, chunkWidth / speed));
+        track.style.animationDuration = duration + 's';
+    }
+
+    function updateMarqueeToolbarBtn() {
+        const btn = document.getElementById('marqueeTickerToggleBtn');
+        if (!btn) return;
+        btn.classList.toggle('is-active', !!marqueeState.barOpen);
+        btn.innerHTML = marqueeState.barOpen
+            ? '<i class="fa-solid fa-tv"></i> Ticker on'
+            : '<i class="fa-solid fa-tv"></i> Ticker';
+    }
+
+    function showMarqueeBar(persist) {
+        if (!isMarqueeSupported()) {
+            appToast('Ticker is available on iPad and desktop only.');
+            return;
+        }
+        const input = document.getElementById('marqueeTextInput');
+        const text = (input && input.value ? input.value : marqueeState.text || '').trim();
+        if (!text) {
+            appToast('Type a ticker message first.');
+            return;
+        }
+        marqueeState.text = text;
+        marqueeState.barOpen = true;
+        syncMarqueePanelInputs();
+        buildMarqueeTrack(text);
+        const bar = document.getElementById('classMarqueeBar');
+        if (bar) {
+            bar.classList.remove('hidden-section');
+            requestAnimationFrame(function() { bar.classList.add('is-open'); });
+        }
+        document.body.classList.add('marquee-bar-open');
+        updateMarqueeToolbarBtn();
+        if (persist !== false && selectedClass) saveMarqueeState(selectedClass.id);
+        requestAnimationFrame(adjustSidebarsForMarquee);
+    }
+
+    function hideMarqueeBar(persist) {
+        marqueeState.barOpen = false;
+        const bar = document.getElementById('classMarqueeBar');
+        if (bar) {
+            bar.classList.remove('is-open');
+            bar.classList.add('hidden-section');
+        }
+        document.body.classList.remove('marquee-bar-open');
+        const track = document.getElementById('classMarqueeTrack');
+        if (track) track.classList.add('is-paused');
+        updateMarqueeToolbarBtn();
+        if (persist !== false && selectedClass) saveMarqueeState(selectedClass.id);
+        requestAnimationFrame(adjustSidebarsForMarquee);
+    }
+
+    function toggleMarqueeBar() {
+        if (marqueeState.barOpen) hideMarqueeBar();
+        else showMarqueeBar();
+    }
+
+    function restoreMarqueeForClass(classId) {
+        if (!classId || !isMarqueeSupported()) {
+            hideMarqueeBar(false);
+            return;
+        }
+        marqueeState = Object.assign({ text: '', speed: 24, barOpen: false }, loadMarqueeState(classId));
+        syncMarqueePanelInputs();
+        if (marqueeState.barOpen && marqueeState.text.trim()) {
+            buildMarqueeTrack(marqueeState.text);
+            const bar = document.getElementById('classMarqueeBar');
+            if (bar) {
+                bar.classList.remove('hidden-section');
+                bar.classList.add('is-open');
+            }
+            document.body.classList.add('marquee-bar-open');
+            updateMarqueeToolbarBtn();
+        } else {
+            hideMarqueeBar(false);
+        }
+        requestAnimationFrame(adjustSidebarsForMarquee);
+    }
+
+    function initMarqueeSystem() {
+        const input = document.getElementById('marqueeTextInput');
+        const range = document.getElementById('marqueeSpeedRange');
+        const preview = document.getElementById('marqueePreviewLed');
+        const showBtn = document.getElementById('marqueeShowBtn');
+        const hideBtn = document.getElementById('marqueeHideBtn');
+        const toggleBtn = document.getElementById('marqueeTickerToggleBtn');
+        const closeBtn = document.getElementById('classMarqueeCloseBtn');
+
+        function syncPreview() {
+            if (!preview || !input) return;
+            const text = input.value.trim();
+            preview.textContent = text || 'Preview appears here';
+        }
+
+        if (input) {
+            input.addEventListener('input', function() {
+                marqueeState.text = input.value;
+                syncPreview();
+                if (selectedClass) saveMarqueeState(selectedClass.id);
+            });
+        }
+        if (range) {
+            range.addEventListener('input', function() {
+                marqueeState.speed = Number(range.value) || 24;
+                const label = document.getElementById('marqueeSpeedLabel');
+                if (label) label.textContent = String(marqueeState.speed);
+                updateMarqueeAnimation();
+                if (selectedClass) saveMarqueeState(selectedClass.id);
+            });
+        }
+        if (showBtn) showBtn.addEventListener('click', function() { showMarqueeBar(); });
+        if (hideBtn) hideBtn.addEventListener('click', function() { hideMarqueeBar(); });
+        if (toggleBtn) toggleBtn.addEventListener('click', toggleMarqueeBar);
+        if (closeBtn) closeBtn.addEventListener('click', function() { hideMarqueeBar(); });
+        window.addEventListener('resize', function() {
+            if (marqueeState.barOpen) updateMarqueeAnimation();
+            if (sidebarLayout) applySidebarPositions();
+        });
+        teacherMobileMq.addEventListener('change', function() {
+            if (!isMarqueeSupported()) hideMarqueeBar(false);
+        });
     }
 
     function getSidebarEl(id) {
@@ -8303,16 +9096,18 @@
         updateSidebarCompactBackdrop();
     }
 
-    const SIDEBAR_STACK_LEFT = ['upcomingEvent', 'booksReturn', 'googleSearch', 'classTools'];
-    const SIDEBAR_STACK_RIGHT = ['announcement', 'classRules', 'youtube'];
+    const SIDEBAR_STACK_LEFT = ['upcomingEvent', 'booksReturn', 'googleSearch', 'classTools', 'stampBoard'];
+    const SIDEBAR_STACK_RIGHT = ['marqueeTicker', 'announcement', 'classRules', 'youtube'];
     const SIDEBAR_HEIGHT_FALLBACK = {
         upcomingEvent: 190,
         classTools: 380,
         booksReturn: 210,
         googleSearch: 340,
+        marqueeTicker: 300,
         announcement: 190,
         classRules: 230,
-        youtube: 200
+        youtube: 200,
+        stampBoard: 160
     };
 
     function getSidebarPanelHeight(id) {
@@ -8501,11 +9296,12 @@
     }
 
     function applySidebarPositions() {
+        const marqueeOff = getMarqueeTopOffset();
         SIDEBAR_IDS.forEach(function(id) {
             const el = getSidebarEl(id);
             const p = sidebarLayout.panels[id];
             if (!el || !p) return;
-            el.style.top = p.top + 'px';
+            el.style.top = (p.top + marqueeOff) + 'px';
             el.style.left = p.left + 'px';
             el.style.right = 'auto';
             el.style.bottom = 'auto';
@@ -8673,10 +9469,12 @@
                 }
                 const panelW = panel.offsetWidth || 44;
                 const panelH = panel.offsetHeight || 44;
+                const marqueeOff = getMarqueeTopOffset();
+                const floorTop = 4 + marqueeOff;
                 layout.left = Math.round(Math.max(4, Math.min(window.innerWidth - panelW - 4, startLeft + (cx - startX))));
-                layout.top = Math.round(Math.max(4, Math.min(window.innerHeight - panelH - 4, startTop + (cy - startY))));
+                layout.top = Math.round(Math.max(floorTop, Math.min(window.innerHeight - panelH - 4, startTop + (cy - startY))));
                 panel.style.left = layout.left + 'px';
-                panel.style.top = layout.top + 'px';
+                panel.style.top = (layout.top + marqueeOff) + 'px';
             }
 
             function endDrag() {
@@ -12021,10 +12819,86 @@
             return;
         }
         document.getElementById('classPendingModalClassName').textContent = selectedClass.name;
+        populateClassManualHwStudentSelect();
+        document.getElementById('classManualHwTitleInput').value = '';
+        document.getElementById('classManualHwDescInput').value = '';
         document.getElementById('classPendingList').innerHTML =
             '<div class="class-pending-empty">Loading…</div>';
         const modal = new bootstrap.Modal(document.getElementById('classPendingModal'));
         modal.show();
+        loadClassPendingHomework();
+    }
+
+    function populateClassManualHwStudentSelect(studentId) {
+        const sel = document.getElementById('classManualHwStudentSelect');
+        if (!sel) return;
+        const students = getHomeworkEditorStudents();
+        sel.innerHTML =
+            '<option value="">Select student…</option>' +
+            '<option value="__all__">All enrolled students</option>' +
+            students.map(function(s) {
+                return '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>';
+            }).join('');
+        if (studentId) sel.value = String(studentId);
+    }
+
+    function focusClassManualHwForm(studentId) {
+        populateClassManualHwStudentSelect(studentId || '');
+        const titleEl = document.getElementById('classManualHwTitleInput');
+        if (titleEl) titleEl.focus();
+        const panel = document.querySelector('.class-pending-add-panel');
+        if (panel && panel.scrollIntoView) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function submitClassManualHomework() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        const sel = document.getElementById('classManualHwStudentSelect');
+        const title = document.getElementById('classManualHwTitleInput').value.trim();
+        const description = document.getElementById('classManualHwDescInput').value.trim();
+        const pick = sel ? sel.value : '';
+        if (!pick) {
+            appAlert('Select a student or All enrolled students.');
+            return;
+        }
+        if (!title) {
+            appAlert('Enter a homework title.');
+            return;
+        }
+        const payload = {
+            classId: selectedClass.id,
+            title: title,
+            description: description
+        };
+        if (pick === '__all__') {
+            payload.studentIds = getHomeworkEditorStudents().map(function(s) { return s.id; });
+            if (!payload.studentIds.length) {
+                appAlert('No enrolled students in this class.');
+                return;
+            }
+        } else {
+            payload.studentId = pick;
+        }
+        if (!apiPost('/api/homework/manual', payload, function(res) {
+            handleManualHomeworkAdded(res);
+        })) {
+            appAlert('Manual homework requires the Node API.');
+        }
+    }
+
+    function handleManualHomeworkAdded(res) {
+        appToast((res && res.message) || 'Added.');
+        document.getElementById('classManualHwTitleInput').value = '';
+        document.getElementById('classManualHwDescInput').value = '';
+        const results = (res && res.results && res.results.length) ? res.results : [res];
+        results.forEach(function(r) {
+            if (r && r.studentId != null && r.pendingCount != null) {
+                updateStudentPendingBadge(r.studentId, r.pendingCount);
+            }
+        });
+        if (selectedStudent) loadStudentHomework();
         loadClassPendingHomework();
     }
 
@@ -12048,7 +12922,7 @@
         const withPending = students.filter(function(s) { return s.pendingCount > 0; });
         if (!withPending.length) {
             box.innerHTML = '<div class="class-pending-empty"><i class="fa-solid fa-circle-check text-success"></i> ' +
-                'No pending homework for this class. Great!</div>';
+                'No pending homework right now. Use the form above to add one.</div>';
             return;
         }
         box.innerHTML = '';
@@ -12057,7 +12931,13 @@
             block.className = 'class-pending-student';
             block.setAttribute('data-student-id', st.studentId);
             block.innerHTML = '<div class="class-pending-student-name">' + escapeHtml(st.name) +
-                ' <span class="badge bg-warning text-dark">' + st.pendingCount + ' pending</span></div>';
+                ' <span class="badge bg-warning text-dark">' + st.pendingCount + ' pending</span>' +
+                '<span class="class-pending-student-actions">' +
+                '<button type="button" class="class-pending-student-add-btn" title="Add homework for ' +
+                escapeHtml(st.name) + '"><i class="fa-solid fa-plus"></i> Add</button></span></div>';
+            block.querySelector('.class-pending-student-add-btn').addEventListener('click', function() {
+                focusClassManualHwForm(st.studentId);
+            });
             st.pending.forEach(function(item) {
                 block.appendChild(buildPendingHomeworkRow(item, st.studentId, {
                     onComplete: function(itemId, studentId, res) {
@@ -12088,7 +12968,7 @@
         const box = document.getElementById('classPendingList');
         if (!box.querySelector('.class-pending-student')) {
             box.innerHTML = '<div class="class-pending-empty"><i class="fa-solid fa-circle-check text-success"></i> ' +
-                'No pending homework for this class. Great!</div>';
+                'No pending homework right now. Use the form above to add one.</div>';
         }
         if (selectedStudent && selectedStudent.id === studentId) {
             loadStudentHomework();
@@ -12907,11 +13787,7 @@
         }, function(res) {
             document.getElementById('manualHwTitleInput').value = '';
             document.getElementById('manualHwDescInput').value = '';
-            appToast(res.message || 'Added.');
-            if (res.pendingCount != null) {
-                updateStudentPendingBadge(selectedStudent.id, res.pendingCount);
-            }
-            loadStudentHomework();
+            handleManualHomeworkAdded(res);
         })) {
             appAlert('Manual homework requires the Node API.');
         }
@@ -14110,6 +14986,197 @@
                 .withFailureHandler(handleError)
                 .updateStudentRecord(selectedClass.id, selectedStudent.id, dateStr, attendance, vocabScore);
         }
+    }
+
+    // ===== Stamp Board =====
+    var stampBoardData = null;
+    var stampBoardPlacing = false;
+
+    function closeStampBoardOverlay() {
+        var overlay = document.getElementById('stampBoardOverlay');
+        if (!overlay) return;
+        overlay.classList.add('hidden-section');
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('stamp-board-open');
+    }
+
+    function renderStampBoardGrid(data) {
+        var grid = document.getElementById('stampBoardGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        if (!data || !data.students || !data.students.length) {
+            grid.innerHTML = '<div class="stamp-board-empty">No enrolled students in this class.</div>';
+            return;
+        }
+        var stampsByStudent = {};
+        (data.stamps || []).forEach(function(s) {
+            if (!stampsByStudent[s.studentId]) stampsByStudent[s.studentId] = [];
+            stampsByStudent[s.studentId].push(s);
+        });
+        data.students.forEach(function(student) {
+            var col = document.createElement('div');
+            col.className = 'stamp-board-col';
+            col.dataset.studentId = student.id;
+            var head = document.createElement('div');
+            head.className = 'stamp-board-col-head';
+            head.textContent = student.name;
+            var area = document.createElement('div');
+            area.className = 'stamp-board-col-area';
+            area.dataset.studentId = student.id;
+            var foot = document.createElement('div');
+            foot.className = 'stamp-board-col-foot';
+            var count = (stampsByStudent[student.id] || []).length;
+            foot.textContent = count + ' stamp' + (count === 1 ? '' : 's');
+            (stampsByStudent[student.id] || []).forEach(function(stamp) {
+                area.appendChild(createStampMarkEl(stamp));
+            });
+            area.addEventListener('click', onStampBoardColumnClick);
+            col.appendChild(head);
+            col.appendChild(area);
+            col.appendChild(foot);
+            grid.appendChild(col);
+        });
+    }
+
+    function createStampMarkEl(stamp) {
+        var el = document.createElement('div');
+        el.className = 'stamp-mark';
+        el.dataset.stampId = stamp.id;
+        el.style.left = stamp.xPct + '%';
+        el.style.top = stamp.yPct + '%';
+        el.style.transform = 'rotate(' + (stamp.rotDeg || 0) + 'deg)';
+        el.innerHTML = '<div class="stamp-mark-inner"><div class="stamp-mark-line1">Mr. Park</div><div class="stamp-mark-line2">Great Job!</div></div>';
+        return el;
+    }
+
+    function onStampBoardColumnClick(e) {
+        if (stampBoardPlacing || !stampBoardData || !selectedClass) return;
+        var area = e.currentTarget;
+        var studentId = area.dataset.studentId;
+        if (!studentId) return;
+        var rect = area.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        var xPct = ((e.clientX - rect.left) / rect.width) * 100;
+        var yPct = ((e.clientY - rect.top) / rect.height) * 100;
+        var rotDeg = Math.round(-14 + Math.random() * 28);
+        placeStampOnBoard(studentId, xPct, yPct, rotDeg, area);
+    }
+
+    function placeStampOnBoard(studentId, xPct, yPct, rotDeg, areaEl) {
+        stampBoardPlacing = true;
+        if (areaEl) areaEl.classList.add('is-busy');
+        nodeFetch('/api/stamp-board/stamp', {
+            method: 'POST',
+            body: JSON.stringify({
+                classId: selectedClass.id,
+                studentId: studentId,
+                xPct: xPct,
+                yPct: yPct,
+                rotDeg: rotDeg
+            })
+        })
+            .then(function(res) {
+                stampBoardPlacing = false;
+                if (areaEl) areaEl.classList.remove('is-busy');
+                if (res.redemption && res.redemption.board) {
+                    stampBoardData = res.redemption.board;
+                    renderStampBoardGrid(stampBoardData);
+                    showStampBoardRedemption(res.redemption);
+                    refreshWorkPanelsQuiet();
+                    return;
+                }
+                if (res.stamp) {
+                    if (!stampBoardData) stampBoardData = { students: [], stamps: [] };
+                    stampBoardData.stamps = stampBoardData.stamps || [];
+                    stampBoardData.stamps.push(res.stamp);
+                    renderStampBoardGrid(stampBoardData);
+                }
+            })
+            .catch(function(err) {
+                stampBoardPlacing = false;
+                if (areaEl) areaEl.classList.remove('is-busy');
+                appAlert(err && err.message ? err.message : 'Could not place stamp.');
+            });
+    }
+
+    function showStampBoardRedemption(redemption) {
+        if (!redemption) return;
+        if (!redemption.awards || !redemption.awards.length) {
+            appAlert('Stamps updated. (Need 5 stamps for $1 — leftover stamps stay on the board.)');
+            return;
+        }
+        var lines = redemption.awards.map(function(a) {
+            return a.name + ': ' + a.stampCount + ' stamps → $' + a.dollars;
+        });
+        appAlert('Cashed in:\n' + lines.join('\n'));
+    }
+
+    function refreshWorkPanelsQuiet() {
+        if (!selectedClass) return;
+        var dateStr = document.getElementById('attendanceDate') && document.getElementById('attendanceDate').value;
+        nodeFetch('/api/work?classId=' + encodeURIComponent(selectedClass.id) + '&date=' + encodeURIComponent(dateStr || ''))
+            .then(function(r) { return r.json(); })
+            .then(function(work) {
+                if (work && work.students) applyWorkPanels(work);
+            })
+            .catch(function() { /* ignore */ });
+    }
+
+    function loadStampBoardAndOpen() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        var overlay = document.getElementById('stampBoardOverlay');
+        var title = document.getElementById('stampBoardTitle');
+        if (title) title.textContent = 'Stamp Board — ' + selectedClass.name;
+        if (overlay) {
+            overlay.classList.remove('hidden-section');
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('stamp-board-open');
+        }
+        var grid = document.getElementById('stampBoardGrid');
+        if (grid) grid.innerHTML = '<div class="stamp-board-empty">Loading…</div>';
+        nodeFetch('/api/stamp-board?classId=' + encodeURIComponent(selectedClass.id))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data && data.error) throw new Error(data.error);
+                stampBoardData = data;
+                renderStampBoardGrid(stampBoardData);
+            })
+            .catch(function(err) {
+                if (grid) grid.innerHTML = '<div class="stamp-board-empty">Could not load stamp board.</div>';
+                appAlert((err && err.message) || 'Could not load stamp board.');
+            });
+    }
+
+    function cashInStampBoard() {
+        if (!selectedClass || stampBoardPlacing) return;
+        if (!stampBoardData || !stampBoardData.stamps || !stampBoardData.stamps.length) {
+            appAlert('No stamps to cash in yet.');
+            return;
+        }
+        if (!confirm('Cash in all stamps? (5 stamps = $1 per student)')) return;
+        stampBoardPlacing = true;
+        nodeFetch('/api/stamp-board/redeem', {
+            method: 'POST',
+            body: JSON.stringify({ classId: selectedClass.id })
+        })
+            .then(function(res) {
+                stampBoardPlacing = false;
+                if (res.board) {
+                    stampBoardData = res.board;
+                    renderStampBoardGrid(stampBoardData);
+                }
+                showStampBoardRedemption(res);
+                refreshWorkPanelsQuiet();
+            })
+            .catch(function(err) {
+                stampBoardPlacing = false;
+                appAlert(err && err.message ? err.message : 'Could not cash in stamps.');
+            });
     }
 
     // ===== White screen (electronic whiteboard mirror) =====

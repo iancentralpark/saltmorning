@@ -71,7 +71,7 @@ const {
   getActiveClientTiers,
   saveLuckyDrawConfig
 } = require('./luckyDrawConfigService');
-const { addManualPendingHomework } = require('./manualHomeworkService');
+const { addManualPendingHomework, addManualPendingHomeworkBatch } = require('./manualHomeworkService');
 const { withdrawStudent, listWithdrawnStudents } = require('./withdrawnStudentService');
 const {
   startStudentLeave,
@@ -88,6 +88,12 @@ const {
 const { addEnrolledStudent } = require('./studentListService');
 const { applyDollarAdjustment, getStudentDollarBalance } = require('./dollarService');
 const { toggleChambitRead, setChambitComboManual } = require('./chambitService');
+const {
+  getStampBoard,
+  addStamp,
+  removeStamp,
+  redeemStampBoard
+} = require('./stampBoardService');
 const {
   getClassTextbookData,
   addTextbookToQueue,
@@ -518,6 +524,52 @@ router.post('/dollar', async (req, res) => {
   }
 });
 
+router.get('/stamp-board', async (req, res) => {
+  try {
+    const { classId } = req.query;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await getStampBoard(classId));
+  } catch (e) {
+    console.error('GET /stamp-board', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/stamp-board/stamp', async (req, res) => {
+  try {
+    const { classId, studentId, xPct, yPct, rotDeg } = req.body || {};
+    if (!classId || !studentId) return res.status(400).json({ error: 'classId and studentId are required' });
+    res.json(await addStamp(classId, studentId, xPct, yPct, rotDeg));
+  } catch (e) {
+    console.error('POST /stamp-board/stamp', e);
+    const status = e.code === 'STAMP_COLLISION' ? 409 : 500;
+    res.status(status).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/stamp-board/redeem', async (req, res) => {
+  try {
+    const { classId } = req.body || {};
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await redeemStampBoard(classId, { reason: 'stamp-board-manual' }));
+  } catch (e) {
+    console.error('POST /stamp-board/redeem', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.delete('/stamp-board/stamp/:stampId', async (req, res) => {
+  try {
+    const { classId } = req.query;
+    const { stampId } = req.params;
+    if (!classId || !stampId) return res.status(400).json({ error: 'classId and stampId are required' });
+    res.json(await removeStamp(classId, stampId));
+  } catch (e) {
+    console.error('DELETE /stamp-board/stamp', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
 router.post('/chambit/toggle', async (req, res) => {
   try {
     const { classId, studentId, dateStr, action, allowedDays } = req.body || {};
@@ -847,9 +899,17 @@ router.post('/homework/fix-note', async (req, res) => {
 
 router.post('/homework/manual', async (req, res) => {
   try {
-    const { classId, studentId, title, description } = req.body || {};
-    if (!classId || !studentId) return res.status(400).json({ error: 'classId and studentId are required' });
-    res.json(await addManualPendingHomework(classId, studentId, title, description));
+    const { classId, studentId, studentIds, title, description } = req.body || {};
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    const ids = Array.isArray(studentIds) && studentIds.length
+      ? studentIds.map(function(sid) { return String(sid); }).filter(Boolean)
+      : (studentId ? [String(studentId)] : []);
+    if (!ids.length) return res.status(400).json({ error: 'studentId or studentIds is required' });
+    if (ids.length === 1) {
+      res.json(await addManualPendingHomework(classId, ids[0], title, description));
+      return;
+    }
+    res.json(await addManualPendingHomeworkBatch(classId, ids, title, description));
   } catch (e) {
     console.error('POST /homework/manual', e);
     res.status(500).json({ error: e.message || 'Server error' });

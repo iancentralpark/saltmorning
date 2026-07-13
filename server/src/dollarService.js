@@ -1,6 +1,6 @@
 const { DOLLAR_SHEETS } = require('./config');
 const { getSheetRows, updateRange, appendRows, invalidateSheetRowsCache } = require('./sheets');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 function afterDollarWrite(classId) {

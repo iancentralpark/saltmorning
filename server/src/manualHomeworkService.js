@@ -1,7 +1,7 @@
 const { MANUAL_PENDING_SHEET, TIMEZONE } = require('./config');
 const { getSheetRows, appendRows, updateRange, deleteRows, invalidateSheetRowsCache } = require('./sheets');
 const { formatDateTimeNow, formatDateInTz } = require('./dateUtils');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 const MANUAL_PREFIX = 'MPH_';
@@ -85,9 +85,25 @@ async function addManualPendingHomework(classId, studentId, title, description) 
   if (!title) throw new Error('Homework title is required.');
   const pendingId = MANUAL_PREFIX + classId + '_' + studentId + '_' + Date.now();
   const createdAt = formatDateTimeNow(TIMEZONE);
-  await appendRows(MANUAL_PENDING_SHEET, [[
-    pendingId, classId, studentId, title, description, createdAt, ''
-  ]]);
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('homework_manual_pending').insert({
+      pending_id: pendingId,
+      class_id: classId,
+      student_id: studentId,
+      title,
+      description,
+      created_at: new Date(createdAt).toISOString(),
+      fix_note: ''
+    });
+    if (error) throw new Error(error.message);
+    afterManualHomeworkWrite(classId);
+  } else {
+    await appendRows(MANUAL_PENDING_SHEET, [[
+      pendingId, classId, studentId, title, description, createdAt, ''
+    ]]);
+    afterManualHomeworkWrite(classId);
+  }
   const pendingCount = await countManualPendingForStudent(classId, studentId);
   return {
     message: 'Pending homework added.',
@@ -95,6 +111,29 @@ async function addManualPendingHomework(classId, studentId, title, description) 
     studentId,
     pendingCount,
     item: manualRowToEntry([pendingId, classId, studentId, title, description, createdAt, ''])
+  };
+}
+
+async function addManualPendingHomeworkBatch(classId, studentIds, title, description) {
+  classId = String(classId);
+  const ids = [];
+  const seen = {};
+  (studentIds || []).forEach(function(sid) {
+    sid = String(sid || '').trim();
+    if (!sid || seen[sid]) return;
+    seen[sid] = true;
+    ids.push(sid);
+  });
+  if (!ids.length) throw new Error('Select at least one student.');
+  const results = [];
+  for (let i = 0; i < ids.length; i++) {
+    if (i > 0) await new Promise(function(resolve) { setTimeout(resolve, 2); });
+    results.push(await addManualPendingHomework(classId, ids[i], title, description));
+  }
+  return {
+    message: 'Pending homework added for ' + results.length + ' student(s).',
+    addedCount: results.length,
+    results
   };
 }
 
@@ -212,6 +251,7 @@ module.exports = {
   isManualPendingId,
   readManualPendingForClass,
   addManualPendingHomework,
+  addManualPendingHomeworkBatch,
   completeManualPending,
   setManualPendingFixNote,
   deleteManualPending,

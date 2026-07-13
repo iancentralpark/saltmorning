@@ -2,7 +2,7 @@ const { ATTENDANCE_SHEET } = require('./config');
 const { getSheetRows, updateRange, appendRows, deleteRow, invalidateSheetRowsCache } = require('./sheets');
 const { formatSheetDate } = require('./dateUtils');
 const { cacheDeletePrefix } = require('./cache');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 function normalizeVocabScore(val) {

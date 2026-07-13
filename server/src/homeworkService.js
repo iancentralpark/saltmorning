@@ -1,7 +1,7 @@
 const { HOMEWORK_SHEETS, STUDENT_LIST_SHEET, TIMEZONE } = require('./config');
 const { getSheetRows, updateRange, appendRows, deleteRows, buildRequestContext, invalidateSheetRowsCache } = require('./sheets');
 const { cacheDeletePrefix } = require('./cache');
-const { invalidateWorkCache } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { parseHomeworkDate, formatDateTimeNow, formatDateInTz } = require('./dateUtils');
 const { isClassroomConfigured, getClassroomApi } = require('./classroomAuth');

@@ -54,5 +54,7 @@ module.exports = {
   DEFAULT_YOUTUBE_VIDEO_ID: 'gmqG2h84_Cs',
   KR_HOLIDAY_CALENDAR_ID: 'ko.south_korea#holiday@group.v.calendar.google.com',
   LUCKY_DRAW_PURCHASE_COST: 3,
+  STAMP_BOARD_SHEET: 'Stamp_Board',
+  STAMPS_PER_DOLLAR: 5,
   CACHE_SEC: { SIDEBAR: 600, HOLIDAY: 21600, CLASSES: 600 }
 };

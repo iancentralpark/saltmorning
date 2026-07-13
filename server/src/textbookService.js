@@ -6,7 +6,8 @@ const { getSheetRows, updateRange, appendRows, deleteRow, invalidateSheetRowsCac
 const { cacheDeletePrefix } = require('./cache');
 const { formatSheetDate, formatDateStr, formatDateTimeNow } = require('./dateUtils');
 const { buildRequestContext } = require('./sheets');
-const { buildClassTextbookFromCtx, invalidateWorkCache } = require('./sessionService');
+const { buildClassTextbookFromCtx } = require('./sessionService');
+const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
 function isQueueItemReady(item) {
