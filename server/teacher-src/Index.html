@@ -559,6 +559,22 @@
             cursor: pointer;
         }
         .stamp-board-cash-btn:hover { background: rgba(39, 174, 96, 0.18); }
+        .stamp-board-eraser-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid rgba(99, 110, 114, 0.35);
+            background: rgba(99, 110, 114, 0.1);
+            color: #636e72;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .stamp-board-eraser-btn:hover { background: rgba(99, 110, 114, 0.16); }
+        .stamp-board-eraser-btn.active {
+            border-color: rgba(231, 76, 60, 0.45);
+            background: rgba(231, 76, 60, 0.14);
+            color: #c0392b;
+        }
         .stamp-board-close {
             border: none;
             background: rgba(0, 0, 0, 0.06);
@@ -607,6 +623,19 @@
             overflow: hidden;
         }
         .stamp-board-col-area.is-busy { cursor: wait; }
+        #stampBoardOverlay.stamp-board-eraser-on .stamp-board-col-area { cursor: default; }
+        #stampBoardOverlay.stamp-board-eraser-on .stamp-mark {
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        #stampBoardOverlay.stamp-board-eraser-on .stamp-mark:hover {
+            opacity: 1;
+            filter: brightness(0.92);
+        }
+        #stampBoardOverlay.stamp-board-eraser-on .stamp-mark:hover .stamp-mark-inner {
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
         .stamp-board-col-foot {
             text-align: center;
             font-size: 0.72rem;
@@ -5501,8 +5530,11 @@
     <div class="stamp-board-window">
         <div class="stamp-board-head">
             <div class="stamp-board-head-title"><i class="fa-solid fa-stamp"></i> <span id="stampBoardTitle">Stamp Board</span></div>
-            <div class="stamp-board-head-hint">Click a column to stamp · overlaps OK · 5 stamps = $1</div>
+            <div class="stamp-board-head-hint" id="stampBoardHeadHint">Click a column to stamp · overlaps OK · 5 stamps = $1</div>
             <div class="stamp-board-head-actions">
+                <button type="button" class="stamp-board-eraser-btn" id="stampBoardEraserBtn" title="Erase stamps one by one">
+                    <i class="fa-solid fa-eraser"></i> Eraser
+                </button>
                 <button type="button" class="stamp-board-cash-btn" id="stampBoardCashBtn" title="Cash in all stamps">Cash In</button>
                 <button type="button" class="stamp-board-close" id="stampBoardCloseBtn" title="Close" aria-label="Close">&times;</button>
             </div>
@@ -8069,6 +8101,7 @@
         document.getElementById('stampBoardCloseBtn').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardBackdrop').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardCashBtn').addEventListener('click', cashInStampBoard);
+        document.getElementById('stampBoardEraserBtn').addEventListener('click', toggleStampBoardEraserMode);
         document.getElementById('toolOverlayCloseBtn').addEventListener('click', closeToolOverlay);
         document.getElementById('toolPopupBackdrop').addEventListener('click', closeToolOverlay);
         document.addEventListener('keydown', function(e) {
@@ -14854,6 +14887,25 @@
     // ===== Stamp Board =====
     var stampBoardData = null;
     var stampBoardPlacing = false;
+    var stampBoardEraserMode = false;
+
+    function setStampBoardEraserMode(on) {
+        stampBoardEraserMode = !!on;
+        var overlay = document.getElementById('stampBoardOverlay');
+        var btn = document.getElementById('stampBoardEraserBtn');
+        var hint = document.getElementById('stampBoardHeadHint');
+        if (overlay) overlay.classList.toggle('stamp-board-eraser-on', stampBoardEraserMode);
+        if (btn) btn.classList.toggle('active', stampBoardEraserMode);
+        if (hint) {
+            hint.textContent = stampBoardEraserMode
+                ? 'Eraser on — tap a stamp to remove it'
+                : 'Click a column to stamp · overlaps OK · 5 stamps = $1';
+        }
+    }
+
+    function toggleStampBoardEraserMode() {
+        setStampBoardEraserMode(!stampBoardEraserMode);
+    }
 
     function initStampBoardSidebarLauncher() {
         var panel = document.getElementById('stampBoardFloat');
@@ -14866,6 +14918,7 @@
     function closeStampBoardOverlay() {
         var overlay = document.getElementById('stampBoardOverlay');
         if (!overlay) return;
+        setStampBoardEraserMode(false);
         overlay.classList.add('hidden-section');
         overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden', 'true');
@@ -14919,11 +14972,37 @@
         el.style.transform = 'rotate(' + (stamp.rotDeg || 0) + 'deg)';
         if (zIndex != null) el.style.zIndex = String(zIndex);
         el.innerHTML = '<div class="stamp-mark-inner"><div class="stamp-mark-line1">Mr. Park</div><div class="stamp-mark-line2">Great Job!</div></div>';
+        el.addEventListener('click', function(e) {
+            if (!stampBoardEraserMode || stampBoardPlacing) return;
+            e.preventDefault();
+            e.stopPropagation();
+            eraseStampFromBoard(stamp.id);
+        });
         return el;
     }
 
+    function eraseStampFromBoard(stampId) {
+        if (!selectedClass || !stampId || stampBoardPlacing) return;
+        stampBoardPlacing = true;
+        nodeFetch('/api/stamp-board/stamp/' + encodeURIComponent(stampId) + '?classId=' + encodeURIComponent(selectedClass.id), {
+            method: 'DELETE'
+        })
+            .then(function() {
+                stampBoardPlacing = false;
+                if (!stampBoardData || !stampBoardData.stamps) return;
+                stampBoardData.stamps = stampBoardData.stamps.filter(function(s) {
+                    return String(s.id) !== String(stampId);
+                });
+                renderStampBoardGrid(stampBoardData);
+            })
+            .catch(function(err) {
+                stampBoardPlacing = false;
+                appAlert(err && err.message ? err.message : 'Could not erase stamp.');
+            });
+    }
+
     function onStampBoardColumnClick(e) {
-        if (stampBoardPlacing || !stampBoardData || !selectedClass) return;
+        if (stampBoardEraserMode || stampBoardPlacing || !stampBoardData || !selectedClass) return;
         var area = e.currentTarget;
         var studentId = area.dataset.studentId;
         if (!studentId) return;
@@ -15009,6 +15088,7 @@
             overlay.setAttribute('aria-hidden', 'false');
             document.body.classList.add('stamp-board-open');
         }
+        setStampBoardEraserMode(false);
         var grid = document.getElementById('stampBoardGrid');
         if (grid) grid.innerHTML = '<div class="stamp-board-empty">Loading…</div>';
         nodeFetch('/api/stamp-board?classId=' + encodeURIComponent(selectedClass.id))
