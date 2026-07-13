@@ -47,7 +47,7 @@ const {
   clearTeacherAuthCookie
 } = require('./teacherAuth');
 const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy } = require('./englishBuddyService');
-const { getBuddyChatHistory } = require('./englishBuddyHistoryService');
+const { getBuddyChatHistory, clearBuddyChatHistory } = require('./englishBuddyHistoryService');
 const {
   getThread,
   markMessagesRead,
@@ -1270,6 +1270,16 @@ router.get('/student/english-buddy/history', requireStudentAuth, async (req, res
     res.json(await getBuddyChatHistory(studentId, classId));
   } catch (e) {
     console.error('GET /student/english-buddy/history', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.delete('/student/english-buddy/history', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId } = req.studentSession;
+    res.json(await clearBuddyChatHistory(studentId));
+  } catch (e) {
+    console.error('DELETE /student/english-buddy/history', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });

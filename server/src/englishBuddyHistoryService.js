@@ -192,8 +192,31 @@ async function recordBuddyExchange(studentId, classId, userText, assistantText) 
   await appendBuddyMessage(studentId, classId, 'assistant', assistantMsg);
 }
 
+async function clearBuddyChatHistory(studentId) {
+  studentId = String(studentId);
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('english_buddy_messages')
+      .delete()
+      .eq('student_id', studentId);
+    if (error) throw new Error(error.message);
+    return { ok: true, cleared: true };
+  }
+
+  const data = await getSheetRows(ENGLISH_BUDDY_HISTORY_SHEET);
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][3]) === studentId) {
+      await deleteRow(ENGLISH_BUDDY_HISTORY_SHEET, i + 1);
+    }
+  }
+  invalidateSheetRowsCache(ENGLISH_BUDDY_HISTORY_SHEET);
+  return { ok: true, cleared: true };
+}
+
 module.exports = {
   getBuddyChatHistory,
   recordBuddyExchange,
+  clearBuddyChatHistory,
   ENGLISH_BUDDY_HISTORY_DAYS
 };

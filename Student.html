@@ -779,6 +779,20 @@
             color: #9b59b6;
             font-family: 'Nunito', sans-serif;
         }
+        .buddy-reset-btn {
+            border: none;
+            background: rgba(155, 89, 182, 0.12);
+            color: #7d3c98;
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            line-height: 1;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .buddy-reset-btn:hover { background: rgba(155, 89, 182, 0.22); }
+        .buddy-reset-btn:disabled { opacity: 0.45; cursor: not-allowed; }
         .buddy-float-body {
             display: flex;
             flex-direction: column;
@@ -1647,6 +1661,7 @@
                 <i class="fa-solid fa-wand-magic-sparkles float-head-icon" aria-hidden="true"></i>
                 <span class="float-head-title">AI English Buddy</span>
                 <span class="buddy-remaining" id="buddyRemaining"></span>
+                <button type="button" class="buddy-reset-btn" id="buddyResetBtn" aria-label="Clear chat history" title="Clear chat history"><i class="fa-solid fa-trash-can"></i></button>
                 <button type="button" class="float-panel-toggle" id="buddyFloatToggle" aria-label="Minimize AI Buddy" title="Minimize"><i class="fa-solid fa-minus"></i></button>
             </div>
             <div class="buddy-float-body">
@@ -3007,6 +3022,27 @@
             .catch(function() {});
     }
 
+    function resetBuddyChat() {
+        if (buddySending) return;
+        if (!buddyChatHistory.length) {
+            alert('No chat history to clear.');
+            return;
+        }
+        if (!confirm('Clear all your English Buddy chat history?\n\nThis cannot be undone.')) return;
+        var btn = $('buddyResetBtn');
+        if (btn) btn.disabled = true;
+        api('/api/student/english-buddy/history', { method: 'DELETE' })
+            .then(function() {
+                clearBuddyChat();
+            })
+            .catch(function(err) {
+                alert(err.message || 'Could not clear chat.');
+            })
+            .finally(function() {
+                if (btn) btn.disabled = false;
+            });
+    }
+
     function setBuddyActive(active) {
         var form = $('buddyForm');
         if (!form) return;
@@ -3151,6 +3187,8 @@
     }
 
     $('buddyForm').addEventListener('submit', submitBuddyAsk);
+    var buddyResetBtn = $('buddyResetBtn');
+    if (buddyResetBtn) buddyResetBtn.addEventListener('click', resetBuddyChat);
     $('buddyInput').addEventListener('keydown', function(e) {
         if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter' && !e.shiftKey) {
