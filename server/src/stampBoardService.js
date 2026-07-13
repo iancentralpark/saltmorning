@@ -194,6 +194,61 @@ async function addStamp(classId, studentId, xPct, yPct, rotDeg) {
   return { stamp, boardFull: false };
 }
 
+async function syncStampBoard(classId, adds, removes) {
+  classId = String(classId);
+  const addList = Array.isArray(adds) ? adds : [];
+  const removeList = (Array.isArray(removes) ? removes : [])
+    .map(String)
+    .filter(function(id) { return /^\d+$/.test(id); });
+
+  const inserted = [];
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    if (removeList.length) {
+      const { error } = await db.from('stamp_board_stamps')
+        .delete()
+        .eq('class_id', classId)
+        .in('id', removeList);
+      if (error) throw new Error(error.message);
+    }
+    if (addList.length) {
+      const rows = addList.map(function(a) {
+        return {
+          class_id: classId,
+          student_id: String(a.studentId),
+          x_pct: clampPct(a.xPct),
+          y_pct: clampPct(a.yPct),
+          rot_deg: Math.round(Number(a.rotDeg) || 0) % 360
+        };
+      });
+      const { data, error } = await db.from('stamp_board_stamps')
+        .insert(rows)
+        .select('id, student_id, x_pct, y_pct, rot_deg');
+      if (error) throw new Error(error.message);
+      (data || []).forEach(function(row, i) {
+        inserted.push({
+          clientId: addList[i] && addList[i].clientId,
+          stamp: normalizeStampRow(row)
+        });
+      });
+    }
+  } else {
+    for (let i = 0; i < removeList.length; i++) {
+      await removeStamp(classId, removeList[i]);
+    }
+    for (let j = 0; j < addList.length; j++) {
+      const a = addList[j];
+      const stamp = await insertStamp(classId, a.studentId, a.xPct, a.yPct, a.rotDeg);
+      inserted.push({ clientId: a.clientId, stamp: stamp });
+    }
+    return { added: inserted };
+  }
+
+  afterStampWrite(classId);
+  return { added: inserted };
+}
+
 async function removeStamp(classId, stampId) {
   classId = String(classId);
   stampId = String(stampId);
@@ -229,5 +284,6 @@ module.exports = {
   addStamp,
   removeStamp,
   redeemStampBoard,
+  syncStampBoard,
   STAMPS_PER_DOLLAR
 };

@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-13.06';
+            var APP_BUILD = '2026-07-13.07';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -10791,6 +10791,7 @@
         renderStudents(work.students);
         renderTextbookPanel(work.textbook);
         renderHomeworkPanel(work.homework, dateInput);
+        if (selectedClass) prefetchStampBoard(selectedClass.id);
         if (isTeacherMobile()) applyTeacherMobilePanels();
     }
 
@@ -15024,10 +15025,48 @@
         }
     }
 
-    // ===== Stamp Board =====
+    // ===== Stamp Board (local-first, batched sync) =====
+    var STAMP_BOARD_SYNC_MS = 15000;
+    var STAMP_BOARD_COLUMN_MAX = 24;
     var stampBoardData = null;
-    var stampBoardPlacing = false;
     var stampBoardEraserMode = false;
+    var stampBoardStore = {
+        byClass: {},
+        pendingByClass: {},
+        localSeq: 0,
+        syncTimer: null,
+        syncing: false,
+        syncPromise: null
+    };
+
+    function cloneStampBoardData(data) {
+        if (!data) return null;
+        return {
+            classId: data.classId,
+            stampsPerDollar: data.stampsPerDollar || 5,
+            students: (data.students || []).map(function(s) { return { id: s.id, name: s.name }; }),
+            stamps: (data.stamps || []).map(function(s) {
+                return { id: s.id, studentId: s.studentId, xPct: s.xPct, yPct: s.yPct, rotDeg: s.rotDeg || 0 };
+            })
+        };
+    }
+
+    function getStampPending(classId) {
+        classId = String(classId);
+        if (!stampBoardStore.pendingByClass[classId]) {
+            stampBoardStore.pendingByClass[classId] = { adds: [], removeIds: {} };
+        }
+        return stampBoardStore.pendingByClass[classId];
+    }
+
+    function hasStampPending(classId) {
+        var p = getStampPending(classId);
+        return p.adds.length > 0 || Object.keys(p.removeIds).length > 0;
+    }
+
+    function isLocalStampId(id) {
+        return String(id).indexOf('local_') === 0;
+    }
 
     function setStampBoardEraserMode(on) {
         stampBoardEraserMode = !!on;
@@ -15055,14 +15094,150 @@
         attachSidebarDrag(chip, panel, 'stampBoard', function() { loadStampBoardAndOpen(); });
     }
 
+    function scheduleStampBoardSync(classId, delayMs) {
+        if (!classId) return;
+        if (stampBoardStore.syncTimer) clearTimeout(stampBoardStore.syncTimer);
+        stampBoardStore.syncTimer = setTimeout(function() {
+            stampBoardStore.syncTimer = null;
+            flushStampBoardSync(classId);
+        }, delayMs == null ? STAMP_BOARD_SYNC_MS : delayMs);
+    }
+
+    function applyStampBoardSyncResult(classId, res, sentAdds, sentRemoves) {
+        var pending = getStampPending(classId);
+        var sentAddIds = {};
+        sentAdds.forEach(function(a) { sentAddIds[a.clientId] = true; });
+        pending.adds = pending.adds.filter(function(a) { return !sentAddIds[a.clientId]; });
+        sentRemoves.forEach(function(id) { delete pending.removeIds[id]; });
+
+        (res.added || []).forEach(function(row) {
+            if (!row || !row.clientId || !row.stamp) return;
+            var newId = String(row.stamp.id);
+            if (stampBoardData && stampBoardData.stamps) {
+                stampBoardData.stamps.forEach(function(s) {
+                    if (String(s.id) === String(row.clientId)) s.id = newId;
+                });
+            }
+            var el = document.querySelector('.stamp-mark[data-stamp-id="' + row.clientId + '"]');
+            if (el) el.dataset.stampId = newId;
+        });
+
+        if (stampBoardData) stampBoardStore.byClass[classId] = cloneStampBoardData(stampBoardData);
+    }
+
+    function flushStampBoardSync(classId) {
+        classId = String(classId);
+        var pending = getStampPending(classId);
+        var adds = pending.adds.slice();
+        var removes = Object.keys(pending.removeIds);
+        if (!adds.length && !removes.length) return Promise.resolve();
+        if (stampBoardStore.syncing) return stampBoardStore.syncPromise || Promise.resolve();
+
+        stampBoardStore.syncing = true;
+        stampBoardStore.syncPromise = nodeFetch('/api/stamp-board/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classId: classId, adds: adds, removes: removes })
+        })
+            .then(function(res) {
+                applyStampBoardSyncResult(classId, res, adds, removes);
+            })
+            .catch(function(err) {
+                console.warn('[stamp-board sync]', err && err.message ? err.message : err);
+            })
+            .finally(function() {
+                stampBoardStore.syncing = false;
+                stampBoardStore.syncPromise = null;
+                var p = getStampPending(classId);
+                if (p.adds.length || Object.keys(p.removeIds).length) {
+                    scheduleStampBoardSync(classId, 3000);
+                }
+            });
+        return stampBoardStore.syncPromise;
+    }
+
+    function prefetchStampBoard(classId) {
+        classId = String(classId || '');
+        if (!classId) return Promise.resolve();
+        return nodeFetch('/api/stamp-board?classId=' + encodeURIComponent(classId))
+            .then(function(data) {
+                if (!data || data.error) return;
+                stampBoardStore.byClass[classId] = cloneStampBoardData(data);
+                if (!hasStampPending(classId)) {
+                    var overlay = document.getElementById('stampBoardOverlay');
+                    var openForClass = overlay && overlay.classList.contains('show') &&
+                        selectedClass && String(selectedClass.id) === classId;
+                    if (openForClass || !stampBoardData || String(stampBoardData.classId) === classId) {
+                        stampBoardData = cloneStampBoardData(data);
+                        if (openForClass) renderStampBoardGrid(stampBoardData);
+                    }
+                }
+            })
+            .catch(function() { /* ignore background prefetch */ });
+    }
+
+    function countStampsForStudent(studentId) {
+        if (!stampBoardData || !stampBoardData.stamps) return 0;
+        studentId = String(studentId);
+        var n = 0;
+        stampBoardData.stamps.forEach(function(s) {
+            if (String(s.studentId) === studentId) n += 1;
+        });
+        return n;
+    }
+
+    function boardNeedsAutoRedeemLocal() {
+        if (!stampBoardData || !stampBoardData.students) return false;
+        for (var i = 0; i < stampBoardData.students.length; i++) {
+            if (countStampsForStudent(stampBoardData.students[i].id) >= STAMP_BOARD_COLUMN_MAX) return true;
+        }
+        return false;
+    }
+
+    function runStampBoardAutoRedeem() {
+        if (!selectedClass) return;
+        flushStampBoardSync(selectedClass.id).then(function() {
+            return nodeFetch('/api/stamp-board/redeem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ classId: selectedClass.id })
+            });
+        }).then(function(res) {
+            if (res.board) {
+                stampBoardData = cloneStampBoardData(res.board);
+                stampBoardStore.byClass[selectedClass.id] = cloneStampBoardData(res.board);
+                renderStampBoardGrid(stampBoardData);
+            }
+            var p = getStampPending(selectedClass.id);
+            p.adds = [];
+            p.removeIds = {};
+            showStampBoardRedemption(res);
+            refreshWorkPanelsQuiet();
+        }).catch(function(err) {
+            console.warn('[stamp-board redeem]', err && err.message ? err.message : err);
+        });
+    }
+
     function closeStampBoardOverlay() {
         var overlay = document.getElementById('stampBoardOverlay');
         if (!overlay) return;
         setStampBoardEraserMode(false);
+        if (selectedClass) flushStampBoardSync(selectedClass.id);
+        if (stampBoardStore.syncTimer) {
+            clearTimeout(stampBoardStore.syncTimer);
+            stampBoardStore.syncTimer = null;
+        }
         overlay.classList.add('hidden-section');
         overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('stamp-board-open');
+    }
+
+    function updateStampColumnFoot(studentId) {
+        var foot = document.querySelector('.stamp-board-col[data-student-id="' + studentId + '"] .stamp-board-col-foot');
+        if (!foot) return;
+        var count = countStampsForStudent(studentId);
+        foot.textContent = count + ' stamp' + (count === 1 ? '' : 's');
     }
 
     function renderStampBoardGrid(data) {
@@ -15113,7 +15288,7 @@
         if (zIndex != null) el.style.zIndex = String(zIndex);
         el.innerHTML = '<div class="stamp-mark-inner"><div class="stamp-mark-line1">Mr. Park</div><div class="stamp-mark-line2">Great Job!</div></div>';
         el.addEventListener('click', function(e) {
-            if (!stampBoardEraserMode || stampBoardPlacing) return;
+            if (!stampBoardEraserMode) return;
             e.preventDefault();
             e.stopPropagation();
             eraseStampFromBoard(stamp.id);
@@ -15122,27 +15297,28 @@
     }
 
     function eraseStampFromBoard(stampId) {
-        if (!selectedClass || !stampId || stampBoardPlacing) return;
-        stampBoardPlacing = true;
-        nodeFetch('/api/stamp-board/stamp/' + encodeURIComponent(stampId) + '?classId=' + encodeURIComponent(selectedClass.id), {
-            method: 'DELETE'
-        })
-            .then(function() {
-                stampBoardPlacing = false;
-                if (!stampBoardData || !stampBoardData.stamps) return;
-                stampBoardData.stamps = stampBoardData.stamps.filter(function(s) {
-                    return String(s.id) !== String(stampId);
-                });
-                renderStampBoardGrid(stampBoardData);
-            })
-            .catch(function(err) {
-                stampBoardPlacing = false;
-                appAlert(err && err.message ? err.message : 'Could not erase stamp.');
-            });
+        if (!selectedClass || !stampId || !stampBoardData) return;
+        stampId = String(stampId);
+        stampBoardData.stamps = (stampBoardData.stamps || []).filter(function(s) {
+            return String(s.id) !== stampId;
+        });
+        var el = document.querySelector('.stamp-mark[data-stamp-id="' + stampId + '"]');
+        var studentId = el && el.closest('.stamp-board-col') ? el.closest('.stamp-board-col').dataset.studentId : null;
+        if (el) el.remove();
+        if (studentId) updateStampColumnFoot(studentId);
+
+        var pending = getStampPending(selectedClass.id);
+        if (isLocalStampId(stampId)) {
+            pending.adds = pending.adds.filter(function(a) { return a.clientId !== stampId; });
+        } else {
+            pending.removeIds[stampId] = true;
+        }
+        stampBoardStore.byClass[selectedClass.id] = cloneStampBoardData(stampBoardData);
+        scheduleStampBoardSync(selectedClass.id);
     }
 
     function onStampBoardColumnClick(e) {
-        if (stampBoardEraserMode || stampBoardPlacing || !stampBoardData || !selectedClass) return;
+        if (stampBoardEraserMode || !stampBoardData || !selectedClass) return;
         var area = e.currentTarget;
         var studentId = area.dataset.studentId;
         if (!studentId) return;
@@ -15155,41 +15331,40 @@
     }
 
     function placeStampOnBoard(studentId, xPct, yPct, rotDeg, areaEl) {
-        stampBoardPlacing = true;
-        if (areaEl) areaEl.classList.add('is-busy');
-        nodeFetch('/api/stamp-board/stamp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        var clientId = 'local_' + (++stampBoardStore.localSeq);
+        var stamp = {
+            id: clientId,
+            studentId: String(studentId),
+            xPct: xPct,
+            yPct: yPct,
+            rotDeg: rotDeg
+        };
+        if (!stampBoardData) {
+            stampBoardData = {
                 classId: selectedClass.id,
-                studentId: studentId,
-                xPct: xPct,
-                yPct: yPct,
-                rotDeg: rotDeg
-            })
-        })
-            .then(function(res) {
-                stampBoardPlacing = false;
-                if (areaEl) areaEl.classList.remove('is-busy');
-                if (res.redemption && res.redemption.board) {
-                    stampBoardData = res.redemption.board;
-                    renderStampBoardGrid(stampBoardData);
-                    showStampBoardRedemption(res.redemption);
-                    refreshWorkPanelsQuiet();
-                    return;
-                }
-                if (res.stamp) {
-                    if (!stampBoardData) stampBoardData = { students: [], stamps: [] };
-                    stampBoardData.stamps = stampBoardData.stamps || [];
-                    stampBoardData.stamps.push(res.stamp);
-                    renderStampBoardGrid(stampBoardData);
-                }
-            })
-            .catch(function(err) {
-                stampBoardPlacing = false;
-                if (areaEl) areaEl.classList.remove('is-busy');
-                appAlert(err && err.message ? err.message : 'Could not place stamp.');
-            });
+                students: (loadedStudents || []).slice(),
+                stamps: [],
+                stampsPerDollar: 5
+            };
+        }
+        stampBoardData.stamps = stampBoardData.stamps || [];
+        stampBoardData.stamps.push(stamp);
+        var z = countStampsForStudent(studentId);
+        if (areaEl) areaEl.appendChild(createStampMarkEl(stamp, z));
+        updateStampColumnFoot(studentId);
+
+        var pending = getStampPending(selectedClass.id);
+        pending.adds.push({
+            clientId: clientId,
+            studentId: stamp.studentId,
+            xPct: xPct,
+            yPct: yPct,
+            rotDeg: rotDeg
+        });
+        stampBoardStore.byClass[selectedClass.id] = cloneStampBoardData(stampBoardData);
+        scheduleStampBoardSync(selectedClass.id);
+
+        if (boardNeedsAutoRedeemLocal()) runStampBoardAutoRedeem();
     }
 
     function showStampBoardRedemption(redemption) {
@@ -15223,6 +15398,7 @@
             appAlert('Please select a class first.');
             return;
         }
+        var cid = String(selectedClass.id);
         var overlay = document.getElementById('stampBoardOverlay');
         var title = document.getElementById('stampBoardTitle');
         if (title) title.textContent = 'Stamp Board — ' + selectedClass.name;
@@ -15233,46 +15409,54 @@
             document.body.classList.add('stamp-board-open');
         }
         setStampBoardEraserMode(false);
-        var grid = document.getElementById('stampBoardGrid');
-        if (grid) grid.innerHTML = '<div class="stamp-board-empty">Loading…</div>';
-        nodeFetch('/api/stamp-board?classId=' + encodeURIComponent(selectedClass.id))
-            .then(function(data) {
-                if (data && data.error) throw new Error(data.error);
-                stampBoardData = data;
-                renderStampBoardGrid(stampBoardData);
-            })
-            .catch(function(err) {
-                if (grid) grid.innerHTML = '<div class="stamp-board-empty">Could not load stamp board.</div>';
-                appAlert((err && err.message) || 'Could not load stamp board.');
-            });
+
+        var cached = stampBoardStore.byClass[cid];
+        if (cached) {
+            stampBoardData = cloneStampBoardData(cached);
+            renderStampBoardGrid(stampBoardData);
+            if (!hasStampPending(cid)) prefetchStampBoard(cid);
+            return;
+        }
+
+        if (loadedStudents && loadedStudents.length) {
+            stampBoardData = {
+                classId: cid,
+                students: loadedStudents.map(function(s) { return { id: s.id, name: s.name }; }),
+                stamps: [],
+                stampsPerDollar: 5
+            };
+            renderStampBoardGrid(stampBoardData);
+        }
+        prefetchStampBoard(cid);
     }
 
     function cashInStampBoard() {
-        if (!selectedClass || stampBoardPlacing) return;
+        if (!selectedClass) return;
         if (!stampBoardData || !stampBoardData.stamps || !stampBoardData.stamps.length) {
             appAlert('No stamps to cash in yet.');
             return;
         }
         if (!confirm('Cash in all stamps? (5 stamps = $1 per student)')) return;
-        stampBoardPlacing = true;
-        nodeFetch('/api/stamp-board/redeem', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ classId: selectedClass.id })
-        })
-            .then(function(res) {
-                stampBoardPlacing = false;
-                if (res.board) {
-                    stampBoardData = res.board;
-                    renderStampBoardGrid(stampBoardData);
-                }
-                showStampBoardRedemption(res);
-                refreshWorkPanelsQuiet();
-            })
-            .catch(function(err) {
-                stampBoardPlacing = false;
-                appAlert(err && err.message ? err.message : 'Could not cash in stamps.');
+        flushStampBoardSync(selectedClass.id).then(function() {
+            return nodeFetch('/api/stamp-board/redeem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ classId: selectedClass.id })
             });
+        }).then(function(res) {
+            if (res.board) {
+                stampBoardData = cloneStampBoardData(res.board);
+                stampBoardStore.byClass[selectedClass.id] = cloneStampBoardData(res.board);
+                renderStampBoardGrid(stampBoardData);
+            }
+            var p = getStampPending(selectedClass.id);
+            p.adds = [];
+            p.removeIds = {};
+            showStampBoardRedemption(res);
+            refreshWorkPanelsQuiet();
+        }).catch(function(err) {
+            appAlert(err && err.message ? err.message : 'Could not cash in stamps.');
+        });
     }
 
     // ===== White screen (electronic whiteboard mirror) =====

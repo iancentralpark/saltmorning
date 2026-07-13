@@ -92,7 +92,8 @@ const {
   getStampBoard,
   addStamp,
   removeStamp,
-  redeemStampBoard
+  redeemStampBoard,
+  syncStampBoard
 } = require('./stampBoardService');
 const {
   getClassTextbookData,
@@ -554,6 +555,17 @@ router.post('/stamp-board/redeem', async (req, res) => {
     res.json(await redeemStampBoard(classId, { reason: 'stamp-board-manual' }));
   } catch (e) {
     console.error('POST /stamp-board/redeem', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/stamp-board/sync', async (req, res) => {
+  try {
+    const { classId, adds, removes } = req.body || {};
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await syncStampBoard(classId, adds, removes));
+  } catch (e) {
+    console.error('POST /stamp-board/sync', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });
