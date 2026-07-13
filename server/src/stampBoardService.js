@@ -157,6 +157,8 @@ async function redeemStampBoard(classId, opts) {
         studentId: student.id,
         name: student.name,
         stampCount: count,
+        stampsUsed: dollars * STAMPS_PER_DOLLAR,
+        remainder,
         dollars,
         newBalance: result.newBalance
       });

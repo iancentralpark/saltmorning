@@ -15059,7 +15059,11 @@
             return;
         }
         var lines = redemption.awards.map(function(a) {
-            return a.name + ': ' + a.stampCount + ' stamps → $' + a.dollars;
+            var used = a.stampsUsed != null ? a.stampsUsed : (a.dollars * 5);
+            var left = a.remainder != null ? a.remainder : 0;
+            var line = a.name + ': ' + used + ' stamps → $' + a.dollars + ' (5 stamps = $1)';
+            if (left > 0) line += ' · ' + left + ' left on board';
+            return line;
         });
         appAlert('Cashed in:\n' + lines.join('\n'));
     }
