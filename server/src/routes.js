@@ -1185,6 +1185,21 @@ router.get('/student/dashboard', requireStudentAuth, async (req, res) => {
   }
 });
 
+router.get('/student/stamp-board', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const board = await getStampBoard(classId);
+    const sid = String(studentId);
+    const myStampCount = (board.stamps || []).filter(function(s) {
+      return String(s.studentId) === sid;
+    }).length;
+    res.json(Object.assign({}, board, { studentId: sid, myStampCount }));
+  } catch (e) {
+    console.error('GET /student/stamp-board', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
 router.get('/student/messages', requireStudentAuth, async (req, res) => {
   try {
     const { studentId, classId } = req.studentSession;

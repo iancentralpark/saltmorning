@@ -11,7 +11,7 @@
     </script>
     <script>
         (function() {
-            var PORTAL_BUILD = '2026-07-13.01';
+            var PORTAL_BUILD = '2026-07-13.10';
             window.PORTAL_BUILD = PORTAL_BUILD;
             var KEY = 'mrpark_portal_build';
             try {
@@ -1460,6 +1460,222 @@
             body.portal-mobile .card-title { font-size: 1.1rem; }
             body.portal-mobile .hw-item-title { font-size: 1rem; }
         }
+
+        /* ===== Class Stamp Board (read-only) ===== */
+        .stamp-board-card-hint {
+            font-size: 0.88rem;
+            color: var(--muted);
+            margin: 0 0 0.75rem;
+            line-height: 1.45;
+        }
+        .stamp-board-summary {
+            display: flex;
+            gap: 0.65rem;
+            margin-bottom: 0.85rem;
+            flex-wrap: wrap;
+        }
+        .stamp-board-summary-pill {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            padding: 0.55rem 0.65rem;
+            border-radius: 14px;
+            background: rgba(231, 76, 60, 0.08);
+            border: 1px solid rgba(231, 76, 60, 0.18);
+        }
+        .stamp-board-summary-val {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 1.35rem;
+            color: #c0392b;
+            line-height: 1.1;
+        }
+        .stamp-board-summary-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            margin-top: 0.15rem;
+        }
+        .stamp-board-open-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border: none;
+            box-shadow: 0 4px 0 rgba(192, 57, 43, 0.22);
+        }
+        .stamp-board-open-btn:hover { filter: brightness(1.04); }
+        #studentStampBoardOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10070;
+            align-items: center;
+            justify-content: center;
+            padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+                max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+        }
+        #studentStampBoardOverlay.show { display: flex; }
+        #studentStampBoardOverlay .stamp-board-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(45, 52, 54, 0.48);
+        }
+        #studentStampBoardOverlay .stamp-board-window {
+            position: relative;
+            z-index: 1;
+            width: min(86vw, calc(100vw - 24px));
+            height: min(86vh, calc(100vh - 24px));
+            min-width: 280px;
+            min-height: 320px;
+            background: #fffef8;
+            border-radius: 18px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 2px solid rgba(231, 76, 60, 0.25);
+        }
+        .stamp-board-head {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.65rem 1rem;
+            background: linear-gradient(135deg, #fff5f5 0%, #fffef8 100%);
+            border-bottom: 1px solid rgba(231, 76, 60, 0.15);
+            flex-shrink: 0;
+        }
+        .stamp-board-head-title {
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #c0392b;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex: 1;
+            min-width: 0;
+        }
+        .stamp-board-head-hint {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        .stamp-board-close {
+            border: none;
+            background: rgba(0, 0, 0, 0.06);
+            color: var(--muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .stamp-board-close:hover { background: rgba(231, 76, 60, 0.15); color: #c0392b; }
+        .stamp-board-grid {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        .stamp-board-col {
+            flex: 1;
+            min-width: 88px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.35);
+        }
+        .stamp-board-col + .stamp-board-col {
+            border-left: 2px solid rgba(59, 158, 221, 0.42);
+            box-shadow: -1px 0 0 rgba(255, 255, 255, 0.65);
+        }
+        .stamp-board-col.is-me {
+            box-shadow: inset 0 0 0 2px rgba(231, 76, 60, 0.38);
+            background: rgba(231, 76, 60, 0.04);
+        }
+        .stamp-board-col-head {
+            text-align: center;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            font-size: 0.88rem;
+            padding: 0.5rem 0.3rem;
+            background: rgba(59, 158, 221, 0.12);
+            border-bottom: 2px solid rgba(59, 158, 221, 0.38);
+            color: var(--text);
+            flex-shrink: 0;
+        }
+        .stamp-board-col.is-me .stamp-board-col-head {
+            background: rgba(231, 76, 60, 0.16);
+            border-bottom-color: rgba(231, 76, 60, 0.38);
+            color: #c0392b;
+        }
+        .stamp-board-col-area {
+            flex: 1;
+            position: relative;
+            cursor: default;
+            background:
+                repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(99, 110, 114, 0.06) 23px, rgba(99, 110, 114, 0.06) 24px),
+                repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(99, 110, 114, 0.06) 23px, rgba(99, 110, 114, 0.06) 24px);
+            min-height: 120px;
+            overflow: hidden;
+        }
+        .stamp-board-col-foot {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--muted);
+            padding: 0.28rem;
+            border-top: 2px solid rgba(59, 158, 221, 0.28);
+            background: rgba(59, 158, 221, 0.05);
+            flex-shrink: 0;
+        }
+        .stamp-mark {
+            position: absolute;
+            width: 68px;
+            height: 68px;
+            margin-left: -34px;
+            margin-top: -34px;
+            pointer-events: none;
+            user-select: none;
+            opacity: 0.88;
+            z-index: 1;
+        }
+        .stamp-mark-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 3px double #c0392b;
+            color: #c0392b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 700;
+            line-height: 1.05;
+            background: rgba(231, 76, 60, 0.06);
+            box-shadow: inset 0 0 0 2px rgba(231, 76, 60, 0.12);
+        }
+        .stamp-mark-line1 { font-size: 0.58rem; letter-spacing: 0.02em; }
+        .stamp-mark-line2 { font-size: 0.54rem; margin-top: 1px; }
+        .stamp-board-empty,
+        .stamp-board-loading {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #b2bec3;
+            font-size: 0.9rem;
+            padding: 2rem;
+            gap: 0.5rem;
+        }
+        body.stamp-board-open { overflow: hidden; }
+        @media (max-width: 767px) {
+            #studentStampBoardOverlay .stamp-board-window {
+                width: calc(100vw - 16px);
+                height: calc(100vh - 16px);
+            }
+            .stamp-mark { width: 54px; height: 54px; margin-left: -27px; margin-top: -27px; }
+        }
     </style>
 </head>
 <body>
@@ -1521,6 +1737,24 @@
         <div class="card portal-card-cute dashboard-card" data-panel="home">
             <div class="card-title"><i class="fa-solid fa-ticket"></i> Lucky Draw Tickets</div>
             <div id="luckyTicketsBox"><p class="empty">No tickets yet.</p></div>
+        </div>
+
+        <div class="card portal-card-cute dashboard-card" data-panel="home">
+            <div class="card-title"><i class="fa-solid fa-stamp"></i> Class Stamp Board</div>
+            <p class="stamp-board-card-hint">See stamps Mr. Park gave your class. Every 5 stamps earns $1!</p>
+            <div class="stamp-board-summary" id="stampBoardSummary">
+                <div class="stamp-board-summary-pill">
+                    <div class="stamp-board-summary-val" id="myStampCount">—</div>
+                    <div class="stamp-board-summary-label">My stamps</div>
+                </div>
+                <div class="stamp-board-summary-pill">
+                    <div class="stamp-board-summary-val" id="myStampToDollar">—</div>
+                    <div class="stamp-board-summary-label">Until next $1</div>
+                </div>
+            </div>
+            <button type="button" class="btn stamp-board-open-btn" id="openStampBoardBtn">
+                <i class="fa-solid fa-stamp"></i> View Stamp Board
+            </button>
         </div>
 
         <div class="card portal-card-cute dashboard-card" data-panel="homework">
@@ -1616,6 +1850,22 @@
     <div id="loadingScreen" class="loading hidden">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
         <p>Loading…</p>
+    </div>
+
+    <div id="studentStampBoardOverlay" class="hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Class Stamp Board">
+        <div class="stamp-board-backdrop" id="studentStampBoardBackdrop"></div>
+        <div class="stamp-board-window">
+            <div class="stamp-board-head">
+                <div class="stamp-board-head-title" id="studentStampBoardTitle">
+                    <i class="fa-solid fa-stamp"></i> <span>Class Stamp Board</span>
+                </div>
+                <div class="stamp-board-head-hint" id="studentStampBoardHint">Your column is highlighted</div>
+                <button type="button" class="stamp-board-close" id="studentStampBoardClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="stamp-board-grid" id="studentStampBoardGrid">
+                <div class="stamp-board-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
+            </div>
+        </div>
     </div>
 
     <div id="changePwModal" class="portal-modal hidden" role="dialog" aria-modal="true" aria-labelledby="changePwTitle">
@@ -3102,8 +3352,148 @@
             '</div>';
 
         renderDollarSection(data.dollars || { balance: 0, transactions: [] });
+        refreshStampBoardSummary();
         updatePortalLayoutMode();
         setTimeout(measurePortalChrome, 0);
+    }
+
+    var studentStampBoardCache = null;
+
+    function getLoggedInStudentId() {
+        try {
+            var raw = authStore.getItem(STUDENT_KEY);
+            if (!raw) return '';
+            var p = JSON.parse(raw);
+            return String(p.studentId || p.id || '');
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function stampsUntilNextDollar(count, perDollar) {
+        perDollar = Number(perDollar) || 5;
+        var n = Number(count) || 0;
+        if (n <= 0) return perDollar;
+        var rem = n % perDollar;
+        return rem === 0 ? perDollar : perDollar - rem;
+    }
+
+    function updateStampBoardSummaryUI(data) {
+        var countEl = $('myStampCount');
+        var untilEl = $('myStampToDollar');
+        if (!countEl || !untilEl) return;
+        if (!data) {
+            countEl.textContent = '—';
+            untilEl.textContent = '—';
+            return;
+        }
+        var count = data.myStampCount != null ? data.myStampCount : 0;
+        var per = data.stampsPerDollar != null ? data.stampsPerDollar : 5;
+        countEl.textContent = String(count);
+        untilEl.textContent = String(stampsUntilNextDollar(count, per));
+    }
+
+    function refreshStampBoardSummary() {
+        return api('/api/student/stamp-board')
+            .then(function(data) {
+                studentStampBoardCache = data;
+                updateStampBoardSummaryUI(data);
+                return data;
+            })
+            .catch(function() {
+                updateStampBoardSummaryUI(null);
+            });
+    }
+
+    function createStudentStampMarkEl(stamp, zIndex) {
+        var el = document.createElement('div');
+        el.className = 'stamp-mark';
+        el.dataset.stampId = stamp.id;
+        el.style.left = stamp.xPct + '%';
+        el.style.top = stamp.yPct + '%';
+        el.style.transform = 'rotate(' + (stamp.rotDeg || 0) + 'deg)';
+        if (zIndex != null) el.style.zIndex = String(zIndex);
+        el.innerHTML = '<div class="stamp-mark-inner"><div class="stamp-mark-line1">Mr. Park</div><div class="stamp-mark-line2">Great Job!</div></div>';
+        return el;
+    }
+
+    function renderStudentStampBoardGrid(data) {
+        var grid = $('studentStampBoardGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        if (!data || !data.students || !data.students.length) {
+            grid.innerHTML = '<div class="stamp-board-empty">No stamp board for this class yet.</div>';
+            return;
+        }
+        var myId = String(data.studentId || getLoggedInStudentId());
+        var stampsByStudent = {};
+        (data.stamps || []).forEach(function(s) {
+            if (!stampsByStudent[s.studentId]) stampsByStudent[s.studentId] = [];
+            stampsByStudent[s.studentId].push(s);
+        });
+        data.students.forEach(function(student) {
+            var col = document.createElement('div');
+            col.className = 'stamp-board-col' + (String(student.id) === myId ? ' is-me' : '');
+            col.dataset.studentId = student.id;
+            var head = document.createElement('div');
+            head.className = 'stamp-board-col-head';
+            head.textContent = student.name + (String(student.id) === myId ? ' (You)' : '');
+            var area = document.createElement('div');
+            area.className = 'stamp-board-col-area';
+            var foot = document.createElement('div');
+            foot.className = 'stamp-board-col-foot';
+            var stamps = stampsByStudent[student.id] || [];
+            foot.textContent = stamps.length + ' stamp' + (stamps.length === 1 ? '' : 's');
+            stamps.forEach(function(stamp, idx) {
+                area.appendChild(createStudentStampMarkEl(stamp, idx + 1));
+            });
+            col.appendChild(head);
+            col.appendChild(area);
+            col.appendChild(foot);
+            grid.appendChild(col);
+        });
+    }
+
+    function openStudentStampBoard() {
+        var overlay = $('studentStampBoardOverlay');
+        var grid = $('studentStampBoardGrid');
+        var title = $('studentStampBoardTitle');
+        if (!overlay || !grid) return;
+        var profile = null;
+        try { profile = JSON.parse(authStore.getItem(STUDENT_KEY) || 'null'); } catch (e) {}
+        if (title && profile && profile.className) {
+            title.innerHTML = '<i class="fa-solid fa-stamp"></i> <span>' + escapeHtml(profile.className) + ' Stamp Board</span>';
+        }
+        grid.innerHTML = '<div class="stamp-board-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>';
+        overlay.classList.remove('hidden');
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('stamp-board-open');
+
+        var render = function(data) {
+            studentStampBoardCache = data;
+            updateStampBoardSummaryUI(data);
+            renderStudentStampBoardGrid(data);
+        };
+        if (studentStampBoardCache) {
+            render(studentStampBoardCache);
+            api('/api/student/stamp-board').then(render).catch(function() {});
+            return;
+        }
+        api('/api/student/stamp-board')
+            .then(render)
+            .catch(function(err) {
+                grid.innerHTML = '<div class="stamp-board-empty">' + escapeHtml(err.message || 'Could not load stamp board.') + '</div>';
+            });
+    }
+
+    function closeStudentStampBoard() {
+        var overlay = $('studentStampBoardOverlay');
+        if (!overlay) return;
+        overlay.classList.add('hidden');
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('stamp-board-open');
     }
 
     function loadDashboard() {
@@ -3367,6 +3757,16 @@
     window.addEventListener('resize', function() {
         if (isPortalMobile()) return;
         applyStoredDesktopChatPanelSizes();
+    });
+
+    var openStampBoardBtn = $('openStampBoardBtn');
+    if (openStampBoardBtn) openStampBoardBtn.addEventListener('click', openStudentStampBoard);
+    var studentStampBoardClose = $('studentStampBoardClose');
+    if (studentStampBoardClose) studentStampBoardClose.addEventListener('click', closeStudentStampBoard);
+    var studentStampBoardBackdrop = $('studentStampBoardBackdrop');
+    if (studentStampBoardBackdrop) studentStampBoardBackdrop.addEventListener('click', closeStudentStampBoard);
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeStudentStampBoard();
     });
 
     function bootStudentPortal() {
