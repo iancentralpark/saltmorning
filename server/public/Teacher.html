@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-13.07';
+            var APP_BUILD = '2026-07-13.08';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -15370,17 +15370,20 @@
     function showStampBoardRedemption(redemption) {
         if (!redemption) return;
         if (!redemption.awards || !redemption.awards.length) {
-            appAlert('Stamps updated. (Need 5 stamps for $1 — leftover stamps stay on the board.)');
+            appAlert('Your stamps are still on the board!\n\nCollect 5 stamps to earn $1. 🌟');
             return;
         }
         var lines = redemption.awards.map(function(a) {
-            var used = a.stampsUsed != null ? a.stampsUsed : (a.dollars * 5);
             var left = a.remainder != null ? a.remainder : 0;
-            var line = a.name + ': ' + used + ' stamps → $' + a.dollars + ' (5 stamps = $1)';
-            if (left > 0) line += ' · ' + left + ' left on board';
+            var bucks = a.dollars === 1 ? '$1' : '$' + a.dollars;
+            var line = '🌟 ' + a.name + ' earned ' + bucks + '!';
+            if (left > 0) {
+                line += '\n   (' + left + ' stamp' + (left === 1 ? '' : 's') + ' still on the board — keep going!)';
+            }
             return line;
         });
-        appAlert('Cashed in:\n' + lines.join('\n'));
+        var title = redemption.awards.length === 1 ? '🎉 Awesome job!' : '🎉 Great job, everyone!';
+        appAlert(title + '\n\n' + lines.join('\n\n'));
     }
 
     function refreshWorkPanelsQuiet() {
