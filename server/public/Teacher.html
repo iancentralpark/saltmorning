@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-13.01';
+            var APP_BUILD = '2026-07-13.02';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -15068,6 +15068,7 @@
         if (areaEl) areaEl.classList.add('is-busy');
         nodeFetch('/api/stamp-board/stamp', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 classId: selectedClass.id,
                 studentId: studentId,
@@ -15116,7 +15117,6 @@
         if (!selectedClass) return;
         var dateStr = document.getElementById('attendanceDate') && document.getElementById('attendanceDate').value;
         nodeFetch('/api/work?classId=' + encodeURIComponent(selectedClass.id) + '&date=' + encodeURIComponent(dateStr || ''))
-            .then(function(r) { return r.json(); })
             .then(function(work) {
                 if (work && work.students) applyWorkPanels(work);
             })
@@ -15140,7 +15140,6 @@
         var grid = document.getElementById('stampBoardGrid');
         if (grid) grid.innerHTML = '<div class="stamp-board-empty">Loading…</div>';
         nodeFetch('/api/stamp-board?classId=' + encodeURIComponent(selectedClass.id))
-            .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data && data.error) throw new Error(data.error);
                 stampBoardData = data;
@@ -15162,6 +15161,7 @@
         stampBoardPlacing = true;
         nodeFetch('/api/stamp-board/redeem', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ classId: selectedClass.id })
         })
             .then(function(res) {
