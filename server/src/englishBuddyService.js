@@ -1,5 +1,6 @@
 const { cacheGet, cacheSet } = require('./cache');
 const { isGeminiConfigured, askGemini, streamAskGemini, formatGeminiClientError } = require('./geminiService');
+const { recordBuddyExchange } = require('./englishBuddyHistoryService');
 
 const DAILY_LIMIT = 100;
 const MAX_PROMPT = 800;
@@ -221,7 +222,7 @@ function prepareBuddyRequest(studentId, prompt, history) {
   };
 }
 
-async function askEnglishBuddy(studentId, prompt, history) {
+async function askEnglishBuddy(studentId, classId, prompt, history) {
   const prep = prepareBuddyRequest(studentId, prompt, history);
 
   const result = await askGemini(
@@ -234,9 +235,16 @@ async function askEnglishBuddy(studentId, prompt, history) {
     throw new Error(result.error || formatBuddyGeminiError('Could not get a response.'));
   }
 
+  const answer = String(result.answer || '').trim();
+  if (answer) {
+    recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
+      console.error('recordBuddyExchange', err.message || err);
+    });
+  }
+
   const newUsed = incrementUsage(studentId);
   return {
-    answer: result.answer,
+    answer: answer,
     model: result.model,
     limit: DAILY_LIMIT,
     used: newUsed,
@@ -244,10 +252,16 @@ async function askEnglishBuddy(studentId, prompt, history) {
   };
 }
 
-async function streamEnglishBuddy(res, studentId, prompt, history) {
+async function streamEnglishBuddy(res, studentId, classId, prompt, history) {
   const prep = prepareBuddyRequest(studentId, prompt, history);
   await streamAskGemini(res, prep.text, prep.trimmedHistory, Object.assign({}, prep.geminiOptions, {
-    onComplete: function() {
+    onComplete: function(meta) {
+      const answer = meta && meta.answer ? String(meta.answer).trim() : '';
+      if (answer) {
+        recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
+          console.error('recordBuddyExchange', err.message || err);
+        });
+      }
       const newUsed = incrementUsage(studentId);
       return {
         limit: DAILY_LIMIT,

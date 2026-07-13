@@ -11,7 +11,7 @@
     </script>
     <script>
         (function() {
-            var PORTAL_BUILD = '2026-07-13.10';
+            var PORTAL_BUILD = '2026-07-13.12';
             window.PORTAL_BUILD = PORTAL_BUILD;
             var KEY = 'mrpark_portal_build';
             try {
@@ -1949,6 +1949,7 @@
     var chatLayoutRaf = 0;
     var studentMessagesLoadSeq = 0;
     var buddyChatHistory = [];
+    var activeBuddySessionKey = '';
     var buddyConfigured = false;
     var buddyRemaining = 100;
     var buddySending = false;
@@ -2212,6 +2213,7 @@
         stopMessagePolling();
         clearStudentMessengerState();
         activeStudentThreadKey = '';
+        activeBuddySessionKey = '';
         authStore.removeItem(TOKEN_KEY);
         authStore.removeItem(STUDENT_KEY);
         setMessagingActive(false);
@@ -3128,6 +3130,29 @@
         if (input) input.value = '';
     }
 
+    function renderBuddyChatFromHistory(messages) {
+        buddyChatHistory = [];
+        var thread = $('buddyChatThread');
+        if (thread) thread.innerHTML = '';
+        (messages || []).forEach(function(m) {
+            var role = m.role === 'user' ? 'user' : 'assistant';
+            var text = String(m.text || '').trim();
+            if (!text) return;
+            buddyChatHistory.push({ role: role, text: text });
+            appendBuddyBubble(role === 'user' ? 'user' : 'ai', text);
+        });
+        renderBuddyEmpty();
+        scrollBuddyChat();
+    }
+
+    function loadBuddyChatHistory() {
+        return api('/api/student/english-buddy/history', { cache: 'no-store' })
+            .then(function(data) {
+                renderBuddyChatFromHistory(data.messages || []);
+            })
+            .catch(function() {});
+    }
+
     function setBuddyActive(active) {
         var form = $('buddyForm');
         if (!form) return;
@@ -3294,6 +3319,13 @@
                 messengerRealtimeReady = false;
             }
             activeStudentThreadKey = sessionKey;
+        }
+        if (sessionKey !== activeBuddySessionKey) {
+            clearBuddyChat();
+            activeBuddySessionKey = sessionKey;
+            loadBuddyChatHistory().catch(function() {});
+        } else if (!buddyChatHistory.length) {
+            loadBuddyChatHistory().catch(function() {});
         }
         syncWelcomeNames(data.profile.name, data.profile.className);
         authStore.setItem(STUDENT_KEY, JSON.stringify({

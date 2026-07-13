@@ -47,6 +47,7 @@ const {
   clearTeacherAuthCookie
 } = require('./teacherAuth');
 const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy } = require('./englishBuddyService');
+const { getBuddyChatHistory } = require('./englishBuddyHistoryService');
 const {
   getThread,
   markMessagesRead,
@@ -1263,12 +1264,22 @@ router.get('/student/english-buddy/status', requireStudentAuth, async (req, res)
   }
 });
 
+router.get('/student/english-buddy/history', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await getBuddyChatHistory(studentId, classId));
+  } catch (e) {
+    console.error('GET /student/english-buddy/history', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
 router.post('/student/english-buddy', requireStudentAuth, async (req, res) => {
   try {
-    const { studentId } = req.studentSession;
+    const { studentId, classId } = req.studentSession;
     const prompt = String(req.body.prompt || '').trim();
     const history = Array.isArray(req.body.history) ? req.body.history : [];
-    const result = await askEnglishBuddy(studentId, prompt, history);
+    const result = await askEnglishBuddy(studentId, classId, prompt, history);
     res.json(result);
   } catch (e) {
     console.error('POST /student/english-buddy', e);
@@ -1280,10 +1291,10 @@ router.post('/student/english-buddy', requireStudentAuth, async (req, res) => {
 
 router.post('/student/english-buddy/stream', requireStudentAuth, async (req, res) => {
   try {
-    const { studentId } = req.studentSession;
+    const { studentId, classId } = req.studentSession;
     const prompt = String(req.body.prompt || '').trim();
     const history = Array.isArray(req.body.history) ? req.body.history : [];
-    await streamEnglishBuddy(res, studentId, prompt, history);
+    await streamEnglishBuddy(res, studentId, classId, prompt, history);
   } catch (e) {
     console.error('POST /student/english-buddy/stream', e);
     const msg = e.message || 'Request failed';
