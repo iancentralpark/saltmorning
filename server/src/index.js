@@ -39,17 +39,43 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+const publicDir = path.join(__dirname, '..', 'public');
+
+/** Long-cache hashed/static vendor assets; no-store for HTML/SW so deploys apply quickly. */
+function setStaticCacheHeaders(res, filePath) {
+  const rel = path.relative(publicDir, filePath).replace(/\\/g, '/');
+  const base = path.basename(rel);
+  const ext = path.extname(rel).toLowerCase();
+
+  if (ext === '.html' || base === 'sw.js' || base === 'manifest.webmanifest' || base === 'offline.html') {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return;
+  }
+
+  if (/^(js|css|assets)\//.test(rel) || /^(favicon|icon-|apple-touch|snail-mascot)/.test(base)) {
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return;
+  }
+
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+}
+
+app.use(express.static(publicDir, {
+  etag: true,
+  lastModified: true,
+  setHeaders: setStaticCacheHeaders
+}));
 
 app.use('/api', apiRoutes);
 
 app.get('/student', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'Student.html'));
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(publicDir, 'Student.html'));
 });
 
 function sendTeacherApp(req, res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.sendFile(path.join(__dirname, '..', 'public', 'Teacher.html'));
+  res.sendFile(path.join(publicDir, 'Teacher.html'));
 }
 
 function redirectTeacherLogin(req, res) {
@@ -65,7 +91,7 @@ function requireTeacherPage(req, res, next) {
 
 app.get('/teacher-login', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.sendFile(path.join(__dirname, '..', 'public', 'TeacherLogin.html'));
+  res.sendFile(path.join(publicDir, 'TeacherLogin.html'));
 });
 
 app.get('/class', requireTeacherPage, sendTeacherApp);
@@ -83,11 +109,12 @@ app.get('/tools/:tool', requireTeacherPage, (req, res) => {
   const file = TOOL_PAGES[String(req.params.tool || '').toLowerCase()];
   if (!file) return res.status(404).send('Tool not found');
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.sendFile(path.join(__dirname, '..', 'public', 'tools', file));
+  res.sendFile(path.join(publicDir, 'tools', file));
 });
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'Home.html'));
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(publicDir, 'Home.html'));
 });
 
 if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
