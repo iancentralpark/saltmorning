@@ -97,8 +97,11 @@ async function withdrawStudent(classId, studentId) {
     withdrawnAt
   ]]);
 
+  const { invalidateWorkCache } = require('./workCacheService');
+  invalidateWorkCache(classId);
   cacheDeletePrefix('sidebar_v1_');
   cacheDelete('classes_v1');
+  cacheDelete('portal_logins_v1_' + classId);
 
   try {
     const { backfillWithdrawnInClassLog } = require('./classLogService');

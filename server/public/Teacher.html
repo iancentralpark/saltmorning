@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-13.11';
+            var APP_BUILD = '2026-07-14.01';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -14419,10 +14419,11 @@
         const onDone = function(res) {
             bootstrap.Modal.getInstance(document.getElementById('addStudentModal')).hide();
             appToast((res && res.message) ? res.message : 'Student added.');
-            const dateStr = document.getElementById('attendanceDate').value;
-            if (dateStr) {
-                refreshWorkDataQuiet();
+            if (selectedClass && stampBoardStore && stampBoardStore.byClass) {
+                delete stampBoardStore.byClass[String(selectedClass.id)];
             }
+            refreshWorkDataQuiet();
+            if (selectedClass) prefetchStampBoard(selectedClass.id);
         };
         if (!apiPost('/api/students/enroll', body, onDone)) {
             google.script.run
@@ -15203,8 +15204,83 @@
         return false;
     }
 
+    var STAMP_REMAINDER_POSITIONS = [
+        { x: 15, y: 15 }, { x: 35, y: 15 }, { x: 55, y: 15 }, { x: 75, y: 15 }
+    ];
+
+    function buildLocalStampRedemptionPreview() {
+        if (!stampBoardData || !stampBoardData.stamps || !stampBoardData.stamps.length) return null;
+        var perDollar = stampBoardData.stampsPerDollar || 5;
+        var stampsByStudent = {};
+        stampBoardData.stamps.forEach(function(s) {
+            var sid = String(s.studentId);
+            if (!stampsByStudent[sid]) stampsByStudent[sid] = 0;
+            stampsByStudent[sid] += 1;
+        });
+        var awards = [];
+        var newStamps = [];
+        (stampBoardData.students || []).forEach(function(student) {
+            var count = stampsByStudent[String(student.id)] || 0;
+            if (!count) return;
+            var dollars = Math.floor(count / perDollar);
+            var remainder = count % perDollar;
+            if (dollars > 0) {
+                awards.push({
+                    studentId: student.id,
+                    name: student.name,
+                    stampCount: count,
+                    stampsUsed: dollars * perDollar,
+                    remainder: remainder,
+                    dollars: dollars
+                });
+            }
+            for (var i = 0; i < remainder && i < STAMP_REMAINDER_POSITIONS.length; i++) {
+                newStamps.push({
+                    id: 'local_redeem_' + student.id + '_' + i,
+                    studentId: String(student.id),
+                    xPct: STAMP_REMAINDER_POSITIONS[i].x,
+                    yPct: STAMP_REMAINDER_POSITIONS[i].y,
+                    rotDeg: -8 + i * 5
+                });
+            }
+        });
+        return { awards: awards, stamps: newStamps };
+    }
+
+    function applyLocalStampRedemptionPreview() {
+        var preview = buildLocalStampRedemptionPreview();
+        if (!preview || !stampBoardData) return preview;
+        stampBoardData.stamps = preview.stamps.slice();
+        if (selectedClass) {
+            stampBoardStore.byClass[selectedClass.id] = cloneStampBoardData(stampBoardData);
+        }
+        renderStampBoardGrid(stampBoardData);
+        return preview;
+    }
+
+    function setStampBoardCashBusy(busy) {
+        var btn = document.getElementById('stampBoardCashBtn');
+        if (!btn) return;
+        btn.disabled = !!busy;
+        btn.textContent = busy ? 'Cashing in…' : 'Cash In';
+    }
+
+    function reloadStampBoardFromServer(classId) {
+        classId = String(classId || (selectedClass && selectedClass.id) || '');
+        if (!classId) return Promise.resolve();
+        return nodeFetch('/api/stamp-board?classId=' + encodeURIComponent(classId))
+            .then(function(data) {
+                if (!data || data.error) return;
+                stampBoardData = cloneStampBoardData(data);
+                stampBoardStore.byClass[classId] = cloneStampBoardData(data);
+                renderStampBoardGrid(stampBoardData);
+            })
+            .catch(function() {});
+    }
+
     function runStampBoardAutoRedeem() {
         if (!selectedClass) return;
+        applyLocalStampRedemptionPreview();
         flushStampBoardSync(selectedClass.id).then(function() {
             return nodeFetch('/api/stamp-board/redeem', {
                 method: 'POST',
@@ -15221,9 +15297,10 @@
             p.adds = [];
             p.removeIds = {};
             showStampBoardRedemption(res);
-            refreshWorkPanelsQuiet();
+            setTimeout(refreshWorkPanelsQuiet, 0);
         }).catch(function(err) {
             console.warn('[stamp-board redeem]', err && err.message ? err.message : err);
+            reloadStampBoardFromServer(selectedClass.id);
         });
     }
 
@@ -15449,6 +15526,8 @@
             return;
         }
         if (!confirm('Cash in all stamps? (5 stamps = $1 per student)')) return;
+        setStampBoardCashBusy(true);
+        applyLocalStampRedemptionPreview();
         flushStampBoardSync(selectedClass.id).then(function() {
             return nodeFetch('/api/stamp-board/redeem', {
                 method: 'POST',
@@ -15465,9 +15544,12 @@
             p.adds = [];
             p.removeIds = {};
             showStampBoardRedemption(res);
-            refreshWorkPanelsQuiet();
+            setTimeout(refreshWorkPanelsQuiet, 0);
         }).catch(function(err) {
+            reloadStampBoardFromServer(selectedClass.id);
             appAlert(err && err.message ? err.message : 'Could not cash in stamps.');
+        }).finally(function() {
+            setStampBoardCashBusy(false);
         });
     }
 

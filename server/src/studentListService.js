@@ -1,6 +1,7 @@
 const { STUDENT_LIST_SHEET, STUDENT_WITHDRAWN_SHEET } = require('./config');
 const { getSheetRows, appendRows, updateRange } = require('./sheets');
 const { cacheDelete, cacheDeletePrefix } = require('./cache');
+const { invalidateWorkCache } = require('./workCacheService');
 
 const LOGIN_ID_COL = 4;
 const LOGIN_PW_COL = 5;
@@ -125,8 +126,10 @@ async function addEnrolledStudent(classId, name, loginId, loginPassword) {
   const studentId = await generateNextStudentId();
   await appendRows(STUDENT_LIST_SHEET, [[studentId, name, classId, 'Enrolled', loginId, loginPassword]]);
 
+  invalidateWorkCache(classId);
   cacheDeletePrefix('sidebar_v1_');
   cacheDelete('classes_v1');
+  cacheDelete('portal_logins_v1_' + classId);
 
   return {
     studentId,

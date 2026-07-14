@@ -281,7 +281,7 @@ async function getEnrolledStudents(classId, ctx) {
   }
   const out = [];
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][2]) === idStr && data[i][3] === 'Enrolled') {
+    if (String(data[i][2]) === idStr && String(data[i][3] || '').trim() === 'Enrolled') {
       out.push({ id: String(data[i][0]), name: String(data[i][1] || '') });
     }
   }

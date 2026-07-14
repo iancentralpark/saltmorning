@@ -135,7 +135,7 @@ function getEnrolledStudentsFromRows(studentData, classId) {
   const idStr = String(classId);
   const out = [];
   for (let i = 1; i < studentData.length; i++) {
-    if (String(studentData[i][2]) === idStr && studentData[i][3] === 'Enrolled') {
+    if (String(studentData[i][2]) === idStr && String(studentData[i][3] || '').trim() === 'Enrolled') {
       out.push({ id: String(studentData[i][0]), name: String(studentData[i][1] || '') });
     }
   }
