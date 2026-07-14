@@ -124,7 +124,13 @@ async function addEnrolledStudent(classId, name, loginId, loginPassword) {
   }
 
   const studentId = await generateNextStudentId();
-  await appendRows(STUDENT_LIST_SHEET, [[studentId, name, classId, 'Enrolled', loginId, loginPassword]]);
+  let maxSort = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][2]) !== classId) continue;
+    if (String(data[i][3] || '').trim() !== 'Enrolled') continue;
+    maxSort = Math.max(maxSort, Number(data[i][6]) || 0);
+  }
+  await appendRows(STUDENT_LIST_SHEET, [[studentId, name, classId, 'Enrolled', loginId, loginPassword, maxSort + 1]]);
 
   invalidateWorkCache(classId);
   cacheDeletePrefix('sidebar_v1_');
@@ -139,8 +145,71 @@ async function addEnrolledStudent(classId, name, loginId, loginPassword) {
   };
 }
 
+async function reorderClassStudents(classId, studentIds) {
+  classId = String(classId || '').trim();
+  const orderedIds = (Array.isArray(studentIds) ? studentIds : [])
+    .map(function(id) { return String(id || '').trim(); })
+    .filter(Boolean);
+  if (!classId) throw new Error('classId is required.');
+  if (!orderedIds.length) throw new Error('studentIds are required.');
+
+  const data = await getSheetRows(STUDENT_LIST_SHEET, { skipCache: true });
+  const enrolledIds = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][2]) !== classId) continue;
+    if (String(data[i][3] || '').trim() !== 'Enrolled') continue;
+    enrolledIds.push(String(data[i][0]));
+  }
+  const enrolledSet = new Set(enrolledIds);
+  for (let i = 0; i < orderedIds.length; i++) {
+    if (!enrolledSet.has(orderedIds[i])) {
+      throw new Error('Student not enrolled in this class: ' + orderedIds[i]);
+    }
+  }
+  const finalOrder = orderedIds.slice();
+  enrolledIds.forEach(function(id) {
+    if (finalOrder.indexOf(id) < 0) finalOrder.push(id);
+  });
+
+  const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    for (let i = 0; i < finalOrder.length; i++) {
+      const { error } = await db
+        .from('students')
+        .update({ sort_order: i })
+        .eq('id', finalOrder[i])
+        .eq('class_id', classId);
+      if (error) throw new Error(error.message);
+    }
+  } else {
+    const { updateRange } = require('./sheets');
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][2]) !== classId) continue;
+      const sid = String(data[i][0]);
+      const idx = finalOrder.indexOf(sid);
+      if (idx < 0) continue;
+      await updateRange(STUDENT_LIST_SHEET, 'G' + (i + 1), [[idx]]);
+    }
+  }
+
+  const { invalidateSheetRowsCache } = require('./sheets');
+  invalidateSheetRowsCache(STUDENT_LIST_SHEET);
+  invalidateWorkCache(classId);
+  cacheDeletePrefix('sidebar_v1_');
+  cacheDelete('portal_logins_v1_' + classId);
+
+  return {
+    ok: true,
+    classId: classId,
+    studentIds: finalOrder,
+    message: 'Student order saved.'
+  };
+}
+
 module.exports = {
   buildClassStudentDirectory,
   addEnrolledStudent,
+  reorderClassStudents,
   ensureStudentLoginColumns
 };

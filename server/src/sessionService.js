@@ -136,10 +136,17 @@ function getEnrolledStudentsFromRows(studentData, classId) {
   const out = [];
   for (let i = 1; i < studentData.length; i++) {
     if (String(studentData[i][2]) === idStr && String(studentData[i][3] || '').trim() === 'Enrolled') {
-      out.push({ id: String(studentData[i][0]), name: String(studentData[i][1] || '') });
+      out.push({
+        id: String(studentData[i][0]),
+        name: String(studentData[i][1] || ''),
+        sortOrder: Number(studentData[i][6]) || 0
+      });
     }
   }
-  out.sort((a, b) => a.name.localeCompare(b.name));
+  out.sort(function(a, b) {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.name.localeCompare(b.name);
+  });
   return out;
 }
 

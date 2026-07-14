@@ -47,7 +47,7 @@ const PHASE3_SHEETS = new Set([
 ]);
 
 const HEADERS = {
-  [STUDENT_LIST_SHEET]: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword'],
+  [STUDENT_LIST_SHEET]: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword', 'SortOrder'],
   [STUDENT_WITHDRAWN_SHEET]: [
     'WithdrawalID',
     'StudentID',
@@ -200,7 +200,7 @@ async function getRows(sheetName) {
   const header = HEADERS[sheetName];
 
   if (sheetName === STUDENT_LIST_SHEET) {
-    const data = await queryStudents(db, { orderBy: 'name' });
+    const data = await queryStudents(db, { orderBy: 'sort_order' });
     const rows = [header];
     data.forEach(function(r) {
       rows.push([
@@ -209,7 +209,8 @@ async function getRows(sheetName) {
         String(r.class_id || ''),
         String(r.status || ''),
         String(r.login_id || ''),
-        String(r.login_password || '')
+        String(r.login_password || ''),
+        r.sort_order != null ? Number(r.sort_order) || 0 : 0
       ]);
     });
     return rows;
@@ -587,14 +588,25 @@ async function appendRows(sheetName, rows) {
     for (const row of bodyRows) {
       const plain = String(row[5] || '');
       const passwordHash = plain ? await hashPassword(plain) : '';
+      const classId = String(row[2] || '');
+      let sortOrder = row[6] != null && String(row[6]).trim() !== ''
+        ? Number(row[6]) || 0
+        : null;
+      if (sortOrder == null) {
+        const existing = await queryStudents(db, { classId: classId, orderBy: 'sort_order' });
+        sortOrder = existing.reduce(function(max, s) {
+          return Math.max(max, Number(s.sort_order) || 0);
+        }, -1) + 1;
+      }
       payload.push({
         id: String(row[0]),
         name: String(row[1] || ''),
-        class_id: String(row[2] || ''),
+        class_id: classId,
         status: String(row[3] || ''),
         login_id: String(row[4] || ''),
         login_password: plain,
-        password_hash: passwordHash
+        password_hash: passwordHash,
+        sort_order: sortOrder
       });
     }
     const { error } = await db.from('students').upsert(payload, { onConflict: 'id' });
@@ -947,8 +959,9 @@ async function updateRange(sheetName, a1, values) {
           patch.login_password = plain;
           patch.password_hash = plain ? await hashPassword(plain) : '';
         }
+        if (c === 6) patch.sort_order = Number(v) || 0;
         if (c < 3) {
-          throw new Error('Student list update only supports columns D-F in Supabase mode.');
+          throw new Error('Student list update only supports columns D-G in Supabase mode.');
         }
       }
       const { error } = await db.from('students').update(patch).eq('id', studentId);

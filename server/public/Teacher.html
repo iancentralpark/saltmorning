@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-14.01';
+            var APP_BUILD = '2026-07-14.02';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -3574,6 +3574,49 @@
         }
         tr.student-row-on-leave td { color: #6c757d; }
         tr.student-row-on-leave .student-name-btn { color: #495057; }
+        .student-drag-handle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+            color: #94a3b8;
+            cursor: grab;
+            user-select: none;
+            width: 100%;
+            min-height: 1.6rem;
+            touch-action: none;
+        }
+        .student-drag-handle:active { cursor: grabbing; color: #64748b; }
+        .student-drag-handle i { font-size: 0.85rem; }
+        .student-drag-num {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #64748b;
+            min-width: 1.1rem;
+        }
+        #studentTableBody tr.sortable-ghost,
+        #teacherMobileAttendanceList .sortable-ghost {
+            opacity: 0.4;
+        }
+        #studentTableBody tr.sortable-chosen,
+        #teacherMobileAttendanceList .sortable-chosen {
+            box-shadow: 0 6px 18px rgba(45, 52, 54, 0.12);
+        }
+        .tm-student-drag-handle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 10px;
+            border: none;
+            background: rgba(59, 158, 221, 0.1);
+            color: #64748b;
+            cursor: grab;
+            flex-shrink: 0;
+            touch-action: none;
+        }
+        .tm-student-drag-handle:active { cursor: grabbing; }
         .leave-attendance-notice {
             display: inline-block;
             padding: 0.35rem 0.65rem;
@@ -4556,6 +4599,9 @@
             font-family: var(--app-heading);
             font-size: 1.0625rem;
             font-weight: 800;
+            flex: 1;
+            min-width: 0;
+            text-align: left;
             color: var(--app-primary-dark);
             background: none;
             border: none;
@@ -5813,7 +5859,7 @@
             <table class="table table-hover align-middle text-center app-table">
                 <thead>
                     <tr>
-                        <th style="width: 6%;">#</th>
+                        <th style="width: 6%;" title="Drag to reorder">#</th>
                         <th style="width: 17%; min-width: 10rem;">Student</th>
                         <th style="width: 14%; min-width: 7.25rem;">Chambit Combo</th>
                         <th style="width: 24%;">Attendance</th>
@@ -6934,6 +6980,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const NODE_API_URL_TEMPLATE = '';
@@ -7041,7 +7088,11 @@
                 if (options.loading !== false) showLoading(false);
                 onSuccess(data);
             })
-            .catch(handleError);
+            .catch(function(err) {
+                if (options.loading !== false) showLoading(false);
+                if (typeof options.onError === 'function') options.onError(err);
+                else handleError(err);
+            });
         return true;
     }
 
@@ -7789,6 +7840,9 @@
             card.innerHTML =
                 '<header class="tm-card-head">' +
                     '<div class="tm-card-head-top">' +
+                        '<button type="button" class="tm-student-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">' +
+                            '<i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>' +
+                        '</button>' +
                         '<button type="button" class="tm-card-name student-name-btn">' + escapeHtml(std.name) + '</button>' +
                         badgesHtml +
                     '</div>' +
@@ -12237,7 +12291,12 @@
             }
 
             tr.innerHTML = `
-                <td>${index + 1}</td>
+                <td>
+                    <span class="student-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+                        <i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>
+                        <span class="student-drag-num">${index + 1}</span>
+                    </span>
+                </td>
                 <td class="fw-bold text-start ps-4 student-name-td">
                     <div class="student-name-cell">
                         <span class="student-name-btn" role="button" title="View student detail & homework">${escapeHtml(std.name)}</span>
@@ -12297,7 +12356,118 @@
         document.getElementById('studentSection').classList.remove('hidden-section');
         renderMobileStudentRoster(students);
         renderTeacherMobileAttendance(students);
+        initStudentRosterSortable();
         showLoading(false);
+    }
+
+    var studentRosterDesktopSortable = null;
+    var studentRosterMobileSortable = null;
+    var studentReorderSaving = false;
+
+    function destroyStudentRosterSortable() {
+        if (studentRosterDesktopSortable) {
+            studentRosterDesktopSortable.destroy();
+            studentRosterDesktopSortable = null;
+        }
+        if (studentRosterMobileSortable) {
+            studentRosterMobileSortable.destroy();
+            studentRosterMobileSortable = null;
+        }
+    }
+
+    function renumberStudentRosterRows() {
+        var tbody = document.getElementById('studentTableBody');
+        if (!tbody) return;
+        Array.prototype.forEach.call(tbody.querySelectorAll('tr[data-student-id]'), function(tr, index) {
+            var num = tr.querySelector('.student-drag-num');
+            if (num) num.textContent = String(index + 1);
+        });
+    }
+
+    function collectStudentOrderFromDom(preferredRoot) {
+        var root = preferredRoot;
+        if (!root || !root.querySelector('[data-student-id]')) {
+            root = document.getElementById('studentTableBody');
+        }
+        if (!root || !root.querySelector('[data-student-id]')) {
+            root = document.getElementById('teacherMobileAttendanceList');
+        }
+        if (!root) return [];
+        return Array.prototype.map.call(root.querySelectorAll('[data-student-id]'), function(el) {
+            return String(el.getAttribute('data-student-id') || '');
+        }).filter(Boolean);
+    }
+
+    function applyStudentOrderLocally(studentIds) {
+        if (!Array.isArray(studentIds) || !studentIds.length) return;
+        var byId = {};
+        (loadedStudents || []).forEach(function(s) { byId[String(s.id)] = s; });
+        var next = [];
+        studentIds.forEach(function(id) {
+            if (byId[id]) next.push(byId[id]);
+        });
+        (loadedStudents || []).forEach(function(s) {
+            if (studentIds.indexOf(String(s.id)) < 0) next.push(s);
+        });
+        loadedStudents = next;
+        if (stampBoardStore && selectedClass && stampBoardStore.byClass) {
+            delete stampBoardStore.byClass[String(selectedClass.id)];
+        }
+    }
+
+    function persistStudentRosterOrder(fromEl) {
+        if (!selectedClass || studentReorderSaving) return;
+        var studentIds = collectStudentOrderFromDom(fromEl);
+        if (!studentIds.length) return;
+        renumberStudentRosterRows();
+        applyStudentOrderLocally(studentIds);
+        studentReorderSaving = true;
+        apiPost('/api/students/reorder', {
+            classId: selectedClass.id,
+            studentIds: studentIds
+        }, function() {
+            studentReorderSaving = false;
+            appToast('Student order saved.');
+            if (selectedClass) prefetchStampBoard(selectedClass.id);
+        }, {
+            loading: false,
+            onError: function(err) {
+                studentReorderSaving = false;
+                appAlert((err && err.message) ? err.message : 'Could not save student order.');
+                refreshWorkDataQuiet();
+            }
+        });
+    }
+
+    function initStudentRosterSortable() {
+        destroyStudentRosterSortable();
+        if (typeof Sortable === 'undefined') return;
+        var tbody = document.getElementById('studentTableBody');
+        if (tbody && tbody.querySelector('tr[data-student-id]')) {
+            studentRosterDesktopSortable = Sortable.create(tbody, {
+                handle: '.student-drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                draggable: 'tr[data-student-id]',
+                onEnd: function() {
+                    persistStudentRosterOrder(tbody);
+                }
+            });
+        }
+        var mobileList = document.getElementById('teacherMobileAttendanceList');
+        if (mobileList && mobileList.querySelector('.tm-student-card[data-student-id]')) {
+            studentRosterMobileSortable = Sortable.create(mobileList, {
+                handle: '.tm-student-drag-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                draggable: '.tm-student-card[data-student-id]',
+                onEnd: function() {
+                    persistStudentRosterOrder(mobileList);
+                }
+            });
+        }
     }
 
     // 데이터 수집 후 시트에 최종 저장 요청

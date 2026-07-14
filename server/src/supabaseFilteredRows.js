@@ -29,7 +29,7 @@ const { formatSheetDate, formatDateInTz, chambitWeekMonday, chambitWeekSunday } 
 
 const HEADERS = {
   [CLASS_LIST_SHEET]: ['ClassID', 'Name', 'ScheduleType', 'AllowedDays'],
-  [STUDENT_LIST_SHEET]: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword'],
+  [STUDENT_LIST_SHEET]: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword', 'SortOrder'],
   [STUDENT_WITHDRAWN_SHEET]: ['WithdrawalID', 'StudentID', 'Name', 'ClassID', 'LoginID', 'LoginPassword', 'PreviousStatus', 'WithdrawnAt'],
   [STUDENT_LEAVE_SHEET]: ['LeaveID', 'StudentID', 'Name', 'ClassID', 'StartDate', 'EndDate', 'Reason', 'Status', 'CreatedAt', 'EndedAt'],
   [STUDENT_PLANNED_ATTENDANCE_SHEET]: ['NoticeID', 'StudentID', 'Name', 'ClassID', 'Date', 'Type', 'Note', 'Status', 'CreatedAt'],
@@ -105,10 +105,18 @@ async function getRowsFiltered(sheetName, classId, options) {
   }
 
   if (sheetName === STUDENT_LIST_SHEET) {
-    const data = await queryStudents(db, { classId: classId, orderBy: 'name' });
+    const data = await queryStudents(db, { classId: classId, orderBy: 'sort_order' });
     const rows = [header];
     data.forEach(function(r) {
-      rows.push([r.id, r.name, r.class_id, r.status, r.login_id, r.login_password || '']);
+      rows.push([
+        r.id,
+        r.name,
+        r.class_id,
+        r.status,
+        r.login_id,
+        r.login_password || '',
+        r.sort_order != null ? Number(r.sort_order) || 0 : 0
+      ]);
     });
     return rows;
   }

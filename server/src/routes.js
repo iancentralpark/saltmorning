@@ -86,7 +86,7 @@ const {
   createPlannedAttendance,
   cancelPlannedAttendance
 } = require('./plannedAttendanceService');
-const { addEnrolledStudent } = require('./studentListService');
+const { addEnrolledStudent, reorderClassStudents } = require('./studentListService');
 const { applyDollarAdjustment, getStudentDollarBalance } = require('./dollarService');
 const { toggleChambitRead, setChambitComboManual } = require('./chambitService');
 const {
@@ -1137,6 +1137,16 @@ router.post('/students/enroll', async (req, res) => {
   } catch (e) {
     console.error('POST /students/enroll', e);
     res.status(400).json({ error: e.message || 'Enroll failed' });
+  }
+});
+
+router.post('/students/reorder', async (req, res) => {
+  try {
+    const { classId, studentIds } = req.body || {};
+    res.json(await reorderClassStudents(classId, studentIds));
+  } catch (e) {
+    console.error('POST /students/reorder', e);
+    res.status(400).json({ error: e.message || 'Reorder failed' });
   }
 });
 

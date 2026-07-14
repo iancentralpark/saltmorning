@@ -6,7 +6,8 @@ function isMissingLoginPasswordColumn(error) {
 
 function withLoginPasswordField(row) {
   return Object.assign({}, row, {
-    login_password: row && row.login_password != null ? String(row.login_password) : ''
+    login_password: row && row.login_password != null ? String(row.login_password) : '',
+    sort_order: row && row.sort_order != null ? Number(row.sort_order) || 0 : 0
   });
 }
 
@@ -24,7 +25,7 @@ function isLoginPasswordColumnMissing() {
  */
 async function queryStudents(db, options) {
   const opts = options || {};
-  const baseCols = 'id, name, class_id, status, login_id';
+  const baseCols = 'id, name, class_id, status, login_id, sort_order';
 
   function applyFilters(q) {
     if (opts.classId) q = q.eq('class_id', String(opts.classId));
@@ -43,7 +44,13 @@ async function queryStudents(db, options) {
   }
 
   function order(q) {
-    return opts.orderBy ? q.order(opts.orderBy) : q;
+    if (opts.orderBy === 'sort_order' || !opts.orderBy) {
+      return q.order('sort_order', { ascending: true }).order('name', { ascending: true });
+    }
+    if (opts.orderBy === 'name') {
+      return q.order('name', { ascending: true });
+    }
+    return q.order(opts.orderBy);
   }
 
   if (loginPasswordColumnState === 'missing') {

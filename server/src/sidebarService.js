@@ -28,10 +28,17 @@ async function getEnrolledStudents(classId) {
   const out = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][2]) === idStr && String(data[i][3] || '').trim() === 'Enrolled') {
-      out.push({ id: String(data[i][0]), name: String(data[i][1] || '') });
+      out.push({
+        id: String(data[i][0]),
+        name: String(data[i][1] || ''),
+        sortOrder: Number(data[i][6]) || 0
+      });
     }
   }
-  out.sort((a, b) => a.name.localeCompare(b.name));
+  out.sort(function(a, b) {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.name.localeCompare(b.name);
+  });
   return out;
 }
 
