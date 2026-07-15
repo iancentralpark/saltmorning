@@ -52,8 +52,16 @@ function setStaticCacheHeaders(res, filePath) {
     return;
   }
 
-  if (/^(js|css|assets)\//.test(rel) || /^(favicon|icon-|apple-touch|snail-mascot)/.test(base)) {
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  // Fingerprinted filenames only: long immutable cache. Plain /js/*.js names change in place.
+  if (/\.[a-f0-9]{8,}\.(?:js|css|mjs)$/i.test(base) || /\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|wasm)$/i.test(ext)) {
+    if (/^(js|css|assets)\//.test(rel) || /^(favicon|icon-|apple-touch|snail-mascot)/.test(base)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return;
+    }
+  }
+
+  if (/^(js|css)\//.test(rel)) {
+    res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
     return;
   }
 

@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-14.03';
+            var APP_BUILD = '2026-07-15.01';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -13322,6 +13322,38 @@
         return normalizeThreadId(activeMessageClassId + '|' + activeMessageStudentId);
     }
 
+    function rememberPendingMessengerMessage(threadId, message) {
+        threadId = normalizeThreadId(threadId);
+        if (!threadId || !message || !message.messageId) return;
+        if (!pendingTeacherRealtimeMessages[threadId]) pendingTeacherRealtimeMessages[threadId] = {};
+        pendingTeacherRealtimeMessages[threadId][message.messageId] = message;
+    }
+
+    function clearPendingMessengerMessage(threadId, messageId) {
+        threadId = normalizeThreadId(threadId);
+        if (!threadId || !messageId || !pendingTeacherRealtimeMessages[threadId]) return;
+        delete pendingTeacherRealtimeMessages[threadId][messageId];
+        if (!Object.keys(pendingTeacherRealtimeMessages[threadId]).length) {
+            delete pendingTeacherRealtimeMessages[threadId];
+        }
+    }
+
+    function upsertMessengerThreadCache(threadId, message) {
+        threadId = normalizeThreadId(threadId);
+        if (!threadId || !message || !message.messageId) return;
+        var cached = messengerThreadsById[threadId];
+        if (!cached) {
+            cached = { messages: [], knownIds: {} };
+            messengerThreadsById[threadId] = cached;
+        }
+        if (cached.knownIds[message.messageId]) return;
+        cached.knownIds[message.messageId] = true;
+        cached.messages.push(message);
+        cached.messages.sort(function(a, b) {
+            return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+        });
+    }
+
     function saveMessengerThreadToCache() {
         const tid = messengerActiveThreadId();
         if (!tid) return;
@@ -13349,23 +13381,30 @@
         });
     }
 
-    function mergeMessengerThreadFromServer(serverMessages) {
+    function mergeMessengerThreadFromServer(serverMessages, threadId) {
+        threadId = normalizeThreadId(threadId || messengerActiveThreadId());
         var serverList = serverMessages || [];
         var serverIds = {};
         serverList.forEach(function(m) {
             if (m && m.messageId) {
                 serverIds[m.messageId] = true;
-                if (pendingTeacherRealtimeMessages[m.messageId]) {
-                    delete pendingTeacherRealtimeMessages[m.messageId];
-                }
+                clearPendingMessengerMessage(threadId, m.messageId);
             }
         });
         var extras = [];
+        var seen = Object.assign({}, serverIds);
         messengerThreadMessages.forEach(function(m) {
-            if (m && m.messageId && !serverIds[m.messageId]) extras.push(m);
+            if (m && m.messageId && !seen[m.messageId]) {
+                seen[m.messageId] = true;
+                extras.push(m);
+            }
         });
-        Object.keys(pendingTeacherRealtimeMessages).forEach(function(id) {
-            if (!serverIds[id]) extras.push(pendingTeacherRealtimeMessages[id]);
+        var pendingForThread = (threadId && pendingTeacherRealtimeMessages[threadId]) || {};
+        Object.keys(pendingForThread).forEach(function(id) {
+            if (!seen[id]) {
+                seen[id] = true;
+                extras.push(pendingForThread[id]);
+            }
         });
         if (!extras.length) {
             resetMessengerThreadCache(serverList);
@@ -13378,14 +13417,22 @@
         resetMessengerThreadCache(merged);
     }
 
-    function appendMessengerMessageIfNew(m) {
-        if (!m || !m.messageId || messengerKnownIds[m.messageId]) return false;
+    /** Append only when the message belongs to the currently open thread. */
+    function appendMessengerMessageIfNew(m, threadId) {
+        threadId = normalizeThreadId(threadId || messengerActiveThreadId());
+        if (!m || !m.messageId || !threadId) return false;
+        rememberPendingMessengerMessage(threadId, m);
+        if (threadId !== messengerActiveThreadId()) {
+            upsertMessengerThreadCache(threadId, m);
+            return false;
+        }
+        if (messengerKnownIds[m.messageId]) return false;
         messengerKnownIds[m.messageId] = true;
-        pendingTeacherRealtimeMessages[m.messageId] = m;
         messengerThreadMessages.push(m);
         messengerThreadMessages.sort(function(a, b) {
             return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
         });
+        saveMessengerThreadToCache();
         if (!document.getElementById('messengerChatView').classList.contains('hidden-section')) {
             renderMessengerThread(messengerThreadMessages);
         }
@@ -13458,40 +13505,21 @@
     function handleMessengerRealtimeMessage(payload) {
         const tid = normalizeThreadId(payload && payload.threadId);
         const msg = payload && payload.message;
-        if (msg && tid) {
-            const parts = tid.split('|');
-            const existing = messengerInbox.find(function(r) {
-                return String(r.classId) === String(parts[0]) && String(r.studentId) === String(parts[1]);
-            });
-            upsertLocalInboxRow(
-                parts[0],
-                parts[1],
-                msg.studentName || (existing && existing.studentName) || activeMessageStudentName,
-                msg.body,
-                msg.sender,
-                (existing && existing.className) || (selectedClass && String(selectedClass.id) === String(parts[0]) ? selectedClass.name : parts[0])
-            );
-        }
-        if (msg && tid === messengerActiveThreadId()) {
-            if (appendMessengerMessageIfNew(msg)) {
-                saveMessengerThreadToCache();
-                markMessengerThreadRead();
-            }
-            return;
-        }
-        if (msg && msg.messageId) {
-            pendingTeacherRealtimeMessages[msg.messageId] = msg;
-            const parts = tid.split('|');
-            if (parts.length === 2) {
-                const cached = messengerThreadsById[tid];
-                if (cached && !cached.knownIds[msg.messageId]) {
-                    cached.knownIds[msg.messageId] = true;
-                    cached.messages.push(msg);
-                    cached.messages.sort(function(a, b) {
-                        return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
-                    });
-                }
-            }
+        if (!msg || !tid) return;
+        const parts = tid.split('|');
+        const existing = messengerInbox.find(function(r) {
+            return String(r.classId) === String(parts[0]) && String(r.studentId) === String(parts[1]);
+        });
+        upsertLocalInboxRow(
+            parts[0],
+            parts[1],
+            msg.studentName || (existing && existing.studentName) || activeMessageStudentName,
+            msg.body,
+            msg.sender,
+            (existing && existing.className) || (selectedClass && String(selectedClass.id) === String(parts[0]) ? selectedClass.name : parts[0])
+        );
+        if (appendMessengerMessageIfNew(msg, tid)) {
+            markMessengerThreadRead();
         }
     }
 
@@ -13776,10 +13804,14 @@
 
     function loadMessengerThread() {
         if (!activeMessageClassId || !activeMessageStudentId) return Promise.resolve();
-        return nodeFetch('/api/messages/thread?classId=' + encodeURIComponent(activeMessageClassId) +
-            '&studentId=' + encodeURIComponent(activeMessageStudentId) + '&_=' + Date.now())
+        var classId = activeMessageClassId;
+        var studentId = activeMessageStudentId;
+        var tid = normalizeThreadId(classId + '|' + studentId);
+        return nodeFetch('/api/messages/thread?classId=' + encodeURIComponent(classId) +
+            '&studentId=' + encodeURIComponent(studentId) + '&_=' + Date.now())
             .then(function(data) {
-                mergeMessengerThreadFromServer(data.messages || []);
+                if (normalizeThreadId(classId + '|' + studentId) !== messengerActiveThreadId()) return;
+                mergeMessengerThreadFromServer(data.messages || [], tid);
                 renderMessengerThread(messengerThreadMessages);
                 saveMessengerThreadToCache();
             })
@@ -13800,6 +13832,8 @@
         autoGrowMessengerInput();
         showMessengerChatView(studentName || 'Student');
         loadMessengerThreadFromCache(tid);
+        var threadEl = document.getElementById('messengerChatThread');
+        if (threadEl) delete threadEl.dataset.msgFp;
         renderMessengerThread(messengerThreadMessages);
         setMessengerMinimized(false);
         syncMessengerPolling();
@@ -13822,32 +13856,37 @@
         const btn = document.getElementById('messengerChatSendBtn');
         const body = input ? input.value.trim() : '';
         if (!body) return;
+        const sendClassId = activeMessageClassId;
+        const sendStudentId = activeMessageStudentId;
+        const sendStudentName = activeMessageStudentName;
+        const sendThreadId = normalizeThreadId(sendClassId + '|' + sendStudentId);
         if (btn) btn.disabled = true;
         nodeFetch('/api/messages', {
             method: 'POST',
             body: JSON.stringify({
-                classId: activeMessageClassId,
-                studentId: activeMessageStudentId,
-                studentName: activeMessageStudentName,
+                classId: sendClassId,
+                studentId: sendStudentId,
+                studentName: sendStudentName,
                 body: body
             })
         }).then(function(res) {
-            if (input) {
+            if (input && messengerActiveThreadId() === sendThreadId) {
                 input.value = '';
                 autoGrowMessengerInput();
             }
             if (res && res.message) {
-                appendMessengerMessageIfNew(res.message);
-                saveMessengerThreadToCache();
+                appendMessengerMessageIfNew(res.message, sendThreadId);
                 upsertLocalInboxRow(
-                    activeMessageClassId,
-                    activeMessageStudentId,
-                    activeMessageStudentName,
+                    sendClassId,
+                    sendStudentId,
+                    sendStudentName,
                     res.message.body,
                     'teacher',
-                    selectedClass ? selectedClass.name : activeMessageClassId
+                    selectedClass && String(selectedClass.id) === String(sendClassId)
+                        ? selectedClass.name
+                        : sendClassId
                 );
-            } else {
+            } else if (messengerActiveThreadId() === sendThreadId) {
                 return loadMessengerThread();
             }
         }).catch(function(err) {

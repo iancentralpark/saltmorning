@@ -85,7 +85,11 @@
   }
 
   function joinThread(threadId) {
-    activeThread = threadId ? String(threadId) : '';
+    var next = threadId ? String(threadId) : '';
+    if (socket && socket.connected && activeThread && activeThread !== next) {
+      socket.emit('messenger:leave', activeThread);
+    }
+    activeThread = next;
     if (socket && socket.connected && activeThread) {
       socket.emit('messenger:join', activeThread);
     }
