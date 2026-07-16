@@ -407,6 +407,39 @@
             border-color: rgba(241, 196, 15, 0.65);
             box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(241, 196, 15, 0.14);
         }
+        .draw-mode-toggle {
+            display: flex;
+            gap: 0.35rem;
+            margin: 0 0 0.85rem;
+            padding: 0.25rem;
+            border-radius: 999px;
+            background: rgba(241, 196, 15, 0.12);
+            border: 2px solid rgba(241, 196, 15, 0.35);
+        }
+        .draw-mode-btn {
+            flex: 1;
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            color: #8d6e00;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            padding: 0.45rem 0.55rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, transform 0.12s;
+        }
+        .draw-mode-btn:hover { transform: translateY(-1px); }
+        .draw-mode-btn.active {
+            background: linear-gradient(180deg, #ffe082 0%, #f1c40f 100%);
+            color: #5d4037;
+            box-shadow: 0 2px 0 rgba(141, 110, 0, 0.25);
+        }
+        body.paid-draw-mode .draw-mode-btn[data-mode="paid"].active {
+            background: linear-gradient(180deg, #ffd54f 0%, #f39c12 100%);
+            color: #4e342e;
+        }
         .paid-mode-hint {
             display: none;
             font-size: 0.72rem;
@@ -545,20 +578,6 @@
                 0 4px 0 rgba(0, 0, 0, 0.28);
             z-index: 1;
         }
-        .slot-egg-btn {
-            position: absolute;
-            top: -0.15rem;
-            right: 0;
-            width: 1.1rem;
-            height: 1.1rem;
-            padding: 0;
-            border: none;
-            border-radius: 50%;
-            background: transparent;
-            opacity: 0.07;
-            cursor: default;
-        }
-        .slot-egg-btn:focus { outline: none; }
         .slot-windows {
             position: relative;
             z-index: 1;
@@ -953,7 +972,11 @@
         </div>
         <h1 class="title"><i class="fa-solid fa-ticket"></i> Lucky Draw</h1>
         <p class="sub" id="classSub">Pick a student, pull the lever!</p>
-        <p class="paid-mode-hint" id="paidModeHint">Secret shop — $3 per draw</p>
+        <div class="draw-mode-toggle" role="group" aria-label="Draw mode">
+            <button type="button" class="draw-mode-btn active" id="drawModeFreeBtn" data-mode="free">Free draw</button>
+            <button type="button" class="draw-mode-btn" id="drawModePaidBtn" data-mode="paid">$3 draw</button>
+        </div>
+        <p class="paid-mode-hint" id="paidModeHint">$3 will be deducted from this student’s dollars</p>
 
         <div class="student-pick" id="studentPickWrap">
             <label for="studentSelect">Student</label>
@@ -972,9 +995,7 @@
                     <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
                     <span class="slot-bulb"></span>
                 </div>
-                <div class="slot-top">★ Lucky Slot ★
-                    <button type="button" class="slot-egg-btn" id="dollarModeEgg" aria-hidden="true" tabindex="-1"></button>
-                </div>
+                <div class="slot-top">★ Lucky Slot ★</div>
                 <div class="slot-windows">
                     <div class="slot-window-glass">
                         <div class="slot-reel" id="reel"><div class="slot-strip"></div></div>
@@ -1478,6 +1499,10 @@ function toolFetch(url, opts) {
             document.body.classList.toggle('paid-draw-mode', paidDrawMode);
             var shell = document.querySelector('.shell');
             if (shell) shell.classList.toggle('paid-draw-mode', paidDrawMode);
+            var freeBtn = document.getElementById('drawModeFreeBtn');
+            var paidBtn = document.getElementById('drawModePaidBtn');
+            if (freeBtn) freeBtn.classList.toggle('active', !paidDrawMode);
+            if (paidBtn) paidBtn.classList.toggle('active', paidDrawMode);
             var sub = document.getElementById('classSub');
             if (sub && CLASS_NAME) {
                 sub.textContent = paidDrawMode
@@ -1485,8 +1510,12 @@ function toolFetch(url, opts) {
                     : (CLASS_NAME + ' — pick a student, pull the lever!');
             }
             document.getElementById('leverLabel').textContent = paidDrawMode
-                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                ? ('Spend $' + LUCKY_DRAW_COST + ' to spin')
                 : 'Pull the lever!';
+            var hint = document.getElementById('paidModeHint');
+            if (hint) {
+                hint.textContent = '$' + LUCKY_DRAW_COST + ' will be deducted from this student’s dollars';
+            }
             var sel = document.getElementById('studentSelect');
             if (paidDrawMode && sel && sel.value) {
                 loadStudentBalance(sel.value);
@@ -1498,22 +1527,24 @@ function toolFetch(url, opts) {
         function setPaidDrawMode(on) {
             paidDrawMode = !!on;
             updateDrawModeUi();
-            if (paidDrawMode) {
-                var hint = document.getElementById('paidModeHint');
-                if (hint) {
-                    hint.textContent = 'Secret shop unlocked — $' + LUCKY_DRAW_COST + ' per draw';
-                }
-            }
         }
 
-        function initDollarModeEasterEgg() {
-            var egg = document.getElementById('dollarModeEgg');
-            if (!egg) return;
-            egg.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (isSpinning) return;
-                setPaidDrawMode(!paidDrawMode);
-            });
+        function initDrawModeToggle() {
+            var freeBtn = document.getElementById('drawModeFreeBtn');
+            var paidBtn = document.getElementById('drawModePaidBtn');
+            if (freeBtn) {
+                freeBtn.addEventListener('click', function() {
+                    if (isSpinning) return;
+                    setPaidDrawMode(false);
+                });
+            }
+            if (paidBtn) {
+                paidBtn.addEventListener('click', function() {
+                    if (isSpinning) return;
+                    setPaidDrawMode(true);
+                });
+            }
+            updateDrawModeUi();
         }
 
         function saveTicketForStudent(prize) {
@@ -1603,7 +1634,7 @@ function toolFetch(url, opts) {
             document.getElementById('resultPanel').classList.remove('show');
             document.getElementById('saveStatus').textContent = '';
             document.getElementById('leverLabel').textContent = paidDrawMode
-                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                ? ('Spend $' + LUCKY_DRAW_COST + ' to spin')
                 : 'Pull the lever!';
             document.getElementById('leverBtn').disabled = false;
             document.getElementById('drawAgainBtn').disabled = false;
@@ -1671,7 +1702,7 @@ function toolFetch(url, opts) {
                     alert(err.message || 'Something went wrong — try again.');
                 }
                 document.getElementById('leverLabel').textContent = paidDrawMode
-                    ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                    ? ('Spend $' + LUCKY_DRAW_COST + ' to spin')
                     : 'Pull the lever!';
                 document.getElementById('saveStatus').textContent = '';
                 lever.disabled = false;
@@ -1689,7 +1720,7 @@ function toolFetch(url, opts) {
         function bootstrapLuckyDraw() {
             if (!CLASS_ID) {
                 initStudentSelect();
-                initDollarModeEasterEgg();
+                initDrawModeToggle();
                 loadLuckyDrawConfig();
                 return;
             }
@@ -1699,12 +1730,12 @@ function toolFetch(url, opts) {
                 .then(function(list) {
                     STUDENTS = Array.isArray(list) ? list : [];
                     initStudentSelect();
-                    initDollarModeEasterEgg();
+                    initDrawModeToggle();
                     loadLuckyDrawConfig();
                 })
                 .catch(function() {
                     initStudentSelect();
-                    initDollarModeEasterEgg();
+                    initDrawModeToggle();
                     loadLuckyDrawConfig();
                 });
         }

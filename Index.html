@@ -6754,6 +6754,32 @@
             </div>
             <div class="modal-body">
                 <p class="small text-muted mb-2">Student: <strong id="luckyTicketsStudentName">—</strong></p>
+                <div class="lucky-grant-box mb-3 p-2 border rounded-3 bg-light">
+                    <div class="fw-bold small mb-2"><i class="fa-solid fa-gift"></i> Grant ticket manually</div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-5">
+                            <label class="form-label small mb-1" for="luckyGrantTier">Tier</label>
+                            <select class="form-select form-select-sm" id="luckyGrantTier">
+                                <option value="Common">Common</option>
+                                <option value="Rare">Rare</option>
+                                <option value="Unique">Unique</option>
+                                <option value="Legendary">Legendary</option>
+                                <option value="Mythical">Mythical</option>
+                                <option value="Godlike">Godlike</option>
+                                <option value="Custom">Custom</option>
+                            </select>
+                        </div>
+                        <div class="col-7">
+                            <label class="form-label small mb-1" for="luckyGrantPrize">Prize</label>
+                            <input type="text" class="form-control form-control-sm" id="luckyGrantPrize" placeholder="e.g. 5 Haribos" maxlength="80">
+                        </div>
+                        <div class="col-12">
+                            <button type="button" class="btn btn-sm btn-warning w-100" id="luckyGrantBtn">
+                                <i class="fa-solid fa-plus"></i> Grant ticket
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 <div id="luckyTicketsList">
                     <p class="text-muted small mb-0">Loading…</p>
                 </div>
@@ -8191,6 +8217,7 @@
         document.getElementById('portalLoginsBtn').addEventListener('click', openPortalLoginsModal);
         document.getElementById('buddyCoinsBtn').addEventListener('click', openBuddyCoinsModal);
         document.getElementById('buddyCoinsRefillAllBtn').addEventListener('click', refillAllBuddyCoins);
+        document.getElementById('luckyGrantBtn').addEventListener('click', grantLuckyTicketManually);
         document.getElementById('saveNewStudentBtn').addEventListener('click', saveNewStudent);
 
         // 월별 리포트 관련
@@ -13853,10 +13880,46 @@
         if (!selectedClass) return;
         luckyModalStudentId = studentId;
         document.getElementById('luckyTicketsStudentName').textContent = studentName;
+        document.getElementById('luckyGrantPrize').value = '';
+        document.getElementById('luckyGrantTier').value = 'Common';
         document.getElementById('luckyTicketsList').innerHTML = '<p class="text-muted small mb-0">Loading…</p>';
         const modal = new bootstrap.Modal(document.getElementById('luckyTicketsModal'));
         modal.show();
         reloadLuckyTicketsModalList();
+    }
+
+    function grantLuckyTicketManually() {
+        if (!selectedClass || !luckyModalStudentId) return;
+        const prizeText = String(document.getElementById('luckyGrantPrize').value || '').trim();
+        const tier = String(document.getElementById('luckyGrantTier').value || 'Custom').trim() || 'Custom';
+        if (!prizeText) {
+            appAlert('Enter a prize name to grant.');
+            return;
+        }
+        const btn = document.getElementById('luckyGrantBtn');
+        if (btn) btn.disabled = true;
+        nodeFetch('/api/lucky-draw/ticket', {
+            method: 'POST',
+            body: JSON.stringify({
+                classId: selectedClass.id,
+                studentId: luckyModalStudentId,
+                tier: tier,
+                prizeText: prizeText
+            })
+        }).then(function() {
+            appToast('Granted: ' + prizeText);
+            document.getElementById('luckyGrantPrize').value = '';
+            reloadLuckyTicketsModalList();
+            const q = '/api/lucky-draw/student?classId=' + encodeURIComponent(selectedClass.id) +
+                '&studentId=' + encodeURIComponent(luckyModalStudentId);
+            nodeFetch(q).then(function(data) {
+                updateLuckyTicketBadge(luckyModalStudentId, data.totalCount || 0);
+            }).catch(function() {});
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not grant ticket.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
     }
 
     function reloadLuckyTicketsModalList() {

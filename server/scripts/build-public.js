@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PORTAL_BUILD = '2026-07-16.01';
+const PORTAL_BUILD = '2026-07-16.02';
 
 const serverDir = path.join(__dirname, '..');
 const repoRoot = path.join(serverDir, '..');
@@ -217,7 +217,7 @@ const ROULETTE_BOOTSTRAP = `function startRouletteApp() {
 const LUCKY_DRAW_BOOTSTRAP = `function bootstrapLuckyDraw() {
             if (!CLASS_ID) {
                 initStudentSelect();
-                initDollarModeEasterEgg();
+                initDrawModeToggle();
                 loadLuckyDrawConfig();
                 return;
             }
@@ -227,12 +227,12 @@ const LUCKY_DRAW_BOOTSTRAP = `function bootstrapLuckyDraw() {
                 .then(function(list) {
                     STUDENTS = Array.isArray(list) ? list : [];
                     initStudentSelect();
-                    initDollarModeEasterEgg();
+                    initDrawModeToggle();
                     loadLuckyDrawConfig();
                 })
                 .catch(function() {
                     initStudentSelect();
-                    initDollarModeEasterEgg();
+                    initDrawModeToggle();
                     loadLuckyDrawConfig();
                 });
         }
@@ -317,7 +317,7 @@ function buildTools() {
     );
     html = html.replace(/fetch\(NODE_API/g, 'toolFetch(NODE_API');
     return html.replace(
-      /initStudentSelect\(\);\s*initDollarModeEasterEgg\(\);\s*loadLuckyDrawConfig\(\);/,
+      /initStudentSelect\(\);\s*initDrawModeToggle\(\);\s*loadLuckyDrawConfig\(\);/,
       LUCKY_DRAW_BOOTSTRAP
     );
   });

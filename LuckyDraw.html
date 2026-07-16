@@ -37,7 +37,7 @@
             padding: 1rem;
         }
         .shell {
-            width: min(100%, 440px);
+            width: min(100%, 460px);
             background: rgba(255, 255, 255, 0.97);
             border: 3px solid rgba(241, 196, 15, 0.55);
             border-radius: 24px;
@@ -261,6 +261,39 @@
             border-color: rgba(241, 196, 15, 0.65);
             box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(241, 196, 15, 0.14);
         }
+        .draw-mode-toggle {
+            display: flex;
+            gap: 0.35rem;
+            margin: 0 0 0.85rem;
+            padding: 0.25rem;
+            border-radius: 999px;
+            background: rgba(241, 196, 15, 0.12);
+            border: 2px solid rgba(241, 196, 15, 0.35);
+        }
+        .draw-mode-btn {
+            flex: 1;
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            color: #8d6e00;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            padding: 0.45rem 0.55rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, transform 0.12s;
+        }
+        .draw-mode-btn:hover { transform: translateY(-1px); }
+        .draw-mode-btn.active {
+            background: linear-gradient(180deg, #ffe082 0%, #f1c40f 100%);
+            color: #5d4037;
+            box-shadow: 0 2px 0 rgba(141, 110, 0, 0.25);
+        }
+        body.paid-draw-mode .draw-mode-btn[data-mode="paid"].active {
+            background: linear-gradient(180deg, #ffd54f 0%, #f39c12 100%);
+            color: #4e342e;
+        }
         .paid-mode-hint {
             display: none;
             font-size: 0.72rem;
@@ -271,68 +304,228 @@
         body.paid-draw-mode .paid-mode-hint { display: block; }
         .save-status { font-size: 0.8rem; font-weight: 700; color: #27ae60; min-height: 1.2rem; margin-top: 0.5rem; }
 
+        .slot-stage {
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: 0.15rem;
+            margin-bottom: 0.55rem;
+        }
         .slot-machine {
             position: relative;
-            background: linear-gradient(180deg, #5d4037 0%, #3e2723 100%);
-            border-radius: 20px;
-            padding: 0.85rem 0.75rem 1rem;
-            box-shadow: 0 8px 0 #2c1810, 0 16px 32px rgba(0,0,0,0.2);
-            margin-bottom: 0.85rem;
+            flex: 1 1 auto;
+            min-width: 0;
+            background:
+                linear-gradient(165deg, #8d6e63 0%, #5d4037 18%, #4e342e 42%, #3e2723 72%, #2c1810 100%);
+            border-radius: 22px 22px 18px 18px;
+            padding: 0.65rem 0.7rem 0.75rem;
+            border: 3px solid #bcaaa4;
+            box-shadow:
+                0 10px 0 #1a0f0a,
+                0 20px 40px rgba(0, 0, 0, 0.28),
+                inset 0 2px 0 rgba(255, 255, 255, 0.14),
+                inset 0 -3px 8px rgba(0, 0, 0, 0.35);
+            animation: slot-glow 2.8s ease-in-out infinite;
+            overflow: hidden;
+        }
+        .slot-machine::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: linear-gradient(
+                125deg,
+                rgba(255, 255, 255, 0.12) 0%,
+                transparent 28%,
+                transparent 72%,
+                rgba(0, 0, 0, 0.12) 100%
+            );
+        }
+        .slot-machine.is-spinning {
+            animation: slot-glow-fast 0.45s ease-in-out infinite;
+        }
+        @keyframes slot-glow {
+            0%, 100% {
+                box-shadow:
+                    0 10px 0 #1a0f0a,
+                    0 20px 40px rgba(0, 0, 0, 0.28),
+                    0 0 20px rgba(255, 213, 79, 0.28),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.14);
+            }
+            50% {
+                box-shadow:
+                    0 10px 0 #1a0f0a,
+                    0 20px 40px rgba(0, 0, 0, 0.28),
+                    0 0 36px rgba(255, 213, 79, 0.55),
+                    inset 0 2px 0 rgba(255, 255, 255, 0.2);
+            }
+        }
+        @keyframes slot-glow-fast {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.08); }
+        }
+        .slot-marquee {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.32rem;
+            padding: 0.35rem 0.45rem 0.5rem;
+            margin: -0.15rem -0.2rem 0.45rem;
+            background: linear-gradient(180deg, #2c1810, #1a0f0a);
+            border-radius: 14px 14px 8px 8px;
+            border-bottom: 2px solid rgba(255, 202, 40, 0.35);
+            position: relative;
+            z-index: 1;
+        }
+        .slot-bulb {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: radial-gradient(circle at 32% 28%, #fffde7, #ffeb3b 42%, #f57f17 88%);
+            box-shadow:
+                0 0 5px rgba(255, 152, 0, 0.65),
+                0 0 10px rgba(255, 193, 7, 0.35),
+                inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+            animation: bulb-chase 2s ease-in-out infinite;
+        }
+        .slot-machine.is-spinning .slot-bulb {
+            animation-duration: 0.28s;
+        }
+        .slot-bulb:nth-child(1) { animation-delay: 0s; }
+        .slot-bulb:nth-child(2) { animation-delay: 0.13s; }
+        .slot-bulb:nth-child(3) { animation-delay: 0.26s; }
+        .slot-bulb:nth-child(4) { animation-delay: 0.39s; }
+        .slot-bulb:nth-child(5) { animation-delay: 0.52s; }
+        .slot-bulb:nth-child(6) { animation-delay: 0.65s; }
+        .slot-bulb:nth-child(7) { animation-delay: 0.78s; }
+        .slot-bulb:nth-child(8) { animation-delay: 0.91s; }
+        .slot-bulb:nth-child(9) { animation-delay: 1.04s; }
+        .slot-bulb:nth-child(10) { animation-delay: 1.17s; }
+        .slot-bulb:nth-child(11) { animation-delay: 1.3s; }
+        .slot-bulb:nth-child(12) { animation-delay: 1.43s; }
+        .slot-bulb:nth-child(13) { animation-delay: 1.56s; }
+        @keyframes bulb-chase {
+            0%, 40%, 100% { opacity: 0.32; filter: brightness(0.75); transform: scale(0.9); }
+            20% { opacity: 1; filter: brightness(1.35); transform: scale(1.12); }
         }
         .slot-top {
             font-family: 'Fredoka', sans-serif;
-            font-size: 0.72rem;
-            letter-spacing: 0.2em;
-            color: #ffecb3;
-            margin-bottom: 0.5rem;
+            font-size: 0.82rem;
+            letter-spacing: 0.24em;
+            color: #fff8e1;
+            margin-bottom: 0.55rem;
             text-transform: uppercase;
             position: relative;
+            text-shadow:
+                0 0 14px rgba(255, 235, 59, 0.55),
+                0 2px 0 rgba(0, 0, 0, 0.45);
+            padding: 0.42rem 0.65rem;
+            border-radius: 12px;
+            background:
+                linear-gradient(180deg, #e53935 0%, #c62828 38%, #8e0000 100%);
+            border: 2px solid #ffca28;
+            box-shadow:
+                inset 0 2px 0 rgba(255, 255, 255, 0.22),
+                inset 0 -3px 6px rgba(0, 0, 0, 0.25),
+                0 4px 0 rgba(0, 0, 0, 0.28);
+            z-index: 1;
         }
-        .slot-egg-btn {
-            position: absolute;
-            top: -0.15rem;
-            right: 0;
-            width: 1.1rem;
-            height: 1.1rem;
-            padding: 0;
-            border: none;
-            border-radius: 50%;
-            background: transparent;
-            opacity: 0.07;
-            cursor: default;
-        }
-        .slot-egg-btn:focus { outline: none; }
         .slot-windows {
-            display: flex;
-            justify-content: center;
             position: relative;
+            z-index: 1;
+            padding: 0.5rem;
+            border-radius: 16px;
+            background:
+                linear-gradient(180deg, #1a0f0a 0%, #0d0806 50%, #1a0f0a 100%);
+            border: 2px solid #6d4c41;
+            box-shadow:
+                inset 0 5px 16px rgba(0, 0, 0, 0.75),
+                inset 0 -2px 8px rgba(255, 193, 7, 0.06),
+                0 0 0 1px rgba(255, 202, 40, 0.25);
         }
-        .slot-windows::before,
-        .slot-windows::after {
-            content: '';
+        .slot-window-glass {
+            position: relative;
+            border-radius: 12px;
+            padding: 3px;
+            background: linear-gradient(180deg, #ffd54f, #ff8f00, #ffd54f);
+            box-shadow: 0 0 18px rgba(255, 193, 7, 0.22);
+        }
+        .slot-payline {
             position: absolute;
-            left: 8%; right: 8%;
-            height: 3px;
-            background: rgba(255, 235, 59, 0.85);
-            z-index: 3;
+            left: 5%;
+            right: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 80px;
+            border: 2px solid rgba(255, 235, 59, 0.9);
+            border-radius: 10px;
             pointer-events: none;
-            box-shadow: 0 0 8px rgba(255, 235, 59, 0.6);
+            z-index: 5;
+            box-shadow:
+                0 0 14px rgba(255, 235, 59, 0.45),
+                inset 0 0 16px rgba(255, 235, 59, 0.1);
         }
-        .slot-windows::before { top: calc(50% - 40px); }
-        .slot-windows::after { top: calc(50% + 37px); }
+        .slot-payline::before,
+        .slot-payline::after {
+            content: '◆';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.55rem;
+            color: #ffeb3b;
+            text-shadow: 0 0 8px #ff9800;
+        }
+        .slot-payline::before { left: -0.55rem; }
+        .slot-payline::after { right: -0.55rem; }
 
         .slot-reel {
             width: min(100%, 320px);
             height: 80px;
             overflow: hidden;
-            border-radius: 12px;
-            background: #1a1a1a;
-            border: 3px solid #ffd54f;
-            box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+            border-radius: 9px;
+            background:
+                linear-gradient(180deg, #1e1e2f 0%, #12121c 45%, #1e1e2f 100%);
+            border: 2px solid #3e2723;
+            box-shadow:
+                inset 0 0 22px rgba(0, 0, 0, 0.9),
+                inset 0 2px 10px rgba(255, 255, 255, 0.04);
             position: relative;
+            margin: 0 auto;
         }
-        .slot-reel.spinning-fast .slot-strip { filter: blur(2px); }
-        .slot-reel.spinning-slow .slot-strip { filter: blur(0.5px); }
+        .slot-reel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(0, 0, 0, 0.62) 0%,
+                transparent 26%,
+                transparent 74%,
+                rgba(0, 0, 0, 0.62) 100%
+            );
+            pointer-events: none;
+            z-index: 3;
+            border-radius: 7px;
+        }
+        .slot-reel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                108deg,
+                rgba(255, 255, 255, 0.16) 0%,
+                transparent 32%,
+                transparent 68%,
+                rgba(255, 255, 255, 0.06) 100%
+            );
+            pointer-events: none;
+            z-index: 4;
+            border-radius: 7px;
+        }
+        .slot-reel.spinning-fast .slot-strip { filter: blur(2.5px); }
+        .slot-reel.spinning-slow .slot-strip { filter: blur(0.6px); }
         .slot-strip { will-change: transform; }
         .slot-item {
             height: 80px;
@@ -340,26 +533,58 @@
             align-items: center;
             justify-content: center;
             font-family: 'Fredoka', sans-serif;
-            font-size: 0.92rem;
+            font-size: 0.95rem;
             font-weight: 700;
             line-height: 1.15;
-            padding: 0.3rem 0.75rem;
+            padding: 0.35rem 0.85rem;
             text-align: center;
             color: #fff;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.22);
+            position: relative;
+            overflow: hidden;
+        }
+        .slot-item::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0.14) 0%,
+                transparent 42%,
+                rgba(0, 0, 0, 0.12) 100%
+            );
+            pointer-events: none;
         }
         .slot-item.idle-msg {
-            background: linear-gradient(135deg, #f1c40f 0%, #f39c12 45%, #e67e22 100%);
-            font-size: 1.08rem;
-            letter-spacing: 0.03em;
+            background: linear-gradient(135deg, #ffe082 0%, #ffb300 38%, #ff8f00 100%);
+            font-size: 1.12rem;
+            letter-spacing: 0.04em;
+            color: #4e342e;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+        .slot-base-trim {
+            height: 6px;
+            margin: 0.55rem 0.15rem 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #5d4037, #ffd54f, #ff8f00, #ffd54f, #5d4037);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+            position: relative;
+            z-index: 1;
         }
 
+        .lever-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.25rem 0 0.35rem 0.2rem;
+            flex-shrink: 0;
+        }
         .lever-wrap {
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
         }
         .lever-btn {
             position: relative;
@@ -372,31 +597,56 @@
         .lever-btn:disabled { cursor: not-allowed; opacity: 0.65; }
         .lever-arm {
             width: 14px;
-            height: 52px;
+            height: 62px;
             margin: 0 auto;
-            background: linear-gradient(90deg, #b71c1c, #e53935 45%, #c62828);
-            border-radius: 7px 7px 2px 2px;
-            box-shadow: 2px 0 0 rgba(0,0,0,0.2);
+            background: linear-gradient(90deg, #6d0000, #c62828 35%, #ef5350 52%, #8e0000);
+            border-radius: 7px 7px 3px 3px;
+            box-shadow:
+                2px 0 0 rgba(0, 0, 0, 0.3),
+                inset -2px 0 5px rgba(0, 0, 0, 0.2),
+                inset 1px 0 0 rgba(255, 255, 255, 0.12);
             transform-origin: bottom center;
-            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .lever-btn.pulled .lever-arm { transform: rotate(28deg); }
+        .lever-btn.pulled .lever-arm { transform: rotate(32deg); }
         .lever-knob {
-            width: 34px;
-            height: 34px;
-            margin: -4px auto 0;
+            width: 42px;
+            height: 42px;
+            margin: -8px auto 0;
             border-radius: 50%;
-            background: radial-gradient(circle at 32% 28%, #ffeb3b, #f57f17 55%, #e65100);
-            box-shadow: 0 4px 0 #bf360c, 0 6px 12px rgba(0,0,0,0.25);
-            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background:
+                radial-gradient(circle at 28% 22%, #fff9c4, #ffeb3b 32%, #f9a825 58%, #e65100 88%);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            box-shadow:
+                0 6px 0 #7f1d1d,
+                0 10px 20px rgba(0, 0, 0, 0.35),
+                inset 0 -4px 8px rgba(0, 0, 0, 0.22),
+                inset 0 2px 4px rgba(255, 255, 255, 0.35);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        .lever-btn.pulled .lever-knob { transform: translateY(6px) scale(0.96); }
+        .lever-btn.pulled .lever-knob {
+            transform: translateY(8px) scale(0.94);
+            box-shadow:
+                0 3px 0 #7f1d1d,
+                0 6px 14px rgba(0, 0, 0, 0.3),
+                inset 0 -2px 6px rgba(0, 0, 0, 0.2);
+        }
+        .lever-base {
+            width: 34px;
+            height: 16px;
+            margin-top: -2px;
+            border-radius: 4px 4px 8px 8px;
+            background: linear-gradient(180deg, #9e9e9e, #616161 55%, #424242);
+            border: 2px solid #bdbdbd;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
         .lever-label {
             font-family: 'Fredoka', sans-serif;
             font-size: 0.95rem;
             font-weight: 700;
             color: #6d4c00;
-            margin-top: 0.35rem;
+            margin-top: 0.4rem;
+            text-align: center;
         }
 
         .result-panel {
@@ -518,6 +768,22 @@
         }
         [data-theme="dark"] .lever-label,
         [data-theme="dark"] .slot-hint { color: var(--muted); }
+        [data-theme="dark"] .slot-machine {
+            border-color: rgba(188, 170, 164, 0.45);
+            box-shadow:
+                0 10px 0 #0a0604,
+                0 20px 40px rgba(0, 0, 0, 0.45),
+                inset 0 2px 0 rgba(255, 255, 255, 0.08);
+        }
+        [data-theme="dark"] .slot-marquee {
+            background: linear-gradient(180deg, #120a08, #0a0604);
+        }
+        [data-theme="dark"] .slot-windows {
+            border-color: rgba(109, 76, 65, 0.65);
+        }
+        [data-theme="dark"] .lever-base {
+            border-color: #757575;
+        }
         [data-theme="dark"] .result-panel {
             background: linear-gradient(160deg, #252c38, #1e242e);
             border-color: rgba(241, 196, 15, 0.3);
@@ -557,7 +823,11 @@
         </div>
         <h1 class="title"><i class="fa-solid fa-ticket"></i> Lucky Draw</h1>
         <p class="sub" id="classSub">Pick a student, pull the lever!</p>
-        <p class="paid-mode-hint" id="paidModeHint">Secret shop — $3 per draw</p>
+        <div class="draw-mode-toggle" role="group" aria-label="Draw mode">
+            <button type="button" class="draw-mode-btn active" id="drawModeFreeBtn" data-mode="free">Free draw</button>
+            <button type="button" class="draw-mode-btn" id="drawModePaidBtn" data-mode="paid">$3 draw</button>
+        </div>
+        <p class="paid-mode-hint" id="paidModeHint">$3 will be deducted from this student’s dollars</p>
 
         <div class="student-pick" id="studentPickWrap">
             <label for="studentSelect">Student</label>
@@ -567,20 +837,33 @@
             <div class="student-dollar-balance" id="studentDollarBalance" aria-live="polite"></div>
         </div>
 
-        <div class="slot-machine" id="slotMachine">
-            <div class="slot-top">★ Lucky Slot ★
-                <button type="button" class="slot-egg-btn" id="dollarModeEgg" aria-hidden="true" tabindex="-1"></button>
+        <div class="slot-stage">
+            <div class="slot-machine" id="slotMachine">
+                <div class="slot-marquee" aria-hidden="true">
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span><span class="slot-bulb"></span><span class="slot-bulb"></span>
+                    <span class="slot-bulb"></span>
+                </div>
+                <div class="slot-top">★ Lucky Slot ★</div>
+                <div class="slot-windows">
+                    <div class="slot-window-glass">
+                        <div class="slot-reel" id="reel"><div class="slot-strip"></div></div>
+                        <div class="slot-payline" aria-hidden="true"></div>
+                    </div>
+                </div>
+                <div class="slot-base-trim" aria-hidden="true"></div>
             </div>
-            <div class="slot-windows">
-                <div class="slot-reel" id="reel"><div class="slot-strip"></div></div>
+            <div class="lever-column">
+                <div class="lever-wrap">
+                    <button type="button" class="lever-btn" id="leverBtn" aria-label="Pull lever">
+                        <div class="lever-knob"></div>
+                        <div class="lever-arm"></div>
+                    </button>
+                </div>
+                <div class="lever-base" aria-hidden="true"></div>
             </div>
-        </div>
-
-        <div class="lever-wrap">
-            <button type="button" class="lever-btn" id="leverBtn" aria-label="Pull lever">
-                <div class="lever-knob"></div>
-                <div class="lever-arm"></div>
-            </button>
         </div>
         <div class="lever-label" id="leverLabel">Pull the lever!</div>
 
@@ -654,6 +937,19 @@
         var phraseToTierId = {};
 
         var configDraft = [];
+
+        function apiJson(res) {
+            return res.text().then(function(text) {
+                var data = {};
+                if (text) {
+                    try { data = JSON.parse(text); } catch (e) {
+                        throw new Error(text.slice(0, 120) || 'Invalid server response');
+                    }
+                }
+                if (!res.ok) throw new Error(data.error || ('Save failed (' + res.status + ')'));
+                return data;
+            });
+        }
 
         function escapeHtml(text) {
             return String(text == null ? '' : text)
@@ -750,9 +1046,8 @@
             overlay.classList.add('show');
             overlay.setAttribute('aria-hidden', 'false');
             fetch(NODE_API + '/api/lucky-draw/config')
-                .then(function(res) {
-                    return res.json().then(function(data) {
-                        if (!res.ok) throw new Error(data.error || 'Could not load prizes');
+                .then(function(res) { return apiJson(res); })
+                .then(function(data) {
                         configDraft = (data.tiers || []).map(function(tier) {
                             return {
                                 id: tier.id,
@@ -763,7 +1058,6 @@
                             };
                         });
                         renderConfigEditor();
-                    });
                 })
                 .catch(function(err) {
                     document.getElementById('configEditorBody').innerHTML =
@@ -779,6 +1073,7 @@
 
         function saveConfigEditor() {
             var statusEl = document.getElementById('configSaveStatus');
+            var saveBtn = document.getElementById('configSaveBtn');
             var tiers = collectConfigFromEditor();
             if (!tiers.length) {
                 alert('Add at least one tier.');
@@ -795,23 +1090,27 @@
                 }
             }
             if (statusEl) statusEl.textContent = 'Saving…';
+            if (saveBtn) saveBtn.disabled = true;
             fetch(NODE_API + '/api/lucky-draw/config', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tiers: tiers })
-            }).then(function(res) {
-                return res.json().then(function(data) {
-                    if (!res.ok) throw new Error(data.error || 'Save failed');
+            })
+                .then(function(res) { return apiJson(res); })
+                .then(function(data) {
                     configDraft = tiers;
                     applyLuckyDrawTiers(data.activeTiers || data.tiers || tiers);
                     if (statusEl) statusEl.textContent = 'Saved!';
                     closeConfigEditor();
                     resetIdleReel();
+                })
+                .catch(function(err) {
+                    if (statusEl) statusEl.textContent = err.message || 'Save failed';
+                    alert(err.message || 'Save failed');
+                })
+                .finally(function() {
+                    if (saveBtn) saveBtn.disabled = false;
                 });
-            }).catch(function(err) {
-                if (statusEl) statusEl.textContent = '';
-                alert(err.message || 'Save failed');
-            });
         }
 
         function rebuildTierIndexes() {
@@ -837,11 +1136,9 @@
             if (lever) lever.disabled = true;
             document.getElementById('leverLabel').textContent = 'Loading prizes…';
             return fetch(NODE_API + '/api/lucky-draw/config')
-                .then(function(res) {
-                    return res.json().then(function(data) {
-                        if (!res.ok) throw new Error(data.error || 'Could not load prizes');
+                .then(function(res) { return apiJson(res); })
+                .then(function(data) {
                         applyLuckyDrawTiers(data.activeTiers || data.tiers || []);
-                    });
                 })
                 .catch(function() {
                     applyLuckyDrawTiers(FALLBACK_LUCKY_DRAW_TIERS);
@@ -903,6 +1200,7 @@
         function spinReel(reelEl, itemCount) {
             return new Promise(function(resolve) {
                 var strip = reelEl.querySelector('.slot-strip');
+                var machine = document.getElementById('slotMachine');
                 var slowStartIndex = Math.max(itemCount - 10, Math.floor(itemCount * 0.72));
                 var fastEndY = -(slowStartIndex * ITEM_H);
                 var finalY = -((itemCount - 1) * ITEM_H);
@@ -910,7 +1208,14 @@
                 var slowStart = 0;
 
                 reelEl.classList.add('spinning-fast');
+                if (machine) machine.classList.add('is-spinning');
                 strip.style.transition = 'none';
+
+                function finishSpin() {
+                    reelEl.classList.remove('spinning-slow');
+                    if (machine) machine.classList.remove('is-spinning');
+                    resolve();
+                }
 
                 function easeOutCubic(t) {
                     return 1 - Math.pow(1 - t, 3);
@@ -938,8 +1243,7 @@
                     if (progress < 1) {
                         requestAnimationFrame(slowFrame);
                     } else {
-                        reelEl.classList.remove('spinning-slow');
-                        resolve();
+                        finishSpin();
                     }
                 }
 
@@ -1033,6 +1337,10 @@
             document.body.classList.toggle('paid-draw-mode', paidDrawMode);
             var shell = document.querySelector('.shell');
             if (shell) shell.classList.toggle('paid-draw-mode', paidDrawMode);
+            var freeBtn = document.getElementById('drawModeFreeBtn');
+            var paidBtn = document.getElementById('drawModePaidBtn');
+            if (freeBtn) freeBtn.classList.toggle('active', !paidDrawMode);
+            if (paidBtn) paidBtn.classList.toggle('active', paidDrawMode);
             var sub = document.getElementById('classSub');
             if (sub && CLASS_NAME) {
                 sub.textContent = paidDrawMode
@@ -1040,8 +1348,12 @@
                     : (CLASS_NAME + ' — pick a student, pull the lever!');
             }
             document.getElementById('leverLabel').textContent = paidDrawMode
-                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                ? ('Spend $' + LUCKY_DRAW_COST + ' to spin')
                 : 'Pull the lever!';
+            var hint = document.getElementById('paidModeHint');
+            if (hint) {
+                hint.textContent = '$' + LUCKY_DRAW_COST + ' will be deducted from this student’s dollars';
+            }
             var sel = document.getElementById('studentSelect');
             if (paidDrawMode && sel && sel.value) {
                 loadStudentBalance(sel.value);
@@ -1053,22 +1365,24 @@
         function setPaidDrawMode(on) {
             paidDrawMode = !!on;
             updateDrawModeUi();
-            if (paidDrawMode) {
-                var hint = document.getElementById('paidModeHint');
-                if (hint) {
-                    hint.textContent = 'Secret shop unlocked — $' + LUCKY_DRAW_COST + ' per draw';
-                }
-            }
         }
 
-        function initDollarModeEasterEgg() {
-            var egg = document.getElementById('dollarModeEgg');
-            if (!egg) return;
-            egg.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (isSpinning) return;
-                setPaidDrawMode(!paidDrawMode);
-            });
+        function initDrawModeToggle() {
+            var freeBtn = document.getElementById('drawModeFreeBtn');
+            var paidBtn = document.getElementById('drawModePaidBtn');
+            if (freeBtn) {
+                freeBtn.addEventListener('click', function() {
+                    if (isSpinning) return;
+                    setPaidDrawMode(false);
+                });
+            }
+            if (paidBtn) {
+                paidBtn.addEventListener('click', function() {
+                    if (isSpinning) return;
+                    setPaidDrawMode(true);
+                });
+            }
+            updateDrawModeUi();
         }
 
         function saveTicketForStudent(prize) {
@@ -1158,7 +1472,7 @@
             document.getElementById('resultPanel').classList.remove('show');
             document.getElementById('saveStatus').textContent = '';
             document.getElementById('leverLabel').textContent = paidDrawMode
-                ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                ? ('Spend $' + LUCKY_DRAW_COST + ' to spin')
                 : 'Pull the lever!';
             document.getElementById('leverBtn').disabled = false;
             document.getElementById('drawAgainBtn').disabled = false;
@@ -1226,12 +1540,14 @@
                     alert(err.message || 'Something went wrong — try again.');
                 }
                 document.getElementById('leverLabel').textContent = paidDrawMode
-                    ? ('Purchase Lucky Draw with $' + LUCKY_DRAW_COST)
+                    ? ('Spend $' + LUCKY_DRAW_COST + ' to spin')
                     : 'Pull the lever!';
                 document.getElementById('saveStatus').textContent = '';
                 lever.disabled = false;
                 lever.classList.remove('pulled');
                 if (sel) sel.disabled = false;
+                var machine = document.getElementById('slotMachine');
+                if (machine) machine.classList.remove('is-spinning');
                 showIdleReel();
             } finally {
                 isSpinning = false;
@@ -1240,7 +1556,7 @@
         }
 
         initStudentSelect();
-        initDollarModeEasterEgg();
+        initDrawModeToggle();
         loadLuckyDrawConfig();
         document.getElementById('leverBtn').addEventListener('click', pullLever);
         document.getElementById('drawAgainBtn').addEventListener('click', resetForNewSpin);
