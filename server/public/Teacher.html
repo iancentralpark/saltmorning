@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-16.02';
+            var APP_BUILD = '2026-07-16.03';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -6906,17 +6906,17 @@
                         <div class="col-5">
                             <label class="form-label small mb-1" for="luckyGrantTier">Tier</label>
                             <select class="form-select form-select-sm" id="luckyGrantTier">
-                                <option value="Common">Common</option>
-                                <option value="Rare">Rare</option>
-                                <option value="Unique">Unique</option>
-                                <option value="Legendary">Legendary</option>
-                                <option value="Mythical">Mythical</option>
-                                <option value="Godlike">Godlike</option>
-                                <option value="Custom">Custom</option>
+                                <option value="">Loading…</option>
                             </select>
                         </div>
                         <div class="col-7">
-                            <label class="form-label small mb-1" for="luckyGrantPrize">Prize</label>
+                            <label class="form-label small mb-1" for="luckyGrantPrizeSelect">Prize from tier</label>
+                            <select class="form-select form-select-sm" id="luckyGrantPrizeSelect">
+                                <option value="">— Pick or type below —</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-1" for="luckyGrantPrize">Prize text</label>
                             <input type="text" class="form-control form-control-sm" id="luckyGrantPrize" placeholder="e.g. 5 Haribos" maxlength="80">
                         </div>
                         <div class="col-12">
@@ -8358,6 +8358,8 @@
         document.getElementById('buddyCoinsBtn').addEventListener('click', openBuddyCoinsModal);
         document.getElementById('buddyCoinsRefillAllBtn').addEventListener('click', refillAllBuddyCoins);
         document.getElementById('luckyGrantBtn').addEventListener('click', grantLuckyTicketManually);
+        document.getElementById('luckyGrantTier').addEventListener('change', onLuckyGrantTierChange);
+        document.getElementById('luckyGrantPrizeSelect').addEventListener('change', onLuckyGrantPrizeSelectChange);
         document.getElementById('saveNewStudentBtn').addEventListener('click', saveNewStudent);
 
         // 월별 리포트 관련
@@ -14016,16 +14018,89 @@
         });
     }
 
+    let luckyGrantTierCache = null;
+
     function openLuckyTicketsModal(studentId, studentName) {
         if (!selectedClass) return;
         luckyModalStudentId = studentId;
         document.getElementById('luckyTicketsStudentName').textContent = studentName;
         document.getElementById('luckyGrantPrize').value = '';
-        document.getElementById('luckyGrantTier').value = 'Common';
         document.getElementById('luckyTicketsList').innerHTML = '<p class="text-muted small mb-0">Loading…</p>';
         const modal = new bootstrap.Modal(document.getElementById('luckyTicketsModal'));
         modal.show();
+        loadLuckyGrantTierOptions();
         reloadLuckyTicketsModalList();
+    }
+
+    function loadLuckyGrantTierOptions() {
+        const tierSel = document.getElementById('luckyGrantTier');
+        const prizeSel = document.getElementById('luckyGrantPrizeSelect');
+        if (!tierSel) return Promise.resolve();
+        tierSel.innerHTML = '<option value="">Loading…</option>';
+        if (prizeSel) prizeSel.innerHTML = '<option value="">— Pick or type below —</option>';
+
+        function applyTiers(tiers) {
+            luckyGrantTierCache = Array.isArray(tiers) ? tiers : [];
+            if (!luckyGrantTierCache.length) {
+                tierSel.innerHTML = '<option value="Custom">Custom</option>';
+                fillLuckyGrantPrizeOptions(null);
+                return;
+            }
+            tierSel.innerHTML = luckyGrantTierCache.map(function(t) {
+                const name = String(t.name || t.id || 'Tier');
+                return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+            }).join('') + '<option value="Custom">Custom</option>';
+            fillLuckyGrantPrizeOptions(luckyGrantTierCache[0]);
+        }
+
+        return nodeFetch('/api/lucky-draw/config?_=' + Date.now())
+            .then(function(data) {
+                const tiers = (data.activeTiers && data.activeTiers.length)
+                    ? data.activeTiers
+                    : (data.tiers || []).filter(function(t) { return t.active !== false; });
+                applyTiers(tiers);
+            })
+            .catch(function() {
+                applyTiers([
+                    { name: 'Common', items: [] },
+                    { name: 'Rare', items: [] },
+                    { name: 'Unique', items: [] },
+                    { name: 'Legendary', items: [] },
+                    { name: 'Mythical', items: [] },
+                    { name: 'Godlike', items: [] }
+                ]);
+            });
+    }
+
+    function findLuckyGrantTierByName(name) {
+        name = String(name || '');
+        return (luckyGrantTierCache || []).find(function(t) {
+            return String(t.name || '') === name || String(t.id || '') === name;
+        }) || null;
+    }
+
+    function fillLuckyGrantPrizeOptions(tier) {
+        const prizeSel = document.getElementById('luckyGrantPrizeSelect');
+        if (!prizeSel) return;
+        const items = (tier && Array.isArray(tier.items)) ? tier.items.filter(Boolean) : [];
+        prizeSel.innerHTML = '<option value="">— Pick or type below —</option>' +
+            items.map(function(item) {
+                const text = typeof item === 'string' ? item : String(item.text || item.prizeText || '');
+                if (!text) return '';
+                return '<option value="' + escapeHtml(text) + '">' + escapeHtml(text) + '</option>';
+            }).join('');
+    }
+
+    function onLuckyGrantTierChange() {
+        const tierName = document.getElementById('luckyGrantTier').value;
+        fillLuckyGrantPrizeOptions(findLuckyGrantTierByName(tierName));
+        document.getElementById('luckyGrantPrize').value = '';
+    }
+
+    function onLuckyGrantPrizeSelectChange() {
+        const prizeSel = document.getElementById('luckyGrantPrizeSelect');
+        if (!prizeSel || !prizeSel.value) return;
+        document.getElementById('luckyGrantPrize').value = prizeSel.value;
     }
 
     function grantLuckyTicketManually() {
@@ -14049,6 +14124,8 @@
         }).then(function() {
             appToast('Granted: ' + prizeText);
             document.getElementById('luckyGrantPrize').value = '';
+            const prizeSel = document.getElementById('luckyGrantPrizeSelect');
+            if (prizeSel) prizeSel.value = '';
             reloadLuckyTicketsModalList();
             const q = '/api/lucky-draw/student?classId=' + encodeURIComponent(selectedClass.id) +
                 '&studentId=' + encodeURIComponent(luckyModalStudentId);
