@@ -1,6 +1,7 @@
-const { cacheGet, cacheSet } = require('./cache');
+const { cacheGet, cacheSet, cacheDelete } = require('./cache');
 const { isGeminiConfigured, askGemini, streamAskGemini, formatGeminiClientError } = require('./geminiService');
 const { recordBuddyExchange } = require('./englishBuddyHistoryService');
+const { getEnrolledStudents } = require('./homeworkService');
 
 const DAILY_LIMIT = 100;
 const MAX_PROMPT = 800;
@@ -135,8 +136,49 @@ function getBuddyStatus(studentId) {
     configured: isGeminiConfigured(),
     limit: DAILY_LIMIT,
     used: used,
-    remaining: Math.max(0, DAILY_LIMIT - used)
+    remaining: Math.max(0, DAILY_LIMIT - used),
+    dateKey: pacificDateKey()
   };
+}
+
+function refillBuddyUsage(studentId) {
+  const sid = String(studentId || '').trim();
+  if (!sid) throw new Error('studentId is required.');
+  cacheDelete(usageCacheKey(sid));
+  return getBuddyStatus(sid);
+}
+
+async function listBuddyUsageForClass(classId) {
+  const students = await getEnrolledStudents(classId);
+  const dateKey = pacificDateKey();
+  const rows = students.map(function(s) {
+    const status = getBuddyStatus(s.id);
+    return {
+      studentId: String(s.id),
+      name: s.name || String(s.id),
+      limit: status.limit,
+      used: status.used,
+      remaining: status.remaining
+    };
+  });
+  rows.sort(function(a, b) {
+    if (a.remaining !== b.remaining) return a.remaining - b.remaining;
+    return String(a.name).localeCompare(String(b.name));
+  });
+  return {
+    classId: String(classId),
+    dateKey: dateKey,
+    limit: DAILY_LIMIT,
+    students: rows
+  };
+}
+
+async function refillBuddyUsageForClass(classId) {
+  const students = await getEnrolledStudents(classId);
+  students.forEach(function(s) {
+    cacheDelete(usageCacheKey(s.id));
+  });
+  return listBuddyUsageForClass(classId);
 }
 
 function prepareBuddyRequest(studentId, prompt, history) {
@@ -222,6 +264,9 @@ async function streamEnglishBuddy(res, studentId, classId, prompt, history) {
 module.exports = {
   DAILY_LIMIT,
   getBuddyStatus,
+  listBuddyUsageForClass,
+  refillBuddyUsage,
+  refillBuddyUsageForClass,
   askEnglishBuddy,
   streamEnglishBuddy
 };

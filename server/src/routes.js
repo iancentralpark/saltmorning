@@ -46,7 +46,7 @@ const {
   setTeacherAuthCookie,
   clearTeacherAuthCookie
 } = require('./teacherAuth');
-const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy } = require('./englishBuddyService');
+const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy, listBuddyUsageForClass, refillBuddyUsage, refillBuddyUsageForClass } = require('./englishBuddyService');
 const { getBuddyChatHistory, clearBuddyChatHistory } = require('./englishBuddyHistoryService');
 const {
   getThread,
@@ -1270,6 +1270,36 @@ router.get('/student/english-buddy/status', requireStudentAuth, async (req, res)
     res.json(getBuddyStatus(studentId));
   } catch (e) {
     console.error('GET /student/english-buddy/status', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/english-buddy/usage', async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await listBuddyUsageForClass(classId));
+  } catch (e) {
+    console.error('GET /english-buddy/usage', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/english-buddy/refill', async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || '').trim();
+    const studentId = String((req.body && req.body.studentId) || '').trim();
+    const refillAll = !!(req.body && req.body.all);
+    if (refillAll || (classId && !studentId)) {
+      if (!classId) return res.status(400).json({ error: 'classId is required to refill all' });
+      res.json(await refillBuddyUsageForClass(classId));
+      return;
+    }
+    if (!studentId) return res.status(400).json({ error: 'studentId is required' });
+    const status = refillBuddyUsage(studentId);
+    res.json({ ok: true, studentId: studentId, ...status });
+  } catch (e) {
+    console.error('POST /english-buddy/refill', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });

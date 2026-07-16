@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-15.01';
+            var APP_BUILD = '2026-07-16.01';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -5884,6 +5884,9 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="portalLoginsBtn">
                     <i class="fa-solid fa-key"></i> Portal logins
                 </button>
+                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" id="buddyCoinsBtn">
+                    <i class="fa-solid fa-coins"></i> Buddy coins
+                </button>
                 <button type="button" class="btn btn-sm btn-warning rounded-pill px-3" id="openClassPendingBtn">
                     <i class="fa-solid fa-hourglass-half"></i> Pending Homework
                 </button>
@@ -6561,6 +6564,41 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade app-modal" id="buddyCoinsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-coins"></i> English Buddy coins</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-1">Class: <strong id="buddyCoinsClassName">—</strong></p>
+                <p class="small text-muted mb-3">Today (Pacific): <strong id="buddyCoinsDateKey">—</strong> · Daily limit: <strong id="buddyCoinsLimit">100</strong></p>
+                <div id="buddyCoinsLoading" class="text-muted small py-3">Loading…</div>
+                <div class="table-responsive d-none" id="buddyCoinsTableWrap">
+                    <table class="table table-sm align-middle app-table">
+                        <thead>
+                            <tr>
+                                <th class="text-start">Student</th>
+                                <th>Used</th>
+                                <th>Left</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="buddyCoinsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-warning" id="buddyCoinsRefillAllBtn">
+                    <i class="fa-solid fa-rotate-right"></i> Refill all
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -8291,6 +8329,8 @@
         });
         document.getElementById('addStudentBtn').addEventListener('click', openAddStudentModal);
         document.getElementById('portalLoginsBtn').addEventListener('click', openPortalLoginsModal);
+        document.getElementById('buddyCoinsBtn').addEventListener('click', openBuddyCoinsModal);
+        document.getElementById('buddyCoinsRefillAllBtn').addEventListener('click', refillAllBuddyCoins);
         document.getElementById('saveNewStudentBtn').addEventListener('click', saveNewStudent);
 
         // 월별 리포트 관련
@@ -8528,7 +8568,9 @@
     function formatClassroomClientError(err) {
         const s = String(err || '').trim();
         if (/invalid_grant/i.test(s)) {
-            return 'Google Classroom login expired on the server. Homework is saved in the sheet only — re-run oauth-setup and update Railway GOOGLE_OAUTH_REFRESH_TOKEN.';
+            return 'Google Classroom login expired. Homework is saved in the sheet only. ' +
+                'Fix: Google Cloud → OAuth consent screen → Publish to Production, then re-run oauth-setup and update Railway GOOGLE_OAUTH_REFRESH_TOKEN. ' +
+                '(Testing apps expire every ~7 days.)';
         }
         if (/oauth|not configured/i.test(s)) {
             return s + ' Homework is saved in the sheet only.';
@@ -14554,6 +14596,103 @@
                 document.getElementById('portalLoginsLoading').textContent =
                     err.message || 'Could not load portal logins.';
             });
+    }
+
+    function openBuddyCoinsModal() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        document.getElementById('buddyCoinsClassName').textContent = selectedClass.name;
+        document.getElementById('buddyCoinsLoading').classList.remove('d-none');
+        document.getElementById('buddyCoinsLoading').textContent = 'Loading…';
+        document.getElementById('buddyCoinsTableWrap').classList.add('d-none');
+        document.getElementById('buddyCoinsTableBody').innerHTML = '';
+        const modal = new bootstrap.Modal(document.getElementById('buddyCoinsModal'));
+        modal.show();
+        refreshBuddyCoinsModal();
+    }
+
+    function refreshBuddyCoinsModal() {
+        if (!selectedClass) return;
+        nodeFetch('/api/english-buddy/usage?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+            .then(function(data) {
+                document.getElementById('buddyCoinsDateKey').textContent = data.dateKey || '—';
+                document.getElementById('buddyCoinsLimit').textContent = String(data.limit || 100);
+                renderBuddyCoinsTable(data.students || []);
+            })
+            .catch(function(err) {
+                document.getElementById('buddyCoinsTableWrap').classList.add('d-none');
+                document.getElementById('buddyCoinsLoading').classList.remove('d-none');
+                document.getElementById('buddyCoinsLoading').textContent =
+                    err.message || 'Could not load Buddy coin usage.';
+            });
+    }
+
+    function renderBuddyCoinsTable(students) {
+        document.getElementById('buddyCoinsLoading').classList.add('d-none');
+        const wrap = document.getElementById('buddyCoinsTableWrap');
+        const tbody = document.getElementById('buddyCoinsTableBody');
+        if (!students.length) {
+            wrap.classList.add('d-none');
+            document.getElementById('buddyCoinsLoading').classList.remove('d-none');
+            document.getElementById('buddyCoinsLoading').textContent = 'No enrolled students.';
+            return;
+        }
+        wrap.classList.remove('d-none');
+        tbody.innerHTML = students.map(function(st) {
+            const low = Number(st.remaining) <= 10;
+            const leftClass = low ? 'text-danger fw-bold' : '';
+            return '<tr data-buddy-student="' + escapeHtml(st.studentId) + '">' +
+                '<td class="fw-bold text-start">' + escapeHtml(st.name) + '</td>' +
+                '<td>' + Number(st.used || 0) + '</td>' +
+                '<td class="' + leftClass + '">' + Number(st.remaining || 0) + ' / ' + Number(st.limit || 100) + '</td>' +
+                '<td class="text-end text-nowrap">' +
+                '<button type="button" class="btn btn-sm btn-outline-warning buddy-refill-btn" title="Reset to full for today">' +
+                '<i class="fa-solid fa-rotate-right"></i> Refill</button>' +
+                '</td></tr>';
+        }).join('');
+        tbody.querySelectorAll('.buddy-refill-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const tr = btn.closest('tr');
+                const sid = tr.getAttribute('data-buddy-student');
+                const row = students.find(function(s) { return String(s.studentId) === String(sid); });
+                if (!row) return;
+                btn.disabled = true;
+                nodeFetch('/api/english-buddy/refill', {
+                    method: 'POST',
+                    body: JSON.stringify({ studentId: sid })
+                }).then(function() {
+                    appToast('Refilled Buddy coins for ' + row.name);
+                    refreshBuddyCoinsModal();
+                }).catch(function(err) {
+                    btn.disabled = false;
+                    appAlert(err.message || 'Could not refill.');
+                });
+            });
+        });
+    }
+
+    function refillAllBuddyCoins() {
+        if (!selectedClass) return;
+        appConfirm(
+            'Refill English Buddy coins for every student in ' + selectedClass.name + ' today?',
+            function() {
+                const btn = document.getElementById('buddyCoinsRefillAllBtn');
+                if (btn) btn.disabled = true;
+                nodeFetch('/api/english-buddy/refill', {
+                    method: 'POST',
+                    body: JSON.stringify({ classId: selectedClass.id, all: true })
+                }).then(function() {
+                    appToast('Refilled Buddy coins for the whole class.');
+                    refreshBuddyCoinsModal();
+                }).catch(function(err) {
+                    appAlert(err.message || 'Could not refill class.');
+                }).finally(function() {
+                    if (btn) btn.disabled = false;
+                });
+            }
+        );
     }
 
     function renderPortalLoginsTable(students) {
