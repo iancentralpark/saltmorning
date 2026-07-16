@@ -2027,7 +2027,7 @@
             transform: translateY(-2px);
         }
 
-        .status-toggle { width: 100%; max-width: 240px; }
+        .status-toggle { width: auto; max-width: 13.5rem; }
         .vocab-input {
             width: 4.75rem;
             min-width: 4.75rem;
@@ -3482,11 +3482,21 @@
         }
         #studentSection .app-table th:first-child,
         #studentSection .app-table td:first-child {
-            width: 2.4rem;
-            min-width: 2.4rem;
-            max-width: 2.4rem;
-            padding-left: 0.25rem;
-            padding-right: 0.15rem;
+            width: 1.75rem;
+            min-width: 1.75rem;
+            max-width: 1.75rem;
+            padding-left: 0.1rem;
+            padding-right: 0.05rem;
+            box-sizing: border-box;
+        }
+        /* Breathing room between Attendance buttons and Vocab input */
+        #studentSection .app-table th:nth-child(4),
+        #studentSection .app-table td:nth-child(4) {
+            padding-right: 1rem;
+        }
+        #studentSection .app-table th:nth-child(5),
+        #studentSection .app-table td:nth-child(5) {
+            padding-left: 0.75rem;
         }
         #studentTableBody tr.sortable-ghost,
         #teacherMobileAttendanceList .sortable-ghost {
@@ -5754,17 +5764,26 @@
         <div id="teacherMobileAttendanceList" class="tm-attendance-list hidden-section"></div>
         <div class="table-responsive app-table-card tm-desktop-table">
             <table class="table table-hover align-middle text-center app-table">
-                <thead>
-                    <tr>
-                        <th style="width: 2.4rem;" title="Drag to reorder">#</th>
-                        <th style="width: 16%; min-width: 9rem;">Student</th>
-                        <th style="width: 13%; min-width: 7rem;">Chambit Combo</th>
-                        <th style="width: 23%;">Attendance</th>
-                        <th style="width: 11%; min-width: 7rem;">Vocab</th>
-                        <th style="width: 7%;">Dollars</th>
-                        <th style="width: 17%; min-width: 9.5rem;">Adjust</th>
-                    </tr>
-                </thead>
+                                    <colgroup>
+                                        <col style="width: 1.75rem;">
+                                        <col style="width: 15%;">
+                                        <col style="width: 12%;">
+                                        <col style="width: 22%;">
+                                        <col style="width: 13%;">
+                                        <col style="width: 8%;">
+                                        <col style="width: 16%;">
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th title="Drag to reorder">#</th>
+                                            <th style="min-width: 9rem;">Student</th>
+                                            <th style="min-width: 7rem;">Chambit Combo</th>
+                                            <th>Attendance</th>
+                                            <th style="min-width: 7rem;">Vocab</th>
+                                            <th>Dollars</th>
+                                            <th style="min-width: 9.5rem;">Adjust</th>
+                                        </tr>
+                                    </thead>
                 <tbody id="studentTableBody">
                     </tbody>
             </table>
