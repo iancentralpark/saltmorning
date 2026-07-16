@@ -128,18 +128,23 @@ function normalizeCell(s) {
   return String(s || '').trim().toLowerCase();
 }
 
+/**
+ * Match roster name ↔ class-log column A.
+ * Exact (case-insensitive), or the sheet cell contains the full roster name.
+ * Do NOT match on first/last name alone — "Paul Lee" must not hit "Sean Lee".
+ */
 function matchStudentName(backendName, logName) {
   const bn = normalizeCell(backendName);
   const ln = normalizeCell(logName);
   if (!bn || !ln) return false;
   if (ln === bn) return true;
   if (ln.includes(bn)) return true;
-  const parts = bn.split(/\s+/).filter(Boolean);
-  const first = parts[0];
-  const last = parts[parts.length - 1];
-  if (first && first.length > 1 && ln.includes(first)) return true;
-  if (last && last !== first && last.length > 1 && ln.includes(last)) return true;
   return false;
+}
+
+async function resolveBlockEnd(tabName, monthStart0) {
+  const colA = await getClassLogColumnA(tabName, Math.max(400, monthStart0 + 120));
+  return findNextMonthStart(colA, monthStart0);
 }
 
 function findMonthBlockStart(colA, monthHeader) {
@@ -265,58 +270,116 @@ function findLastUsedColumn(dateRow) {
 
 async function findStudentRow(tabName, monthStart0, config, studentName, blockEnd0) {
   const startRow1 = monthStart0 + rowOffset(config, 'students') + 1;
-  const endRow1 = blockEnd0;
+  const endRow1 = blockEnd0 > 0 ? blockEnd0 : await resolveBlockEnd(tabName, monthStart0);
   const rows = await getClassLogValues(tabName, `A${startRow1}:A${endRow1}`);
+  const target = normalizeCell(studentName);
+  let fuzzy = -1;
   for (let i = 0; i < rows.length; i++) {
     const name = rows[i] && rows[i][0];
-    if (!name) break;
-    if (matchStudentName(studentName, name)) return startRow1 + i;
+    if (!name || !String(name).trim()) continue; // blank rows can appear after bad inserts — skip, don't stop
+    const cell = String(name);
+    if (normalizeCell(cell) === target) return startRow1 + i;
+    if (fuzzy < 0 && matchStudentName(studentName, cell)) fuzzy = startRow1 + i;
   }
-  return -1;
+  return fuzzy;
 }
 
-async function pruneStudentRowsNotInRoster(tabName, monthStart0, config, blockEnd0, roster) {
-  const startRow1 = monthStart0 + rowOffset(config, 'students') + 1;
-  const rows = await getClassLogValues(tabName, `A${startRow1}:A${blockEnd0}`);
-  const toDelete = [];
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const name = rows[i] && rows[i][0];
-    if (!name) break;
-    const inRoster = roster.some(s => matchStudentName(s.name, name));
-    if (!inRoster) toDelete.push(startRow1 + i);
-  }
-  if (!toDelete.length) return;
+async function deleteClassLogRows(tabName, row1List) {
+  if (!row1List.length) return;
   const sheetId = await getClassLogSheetId(tabName);
-  const requests = toDelete.sort((a, b) => b - a).map(function(row1) {
-    return {
-      deleteDimension: {
-        range: {
-          sheetId,
-          dimension: 'ROWS',
-          startIndex: row1 - 1,
-          endIndex: row1
+  const requests = row1List
+    .slice()
+    .sort((a, b) => b - a)
+    .map(function(row1) {
+      return {
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: row1 - 1,
+            endIndex: row1
+          }
         }
-      }
-    };
-  });
+      };
+    });
   await batchClassLogUpdate(requests);
 }
 
+/**
+ * Keep one row per roster student. Remove blank name rows, duplicate names,
+ * and names no longer on the roster. Append missing students as a single new
+ * row each — name in column A, prior date columns left blank (no inherited O/X).
+ * Returns the refreshed month-block end (0-based next-month index / exclusive end).
+ */
 async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classId, monthFirstDay) {
   const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
-  await pruneStudentRowsNotInRoster(tabName, monthStart0, config, blockEnd0, roster);
-
+  let end0 = blockEnd0 > 0 ? blockEnd0 : await resolveBlockEnd(tabName, monthStart0);
   const startRow1 = monthStart0 + rowOffset(config, 'students') + 1;
-  const rows = await getClassLogValues(tabName, `A${startRow1}:A${blockEnd0}`);
-  const existing = [];
-  let lastDataIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    const name = rows[i] && rows[i][0];
-    if (!name) break;
-    existing.push({ row1: startRow1 + i, name: String(name) });
-    lastDataIdx = i;
+
+  async function readNameRows() {
+    end0 = await resolveBlockEnd(tabName, monthStart0);
+    if (end0 < startRow1) return [];
+    const rows = await getClassLogValues(tabName, `A${startRow1}:A${end0}`);
+    const out = [];
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i] && rows[i][0];
+      out.push({
+        row1: startRow1 + i,
+        name: raw != null && String(raw).trim() ? String(raw).trim() : ''
+      });
+    }
+    // Trailing empty slots past the last named student are fine; still scan the packed range.
+    return out;
   }
 
+  let nameRows = await readNameRows();
+
+  // Prefer keeping the duplicate row that already has Chambit marks.
+  const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
+  const shortRowForWidth = await readSheetRow(tabName, shortRow1);
+  const markCols = Math.max(findLastUsedColumn(shortRowForWidth), 1);
+  const markGrid = nameRows.length
+    ? await getClassLogValues(
+      tabName,
+      `B${startRow1}:${colLetter(markCols)}${startRow1 + nameRows.length - 1}`
+    )
+    : [];
+  function filledMarkCount(idx) {
+    const row = markGrid[idx] || [];
+    let n = 0;
+    for (let c = 0; c < row.length; c++) {
+      if (String(row[c] || '').trim()) n++;
+    }
+    return n;
+  }
+
+  // 1) Choose keepers, then delete blanks / extras / non-roster (bottom → top).
+  const bestByKey = new Map(); // normalized name → { row1, idx, marks }
+  for (let i = 0; i < nameRows.length; i++) {
+    const entry = nameRows[i];
+    if (!entry.name) continue;
+    const inRoster = roster.some(s => matchStudentName(s.name, entry.name));
+    if (!inRoster) continue;
+    const key = normalizeCell(entry.name);
+    const marks = filledMarkCount(i);
+    const prev = bestByKey.get(key);
+    if (!prev || marks > prev.marks || (marks === prev.marks && entry.row1 < prev.row1)) {
+      bestByKey.set(key, { row1: entry.row1, idx: i, marks });
+    }
+  }
+  const keepRows = new Set([...bestByKey.values()].map(v => v.row1));
+  const toDelete = [];
+  for (let i = 0; i < nameRows.length; i++) {
+    const entry = nameRows[i];
+    if (!entry.name || !keepRows.has(entry.row1)) toDelete.push(entry.row1);
+  }
+  if (toDelete.length) {
+    await deleteClassLogRows(tabName, toDelete);
+    nameRows = await readNameRows();
+  }
+
+  // 2) Append missing roster students once each.
+  const existing = nameRows.filter(e => e.name);
   const append = [];
   for (const st of roster) {
     const found = existing.some(e => matchStudentName(st.name, e.name));
@@ -324,7 +387,8 @@ async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classI
   }
 
   if (append.length) {
-    const insertAt = startRow1 + lastDataIdx + 1;
+    const lastNamed = existing.length ? existing[existing.length - 1].row1 : startRow1 - 1;
+    const insertAt = lastNamed + 1;
     const sheetId = await getClassLogSheetId(tabName);
     await batchClassLogUpdate([{
       insertDimension: {
@@ -338,9 +402,23 @@ async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classI
       }
     }]);
     await updateClassLogRange(tabName, `A${insertAt}:A${insertAt + append.length - 1}`, append);
-    return insertAt;
+
+    // Clear inherited Chambit marks on prior date columns — new joiners start blank.
+    const shortRow = await readSheetRow(tabName, shortRow1);
+    const lastCol = findLastUsedColumn(shortRow);
+    if (lastCol >= 1) {
+      const empty = append.map(function() {
+        return Array(lastCol).fill('');
+      });
+      await updateClassLogRange(
+        tabName,
+        `B${insertAt}:${colLetter(lastCol)}${insertAt + append.length - 1}`,
+        empty
+      );
+    }
   }
-  return startRow1;
+
+  return resolveBlockEnd(tabName, monthStart0);
 }
 
 const SHORT_DATE_BLUE = { red: 0.8117647, green: 0.8862745, blue: 0.9529412 };
@@ -512,12 +590,12 @@ async function ensureDateColumn(tabName, monthStart0, config, blockEnd0, dateStr
   const dateRow1 = monthStart0 + rowOffset(config, 'date') + 1;
   const dateRow = await readSheetRow(tabName, dateRow1);
   let col = findDateColumnInRow(dateRow, dateStr);
-  if (col >= 0) return { col, dateRow1, created: false };
+  if (col >= 0) return { col, dateRow1, created: false, blockEnd0 };
 
   const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
   const shortRow = await readSheetRow(tabName, shortRow1);
   col = findDateColumnInRow(shortRow, dateStr);
-  if (col >= 0) return { col, dateRow1, created: false };
+  if (col >= 0) return { col, dateRow1, created: false, blockEnd0 };
 
   col = findLastUsedColumn(dateRow) + 1;
   if (col < 1) col = 1;
@@ -529,7 +607,9 @@ async function ensureDateColumn(tabName, monthStart0, config, blockEnd0, dateStr
   await updateClassLogRange(tabName, a1Cell(dateRow1, col), [[longLabel]]);
   await updateClassLogRange(tabName, a1Cell(shortRow1, col), [[shortLabel]]);
 
-  await ensureStudentRows(tabName, monthStart0, config, blockEnd0, classId, monthFirstDay);
+  blockEnd0 = await ensureStudentRows(
+    tabName, monthStart0, config, blockEnd0, classId, monthFirstDay
+  );
   await applyNewDateColumnFormats(
     tabName, monthStart0, config, blockEnd0, col, dateRow1, shortRow1
   );
@@ -537,7 +617,7 @@ async function ensureDateColumn(tabName, monthStart0, config, blockEnd0, dateStr
     tabName, monthStart0, config, blockEnd0, classId, dateStr, col
   );
 
-  return { col, dateRow1, created: true };
+  return { col, dateRow1, created: true, blockEnd0 };
 }
 
 function lessonHomeworkFormatRequest(sheetId, row1, col, isHomework) {
@@ -600,7 +680,13 @@ async function syncChambitToClassLog(classId, studentName, dateStr, read) {
     monthStart0 = await ensureMonthBlockStart(config.tab, config, monthHeader, classId);
     colA = await getClassLogColumnA(config.tab, 400);
   }
-  const blockEnd0 = findNextMonthStart(colA, monthStart0);
+  let blockEnd0 = findNextMonthStart(colA, monthStart0);
+
+  // Always reconcile roster first so mid-month joins get one clean row
+  // (and leftover duplicate/blank rows from older bugs are pruned).
+  blockEnd0 = await ensureStudentRows(
+    config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay
+  );
 
   const existingCol = await findDateColumnForDate(config.tab, monthStart0, config, dateStr);
   if (existingCol >= 0) {
@@ -618,6 +704,7 @@ async function syncChambitToClassLog(classId, studentName, dateStr, read) {
         ]);
         const mark = getChambitMarkForStudent(student.id, dateStr, read, leaveMap, withdrawalMap);
         await updateClassLogRange(config.tab, a1Cell(studentRow1, existingCol), [[mark]]);
+        await applyChambitMarkFormat(config.tab, studentRow1, existingCol);
         const quickResult = {
           synced: true,
           tab: config.tab,
@@ -638,24 +725,23 @@ async function syncChambitToClassLog(classId, studentName, dateStr, read) {
     }
   }
 
-  await ensureStudentRows(config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay);
-  const { col } = await ensureDateColumn(
+  const dateInfo = await ensureDateColumn(
     config.tab, monthStart0, config, blockEnd0, dateStr, classId
   );
+  const col = dateInfo.col;
+  if (dateInfo.blockEnd0) blockEnd0 = dateInfo.blockEnd0;
+  else blockEnd0 = await resolveBlockEnd(config.tab, monthStart0);
 
   const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
   const student = roster.find(s => matchStudentName(s.name, studentName));
   if (!student) return { synced: false, reason: 'not_in_roster', studentName };
 
-  let studentRow1 = await findStudentRow(
+  blockEnd0 = await ensureStudentRows(
+    config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay
+  );
+  const studentRow1 = await findStudentRow(
     config.tab, monthStart0, config, student.name, blockEnd0
   );
-  if (studentRow1 < 0) {
-    await ensureStudentRows(config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay);
-    studentRow1 = await findStudentRow(
-      config.tab, monthStart0, config, student.name, blockEnd0
-    );
-  }
   if (studentRow1 < 0) {
     return { synced: false, reason: 'student_row_not_found', studentName };
   }
@@ -695,13 +781,14 @@ async function saveClassLogEntry(classId, dateStr, lesson, homework, writing) {
   const monthHeader = monthHeaderForDate(dateStr);
   const monthFirstDay = monthHeaderToFirstDay(monthHeader);
   const monthStart0 = await ensureMonthBlockStart(config.tab, config, monthHeader, classId);
-  const colA = await getClassLogColumnA(config.tab, 400);
-
-  const blockEnd0 = findNextMonthStart(colA, monthStart0);
-  await ensureStudentRows(config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay);
-  const { col } = await ensureDateColumn(
+  let blockEnd0 = await resolveBlockEnd(config.tab, monthStart0);
+  blockEnd0 = await ensureStudentRows(
+    config.tab, monthStart0, config, blockEnd0, classId, monthFirstDay
+  );
+  const dateInfo = await ensureDateColumn(
     config.tab, monthStart0, config, blockEnd0, dateStr, classId
   );
+  const col = dateInfo.col;
 
   const lessonRow1 = monthStart0 + rowOffset(config, 'lesson') + 1;
   const hwRow1 = monthStart0 + rowOffset(config, 'homework') + 1;
@@ -814,7 +901,7 @@ async function backfillClassLogMarkRange(classId, studentName, fromDateStr, toDa
 
   const blockEnd0 = findNextMonthStart(colA, monthStart0);
   const studentRow1 = await findStudentRow(tabName, monthStart0, config, studentName, blockEnd0);
-  if (studentRow1 < 0) return;
+  if (studentRow1 < 0) return; // caller should ensureStudentRows first if needed
 
   const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
   const shortRow = await readSheetRow(tabName, shortRow1);
