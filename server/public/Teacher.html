@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-16.04';
+            var APP_BUILD = '2026-07-16.05';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -2358,200 +2358,6 @@
             padding-left: 0.55rem;
             padding-right: 0.55rem;
         }
-
-        /* ===== Students playground (kids-friendly roster) ===== */
-        #studentSection.students-playground {
-            position: relative;
-            padding: 1.15rem 1.2rem 1.35rem;
-            border-radius: 28px;
-            border: 3px solid rgba(59, 158, 221, 0.22);
-            background:
-                radial-gradient(circle at 8% 12%, rgba(255, 215, 0, 0.22), transparent 28%),
-                radial-gradient(circle at 92% 8%, rgba(255, 107, 157, 0.18), transparent 30%),
-                radial-gradient(circle at 80% 90%, rgba(46, 204, 113, 0.14), transparent 34%),
-                radial-gradient(circle at 12% 88%, rgba(59, 158, 221, 0.16), transparent 32%),
-                linear-gradient(180deg, #ffffff 0%, #f7fbff 48%, #fff9ef 100%);
-            box-shadow: 0 10px 0 rgba(59, 158, 221, 0.08), 0 18px 40px rgba(59, 158, 221, 0.12);
-            overflow: hidden;
-        }
-        #studentSection.students-playground::after {
-            content: '';
-            position: absolute;
-            inset: auto -2rem -2rem auto;
-            width: 9rem;
-            height: 9rem;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(255, 159, 67, 0.18), transparent 68%);
-            pointer-events: none;
-        }
-        #studentSection .students-playground-title {
-            gap: 0.45rem;
-            font-size: 1.15rem;
-        }
-        #studentSection .students-title-icon {
-            width: 2rem;
-            height: 2rem;
-            border-radius: 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #3b9edd, #6dd5fa);
-            color: #fff;
-            box-shadow: 0 3px 0 rgba(42, 143, 201, 0.35);
-        }
-        #studentSection .students-title-icon i { color: #fff; }
-        #studentSection .students-title-sparkle {
-            font-size: 0.95rem;
-            animation: students-sparkle 1.8s ease-in-out infinite;
-        }
-        @keyframes students-sparkle {
-            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
-            50% { transform: scale(1.18) rotate(12deg); opacity: 1; }
-        }
-        #studentSection .students-action-btn {
-            border-width: 2px;
-            font-weight: 800;
-            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.06);
-        }
-        #studentSection .students-action-btn:hover {
-            transform: translateY(-2px);
-        }
-        #studentSection .students-table-card {
-            border: 3px solid rgba(255, 159, 67, 0.28);
-            border-radius: 22px;
-            background: rgba(255, 255, 255, 0.88);
-            box-shadow: 0 8px 0 rgba(255, 159, 67, 0.12), 0 14px 28px rgba(59, 158, 221, 0.1);
-        }
-        #studentSection .students-fun-table thead th {
-            background: linear-gradient(90deg, #dff6ff 0%, #fff4c8 35%, #ffe0f0 68%, #e7ffe8 100%);
-            color: #1f5f84;
-            border-bottom: 3px solid rgba(255, 159, 67, 0.45);
-            letter-spacing: 0.01em;
-        }
-        #studentSection .students-fun-table tbody tr {
-            transition: transform 0.14s ease, background 0.14s ease;
-        }
-        #studentSection .students-fun-table tbody tr:nth-child(6n+1) { background: rgba(59, 158, 221, 0.045); }
-        #studentSection .students-fun-table tbody tr:nth-child(6n+2) { background: rgba(255, 215, 0, 0.06); }
-        #studentSection .students-fun-table tbody tr:nth-child(6n+3) { background: rgba(46, 204, 113, 0.05); }
-        #studentSection .students-fun-table tbody tr:nth-child(6n+4) { background: rgba(255, 107, 157, 0.05); }
-        #studentSection .students-fun-table tbody tr:nth-child(6n+5) { background: rgba(155, 89, 182, 0.045); }
-        #studentSection .students-fun-table tbody tr:nth-child(6n) { background: rgba(230, 126, 34, 0.05); }
-        #studentSection .students-fun-table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: inset 4px 0 0 #3b9edd;
-        }
-        #studentSection .student-avatar {
-            width: 2.15rem;
-            height: 2.15rem;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-family: var(--app-heading);
-            font-weight: 800;
-            font-size: 0.92rem;
-            color: #fff;
-            flex-shrink: 0;
-            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
-            border: 2px solid rgba(255, 255, 255, 0.9);
-        }
-        #studentSection .student-avatar.tone-sky { background: linear-gradient(135deg, #3b9edd, #6dd5fa); }
-        #studentSection .student-avatar.tone-sun { background: linear-gradient(135deg, #f1c40f, #f39c12); }
-        #studentSection .student-avatar.tone-mint { background: linear-gradient(135deg, #2ecc71, #58d68d); }
-        #studentSection .student-avatar.tone-coral { background: linear-gradient(135deg, #ff6b9d, #ff8fab); }
-        #studentSection .student-avatar.tone-grape { background: linear-gradient(135deg, #9b59b6, #bb8fce); }
-        #studentSection .student-avatar.tone-peach { background: linear-gradient(135deg, #e67e22, #f5b041); }
-        #studentSection .student-name-line {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            min-width: 0;
-        }
-        #studentSection .student-drag-handle {
-            background: linear-gradient(180deg, #fff, #f3f9ff);
-            border: 2px solid rgba(59, 158, 221, 0.25);
-            border-radius: 12px;
-            padding: 0.2rem 0.35rem;
-            color: #3b9edd;
-        }
-        #studentSection .status-toggle .btn {
-            border-radius: 999px !important;
-            font-weight: 800;
-            min-width: 4.4rem;
-        }
-        #studentSection .dollar-balance-chip,
-        #studentSection .dollar-display {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.2rem;
-            padding: 0.22rem 0.65rem;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #fff8db, #ffe082);
-            border: 2px solid rgba(241, 196, 15, 0.45);
-            color: #8d6e00;
-            font-weight: 800;
-        }
-        #studentSection .dollar-display::before {
-            content: '$';
-            font-weight: 900;
-        }
-        #studentSection .chambit-combo-badge {
-            background: linear-gradient(135deg, #e8fff2, #e8f6ff);
-            border-color: rgba(46, 204, 113, 0.4);
-        }
-
-        body.teacher-mobile #studentSection.students-playground {
-            padding: 0.85rem 0.7rem 1rem;
-            border-radius: 22px;
-        }
-        body.teacher-mobile .tm-student-card {
-            border: 3px solid transparent;
-            border-radius: 20px;
-            background:
-                linear-gradient(#fff, #fff) padding-box,
-                linear-gradient(135deg, #3b9edd, #f1c40f, #ff6b9d, #2ecc71) border-box;
-            box-shadow: 0 6px 0 rgba(59, 158, 221, 0.1), 0 12px 24px rgba(59, 158, 221, 0.12);
-            padding: 0.85rem 0.95rem;
-            animation: tm-card-pop 0.35s ease both;
-        }
-        body.teacher-mobile .tm-student-card:nth-child(odd) {
-            background:
-                linear-gradient(#fffef8, #fff) padding-box,
-                linear-gradient(135deg, #f1c40f, #ff9f43, #3b9edd) border-box;
-        }
-        body.teacher-mobile .tm-student-card:nth-child(3n) {
-            background:
-                linear-gradient(#f8fffb, #fff) padding-box,
-                linear-gradient(135deg, #2ecc71, #3b9edd, #9b59b6) border-box;
-        }
-        @keyframes tm-card-pop {
-            from { opacity: 0; transform: translateY(8px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        body.teacher-mobile .tm-card-name {
-            font-size: 1.12rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        body.teacher-mobile .tm-card-name .student-avatar {
-            width: 2rem;
-            height: 2rem;
-            font-size: 0.85rem;
-        }
-        body.teacher-mobile .tm-attendance-grid .tm-att-present,
-        body.teacher-mobile .tm-attendance-grid .tm-att-tardy,
-        body.teacher-mobile .tm-attendance-grid .tm-att-absent {
-            border-radius: 14px !important;
-            font-weight: 800;
-        }
-        body.teacher-mobile #studentSection .tm-expand-all-btn:not(.hidden-section) {
-            background: linear-gradient(135deg, #fff, #eaf7ff);
-            border: 2px solid rgba(59, 158, 221, 0.35);
-            box-shadow: 0 4px 0 rgba(59, 158, 221, 0.12);
-        }
-
         .app-table {
             margin-bottom: 0;
             --bs-table-bg: rgba(255, 255, 255, 0.5);
@@ -4769,16 +4575,13 @@
             display: none !important;
         }
         body.teacher-mobile #studentSection::before {
-            content: "Attendance & Scores 🌈";
+            content: "Attendance & Scores";
             display: block;
             font-family: var(--app-heading);
-            font-size: 1.08rem;
-            font-weight: 800;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--app-primary-dark);
             margin-bottom: 0.65rem;
-            background: linear-gradient(90deg, #3b9edd, #ff9f43, #ff6b9d);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
         }
         body.teacher-mobile #studentSection .tm-desktop-table {
             display: none !important;
@@ -6068,28 +5871,23 @@
         </div>
     </div>
 
-    <div id="studentSection" class="hidden-section app-section mb-4 students-playground" data-teacher-panel="today">
-        <div class="d-flex align-items-center mb-3 flex-wrap gap-2 section-header-row students-playground-head">
-            <div class="step-label mb-0 students-playground-title">
-                <span class="step-num">4</span>
-                <span class="students-title-icon" aria-hidden="true"><i class="fa-solid fa-children"></i></span>
-                <span>Students & Scores</span>
-                <span class="students-title-sparkle" aria-hidden="true">✨</span>
-            </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap section-header-actions students-playground-actions">
-                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 students-action-btn" id="openClassLogBtn">
+    <div id="studentSection" class="hidden-section app-section mb-4" data-teacher-panel="today">
+        <div class="d-flex align-items-center mb-3 flex-wrap gap-2 section-header-row">
+            <div class="step-label mb-0"><span class="step-num">4</span><i class="fa-solid fa-users"></i> Students & Scores</div>
+            <div class="d-flex align-items-center gap-2 flex-wrap section-header-actions">
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="openClassLogBtn">
                     <i class="fa-solid fa-book-open"></i> Class Log
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 students-action-btn" id="addStudentBtn">
+                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" id="addStudentBtn">
                     <i class="fa-solid fa-user-plus"></i> Add student
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 students-action-btn" id="portalLoginsBtn">
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="portalLoginsBtn">
                     <i class="fa-solid fa-key"></i> Portal logins
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 students-action-btn" id="buddyCoinsBtn">
+                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" id="buddyCoinsBtn">
                     <i class="fa-solid fa-coins"></i> Buddy coins
                 </button>
-                <button type="button" class="btn btn-sm btn-warning rounded-pill px-3 students-action-btn" id="openClassPendingBtn">
+                <button type="button" class="btn btn-sm btn-warning rounded-pill px-3" id="openClassPendingBtn">
                     <i class="fa-solid fa-hourglass-half"></i> Pending Homework
                 </button>
                 <span class="badge badge-class-pill fs-6" id="selectedClassBadge">Class</span>
@@ -6100,8 +5898,8 @@
             <i class="fa-solid fa-sliders"></i> <span>Show all scores</span>
         </button>
         <div id="teacherMobileAttendanceList" class="tm-attendance-list hidden-section"></div>
-        <div class="table-responsive app-table-card tm-desktop-table students-table-card">
-            <table class="table table-hover align-middle text-center app-table students-fun-table">
+        <div class="table-responsive app-table-card tm-desktop-table">
+            <table class="table table-hover align-middle text-center app-table">
                 <thead>
                     <tr>
                         <th style="width: 2.4rem;" title="Drag to reorder">#</th>
@@ -8059,7 +7857,7 @@
         }
         if (expandAllBtn) expandAllBtn.classList.remove('hidden-section');
         list.innerHTML = '';
-        students.forEach(function(std, index) {
+        students.forEach(function(std) {
             var pendingBadge = (std.pendingHomework > 0)
                 ? '<button type="button" class="badge bg-warning text-dark pending-hw-badge" data-pending-hw-btn title="View pending homework">' + std.pendingHomework + ' pending</button>'
                 : '';
@@ -8130,7 +7928,7 @@
                             '</div>' +
                         '</div>' +
                         '<div class="tm-erow">' +
-                            '<div class="tm-erow-label">Dollars <span class="tm-dollar-bal dollar-display" data-dollar-balance>' + (std.dollars ?? 0) + '</span></div>' +
+                            '<div class="tm-erow-label">Dollars <span class="tm-dollar-bal badge bg-dark" data-dollar-balance>' + (std.dollars ?? 0) + '</span></div>' +
                             '<div class="tm-erow-control tm-adjust-row input-group">' +
                                 '<input type="text" class="form-control dollar-adjust-input" inputmode="decimal" autocomplete="off" placeholder="" data-dollar-input>' +
                                 '<button class="btn btn-primary" type="button" data-dollar-btn aria-label="Apply"><i class="fa-solid fa-check"></i></button>' +
@@ -8149,10 +7947,7 @@
                         '<button type="button" class="tm-student-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">' +
                             '<i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>' +
                         '</button>' +
-                        '<button type="button" class="tm-card-name student-name-btn">' +
-                            studentAvatarHtml(std.name, index) +
-                            '<span>' + escapeHtml(std.name) + '</span>' +
-                        '</button>' +
+                        '<button type="button" class="tm-card-name student-name-btn">' + escapeHtml(std.name) + '</button>' +
                         badgesHtml +
                     '</div>' +
                     metaHtml +
@@ -12544,22 +12339,6 @@
         input.addEventListener('blur', flushVocabSave);
     }
 
-    function studentAvatarTone(index) {
-        var tones = ['tone-sky', 'tone-sun', 'tone-mint', 'tone-coral', 'tone-grape', 'tone-peach'];
-        return tones[Math.abs(Number(index) || 0) % tones.length];
-    }
-
-    function studentAvatarInitial(name) {
-        var n = String(name || '?').trim();
-        if (!n) return '?';
-        return n.charAt(0).toUpperCase();
-    }
-
-    function studentAvatarHtml(name, index) {
-        return '<span class="student-avatar ' + studentAvatarTone(index) + '" aria-hidden="true">' +
-            escapeHtml(studentAvatarInitial(name)) + '</span>';
-    }
-
     function renderStudents(students) {
         const tbody = document.getElementById('studentTableBody');
         tbody.innerHTML = '';
@@ -12631,10 +12410,7 @@
                 </td>
                 <td class="fw-bold text-start ps-4 student-name-td">
                     <div class="student-name-cell">
-                        <div class="student-name-line">
-                            ${studentAvatarHtml(std.name, index)}
-                            <span class="student-name-btn" role="button" title="View student detail & homework">${escapeHtml(std.name)}</span>
-                        </div>
+                        <span class="student-name-btn" role="button" title="View student detail & homework">${escapeHtml(std.name)}</span>
                         <div class="student-badges-row">
                             ${pendingBadge}
                             <button type="button" class="btn-lucky-row${(std.luckyTickets || 0) ? '' : ' empty'}" data-lucky-btn title="Lucky Draw tickets">
@@ -12660,7 +12436,7 @@
                     </div>
                 </td>
                 <td>
-                    <span class="dollar-display" data-dollar-balance>${std.dollars ?? 0}</span>
+                    <span class="badge bg-dark" data-dollar-balance>${std.dollars ?? 0}</span>
                 </td>
                 <td>
                     <div class="input-group input-group-sm dollar-adjust-group">
