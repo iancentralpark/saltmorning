@@ -272,6 +272,29 @@ async function getUnreadTotalGlobal() {
   return inbox.reduce(function(sum, row) { return sum + (row.unreadCount || 0); }, 0);
 }
 
+async function mirrorSheetMessageToSupabase(msg) {
+  if (!msg || !msg.messageId) return;
+  try {
+    const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+    if (!isSupabaseEnabled()) return;
+    const db = getSupabase();
+    const { error } = await db.from('messages').upsert({
+      id: msg.messageId,
+      created_at: msg.createdAt || isoNow(),
+      class_id: String(msg.classId || ''),
+      student_id: String(msg.studentId || ''),
+      student_name: String(msg.studentName || ''),
+      sender: String(msg.sender || ''),
+      body: String(msg.body || ''),
+      read_at: msg.readAt || null,
+      deleted_at: null
+    }, { onConflict: 'id' });
+    if (error) console.error('[messages] mirror sheet→supabase failed', error.message || error);
+  } catch (err) {
+    console.error('[messages] mirror sheet→supabase error', err.message || err);
+  }
+}
+
 async function studentSendMessage(studentId, classId, studentName, body) {
   body = normalizeBody(body);
   const name = studentName || await lookupStudentName(studentId, classId);
@@ -282,6 +305,9 @@ async function studentSendMessage(studentId, classId, studentName, body) {
     sender: 'student',
     body: body
   });
+  // Legacy Sheets path can still notify Telegram while the UI reads Supabase —
+  // always mirror so teacher/student portals see the message.
+  await mirrorSheetMessageToSupabase(msg);
   try {
     const classLabel = await getClassLabel(classId);
     await sendStudentMessageTelegram({ studentName: name, classLabel: classLabel, body: body });
@@ -294,30 +320,72 @@ async function studentSendMessage(studentId, classId, studentName, body) {
 async function teacherSendMessage(classId, studentId, studentName, body) {
   body = normalizeBody(body);
   const name = studentName || await lookupStudentName(studentId, classId);
-  return appendMessage({
+  const msg = await appendMessage({
     classId: classId,
     studentId: studentId,
     studentName: name,
     sender: 'teacher',
     body: body
   });
+  await mirrorSheetMessageToSupabase(msg);
+  return msg;
 }
 
-module.exports = (function() {
+let sheetApiWarned = false;
+let cachedSheetApi = null;
+
+function sheetMessageApi() {
+  if (!sheetApiWarned) {
+    sheetApiWarned = true;
+    console.warn('[messages] Supabase disabled — using Google Sheets Student_Messages (legacy)');
+  }
+  if (!cachedSheetApi) {
+    cachedSheetApi = {
+      ensureMessagesSheet,
+      getClassLabel,
+      getThread,
+      markMessagesRead,
+      getStudentUnreadCount,
+      getInboxForClass,
+      getGlobalInbox,
+      getUnreadTotalForClass,
+      getUnreadTotalGlobal,
+      studentSendMessage,
+      teacherSendMessage
+    };
+  }
+  return cachedSheetApi;
+}
+
+/** Resolve at call-time so a boot race / missing env cannot permanently stick to Sheets. */
+function getMessageApi() {
   const { isSupabaseEnabled } = require('./supabaseClient');
   if (isSupabaseEnabled()) return require('./supabaseMessageService');
-  console.warn('[messages] Supabase disabled — using Google Sheets Student_Messages (legacy)');
-  return {
-    ensureMessagesSheet,
-    getClassLabel,
-    getThread,
-    markMessagesRead,
-    getStudentUnreadCount,
-    getInboxForClass,
-    getGlobalInbox,
-    getUnreadTotalForClass,
-    getUnreadTotalGlobal,
-    studentSendMessage,
-    teacherSendMessage
-  };
-})();
+  return sheetMessageApi();
+}
+
+module.exports = {
+  ensureMessagesSheet: function() { return getMessageApi().ensureMessagesSheet(); },
+  getClassLabel: function(classId) { return getMessageApi().getClassLabel(classId); },
+  getThread: function(classId, studentId, limit) {
+    return getMessageApi().getThread(classId, studentId, limit);
+  },
+  markMessagesRead: function(classId, studentId, reader) {
+    return getMessageApi().markMessagesRead(classId, studentId, reader);
+  },
+  getStudentUnreadCount: function(studentId, classId) {
+    return getMessageApi().getStudentUnreadCount(studentId, classId);
+  },
+  getInboxForClass: function(classId) { return getMessageApi().getInboxForClass(classId); },
+  getGlobalInbox: function() { return getMessageApi().getGlobalInbox(); },
+  getUnreadTotalForClass: function(classId) {
+    return getMessageApi().getUnreadTotalForClass(classId);
+  },
+  getUnreadTotalGlobal: function() { return getMessageApi().getUnreadTotalGlobal(); },
+  studentSendMessage: function(studentId, classId, studentName, body) {
+    return getMessageApi().studentSendMessage(studentId, classId, studentName, body);
+  },
+  teacherSendMessage: function(classId, studentId, studentName, body) {
+    return getMessageApi().teacherSendMessage(classId, studentId, studentName, body);
+  }
+};
