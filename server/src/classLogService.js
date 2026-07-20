@@ -306,80 +306,78 @@ async function deleteClassLogRows(tabName, row1List) {
 }
 
 /**
- * Keep one row per roster student. Remove blank name rows, duplicate names,
- * and names no longer on the roster. Append missing students as a single new
- * row each — name in column A, prior date columns left blank (no inherited O/X).
- * Returns the refreshed month-block end (0-based next-month index / exclusive end).
+ * Read only the packed student name block (contiguous names from the first
+ * student row). Do not treat trailing template blanks as deletable rows —
+ * mass-deleting those was wiping Chambit history / formatting in 5Days.
+ */
+async function readPackedStudentNameRows(tabName, monthStart0, config) {
+  const startRow1 = monthStart0 + rowOffset(config, 'students') + 1;
+  const end0 = await resolveBlockEnd(tabName, monthStart0);
+  if (end0 < startRow1) return { startRow1, end0, nameRows: [] };
+  const rows = await getClassLogValues(tabName, `A${startRow1}:A${end0}`);
+  const nameRows = [];
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i] && rows[i][0];
+    const name = raw != null && String(raw).trim() ? String(raw).trim() : '';
+    if (!name) break; // stop at first blank — preserve padding below
+    nameRows.push({ row1: startRow1 + i, name });
+  }
+  return { startRow1, end0, nameRows };
+}
+
+/**
+ * Keep one row per roster student. Only delete duplicate names or names no
+ * longer on the roster. Never delete trailing blank padding rows.
+ * New students get one row with prior date columns left blank.
  */
 async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classId, monthFirstDay) {
   const roster = await getClassLogRosterForMonth(classId, monthFirstDay);
-  let end0 = blockEnd0 > 0 ? blockEnd0 : await resolveBlockEnd(tabName, monthStart0);
-  const startRow1 = monthStart0 + rowOffset(config, 'students') + 1;
-
-  async function readNameRows() {
-    end0 = await resolveBlockEnd(tabName, monthStart0);
-    if (end0 < startRow1) return [];
-    const rows = await getClassLogValues(tabName, `A${startRow1}:A${end0}`);
-    const out = [];
-    for (let i = 0; i < rows.length; i++) {
-      const raw = rows[i] && rows[i][0];
-      out.push({
-        row1: startRow1 + i,
-        name: raw != null && String(raw).trim() ? String(raw).trim() : ''
-      });
-    }
-    // Trailing empty slots past the last named student are fine; still scan the packed range.
-    return out;
-  }
-
-  let nameRows = await readNameRows();
-
-  // Prefer keeping the duplicate row that already has Chambit marks.
   const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
-  const shortRowForWidth = await readSheetRow(tabName, shortRow1);
-  const markCols = Math.max(findLastUsedColumn(shortRowForWidth), 1);
-  const markGrid = nameRows.length
-    ? await getClassLogValues(
+
+  let { startRow1, nameRows } = await readPackedStudentNameRows(tabName, monthStart0, config);
+
+  if (nameRows.length) {
+    const markCols = Math.max(
+      findLastUsedColumn(await readSheetRow(tabName, shortRow1)),
+      1
+    );
+    const markGrid = await getClassLogValues(
       tabName,
-      `B${startRow1}:${colLetter(markCols)}${startRow1 + nameRows.length - 1}`
-    )
-    : [];
-  function filledMarkCount(idx) {
-    const row = markGrid[idx] || [];
-    let n = 0;
-    for (let c = 0; c < row.length; c++) {
-      if (String(row[c] || '').trim()) n++;
+      `B${nameRows[0].row1}:${colLetter(markCols)}${nameRows[nameRows.length - 1].row1}`
+    );
+    function filledMarkCount(idx) {
+      const row = markGrid[idx] || [];
+      let n = 0;
+      for (let c = 0; c < row.length; c++) {
+        if (String(row[c] || '').trim()) n++;
+      }
+      return n;
     }
-    return n;
+
+    const bestByKey = new Map();
+    for (let i = 0; i < nameRows.length; i++) {
+      const entry = nameRows[i];
+      const inRoster = roster.some(s => matchStudentName(s.name, entry.name));
+      if (!inRoster) continue;
+      const key = normalizeCell(entry.name);
+      const marks = filledMarkCount(i);
+      const prev = bestByKey.get(key);
+      if (!prev || marks > prev.marks || (marks === prev.marks && entry.row1 < prev.row1)) {
+        bestByKey.set(key, { row1: entry.row1, marks });
+      }
+    }
+    const keepRows = new Set([...bestByKey.values()].map(v => v.row1));
+    // Only remove named extras — never blank padding under the list.
+    const toDelete = nameRows
+      .filter(entry => !keepRows.has(entry.row1))
+      .map(entry => entry.row1);
+    if (toDelete.length) {
+      await deleteClassLogRows(tabName, toDelete);
+      ({ startRow1, nameRows } = await readPackedStudentNameRows(tabName, monthStart0, config));
+    }
   }
 
-  // 1) Choose keepers, then delete blanks / extras / non-roster (bottom → top).
-  const bestByKey = new Map(); // normalized name → { row1, idx, marks }
-  for (let i = 0; i < nameRows.length; i++) {
-    const entry = nameRows[i];
-    if (!entry.name) continue;
-    const inRoster = roster.some(s => matchStudentName(s.name, entry.name));
-    if (!inRoster) continue;
-    const key = normalizeCell(entry.name);
-    const marks = filledMarkCount(i);
-    const prev = bestByKey.get(key);
-    if (!prev || marks > prev.marks || (marks === prev.marks && entry.row1 < prev.row1)) {
-      bestByKey.set(key, { row1: entry.row1, idx: i, marks });
-    }
-  }
-  const keepRows = new Set([...bestByKey.values()].map(v => v.row1));
-  const toDelete = [];
-  for (let i = 0; i < nameRows.length; i++) {
-    const entry = nameRows[i];
-    if (!entry.name || !keepRows.has(entry.row1)) toDelete.push(entry.row1);
-  }
-  if (toDelete.length) {
-    await deleteClassLogRows(tabName, toDelete);
-    nameRows = await readNameRows();
-  }
-
-  // 2) Append missing roster students once each.
-  const existing = nameRows.filter(e => e.name);
+  const existing = nameRows.slice();
   const append = [];
   for (const st of roster) {
     const found = existing.some(e => matchStudentName(st.name, e.name));
@@ -403,7 +401,7 @@ async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classI
     }]);
     await updateClassLogRange(tabName, `A${insertAt}:A${insertAt + append.length - 1}`, append);
 
-    // Clear inherited Chambit marks on prior date columns — new joiners start blank.
+    // Clear inherited marks on NEW rows only — do not touch existing students.
     const shortRow = await readSheetRow(tabName, shortRow1);
     const lastCol = findLastUsedColumn(shortRow);
     if (lastCol >= 1) {
@@ -419,6 +417,69 @@ async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classI
   }
 
   return resolveBlockEnd(tabName, monthStart0);
+}
+
+/** Rebuild O/X marks for a month from chambit_daily (source of truth). */
+async function restoreChambitMarksFromDaily(classId, monthFirstDayStr) {
+  const config = getTabConfig(classId);
+  if (!config) throw new Error('No class log tab for ' + classId);
+  monthFirstDayStr = formatSheetDate(monthFirstDayStr);
+  const monthHeader = monthHeaderForDate(monthFirstDayStr);
+  const colA = await getClassLogColumnA(config.tab, 400);
+  const monthStart0 = findMonthBlockStart(colA, monthHeader);
+  if (monthStart0 < 0) throw new Error('Month block not found: ' + monthHeader);
+
+  const shortRow1 = monthStart0 + rowOffset(config, 'shortDate') + 1;
+  const shortRow = await readSheetRow(config.tab, shortRow1);
+  const dateCols = [];
+  for (let c = 1; c < shortRow.length; c++) {
+    const ds = parseShortDateLabel(shortRow[c]);
+    if (ds) dateCols.push({ col: c, dateStr: ds });
+  }
+  if (!dateCols.length) return { restored: 0 };
+
+  const roster = await getClassLogRosterForMonth(classId, monthFirstDayStr);
+  const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+  const readSet = {}; // studentId -> Set(dateStr)
+  roster.forEach(s => { readSet[s.id] = new Set(); });
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const monthEnd = monthEndDate(monthFirstDayStr);
+    const { data, error } = await db
+      .from('chambit_daily')
+      .select('record_date, student_id')
+      .eq('class_id', String(classId))
+      .gte('record_date', monthFirstDayStr)
+      .lte('record_date', monthEnd);
+    if (error) throw new Error(error.message);
+    (data || []).forEach(function(row) {
+      const sid = String(row.student_id);
+      if (!readSet[sid]) readSet[sid] = new Set();
+      readSet[sid].add(formatSheetDate(row.record_date));
+    });
+  }
+
+  const blockEnd0 = await ensureStudentRows(
+    config.tab, monthStart0, config, 0, classId, monthFirstDayStr
+  );
+  let restored = 0;
+  for (const st of roster) {
+    const row1 = await findStudentRow(config.tab, monthStart0, config, st.name, blockEnd0);
+    if (row1 < 0) continue;
+    const marks = dateCols.map(function(dc) {
+      return readSet[st.id] && readSet[st.id].has(dc.dateStr) ? 'O' : 'X';
+    });
+    const startCol = dateCols[0].col;
+    const endCol = dateCols[dateCols.length - 1].col;
+    await updateClassLogRange(
+      config.tab,
+      `${colLetter(startCol)}${row1}:${colLetter(endCol)}${row1}`,
+      [marks]
+    );
+    restored++;
+  }
+  return { restored, tab: config.tab, monthHeader, dates: dateCols.length };
 }
 
 const SHORT_DATE_BLUE = { red: 0.8117647, green: 0.8862745, blue: 0.9529412 };
@@ -942,5 +1003,6 @@ module.exports = {
   matchStudentName,
   getClassLogRosterForMonth,
   backfillWithdrawnInClassLog,
-  backfillLeaveInClassLog
+  backfillLeaveInClassLog,
+  restoreChambitMarksFromDaily
 };
