@@ -463,21 +463,32 @@ async function restoreChambitMarksFromDaily(classId, monthFirstDayStr) {
   const blockEnd0 = await ensureStudentRows(
     config.tab, monthStart0, config, 0, classId, monthFirstDayStr
   );
+  const startCol = dateCols[0].col;
+  const endCol = dateCols[dateCols.length - 1].col;
+  const studentRows = [];
   let restored = 0;
   for (const st of roster) {
     const row1 = await findStudentRow(config.tab, monthStart0, config, st.name, blockEnd0);
     if (row1 < 0) continue;
+    studentRows.push(row1);
     const marks = dateCols.map(function(dc) {
       return readSet[st.id] && readSet[st.id].has(dc.dateStr) ? 'O' : 'X';
     });
-    const startCol = dateCols[0].col;
-    const endCol = dateCols[dateCols.length - 1].col;
     await updateClassLogRange(
       config.tab,
       `${colLetter(startCol)}${row1}:${colLetter(endCol)}${row1}`,
       [marks]
     );
     restored++;
+  }
+  if (studentRows.length) {
+    await applyChambitMarkFormatRange(
+      config.tab,
+      Math.min.apply(null, studentRows),
+      Math.max.apply(null, studentRows),
+      startCol,
+      endCol
+    );
   }
   return { restored, tab: config.tab, monthHeader, dates: dateCols.length };
 }
@@ -625,6 +636,45 @@ async function applyChambitMarkFormat(tabName, row1, col) {
       sheetId, row1, col, chambitMarkCellFormat(),
       formatFields(['horizontalAlignment', 'verticalAlignment', 'textFormat'])
     )
+  ]);
+}
+
+async function applyChambitMarkFormatRange(tabName, startRow1, endRow1, startCol, endCol) {
+  if (endRow1 < startRow1 || endCol < startCol) return;
+  const sheetId = await getClassLogSheetId(tabName);
+  const markFmt = chambitMarkCellFormat();
+  const nameFmt = withBorders({
+    horizontalAlignment: 'LEFT',
+    verticalAlignment: 'BOTTOM',
+    textFormat: { fontFamily: 'Arial', fontSize: 10 }
+  });
+  await batchClassLogUpdate([
+    {
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: startRow1 - 1,
+          endRowIndex: endRow1,
+          startColumnIndex: 0,
+          endColumnIndex: 1
+        },
+        cell: { userEnteredFormat: nameFmt },
+        fields: formatFields(['horizontalAlignment', 'verticalAlignment', 'textFormat'])
+      }
+    },
+    {
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: startRow1 - 1,
+          endRowIndex: endRow1,
+          startColumnIndex: startCol,
+          endColumnIndex: endCol + 1
+        },
+        cell: { userEnteredFormat: markFmt },
+        fields: formatFields(['horizontalAlignment', 'verticalAlignment', 'textFormat'])
+      }
+    }
   ]);
 }
 
