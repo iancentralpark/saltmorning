@@ -2,6 +2,7 @@ const { cacheGet, cacheSet, cacheDelete } = require('./cache');
 const { isGeminiConfigured, askGemini, streamAskGemini, formatGeminiClientError } = require('./geminiService');
 const { recordBuddyExchange } = require('./englishBuddyHistoryService');
 const { getEnrolledStudents } = require('./homeworkService');
+const { isSupabaseEnabled } = require('./supabaseClient');
 
 const DAILY_LIMIT = 100;
 const MAX_PROMPT = 800;
@@ -10,15 +11,17 @@ const BUDDY_ESSAY_MODEL = process.env.ENGLISH_BUDDY_ESSAY_MODEL || 'gemini-2.5-f
 const BUDDY_HISTORY_MAX = 5;
 const BUDDY_ESSAY_HISTORY_MAX = 50;
 const BUDDY_TIMEOUT_MS = 45000;
+const TEACHER_BUDDY_ID = 'TEACHER';
+const TEACHER_BUDDY_CLASS = 'TEACHER';
 
 function pickBuddyModel(text, history) {
   return isEssaySession(text, history) ? BUDDY_ESSAY_MODEL : BUDDY_VOCAB_MODEL;
 }
 
-function buddyGeminiOptions(model, text, history) {
+function buddyGeminiOptions(model, text, history, studentFirstName) {
   const essaySession = isEssaySession(text, history);
   return {
-    systemInstruction: buildBuddySystemInstruction(),
+    systemInstruction: buildBuddySystemInstruction(studentFirstName),
     model: model,
     thinkingBudget: 0,
     maxOutputTokens: 280,
@@ -35,12 +38,65 @@ function buddyGeminiOptions(model, text, history) {
   };
 }
 
+function teacherBuddyGeminiOptions(model, text, history) {
+  return {
+    systemInstruction: buildTeacherBuddySystemInstruction(),
+    model: model,
+    thinkingBudget: 0,
+    maxOutputTokens: 420,
+    temperature: 0.4,
+    timeoutMs: BUDDY_TIMEOUT_MS,
+    skipQuotaSleep: true,
+    skipGeminiQueue: true,
+    overloadRetries: 1,
+    overloadRetryDelayMs: 2000,
+    audience: 'teacher',
+    fallbackModels: isEssaySession(text, history)
+      ? ['gemini-2.5-flash-lite']
+      : ['gemini-2.5-flash']
+  };
+}
+
 function formatBuddyGeminiError(errorMsg) {
   return formatGeminiClientError(errorMsg, { audience: 'student' });
 }
 
+function preferredFirstName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  const latin = parts.filter(function(t) { return /^[A-Za-z]/.test(t); });
+  // "Bella Kim" → Bella; "호윤혁 Ethan" / "김벨라 Bella" → Ethan / Bella
+  if (latin.length) return latin[0];
+  return parts[0];
+}
+
+async function resolveStudentFirstName(studentId, classId) {
+  try {
+    let full = '';
+    if (isSupabaseEnabled()) {
+      const { lookupStudentName } = require('./supabaseStudentService');
+      full = await lookupStudentName(studentId, classId);
+    }
+    if (!full) {
+      const { lookupStudentName } = require('./messageService');
+      full = await lookupStudentName(studentId, classId);
+    }
+    return preferredFirstName(full);
+  } catch (err) {
+    console.error('resolveStudentFirstName', err.message || err);
+    return '';
+  }
+}
+
 const ENGLISH_BUDDY_SYSTEM =
-  'You are the AI English Buddy, an interactive writing tutor for ESL students (Grade 3–6 and Middle School level). ' +
+  'You are Virtual Mr. Park — the same Mr. Park who teaches these students at SALT Academy. ' +
+  'Speak as their real classroom teacher: warm, encouraging, clear, and a little playful. ' +
+  'You are NOT an "AI tutor", chatbot, or generic English Buddy. Never say you are an AI, a bot, or a virtual assistant. ' +
+  'If asked, you are Mr. Park (helping them with writing right now).\n\n' +
+  'Tone:\n' +
+  '- Talk like a caring teacher ("Hmm, Bella…", "Nice try!", "Let\'s fix this together."). ' +
+  '- Use the student\'s first name naturally: greet with it on the first reply, and weave it into later replies sometimes (not every single sentence).\n' +
+  '- Keep English simple for ESL students (Grade 3–6 / middle school).\n\n' +
   'While your default framework is the SALT Academy 5-Paragraph Essay, you adapt to any writing task based on the student\'s needs.\n\n' +
   '---\n\n' +
   '## 1. CORE PHILOSOPHIES & INTERACTION RULES (STRICT)\n' +
@@ -64,10 +120,11 @@ const ENGLISH_BUDDY_SYSTEM =
   '- Genre Adaptation: If they write Creative/Journal/Book Reports, skip academic rules and guide them through storytelling elements (Who, Where, What happens).\n\n' +
   '---\n\n' +
   '## 4. WORKFLOW PATHWAYS & INITIAL CHECK (Step 0)\n\n' +
-  'On the very first turn of a new session, greet the student and post this exact message:\n' +
-  '"Hi! I\'m your AI English Buddy. 😊 What kind of writing are we working on today?\n' +
+  'On the very first turn of a new session, greet the student by name (if known) as Mr. Park and post this style of message:\n' +
+  '"Hi, {Name}! I\'m Mr. Park. 😊 What are we writing today?\n' +
   '* If you have a Salt Academy Essay Plan, type \'skip\' or tell me your topic!\n' +
-  '* If it is a story, journal, or something else, let me know how I can help!"\n\n' +
+  '* If it is a story, journal, or something else, tell me how I can help!"\n' +
+  'If the name is unknown, use "Hi!" instead of "Hi, {Name}!".\n\n' +
   '---\n\n' +
   '## 5. ACADEMIC ESSAY DRAFTING PROTOCOL (Phase B)\n' +
   'When drafting, you must guide the student to expand their thoughts using specific sentence structures:\n\n' +
@@ -94,6 +151,14 @@ const ENGLISH_BUDDY_SYSTEM =
   '- Praise First: Highlight one strong thing they wrote with an encouraging emoji.\n' +
   '- Sentence Variety Check: Actively scan for "Choppy Sentences" (too many short simple sentences). If a body paragraph has fewer than 5 sentences, or if it lacks complex structures, guide the student to merge sentences using compound coordinators (and, but, so) or subordinators (because, although, when, which).\n';
 
+const TEACHER_BUDDY_SYSTEM =
+  'You are Virtual Mr. Park — a helpful classroom partner for the real Mr. Park (the teacher using this app). ' +
+  'Speak as Mr. Park\'s teaching double: practical, clear, warm, and concise. ' +
+  'Never say you are an AI/bot. You may help with lesson ideas, writing feedback strategies, ' +
+  'SALT Academy 5-paragraph essay coaching drafts, and quick English examples for class. ' +
+  'If the teacher wants you to roleplay talking to a student, do so in Mr. Park\'s teacher voice.\n' +
+  'Keep replies focused (usually under 6 short sentences) unless they ask for more detail.\n';
+
 function isEssayRelated(text) {
   return /\b(essay|introduction|intro|thesis|body\s*paragraph|body\s*[123]|conclusion|hook|bridge|background|peel|paragraph|5-paragraph|five-paragraph|reason\s*1|reason\s*2|reason\s*3|restate|summarize|so\s*what|write\s+about|brainstorm|planning|plan\s*sheet|main\s*idea|creative\s+writing|journal|book\s*report|story|character|setting|draft|proofread|revise)\b/i.test(
     String(text || '')
@@ -107,8 +172,22 @@ function isEssaySession(text, history) {
   });
 }
 
-function buildBuddySystemInstruction() {
-  return ENGLISH_BUDDY_SYSTEM;
+function buildBuddySystemInstruction(studentFirstName) {
+  const name = String(studentFirstName || '').trim();
+  let extra = '';
+  if (name) {
+    extra =
+      '\n\n## STUDENT IDENTITY\n' +
+      '- This student\'s first name is "' + name + '".\n' +
+      '- Address them as ' + name + ' in your greeting and often while coaching ' +
+      '(e.g., "Hmm, ' + name + '…", "Nice work, ' + name + '!").\n' +
+      '- Do not invent a different name.\n';
+  }
+  return ENGLISH_BUDDY_SYSTEM + extra;
+}
+
+function buildTeacherBuddySystemInstruction() {
+  return TEACHER_BUDDY_SYSTEM;
 }
 
 function pacificDateKey() {
@@ -181,15 +260,15 @@ async function refillBuddyUsageForClass(classId) {
   return listBuddyUsageForClass(classId);
 }
 
-function prepareBuddyRequest(studentId, prompt, history) {
+async function prepareBuddyRequest(studentId, classId, prompt, history) {
   if (!isGeminiConfigured()) {
-    throw new Error('English Buddy is not available right now.');
+    throw new Error('Virtual Mr. Park is not available right now.');
   }
 
   const used = getUsageCount(studentId);
   if (used >= DAILY_LIMIT) {
     throw new Error(
-      'You have used all ' + DAILY_LIMIT + ' English Buddy messages for today. Try again tomorrow!'
+      'You have used all ' + DAILY_LIMIT + ' Virtual Mr. Park messages for today. Try again tomorrow!'
     );
   }
 
@@ -203,16 +282,37 @@ function prepareBuddyRequest(studentId, prompt, history) {
     ? history.slice(-(isEssaySession(text, history) ? BUDDY_ESSAY_HISTORY_MAX : BUDDY_HISTORY_MAX))
     : [];
 
+  const studentFirstName = await resolveStudentFirstName(studentId, classId);
   const model = pickBuddyModel(text, trimmedHistory);
   return {
     text: text,
     trimmedHistory: trimmedHistory,
-    geminiOptions: buddyGeminiOptions(model, text, trimmedHistory)
+    geminiOptions: buddyGeminiOptions(model, text, trimmedHistory, studentFirstName)
+  };
+}
+
+function prepareTeacherBuddyRequest(prompt, history) {
+  if (!isGeminiConfigured()) {
+    throw new Error('Virtual Mr. Park is not available right now.');
+  }
+  const text = String(prompt || '').trim();
+  if (!text) throw new Error('Type a message first.');
+  if (text.length > MAX_PROMPT) {
+    throw new Error('Message is too long (max ' + MAX_PROMPT + ' characters).');
+  }
+  const trimmedHistory = Array.isArray(history)
+    ? history.slice(-(isEssaySession(text, history) ? BUDDY_ESSAY_HISTORY_MAX : BUDDY_HISTORY_MAX))
+    : [];
+  const model = pickBuddyModel(text, trimmedHistory);
+  return {
+    text: text,
+    trimmedHistory: trimmedHistory,
+    geminiOptions: teacherBuddyGeminiOptions(model, text, trimmedHistory)
   };
 }
 
 async function askEnglishBuddy(studentId, classId, prompt, history) {
-  const prep = prepareBuddyRequest(studentId, prompt, history);
+  const prep = await prepareBuddyRequest(studentId, classId, prompt, history);
 
   const result = await askGemini(
     prep.text,
@@ -242,7 +342,7 @@ async function askEnglishBuddy(studentId, classId, prompt, history) {
 }
 
 async function streamEnglishBuddy(res, studentId, classId, prompt, history) {
-  const prep = prepareBuddyRequest(studentId, prompt, history);
+  const prep = await prepareBuddyRequest(studentId, classId, prompt, history);
   await streamAskGemini(res, prep.text, prep.trimmedHistory, Object.assign({}, prep.geminiOptions, {
     onComplete: function(meta) {
       const answer = meta && meta.answer ? String(meta.answer).trim() : '';
@@ -261,12 +361,39 @@ async function streamEnglishBuddy(res, studentId, classId, prompt, history) {
   }));
 }
 
+async function streamTeacherVirtualMrPark(res, prompt, history) {
+  const prep = prepareTeacherBuddyRequest(prompt, history);
+  await streamAskGemini(res, prep.text, prep.trimmedHistory, Object.assign({}, prep.geminiOptions, {
+    onComplete: function(meta) {
+      const answer = meta && meta.answer ? String(meta.answer).trim() : '';
+      if (answer) {
+        recordBuddyExchange(TEACHER_BUDDY_ID, TEACHER_BUDDY_CLASS, prep.text, answer).catch(function(err) {
+          console.error('recordBuddyExchange teacher', err.message || err);
+        });
+      }
+      return { unlimited: true };
+    }
+  }));
+}
+
+function getTeacherBuddyStatus() {
+  return {
+    configured: isGeminiConfigured(),
+    unlimited: true
+  };
+}
+
 module.exports = {
   DAILY_LIMIT,
+  TEACHER_BUDDY_ID,
+  TEACHER_BUDDY_CLASS,
   getBuddyStatus,
+  getTeacherBuddyStatus,
   listBuddyUsageForClass,
   refillBuddyUsage,
   refillBuddyUsageForClass,
   askEnglishBuddy,
-  streamEnglishBuddy
+  streamEnglishBuddy,
+  streamTeacherVirtualMrPark,
+  preferredFirstName
 };

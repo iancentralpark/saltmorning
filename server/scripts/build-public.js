@@ -31,12 +31,23 @@ function resolveRepoFile(name) {
 
 function syncTeacherSourceFiles() {
   const indexSrc = path.join(repoRoot, 'Index.html');
-  if (!fs.existsSync(indexSrc)) return;
-  fs.mkdirSync(teacherSrcDir, { recursive: true });
-  fs.copyFileSync(indexSrc, path.join(teacherSrcDir, 'Index.html'));
+  if (fs.existsSync(indexSrc)) {
+    fs.mkdirSync(teacherSrcDir, { recursive: true });
+    fs.copyFileSync(indexSrc, path.join(teacherSrcDir, 'Index.html'));
+  }
   const snailSrc = path.join(repoRoot, 'SnailSprite.html');
   if (fs.existsSync(snailSrc)) {
+    fs.mkdirSync(teacherSrcDir, { recursive: true });
     fs.copyFileSync(snailSrc, path.join(teacherSrcDir, 'SnailSprite.html'));
+  }
+  // Tool HTML sources live at repo root locally; keep copies under teacher-src
+  // so Railway (server-only upload) can rebuild /tools/*.html on start.
+  const toolNames = ['Timer', 'Dice', 'Roulette', 'LuckyDraw', 'UnluckyDraw', 'Student'];
+  for (const name of toolNames) {
+    const src = path.join(repoRoot, name + '.html');
+    if (!fs.existsSync(src)) continue;
+    fs.mkdirSync(teacherSrcDir, { recursive: true });
+    fs.copyFileSync(src, path.join(teacherSrcDir, name + '.html'));
   }
 }
 
@@ -173,7 +184,8 @@ const ROULETTE_INIT = `document.getElementById('classSubtitle').textContent = CL
             if (e.target === document.getElementById('winnerOverlay')) hideWinner();
         });
 
-        entries = buildDefaultEntries(INITIAL_STUDENTS);
+        var restored = loadWheelState();
+        entries = (restored && restored.length) ? restored : buildDefaultEntries(INITIAL_STUDENTS);
         window.addEventListener('resize', resizeCanvas);
         syncSidebar();
         resizeCanvas();
@@ -194,7 +206,8 @@ const ROULETTE_BOOTSTRAP = `function startRouletteApp() {
             if (e.target === document.getElementById('winnerOverlay')) hideWinner();
         });
 
-        entries = buildDefaultEntries(INITIAL_STUDENTS);
+        var restored = loadWheelState();
+        entries = (restored && restored.length) ? restored : buildDefaultEntries(INITIAL_STUDENTS);
         window.addEventListener('resize', resizeCanvas);
         syncSidebar();
         resizeCanvas();
@@ -319,6 +332,17 @@ function buildTools() {
     return html.replace(
       /initStudentSelect\(\);\s*initDrawModeToggle\(\);\s*loadLuckyDrawConfig\(\);/,
       LUCKY_DRAW_BOOTSTRAP
+    );
+  });
+
+  buildTool('UnluckyDraw', function(html) {
+    return html.replace(
+      /var CLASS_ID = <\?!= JSON\.stringify\(classId \|\| ''\) \?>;\s*var CLASS_NAME = <\?!= JSON\.stringify\(className \|\| 'Class'\) \?>;\s*var STUDENTS = <\?!= studentsJson \?>;\s*var NODE_API = <\?!= JSON\.stringify\(nodeApiUrl \|\| ''\) \?>;/,
+      `var _uldParams = new URLSearchParams(location.search);
+        var CLASS_ID = _uldParams.get('classId') || '';
+        var CLASS_NAME = _uldParams.get('className') || 'Class';
+        var STUDENTS = [];
+        var NODE_API = location.origin.replace(/\\/$/, '');`
     );
   });
 }

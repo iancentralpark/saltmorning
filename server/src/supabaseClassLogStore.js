@@ -104,10 +104,28 @@ async function backfillMarkRange(classId, studentName, fromDateStr, toDateStr, m
   if (error) throw new Error(error.message || 'Could not backfill marks.');
 }
 
+async function clearWithdrawnMarkRange(classId, studentName, fromDateStr, toDateStr) {
+  const from = formatSheetDate(fromDateStr);
+  const to = formatSheetDate(toDateStr);
+  if (!from || !to || from > to) return;
+
+  const db = getSupabase();
+  const { error } = await db
+    .from('class_log_student_marks')
+    .delete()
+    .eq('class_id', String(classId))
+    .eq('student_name', String(studentName).trim())
+    .eq('mark', '퇴원')
+    .gte('log_date', from)
+    .lte('log_date', to);
+  if (error) throw new Error(error.message || 'Could not clear withdrawn marks.');
+}
+
 module.exports = {
   saveClassLogEntry,
   getDaily,
   upsertStudentMark,
   backfillMarkRange,
+  clearWithdrawnMarkRange,
   upsertDaily
 };

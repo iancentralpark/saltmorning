@@ -1361,6 +1361,17 @@
             flex-wrap: wrap;
             gap: 0.35rem;
         }
+        .sidebar-tools-action-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            margin-bottom: 0.15rem;
+        }
+        .sidebar-tools-action-row.tools-row-3 .btn,
+        .sidebar-tools-action-row.tools-row-2 .btn {
+            flex: 1 1 0;
+            min-width: 0;
+        }
         .sidebar-tools-action-row .btn,
         .sidebar-tools-timer-row .btn {
             flex: 1 1 0;
@@ -1373,9 +1384,9 @@
             font-weight: 700;
             border-radius: 999px;
             border: none;
-            font-size: 0.72rem;
+            font-size: 0.78rem;
             line-height: 1.1;
-            padding: 0.32rem 0.35rem;
+            padding: 0.4rem 0.45rem;
         }
         .sidebar-tools-action-row .btn i {
             font-size: 0.72rem;
@@ -1393,6 +1404,11 @@
             background: linear-gradient(135deg, #2ecc71, #27ae60);
             color: #fff;
             box-shadow: 0 3px 0 #1e8449;
+        }
+        .sidebar-tools-action-row .btn-unluckydraw {
+            background: linear-gradient(135deg, #5a0a16, #ff1e38);
+            color: #fff;
+            box-shadow: 0 3px 0 #7a0d1c;
         }
         .sidebar-tools-action-row .btn-pick-student {
             background: linear-gradient(135deg, #ff9f43, #f39c12);
@@ -3129,6 +3145,16 @@
         }
         .btn-luckydraw:hover { color: #fff; transform: translateY(-2px); }
 
+        .btn-unluckydraw {
+            font-weight: 700;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #5a0a16, #ff1e38);
+            color: #fff;
+            box-shadow: 0 4px 0 #7a0d1c, 0 0 12px rgba(255, 30, 56, 0.28);
+        }
+        .btn-unluckydraw:hover { color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
+
         .btn-lucky-row {
             display: inline-flex;
             align-items: center;
@@ -3224,7 +3250,7 @@
         /* ===== Messenger floater (Kakao-style) ===== */
         .messenger-float {
             position: fixed;
-            right: 14px;
+            left: 14px;
             bottom: 14px;
             z-index: 720;
         }
@@ -3425,6 +3451,171 @@
             cursor: pointer;
         }
         .messenger-chat-send span { display: none; }
+
+        /* ===== Virtual Mr. Park (teacher) — bottom-right ===== */
+        .teacher-buddy-float {
+            position: fixed;
+            right: 14px;
+            bottom: 14px;
+            z-index: 721;
+        }
+        .teacher-buddy-float.teacher-buddy-minimized .teacher-buddy-panel { display: none; }
+        .teacher-buddy-float:not(.teacher-buddy-minimized) .teacher-buddy-chip { display: none; }
+        .teacher-buddy-chip {
+            width: 52px;
+            height: 52px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8e44ad, #9b59b6 55%, #f39c12);
+            color: #fff;
+            font-size: 1.2rem;
+            box-shadow: 0 6px 20px rgba(142, 68, 173, 0.35), 0 3px 0 #6c3483;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .teacher-buddy-chip:hover { transform: translateY(-2px); }
+        .teacher-buddy-panel {
+            width: min(360px, calc(100vw - 28px));
+            height: min(520px, calc(100vh - 100px));
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 12px 40px rgba(45, 52, 54, 0.22);
+            overflow: hidden;
+            border: 1px solid rgba(155, 89, 182, 0.2);
+        }
+        .teacher-buddy-head {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.7rem 0.85rem;
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            color: #fff;
+            font-weight: 800;
+        }
+        .teacher-buddy-head-title { flex: 1; font-size: 0.95rem; }
+        .teacher-buddy-head-btn {
+            border: none;
+            background: rgba(255,255,255,0.18);
+            color: #fff;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .teacher-buddy-thread {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.7rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            background: #faf7fc;
+            min-height: 0;
+        }
+        .teacher-buddy-empty {
+            color: #95a5a6;
+            font-size: 0.85rem;
+            text-align: center;
+            margin: auto;
+            padding: 1rem;
+        }
+        .teacher-buddy-empty.hidden-section { display: none !important; }
+        .teacher-buddy-bubble {
+            max-width: 88%;
+            padding: 0.55rem 0.7rem;
+            border-radius: 14px;
+            font-size: 0.88rem;
+            line-height: 1.35;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .teacher-buddy-bubble.user {
+            align-self: flex-end;
+            background: #9b59b6;
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .teacher-buddy-bubble.ai {
+            align-self: flex-start;
+            background: #fff;
+            color: #2d3436;
+            border: 1px solid rgba(155, 89, 182, 0.18);
+            border-bottom-left-radius: 4px;
+        }
+        .teacher-buddy-bubble.thinking { color: #95a5a6; font-style: italic; }
+        .teacher-buddy-compose {
+            border-top: 1px solid rgba(155, 89, 182, 0.15);
+            padding: 0.55rem 0.65rem 0.65rem;
+            background: #fff;
+        }
+        .teacher-buddy-quick {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-bottom: 0.45rem;
+        }
+        .teacher-buddy-quick-btn {
+            border: 1px solid rgba(155, 89, 182, 0.28);
+            background: #f8f1fc;
+            color: #6c3483;
+            border-radius: 999px;
+            padding: 0.2rem 0.55rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .teacher-buddy-form {
+            display: flex;
+            gap: 0.45rem;
+            align-items: flex-end;
+        }
+        .teacher-buddy-input {
+            flex: 1;
+            min-height: 2.6rem;
+            max-height: 7rem;
+            resize: none;
+            border: 1px solid rgba(155, 89, 182, 0.25);
+            border-radius: 12px;
+            padding: 0.55rem 0.65rem;
+            font-size: 0.9rem;
+        }
+        .teacher-buddy-send {
+            width: 2.6rem;
+            height: 2.6rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            color: #fff;
+            cursor: pointer;
+        }
+        body.teacher-mobile.teacher-has-class[data-teacher-tab="messages"] .teacher-buddy-float,
+        body.teacher-mobile:has(#messengerFloat:not(.messenger-minimized)) .teacher-buddy-float {
+            display: none !important;
+        }
+        body.teacher-mobile.teacher-has-class:not([data-teacher-tab="messages"]) .teacher-buddy-float {
+            right: max(0.85rem, env(safe-area-inset-right));
+            bottom: calc(var(--tm-nav-h, 5.1rem) + 0.65rem);
+            z-index: 80;
+        }
+        body.teacher-mobile:not(.teacher-has-class) .teacher-buddy-float {
+            right: max(0.85rem, env(safe-area-inset-right));
+            bottom: max(1rem, env(safe-area-inset-bottom));
+            z-index: 80;
+        }
+        [data-theme="dark"] .teacher-buddy-panel { background: #1e2430; border-color: rgba(155, 89, 182, 0.35); }
+        [data-theme="dark"] .teacher-buddy-thread { background: #171b24; }
+        [data-theme="dark"] .teacher-buddy-bubble.ai { background: #252b38; color: #ecf0f1; }
+        [data-theme="dark"] .teacher-buddy-compose { background: #1e2430; }
+        [data-theme="dark"] .teacher-buddy-input {
+            background: #252b38;
+            color: #ecf0f1;
+            border-color: rgba(155, 89, 182, 0.35);
+        }
+
         .messenger-date-sep {
             align-self: center;
             margin: 0.55rem 0;
@@ -5508,7 +5699,8 @@
         /* Class picker: floating messenger chip + expandable panel */
         body.teacher-mobile:not(.teacher-has-class) #messengerFloat {
             display: block !important;
-            right: max(0.85rem, env(safe-area-inset-right));
+            left: max(0.85rem, env(safe-area-inset-left));
+            right: auto;
             bottom: max(1rem, env(safe-area-inset-bottom));
             z-index: 900;
         }
@@ -5894,12 +6086,10 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="portalLoginsBtn">
                     <i class="fa-solid fa-key"></i> Portal logins
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" id="buddyCoinsBtn">
-                    <i class="fa-solid fa-coins"></i> Buddy coins
-                </button>
                 <button type="button" class="btn btn-sm btn-warning rounded-pill px-3" id="openClassPendingBtn">
                     <i class="fa-solid fa-hourglass-half"></i> Pending Homework
                 </button>
+                <button type="button" class="d-none" id="openWithdrawnStudentsBtn" aria-hidden="true" tabindex="-1"></button>
                 <span class="badge badge-class-pill fs-6" id="selectedClassBadge">Class</span>
             </div>
         </div>
@@ -6102,6 +6292,9 @@
             <button type="button" class="teacher-more-btn" data-trigger-click="openClassPendingBtn"><i class="fa-solid fa-hourglass-half"></i> Pending HW</button>
             <button type="button" class="teacher-more-btn" id="teacherMobileThemeBtn"><i class="fa-solid fa-moon"></i> Dark Mode</button>
         </div>
+        <button type="button" class="btn btn-link btn-sm text-muted text-decoration-none px-0 mt-2 withdrawn-entry-link" data-trigger-click="openWithdrawnStudentsBtn">
+            Withdrawn students
+        </button>
         <div class="tm-build-marker" id="tmBuildMarker">build …</div>
     </div>
 
@@ -6172,19 +6365,26 @@
             </div>
         </div>
         <div class="sidebar-tools-body">
-            <div class="sidebar-tools-action-row">
-                <button type="button" class="btn btn-primary" id="openRouletteBtn" title="Roulette">
-                    <i class="fa-solid fa-dharmachakra"></i> Wheel
-                </button>
-                <button type="button" class="btn btn-dice" id="openDiceBtn">
-                    <i class="fa-solid fa-dice"></i> Dice
-                </button>
-                <button type="button" class="btn btn-luckydraw" id="openLuckyDrawBtn">
-                    <i class="fa-solid fa-ticket"></i> Lucky
-                </button>
-                <button type="button" class="btn btn-pick-student" id="pickStudentBtn">
-                    <i class="fa-solid fa-hand-pointer"></i> Pick
-                </button>
+            <div class="sidebar-tools-action-stack">
+                <div class="sidebar-tools-action-row tools-row-3">
+                    <button type="button" class="btn btn-primary" id="openRouletteBtn" title="Roulette">
+                        <i class="fa-solid fa-dharmachakra"></i> Wheel
+                    </button>
+                    <button type="button" class="btn btn-dice" id="openDiceBtn">
+                        <i class="fa-solid fa-dice"></i> Dice
+                    </button>
+                    <button type="button" class="btn btn-pick-student" id="pickStudentBtn">
+                        <i class="fa-solid fa-hand-pointer"></i> Pick
+                    </button>
+                </div>
+                <div class="sidebar-tools-action-row tools-row-2">
+                    <button type="button" class="btn btn-luckydraw" id="openLuckyDrawBtn">
+                        <i class="fa-solid fa-ticket"></i> Lucky
+                    </button>
+                    <button type="button" class="btn btn-unluckydraw" id="openUnluckyDrawBtn" title="Unlucky Draw — homework penalty">
+                        <i class="fa-solid fa-skull"></i> Unlucky
+                    </button>
+                </div>
             </div>
             <div class="sidebar-tools-timer-label"><i class="fa-solid fa-stopwatch"></i> Vocab Test Timer</div>
             <div class="sidebar-tools-timer-row">
@@ -6556,25 +6756,30 @@
     </div>
 </div>
 
-<!-- Student portal logins (teacher lookup) -->
+<!-- Student portal logins + Virtual Mr. Park coins -->
 <div class="modal fade app-modal" id="portalLoginsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-key"></i> Student portal logins</h5>
+                <h5 class="modal-title"><i class="fa-solid fa-key"></i> Portal logins &amp; coins</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-muted mb-3">Class: <strong id="portalLoginsClassName">—</strong></p>
-                <p class="small text-muted">When a student changes their password, it updates here and in the Google Sheet.</p>
+                <p class="small text-muted mb-1">Class: <strong id="portalLoginsClassName">—</strong></p>
+                <p class="small text-muted mb-3">
+                    Portal passwords update here and in the Google Sheet.
+                    Virtual Mr. Park coins today (Pacific): <strong id="portalCoinsDateKey">—</strong>
+                    · limit <strong id="portalCoinsLimit">100</strong>
+                </p>
                 <div id="portalLoginsLoading" class="text-muted small py-3">Loading…</div>
                 <div class="table-responsive d-none" id="portalLoginsTableWrap">
                     <table class="table table-sm align-middle app-table">
                         <thead>
                             <tr>
-                                <th>Student</th>
+                                <th class="text-start">Student</th>
                                 <th>Login ID</th>
                                 <th>Password</th>
+                                <th>Coins</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -6582,42 +6787,47 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="modal-footer justify-content-between flex-wrap gap-2">
+                <button type="button" class="btn btn-link btn-sm text-muted text-decoration-none px-0" data-bs-dismiss="modal" id="portalLoginsWithdrawnLink">
+                    Withdrawn students
+                </button>
+                <div class="d-flex gap-2 ms-auto">
+                    <button type="button" class="btn btn-outline-warning" id="portalCoinsRefillAllBtn">
+                        <i class="fa-solid fa-rotate-right"></i> Refill all coins
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade app-modal" id="buddyCoinsModal" tabindex="-1" aria-hidden="true">
+<!-- Withdrawn students (restore) -->
+<div class="modal fade app-modal" id="withdrawnStudentsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-coins"></i> English Buddy coins</h5>
+                <h5 class="modal-title"><i class="fa-solid fa-user-minus"></i> Withdrawn students</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-muted mb-1">Class: <strong id="buddyCoinsClassName">—</strong></p>
-                <p class="small text-muted mb-3">Today (Pacific): <strong id="buddyCoinsDateKey">—</strong> · Daily limit: <strong id="buddyCoinsLimit">100</strong></p>
-                <div id="buddyCoinsLoading" class="text-muted small py-3">Loading…</div>
-                <div class="table-responsive d-none" id="buddyCoinsTableWrap">
+                <p class="small text-muted mb-3">Class: <strong id="withdrawnStudentsClassName">—</strong></p>
+                <p class="small text-muted mb-3">Restore returns the student to the roster and clears class-log <em>퇴원</em> marks. Past dollars, tickets, and history stay intact.</p>
+                <div id="withdrawnStudentsLoading" class="text-muted small py-3">Loading…</div>
+                <div class="table-responsive d-none" id="withdrawnStudentsTableWrap">
                     <table class="table table-sm align-middle app-table">
                         <thead>
                             <tr>
                                 <th class="text-start">Student</th>
-                                <th>Used</th>
-                                <th>Left</th>
+                                <th>Withdrawn</th>
                                 <th></th>
                             </tr>
                         </thead>
-                        <tbody id="buddyCoinsTableBody"></tbody>
+                        <tbody id="withdrawnStudentsTableBody"></tbody>
                     </table>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-warning" id="buddyCoinsRefillAllBtn">
-                    <i class="fa-solid fa-rotate-right"></i> Refill all
-                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
@@ -6977,6 +7187,34 @@
             <form class="messenger-chat-form" id="messengerChatForm">
                 <textarea class="messenger-chat-input" id="messengerChatInput" rows="1" placeholder="메시지 입력"></textarea>
                 <button type="submit" class="messenger-chat-send" id="messengerChatSendBtn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i><span>Send</span></button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Virtual Mr. Park floater (teacher) -->
+<div id="teacherBuddyFloat" class="teacher-buddy-float teacher-buddy-minimized no-print" aria-label="Virtual Mr. Park">
+    <button type="button" class="teacher-buddy-chip" id="teacherBuddyChip" title="Virtual Mr. Park">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+    </button>
+    <div class="teacher-buddy-panel" id="teacherBuddyPanel">
+        <div class="teacher-buddy-head">
+            <div class="teacher-buddy-head-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Virtual Mr. Park</div>
+            <button type="button" class="teacher-buddy-head-btn" id="teacherBuddyResetBtn" title="Clear chat"><i class="fa-solid fa-trash-can"></i></button>
+            <button type="button" class="teacher-buddy-head-btn" id="teacherBuddyMinimizeBtn" title="Minimize"><i class="fa-solid fa-minus"></i></button>
+        </div>
+        <div class="teacher-buddy-thread" id="teacherBuddyThread" aria-live="polite">
+            <div class="teacher-buddy-empty" id="teacherBuddyEmpty">Hi! Ask me for lesson ideas, essay coaching tips, or writing examples for class.</div>
+        </div>
+        <div class="teacher-buddy-compose">
+            <div class="teacher-buddy-quick">
+                <button type="button" class="teacher-buddy-quick-btn" data-tb-prefix="Give me a warm-up speaking prompt about: ">Warm-up</button>
+                <button type="button" class="teacher-buddy-quick-btn" data-tb-prefix="Help me coach a 5-paragraph essay about: ">Essay coach</button>
+                <button type="button" class="teacher-buddy-quick-btn" data-tb-prefix="Make this sentence more natural for ESL kids: ">Polish</button>
+            </div>
+            <form class="teacher-buddy-form" id="teacherBuddyForm">
+                <textarea class="teacher-buddy-input" id="teacherBuddyInput" rows="1" placeholder="Message Virtual Mr. Park…"></textarea>
+                <button type="submit" class="teacher-buddy-send" id="teacherBuddySendBtn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
             </form>
         </div>
     </div>
@@ -7882,7 +8120,7 @@
                 : '';
             var luckyBadge = !std.onLeave
                 ? '<button type="button" class="btn-lucky-row tm-lucky-badge' + ((std.luckyTickets || 0) ? '' : ' empty') + '" data-lucky-btn title="Lucky Draw tickets">' +
-                    '<i class="fa-solid fa-ticket"></i> ' + (std.luckyTickets || 0) +
+                    '<i class="fa-solid fa-ticket"></i> <span data-lucky-count>' + (std.luckyTickets || 0) + '</span>' +
                     '</button>'
                 : '';
             var leaveBadge = (!std.onLeave && std.leaveInfo)
@@ -8150,7 +8388,11 @@
         popup.style.height = h + 'px';
         if (titleEl) titleEl.textContent = title || toolPopupTitleFromUrl(url);
         const embedUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'embed=1';
-        frame.src = embedUrl;
+        // Reopen same tool without reload so roulette/timer state survives stamp board, etc.
+        if (frame.dataset.toolUrl !== embedUrl || !frame.src || frame.src === 'about:blank') {
+            frame.src = embedUrl;
+            frame.dataset.toolUrl = embedUrl;
+        }
         overlay.classList.remove('hidden-section');
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden', 'false');
@@ -8162,7 +8404,7 @@
         const overlay = document.getElementById('toolOverlay');
         const frame = document.getElementById('toolOverlayFrame');
         if (!overlay || !frame) return;
-        frame.src = 'about:blank';
+        // Keep iframe alive (hidden) so roulette wheel list is not wiped on close.
         overlay.classList.add('hidden-section');
         overlay.classList.remove('show');
         overlay.setAttribute('aria-hidden', 'true');
@@ -8172,7 +8414,8 @@
     window.closeToolOverlay = closeToolOverlay;
 
     /** Desktop: real popup. iPad PWA / mobile: centered mini popup on the same page. */
-    function openPopupWindow(url, width, height, namePrefix) {
+    var _reuseToolWindows = {};
+    function openPopupWindow(url, width, height, namePrefix, options) {
         if (shouldUseInlineToolPopup()) {
             openToolInOverlay(url, width, height);
             return null;
@@ -8183,7 +8426,17 @@
         const dualTop = typeof window.screenTop !== 'undefined' ? window.screenTop : window.screenY;
         const left = Math.max(0, Math.round(dualLeft + (window.outerWidth - w) / 2));
         const top = Math.max(0, Math.round(dualTop + (window.outerHeight - h) / 2));
-        const winName = (namePrefix || 'classPopup_') + Date.now();
+        const reuse = !!(options && options.reuse);
+        const winName = reuse
+            ? String(namePrefix || 'classPopup')
+            : ((namePrefix || 'classPopup_') + Date.now());
+        if (reuse) {
+            var existing = _reuseToolWindows[winName];
+            if (existing && !existing.closed) {
+                try { existing.focus(); } catch (e) { /* ignore */ }
+                return existing;
+            }
+        }
         const features = [
             'popup=yes',
             'width=' + w,
@@ -8202,6 +8455,7 @@
             openToolInOverlay(url, width, height);
             return null;
         }
+        if (reuse) _reuseToolWindows[winName] = win;
         try { win.focus(); } catch (e) { /* ignore */ }
         return win;
     }
@@ -8231,7 +8485,7 @@
             classId: selectedClass.id,
             className: selectedClass.name
         });
-        openPopupWindow(url, 1040, 680, 'classRoulette_');
+        openPopupWindow(url, 1040, 680, 'classRoulette_' + String(selectedClass.id), { reuse: true });
     }
 
     function openDiceWindow() {
@@ -8249,6 +8503,18 @@
             className: selectedClass.name
         });
         openPopupWindow(url, 480, 720, 'classLuckyDraw_');
+    }
+
+    function openUnluckyDrawWindow() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        const url = getToolPageUrl('unluckydraw', {
+            classId: selectedClass.id,
+            className: selectedClass.name
+        });
+        openPopupWindow(url, 480, 760, 'classUnluckyDraw_');
     }
 
     function isDarkTheme() {
@@ -8374,8 +8640,14 @@
         });
         document.getElementById('addStudentBtn').addEventListener('click', openAddStudentModal);
         document.getElementById('portalLoginsBtn').addEventListener('click', openPortalLoginsModal);
-        document.getElementById('buddyCoinsBtn').addEventListener('click', openBuddyCoinsModal);
-        document.getElementById('buddyCoinsRefillAllBtn').addEventListener('click', refillAllBuddyCoins);
+        document.getElementById('openWithdrawnStudentsBtn').addEventListener('click', openWithdrawnStudentsModal);
+        const portalWithdrawnLink = document.getElementById('portalLoginsWithdrawnLink');
+        if (portalWithdrawnLink) {
+            portalWithdrawnLink.addEventListener('click', function() {
+                setTimeout(openWithdrawnStudentsModal, 200);
+            });
+        }
+        document.getElementById('portalCoinsRefillAllBtn').addEventListener('click', refillAllBuddyCoins);
         document.getElementById('luckyGrantBtn').addEventListener('click', grantLuckyTicketManually);
         document.getElementById('luckyGrantTier').addEventListener('change', onLuckyGrantTierChange);
         document.getElementById('luckyGrantPrizeSelect').addEventListener('change', onLuckyGrantPrizeSelectChange);
@@ -8428,6 +8700,7 @@
         document.getElementById('openRouletteBtn').addEventListener('click', openRouletteWindow);
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
+        document.getElementById('openUnluckyDrawBtn').addEventListener('click', openUnluckyDrawWindow);
         initStampBoardSidebarLauncher();
         document.getElementById('stampBoardCloseBtn').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardBackdrop').addEventListener('click', closeStampBoardOverlay);
@@ -8489,6 +8762,7 @@
         });
         refreshGeminiStatus();
         initMessenger();
+        initTeacherVirtualMrPark();
         applyTeacherMobileMode();
         document.getElementById('editUpcomingEventBtn').addEventListener('click', openUpcomingEventsModal);
         document.getElementById('showEventAddFormBtn').addEventListener('click', showEventAddForm);
@@ -11942,10 +12216,10 @@
     }
 
     function findNextQueueItemForType(queue, type) {
-        const want = String(type || '').trim();
+        const want = String(type || '').trim().toLowerCase();
         if (!want || !queue || !queue.length) return null;
         for (let i = 0; i < queue.length; i++) {
-            if (String(queue[i].type || '').trim() === want) return queue[i];
+            if (String(queue[i].type || '').trim().toLowerCase() === want) return queue[i];
         }
         return null;
     }
@@ -11955,7 +12229,9 @@
         const editId = document.getElementById('tbEditIdInput').value.trim();
         if (!editId) return;
         const name = document.getElementById('tbEditIdInput').getAttribute('data-tb-name') || 'this textbook';
-        const completedType = document.getElementById('tbEditIdInput').getAttribute('data-tb-type') || '';
+        // Prefer live dropdown type so a just-corrected type is used in the confirm text.
+        const completedType = String(document.getElementById('tbTypeInput').value ||
+            document.getElementById('tbEditIdInput').getAttribute('data-tb-type') || '').trim();
         let confirmMsg = 'Mark "' + name + '" as complete?\n\nIt will be removed from the progress list.';
         const nextQ = findNextQueueItemForType(lastTextbookQueue, completedType);
         if (nextQ) {
@@ -11965,7 +12241,20 @@
                 confirmMsg += '\n\nNext ' + completedType + ' in queue: "' + nextQ.name + '" still needs details — it won\'t auto-start until you edit it.';
             }
         } else if (completedType) {
+            const otherTypes = {};
+            (lastTextbookQueue || []).forEach(function(item) {
+                const t = String(item.type || '').trim() || '(no type)';
+                otherTypes[t] = (otherTypes[t] || 0) + 1;
+            });
+            const typeSummary = Object.keys(otherTypes).map(function(t) {
+                return t + ' × ' + otherTypes[t];
+            }).join(', ');
             confirmMsg += '\n\nNo ' + completedType + ' book is queued in Up Next — nothing will auto-start.';
+            if (typeSummary) {
+                confirmMsg += '\n(Up Next currently has: ' + typeSummary + '. Edit a book’s type to ' + completedType + ', or add a ' + completedType + ' book.)';
+            } else {
+                confirmMsg += '\nAdd a ' + completedType + ' book to Up Next first.';
+            }
         } else {
             confirmMsg += '\n\nAll records stay in the spreadsheet.';
         }
@@ -12763,6 +13052,23 @@
         });
     }
 
+    function chambitClassLogFailToast(res) {
+        var reason = String((res && (res.classLogReason || res.classLogError)) || '').toLowerCase();
+        if (reason.indexOf('sheets_quota') >= 0 || reason.indexOf('quota exceeded') >= 0) {
+            return 'Chambit saved; Google Sheet sync hit rate limit — wait ~1 min then tap again.';
+        }
+        if (reason.indexOf('month_block') >= 0) {
+            return 'Chambit saved; class log month block missing for this month.';
+        }
+        if (reason.indexOf('not_in_roster') >= 0 || reason.indexOf('student_row') >= 0) {
+            return 'Chambit saved; student row not found on class log sheet.';
+        }
+        if (res && res.classLogError) {
+            return 'Chambit saved; sheet sync failed: ' + String(res.classLogError).slice(0, 120);
+        }
+        return 'Chambit saved; class log sheet was not updated.';
+    }
+
     function toggleChambitFromRow(tr, studentId, action) {
         if (!selectedClass) return;
         const dateStr = document.getElementById('attendanceDate').value;
@@ -12783,7 +13089,7 @@
                 .then(function(res) {
                     updateChambitRow(tr, res);
                     if (res && res.classLogSynced === false) {
-                        appToast('Chambit saved; class log sheet was not updated (check month block).', 4500);
+                        appToast(chambitClassLogFailToast(res), 5000);
                     }
                 })
                 .catch(handleError)
@@ -12795,7 +13101,7 @@
                     setChambitRowBusy(tr, false);
                     updateChambitRow(tr, res);
                     if (res && res.classLogSynced === false) {
-                        appToast('Chambit saved; class log sheet was not updated (check month block).', 4500);
+                        appToast(chambitClassLogFailToast(res), 5000);
                     }
                 })
                 .withFailureHandler(function(err) {
@@ -13329,6 +13635,9 @@
                 classId: selectedClass.id,
                 completed: true
             }, function(res) {
+                if (res && res.pendingCount != null) {
+                    updateStudentPendingBadge(studentId, res.pendingCount);
+                }
                 if (onSuccess) onSuccess(itemId, studentId, res);
             }, { loading: false })) {
             google.script.run
@@ -13362,41 +13671,119 @@
     }
 
     function updateStudentPendingBadge(studentId, count) {
-        const tr = document.querySelector('tr[data-student-id="' + studentId + '"]');
-        if (!tr) return;
-        const badgesRow = tr.querySelector('.student-badges-row');
-        if (!badgesRow) return;
-        let badge = badgesRow.querySelector('.pending-hw-badge');
-        const pending = Number(count) || 0;
-        const luckyBtn = badgesRow.querySelector('[data-lucky-btn]');
-        if (pending > 0) {
-            if (!badge) {
-                badge = document.createElement('button');
-                badge.type = 'button';
-                badge.className = 'badge bg-warning text-dark pending-hw-badge';
-                badge.setAttribute('data-pending-hw-btn', '');
-                badge.title = 'View pending homework';
-                badgesRow.insertBefore(badge, luckyBtn || null);
-                const sid = tr.getAttribute('data-student-id');
-                const nameEl = tr.querySelector('.student-name-btn');
-                bindPendingHomeworkBadge(badge, sid, nameEl ? nameEl.textContent.trim() : '');
-            }
-            badge.textContent = pending + ' pending';
-        } else if (badge) {
-            badge.remove();
+        const pending = Math.max(0, Number(count) || 0);
+        const sid = String(studentId || '');
+        if (!sid) return;
+
+        if (Array.isArray(lastRenderedStudents)) {
+            lastRenderedStudents.forEach(function(std) {
+                if (String(std.id) === sid) std.pendingHomework = pending;
+            });
         }
+
+        const pair = getStudentRowElements(sid);
+        [pair.table, pair.mobile].forEach(function(el) {
+            if (!el) return;
+            const isMobile = el.classList.contains('tm-student-card');
+            let badgesRow = el.querySelector(isMobile ? '.tm-card-badges' : '.student-badges-row');
+            const luckyBtn = el.querySelector('[data-lucky-btn]');
+            const nameEl = el.querySelector('.student-name-btn, .tm-card-name');
+            const studentName = nameEl ? nameEl.textContent.trim() : '';
+
+            if (pending > 0) {
+                if (!badgesRow) {
+                    if (isMobile) {
+                        const headTop = el.querySelector('.tm-card-head-top');
+                        if (!headTop) return;
+                        badgesRow = document.createElement('div');
+                        badgesRow.className = 'tm-card-badges';
+                        headTop.appendChild(badgesRow);
+                    } else {
+                        const nameCell = el.querySelector('.student-name-cell');
+                        if (!nameCell) return;
+                        badgesRow = document.createElement('div');
+                        badgesRow.className = 'student-badges-row';
+                        nameCell.appendChild(badgesRow);
+                    }
+                }
+                let badge = badgesRow.querySelector('.pending-hw-badge, [data-pending-hw-btn]');
+                if (!badge) {
+                    badge = document.createElement('button');
+                    badge.type = 'button';
+                    badge.className = 'badge bg-warning text-dark pending-hw-badge';
+                    badge.setAttribute('data-pending-hw-btn', '');
+                    badge.title = 'View pending homework';
+                    badgesRow.insertBefore(badge, luckyBtn || null);
+                    bindPendingHomeworkBadge(badge, sid, studentName);
+                }
+                badge.textContent = pending + ' pending';
+            } else {
+                const badge = badgesRow
+                    ? badgesRow.querySelector('.pending-hw-badge, [data-pending-hw-btn]')
+                    : null;
+                if (badge) badge.remove();
+                if (badgesRow && !badgesRow.children.length) badgesRow.remove();
+            }
+        });
+
+        // Student list roster cards (non-attendance view)
+        document.querySelectorAll('.teacher-roster-card[data-roster-id="' + sid + '"]').forEach(function(card) {
+            const meta = card.querySelector('.teacher-roster-meta');
+            if (!meta) return;
+            const parts = String(meta.textContent || '')
+                .split(' · ')
+                .map(function(p) { return p.trim(); })
+                .filter(Boolean)
+                .filter(function(p) { return !/\d+\s+pending\s+HW/i.test(p); });
+            if (pending > 0) parts.unshift(pending + ' pending HW');
+            meta.textContent = parts.join(' · ');
+            meta.style.display = parts.length ? '' : 'none';
+        });
     }
 
     function updateLuckyTicketBadge(studentId, count) {
-        const tr = document.querySelector('tr[data-student-id="' + studentId + '"]');
-        if (!tr) return;
-        const btn = tr.querySelector('[data-lucky-btn]');
-        const span = tr.querySelector('[data-lucky-count]');
-        if (!btn || !span) return;
         const n = Number(count) || 0;
-        span.textContent = String(n);
-        btn.classList.toggle('empty', n === 0);
+        const pair = getStudentRowElements(studentId);
+        [pair.table, pair.mobile].forEach(function(el) {
+            if (!el) return;
+            const btn = el.querySelector('[data-lucky-btn]');
+            if (!btn) return;
+            const span = btn.querySelector('[data-lucky-count]');
+            if (span) span.textContent = String(n);
+            else btn.innerHTML = '<i class="fa-solid fa-ticket"></i> <span data-lucky-count>' + n + '</span>';
+            btn.classList.toggle('empty', n === 0);
+        });
     }
+
+    function updateStudentDollarBadges(studentId, newBalance) {
+        if (newBalance == null || Number.isNaN(Number(newBalance))) return;
+        const pair = getStudentRowElements(studentId);
+        [pair.table, pair.mobile].forEach(function(el) {
+            if (!el) return;
+            const bal = el.querySelector('[data-dollar-balance]');
+            const sum = el.querySelector('[data-dollar-summary]');
+            if (bal) bal.textContent = newBalance;
+            if (sum) sum.textContent = newBalance;
+        });
+    }
+
+    function applyLuckyDrawRosterUpdate(msg) {
+        if (!msg || !selectedClass) return;
+        if (String(msg.classId || '') !== String(selectedClass.id || '')) return;
+        const studentId = String(msg.studentId || '');
+        if (!studentId) return;
+        if (msg.newBalance != null) updateStudentDollarBadges(studentId, msg.newBalance);
+        if (msg.ticketCount != null) updateLuckyTicketBadge(studentId, msg.ticketCount);
+    }
+
+    window.addEventListener('message', function(event) {
+        try {
+            if (event.origin && event.origin !== location.origin) return;
+        } catch (e) { /* ignore */ }
+        const data = event.data;
+        if (!data || data.type !== 'mrpark-lucky-draw-update') return;
+        applyLuckyDrawRosterUpdate(data);
+    });
 
     function setMessengerLiveDot(on) {
         const dot = document.getElementById('messengerLiveDot');
@@ -13995,6 +14382,215 @@
         syncMessengerPolling();
         document.addEventListener('visibilitychange', onMessengerVisibility);
         ensureMessengerRealtime();
+    }
+
+    var teacherBuddyHistory = [];
+    var teacherBuddySending = false;
+    var teacherBuddyConfigured = false;
+
+    function setTeacherBuddyMinimized(on) {
+        var el = document.getElementById('teacherBuddyFloat');
+        if (!el) return;
+        el.classList.toggle('teacher-buddy-minimized', !!on);
+    }
+
+    function renderTeacherBuddyEmpty() {
+        var empty = document.getElementById('teacherBuddyEmpty');
+        if (!empty) return;
+        empty.classList.toggle('hidden-section', teacherBuddyHistory.length > 0);
+    }
+
+    function appendTeacherBuddyBubble(role, text, extraClass) {
+        var thread = document.getElementById('teacherBuddyThread');
+        if (!thread) return;
+        var bubble = document.createElement('div');
+        bubble.className = 'teacher-buddy-bubble ' + (role === 'user' ? 'user' : 'ai') +
+            (extraClass ? (' ' + extraClass) : '');
+        bubble.textContent = text;
+        thread.appendChild(bubble);
+        renderTeacherBuddyEmpty();
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+    function clearTeacherBuddyChatUi() {
+        teacherBuddyHistory = [];
+        var thread = document.getElementById('teacherBuddyThread');
+        if (thread) {
+            thread.innerHTML = '';
+            var empty = document.createElement('div');
+            empty.className = 'teacher-buddy-empty';
+            empty.id = 'teacherBuddyEmpty';
+            empty.textContent = 'Hi! Ask me for lesson ideas, essay coaching tips, or writing examples for class.';
+            thread.appendChild(empty);
+        }
+    }
+
+    function loadTeacherBuddyHistory() {
+        return nodeFetch('/api/teacher/virtual-mr-park/history?_=' + Date.now())
+            .then(function(data) {
+                clearTeacherBuddyChatUi();
+                (data.messages || []).forEach(function(m) {
+                    var role = m.role === 'user' ? 'user' : 'assistant';
+                    var text = String(m.text || '').trim();
+                    if (!text) return;
+                    teacherBuddyHistory.push({ role: role, text: text });
+                    appendTeacherBuddyBubble(role === 'user' ? 'user' : 'ai', text);
+                });
+                renderTeacherBuddyEmpty();
+            })
+            .catch(function() {});
+    }
+
+    function submitTeacherBuddyAsk(e) {
+        if (e) e.preventDefault();
+        if (teacherBuddySending) return;
+        var input = document.getElementById('teacherBuddyInput');
+        var btn = document.getElementById('teacherBuddySendBtn');
+        if (!input) return;
+        var prompt = input.value.trim();
+        if (!prompt) return;
+        if (!teacherBuddyConfigured) {
+            appAlert('Virtual Mr. Park is not available right now.');
+            return;
+        }
+
+        appendTeacherBuddyBubble('user', prompt);
+        input.value = '';
+        var history = teacherBuddyHistory.slice();
+        teacherBuddyHistory.push({ role: 'user', text: prompt });
+
+        var thinking = document.createElement('div');
+        thinking.id = 'teacherBuddyThinking';
+        thinking.className = 'teacher-buddy-bubble ai thinking';
+        thinking.textContent = 'Thinking…';
+        document.getElementById('teacherBuddyThread').appendChild(thinking);
+        renderTeacherBuddyEmpty();
+
+        if (btn) btn.disabled = true;
+        teacherBuddySending = true;
+        var headers = { 'Content-Type': 'application/json', Accept: 'text/event-stream' };
+        var token = getTeacherToken();
+        if (token) headers.Authorization = 'Bearer ' + token;
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var clientTimer = controller ? setTimeout(function() { controller.abort(); }, 50000) : null;
+
+        fetch(getNodeApiUrl() + '/api/teacher/virtual-mr-park/stream', {
+            method: 'POST',
+            headers: headers,
+            credentials: 'same-origin',
+            body: JSON.stringify({ prompt: prompt, history: history }),
+            signal: controller ? controller.signal : undefined
+        }).then(function(res) {
+            if (!res.ok) {
+                return res.json().catch(function() { return {}; }).then(function(body) {
+                    throw new Error(body.error || res.statusText || 'Virtual Mr. Park failed');
+                });
+            }
+            var thinkEl = document.getElementById('teacherBuddyThinking');
+            if (thinkEl && thinkEl.parentNode) thinkEl.parentNode.removeChild(thinkEl);
+            var bubble = document.createElement('div');
+            bubble.className = 'teacher-buddy-bubble ai';
+            document.getElementById('teacherBuddyThread').appendChild(bubble);
+            var reader = res.body && res.body.getReader ? res.body.getReader() : null;
+            if (!reader) {
+                return res.json().then(function(data) {
+                    var answer = String(data.answer || '').trim();
+                    bubble.textContent = answer;
+                    if (answer) teacherBuddyHistory.push({ role: 'assistant', text: answer });
+                });
+            }
+            var decoder = new TextDecoder();
+            var buffer = '';
+            var answer = '';
+            function pump() {
+                return reader.read().then(function(chunk) {
+                    if (chunk.done) return answer;
+                    buffer += decoder.decode(chunk.value, { stream: true });
+                    var parts = buffer.split('\n\n');
+                    buffer = parts.pop() || '';
+                    parts.forEach(function(block) {
+                        block.split('\n').forEach(function(line) {
+                            if (!line.startsWith('data:')) return;
+                            var payload;
+                            try { payload = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
+                            if (payload.error) throw new Error(payload.error);
+                            if (payload.text) {
+                                answer += payload.text;
+                                bubble.textContent = answer;
+                                var thread = document.getElementById('teacherBuddyThread');
+                                if (thread) thread.scrollTop = thread.scrollHeight;
+                            }
+                            if (payload.done && payload.answer) answer = payload.answer;
+                        });
+                    });
+                    return pump();
+                });
+            }
+            return pump().then(function(finalAnswer) {
+                var text = String(finalAnswer || '').trim();
+                if (text) teacherBuddyHistory.push({ role: 'assistant', text: text });
+            });
+        }).catch(function(err) {
+            var thinkEl = document.getElementById('teacherBuddyThinking');
+            if (thinkEl && thinkEl.parentNode) thinkEl.parentNode.removeChild(thinkEl);
+            var msg = (err && err.message) ? err.message : String(err);
+            if (err && err.name === 'AbortError') msg = 'Virtual Mr. Park took too long. Try a shorter message.';
+            appendTeacherBuddyBubble('ai', msg, 'thinking');
+        }).finally(function() {
+            if (clientTimer) clearTimeout(clientTimer);
+            teacherBuddySending = false;
+            if (btn) btn.disabled = false;
+            if (input) input.focus();
+        });
+    }
+
+    function initTeacherVirtualMrPark() {
+        var floatEl = document.getElementById('teacherBuddyFloat');
+        if (!floatEl) return;
+        document.getElementById('teacherBuddyChip').addEventListener('click', function() {
+            setTeacherBuddyMinimized(false);
+            loadTeacherBuddyHistory();
+            var input = document.getElementById('teacherBuddyInput');
+            if (input) setTimeout(function() { input.focus(); }, 50);
+        });
+        document.getElementById('teacherBuddyMinimizeBtn').addEventListener('click', function() {
+            setTeacherBuddyMinimized(true);
+        });
+        document.getElementById('teacherBuddyResetBtn').addEventListener('click', function() {
+            if (teacherBuddySending) return;
+            if (!teacherBuddyHistory.length) {
+                appAlert('No chat history to clear.');
+                return;
+            }
+            appConfirm('Clear Virtual Mr. Park chat history?', function() {
+                nodeFetch('/api/teacher/virtual-mr-park/history', { method: 'DELETE' })
+                    .then(function() { clearTeacherBuddyChatUi(); })
+                    .catch(function(err) { appAlert(err.message || 'Could not clear chat.'); });
+            });
+        });
+        document.getElementById('teacherBuddyForm').addEventListener('submit', submitTeacherBuddyAsk);
+        document.getElementById('teacherBuddyInput').addEventListener('keydown', function(e) {
+            if (e.isComposing || e.keyCode === 229) return;
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitTeacherBuddyAsk(e);
+            }
+        });
+        document.querySelectorAll('[data-tb-prefix]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var input = document.getElementById('teacherBuddyInput');
+                if (!input) return;
+                input.value = btn.getAttribute('data-tb-prefix') || '';
+                input.focus();
+            });
+        });
+        nodeFetch('/api/teacher/virtual-mr-park/status')
+            .then(function(data) {
+                teacherBuddyConfigured = !!(data && data.configured);
+            })
+            .catch(function() {
+                teacherBuddyConfigured = false;
+            });
     }
 
     function initMessenger() {
@@ -14736,6 +15332,83 @@
         withdrawStudentById(selectedStudent.id, selectedStudent.name);
     }
 
+    function openWithdrawnStudentsModal() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        document.getElementById('withdrawnStudentsClassName').textContent = selectedClass.name;
+        document.getElementById('withdrawnStudentsLoading').classList.remove('d-none');
+        document.getElementById('withdrawnStudentsLoading').textContent = 'Loading…';
+        document.getElementById('withdrawnStudentsTableWrap').classList.add('d-none');
+        document.getElementById('withdrawnStudentsTableBody').innerHTML = '';
+        const modal = new bootstrap.Modal(document.getElementById('withdrawnStudentsModal'));
+        modal.show();
+        nodeFetch('/api/students/withdrawn?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+            .then(function(data) {
+                renderWithdrawnStudentsTable(data.students || []);
+            })
+            .catch(function(err) {
+                document.getElementById('withdrawnStudentsLoading').textContent =
+                    err.message || 'Could not load withdrawn students.';
+            });
+    }
+
+    function renderWithdrawnStudentsTable(students) {
+        const loading = document.getElementById('withdrawnStudentsLoading');
+        const wrap = document.getElementById('withdrawnStudentsTableWrap');
+        const tbody = document.getElementById('withdrawnStudentsTableBody');
+        if (!students.length) {
+            wrap.classList.add('d-none');
+            loading.classList.remove('d-none');
+            loading.textContent = 'No withdrawn students in this class.';
+            return;
+        }
+        loading.classList.add('d-none');
+        wrap.classList.remove('d-none');
+        tbody.innerHTML = students.map(function(st) {
+            const when = String(st.withdrawnAt || '').trim() || '—';
+            return '<tr data-withdrawn-student="' + escapeHtml(st.studentId) + '">' +
+                '<td class="fw-bold text-start">' + escapeHtml(st.name || st.studentId) +
+                (st.loginId ? '<div class="small text-muted">' + escapeHtml(st.loginId) + '</div>' : '') +
+                '</td>' +
+                '<td class="small text-nowrap">' + escapeHtml(when) + '</td>' +
+                '<td class="text-end text-nowrap">' +
+                '<button type="button" class="btn btn-sm btn-outline-success reinstate-student-btn">' +
+                '<i class="fa-solid fa-user-check"></i> Restore</button>' +
+                '</td></tr>';
+        }).join('');
+        tbody.querySelectorAll('.reinstate-student-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const tr = btn.closest('tr');
+                const sid = tr.getAttribute('data-withdrawn-student');
+                const row = students.find(function(s) { return String(s.studentId) === String(sid); });
+                reinstateWithdrawnStudent(sid, row && row.name);
+            });
+        });
+    }
+
+    function reinstateWithdrawnStudent(studentId, studentName) {
+        if (!selectedClass || !studentId) return;
+        const name = studentName || studentId;
+        appConfirm('Restore ' + name + ' to this class?', function() {
+            const body = { classId: selectedClass.id, studentId: studentId };
+            const onDone = function(res) {
+                appToast((res && res.message) ? res.message : (name + ' restored.'));
+                nodeFetch('/api/students/withdrawn?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+                    .then(function(data) {
+                        renderWithdrawnStudentsTable(data.students || []);
+                    })
+                    .catch(function() {});
+                const dateStr = document.getElementById('attendanceDate').value;
+                if (dateStr) refreshWorkDataQuiet();
+            };
+            if (!apiPost('/api/students/reinstate', body, onDone)) {
+                handleError({ message: 'Restore requires the Node server.' });
+            }
+        }, { title: 'Restore student', okLabel: 'Restore' });
+    }
+
     function openPortalLoginsModal() {
         if (!selectedClass) {
             appAlert('Please select a class first.');
@@ -14743,108 +15416,54 @@
         }
         document.getElementById('portalLoginsClassName').textContent = selectedClass.name;
         document.getElementById('portalLoginsLoading').classList.remove('d-none');
+        document.getElementById('portalLoginsLoading').textContent = 'Loading…';
         document.getElementById('portalLoginsTableWrap').classList.add('d-none');
         document.getElementById('portalLoginsTableBody').innerHTML = '';
+        const dateKeyEl = document.getElementById('portalCoinsDateKey');
+        const limitEl = document.getElementById('portalCoinsLimit');
+        if (dateKeyEl) dateKeyEl.textContent = '—';
+        if (limitEl) limitEl.textContent = '100';
         const modal = new bootstrap.Modal(document.getElementById('portalLoginsModal'));
         modal.show();
-        nodeFetch('/api/students/portal-logins?classId=' + encodeURIComponent(selectedClass.id) + '&fresh=1')
-            .then(function(data) {
-                renderPortalLoginsTable(data.students || []);
-            })
-            .catch(function(err) {
-                document.getElementById('portalLoginsLoading').textContent =
-                    err.message || 'Could not load portal logins.';
-            });
+        refreshPortalLoginsModal();
     }
 
-    function openBuddyCoinsModal() {
-        if (!selectedClass) {
-            appAlert('Please select a class first.');
-            return;
-        }
-        document.getElementById('buddyCoinsClassName').textContent = selectedClass.name;
-        document.getElementById('buddyCoinsLoading').classList.remove('d-none');
-        document.getElementById('buddyCoinsLoading').textContent = 'Loading…';
-        document.getElementById('buddyCoinsTableWrap').classList.add('d-none');
-        document.getElementById('buddyCoinsTableBody').innerHTML = '';
-        const modal = new bootstrap.Modal(document.getElementById('buddyCoinsModal'));
-        modal.show();
-        refreshBuddyCoinsModal();
-    }
-
-    function refreshBuddyCoinsModal() {
+    function refreshPortalLoginsModal() {
         if (!selectedClass) return;
-        nodeFetch('/api/english-buddy/usage?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
-            .then(function(data) {
-                document.getElementById('buddyCoinsDateKey').textContent = data.dateKey || '—';
-                document.getElementById('buddyCoinsLimit').textContent = String(data.limit || 100);
-                renderBuddyCoinsTable(data.students || []);
+        const classId = encodeURIComponent(selectedClass.id);
+        const bust = Date.now();
+        Promise.all([
+            nodeFetch('/api/students/portal-logins?classId=' + classId + '&fresh=1&_=' + bust),
+            nodeFetch('/api/english-buddy/usage?classId=' + classId + '&_=' + bust).catch(function() {
+                return { students: [], dateKey: '', limit: 100 };
             })
-            .catch(function(err) {
-                document.getElementById('buddyCoinsTableWrap').classList.add('d-none');
-                document.getElementById('buddyCoinsLoading').classList.remove('d-none');
-                document.getElementById('buddyCoinsLoading').textContent =
-                    err.message || 'Could not load Buddy coin usage.';
-            });
-    }
-
-    function renderBuddyCoinsTable(students) {
-        document.getElementById('buddyCoinsLoading').classList.add('d-none');
-        const wrap = document.getElementById('buddyCoinsTableWrap');
-        const tbody = document.getElementById('buddyCoinsTableBody');
-        if (!students.length) {
-            wrap.classList.add('d-none');
-            document.getElementById('buddyCoinsLoading').classList.remove('d-none');
-            document.getElementById('buddyCoinsLoading').textContent = 'No enrolled students.';
-            return;
-        }
-        wrap.classList.remove('d-none');
-        tbody.innerHTML = students.map(function(st) {
-            const low = Number(st.remaining) <= 10;
-            const leftClass = low ? 'text-danger fw-bold' : '';
-            return '<tr data-buddy-student="' + escapeHtml(st.studentId) + '">' +
-                '<td class="fw-bold text-start">' + escapeHtml(st.name) + '</td>' +
-                '<td>' + Number(st.used || 0) + '</td>' +
-                '<td class="' + leftClass + '">' + Number(st.remaining || 0) + ' / ' + Number(st.limit || 100) + '</td>' +
-                '<td class="text-end text-nowrap">' +
-                '<button type="button" class="btn btn-sm btn-outline-warning buddy-refill-btn" title="Reset to full for today">' +
-                '<i class="fa-solid fa-rotate-right"></i> Refill</button>' +
-                '</td></tr>';
-        }).join('');
-        tbody.querySelectorAll('.buddy-refill-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                const tr = btn.closest('tr');
-                const sid = tr.getAttribute('data-buddy-student');
-                const row = students.find(function(s) { return String(s.studentId) === String(sid); });
-                if (!row) return;
-                btn.disabled = true;
-                nodeFetch('/api/english-buddy/refill', {
-                    method: 'POST',
-                    body: JSON.stringify({ studentId: sid })
-                }).then(function() {
-                    appToast('Refilled Buddy coins for ' + row.name);
-                    refreshBuddyCoinsModal();
-                }).catch(function(err) {
-                    btn.disabled = false;
-                    appAlert(err.message || 'Could not refill.');
-                });
-            });
+        ]).then(function(results) {
+            const logins = results[0] || {};
+            const coins = results[1] || {};
+            const dateKeyEl = document.getElementById('portalCoinsDateKey');
+            const limitEl = document.getElementById('portalCoinsLimit');
+            if (dateKeyEl) dateKeyEl.textContent = coins.dateKey || '—';
+            if (limitEl) limitEl.textContent = String(coins.limit || 100);
+            renderPortalLoginsTable(logins.students || [], coins.students || [], Number(coins.limit || 100));
+        }).catch(function(err) {
+            document.getElementById('portalLoginsLoading').textContent =
+                err.message || 'Could not load portal logins.';
         });
     }
 
     function refillAllBuddyCoins() {
         if (!selectedClass) return;
         appConfirm(
-            'Refill English Buddy coins for every student in ' + selectedClass.name + ' today?',
+            'Refill Virtual Mr. Park coins for every student in ' + selectedClass.name + ' today?',
             function() {
-                const btn = document.getElementById('buddyCoinsRefillAllBtn');
+                const btn = document.getElementById('portalCoinsRefillAllBtn');
                 if (btn) btn.disabled = true;
                 nodeFetch('/api/english-buddy/refill', {
                     method: 'POST',
                     body: JSON.stringify({ classId: selectedClass.id, all: true })
                 }).then(function() {
-                    appToast('Refilled Buddy coins for the whole class.');
-                    refreshBuddyCoinsModal();
+                    appToast('Refilled Virtual Mr. Park coins for the whole class.');
+                    refreshPortalLoginsModal();
                 }).catch(function(err) {
                     appAlert(err.message || 'Could not refill class.');
                 }).finally(function() {
@@ -14854,7 +15473,7 @@
         );
     }
 
-    function renderPortalLoginsTable(students) {
+    function renderPortalLoginsTable(students, coinStudents, coinLimit) {
         document.getElementById('portalLoginsLoading').classList.add('d-none');
         const wrap = document.getElementById('portalLoginsTableWrap');
         const tbody = document.getElementById('portalLoginsTableBody');
@@ -14864,25 +15483,39 @@
             document.getElementById('portalLoginsLoading').textContent = 'No enrolled students.';
             return;
         }
+        const coinById = {};
+        (coinStudents || []).forEach(function(c) {
+            coinById[String(c.studentId)] = c;
+        });
+        const limit = Number(coinLimit || 100);
         wrap.classList.remove('d-none');
         tbody.innerHTML = students.map(function(st) {
             const pw = st.hasPassword
                 ? '<code class="portal-pw-text">' + escapeHtml(st.loginPassword) + '</code>'
                 : '<span class="text-muted">(not set)</span>';
+            const coin = coinById[String(st.studentId)];
+            const remaining = coin ? Number(coin.remaining) : limit;
+            const used = coin ? Number(coin.used || 0) : 0;
+            const low = remaining <= 10;
+            const leftClass = low ? 'text-danger fw-bold' : '';
             return '<tr data-portal-student="' + escapeHtml(st.studentId) + '">' +
                 '<td class="fw-bold text-start">' + escapeHtml(st.name) + '</td>' +
                 '<td><code>' + escapeHtml(st.loginId || '') + '</code></td>' +
                 '<td>' + pw + '</td>' +
+                '<td class="text-nowrap ' + leftClass + '" title="Used ' + used + ' today">' +
+                remaining + ' / ' + limit + '</td>' +
                 '<td class="text-end text-nowrap">' +
                 '<button type="button" class="btn btn-sm btn-outline-primary portal-copy-btn" title="Copy login + password">Copy</button> ' +
-                '<button type="button" class="btn btn-sm btn-outline-warning portal-reset-btn" title="Set new password">Reset</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary portal-reset-btn" title="Set new password">Reset</button> ' +
+                '<button type="button" class="btn btn-sm btn-outline-warning portal-refill-btn" title="Reset coins to full for today">' +
+                '<i class="fa-solid fa-rotate-right"></i></button>' +
                 '</td></tr>';
         }).join('');
         tbody.querySelectorAll('.portal-copy-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const tr = btn.closest('tr');
                 const sid = tr.getAttribute('data-portal-student');
-                const row = students.find(function(s) { return s.studentId === sid; });
+                const row = students.find(function(s) { return String(s.studentId) === String(sid); });
                 if (!row) return;
                 const text = 'Login: ' + (row.loginId || '') + '\nPassword: ' + (row.loginPassword || '(not set)');
                 copyTextToClipboard(text).then(function() {
@@ -14896,18 +15529,37 @@
             btn.addEventListener('click', function() {
                 const tr = btn.closest('tr');
                 const sid = tr.getAttribute('data-portal-student');
-                const row = students.find(function(s) { return s.studentId === sid; });
+                const row = students.find(function(s) { return String(s.studentId) === String(sid); });
                 if (!row) return;
                 const newPw = prompt('New portal password for ' + row.name + ' (min 4 characters):', row.loginPassword || '');
                 if (newPw == null) return;
                 nodeFetch('/api/students/portal-password/reset', {
                     method: 'POST',
                     body: JSON.stringify({ studentId: sid, newPassword: newPw })
-                }).then(function(res) {
+                }).then(function() {
                     appToast('Password updated for ' + row.name);
-                    openPortalLoginsModal();
+                    refreshPortalLoginsModal();
                 }).catch(function(err) {
                     appAlert(err.message || 'Could not reset password.');
+                });
+            });
+        });
+        tbody.querySelectorAll('.portal-refill-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const tr = btn.closest('tr');
+                const sid = tr.getAttribute('data-portal-student');
+                const row = students.find(function(s) { return String(s.studentId) === String(sid); });
+                if (!row) return;
+                btn.disabled = true;
+                nodeFetch('/api/english-buddy/refill', {
+                    method: 'POST',
+                    body: JSON.stringify({ studentId: sid })
+                }).then(function() {
+                    appToast('Refilled Virtual Mr. Park coins for ' + row.name);
+                    refreshPortalLoginsModal();
+                }).catch(function(err) {
+                    btn.disabled = false;
+                    appAlert(err.message || 'Could not refill.');
                 });
             });
         });

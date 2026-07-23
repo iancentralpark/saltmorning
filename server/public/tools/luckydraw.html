@@ -860,19 +860,23 @@
             100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
         }
 
+        .sym-weird { background: linear-gradient(135deg, #636e72, #b2bec3); }
         .sym-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
         .sym-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
         .sym-unique { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
         .sym-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
         .sym-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .sym-celestial { background: linear-gradient(135deg, #00cec9, #0984e3); }
         .sym-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
         .sym-custom { background: linear-gradient(135deg, #636e72, #2d3436); }
 
+        .tier-weird { background: linear-gradient(135deg, #636e72, #b2bec3); }
         .tier-common { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
         .tier-rare { background: linear-gradient(135deg, #3498db, #2980b9); }
         .tier-unique { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
         .tier-legendary { background: linear-gradient(135deg, #e67e22, #d35400); }
         .tier-mythical { background: linear-gradient(135deg, #e84393, #fd79a8); }
+        .tier-celestial { background: linear-gradient(135deg, #00cec9, #0984e3); }
         .tier-godlike { background: linear-gradient(135deg, #c0392b, #f1c40f); }
         .tier-custom { background: linear-gradient(135deg, #636e72, #2d3436); }
 
@@ -1069,14 +1073,16 @@ function toolFetch(url, opts) {
 
 
         var FALLBACK_LUCKY_DRAW_TIERS = [
-            { id: 'common', name: 'Common', weight: 35, items: ['1 Haribo','2 Haribos','Bathroom/Water Priority','1 Vocab Hint','Free Stationery Rental','5% Vocab Magic Pass','3 Haribos'] },
-            { id: 'rare', name: 'Rare', weight: 25, items: ['10% Vocab Magic Pass','2 Vocab Hints','1 Minute more vocab test','Handshake with Mr. Park',"Mr. Park's Silly Face",'5 Haribos'] },
-            { id: 'unique', name: 'Unique', weight: 20, items: ['15% Vocab Magic Pass','High-five with Mr. Park','1 Minute Timestone','1 Day Chambit Pass','Combo Shield','Wrong Answer Eraser'] },
-            { id: 'legendary', name: 'Legendary', weight: 13, items: ['20% Vocab Magic Pass','2 Minutes Freedom Bell','2 Minutes Timestone',"The King's Throne"] },
-            { id: 'mythical', name: 'Mythical', weight: 5, items: ['Name The Teacher','3 Minutes Freedom Bell','Be a Commander!','3 Minutes Timestone'] },
-            { id: 'godlike', name: 'Godlike', weight: 2, items: ['The Forbidden Word','5 Minutes Freedom Bell','Double Dollars'] }
+            { id: 'weird', name: 'Weird', weight: 28, items: ['Weird Sticker','1 Tiny Haribo','10-Second Dance','Funny Face Challenge','Mystery Marble'] },
+            { id: 'common', name: 'Common', weight: 25, items: ['1 Haribo','2 Haribos','Bathroom/Water Priority','1 Vocab Hint','Free Stationery Rental','5% Vocab Magic Pass','3 Haribos'] },
+            { id: 'rare', name: 'Rare', weight: 18, items: ['10% Vocab Magic Pass','2 Vocab Hints','1 Minute more vocab test','Handshake with Mr. Park',"Mr. Park's Silly Face",'5 Haribos'] },
+            { id: 'unique', name: 'Unique', weight: 12, items: ['15% Vocab Magic Pass','High-five with Mr. Park','1 Minute Timestone','1 Day Chambit Pass','Combo Shield','Wrong Answer Eraser'] },
+            { id: 'legendary', name: 'Legendary', weight: 8, items: ['20% Vocab Magic Pass','2 Minutes Freedom Bell','2 Minutes Timestone',"The King's Throne"] },
+            { id: 'mythical', name: 'Mythical', weight: 4, items: ['Name The Teacher','3 Minutes Freedom Bell','Be a Commander!','3 Minutes Timestone'] },
+            { id: 'celestial', name: 'Celestial', weight: 2, items: ['Starlight Pass','4 Minutes Freedom Bell','Celestial Timestone','Orbit Seat'] },
+            { id: 'godlike', name: 'Godlike', weight: 1, items: ['The Forbidden Word','5 Minutes Freedom Bell','Double Dollars'] }
         ];
-        var KNOWN_TIER_STYLE_IDS = ['common', 'rare', 'unique', 'legendary', 'mythical', 'godlike'];
+        var KNOWN_TIER_STYLE_IDS = ['weird', 'common', 'rare', 'unique', 'legendary', 'mythical', 'celestial', 'godlike'];
         var LUCKY_DRAW_TIERS = [];
         var configReady = false;
 
@@ -1460,6 +1466,16 @@ function toolFetch(url, opts) {
                 });
         }
 
+        function notifyParentRosterUpdate(payload) {
+            try {
+                if (!window.opener || window.opener.closed) return;
+                window.opener.postMessage(Object.assign({
+                    type: 'mrpark-lucky-draw-update',
+                    classId: CLASS_ID
+                }, payload || {}), '*');
+            } catch (e) { /* ignore */ }
+        }
+
         function purchaseLuckyDrawForStudent(prize) {
             var sel = document.getElementById('studentSelect');
             var studentId = sel ? sel.value : '';
@@ -1486,6 +1502,13 @@ function toolFetch(url, opts) {
                         throw err;
                     }
                     updateStudentBalanceDisplay(data.newBalance);
+                    notifyParentRosterUpdate({
+                        studentId: studentId,
+                        newBalance: data.newBalance,
+                        ticketCount: data.ticketCount != null
+                            ? data.ticketCount
+                            : (data.ticket && data.ticket.ticketCount)
+                    });
                     if (statusEl) {
                         statusEl.textContent = 'Paid $' + (data.cost || LUCKY_DRAW_COST) + ' — saved for ' +
                             (sel.options[sel.selectedIndex].text || 'student') + '!';
@@ -1568,9 +1591,14 @@ function toolFetch(url, opts) {
             }).then(function(res) {
                 return res.json().then(function(data) {
                     if (!res.ok) throw new Error(data.error || 'Save failed');
+                    notifyParentRosterUpdate({
+                        studentId: studentId,
+                        ticketCount: data.ticketCount
+                    });
                     if (statusEl) {
                         statusEl.textContent = 'Saved for ' + (sel.options[sel.selectedIndex].text || 'student') + '!';
                     }
+                    return data;
                 });
             });
         }

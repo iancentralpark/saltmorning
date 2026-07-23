@@ -46,7 +46,7 @@ const {
   setTeacherAuthCookie,
   clearTeacherAuthCookie
 } = require('./teacherAuth');
-const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy, listBuddyUsageForClass, refillBuddyUsage, refillBuddyUsageForClass } = require('./englishBuddyService');
+const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy, listBuddyUsageForClass, refillBuddyUsage, refillBuddyUsageForClass, getTeacherBuddyStatus, streamTeacherVirtualMrPark, TEACHER_BUDDY_ID, TEACHER_BUDDY_CLASS } = require('./englishBuddyService');
 const { getBuddyChatHistory, clearBuddyChatHistory } = require('./englishBuddyHistoryService');
 const {
   getThread,
@@ -65,7 +65,10 @@ const {
   purchaseLuckyDrawTicket,
   listStudentLuckyTickets,
   redeemLuckyTicket,
-  transferLuckyTicket
+  transferLuckyTicket,
+  fuseLuckyTickets,
+  listFusionRecipes,
+  executeUnluckyDraw
 } = require('./luckyDrawService');
 const {
   getLuckyDrawConfig,
@@ -73,7 +76,7 @@ const {
   saveLuckyDrawConfig
 } = require('./luckyDrawConfigService');
 const { addManualPendingHomework, addManualPendingHomeworkBatch } = require('./manualHomeworkService');
-const { withdrawStudent, listWithdrawnStudents } = require('./withdrawnStudentService');
+const { withdrawStudent, listWithdrawnStudents, reinstateStudent } = require('./withdrawnStudentService');
 const {
   startStudentLeave,
   endStudentLeave,
@@ -1023,6 +1026,19 @@ router.post('/lucky-draw/redeem', async (req, res) => {
   }
 });
 
+router.post('/lucky-draw/unlucky', async (req, res) => {
+  try {
+    const { classId, studentId, allowNegative } = req.body || {};
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    res.json(await executeUnluckyDraw(classId, studentId, { allowNegative: !!allowNegative }));
+  } catch (e) {
+    console.error('POST /lucky-draw/unlucky', e);
+    res.status(400).json({ error: e.message || 'Unlucky draw failed' });
+  }
+});
+
 router.post('/students/withdraw', async (req, res) => {
   try {
     const { classId, studentId } = req.body || {};
@@ -1160,6 +1176,16 @@ router.get('/students/withdrawn', async (req, res) => {
   }
 });
 
+router.post('/students/reinstate', async (req, res) => {
+  try {
+    const { classId, studentId } = req.body || {};
+    res.json(await reinstateStudent(classId, studentId));
+  } catch (e) {
+    console.error('POST /students/reinstate', e);
+    res.status(400).json({ error: e.message || 'Reinstate failed' });
+  }
+});
+
 router.post('/student/login', async (req, res) => {
   try {
     const { loginId, password } = req.body || {};
@@ -1193,6 +1219,28 @@ router.get('/student/dashboard', requireStudentAuth, async (req, res) => {
   } catch (e) {
     console.error('GET /student/dashboard', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/student/lucky-draw/recipes', requireStudentAuth, async (req, res) => {
+  try {
+    res.json({ recipes: listFusionRecipes() });
+  } catch (e) {
+    console.error('GET /student/lucky-draw/recipes', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/student/lucky-draw/fuse', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const ticketIds = (req.body && req.body.ticketIds) || [];
+    res.json(await fuseLuckyTickets(classId, studentId, ticketIds));
+  } catch (e) {
+    console.error('POST /student/lucky-draw/fuse', e);
+    const msg = e.message || 'Upgrade failed';
+    const status = /select|same tier|cannot be upgraded|not found|own tickets|Duplicate/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 
@@ -1351,6 +1399,47 @@ router.post('/student/english-buddy/stream', requireStudentAuth, async (req, res
     const status = /today/i.test(msg) ? 429 : 400;
     if (!res.headersSent) {
       res.status(status).json({ error: msg });
+    }
+  }
+});
+
+router.get('/teacher/virtual-mr-park/status', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(getTeacherBuddyStatus());
+  } catch (e) {
+    console.error('GET /teacher/virtual-mr-park/status', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/teacher/virtual-mr-park/history', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await getBuddyChatHistory(TEACHER_BUDDY_ID, TEACHER_BUDDY_CLASS));
+  } catch (e) {
+    console.error('GET /teacher/virtual-mr-park/history', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.delete('/teacher/virtual-mr-park/history', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await clearBuddyChatHistory(TEACHER_BUDDY_ID));
+  } catch (e) {
+    console.error('DELETE /teacher/virtual-mr-park/history', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/teacher/virtual-mr-park/stream', requireTeacherAuth, async (req, res) => {
+  try {
+    const prompt = String(req.body.prompt || '').trim();
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    await streamTeacherVirtualMrPark(res, prompt, history);
+  } catch (e) {
+    console.error('POST /teacher/virtual-mr-park/stream', e);
+    const msg = e.message || 'Request failed';
+    if (!res.headersSent) {
+      res.status(400).json({ error: msg });
     }
   }
 });

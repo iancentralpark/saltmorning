@@ -5,9 +5,64 @@ const { getStudentDollarBalance, applyDollarAdjustment } = require('./dollarServ
 const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 
+/** Student ticket upgrade ladder (same-tier fuse). */
+const FUSION_RECIPES = [
+  { from: 'Weird', need: 3, to: 'Common' },
+  { from: 'Common', need: 3, to: 'Rare' },
+  { from: 'Rare', need: 3, to: 'Unique' },
+  { from: 'Unique', need: 3, to: 'Legendary' },
+  { from: 'Legendary', need: 3, to: 'Mythical' },
+  { from: 'Mythical', need: 2, to: 'Celestial' },
+  { from: 'Celestial', need: 2, to: 'Godlike' }
+];
+
+const FUSION_PRIZE_FALLBACKS = {
+  Common: ['1 Haribo', '2 Haribos', 'Bathroom/Water Priority', '1 Vocab Hint', 'Free Stationery Rental', '5% Vocab Magic Pass', '3 Haribos'],
+  Rare: ['10% Vocab Magic Pass', '2 Vocab Hints', '1 Minute more vocab test', 'Handshake with Mr. Park', "Mr. Park's Silly Face", '5 Haribos'],
+  Unique: ['15% Vocab Magic Pass', 'High-five with Mr. Park', '1 Minute Timestone', '1 Day Chambit Pass', 'Combo Shield', 'Wrong Answer Eraser'],
+  Legendary: ['20% Vocab Magic Pass', '2 Minutes Freedom Bell', '2 Minutes Timestone', "The King's Throne"],
+  Mythical: ['Name The Teacher', '3 Minutes Freedom Bell', 'Be a Commander!', '3 Minutes Timestone'],
+  Celestial: ['Starlight Pass', '4 Minutes Freedom Bell', 'Celestial Timestone', 'Orbit Seat'],
+  Godlike: ['The Forbidden Word', '5 Minutes Freedom Bell', 'Double Dollars']
+};
+
 function afterLuckyDrawWrite(classId) {
   if (classId) invalidateWorkCache(classId);
   invalidateSheetRowsCache(LUCKY_DRAW_SHEET);
+}
+
+function normalizeTierName(tier) {
+  return String(tier || '').trim();
+}
+
+/** Map display variants (e.g. "God Like") onto ladder names. */
+function canonicalTierName(tier) {
+  const key = normalizeTierName(tier).toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  const aliases = {
+    weird: 'Weird',
+    common: 'Common',
+    rare: 'Rare',
+    unique: 'Unique',
+    legendary: 'Legendary',
+    mythical: 'Mythical',
+    celestial: 'Celestial',
+    godlike: 'Godlike',
+    'god like': 'Godlike'
+  };
+  return aliases[key] || normalizeTierName(tier);
+}
+
+function findFusionRecipe(fromTier) {
+  const want = canonicalTierName(fromTier).toLowerCase();
+  return FUSION_RECIPES.find(function(r) {
+    return r.from.toLowerCase() === want;
+  }) || null;
+}
+
+function listFusionRecipes() {
+  return FUSION_RECIPES.map(function(r) {
+    return { from: r.from, need: r.need, to: r.to };
+  });
 }
 
 function groupLuckyTickets(tickets) {
@@ -75,10 +130,12 @@ async function saveLuckyDrawTicket(classId, studentId, tier, prizeText) {
   if (!classId || !studentId || !prizeText) {
     throw new Error('classId, studentId, and prize are required.');
   }
-  const ticketId = 'LDT_' + classId + '_' + studentId + '_' + Date.now();
+  const ticketId = 'LDT_' + classId + '_' + studentId + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   const drawnAt = formatDateTimeNow(TIMEZONE);
   await appendRows(LUCKY_DRAW_SHEET, [[ticketId, classId, studentId, tier, prizeText, drawnAt]]);
-  return { ticketId, tier, prizeText, drawnAt };
+  afterLuckyDrawWrite(classId);
+  const ticketCount = await countStudentTickets(classId, studentId);
+  return { ticketId, tier, prizeText, drawnAt, ticketCount };
 }
 
 async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost) {
@@ -104,12 +161,12 @@ async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost
     'Lucky Draw purchase ($' + cost + ')'
   );
   const ticket = await saveLuckyDrawTicket(classId, studentId, tier, prizeText);
-  afterLuckyDrawWrite(classId);
   return {
     ticket,
     cost,
     previousBalance: balance,
-    newBalance
+    newBalance,
+    ticketCount: ticket.ticketCount
   };
 }
 
@@ -259,7 +316,207 @@ async function getLuckyDrawCountsByClass(classId) {
   return counts;
 }
 
+async function deleteLuckyTicketsOwned_(classId, studentId, ticketIds) {
+  classId = String(classId);
+  studentId = String(studentId);
+  const idSet = new Set(ticketIds.map(String));
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { data, error: readErr } = await db.from('lucky_draw_tickets')
+      .select('ticket_id, class_id, student_id, tier')
+      .in('ticket_id', Array.from(idSet));
+    if (readErr) throw new Error(readErr.message);
+    const rows = data || [];
+    if (rows.length !== idSet.size) throw new Error('One or more tickets were not found.');
+    for (const row of rows) {
+      if (String(row.class_id) !== classId || String(row.student_id) !== studentId) {
+        throw new Error('You can only upgrade your own tickets.');
+      }
+    }
+    const { error } = await db.from('lucky_draw_tickets').delete().in('ticket_id', Array.from(idSet));
+    if (error) throw new Error(error.message);
+    afterLuckyDrawWrite(classId);
+    return rows.map(function(row) {
+      return { ticketId: String(row.ticket_id), tier: String(row.tier || '') };
+    });
+  }
+
+  const data = await getSheetRows(LUCKY_DRAW_SHEET);
+  const matched = [];
+  const rowsToDelete = [];
+  for (let i = 1; i < data.length; i++) {
+    const tid = String(data[i][0]);
+    if (!idSet.has(tid)) continue;
+    if (String(data[i][1]) !== classId || String(data[i][2]) !== studentId) {
+      throw new Error('You can only upgrade your own tickets.');
+    }
+    matched.push({ ticketId: tid, tier: String(data[i][3] || '') });
+    rowsToDelete.push(i + 1);
+  }
+  if (matched.length !== idSet.size) throw new Error('One or more tickets were not found.');
+  rowsToDelete.sort(function(a, b) { return b - a; });
+  await deleteRows(LUCKY_DRAW_SHEET, rowsToDelete);
+  afterLuckyDrawWrite(classId);
+  return matched;
+}
+
+async function pickPrizeForTier_(tierName) {
+  const want = canonicalTierName(tierName).toLowerCase();
+  try {
+    const { getLuckyDrawConfig } = require('./luckyDrawConfigService');
+    const config = await getLuckyDrawConfig();
+    const tier = (config.tiers || []).find(function(t) {
+      return canonicalTierName(t.name).toLowerCase() === want
+        && t.active !== false
+        && Array.isArray(t.items)
+        && t.items.length;
+    });
+    if (tier) {
+      return {
+        tierName: String(tier.name || canonicalTierName(tierName)),
+        prizeText: tier.items[Math.floor(Math.random() * tier.items.length)]
+      };
+    }
+  } catch (e) { /* fall through */ }
+  const canon = canonicalTierName(tierName);
+  const fallback = FUSION_PRIZE_FALLBACKS[canon] || ['Mystery Prize'];
+  return {
+    tierName: canon,
+    prizeText: fallback[Math.floor(Math.random() * fallback.length)]
+  };
+}
+
+/**
+ * Fuse N same-tier tickets into one higher-tier ticket (student self-service).
+ * @param {string[]} ticketIds
+ */
+async function fuseLuckyTickets(classId, studentId, ticketIds) {
+  classId = String(classId);
+  studentId = String(studentId);
+  if (!Array.isArray(ticketIds) || !ticketIds.length) {
+    throw new Error('Select tickets to upgrade.');
+  }
+  const uniqueIds = Array.from(new Set(ticketIds.map(String).filter(Boolean)));
+  if (uniqueIds.length !== ticketIds.length) {
+    throw new Error('Duplicate ticket selected.');
+  }
+
+  const owned = await listStudentLuckyTickets(classId, studentId);
+  const byId = new Map(owned.map(function(t) { return [String(t.ticketId), t]; }));
+  const selected = uniqueIds.map(function(id) {
+    const t = byId.get(id);
+    if (!t) throw new Error('Ticket not found: ' + id);
+    return t;
+  });
+
+  const fromTier = selected.map(function(t) { return canonicalTierName(t.tier); });
+  const baseTier = fromTier[0];
+  if (!baseTier) throw new Error('Ticket tier is missing.');
+  for (let i = 1; i < fromTier.length; i++) {
+    if (fromTier[i].toLowerCase() !== baseTier.toLowerCase()) {
+      throw new Error('All selected tickets must be the same tier.');
+    }
+  }
+
+  const recipe = findFusionRecipe(baseTier);
+  if (!recipe) {
+    throw new Error(baseTier + ' tickets cannot be upgraded further.');
+  }
+  if (uniqueIds.length !== recipe.need) {
+    throw new Error('Select exactly ' + recipe.need + ' ' + recipe.from + ' ticket' + (recipe.need === 1 ? '' : 's') + ' to make 1 ' + recipe.to + '.');
+  }
+
+  await deleteLuckyTicketsOwned_(classId, studentId, uniqueIds);
+  const picked = await pickPrizeForTier_(recipe.to);
+  const ticket = await saveLuckyDrawTicket(classId, studentId, picked.tierName, picked.prizeText);
+  const remaining = await listStudentLuckyTickets(classId, studentId);
+
+  return {
+    message: recipe.need + ' ' + recipe.from + ' → 1 ' + recipe.to + '!',
+    consumed: uniqueIds,
+    fromTier: recipe.from,
+    toTier: recipe.to,
+    need: recipe.need,
+    ticket: {
+      ticketId: ticket.ticketId,
+      tier: ticket.tier,
+      prizeText: ticket.prizeText,
+      drawnAt: ticket.drawnAt
+    },
+    ticketCount: ticket.ticketCount,
+    luckyDraw: {
+      totalCount: remaining.length,
+      tickets: groupLuckyTickets(remaining)
+    },
+    recipes: listFusionRecipes()
+  };
+}
+
+async function executeUnluckyDraw(classId, studentId, opts) {
+  opts = opts || {};
+  classId = String(classId || '');
+  studentId = String(studentId || '');
+  if (!classId || !studentId) {
+    throw new Error('classId and studentId are required.');
+  }
+  await assertStudentInClass_(classId, studentId);
+
+  const tickets = await listStudentLuckyTickets(classId, studentId);
+  const balance = await getStudentDollarBalance(studentId);
+
+  if (tickets.length > 0) {
+    const pick = tickets[Math.floor(Math.random() * tickets.length)];
+    const redeemed = await redeemLuckyTicket(pick.ticketId);
+    return {
+      mode: 'ticket',
+      ticket: {
+        ticketId: pick.ticketId,
+        tier: pick.tier,
+        prizeText: pick.prizeText,
+        drawnAt: pick.drawnAt
+      },
+      remainingCount: redeemed.remainingCount,
+      dollars: balance,
+      message: 'Ticket destroyed.'
+    };
+  }
+
+  const minSteal = Number.isFinite(Number(opts.minSteal)) ? Math.max(1, Number(opts.minSteal)) : 2;
+  const maxSteal = Number.isFinite(Number(opts.maxSteal)) ? Math.max(minSteal, Number(opts.maxSteal)) : 5;
+  const rolled = minSteal + Math.floor(Math.random() * (maxSteal - minSteal + 1));
+  const allowNegative = !!opts.allowNegative;
+  const amount = allowNegative ? rolled : Math.min(rolled, Math.max(0, balance));
+  if (amount <= 0) {
+    return {
+      mode: 'dollars',
+      amount: 0,
+      rolled,
+      previousBalance: balance,
+      newBalance: balance,
+      remainingCount: 0,
+      message: 'No tickets and no dollars to steal.'
+    };
+  }
+
+  const { newBalance } = await applyDollarAdjustment(
+    classId,
+    studentId,
+    -amount,
+    'Unlucky Draw penalty (−$' + amount + ')'
+  );
+  return {
+    mode: 'dollars',
+    amount,
+    rolled,
+    previousBalance: balance,
+    newBalance,
+    remainingCount: 0,
+    message: 'Dollars stolen by the shadows.'
+  };
+}
+
 module.exports = {
+  FUSION_RECIPES,
   groupLuckyTickets,
   saveLuckyDrawTicket,
   purchaseLuckyDrawTicket,
@@ -267,5 +524,9 @@ module.exports = {
   redeemLuckyTicket,
   transferLuckyTicket,
   getLuckyDrawCountsByClass,
-  countStudentTickets
+  countStudentTickets,
+  findFusionRecipe,
+  listFusionRecipes,
+  fuseLuckyTickets,
+  executeUnluckyDraw
 };
