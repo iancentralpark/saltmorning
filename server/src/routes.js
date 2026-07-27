@@ -48,6 +48,7 @@ const {
 } = require('./teacherAuth');
 const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy, listBuddyUsageForClass, refillBuddyUsage, refillBuddyUsageForClass, getTeacherBuddyStatus, streamTeacherVirtualMrPark, TEACHER_BUDDY_ID, TEACHER_BUDDY_CLASS } = require('./englishBuddyService');
 const { getBuddyChatHistory, clearBuddyChatHistory } = require('./englishBuddyHistoryService');
+const { listAbuseFlagsForClass, reviewAbuseFlag, getAbuseFlagChatLog, unlockBuddyAbuse } = require('./englishBuddyAbuseService');
 const {
   getThread,
   markMessagesRead,
@@ -1348,6 +1349,56 @@ router.post('/english-buddy/refill', async (req, res) => {
     res.json({ ok: true, studentId: studentId, ...status });
   } catch (e) {
     console.error('POST /english-buddy/refill', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/english-buddy/abuse-flags', requireTeacherAuth, async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    const includeReviewed = String(req.query.includeReviewed || '') === '1';
+    res.json(await listAbuseFlagsForClass(classId, { includeReviewed: includeReviewed }));
+  } catch (e) {
+    console.error('GET /english-buddy/abuse-flags', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/english-buddy/abuse-flags/chat', requireTeacherAuth, async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    const studentId = String(req.query.studentId || '').trim();
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    res.json(await getAbuseFlagChatLog(studentId, classId));
+  } catch (e) {
+    console.error('GET /english-buddy/abuse-flags/chat', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/english-buddy/abuse-flags/review', requireTeacherAuth, async (req, res) => {
+  try {
+    const flagId = String((req.body && req.body.flagId) || '').trim();
+    const classId = String((req.body && req.body.classId) || '').trim();
+    const studentId = String((req.body && req.body.studentId) || '').trim();
+    res.json(await reviewAbuseFlag(flagId, classId, studentId));
+  } catch (e) {
+    console.error('POST /english-buddy/abuse-flags/review', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/english-buddy/abuse-flags/unlock', requireTeacherAuth, async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || '').trim();
+    const studentId = String((req.body && req.body.studentId) || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'studentId is required' });
+    res.json(await unlockBuddyAbuse(studentId, classId));
+  } catch (e) {
+    console.error('POST /english-buddy/abuse-flags/unlock', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });

@@ -259,11 +259,11 @@ async function chambitSyncClassLog(classId, studentId, dateStr, read) {
     dateStr = formatSheetDate(dateStr);
     const enrolled = await getEnrolledStudents(classId);
     const student = enrolled.find(s => String(s.id) === String(studentId));
-    if (!student) return { synced: false };
+    if (!student) return { synced: false, reason: 'student_not_found' };
     return await syncChambitToClassLog(classId, student.name, dateStr, read);
   } catch (e) {
     console.warn('Class log Chambit sync:', e.message);
-    return { synced: false, error: e.message };
+    return { synced: false, reason: 'sync_exception', error: e.message };
   }
 }
 
@@ -301,7 +301,9 @@ async function toggleChambitRead(classId, studentId, dateStr, action, allowedDay
       chambitWeekRead: weekProg.read,
       chambitWeekRequired: weekProg.required,
       weekCompleted,
-      classLogSynced: !!(classLog && classLog.synced)
+      classLogSynced: !!(classLog && classLog.synced),
+      classLogReason: (classLog && (classLog.reason || classLog.error)) || '',
+      classLogError: (classLog && classLog.error) || ''
     };
   }
 
@@ -321,7 +323,9 @@ async function toggleChambitRead(classId, studentId, dateStr, action, allowedDay
       chambitWeekRead: weekProg.read,
       chambitWeekRequired: weekProg.required,
       weekCompleted: false,
-      classLogSynced: !!(classLog && classLog.synced)
+      classLogSynced: !!(classLog && classLog.synced),
+      classLogReason: (classLog && (classLog.reason || classLog.error)) || '',
+      classLogError: (classLog && classLog.error) || ''
     };
   }
 

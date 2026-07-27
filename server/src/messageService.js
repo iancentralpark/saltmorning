@@ -273,29 +273,80 @@ async function getUnreadTotalGlobal() {
 }
 
 async function mirrorSheetMessageToSupabase(msg) {
-  if (!msg || !msg.messageId) return;
-  try {
-    const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
-    if (!isSupabaseEnabled()) return;
-    const db = getSupabase();
-    const { error } = await db.from('messages').upsert({
-      id: msg.messageId,
-      created_at: msg.createdAt || isoNow(),
-      class_id: String(msg.classId || ''),
-      student_id: String(msg.studentId || ''),
-      student_name: String(msg.studentName || ''),
-      sender: String(msg.sender || ''),
-      body: String(msg.body || ''),
-      read_at: msg.readAt || null,
-      deleted_at: null
-    }, { onConflict: 'id' });
-    if (error) console.error('[messages] mirror sheet→supabase failed', error.message || error);
-  } catch (err) {
-    console.error('[messages] mirror sheet→supabase error', err.message || err);
+  if (!msg || !msg.messageId) return { ok: false, skipped: true };
+  const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+  if (!isSupabaseEnabled()) return { ok: false, skipped: true };
+  const db = getSupabase();
+  const { error } = await db.from('messages').upsert({
+    id: msg.messageId,
+    created_at: msg.createdAt || isoNow(),
+    class_id: String(msg.classId || ''),
+    student_id: String(msg.studentId || ''),
+    student_name: String(msg.studentName || ''),
+    sender: String(msg.sender || ''),
+    body: String(msg.body || ''),
+    read_at: msg.readAt || null,
+    deleted_at: null
+  }, { onConflict: 'id' });
+  if (error) {
+    throw new Error('mirror sheet→supabase failed: ' + (error.message || error));
   }
+  return { ok: true, messageId: msg.messageId };
+}
+
+/**
+ * Copy recent Student_Messages rows into Supabase so teacher UI never misses
+ * Telegram-notified messages that only landed on Sheets.
+ */
+async function reconcileSheetMessagesToSupabase(options) {
+  const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+  if (!isSupabaseEnabled()) return { ok: false, skipped: true, upserted: 0 };
+  const hours = Math.max(1, Number(options && options.hours) || 72);
+  const cutoff = Date.now() - hours * 3600 * 1000;
+  let sheetMsgs = [];
+  try {
+    sheetMsgs = await loadActiveMessages();
+  } catch (err) {
+    console.warn('[messages] reconcile: could not read Sheets', err.message || err);
+    return { ok: false, skipped: false, upserted: 0, error: err.message || String(err) };
+  }
+  const recent = sheetMsgs.filter(function(m) {
+    const t = Date.parse(m.createdAt || '');
+    return !isNaN(t) && t >= cutoff;
+  });
+  if (!recent.length) return { ok: true, upserted: 0, checked: 0 };
+
+  const db = getSupabase();
+  const ids = recent.map(function(m) { return m.messageId; });
+  const { data: existing, error: existErr } = await db
+    .from('messages')
+    .select('id')
+    .in('id', ids);
+  if (existErr) {
+    throw new Error('reconcile lookup failed: ' + (existErr.message || existErr));
+  }
+  const have = {};
+  (existing || []).forEach(function(r) { have[String(r.id)] = true; });
+  const missing = recent.filter(function(m) { return !have[m.messageId]; });
+  let upserted = 0;
+  for (let i = 0; i < missing.length; i++) {
+    await mirrorSheetMessageToSupabase(missing[i]);
+    upserted += 1;
+  }
+  if (upserted > 0) {
+    console.warn('[messages] reconcile backfilled ' + upserted + ' Sheets-only message(s) into Supabase');
+  }
+  return { ok: true, checked: recent.length, missing: missing.length, upserted: upserted };
 }
 
 async function studentSendMessage(studentId, classId, studentName, body) {
+  // Hard redirect: teacher UI reads Supabase. Never Telegram from Sheets-only writes.
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    console.error('[messages] Sheets studentSendMessage hit while Supabase enabled — redirecting to Supabase');
+    return require('./supabaseMessageService').studentSendMessage(studentId, classId, studentName, body);
+  }
+
   body = normalizeBody(body);
   const name = studentName || await lookupStudentName(studentId, classId);
   const msg = await appendMessage({
@@ -305,9 +356,6 @@ async function studentSendMessage(studentId, classId, studentName, body) {
     sender: 'student',
     body: body
   });
-  // Legacy Sheets path can still notify Telegram while the UI reads Supabase —
-  // always mirror so teacher/student portals see the message.
-  await mirrorSheetMessageToSupabase(msg);
   try {
     const classLabel = await getClassLabel(classId);
     await sendStudentMessageTelegram({ studentName: name, classLabel: classLabel, body: body });
@@ -318,6 +366,12 @@ async function studentSendMessage(studentId, classId, studentName, body) {
 }
 
 async function teacherSendMessage(classId, studentId, studentName, body) {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    console.error('[messages] Sheets teacherSendMessage hit while Supabase enabled — redirecting to Supabase');
+    return require('./supabaseMessageService').teacherSendMessage(classId, studentId, studentName, body);
+  }
+
   body = normalizeBody(body);
   const name = studentName || await lookupStudentName(studentId, classId);
   const msg = await appendMessage({
@@ -327,7 +381,6 @@ async function teacherSendMessage(classId, studentId, studentName, body) {
     sender: 'teacher',
     body: body
   });
-  await mirrorSheetMessageToSupabase(msg);
   return msg;
 }
 
@@ -387,5 +440,7 @@ module.exports = {
   },
   teacherSendMessage: function(classId, studentId, studentName, body) {
     return getMessageApi().teacherSendMessage(classId, studentId, studentName, body);
-  }
+  },
+  reconcileSheetMessagesToSupabase: reconcileSheetMessagesToSupabase,
+  mirrorSheetMessageToSupabase: mirrorSheetMessageToSupabase
 };

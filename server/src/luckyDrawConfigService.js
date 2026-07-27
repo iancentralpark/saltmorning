@@ -9,40 +9,70 @@ const PRIZE_HEADERS = ['TierID', 'PrizeText', 'SortOrder', 'Active'];
 
 const DEFAULT_LUCKY_DRAW_TIERS = [
   {
+    id: 'weird',
+    name: 'Weird',
+    weight: 28,
+    items: ['Weird Sticker', '1 Tiny Haribo', '10-Second Dance', 'Funny Face Challenge', 'Mystery Marble']
+  },
+  {
     id: 'common',
     name: 'Common',
-    weight: 35,
+    weight: 25,
     items: ['1 Haribo', '2 Haribos', 'Bathroom/Water Priority', '1 Vocab Hint', 'Free Stationery Rental', '5% Vocab Magic Pass', '3 Haribos']
   },
   {
     id: 'rare',
     name: 'Rare',
-    weight: 25,
+    weight: 18,
     items: ['10% Vocab Magic Pass', '2 Vocab Hints', '1 Minute more vocab test', 'Handshake with Mr. Park', "Mr. Park's Silly Face", '5 Haribos']
   },
   {
     id: 'unique',
     name: 'Unique',
-    weight: 20,
+    weight: 12,
     items: ['15% Vocab Magic Pass', 'High-five with Mr. Park', '1 Minute Timestone', '1 Day Chambit Pass', 'Combo Shield', 'Wrong Answer Eraser']
   },
   {
     id: 'legendary',
     name: 'Legendary',
-    weight: 13,
+    weight: 8,
     items: ['20% Vocab Magic Pass', '2 Minutes Freedom Bell', '2 Minutes Timestone', "The King's Throne"]
   },
   {
     id: 'mythical',
     name: 'Mythical',
-    weight: 5,
+    weight: 4,
     items: ['Name The Teacher', '3 Minutes Freedom Bell', 'Be a Commander!', '3 Minutes Timestone']
+  },
+  {
+    id: 'celestial',
+    name: 'Celestial',
+    weight: 2,
+    items: ['Starlight Pass', '4 Minutes Freedom Bell', 'Celestial Timestone', 'Orbit Seat']
   },
   {
     id: 'godlike',
     name: 'Godlike',
-    weight: 2,
+    weight: 1,
     items: ['The Forbidden Word', '5 Minutes Freedom Bell', 'Double Dollars']
+  }
+];
+
+/** Tiers required for the upgrade ladder — appended if missing without rewriting existing weights. */
+const LADDER_ENSURE_TIERS = [
+  {
+    id: 'weird',
+    name: 'Weird',
+    weight: 28,
+    sortOrder: 0,
+    items: ['Weird Sticker', '1 Tiny Haribo', '10-Second Dance', 'Funny Face Challenge', 'Mystery Marble']
+  },
+  {
+    id: 'celestial',
+    name: 'Celestial',
+    weight: 2,
+    sortOrder: 65,
+    items: ['Starlight Pass', '4 Minutes Freedom Bell', 'Celestial Timestone', 'Orbit Seat']
   }
 ];
 
@@ -148,6 +178,67 @@ async function ensureLuckyDrawConfigSheets() {
   }
 }
 
+async function appendMissingLadderTiers_(existingTiers) {
+  const byId = new Set((existingTiers || []).map(function(t) { return String(t.id || '').toLowerCase(); }));
+  const byName = new Set((existingTiers || []).map(function(t) { return String(t.name || '').trim().toLowerCase(); }));
+  const missing = LADDER_ENSURE_TIERS.filter(function(tier) {
+    return !byId.has(tier.id.toLowerCase()) && !byName.has(tier.name.toLowerCase());
+  });
+  if (!missing.length) return false;
+
+  const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const tierPayload = missing.map(function(tier) {
+      return {
+        tier_id: tier.id,
+        tier_name: tier.name,
+        weight: tier.weight,
+        sort_order: tier.sortOrder,
+        active: true
+      };
+    });
+    const { error: tierErr } = await db.from('lucky_draw_tiers').upsert(tierPayload, { onConflict: 'tier_id' });
+    if (tierErr) throw new Error(tierErr.message);
+    const prizePayload = [];
+    missing.forEach(function(tier) {
+      tier.items.forEach(function(prizeText, prizeIndex) {
+        prizePayload.push({
+          tier_id: tier.id,
+          prize_text: prizeText,
+          sort_order: prizeIndex + 1,
+          active: true
+        });
+      });
+    });
+    if (prizePayload.length) {
+      const { error: prizeErr } = await db.from('lucky_draw_prizes').upsert(prizePayload, {
+        onConflict: 'tier_id,sort_order'
+      });
+      if (prizeErr) {
+        // Fallback: insert ignoring conflicts on older schemas
+        const { error: insErr } = await db.from('lucky_draw_prizes').insert(prizePayload);
+        if (insErr && !/duplicate|unique/i.test(insErr.message || '')) throw new Error(insErr.message);
+      }
+    }
+  } else {
+    const tierRows = missing.map(function(tier) {
+      return [tier.id, tier.name, tier.weight, tier.sortOrder, 'Y'];
+    });
+    const prizeRows = [];
+    missing.forEach(function(tier) {
+      tier.items.forEach(function(prizeText, prizeIndex) {
+        prizeRows.push([tier.id, prizeText, prizeIndex + 1, 'Y']);
+      });
+    });
+    if (tierRows.length) await appendRows(LUCKY_DRAW_TIERS_SHEET, tierRows);
+    if (prizeRows.length) await appendRows(LUCKY_DRAW_PRIZES_SHEET, prizeRows);
+  }
+  invalidateSheetRowsCache(LUCKY_DRAW_TIERS_SHEET);
+  invalidateSheetRowsCache(LUCKY_DRAW_PRIZES_SHEET);
+  return true;
+}
+
 async function getLuckyDrawConfig() {
   await ensureLuckyDrawConfigSheets();
   const tierData = await getSheetRows(LUCKY_DRAW_TIERS_SHEET, { skipCache: true });
@@ -183,6 +274,9 @@ async function getLuckyDrawConfig() {
       active,
       items: prizeList.map(function(p) { return p.text; })
     });
+  }
+  if (await appendMissingLadderTiers_(tiers)) {
+    return getLuckyDrawConfig();
   }
   tiers.sort(function(a, b) { return a.sortOrder - b.sortOrder; });
   return { tiers };

@@ -662,6 +662,41 @@
             return list;
         }
 
+        /** Keep wheel list across close/reopen (stamp board, timer, etc.). */
+        function wheelStorageKey() {
+            var id = (typeof CLASS_ID !== 'undefined' && CLASS_ID) ? String(CLASS_ID) : '';
+            if (!id) id = 'name_' + String(CLASS_NAME || 'class');
+            return 'mrpark_roulette_wheel_v1_' + id;
+        }
+
+        function saveWheelState() {
+            try {
+                sessionStorage.setItem(wheelStorageKey(), JSON.stringify({
+                    entries: entries.map(function(e) {
+                        return { id: e.id || '', label: e.label || '' };
+                    })
+                }));
+            } catch (err) { /* ignore quota / private mode */ }
+        }
+
+        function loadWheelState() {
+            try {
+                var raw = sessionStorage.getItem(wheelStorageKey());
+                if (!raw) return null;
+                var data = JSON.parse(raw);
+                if (!data || !Array.isArray(data.entries) || !data.entries.length) return null;
+                return data.entries.map(function(e) {
+                    return {
+                        uid: uid(),
+                        id: e.id || '',
+                        label: String(e.label || '').trim() || '—'
+                    };
+                });
+            } catch (err) {
+                return null;
+            }
+        }
+
         function resizeCanvas() {
             const box = canvas.parentElement;
             const size = Math.min(box.clientWidth, 420);
@@ -923,6 +958,7 @@
                     input.addEventListener('input', function() {
                         entries[i].label = input.value.trim() || '—';
                         drawWheel();
+                        saveWheelState();
                     });
                     row.querySelector('.btn-rm').addEventListener('click', function() {
                         entries.splice(i, 1);
@@ -934,6 +970,7 @@
                 });
             }
             document.getElementById('countHint').textContent = entries.length + ' on wheel';
+            saveWheelState();
         }
 
         function updateSpinState() {
@@ -987,7 +1024,8 @@
             if (e.target === document.getElementById('winnerOverlay')) hideWinner();
         });
 
-        entries = buildDefaultEntries(INITIAL_STUDENTS);
+        var restored = loadWheelState();
+        entries = (restored && restored.length) ? restored : buildDefaultEntries(INITIAL_STUDENTS);
         window.addEventListener('resize', resizeCanvas);
         syncSidebar();
         resizeCanvas();

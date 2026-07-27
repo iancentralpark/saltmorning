@@ -85,4 +85,66 @@ async function applyDollarAdjustment(classId, studentId, amount, reason) {
   return { studentId, newBalance };
 }
 
-module.exports = { getStudentDollarBalance, applyDollarAdjustment };
+async function applyDollarAdjustmentsBatch(classId, adjustments, reason) {
+  const list = (Array.isArray(adjustments) ? adjustments : []).filter(function(adj) {
+    const amt = Number(adj && adj.amount);
+    return adj && adj.studentId && Number.isFinite(amt) && amt !== 0;
+  });
+  if (!list.length) return [];
+
+  classId = String(classId);
+  const r = (reason && String(reason).trim()) ? String(reason).trim() : 'manual-adjust';
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const ids = list.map(function(adj) { return String(adj.studentId); });
+    const { data: balances, error: balReadErr } = await db.from('dollar_balances')
+      .select('student_id, balance')
+      .in('student_id', ids);
+    if (balReadErr) throw new Error(balReadErr.message);
+
+    const balanceMap = {};
+    (balances || []).forEach(function(row) {
+      balanceMap[String(row.student_id)] = Number(row.balance) || 0;
+    });
+
+    const upserts = [];
+    const txs = [];
+    const results = [];
+    const now = new Date().toISOString();
+
+    list.forEach(function(adj) {
+      const sid = String(adj.studentId);
+      const amt = Number(adj.amount);
+      const current = balanceMap[sid] || 0;
+      const newBalance = current + amt;
+      balanceMap[sid] = newBalance;
+      upserts.push({ student_id: sid, balance: newBalance });
+      txs.push({
+        created_at: now,
+        class_id: classId,
+        student_id: sid,
+        amount: amt,
+        new_balance: newBalance,
+        reason: r
+      });
+      results.push({ studentId: sid, newBalance: newBalance });
+    });
+
+    const { error: upErr } = await db.from('dollar_balances').upsert(upserts, { onConflict: 'student_id' });
+    if (upErr) throw new Error(upErr.message);
+    const { error: txErr } = await db.from('dollar_transactions').insert(txs);
+    if (txErr) throw new Error(txErr.message);
+    afterDollarWrite(classId);
+    return results;
+  }
+
+  const results = [];
+  for (let i = 0; i < list.length; i++) {
+    const adj = list[i];
+    results.push(await applyDollarAdjustment(classId, adj.studentId, adj.amount, r));
+  }
+  return results;
+}
+
+module.exports = { getStudentDollarBalance, applyDollarAdjustment, applyDollarAdjustmentsBatch };

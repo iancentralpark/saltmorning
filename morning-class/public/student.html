@@ -48,7 +48,7 @@
     const box = $('buddyChat');
     box.innerHTML = buddyHistory.map(h =>
       '<div class="msg ' + h.role + '"><div class="msg-meta">' + escapeHtml(h.role) + '</div>' + escapeHtml(h.text) + '</div>'
-    ).join('') || '<p style="color:var(--muted)">Say hello to AI English Buddy!</p>';
+    ).join('') || '<p style="color:var(--muted)">Say hello to Virtual Mr. Park!</p>';
     box.scrollTop = box.scrollHeight;
   }
 
@@ -57,7 +57,7 @@
       const s = await api('/api/student/english-buddy/status', {}, role);
       $('buddyStatus').textContent = s.configured
         ? ('Remaining today: ' + s.remaining + ' / ' + s.dailyLimit)
-        : 'AI English Buddy will be available when GEMINI_API_KEY is configured.';
+        : 'Virtual Mr. Park will be available when GEMINI_API_KEY is configured.';
     } catch (e) { $('buddyStatus').textContent = ''; }
   }
 

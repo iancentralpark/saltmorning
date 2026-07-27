@@ -1112,6 +1112,100 @@
         .sidebar-panel[data-sidebar-id="googleSearch"] .sidebar-mini-chip { border-color: rgba(66, 133, 244, 0.5); color: #4285f4; }
         .sidebar-panel[data-sidebar-id="marqueeTicker"] .sidebar-mini-chip { border-color: rgba(245, 197, 24, 0.55); color: #f39c12; }
         .sidebar-panel[data-sidebar-id="stampBoard"] .sidebar-mini-chip { border-color: rgba(231, 76, 60, 0.5); color: #c0392b; }
+        .sidebar-panel[data-sidebar-id="abuseAlert"] .sidebar-mini-chip {
+            border-color: rgba(231, 76, 60, 0.65);
+            color: #c0392b;
+            position: relative;
+        }
+        .sidebar-abuse-launcher {
+            width: auto !important;
+            max-height: none !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .sidebar-abuse-launcher .sidebar-abuse-launcher-chip {
+            display: flex;
+        }
+        .sidebar-abuse-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #e74c3c;
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 800;
+            line-height: 18px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+        }
+        .sidebar-abuse-badge.is-empty { display: none; }
+        .abuse-flag-list { max-height: 420px; overflow: auto; }
+        .abuse-flag-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 10px;
+            background: #fff;
+            padding: 0.7rem 0.8rem;
+            margin-bottom: 0.55rem;
+        }
+        .abuse-flag-item:hover { border-color: rgba(231, 76, 60, 0.45); }
+        .abuse-flag-item.is-active {
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.15);
+        }
+        .abuse-flag-name { font-weight: 700; font-size: 0.92rem; }
+        .abuse-flag-meta { font-size: 0.72rem; color: #636e72; margin-top: 0.2rem; }
+        .abuse-flag-reasons { margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
+        .abuse-reason-pill {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.12rem 0.45rem;
+            border-radius: 999px;
+            background: #fdecea;
+            color: #c0392b;
+        }
+        .abuse-chat-log {
+            min-height: 320px;
+            max-height: 460px;
+            overflow: auto;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 0.85rem;
+        }
+        .abuse-chat-bubble {
+            max-width: 92%;
+            margin-bottom: 0.55rem;
+            padding: 0.55rem 0.7rem;
+            border-radius: 12px;
+            font-size: 0.86rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .abuse-chat-bubble.user {
+            margin-left: auto;
+            background: #dfe6fd;
+            color: #1e2a5a;
+        }
+        .abuse-chat-bubble.assistant {
+            margin-right: auto;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        .abuse-chat-role {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            opacity: 0.7;
+            margin-bottom: 0.15rem;
+        }
 
         /* ===== Class LED ticker (iPad / desktop projection) ===== */
         .class-marquee-bar,
@@ -6412,6 +6506,13 @@
     </button>
 </aside>
 
+<aside id="abuseAlertFloat" class="sidebar-panel hidden-section no-print sidebar-abuse-launcher" data-sidebar-id="abuseAlert" aria-label="Abuse Detection">
+    <button type="button" class="sidebar-mini-chip sidebar-abuse-launcher-chip" data-sidebar-id="abuseAlert" title="Abuse Detection — Virtual Mr. Park warnings" id="abuseAlertChipBtn">
+        <span aria-hidden="true">🚨</span>
+        <span class="sidebar-abuse-badge is-empty" id="abuseAlertBadge">0</span>
+    </button>
+</aside>
+
 <aside id="booksReturnFloat" class="sidebar-panel hidden-section no-print" data-sidebar-id="booksReturn" aria-label="Books to return">
     <div class="books-return-card">
         <div class="books-return-head sidebar-panel-head">
@@ -6797,6 +6898,49 @@
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Virtual Mr. Park Abuse Detection -->
+<div class="modal fade app-modal" id="abuseAlertModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><span aria-hidden="true">🚨</span> Abuse Detection — Virtual Mr. Park</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">
+                    Class: <strong id="abuseAlertClassName">—</strong>
+                    · Open warnings: <strong id="abuseAlertOpenCount">0</strong>
+                </p>
+                <div class="row g-3">
+                    <div class="col-lg-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-semibold">Flagged students</span>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="abuseAlertRefreshBtn">Refresh</button>
+                        </div>
+                        <div id="abuseAlertLoading" class="text-muted small py-3">Loading…</div>
+                        <div id="abuseFlagList" class="abuse-flag-list d-none"></div>
+                    </div>
+                    <div class="col-lg-8">
+                        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                            <span class="small fw-semibold" id="abuseChatTitle">Conversation log</span>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm d-none" id="abuseUnlockBtn">Unlock AI</button>
+                                <button type="button" class="btn btn-outline-success btn-sm d-none" id="abuseMarkReviewedBtn">Mark reviewed</button>
+                            </div>
+                        </div>
+                        <div id="abuseChatLog" class="abuse-chat-log">
+                            <div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -7522,8 +7666,8 @@
     let messengerThreadsById = {};
     let pendingTeacherRealtimeMessages = {};
     let messagePollTimer = null;
-    const MSG_POLL_MS = 120000;
-    const MSG_THREAD_REFRESH_MS = 30000;
+    const MSG_POLL_MS = 20000;
+    const MSG_THREAD_REFRESH_MS = 15000;
     let messengerRealtimeReady = false;
     let teacherSocketRetryTimer = null;
     const TEACHER_LAST_CLASS_KEY = 'mrpark_teacher_last_class';
@@ -7557,7 +7701,7 @@
     const SIDEBAR_LAYOUT_KEY = 'mrpark_sidebar_layout_v3';
     const SIDEBAR_IDS = [
         'upcomingEvent', 'classTools', 'booksReturn', 'marqueeTicker',
-        'announcement', 'classRules', 'youtube', 'googleSearch', 'stampBoard'
+        'announcement', 'classRules', 'youtube', 'googleSearch', 'stampBoard', 'abuseAlert'
     ];
     const SIDEBAR_META = {
         upcomingEvent: { el: 'upcomingEventFloat', label: 'Upcoming Event', icon: 'fa-calendar-days' },
@@ -7568,7 +7712,8 @@
         classRules: { el: 'classRulesFloat', label: 'Class Rules', icon: 'fa-scroll' },
         youtube: { el: 'youtubeFloat', label: 'Vocab Timer', icon: 'fa-stopwatch' },
         googleSearch: { el: 'googleSearchFloat', label: 'Search & AI', icon: 'fa-magnifying-glass' },
-        stampBoard: { el: 'stampBoardFloat', label: 'Stamp Board', icon: 'fa-stamp' }
+        stampBoard: { el: 'stampBoardFloat', label: 'Stamp Board', icon: 'fa-stamp' },
+        abuseAlert: { el: 'abuseAlertFloat', label: 'Abuse Detection', icon: 'fa-triangle-exclamation' }
     };
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const WORK_SECTION_IDS = ['hwLastSection', 'studentSection', 'textbookSection', 'homeworkUploadSection'];
@@ -8502,7 +8647,7 @@
             classId: selectedClass.id,
             className: selectedClass.name
         });
-        openPopupWindow(url, 480, 720, 'classLuckyDraw_');
+        openPopupWindow(url, 480, 820, 'classLuckyDraw_');
     }
 
     function openUnluckyDrawWindow() {
@@ -8702,6 +8847,12 @@
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
         document.getElementById('openUnluckyDrawBtn').addEventListener('click', openUnluckyDrawWindow);
         initStampBoardSidebarLauncher();
+        initAbuseAlertSidebarLauncher();
+        document.getElementById('abuseAlertRefreshBtn').addEventListener('click', function() {
+            refreshAbuseAlertModal(true);
+        });
+        document.getElementById('abuseMarkReviewedBtn').addEventListener('click', markSelectedAbuseFlagReviewed);
+        document.getElementById('abuseUnlockBtn').addEventListener('click', unlockSelectedAbuseStudent);
         document.getElementById('stampBoardCloseBtn').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardBackdrop').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardCashBtn').addEventListener('click', cashInStampBoard);
@@ -9078,6 +9229,7 @@
         loadClassSession(false);
         if (!isTeacherMobile()) showSidebarToggle();
         restoreMarqueeForClass(cls.id);
+        refreshAbuseAlertBadge();
     }
 
     const MARQUEE_STORAGE_PREFIX = 'mrpark_marquee_v1_';
@@ -9599,7 +9751,7 @@
         updateSidebarCompactBackdrop();
     }
 
-    const SIDEBAR_STACK_LEFT = ['upcomingEvent', 'booksReturn', 'googleSearch', 'classTools', 'stampBoard'];
+    const SIDEBAR_STACK_LEFT = ['upcomingEvent', 'booksReturn', 'googleSearch', 'classTools', 'stampBoard', 'abuseAlert'];
     const SIDEBAR_STACK_RIGHT = ['marqueeTicker', 'announcement', 'classRules', 'youtube'];
     const SIDEBAR_HEIGHT_FALLBACK = {
         upcomingEvent: 190,
@@ -9610,7 +9762,8 @@
         announcement: 190,
         classRules: 230,
         youtube: 200,
-        stampBoard: 44
+        stampBoard: 44,
+        abuseAlert: 44
     };
 
     function getSidebarPanelHeight(id) {
@@ -14145,6 +14298,7 @@
         activeMessageStudentId = '';
         activeMessageStudentName = '';
         document.body.classList.remove('messenger-in-chat');
+        renderMessengerInboxList();
         updateMobileKeyboardLayout();
         syncTeacherBottomNav();
         requestAnimationFrame(measureTeacherMobileChrome);
@@ -14209,7 +14363,9 @@
                 }
                 renderMessengerInboxList();
             })
-            .catch(function() {});
+            .catch(function(err) {
+                console.error('[messenger] inbox refresh failed', err && err.message ? err.message : err);
+            });
     }
 
     function msgTimeParts(createdAt) {
@@ -16293,6 +16449,297 @@
 
     function toggleStampBoardEraserMode() {
         setStampBoardEraserMode(!stampBoardEraserMode);
+    }
+
+    var abuseAlertState = {
+        flags: [],
+        selectedFlagId: null,
+        selectedStudentId: null,
+        pollTimer: null
+    };
+
+    function abuseReasonLabel(code) {
+        var map = {
+            LAZY_SHORT_ANSWERS: '단답·게으른 응답',
+            ULTRA_SHORT_MESSAGES: '초단문 과다',
+            LAZY_KEYWORDS: '게으름 키워드',
+            AI_STUDENT_RATIO: 'AI 의존 비율',
+            KEYBOARD_SMASH: '무의미 연타',
+            WORD_SPAM: '단어 스팸',
+            PROFANITY: '욕설·인신공격',
+            PROMPT_INJECTION: '규칙 해킹 시도',
+            SPAM: '스팸',
+            LAZY: '단답 패턴',
+            INJECTION: '프롬프트 인젝션',
+            AI_RATIO: 'AI 의존',
+            COPYING: 'AI 문장 베끼기',
+            NUMBER_ONLY: '번호만 선택',
+            ECHO: 'AI 문장 따라쓰기',
+            OVERHELP_PROTEST: '과잉도움 항의(AI가 거의 다 씀)',
+            IDK_STREAK: 'I don\'t know 연속'
+        };
+        return map[code] || String(code || '');
+    }
+
+    function abuseSeverityLabel(sev) {
+        if (sev === 'high') return '위험도: 높음';
+        if (sev === 'medium') return '위험도: 보통';
+        return '위험도: 낮음';
+    }
+
+    function setAbuseAlertBadge(count) {
+        var badge = document.getElementById('abuseAlertBadge');
+        var chip = document.getElementById('abuseAlertChipBtn');
+        if (!badge) return;
+        var n = Number(count) || 0;
+        badge.textContent = String(n);
+        badge.classList.toggle('is-empty', n <= 0);
+        if (chip) chip.title = n > 0
+            ? ('Abuse Detection — ' + n + ' warning' + (n === 1 ? '' : 's'))
+            : 'Abuse Detection — Virtual Mr. Park warnings';
+    }
+
+    function refreshAbuseAlertBadge() {
+        if (!selectedClass) {
+            setAbuseAlertBadge(0);
+            return;
+        }
+        nodeFetch('/api/english-buddy/abuse-flags?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+            .then(function(res) {
+                setAbuseAlertBadge(res && res.openCount != null ? res.openCount : ((res && res.flags) || []).length);
+            })
+            .catch(function() { /* keep last badge */ });
+    }
+
+    function scheduleAbuseAlertPolling() {
+        if (abuseAlertState.pollTimer) clearInterval(abuseAlertState.pollTimer);
+        abuseAlertState.pollTimer = setInterval(function() {
+            if (!selectedClass || document.hidden) return;
+            refreshAbuseAlertBadge();
+        }, 60000);
+    }
+
+    function cleanupOrphanModalBackdrops() {
+        if (document.querySelector('.modal.show')) return;
+        document.querySelectorAll('.modal-backdrop').forEach(function(b) { b.remove(); });
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('overflow');
+        document.body.style.removeProperty('padding-right');
+    }
+
+    function openAbuseAlertModal() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        document.getElementById('abuseAlertClassName').textContent = selectedClass.name;
+        document.getElementById('abuseAlertOpenCount').textContent = '0';
+        document.getElementById('abuseAlertLoading').classList.remove('d-none');
+        document.getElementById('abuseAlertLoading').textContent = 'Loading…';
+        document.getElementById('abuseFlagList').classList.add('d-none');
+        document.getElementById('abuseFlagList').innerHTML = '';
+        document.getElementById('abuseChatTitle').textContent = 'Conversation log';
+        document.getElementById('abuseChatLog').innerHTML =
+            '<div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>';
+        document.getElementById('abuseMarkReviewedBtn').classList.add('d-none');
+        abuseAlertState.selectedFlagId = null;
+        abuseAlertState.selectedStudentId = null;
+        var modalEl = document.getElementById('abuseAlertModal');
+        if (!modalEl._abuseCleanupBound) {
+            modalEl._abuseCleanupBound = true;
+            modalEl.addEventListener('hidden.bs.modal', function() {
+                cleanupOrphanModalBackdrops();
+                var compact = document.getElementById('sidebarCompactBackdrop');
+                if (compact) compact.classList.add('hidden-section');
+            });
+        }
+        var compactBd = document.getElementById('sidebarCompactBackdrop');
+        if (compactBd) compactBd.classList.add('hidden-section');
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        refreshAbuseAlertModal(true);
+    }
+
+    function refreshAbuseAlertModal(autoSelect) {
+        if (!selectedClass) return;
+        nodeFetch('/api/english-buddy/abuse-flags?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+            .then(function(res) {
+                abuseAlertState.flags = (res && res.flags) || [];
+                var openCount = res && res.openCount != null ? res.openCount : abuseAlertState.flags.length;
+                document.getElementById('abuseAlertOpenCount').textContent = String(openCount);
+                setAbuseAlertBadge(openCount);
+                renderAbuseFlagList(autoSelect);
+            })
+            .catch(function(err) {
+                document.getElementById('abuseAlertLoading').classList.remove('d-none');
+                document.getElementById('abuseAlertLoading').textContent =
+                    err.message || 'Could not load abuse flags.';
+                document.getElementById('abuseFlagList').classList.add('d-none');
+            });
+    }
+
+    function renderAbuseFlagList(autoSelect) {
+        var loading = document.getElementById('abuseAlertLoading');
+        var list = document.getElementById('abuseFlagList');
+        loading.classList.add('d-none');
+        if (!abuseAlertState.flags.length) {
+            list.classList.add('d-none');
+            loading.classList.remove('d-none');
+            loading.textContent = 'No open AI-dependency warnings for this class.';
+            return;
+        }
+        list.classList.remove('d-none');
+        list.innerHTML = abuseAlertState.flags.map(function(flag) {
+            var reasons = (flag.reasons || flag.abuseTypes || []).map(function(code) {
+                return '<span class="abuse-reason-pill">' + escapeHtml(abuseReasonLabel(code)) + '</span>';
+            }).join('');
+            var when = flag.flaggedAt ? String(flag.flaggedAt).replace('T', ' ').slice(0, 16) : '';
+            var active = String(flag.id) === String(abuseAlertState.selectedFlagId) ? ' is-active' : '';
+            var alertLine = (flag.naturalReason || flag.alertMessage)
+                ? '<div class="abuse-flag-meta" style="color:#c0392b;font-weight:700;margin-top:0.35rem;white-space:pre-wrap;">' +
+                    escapeHtml(flag.naturalReason
+                        ? ('사유: ' + flag.naturalReason)
+                        : flag.alertMessage) + '</div>'
+                : '';
+            var detail = flag.triggerExplanation
+                ? '<div class="abuse-flag-meta" style="margin-top:0.3rem;">' +
+                    escapeHtml(flag.triggerExplanation) + '</div>'
+                : '';
+            var sample = flag.sampleText
+                ? '<div class="abuse-flag-meta" style="margin-top:0.25rem;font-style:italic;">메시지: "' +
+                    escapeHtml(String(flag.sampleText).slice(0, 100)) + '"</div>'
+                : '';
+            var sev = flag.severity
+                ? '<span class="abuse-reason-pill">' + escapeHtml(abuseSeverityLabel(flag.severity)) + '</span>'
+                : '';
+            var strike = '<span class="abuse-reason-pill">경고 ' +
+                escapeHtml(String(flag.strikes || 0)) + '/' +
+                escapeHtml(String(flag.strikeLimit || 3)) +
+                (flag.locked ? ' · LOCKED' : '') + '</span>';
+            if (flag.hasChatSnapshot) {
+                strike += '<span class="abuse-reason-pill">대화 스냅샷 저장됨</span>';
+            }
+            return '<button type="button" class="abuse-flag-item' + active + '" data-flag-id="' +
+                escapeHtml(flag.id) + '" data-student-id="' + escapeHtml(flag.studentId) + '">' +
+                '<div class="abuse-flag-name">' + escapeHtml(flag.studentName || flag.studentId) +
+                (flag.locked ? ' 🔒' : '') + '</div>' +
+                '<div class="abuse-flag-meta">' + escapeHtml(flag.abuseType || flag.status) +
+                (when ? ' · ' + escapeHtml(when) : '') + '</div>' +
+                alertLine + detail + sample +
+                '<div class="abuse-flag-reasons">' + reasons + sev + strike + '</div>' +
+                '</button>';
+        }).join('');
+        list.querySelectorAll('.abuse-flag-item').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                selectAbuseFlag(btn.getAttribute('data-flag-id'), btn.getAttribute('data-student-id'));
+            });
+        });
+        if (autoSelect && abuseAlertState.flags[0]) {
+            selectAbuseFlag(abuseAlertState.flags[0].id, abuseAlertState.flags[0].studentId);
+        }
+    }
+
+    function selectAbuseFlag(flagId, studentId) {
+        abuseAlertState.selectedFlagId = flagId;
+        abuseAlertState.selectedStudentId = studentId;
+        var flag = abuseAlertState.flags.find(function(f) {
+            return String(f.id) === String(flagId);
+        });
+        document.querySelectorAll('#abuseFlagList .abuse-flag-item').forEach(function(el) {
+            el.classList.toggle('is-active', el.getAttribute('data-flag-id') === String(flagId));
+        });
+        document.getElementById('abuseChatTitle').textContent =
+            (flag && flag.studentName ? flag.studentName : studentId) +
+            ' — chat log' + (flag && flag.hasChatSnapshot ? ' (frozen)' : '');
+        document.getElementById('abuseMarkReviewedBtn').classList.remove('d-none');
+        var unlockBtn = document.getElementById('abuseUnlockBtn');
+        if (unlockBtn) {
+            unlockBtn.classList.toggle('d-none', !(flag && flag.locked));
+        }
+        document.getElementById('abuseChatLog').innerHTML =
+            '<div class="text-muted small">Loading conversation…</div>';
+        if (!selectedClass) return;
+        nodeFetch(
+            '/api/english-buddy/abuse-flags/chat?classId=' + encodeURIComponent(selectedClass.id) +
+            '&studentId=' + encodeURIComponent(studentId) + '&_=' + Date.now()
+        ).then(function(res) {
+            renderAbuseChatLog((res && res.messages) || []);
+        }).catch(function(err) {
+            document.getElementById('abuseChatLog').innerHTML =
+                '<div class="text-danger small">' + escapeHtml(err.message || 'Could not load chat.') + '</div>';
+        });
+    }
+
+    function renderAbuseChatLog(messages) {
+        var box = document.getElementById('abuseChatLog');
+        if (!messages.length) {
+            box.innerHTML = '<div class="text-muted small">No stored chat messages for this student yet.</div>';
+            return;
+        }
+        box.innerHTML = messages.map(function(m) {
+            var role = m.role === 'user' ? 'user' : 'assistant';
+            var label = role === 'user' ? 'Student' : 'Virtual Mr. Park';
+            return '<div class="abuse-chat-bubble ' + role + '">' +
+                '<span class="abuse-chat-role">' + label + '</span>' +
+                escapeHtml(m.text || '') +
+                '</div>';
+        }).join('');
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function unlockSelectedAbuseStudent() {
+        if (!selectedClass || !abuseAlertState.selectedStudentId) return;
+        var btn = document.getElementById('abuseUnlockBtn');
+        if (btn) btn.disabled = true;
+        nodeFetch('/api/english-buddy/abuse-flags/unlock', {
+            method: 'POST',
+            body: JSON.stringify({
+                classId: selectedClass.id,
+                studentId: abuseAlertState.selectedStudentId
+            })
+        }).then(function() {
+            appToast('Unlocked Virtual Mr. Park for this student.');
+            refreshAbuseAlertModal(true);
+            refreshAbuseAlertBadge();
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not unlock.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    function markSelectedAbuseFlagReviewed() {
+        if (!selectedClass || !abuseAlertState.selectedFlagId) return;
+        var btn = document.getElementById('abuseMarkReviewedBtn');
+        if (btn) btn.disabled = true;
+        nodeFetch('/api/english-buddy/abuse-flags/review', {
+            method: 'POST',
+            body: JSON.stringify({
+                flagId: abuseAlertState.selectedFlagId,
+                classId: selectedClass.id,
+                studentId: abuseAlertState.selectedStudentId
+            })
+        }).then(function() {
+            appToast('Marked as reviewed.');
+            abuseAlertState.selectedFlagId = null;
+            abuseAlertState.selectedStudentId = null;
+            document.getElementById('abuseMarkReviewedBtn').classList.add('d-none');
+            document.getElementById('abuseChatLog').innerHTML =
+                '<div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>';
+            refreshAbuseAlertModal(true);
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not mark reviewed.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    function initAbuseAlertSidebarLauncher() {
+        var panel = document.getElementById('abuseAlertFloat');
+        if (!panel) return;
+        var chip = panel.querySelector('.sidebar-abuse-launcher-chip, .sidebar-mini-chip');
+        if (!chip) return;
+        attachSidebarDrag(chip, panel, 'abuseAlert', function() { openAbuseAlertModal(); });
+        scheduleAbuseAlertPolling();
     }
 
     function initStampBoardSidebarLauncher() {

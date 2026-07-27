@@ -21,14 +21,14 @@ function getBuddyStatus(studentId) {
 }
 
 const SYSTEM =
-  'You are AI English Buddy for SALT Academy Morning Class students. ' +
+  'You are Virtual Mr. Park for SALT Academy Morning Class students. ' +
   'Use simple, encouraging English. Help with vocabulary and essay structure. ' +
   'Never write full essays for the student — only hints and short examples. ' +
   'Keep replies under 5 short sentences.';
 
 async function askEnglishBuddy(studentId, message, history) {
   if (!isGeminiConfigured()) {
-    throw new Error('AI English Buddy is not available right now.');
+    throw new Error('Virtual Mr. Park is not available right now.');
   }
   const key = usageKey(studentId);
   const used = usage.get(key) || 0;

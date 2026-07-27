@@ -69,10 +69,10 @@ async function addClassTextbook(classId, name, type, unitType, totalUnits, start
 }
 
 function findNextQueuedTextbookForType(items, completedType) {
-  const want = String(completedType || '').trim();
+  const want = String(completedType || '').trim().toLowerCase();
   if (!want) return null;
   for (let i = 0; i < items.length; i++) {
-    if (String(items[i].type || '').trim() === want) return items[i];
+    if (String(items[i].type || '').trim().toLowerCase() === want) return items[i];
   }
   return null;
 }
@@ -85,7 +85,8 @@ async function promoteNextQueuedTextbook(classId, completedType) {
     return { skipped: true, reason: 'incomplete', name: next.name, type: next.type };
   }
   const added = await addClassTextbook(classId, next.name, next.type, next.unitType, next.totalUnits, null);
-  await deleteRow(TEXTBOOK_SHEETS.QUEUE, next.row);
+  // Prefer delete by queueId (row index can drift with filtered/cached sheet views).
+  await deleteTextbookQueueItem(next.queueId);
   return {
     textbookId: added.textbookId,
     name: next.name,

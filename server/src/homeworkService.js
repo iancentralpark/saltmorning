@@ -4,7 +4,21 @@ const { cacheDeletePrefix } = require('./cache');
 const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { parseHomeworkDate, formatDateTimeNow, formatDateInTz } = require('./dateUtils');
-const { isClassroomConfigured, getClassroomApi } = require('./classroomAuth');
+const { isClassroomConfigured, getClassroomApi, resetClassroomApi } = require('./classroomAuth');
+
+const CLASSROOM_TOKEN_EXPIRED_MSG =
+  'Google Classroom login expired (invalid_grant). ' +
+  'If the OAuth app is still in Testing, refresh tokens die every ~7 days — ' +
+  'Publish the OAuth consent screen to Production, then re-run npm run oauth-setup and update Railway GOOGLE_OAUTH_REFRESH_TOKEN.';
+
+function classroomErrorMessage(err) {
+  const msg = String((err && err.message) || err || '');
+  if (/invalid_grant/i.test(msg)) {
+    resetClassroomApi();
+    return CLASSROOM_TOKEN_EXPIRED_MSG;
+  }
+  return msg || 'Classroom request failed.';
+}
 const {
   isManualPendingId,
   readManualPendingForClass,
@@ -491,7 +505,7 @@ async function postHomeworkToClassroom(courseId, title, description) {
     });
     return { ok: true, workId: res.data.id };
   } catch (e) {
-    return { ok: false, error: e.message || String(e) };
+    return { ok: false, error: classroomErrorMessage(e) };
   }
 }
 
@@ -512,7 +526,7 @@ async function patchHomeworkToClassroom(courseId, workId, title, description) {
     });
     return { ok: true, workId };
   } catch (e) {
-    return { ok: false, error: e.message || String(e) };
+    return { ok: false, error: classroomErrorMessage(e) };
   }
 }
 
@@ -777,7 +791,7 @@ async function saveAndPostHomework(classId, dateStr, title, items, options) {
     } else {
       const err = String(synced.error || '');
       if (/invalid_grant/i.test(err)) {
-        classroomMsg = ' (Classroom: Google login expired — re-run server npm run oauth-setup, then update Railway GOOGLE_OAUTH_REFRESH_TOKEN.)';
+        classroomMsg = ' (Classroom: Google login expired — Publish OAuth to Production, then re-run oauth-setup.)';
       } else {
         classroomMsg = ' (Classroom: ' + err + ')';
       }
@@ -851,7 +865,7 @@ async function syncHomeworkClassroomForClassDate(classId, dateStr) {
       return {
         ok: false,
         fallbackGas: true,
-        error: 'invalid_grant — Google OAuth refresh token expired. Re-run npm run oauth-setup and update Railway GOOGLE_OAUTH_REFRESH_TOKEN.'
+        error: CLASSROOM_TOKEN_EXPIRED_MSG
       };
     }
     if (/oauth|not configured/i.test(err)) {

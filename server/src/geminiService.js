@@ -111,13 +111,13 @@ function formatGeminiClientError(errorMsg, options) {
   const msg = String(errorMsg || '');
   if (/high demand|experiencing high demand|overloaded/i.test(msg)) {
     if (opts.audience === 'student') {
-      return 'English Buddy could not connect just now. Please try again in a moment.';
+      return 'Virtual Mr. Park could not connect just now. Please try again in a moment.';
     }
     return 'Ask Genius could not connect just now. Please try again in a moment.';
   }
   if (/no longer available/i.test(msg)) {
     if (opts.audience === 'student') {
-      return 'English Buddy is updating. Please try again in a moment.';
+      return 'Virtual Mr. Park is updating. Please try again in a moment.';
     }
     return 'Ask Genius is updating. Please try again in a moment.';
   }
@@ -127,12 +127,12 @@ function formatGeminiClientError(errorMsg, options) {
     if (kind === 'minute' && retryM) {
       const sec = Math.ceil(Number(retryM[1]));
       if (opts.audience === 'student') {
-        return 'English Buddy is busy right now. Wait about ' + sec + ' seconds and try again.';
+        return 'Virtual Mr. Park is busy right now. Wait about ' + sec + ' seconds and try again.';
       }
       return 'Ask Genius is busy — wait about ' + sec + ' seconds and try again.';
     }
     if (opts.audience === 'student') {
-      return 'English Buddy used up today\'s free AI limit for this class (~20 requests/day per model on Google\'s free plan). Try again after about 5 PM Korea time, or ask Mr. Park.';
+      return 'Virtual Mr. Park used up today\'s free AI limit for this class (~20 requests/day per model on Google\'s free plan). Try again after about 5 PM Korea time, or ask Mr. Park.';
     }
     return 'Today\'s free Gemini limit is used up (~20 requests/day per model). Resets after midnight US Pacific time, or enable billing in Google AI Studio.';
   }
@@ -142,24 +142,24 @@ function formatGeminiClientError(errorMsg, options) {
     if (kind === 'minute' && m) {
       const sec = Math.ceil(Number(m[1]));
       if (opts.audience === 'student') {
-        return 'English Buddy is busy right now. Please wait about ' + sec + ' seconds and try again.';
+        return 'Virtual Mr. Park is busy right now. Please wait about ' + sec + ' seconds and try again.';
       }
       return 'Ask Genius is busy — wait about ' + sec + ' seconds and try again.';
     }
     if (kind === 'daily' || /limit:\s*20\b/i.test(msg)) {
       if (opts.audience === 'student') {
-        return 'English Buddy used up today\'s free AI limit. Try again after about 5 PM Korea time, or ask Mr. Park.';
+        return 'Virtual Mr. Park used up today\'s free AI limit. Try again after about 5 PM Korea time, or ask Mr. Park.';
       }
       return 'Today\'s free Gemini limit is used up. Resets after midnight US Pacific time.';
     }
     if (opts.audience === 'student') {
-      return 'English Buddy is busy right now. Please wait a moment and try again.';
+      return 'Virtual Mr. Park is busy right now. Please wait a moment and try again.';
     }
     return 'Ask Genius is busy right now. Please wait a moment and try again.';
   }
   if (/timed out|timeout|AbortError/i.test(msg)) {
     if (opts.audience === 'student') {
-      return 'English Buddy took too long. Please try a shorter message.';
+      return 'Virtual Mr. Park took too long. Please try a shorter message.';
     }
     return 'Ask Genius timed out. Please try a shorter message.';
   }

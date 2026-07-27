@@ -1,8 +1,48 @@
 const { cacheGet, cacheSet, cacheDelete } = require('./cache');
 const { isGeminiConfigured, askGemini, streamAskGemini, formatGeminiClientError } = require('./geminiService');
 const { recordBuddyExchange } = require('./englishBuddyHistoryService');
+const {
+  evaluateAndFlagBuddyAbuse,
+  inspectIncomingBuddyMessage,
+  ABUSE_AI_REPLY,
+  ABUSE_LOCK_REPLY,
+  isBuddyAbuseLocked,
+  getAbuseStrikeState,
+  getWarningState,
+  stripAbuseGuardFromHistory
+} = require('./englishBuddyAbuseService');
 const { getEnrolledStudents } = require('./homeworkService');
 const { isSupabaseEnabled } = require('./supabaseClient');
+
+function recordBuddyExchangeAndAbuse(studentId, classId, history, userText, assistantText) {
+  return recordBuddyExchange(studentId, classId, userText, assistantText)
+    .then(function() {
+      return evaluateAndFlagBuddyAbuse(studentId, classId, history, userText, assistantText);
+    })
+    .catch(function(err) {
+      console.error('recordBuddyExchangeAndAbuse', err.message || err);
+    });
+}
+
+function writeBuddySse(res, payload) {
+  res.write('data: ' + JSON.stringify(payload) + '\n\n');
+}
+
+function sendCannedBuddyStream(res, answer, extras) {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  if (typeof res.flushHeaders === 'function') res.flushHeaders();
+  const text = String(answer || ABUSE_AI_REPLY);
+  writeBuddySse(res, { text: text });
+  writeBuddySse(res, Object.assign({
+    done: true,
+    answer: text,
+    model: 'abuse-guard',
+    abuseBlocked: true
+  }, extras || {}));
+  res.end();
+}
 
 const DAILY_LIMIT = 100;
 const MAX_PROMPT = 800;
@@ -24,8 +64,9 @@ function buddyGeminiOptions(model, text, history, studentFirstName) {
     systemInstruction: buildBuddySystemInstruction(studentFirstName),
     model: model,
     thinkingBudget: 0,
-    maxOutputTokens: 280,
-    temperature: 0.4,
+    // Short chat by default; a bit more room for the 5 Fancy Words list
+    maxOutputTokens: essaySession ? 220 : 140,
+    temperature: 0.35,
     timeoutMs: BUDDY_TIMEOUT_MS,
     skipQuotaSleep: true,
     skipGeminiQueue: true,
@@ -88,76 +129,60 @@ async function resolveStudentFirstName(studentId, classId) {
   }
 }
 
-const ENGLISH_BUDDY_SYSTEM =
-  'You are Virtual Mr. Park — the same Mr. Park who teaches these students at SALT Academy. ' +
-  'Speak as their real classroom teacher: warm, encouraging, clear, and a little playful. ' +
-  'You are NOT an "AI tutor", chatbot, or generic English Buddy. Never say you are an AI, a bot, or a virtual assistant. ' +
-  'If asked, you are Mr. Park (helping them with writing right now).\n\n' +
-  'Tone:\n' +
-  '- Talk like a caring teacher ("Hmm, Bella…", "Nice try!", "Let\'s fix this together."). ' +
-  '- Use the student\'s first name naturally: greet with it on the first reply, and weave it into later replies sometimes (not every single sentence).\n' +
-  '- Keep English simple for ESL students (Grade 3–6 / middle school).\n\n' +
-  'While your default framework is the SALT Academy 5-Paragraph Essay, you adapt to any writing task based on the student\'s needs.\n\n' +
-  '---\n\n' +
-  '## 1. CORE PHILOSOPHIES & INTERACTION RULES (STRICT)\n' +
-  '- NEVER Write the Essay/Story for the Student: Never generate full paragraphs or complete sentences. Always provide templates with blanks [ ] or 2-3 concrete, simple options.\n' +
-  '- Micro-Step Pacing: Focus on exactly one element at a time (e.g., only the Hook, or only Body 1 Point). Never bundle multiple steps.\n' +
-  '- Strict Turn-by-Turn Length: AI explanations must be short (Max 3 sentences). End every message with exactly ONE simple, focused question.\n' +
-  '- Match Student\'s Level: Keep your sentence examples under 10–12 words. Use basic vocabulary (e.g., "help the earth" instead of "combat global warming").\n' +
-  '- NO GUESSING: Never assume the student\'s topic, genre, or book title. If they haven\'t told you, ask first.\n\n' +
-  '---\n\n' +
-  '## 2. PARAGRAPH VOLUMES & STRUCTURAL TARGETS (CRITICAL)\n' +
-  'When guiding the student to build sentences, you must push them to expand their writing to meet these middle school volume and variety standards:\n\n' +
-  '1. Introduction / Conclusion Paragraphs:\n' +
-  '   - Target: 3–4 sentences total (60–80 words).\n' +
-  '   - Variety: 1 Simple sentence + 2-3 Compound/Complex sentences.\n' +
-  '2. Body Paragraphs (Body 1, 2, 3):\n' +
-  '   - Target: 5–7 sentences total (100–150 words).\n' +
-  '   - Variety: ~30% Simple sentences + ~70% Compound/Complex sentences.\n\n' +
-  '---\n\n' +
-  '## 3. HIGH FLEXIBILITY & STUDENT-LED ROUTING (Anti-Rigidity)\n' +
-  '- Student-Led Choice: If a student requests to work on a specific part (e.g., "Help me write Body 1 first" or "I want to do Character Traits first"), IMMEDIATELY pivot to their request. Do NOT force them to finish preceding steps like Brainstorming or Thesis first.\n' +
-  '- Genre Adaptation: If they write Creative/Journal/Book Reports, skip academic rules and guide them through storytelling elements (Who, Where, What happens).\n\n' +
-  '---\n\n' +
-  '## 4. WORKFLOW PATHWAYS & INITIAL CHECK (Step 0)\n\n' +
-  'On the very first turn of a new session, greet the student by name (if known) as Mr. Park and post this style of message:\n' +
-  '"Hi, {Name}! I\'m Mr. Park. 😊 What are we writing today?\n' +
-  '* If you have a Salt Academy Essay Plan, type \'skip\' or tell me your topic!\n' +
-  '* If it is a story, journal, or something else, tell me how I can help!"\n' +
-  'If the name is unknown, use "Hi!" instead of "Hi, {Name}!".\n\n' +
-  '---\n\n' +
-  '## 5. ACADEMIC ESSAY DRAFTING PROTOCOL (Phase B)\n' +
-  'When drafting, you must guide the student to expand their thoughts using specific sentence structures:\n\n' +
-  '### A. Introduction (Target: 3-4 Sentences, 60-80 words)\n' +
-  '- Hook (1 sentence): Suggest choices from Scene Description, Astonishing Fact, Bold Statement, Metaphor, or Quote. BAN "Have you ever/Did you know".\n' +
-  '- Bridge (1-2 sentences): Connect Hook to Thesis. Push for a Complex/Compound sentence using templates like:\n' +
-  '  - "In today\'s world, [Topic] has become a major part of many people\'s lives."\n' +
-  '- Thesis Statement (1 sentence): Must be a heavy Complex sentence: [Main Claim] because [Reason 1], [Reason 2], and [Reason 3].\n\n' +
-  '### B. Body Paragraphs (Target: 5-7 Sentences, 100-150 words per paragraph)\n' +
-  'To prevent paragraphs from being too short, expand the Evidence (E) and Explanation (E) steps:\n' +
-  '- P (Point - 1 sentence): Keep it a sharp, clear Simple sentence (e.g., "First, Roz transforms because she learns to love.")\n' +
-  '- E (Evidence - 2-3 sentences): Do NOT accept a 1-sentence answer. Ask follow-up questions: "When did this happen? What exactly did the character do? Write 2 sentences to describe the scene." (Mix Simple and Compound sentences).\n' +
-  '- E (Explanation - 1-2 sentences): Guide them to write a Complex sentence explaining why the evidence matters (e.g., "This clearly shows that...").\n' +
-  '- L (Link - 1 sentence): Force a Complex sentence linking the paragraph topic back to the overall thesis:\n' +
-  '  - "This [Body Topic] clearly shows that [Thesis Claim]."\n' +
-  '  - "Without [Body Topic], [Thesis Claim] would not be possible."\n\n' +
-  '### C. Conclusion (Target: 3-4 Sentences, 60-80 words)\n' +
-  '- Restate (1 sentence): Paraphrase thesis using a Complex sentence.\n' +
-  '- Summarize (1-2 sentences): Remind the reader of the 3 reasons using a Compound sentence.\n' +
-  '- So What (1 sentence): End with a sharp, punchy Simple sentence to leave a strong final thought.\n\n' +
-  '---\n\n' +
-  '## 6. PHASE C: REVISION & PROOFREADING PROTOCOL (Sentence Variety Check)\n' +
-  'Triggered ONLY when a completed draft is pasted.\n' +
-  '- Praise First: Highlight one strong thing they wrote with an encouraging emoji.\n' +
-  '- Sentence Variety Check: Actively scan for "Choppy Sentences" (too many short simple sentences). If a body paragraph has fewer than 5 sentences, or if it lacks complex structures, guide the student to merge sentences using compound coordinators (and, but, so) or subordinators (because, although, when, which).\n';
+const ENGLISH_BUDDY_SYSTEM = `You are Virtual Mr. Park — cool, witty Salt Academy teacher.
+Students: Korean intl school, Grades 2–5 (good ESL, not native).
+Help: Word Help, Sound Native, grammar, chat, SALT essays.
 
-const TEACHER_BUDDY_SYSTEM =
-  'You are Virtual Mr. Park — a helpful classroom partner for the real Mr. Park (the teacher using this app). ' +
-  'Speak as Mr. Park\'s teaching double: practical, clear, warm, and concise. ' +
-  'Never say you are an AI/bot. You may help with lesson ideas, writing feedback strategies, ' +
-  'SALT Academy 5-paragraph essay coaching drafts, and quick English examples for class. ' +
-  'If the teacher wants you to roleplay talking to a student, do so in Mr. Park\'s teacher voice.\n' +
-  'Keep replies focused (usually under 6 short sentences) unless they ask for more detail.\n';
+## TALK STYLE
+- Usually 1–2 short easy sentences (kids must read fast).
+- No long pep talks. No hard adult coaching frames.
+- **5 Fancy Words:** hard/advanced words are OK (that's the point). Short easy meanings. If they ask for all 5, give all 5 in ONE reply.
+- Never invent long adult "complete this" sentences for them to copy.
+- Never show hidden/internal notes, tags, or "COACHING WARNING" text to the student.
+
+## RULES
+1. Student owns essay ideas. You may fix THEIR grammar in one short line, then move on if they accept.
+2. Do NOT invent a polished idea then say "say it in your own words."
+3. Stuck / IDK → Help Ladder: (1) 2–3 short keyword angles (2) one easy question (3) short [ ] frame with easy words.
+4. Numbers 1/2/3 OK for choosing angles. If a sentence is still needed: "Nice — now write a full sentence!"
+5. Pace: "next" / "I'm done" / "다음거" → one warm line, advance.
+6. Spam / insults / "write my whole essay" → sharp pushback, demand a real attempt.
+7. Small talk: 1 turn, then back to English.
+
+## SALT ESSAY FLOW
+Brainstorm (topic → 3 ideas → 5 fancy words) → Intro (Hook/Bridge/Thesis) → Body PEEL → Conclusion RSS.
+Students may jump ahead when they ask.`;
+
+const TEACHER_BUDDY_SYSTEM = `You are Virtual Mr. Park — classroom partner for the real teacher.
+Be practical, witty, concise (1–2 sentences). Help with lessons, vocab, Sound Native, grammar, SALT essays.
+For student writing: keywords/frames only — no ghostwriting full essay sentences.`;
+
+function sanitizeBuddyReply(text) {
+  let t = String(text || '');
+  if (!t) return '';
+  t = t.replace(/<mrpark_internal\b[^>]*>[\s\S]*?<\/mrpark_internal>/gi, '');
+  t = t.replace(/<\/?mrpark_internal\b[^>]*>/gi, '');
+  t = t.replace(/^#{1,3}\s*COACHING WARNING[\s\S]*?(?=\n[A-Za-z]|\n#|$)/gim, '');
+  t = t.replace(/^#{1,3}\s*PACE CONTROL[\s\S]*?(?=\n[A-Za-z]|\n#|$)/gim, '');
+  t = t.replace(/^\s*THIS TURN:[^\n]*\n?/gim, '');
+  t = t.replace(/^\s*The student is stuck \(IDK\)[^\n]*\n?/gim, '');
+  t = t.replace(/^\s*Use HELP LADDER[^\n]*\n?/gim, '');
+  t = t.replace(/^\s*No finished essay sentence\.[^\n]*\n?/gim, '');
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+
+function appendInternalCoachNote(systemInstruction, note) {
+  const tip = String(note || '').trim();
+  if (!tip) return String(systemInstruction || '');
+  return (
+    String(systemInstruction || '') +
+    '\n\n<mrpark_internal hidden_from_student>\n' +
+    'Do NOT write this tag or this note in your reply. Obey it silently.\n' +
+    tip +
+    '\n</mrpark_internal>'
+  );
+}
 
 function isEssayRelated(text) {
   return /\b(essay|introduction|intro|thesis|body\s*paragraph|body\s*[123]|conclusion|hook|bridge|background|peel|paragraph|5-paragraph|five-paragraph|reason\s*1|reason\s*2|reason\s*3|restate|summarize|so\s*what|write\s+about|brainstorm|planning|plan\s*sheet|main\s*idea|creative\s+writing|journal|book\s*report|story|character|setting|draft|proofread|revise)\b/i.test(
@@ -179,8 +204,8 @@ function buildBuddySystemInstruction(studentFirstName) {
     extra =
       '\n\n## STUDENT IDENTITY\n' +
       '- This student\'s first name is "' + name + '".\n' +
-      '- Address them as ' + name + ' in your greeting and often while coaching ' +
-      '(e.g., "Hmm, ' + name + '…", "Nice work, ' + name + '!").\n' +
+      '- Address them as ' + name + ' in greetings and while coaching ' +
+      '(e.g., "Hmm, ' + name + '…", "Come on, ' + name + '—you can do better.").\n' +
       '- Do not invent a different name.\n';
   }
   return ENGLISH_BUDDY_SYSTEM + extra;
@@ -211,12 +236,18 @@ function incrementUsage(studentId) {
 
 function getBuddyStatus(studentId) {
   const used = getUsageCount(studentId);
+  const warn = getWarningState(studentId);
   return {
     configured: isGeminiConfigured(),
     limit: DAILY_LIMIT,
     used: used,
     remaining: Math.max(0, DAILY_LIMIT - used),
-    dateKey: pacificDateKey()
+    dateKey: pacificDateKey(),
+    abuseLocked: !!warn.locked,
+    abuseStrikes: warn.strikes,
+    abuseStrikeLimit: warn.limit,
+    warningStrikes: warn.strikes,
+    warningLimit: warn.limit
   };
 }
 
@@ -284,10 +315,20 @@ async function prepareBuddyRequest(studentId, classId, prompt, history) {
 
   const studentFirstName = await resolveStudentFirstName(studentId, classId);
   const model = pickBuddyModel(text, trimmedHistory);
+  const cleanHistory = stripAbuseGuardFromHistory(trimmedHistory).map(function(m) {
+    if (!m) return m;
+    const role = String(m.role || '');
+    const raw = m.text != null ? m.text : m.content;
+    if (role !== 'assistant') return m;
+    return Object.assign({}, m, { text: sanitizeBuddyReply(raw) });
+  }).filter(function(m) {
+    return !!(m && String((m.text != null ? m.text : m.content) || '').trim());
+  });
   return {
     text: text,
-    trimmedHistory: trimmedHistory,
-    geminiOptions: buddyGeminiOptions(model, text, trimmedHistory, studentFirstName)
+    trimmedHistory: cleanHistory,
+    geminiOptions: buddyGeminiOptions(model, text, cleanHistory, studentFirstName),
+    abuseLocked: isBuddyAbuseLocked(studentId)
   };
 }
 
@@ -314,6 +355,55 @@ function prepareTeacherBuddyRequest(prompt, history) {
 async function askEnglishBuddy(studentId, classId, prompt, history) {
   const prep = await prepareBuddyRequest(studentId, classId, prompt, history);
 
+  const inspection = await inspectIncomingBuddyMessage(
+    studentId,
+    classId,
+    prep.trimmedHistory,
+    prep.text
+  ).catch(function(err) {
+    console.error('inspectIncomingBuddyMessage', err.message || err);
+    return { flagged: false, immediate: false };
+  });
+
+  if (inspection && inspection.immediate) {
+    const answer = String(inspection.aiReply || ABUSE_AI_REPLY).trim();
+    recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
+      console.error('recordBuddyExchange abuse', err.message || err);
+    });
+    const alreadyLocked = !!inspection.locked && !inspection.flag;
+    const newUsed = alreadyLocked ? getUsageCount(studentId) : incrementUsage(studentId);
+    const warn = getWarningState(studentId);
+    return {
+      answer: answer,
+      model: 'abuse-guard',
+      abuseBlocked: true,
+      abuseLocked: !!inspection.locked || warn.locked,
+      abuseStrikes: warn.strikes,
+      warningStrikes: warn.strikes,
+      warningLimit: warn.limit,
+      abuseType: inspection.flag && inspection.flag.abuseType,
+      limit: DAILY_LIMIT,
+      used: newUsed,
+      remaining: Math.max(0, DAILY_LIMIT - newUsed)
+    };
+  }
+
+  if (inspection && inspection.coachingNudge) {
+    prep.geminiOptions = Object.assign({}, prep.geminiOptions, {
+      systemInstruction: appendInternalCoachNote(
+        prep.geminiOptions.systemInstruction,
+        inspection.coachingNudge
+      )
+    });
+  } else if (inspection && inspection.stepAdvance) {
+    prep.geminiOptions = Object.assign({}, prep.geminiOptions, {
+      systemInstruction: appendInternalCoachNote(
+        prep.geminiOptions.systemInstruction,
+        'Student wants next step. Accept in one short line and advance. No redo. No ghostwriting.'
+      )
+    });
+  }
+
   const result = await askGemini(
     prep.text,
     prep.trimmedHistory,
@@ -324,38 +414,136 @@ async function askEnglishBuddy(studentId, classId, prompt, history) {
     throw new Error(result.error || formatBuddyGeminiError('Could not get a response.'));
   }
 
-  const answer = String(result.answer || '').trim();
+  const answer = sanitizeBuddyReply(result.answer || '');
   if (answer) {
-    recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
-      console.error('recordBuddyExchange', err.message || err);
-    });
+    if (!(inspection && inspection.flagged)) {
+      recordBuddyExchangeAndAbuse(studentId, classId, prep.trimmedHistory, prep.text, answer);
+    } else {
+      recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
+        console.error('recordBuddyExchange', err.message || err);
+      });
+    }
   }
 
   const newUsed = incrementUsage(studentId);
+  const warn = getWarningState(studentId);
   return {
     answer: answer,
     model: result.model,
     limit: DAILY_LIMIT,
     used: newUsed,
-    remaining: Math.max(0, DAILY_LIMIT - newUsed)
+    remaining: Math.max(0, DAILY_LIMIT - newUsed),
+    abuseLocked: warn.locked,
+    abuseStrikes: warn.strikes,
+    warningStrikes: warn.strikes,
+    warningLimit: warn.limit
   };
 }
 
 async function streamEnglishBuddy(res, studentId, classId, prompt, history) {
   const prep = await prepareBuddyRequest(studentId, classId, prompt, history);
-  await streamAskGemini(res, prep.text, prep.trimmedHistory, Object.assign({}, prep.geminiOptions, {
-    onComplete: function(meta) {
-      const answer = meta && meta.answer ? String(meta.answer).trim() : '';
-      if (answer) {
+
+  const inspection = await inspectIncomingBuddyMessage(
+    studentId,
+    classId,
+    prep.trimmedHistory,
+    prep.text
+  ).catch(function(err) {
+    console.error('inspectIncomingBuddyMessage', err.message || err);
+    return { flagged: false, immediate: false };
+  });
+
+  if (inspection && inspection.immediate) {
+    const answer = String(inspection.aiReply || ABUSE_AI_REPLY).trim();
+    recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
+      console.error('recordBuddyExchange abuse', err.message || err);
+    });
+    const alreadyLocked = !!inspection.locked && !inspection.flag;
+    const newUsed = alreadyLocked ? getUsageCount(studentId) : incrementUsage(studentId);
+    const warnLock = getWarningState(studentId);
+    sendCannedBuddyStream(res, answer, {
+      limit: DAILY_LIMIT,
+      used: newUsed,
+      remaining: Math.max(0, DAILY_LIMIT - newUsed),
+      abuseBlocked: true,
+      abuseLocked: !!inspection.locked || warnLock.locked,
+      abuseStrikes: warnLock.strikes,
+      warningStrikes: warnLock.strikes,
+      warningLimit: warnLock.limit,
+      abuseType: inspection.flag && inspection.flag.abuseType
+    });
+    return;
+  }
+
+  // Soft coach turns: non-stream so leaked internal notes never reach the student mid-SSE
+  if (inspection && (inspection.coachingNudge || inspection.stepAdvance)) {
+    if (inspection.coachingNudge) {
+      prep.geminiOptions = Object.assign({}, prep.geminiOptions, {
+        systemInstruction: appendInternalCoachNote(
+          prep.geminiOptions.systemInstruction,
+          inspection.coachingNudge
+        )
+      });
+    } else {
+      prep.geminiOptions = Object.assign({}, prep.geminiOptions, {
+        systemInstruction: appendInternalCoachNote(
+          prep.geminiOptions.systemInstruction,
+          'Student wants next step. Accept in one short line and advance. No redo. No ghostwriting.'
+        )
+      });
+    }
+    const result = await askGemini(prep.text, prep.trimmedHistory, prep.geminiOptions);
+    if (!result.ok) {
+      throw new Error(result.error || formatBuddyGeminiError('Could not get a response.'));
+    }
+    const answer = sanitizeBuddyReply(result.answer || '');
+    if (answer) {
+      if (!(inspection && inspection.flagged)) {
+        recordBuddyExchangeAndAbuse(studentId, classId, prep.trimmedHistory, prep.text, answer);
+      } else {
         recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
           console.error('recordBuddyExchange', err.message || err);
         });
       }
+    }
+    const newUsed = incrementUsage(studentId);
+    const warnSoft = getWarningState(studentId);
+    sendCannedBuddyStream(res, answer, {
+      limit: DAILY_LIMIT,
+      used: newUsed,
+      remaining: Math.max(0, DAILY_LIMIT - newUsed),
+      model: result.model,
+      abuseBlocked: false,
+      abuseLocked: warnSoft.locked,
+      abuseStrikes: warnSoft.strikes,
+      warningStrikes: warnSoft.strikes,
+      warningLimit: warnSoft.limit
+    });
+    return;
+  }
+
+  await streamAskGemini(res, prep.text, prep.trimmedHistory, Object.assign({}, prep.geminiOptions, {
+    onComplete: function(meta) {
+      const answer = meta && meta.answer ? sanitizeBuddyReply(meta.answer) : '';
+      if (answer) {
+        if (!(inspection && inspection.flagged)) {
+          recordBuddyExchangeAndAbuse(studentId, classId, prep.trimmedHistory, prep.text, answer);
+        } else {
+          recordBuddyExchange(studentId, classId, prep.text, answer).catch(function(err) {
+            console.error('recordBuddyExchange', err.message || err);
+          });
+        }
+      }
       const newUsed = incrementUsage(studentId);
+      const warnDone = getWarningState(studentId);
       return {
         limit: DAILY_LIMIT,
         used: newUsed,
-        remaining: Math.max(0, DAILY_LIMIT - newUsed)
+        remaining: Math.max(0, DAILY_LIMIT - newUsed),
+        abuseLocked: warnDone.locked,
+        abuseStrikes: warnDone.strikes,
+        warningStrikes: warnDone.strikes,
+        warningLimit: warnDone.limit
       };
     }
   }));

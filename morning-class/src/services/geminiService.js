@@ -4,7 +4,7 @@ function isGeminiConfigured() {
 
 async function askGemini(prompt, options) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('AI English Buddy is not configured.');
+  if (!apiKey) throw new Error('Virtual Mr. Park is not configured.');
 
   const model = (options && options.model) || 'gemini-2.5-flash-lite';
   const systemInstruction = (options && options.systemInstruction) || '';

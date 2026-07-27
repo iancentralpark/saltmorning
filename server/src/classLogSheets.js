@@ -45,8 +45,29 @@ async function getClassLogValues(tabName, a1) {
   return res.data.values || [];
 }
 
+const _colACache = new Map();
+const COL_A_CACHE_TTL_MS = 60000;
+
 async function getClassLogColumnA(tabName, maxRows = 200) {
-  return getClassLogValues(tabName, `A1:A${maxRows}`);
+  const key = String(tabName) + ':' + maxRows;
+  const hit = _colACache.get(key);
+  if (hit && (Date.now() - hit.at) < COL_A_CACHE_TTL_MS) {
+    return hit.rows;
+  }
+  const rows = await getClassLogValues(tabName, `A1:A${maxRows}`);
+  _colACache.set(key, { at: Date.now(), rows });
+  return rows;
+}
+
+function invalidateClassLogColumnACache(tabName) {
+  if (!tabName) {
+    _colACache.clear();
+    return;
+  }
+  const prefix = String(tabName) + ':';
+  for (const key of _colACache.keys()) {
+    if (key.startsWith(prefix)) _colACache.delete(key);
+  }
 }
 
 async function updateClassLogRange(tabName, a1, values) {
@@ -57,6 +78,10 @@ async function updateClassLogRange(tabName, a1, values) {
     valueInputOption: 'USER_ENTERED',
     requestBody: { values }
   });
+  // Column A may have changed (names / month headers).
+  if (/^A\d/i.test(String(a1)) || /^A\d+:A\d+$/i.test(String(a1))) {
+    invalidateClassLogColumnACache(tabName);
+  }
 }
 
 async function batchClassLogUpdate(requests) {
@@ -86,6 +111,7 @@ function a1Cell(row1, col0) {
 module.exports = {
   getClassLogValues,
   getClassLogColumnA,
+  invalidateClassLogColumnACache,
   updateClassLogRange,
   batchClassLogUpdate,
   getClassLogSheetId,

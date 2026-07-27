@@ -141,11 +141,31 @@ async function setPortalPassword(studentId, plainPassword, options) {
       .from('students')
       .update({ password_hash: password_hash })
       .eq('id', String(studentId)));
+  } else if (error && plainPassword) {
+    // Hash update may still succeed even if login_password was rejected.
+    const hashOnly = await db
+      .from('students')
+      .update({ password_hash: password_hash })
+      .eq('id', String(studentId));
+    if (!hashOnly.error) {
+      const plainOnly = await db
+        .from('students')
+        .update({ login_password: plainPassword })
+        .eq('id', String(studentId));
+      error = plainOnly.error || null;
+      if (error) {
+        console.warn('setPortalPassword login_password write failed', studentId, error.message || error);
+        error = null;
+      }
+    } else {
+      error = hashOnly.error;
+    }
   }
 
   if (error) throw new Error(error.message || 'Could not update password.');
 
   invalidateSheetPortalLoginCache();
+  cacheDeletePrefix('portal_logins_v1_');
 
   let sheetSync = { synced: false };
   if (opts.syncSheet !== false && plainPassword && shouldSyncPasswordsToSheet()) {
@@ -176,10 +196,9 @@ async function listPortalLoginsForClass(classId, options) {
   });
 
   let sheetById = {};
-  const needsSheet = data.some(function(row) {
-    return !String(row.login_password || '').trim() || !String(row.login_id || '').trim();
-  });
-  if (needsSheet && await canReadSheetPortalLogins()) {
+  // Always merge sheet logins so empty Supabase login_password still shows the
+  // Student_List value (and stays current once password changes sync to sheet).
+  if (await canReadSheetPortalLogins()) {
     try {
       sheetById = await readSheetPortalLoginsForClass(classKey);
     } catch (e) {

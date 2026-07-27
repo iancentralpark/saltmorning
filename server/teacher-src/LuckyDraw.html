@@ -32,9 +32,9 @@
                 radial-gradient(circle at 50% 95%, rgba(59, 158, 221, 0.2), transparent 45%),
                 linear-gradient(180deg, #fff8e1 0%, #fffdf5 45%, #f3f8ff 100%);
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
-            padding: 1rem;
+            padding: 0.55rem 0.65rem 0.7rem;
         }
         .shell {
             width: min(100%, 460px);
@@ -42,10 +42,14 @@
             border: 3px solid rgba(241, 196, 15, 0.55);
             border-radius: 24px;
             box-shadow: 0 6px 0 rgba(241, 196, 15, 0.18), 0 18px 42px rgba(155, 89, 182, 0.14);
-            padding: 1.25rem 1.35rem 1.4rem;
+            padding: 0.85rem 1rem 0.95rem;
             text-align: center;
             position: relative;
         }
+        .shell .popup-snail-mark { margin-bottom: 0.15rem; }
+        .shell .popup-snail-mark .snail-mascot-sm { width: 36px; height: 36px; }
+        .shell:has(.result-panel.show) .popup-snail-mark,
+        .shell:has(.result-panel.show) .lever-label { display: none; }
         .edit-prizes-btn {
             position: absolute;
             top: 0.85rem;
@@ -231,25 +235,25 @@
         }
         .title {
             font-family: 'Fredoka', sans-serif;
-            font-size: 1.55rem;
+            font-size: 1.35rem;
             font-weight: 700;
-            margin: 0 0 0.35rem;
+            margin: 0 0 0.2rem;
             color: #6d4c00;
         }
         .title i { color: #f1c40f; margin-right: 0.3rem; }
-        .sub { font-size: 0.88rem; color: var(--muted); margin: 0 0 0.75rem; font-weight: 700; }
-        .student-pick { margin-bottom: 1rem; text-align: left; }
+        .sub { font-size: 0.82rem; color: var(--muted); margin: 0 0 0.45rem; font-weight: 700; }
+        .student-pick { margin-bottom: 0.55rem; text-align: left; }
         .student-pick label {
-            display: block; font-size: 0.78rem; font-weight: 800; color: var(--muted);
-            margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em;
+            display: block; font-size: 0.72rem; font-weight: 800; color: var(--muted);
+            margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em;
         }
         .student-pick select {
-            width: 100%; border: 2px solid rgba(241, 196, 15, 0.45); border-radius: 14px;
-            padding: 0.65rem 0.75rem; font-family: 'Nunito', sans-serif; font-size: 0.95rem; font-weight: 700; background: #fff;
+            width: 100%; border: 2px solid rgba(241, 196, 15, 0.45); border-radius: 12px;
+            padding: 0.45rem 0.65rem; font-family: 'Nunito', sans-serif; font-size: 0.9rem; font-weight: 700; background: #fff;
         }
         .student-dollar-balance {
-            margin-top: 0.45rem;
-            font-size: 0.82rem;
+            margin-top: 0.3rem;
+            font-size: 0.78rem;
             font-weight: 800;
             color: #27ae60;
             display: none;
@@ -264,8 +268,8 @@
         .draw-mode-toggle {
             display: flex;
             gap: 0.35rem;
-            margin: 0 0 0.85rem;
-            padding: 0.25rem;
+            margin: 0 0 0.45rem;
+            padding: 0.2rem;
             border-radius: 999px;
             background: rgba(241, 196, 15, 0.12);
             border: 2px solid rgba(241, 196, 15, 0.35);
@@ -277,10 +281,10 @@
             background: transparent;
             color: #8d6e00;
             font-family: 'Fredoka', sans-serif;
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             font-weight: 700;
             letter-spacing: 0.02em;
-            padding: 0.45rem 0.55rem;
+            padding: 0.35rem 0.45rem;
             cursor: pointer;
             transition: background 0.15s, color 0.15s, transform 0.12s;
         }
@@ -296,20 +300,20 @@
         }
         .paid-mode-hint {
             display: none;
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             font-weight: 800;
             color: #d68910;
-            margin: -0.35rem 0 0.65rem;
+            margin: -0.2rem 0 0.4rem;
         }
         body.paid-draw-mode .paid-mode-hint { display: block; }
-        .save-status { font-size: 0.8rem; font-weight: 700; color: #27ae60; min-height: 1.2rem; margin-top: 0.5rem; }
+        .save-status { font-size: 0.78rem; font-weight: 700; color: #27ae60; min-height: 0.95rem; margin-top: 0.3rem; }
 
         .slot-stage {
             display: flex;
             align-items: stretch;
             justify-content: center;
             gap: 0.15rem;
-            margin-bottom: 0.55rem;
+            margin-bottom: 0.3rem;
         }
         .slot-machine {
             position: relative;
@@ -318,7 +322,7 @@
             background:
                 linear-gradient(165deg, #8d6e63 0%, #5d4037 18%, #4e342e 42%, #3e2723 72%, #2c1810 100%);
             border-radius: 22px 22px 18px 18px;
-            padding: 0.65rem 0.7rem 0.75rem;
+            padding: 0.45rem 0.55rem 0.5rem;
             border: 3px solid #bcaaa4;
             box-shadow:
                 0 10px 0 #1a0f0a,
@@ -369,9 +373,9 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 0.32rem;
-            padding: 0.35rem 0.45rem 0.5rem;
-            margin: -0.15rem -0.2rem 0.45rem;
+            gap: 0.28rem;
+            padding: 0.22rem 0.35rem 0.32rem;
+            margin: -0.1rem -0.15rem 0.3rem;
             background: linear-gradient(180deg, #2c1810, #1a0f0a);
             border-radius: 14px 14px 8px 8px;
             border-bottom: 2px solid rgba(255, 202, 40, 0.35);
@@ -412,17 +416,17 @@
         }
         .slot-top {
             font-family: 'Fredoka', sans-serif;
-            font-size: 0.82rem;
-            letter-spacing: 0.24em;
+            font-size: 0.76rem;
+            letter-spacing: 0.2em;
             color: #fff8e1;
-            margin-bottom: 0.55rem;
+            margin-bottom: 0.35rem;
             text-transform: uppercase;
             position: relative;
             text-shadow:
                 0 0 14px rgba(255, 235, 59, 0.55),
                 0 2px 0 rgba(0, 0, 0, 0.45);
-            padding: 0.42rem 0.65rem;
-            border-radius: 12px;
+            padding: 0.3rem 0.55rem;
+            border-radius: 10px;
             background:
                 linear-gradient(180deg, #e53935 0%, #c62828 38%, #8e0000 100%);
             border: 2px solid #ffca28;
@@ -435,8 +439,8 @@
         .slot-windows {
             position: relative;
             z-index: 1;
-            padding: 0.5rem;
-            border-radius: 16px;
+            padding: 0.35rem;
+            border-radius: 14px;
             background:
                 linear-gradient(180deg, #1a0f0a 0%, #0d0806 50%, #1a0f0a 100%);
             border: 2px solid #6d4c41;
@@ -564,8 +568,8 @@
             text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
         }
         .slot-base-trim {
-            height: 6px;
-            margin: 0.55rem 0.15rem 0;
+            height: 5px;
+            margin: 0.35rem 0.15rem 0;
             border-radius: 999px;
             background: linear-gradient(90deg, #5d4037, #ffd54f, #ff8f00, #ffd54f, #5d4037);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
@@ -642,18 +646,18 @@
         }
         .lever-label {
             font-family: 'Fredoka', sans-serif;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
             font-weight: 700;
             color: #6d4c00;
-            margin-top: 0.4rem;
+            margin-top: 0.25rem;
             text-align: center;
         }
 
         .result-panel {
             display: none;
-            margin-top: 0.5rem;
-            padding: 0.85rem 0.75rem;
-            border-radius: 16px;
+            margin-top: 0.35rem;
+            padding: 0.55rem 0.65rem 0.65rem;
+            border-radius: 14px;
             background: linear-gradient(160deg, #fffef5, #fff8e1);
             border: 2px solid rgba(241, 196, 15, 0.45);
         }
@@ -665,37 +669,37 @@
         .tier-badge {
             display: inline-block;
             font-family: 'Fredoka', sans-serif;
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             font-weight: 700;
             letter-spacing: 0.06em;
             text-transform: uppercase;
-            padding: 0.28rem 0.75rem;
+            padding: 0.2rem 0.65rem;
             border-radius: 999px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
             color: #fff;
             box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
         }
         .prize-text {
             font-family: 'Fredoka', sans-serif;
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            line-height: 1.3;
+            line-height: 1.25;
             color: #2d3436;
         }
         .slot-hint {
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             color: var(--muted);
             font-weight: 700;
-            margin: 0.35rem 0 0;
+            margin: 0.2rem 0 0;
         }
         .btn-again {
-            margin-top: 0.75rem;
+            margin-top: 0.45rem;
             border: none;
             border-radius: 999px;
-            padding: 0.55rem 1.25rem;
+            padding: 0.48rem 1.15rem;
             font-family: 'Fredoka', sans-serif;
             font-weight: 700;
-            font-size: 0.92rem;
+            font-size: 0.9rem;
             cursor: pointer;
             background: linear-gradient(135deg, #f1c40f, #f39c12);
             color: #fff;

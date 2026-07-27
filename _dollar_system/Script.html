@@ -1,0 +1,1918 @@
+<script>
+  // 전역 변수
+  let currentUser = null;
+  let currentUserType = null; // 'teacher' or 'student'
+  let currentClassName = null; // 현재 선택된 클래스 이름
+  
+  // 세션 저장/복원 함수
+  function saveSession() {
+    if (currentUser && currentUserType) {
+      sessionStorage.setItem('dollarBankUser', JSON.stringify(currentUser));
+      sessionStorage.setItem('dollarBankUserType', currentUserType);
+    }
+  }
+  
+  function restoreSession() {
+    try {
+      const savedUser = sessionStorage.getItem('dollarBankUser');
+      const savedUserType = sessionStorage.getItem('dollarBankUserType');
+      
+      if (savedUser && savedUserType) {
+        currentUser = JSON.parse(savedUser);
+        currentUserType = savedUserType;
+        
+        // 사용자 정보가 있으면 메인 화면 표시
+        if (currentUser && currentUserType) {
+          showMainScreen();
+          
+          // 사용자 타입에 따라 적절한 화면 로드
+          if (currentUserType === 'teacher') {
+            loadStudentsList();
+          } else if (currentUserType === 'student') {
+            loadStudentAccount();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('세션 복원 오류:', error);
+      sessionStorage.clear();
+    }
+  }
+  
+  // 탭 전환 함수
+  function switchLoginTab(tabName) {
+    const teacherTab = document.getElementById('teacher-tab');
+    const studentTab = document.getElementById('student-tab');
+    const teacherLoginPane = document.getElementById('teacher-login');
+    const studentLoginPane = document.getElementById('student-login');
+    
+    if (!teacherTab || !studentTab || !teacherLoginPane || !studentLoginPane) {
+      console.error('탭 요소를 찾을 수 없습니다');
+      return;
+    }
+    
+    if (tabName === 'teacher') {
+      // 교사 탭 활성화
+      teacherTab.classList.add('active');
+      teacherTab.setAttribute('aria-selected', 'true');
+      studentTab.classList.remove('active');
+      studentTab.setAttribute('aria-selected', 'false');
+      
+      // 교사 로그인 패널 표시
+      teacherLoginPane.classList.add('show', 'active');
+      teacherLoginPane.classList.remove('fade');
+      teacherLoginPane.style.display = 'block';
+      teacherLoginPane.style.visibility = 'visible';
+      teacherLoginPane.style.opacity = '1';
+      
+      // 학생 로그인 패널 숨기기
+      studentLoginPane.classList.remove('show', 'active');
+      studentLoginPane.style.display = 'none';
+      studentLoginPane.style.visibility = 'hidden';
+      studentLoginPane.style.opacity = '0';
+    } else if (tabName === 'student') {
+      // 학생 탭 활성화
+      studentTab.classList.add('active');
+      studentTab.setAttribute('aria-selected', 'true');
+      teacherTab.classList.remove('active');
+      teacherTab.setAttribute('aria-selected', 'false');
+      
+      // 학생 로그인 패널 표시
+      studentLoginPane.classList.add('show', 'active');
+      studentLoginPane.classList.remove('fade');
+      studentLoginPane.style.display = 'block';
+      studentLoginPane.style.visibility = 'visible';
+      studentLoginPane.style.opacity = '1';
+      
+      // 교사 로그인 패널 숨기기
+      teacherLoginPane.classList.remove('show', 'active');
+      teacherLoginPane.style.display = 'none';
+      teacherLoginPane.style.visibility = 'hidden';
+      teacherLoginPane.style.opacity = '0';
+    }
+  }
+  
+  // 페이지 로드 시 초기화
+  document.addEventListener('DOMContentLoaded', function() {
+    // 세션 복원 시도
+    restoreSession();
+    
+    // 로그인 폼 이벤트 리스너
+    document.getElementById('teacherLoginForm').addEventListener('submit', handleTeacherLogin);
+    document.getElementById('studentLoginForm').addEventListener('submit', handleStudentLogin);
+    
+    // 탭 클릭 이벤트 직접 처리 (Bootstrap 기본 동작 완전 차단)
+    const teacherTab = document.getElementById('teacher-tab');
+    const studentTab = document.getElementById('student-tab');
+    
+    if (teacherTab) {
+      teacherTab.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        switchLoginTab('teacher');
+        return false;
+      });
+    }
+    
+    if (studentTab) {
+      studentTab.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        switchLoginTab('student');
+        return false;
+      });
+    }
+    
+    // 초기 탭 상태 설정
+    switchLoginTab('teacher');
+    
+    // 탭 네비게이션
+    document.querySelectorAll('[data-tab]').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        switchTab(this.getAttribute('data-tab'));
+      });
+    });
+    
+    // 관리자 탭 네비게이션
+    document.querySelectorAll('[data-admin-tab]').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        switchAdminTab(this.getAttribute('data-admin-tab'));
+      });
+    });
+    
+    // 초기화 확인
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          console.log('시스템 초기화 완료');
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('초기화 오류:', error);
+      })
+      .initializeSheets();
+  });
+  
+  /**
+   * 교사 로그인 처리
+   */
+  function handleTeacherLogin(e) {
+    e.preventDefault();
+    const teacherID = document.getElementById('teacherID').value;
+    const password = document.getElementById('teacherPassword').value;
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          currentUser = result.teacher;
+          currentUserType = 'teacher';
+          saveSession(); // 세션 저장
+          showMainScreen();
+          loadStudentsList();
+        } else {
+          showError(result.message);
+        }
+      })
+      .withFailureHandler(function(error) {
+        showError('로그인 중 오류가 발생했습니다: ' + error.message);
+      })
+      .authenticateTeacher(teacherID, password);
+  }
+  
+  /**
+   * 학생 로그인 처리
+   */
+  function handleStudentLogin(e) {
+    e.preventDefault();
+    const pinCode = document.getElementById('studentPinCode').value;
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          currentUser = result.student;
+          currentUserType = 'student';
+          saveSession(); // 세션 저장
+          showMainScreen();
+          loadStudentAccount();
+        } else {
+          showError(result.message);
+        }
+      })
+      .withFailureHandler(function(error) {
+        showError('로그인 중 오류가 발생했습니다: ' + error.message);
+      })
+      .authenticateStudent(pinCode);
+  }
+  
+  /**
+   * 메인 화면 표시
+   */
+  function showMainScreen() {
+    document.getElementById('loginScreen').classList.add('d-none');
+    document.getElementById('mainScreen').classList.remove('d-none');
+    
+    // 사용자 정보 표시
+    if (currentUserType === 'teacher') {
+      document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.role})`;
+      
+      // 관리자 메뉴 표시
+      if (currentUser.role === 'Admin') {
+        document.getElementById('adminNav').style.display = 'block';
+      }
+      // 초기 화면은 클래스 목록이므로 Add Class 버튼만 표시
+      document.getElementById('addClassBtn').style.display = 'inline-block';
+      document.getElementById('addStudentBtn').style.display = 'none';
+    } else {
+      document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.className})`;
+      document.getElementById('myAccountNav').style.display = 'block';
+      document.getElementById('studentsTab').classList.add('d-none');
+      switchTab('myAccount');
+    }
+    
+    // 네비게이션 활성화
+    updateNavActive();
+  }
+  
+  /**
+   * 탭 전환
+   */
+  function switchTab(tabName) {
+    // 모든 탭 숨기기
+    document.querySelectorAll('.tab-content').forEach(tab => {
+      tab.classList.add('d-none');
+    });
+    
+    // 선택된 탭 표시
+    if (tabName === 'students') {
+      document.getElementById('studentsTab').classList.remove('d-none');
+      if (currentUserType === 'teacher') {
+        loadStudentsList();
+      }
+    } else if (tabName === 'myAccount') {
+      document.getElementById('myAccountTab').classList.remove('d-none');
+      loadStudentAccount();
+    } else if (tabName === 'admin') {
+      document.getElementById('adminTab').classList.remove('d-none');
+      loadAdminData();
+    }
+    
+    updateNavActive();
+  }
+  
+  /**
+   * 관리자 탭 전환
+   */
+  function switchAdminTab(tabName) {
+    if (tabName === 'students') {
+      document.getElementById('adminStudentsPanel').classList.remove('d-none');
+      document.getElementById('adminTeachersPanel').classList.add('d-none');
+      loadAdminStudents();
+    } else if (tabName === 'teachers') {
+      document.getElementById('adminStudentsPanel').classList.add('d-none');
+      document.getElementById('adminTeachersPanel').classList.remove('d-none');
+      loadAdminTeachers();
+    }
+    
+    // 탭 링크 활성화
+    document.querySelectorAll('[data-admin-tab]').forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('data-admin-tab') === tabName) {
+        link.classList.add('active');
+      }
+    });
+  }
+  
+  /**
+   * 네비게이션 활성화 업데이트
+   */
+  function updateNavActive() {
+    document.querySelectorAll('[data-tab]').forEach(link => {
+      link.classList.remove('active');
+      const tab = link.getAttribute('data-tab');
+      if ((tab === 'students' && document.getElementById('studentsTab').classList.contains('d-none') === false) ||
+          (tab === 'myAccount' && document.getElementById('myAccountTab').classList.contains('d-none') === false) ||
+          (tab === 'admin' && document.getElementById('adminTab').classList.contains('d-none') === false)) {
+        link.classList.add('active');
+      }
+    });
+  }
+  
+  /**
+   * 학생 목록 로드 - 모든 사용자는 클래스 목록 표시
+   */
+  function loadStudentsList() {
+    try {
+      if (!currentUser) {
+        console.error('currentUser가 없습니다.');
+        return;
+      }
+      
+      // 모든 사용자(Admin, Teacher)는 클래스 목록 표시
+      console.log('클래스 목록 표시 시작');
+      showClassList();
+    } catch (error) {
+      console.error('loadStudentsList 함수 오류:', error);
+    }
+  }
+  
+  /**
+   * 반 목록 표시
+   */
+  function showClassList() {
+    try {
+      // 요소 확인
+      const classListContainer = document.getElementById('classListContainer');
+      const classListRow = document.getElementById('classListRow');
+      
+      if (!classListContainer || !classListRow) {
+        console.error('필수 요소를 찾을 수 없습니다:', { classListContainer, classListRow });
+        return;
+      }
+      
+      classListContainer.style.display = 'block';
+      document.getElementById('studentListContainer').style.display = 'none';
+      document.getElementById('backToClassesBtn').style.display = 'none';
+      document.getElementById('studentsTabTitle').innerHTML = '<i class="bi bi-people"></i> Class List';
+      // Add Class 버튼만 표시, Add Student 버튼은 숨김
+      if (currentUser && currentUserType === 'teacher') {
+        document.getElementById('addClassBtn').style.display = 'inline-block';
+        document.getElementById('addStudentBtn').style.display = 'none';
+      }
+      
+      classListRow.innerHTML = '<div class="col-12 text-center">Loading...</div>';
+      
+      // currentUser 확인
+      if (!currentUser || !currentUser.teacherID) {
+        console.error('currentUser가 올바르지 않습니다:', currentUser);
+        classListRow.innerHTML = '<div class="col-12 text-center text-danger">Cannot load user information.</div>';
+        return;
+      }
+      
+      // assignedClasses가 배열인지 확인하고 처리
+      let assignedClasses = [];
+      if (currentUser.assignedClasses) {
+        if (Array.isArray(currentUser.assignedClasses)) {
+          assignedClasses = currentUser.assignedClasses;
+        } else if (typeof currentUser.assignedClasses === 'string') {
+          assignedClasses = currentUser.assignedClasses.split(',').map(c => c.trim()).filter(c => c);
+        }
+      }
+      
+      // Admin인 경우 모든 클래스 표시
+      if (currentUser.role === 'Admin') {
+        assignedClasses = ['ALL']; // Admin은 모든 클래스 접근
+      } else if (assignedClasses.length === 0) {
+        // 교사인데 할당된 반이 없으면 경고
+        classListRow.innerHTML = '<div class="col-12 text-center text-warning">No assigned classes. Please contact administrator.</div>';
+        return;
+      }
+      
+      // Add Class 버튼 표시 (모든 교사/관리자)
+      if (currentUser && currentUserType === 'teacher') {
+        document.getElementById('addClassBtn').style.display = 'inline-block';
+        document.getElementById('addStudentBtn').style.display = 'none';
+      }
+      
+      console.log('반 목록 조회 시작:', { 
+        teacherID: currentUser.teacherID, 
+        role: currentUser.role,
+        assignedClasses: assignedClasses,
+        originalAssignedClasses: currentUser.assignedClasses
+      });
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('반 목록 조회 성공:', result);
+          console.log('반환된 클래스 목록:', result.classes);
+          console.log('클래스 개수:', result.classes ? result.classes.length : 0);
+          if (result && result.success) {
+            if (result.classes && result.classes.length > 0) {
+              console.log('클래스 목록 표시 시작, 클래스 개수:', result.classes.length);
+              console.log('클래스 목록 내용:', JSON.stringify(result.classes));
+              displayClassList(result.classes);
+            } else {
+              console.log('클래스 목록이 비어있음');
+              classListRow.innerHTML = '<div class="col-12 text-center text-muted">No classes registered.</div>';
+            }
+          } else {
+            console.error('반 목록 조회 실패:', result);
+            classListRow.innerHTML = `<div class="col-12 text-center text-danger">${result ? result.message : 'Unknown error'}</div>`;
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('반 목록 조회 실패:', error);
+          const errorMsg = error ? (error.message || error.toString()) : 'Unknown error';
+          classListRow.innerHTML = `<div class="col-12 text-center text-danger">Error: ${errorMsg}</div>`;
+        })
+        .getClassesForTeacher(currentUser.teacherID, assignedClasses);
+    } catch (error) {
+      console.error('showClassList 함수 오류:', error);
+      const classListRow = document.getElementById('classListRow');
+      if (classListRow) {
+        classListRow.innerHTML = `<div class="col-12 text-center text-danger">Error: ${error.message || error.toString()}</div>`;
+      }
+    }
+  }
+  
+  /**
+   * 반 목록 표시
+   */
+  function displayClassList(classes) {
+    try {
+      const classListRow = document.getElementById('classListRow');
+      if (!classListRow) {
+        console.error('classListRow 요소를 찾을 수 없습니다.');
+        return;
+      }
+      
+      if (!classes || classes.length === 0) {
+        classListRow.innerHTML = '<div class="col-12 text-center text-muted">No classes registered.</div>';
+        return;
+      }
+      
+      classListRow.innerHTML = '';
+      let draggedElement = null;
+      let draggedIndex = -1;
+      
+      classes.forEach((className, index) => {
+        if (!className) return; // 빈 값 제외
+        
+        // 작은따옴표 이스케이프 처리
+        const safeClassName = String(className).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        
+        const col = document.createElement('div');
+        col.className = 'col-md-4 col-sm-6 mb-3 class-item';
+        col.setAttribute('data-class-name', className);
+        col.setAttribute('data-index', index);
+        col.innerHTML = `
+          <div class="card h-100 clickable-card" data-class-name="${safeClassName}" style="cursor: pointer; position: relative;">
+            <div class="card-body text-center">
+              <i class="bi bi-grip-vertical text-muted drag-handle" style="position: absolute; top: 10px; right: 10px; cursor: move; font-size: 1.2rem; z-index: 10;" 
+                 title="Drag to reorder"></i>
+              <i class="bi bi-people-fill fs-1 text-primary mb-2"></i>
+              <h5 class="card-title">${className}</h5>
+              <p class="card-text text-muted">Click to view student list</p>
+            </div>
+          </div>
+        `;
+        
+        const card = col.querySelector('.card');
+        const dragHandle = col.querySelector('.drag-handle');
+        
+        // 카드 클릭 이벤트
+        card.addEventListener('click', function(e) {
+          // 드래그 핸들을 클릭한 경우는 무시
+          if (e.target.closest('.drag-handle')) return;
+          showStudentsInClass(className);
+        });
+        
+        // 드래그 핸들만 드래그 가능하도록 설정
+        dragHandle.setAttribute('draggable', 'true');
+        col.setAttribute('draggable', 'false');
+        
+        // 드래그 시작 (핸들에서만)
+        dragHandle.addEventListener('dragstart', function(e) {
+          draggedElement = col;
+          draggedIndex = index;
+          e.dataTransfer.setData('text/plain', className);
+          e.dataTransfer.effectAllowed = 'move';
+          col.classList.add('dragging');
+          col.style.opacity = '0.5';
+          
+          // 드래그 이미지 설정
+          const dragImage = col.cloneNode(true);
+          dragImage.style.position = 'absolute';
+          dragImage.style.top = '-1000px';
+          document.body.appendChild(dragImage);
+          e.dataTransfer.setDragImage(dragImage, 50, 50);
+          setTimeout(() => document.body.removeChild(dragImage), 0);
+        });
+        
+        // 드래그 종료 (핸들에서)
+        dragHandle.addEventListener('dragend', function(e) {
+          if (col) {
+            col.classList.remove('dragging');
+            col.style.opacity = '1';
+            col.style.transform = '';
+            col.style.border = '';
+            col.style.borderTop = '';
+          }
+          
+          // 모든 드롭 존 하이라이트 제거
+          if (classListRow) {
+            classListRow.querySelectorAll('.class-item').forEach(item => {
+              item.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+            });
+          }
+          
+          draggedElement = null;
+          draggedIndex = -1;
+        });
+        
+        // 드래그 오버 (드롭 존 위에 있을 때)
+        col.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = 'move';
+          
+          if (draggedElement === col) return;
+          
+          // 드롭 위치 계산 (위/아래)
+          const rect = col.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+          const midPoint = rect.height / 2;
+          
+          // 기존 하이라이트 제거
+          col.classList.remove('drag-over-top', 'drag-over-bottom');
+          
+          if (y < midPoint) {
+            col.classList.add('drag-over-top');
+          } else {
+            col.classList.add('drag-over-bottom');
+          }
+        });
+        
+        // 드래그 리브 (드롭 존을 벗어날 때)
+        col.addEventListener('dragleave', function(e) {
+          // 자식 요소로 이동하는 경우는 무시
+          if (col.contains(e.relatedTarget)) return;
+          
+          col.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+        });
+        
+        // 드롭
+        col.addEventListener('drop', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const draggedClassName = e.dataTransfer.getData('text/plain');
+          if (!draggedClassName || draggedClassName === className) {
+            col.classList.remove('drag-over-top', 'drag-over-bottom');
+            return;
+          }
+          
+          // 드롭 위치 결정
+          const rect = col.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+          const midPoint = rect.height / 2;
+          const insertBefore = y < midPoint;
+          
+          // 순서 재정렬
+          const currentIndex = Array.from(classListRow.children).indexOf(col);
+          const draggedCol = Array.from(classListRow.children).find(
+            item => item.getAttribute('data-class-name') === draggedClassName
+          );
+          
+          if (draggedCol && draggedCol !== col) {
+            const draggedColIndex = Array.from(classListRow.children).indexOf(draggedCol);
+            const targetIndex = insertBefore ? currentIndex : currentIndex + 1;
+            
+            // DOM에서 이동
+            if (draggedColIndex < targetIndex) {
+              if (col.nextSibling) {
+                classListRow.insertBefore(draggedCol, col.nextSibling);
+              } else {
+                classListRow.appendChild(draggedCol);
+              }
+            } else {
+              classListRow.insertBefore(draggedCol, col);
+            }
+            
+            // 서버에 순서 업데이트
+            const newOrder = Array.from(classListRow.querySelectorAll('.class-item'))
+              .map(item => item.getAttribute('data-class-name'))
+              .filter(name => name);
+            
+            reorderClasses(newOrder);
+          }
+          
+          col.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        
+        classListRow.appendChild(col);
+      });
+    } catch (error) {
+      console.error('displayClassList 함수 오류:', error);
+      const classListRow = document.getElementById('classListRow');
+      if (classListRow) {
+        classListRow.innerHTML = `<div class="col-12 text-center text-danger">Display error: ${error.message || error.toString()}</div>`;
+      }
+    }
+  }
+  
+  /**
+   * 클래스 순서 재정렬
+   */
+  function reorderClasses(classNames) {
+    if (!classNames || classNames.length === 0) return;
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          showToast('Class order updated successfully.', 'success');
+          // 목록 새로고침하지 않고 현재 순서 유지
+          // showClassList();
+        } else {
+          showToast(result.message || 'Failed to update class order.', 'danger');
+          // 실패 시 목록 새로고침
+          showClassList();
+        }
+      })
+      .withFailureHandler(function(error) {
+        showToast('Error updating class order: ' + error.message, 'danger');
+        // 실패 시 목록 새로고침
+        showClassList();
+      })
+      .updateClassOrder(classNames);
+  }
+  
+  /**
+   * 특정 반의 학생 목록 표시
+   */
+  function showStudentsInClass(className) {
+    try {
+      // className 정리 (접미사 제거)
+      className = className.replace(/\s*-\s*Students?/i, '').trim();
+      console.log('showStudentsInClass 호출:', className);
+      
+      const classListContainer = document.getElementById('classListContainer');
+      const studentListContainer = document.getElementById('studentListContainer');
+      const backToClassesBtn = document.getElementById('backToClassesBtn');
+      const studentsTabTitle = document.getElementById('studentsTabTitle');
+      const tbody = document.getElementById('studentsTableBody');
+      
+      if (!classListContainer || !studentListContainer || !tbody) {
+        console.error('필수 요소를 찾을 수 없습니다');
+        return;
+      }
+      
+      classListContainer.style.display = 'none';
+      studentListContainer.style.display = 'block';
+      if (backToClassesBtn) backToClassesBtn.style.display = 'inline-block';
+      if (studentsTabTitle) studentsTabTitle.innerHTML = `<i class="bi bi-people"></i> ${className} - Students`;
+      currentClassName = className; // 현재 클래스 저장
+      // 학생 목록 화면에서는 Add Student 버튼만 표시, Add Class 버튼은 숨김
+      if (document.getElementById('addClassBtn')) {
+        document.getElementById('addClassBtn').style.display = 'none';
+      }
+      if (document.getElementById('addStudentBtn') && currentUser && currentUserType === 'teacher') {
+        document.getElementById('addStudentBtn').style.display = 'inline-block';
+      }
+      
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      
+      // currentUser 확인
+      if (!currentUser || !currentUser.teacherID) {
+        console.error('currentUser가 올바르지 않습니다:', currentUser);
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Cannot load user information.</td></tr>';
+        return;
+      }
+      
+      // assignedClasses가 배열인지 확인하고 처리
+      let assignedClasses = [];
+      if (currentUser.assignedClasses) {
+        if (Array.isArray(currentUser.assignedClasses)) {
+          assignedClasses = currentUser.assignedClasses;
+        } else if (typeof currentUser.assignedClasses === 'string') {
+          assignedClasses = currentUser.assignedClasses.split(',').map(c => c.trim()).filter(c => c);
+        }
+      }
+      
+      console.log('학생 목록 조회 시작:', { className, teacherID: currentUser.teacherID, assignedClasses });
+      
+      // 타임아웃 설정 (30초)
+      const timeoutId = setTimeout(function() {
+        console.error('학생 목록 조회 타임아웃');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Request timeout. Please try again.</td></tr>';
+      }, 30000);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          clearTimeout(timeoutId);
+          console.log('학생 목록 조회 성공:', result);
+          
+          if (!result) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Cannot receive response.</td></tr>';
+            return;
+          }
+          
+          if (result.success) {
+            if (result.students && result.students.length > 0) {
+              displayStudentsTableByClass(result.students, tbody, className);
+            } else {
+              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No students registered.</td></tr>';
+            }
+          } else {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${result.message || 'Unknown error'}</td></tr>`;
+          }
+        })
+        .withFailureHandler(function(error) {
+          clearTimeout(timeoutId);
+          console.error('학생 목록 조회 실패:', error);
+          const errorMsg = error ? (error.message || error.toString()) : '알 수 없는 오류';
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">오류: ${errorMsg}</td></tr>`;
+        })
+        .getStudentsByClass(className, currentUser.teacherID, assignedClasses);
+    } catch (error) {
+      console.error('showStudentsInClass 함수 오류:', error);
+      const tbody = document.getElementById('studentsTableBody');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">오류: ${error.message || error.toString()}</td></tr>`;
+      }
+    }
+  }
+  
+  // 전역 변수: 현재 선택된 학생 정보
+  let currentStudentInfo = null;
+  let currentStudentTransactions = [];
+  
+  /**
+   * 학생 테이블 표시 (관리자용)
+   */
+  function displayStudentsTable(students, tbody, showPinCode) {
+    if (students.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">등록된 학생이 없습니다.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = '';
+    students.forEach(student => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${student.studentID}</td>
+        <td>${student.name}</td>
+        <td>${student.className}</td>
+        <td class="${student.balance >= 0 ? 'balance-positive' : 'balance-negative'}">${student.balance} dollars</td>
+        <td>
+            <button class="btn btn-sm btn-primary" onclick="showStudentInfo('${student.studentID}')">
+              <i class="bi bi-info-circle"></i> Info
+            </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+  
+  /**
+   * 학생 테이블 표시 (반별)
+   */
+  function displayStudentsTableByClass(students, tbody, className) {
+    try {
+      if (!students || students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">등록된 학생이 없습니다.</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = '';
+      students.forEach(student => {
+        const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.onclick = () => showStudentInfo(student.studentID);
+        row.onmouseover = () => row.style.backgroundColor = '#f8f9fa';
+        row.onmouseout = () => row.style.backgroundColor = '';
+        
+        // studentID 이스케이프 처리
+        const safeStudentID = String(student.studentID).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        
+        row.innerHTML = `
+          <td>${student.studentID || ''}</td>
+          <td>${student.name || ''}</td>
+          <td class="${student.balance >= 0 ? 'balance-positive' : 'balance-negative'}">${student.balance || 0} dollars</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); showStudentInfo('${safeStudentID}')">
+              <i class="bi bi-info-circle"></i> Info
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    } catch (error) {
+      console.error('displayStudentsTableByClass 함수 오류:', error);
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">표시 중 오류: ${error.message || error.toString()}</td></tr>`;
+    }
+  }
+  
+  /**
+   * 학생 정보 모달 표시
+   */
+  function showStudentInfo(studentID) {
+    try {
+      console.log('showStudentInfo 호출:', studentID);
+      
+      if (!studentID) {
+        showToast('Student ID is required.', 'danger');
+        return;
+      }
+      
+      document.getElementById('studentInfoStudentID').value = studentID;
+      document.getElementById('studentTransactionReason').value = '';
+      document.getElementById('customAmount').value = '';
+      
+      // 모달 먼저 열기
+      const modal = new bootstrap.Modal(document.getElementById('studentInfoModal'));
+      modal.show();
+      
+      // 거래 내역 로딩 표시
+      const tbody = document.getElementById('studentTransactionsBody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      }
+      
+      // 학생 정보 로드
+      google.script.run
+        .withSuccessHandler(function(result) {
+          console.log('학생 정보 조회 결과:', result);
+          
+          if (result && result.success) {
+            const student = result.student;
+            currentStudentInfo = student;
+            
+            document.getElementById('studentInfoModalTitle').textContent = `${student.name} - Student Information`;
+            document.getElementById('studentInfoName').textContent = student.name;
+            document.getElementById('studentInfoID').textContent = student.studentID;
+            document.getElementById('studentInfoClass').textContent = student.className;
+            document.getElementById('studentInfoBalance').textContent = student.balance;
+            
+            // 모달이 완전히 열린 후 거래 내역 로드
+            setTimeout(function() {
+              loadStudentTransactions(studentID);
+            }, 300);
+          } else {
+            showToast(result ? result.message : 'Cannot load student information.', 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('학생 정보 조회 실패:', error);
+          showToast('Error loading student information: ' + (error ? error.message : 'Unknown error'), 'danger');
+        })
+        .getStudentByID(studentID);
+    } catch (error) {
+      console.error('showStudentInfo 함수 오류:', error);
+      showToast('An error occurred: ' + error.message, 'danger');
+    }
+  }
+  
+  /**
+   * 학생 거래 내역 로드
+   */
+  function loadStudentTransactions(studentID) {
+    try {
+      console.log('loadStudentTransactions 호출:', studentID);
+      
+      if (!studentID) {
+        console.error('studentID가 없습니다.');
+        return;
+      }
+      
+      const tbody = document.getElementById('studentTransactionsBody');
+      if (!tbody) {
+        console.error('studentTransactionsBody 요소를 찾을 수 없습니다. 모달이 열렸는지 확인하세요.');
+        // 모달이 아직 열리지 않았을 수 있으므로 잠시 후 다시 시도
+        setTimeout(function() {
+          loadStudentTransactions(studentID);
+        }, 500);
+        return;
+      }
+      
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      
+      console.log('거래 내역 조회 시작:', studentID);
+      
+      // 타임아웃 설정 (30초)
+      let timeoutId = setTimeout(function() {
+        console.error('거래 내역 조회 타임아웃');
+        const tbody = document.getElementById('studentTransactionsBody');
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Request timeout. Please try again.</td></tr>';
+        }
+      }, 30000);
+      
+      // 함수 호출 - 더 명확한 방식
+      try {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            clearTimeout(timeoutId);
+            console.log('=== 거래 내역 조회 성공 ===');
+            console.log('응답 타입:', typeof result);
+            console.log('응답 내용:', JSON.stringify(result));
+            
+            const tbody = document.getElementById('studentTransactionsBody');
+            if (!tbody) {
+              console.error('응답 받았지만 tbody를 찾을 수 없습니다.');
+              return;
+            }
+            
+            // 응답이 없는 경우
+            if (result === null || result === undefined) {
+              console.error('응답이 null 또는 undefined입니다.');
+              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Cannot receive response.</td></tr>';
+              return;
+            }
+            
+            // result가 객체인지 확인
+            if (typeof result !== 'object') {
+              console.error('응답이 객체가 아닙니다:', typeof result, result);
+              tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">응답 형식 오류: ' + typeof result + '</td></tr>';
+              return;
+            }
+            
+            // success 속성 확인
+            if (result.success === true) {
+              if (result.transactions && Array.isArray(result.transactions)) {
+                if (result.transactions.length > 0) {
+                  currentStudentTransactions = result.transactions;
+                  displayStudentTransactions(result.transactions, tbody);
+                } else {
+                  tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No transaction history.</td></tr>';
+                }
+              } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No transaction history.</td></tr>';
+              }
+            } else {
+              const errorMsg = result.message || 'Unknown error';
+              console.error('거래 내역 조회 실패:', errorMsg);
+              tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">${errorMsg}</td></tr>`;
+            }
+          })
+          .withFailureHandler(function(error) {
+            clearTimeout(timeoutId);
+            console.error('=== 거래 내역 조회 실패 ===');
+            console.error('오류 객체:', error);
+            console.error('오류 타입:', typeof error);
+            console.error('오류 메시지:', error ? error.message : '없음');
+            console.error('오류 문자열:', error ? error.toString() : '없음');
+            
+            const tbody = document.getElementById('studentTransactionsBody');
+            if (tbody) {
+              let errorMsg = 'Unknown error';
+              if (error) {
+                if (error.message) {
+                  errorMsg = error.message;
+                } else if (typeof error === 'string') {
+                  errorMsg = error;
+                } else {
+                  errorMsg = JSON.stringify(error);
+                }
+              }
+              tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">오류: ${errorMsg}</td></tr>`;
+            }
+          })
+          .getStudentTransactions(studentID);
+      } catch (e) {
+        clearTimeout(timeoutId);
+        console.error('함수 호출 자체가 실패:', e);
+        const tbody = document.getElementById('studentTransactionsBody');
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">함수 호출 오류: ${e.message || e.toString()}</td></tr>`;
+        }
+      }
+    } catch (error) {
+      console.error('loadStudentTransactions 함수 오류:', error);
+      const tbody = document.getElementById('studentTransactionsBody');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">오류: ${error.message || error.toString()}</td></tr>`;
+      }
+    }
+  }
+  
+  /**
+   * 학생 거래 내역 표시
+   */
+  function displayStudentTransactions(transactions, tbody) {
+    try {
+      if (!tbody) {
+        console.error('tbody 요소를 찾을 수 없습니다.');
+        return;
+      }
+      
+      if (!transactions || transactions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">거래 내역이 없습니다.</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = '';
+      transactions.forEach((transaction, index) => {
+        if (!transaction) return;
+        
+        const row = document.createElement('tr');
+        
+        // 날짜 처리
+        let dateStr = '-';
+        try {
+          if (transaction.timestamp) {
+            const date = new Date(transaction.timestamp);
+            if (!isNaN(date.getTime())) {
+              dateStr = date.toLocaleString('ko-KR');
+            }
+          }
+        } catch (e) {
+          console.error('날짜 변환 오류:', e, transaction.timestamp);
+        }
+        
+        const amount = transaction.amount || 0;
+        const amountClass = amount >= 0 ? 'balance-positive' : 'balance-negative';
+        const amountSign = amount >= 0 ? '+' : '';
+        const reason = transaction.reason || '-';
+        
+        row.innerHTML = `
+          <td>${dateStr}</td>
+          <td class="${amountClass}">${amountSign}${amount} dollars</td>
+          <td>${reason}</td>
+          <td>
+            <button class="btn btn-sm btn-warning" onclick="editTransaction(${index})">
+              <i class="bi bi-pencil"></i> Edit
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    } catch (error) {
+      console.error('displayStudentTransactions 함수 오류:', error);
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Display error: ${error.message || error.toString()}</td></tr>`;
+      }
+    }
+  }
+  
+  /**
+   * 빠른 거래 처리
+   */
+  function quickTransaction(amount) {
+    const studentID = document.getElementById('studentInfoStudentID').value;
+    const reason = document.getElementById('studentTransactionReason').value || 'Quick transaction';
+    
+    if (!reason.trim()) {
+      showToast('Please enter a reason.', 'danger');
+      return;
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          showToast(result.message, 'success');
+          document.getElementById('studentInfoBalance').textContent = result.newBalance;
+          document.getElementById('studentTransactionReason').value = '';
+          loadStudentTransactions(studentID);
+          
+          // 학생 정보를 다시 가져와서 최신 className 사용
+          google.script.run
+            .withSuccessHandler(function(studentResult) {
+              if (studentResult && studentResult.success) {
+                currentStudentInfo = studentResult.student;
+                // 학생 목록 새로고침
+                if (document.getElementById('studentListContainer').style.display !== 'none') {
+                  const className = studentResult.student.className || currentClassName;
+                  if (className) {
+                    // " - Students" 같은 접미사 제거
+                    const cleanClassName = className.replace(/\s*-\s*Students?/i, '').trim();
+                    if (cleanClassName) {
+                      showStudentsInClass(cleanClassName);
+                    }
+                  }
+                }
+              } else {
+                // 학생 정보를 가져오지 못한 경우 currentClassName 사용
+                if (document.getElementById('studentListContainer').style.display !== 'none' && currentClassName) {
+                  showStudentsInClass(currentClassName);
+                }
+              }
+            })
+            .withFailureHandler(function(error) {
+              console.error('학생 정보 조회 실패:', error);
+              // 실패한 경우 currentClassName 사용
+              if (document.getElementById('studentListContainer').style.display !== 'none' && currentClassName) {
+                showStudentsInClass(currentClassName);
+              }
+            })
+            .getStudentByID(studentID);
+        } else {
+          showToast(result.message, 'danger');
+        }
+      })
+      .withFailureHandler(function(error) {
+        showToast('Error processing transaction: ' + error.message, 'danger');
+      })
+      .processTransaction(studentID, currentUser.teacherID, amount, reason);
+  }
+  
+  /**
+   * 직접 입력 거래 처리
+   */
+  function customTransaction() {
+    const amount = parseFloat(document.getElementById('customAmount').value);
+    const reason = document.getElementById('studentTransactionReason').value;
+    
+    if (!amount) {
+      showToast('금액을 입력해주세요.', 'danger');
+      return;
+    }
+    
+    if (!reason.trim()) {
+      showToast('Please enter a reason.', 'danger');
+      return;
+    }
+    
+    quickTransaction(amount);
+    document.getElementById('customAmount').value = '';
+  }
+  
+  /**
+   * 학생 정보 새로고침
+   */
+  function refreshStudentInfo() {
+    const studentID = document.getElementById('studentInfoStudentID').value;
+    loadStudentTransactions(studentID);
+    
+    // 잔액도 새로고침
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          document.getElementById('studentInfoBalance').textContent = result.student.balance;
+          currentStudentInfo = result.student;
+        }
+      })
+      .withFailureHandler(function(error) {
+        console.error('학생 정보 새로고침 오류:', error);
+      })
+      .getStudentByID(studentID);
+  }
+  
+  /**
+   * 거래 내역 수정 모달 표시
+   */
+  function editTransaction(index) {
+    if (index < 0 || index >= currentStudentTransactions.length) {
+      return;
+    }
+    
+    const transaction = currentStudentTransactions[index];
+    document.getElementById('editTransactionIndex').value = index;
+    document.getElementById('editTransactionAmount').value = transaction.amount;
+    document.getElementById('editTransactionReason').value = transaction.reason || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
+    modal.show();
+  }
+  
+  /**
+   * 거래 내역 수정 저장
+   */
+  function saveTransactionEdit() {
+    const studentID = document.getElementById('studentInfoStudentID').value;
+    const index = parseInt(document.getElementById('editTransactionIndex').value);
+    const newAmount = parseFloat(document.getElementById('editTransactionAmount').value);
+    const newReason = document.getElementById('editTransactionReason').value;
+    
+    if (!newAmount) {
+      showToast('금액을 입력해주세요.', 'danger');
+      return;
+    }
+    
+    if (!newReason.trim()) {
+      showToast('Please enter a reason.', 'danger');
+      return;
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          showToast(result.message, 'success');
+          document.getElementById('studentInfoBalance').textContent = result.newBalance;
+          const modal = bootstrap.Modal.getInstance(document.getElementById('editTransactionModal'));
+          modal.hide();
+          loadStudentTransactions(studentID);
+          refreshStudentInfo();
+        } else {
+          showToast(result.message, 'danger');
+        }
+      })
+      .withFailureHandler(function(error) {
+        showToast('거래 내역 수정 중 오류가 발생했습니다: ' + error.message, 'danger');
+      })
+      .updateTransaction(studentID, index, newAmount, newReason);
+  }
+  
+  /**
+   * 거래 내역 삭제
+   */
+  function deleteTransaction() {
+    if (!confirm('정말로 이 거래 내역을 삭제하시겠습니까?')) {
+      return;
+    }
+    
+    const studentID = document.getElementById('studentInfoStudentID').value;
+    const index = parseInt(document.getElementById('editTransactionIndex').value);
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          showToast(result.message, 'success');
+          document.getElementById('studentInfoBalance').textContent = result.newBalance;
+          const modal = bootstrap.Modal.getInstance(document.getElementById('editTransactionModal'));
+          modal.hide();
+          loadStudentTransactions(studentID);
+          refreshStudentInfo();
+        } else {
+          showToast(result.message, 'danger');
+        }
+      })
+      .withFailureHandler(function(error) {
+        showToast('거래 내역 삭제 중 오류가 발생했습니다: ' + error.message, 'danger');
+      })
+      .deleteTransaction(studentID, index);
+  }
+  
+  /**
+   * 학생 계좌 로드
+   */
+  function loadStudentAccount() {
+    // 잔액 업데이트
+    document.getElementById('studentBalance').textContent = currentUser.balance;
+    
+    // 거래 내역 로드
+    const tbody = document.getElementById('transactionsTableBody');
+    if (!tbody) {
+      console.error('transactionsTableBody 요소를 찾을 수 없습니다.');
+      return;
+    }
+    
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center">Loading...</td></tr>';
+    
+    if (!currentUser || !currentUser.studentID) {
+      console.error('currentUser 또는 studentID가 없습니다:', currentUser);
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Student ID not found.</td></tr>';
+      return;
+    }
+    
+    console.log('학생 계좌 거래 내역 조회 시작:', currentUser.studentID);
+    
+    // 타임아웃 설정
+    let timeoutId = setTimeout(function() {
+      console.error('거래 내역 조회 타임아웃');
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Request timeout. Please try again.</td></tr>';
+    }, 30000);
+    
+    // 함수 호출 시도
+    try {
+      const scriptRunner = google.script.run
+        .withSuccessHandler(function(result) {
+          clearTimeout(timeoutId);
+          console.log('=== 학생 계좌 거래 내역 조회 성공 ===');
+          console.log('응답 타입:', typeof result);
+          console.log('응답 내용:', JSON.stringify(result));
+          
+          if (!result) {
+            console.error('응답이 null 또는 undefined입니다.');
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Cannot receive response. (null/undefined)</td></tr>';
+            return;
+          }
+          
+          if (typeof result !== 'object') {
+            console.error('응답이 객체가 아닙니다:', typeof result, result);
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Invalid response format: ' + typeof result + '</td></tr>';
+            return;
+          }
+          
+          if (result.success === true) {
+            if (result.transactions && Array.isArray(result.transactions)) {
+              console.log('거래 내역 표시, 개수:', result.transactions.length);
+              displayTransactions(result.transactions, tbody);
+            } else {
+              console.log('거래 내역 배열이 없음');
+              tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No transaction history.</td></tr>';
+            }
+          } else {
+            const errorMsg = result.message || 'Unknown error';
+            console.error('거래 내역 조회 실패:', errorMsg);
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">${errorMsg}</td></tr>`;
+          }
+        })
+        .withFailureHandler(function(error) {
+          clearTimeout(timeoutId);
+          console.error('=== 학생 계좌 거래 내역 조회 실패 ===');
+          console.error('오류 객체:', error);
+          console.error('오류 타입:', typeof error);
+          console.error('오류 메시지:', error ? error.message : '없음');
+          console.error('오류 문자열:', error ? error.toString() : '없음');
+          
+          let errorMsg = 'Unknown error';
+          if (error) {
+            if (error.message) {
+              errorMsg = error.message;
+            } else if (typeof error === 'string') {
+              errorMsg = error;
+            } else {
+              errorMsg = JSON.stringify(error);
+            }
+          }
+          tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Error: ${errorMsg}</td></tr>`;
+        });
+      
+      // 함수 호출
+      scriptRunner.getStudentTransactions(currentUser.studentID);
+      console.log('getStudentTransactions 함수 호출 완료');
+      
+    } catch (e) {
+      clearTimeout(timeoutId);
+      console.error('함수 호출 자체가 실패:', e);
+      tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Function call error: ${e.message || e.toString()}</td></tr>`;
+    }
+  }
+  
+  /**
+   * 거래 내역 표시
+   */
+  function displayTransactions(transactions, tbody) {
+    if (!tbody) {
+      console.error('tbody 요소를 찾을 수 없습니다.');
+      return;
+    }
+    
+    if (!transactions || transactions.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No transaction history.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = '';
+    transactions.forEach(transaction => {
+      if (!transaction) return;
+      
+      const row = document.createElement('tr');
+      
+      // 날짜 처리
+      let dateStr = '-';
+      try {
+        if (transaction.timestamp) {
+          const date = new Date(transaction.timestamp);
+          if (!isNaN(date.getTime())) {
+            dateStr = date.toLocaleString('en-US', { 
+              year: 'numeric', 
+              month: '2-digit', 
+              day: '2-digit', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+          }
+        }
+      } catch (e) {
+        console.error('날짜 변환 오류:', e, transaction.timestamp);
+      }
+      
+      const amount = transaction.amount || 0;
+      const amountClass = amount >= 0 ? 'balance-positive' : 'balance-negative';
+      const amountSign = amount >= 0 ? '+' : '';
+      const reason = transaction.reason || '-';
+      
+      row.innerHTML = `
+        <td>${dateStr}</td>
+        <td class="${amountClass}">${amountSign}${amount} Dollars</td>
+        <td>${reason}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+  
+  /**
+   * 관리자 데이터 로드
+   */
+  function loadAdminData() {
+    switchAdminTab('students');
+  }
+  
+  /**
+   * 관리자 학생 목록 로드
+   */
+  function loadAdminStudents() {
+    const tbody = document.getElementById('adminStudentsTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">로딩 중...</td></tr>';
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          displayAdminStudentsTable(result.students, tbody);
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${result.message}</td></tr>`;
+        }
+      })
+      .withFailureHandler(function(error) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">오류: ${error.message}</td></tr>`;
+      })
+      .getAllStudents();
+  }
+  
+  /**
+   * 관리자 학생 테이블 표시
+   */
+  function displayAdminStudentsTable(students, tbody) {
+    if (students.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center">등록된 학생이 없습니다.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = '';
+    students.forEach(student => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${student.studentID}</td>
+        <td>${student.name}</td>
+        <td>${student.className}</td>
+        <td>${student.pinCode || ''}</td>
+        <td class="${student.balance >= 0 ? 'balance-positive' : 'balance-negative'}">${student.balance} dollars</td>
+        <td>
+          <button class="btn btn-sm btn-warning me-1" onclick="editStudent('${student.studentID}', '${student.name}', '${student.className}', '${student.pinCode || ''}', ${student.balance})">
+            <i class="bi bi-pencil"></i> 수정
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="deleteStudentConfirm('${student.studentID}', '${student.name}')">
+            <i class="bi bi-trash"></i> 삭제
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+  
+  /**
+   * 반 추가 모달 표시
+   */
+  function showAddClassModal() {
+    document.getElementById('newClassNameInput').value = '';
+    const modal = new bootstrap.Modal(document.getElementById('addClassModal'));
+    modal.show();
+    // 모달이 열린 후 입력 필드에 포커스
+    setTimeout(function() {
+      const classInput = document.getElementById('newClassNameInput');
+      if (classInput) {
+        classInput.focus();
+      }
+    }, 300);
+  }
+  
+  /**
+   * 새 클래스 생성
+   */
+  function saveNewClass() {
+    const className = document.getElementById('newClassNameInput').value.trim();
+    
+    if (!className) {
+      showToast('Please enter a class name.', 'danger');
+      return;
+    }
+    
+    // 클래스 추가 (교사 ID 전달)
+    const teacherID = currentUser && currentUserType === 'teacher' ? currentUser.teacherID : null;
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          showToast(result.message, 'success');
+          const classModal = bootstrap.Modal.getInstance(document.getElementById('addClassModal'));
+          classModal.hide();
+          // 입력 필드 초기화
+          document.getElementById('newClassNameInput').value = '';
+          
+          // 교사 정보 새로고침 (할당 클래스 목록이 업데이트되었을 수 있음)
+          if (currentUser && currentUserType === 'teacher') {
+            // 로그인 정보 다시 가져오기
+            google.script.run
+              .withSuccessHandler(function(authResult) {
+                if (authResult.success) {
+                  currentUser = authResult.teacher;
+                  saveSession();
+                }
+                // 클래스 목록 새로고침 (데이터 저장 시간을 고려하여 지연)
+                setTimeout(function() {
+                  console.log('클래스 목록 새로고침 시작 (클래스 추가 후)');
+                  showClassList();
+                }, 1000);
+              })
+              .withFailureHandler(function(error) {
+                // 인증 실패해도 클래스 목록은 새로고침
+                setTimeout(function() {
+                  console.log('클래스 목록 새로고침 시작 (인증 실패 후)');
+                  showClassList();
+                }, 1000);
+              })
+              .authenticateTeacher(currentUser.teacherID, 'dummy'); // 비밀번호는 필요 없지만 함수 시그니처 때문에 전달
+          } else {
+            // 클래스 목록 새로고침 (데이터 저장 시간을 고려하여 지연)
+            setTimeout(function() {
+              console.log('클래스 목록 새로고침 시작 (클래스 추가 후)');
+              showClassList();
+            }, 1000);
+          }
+        } else {
+          showToast(result.message, 'danger');
+        }
+      })
+      .withFailureHandler(function(error) {
+        showToast('Error adding class: ' + error.message, 'danger');
+      })
+      .addClass(className, teacherID);
+  }
+  
+  /**
+   * 학생 추가 모달 표시
+   */
+  function showAddStudentModal() {
+    document.getElementById('studentModalTitle').textContent = 'Add Student';
+    document.getElementById('editStudentID').value = '';
+    document.getElementById('studentIDInput').value = '';
+    document.getElementById('studentIDInput').disabled = false;
+    document.getElementById('studentNameInput').value = '';
+    document.getElementById('studentClassInput').value = '';
+    document.getElementById('studentPinInput').value = '';
+    document.getElementById('balanceInputGroup').style.display = 'none';
+    
+    const modal = new bootstrap.Modal(document.getElementById('studentModal'));
+    modal.show();
+  }
+  
+  /**
+   * 학생 수정
+   */
+  function editStudent(studentID, name, className, pinCode, balance) {
+    document.getElementById('studentModalTitle').textContent = 'Edit Student';
+    document.getElementById('editStudentID').value = studentID;
+    document.getElementById('studentIDInput').value = studentID;
+    document.getElementById('studentIDInput').disabled = true;
+    document.getElementById('studentNameInput').value = name;
+    document.getElementById('studentClassInput').value = className;
+    document.getElementById('studentPinInput').value = pinCode;
+    document.getElementById('studentBalanceInput').value = balance;
+    document.getElementById('balanceInputGroup').style.display = 'block';
+    
+    const modal = new bootstrap.Modal(document.getElementById('studentModal'));
+    modal.show();
+  }
+  
+  /**
+   * 학생 저장
+   */
+  function saveStudent() {
+    const editID = document.getElementById('editStudentID').value;
+    const studentID = document.getElementById('studentIDInput').value;
+    const name = document.getElementById('studentNameInput').value;
+    const className = document.getElementById('studentClassInput').value;
+    const pinCode = document.getElementById('studentPinInput').value;
+    const balance = parseFloat(document.getElementById('studentBalanceInput').value) || 0;
+    
+    if (!studentID || !name || !className || !pinCode) {
+      showToast('Please fill in all fields.', 'danger');
+      return;
+    }
+    
+    if (editID) {
+      // 수정
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast(result.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('studentModal'));
+            modal.hide();
+            loadAdminStudents();
+            loadStudentsList();
+          } else {
+            showToast(result.message, 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('Error updating student: ' + error.message, 'danger');
+        })
+        .updateStudent(studentID, name, className, pinCode, balance);
+    } else {
+      // 추가 (관리자 또는 교사)
+      const addedClassName = className; // 클래스 이름 저장
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast(result.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('studentModal'));
+            modal.hide();
+            
+            // 클래스가 Classes 시트에 없으면 추가 (학생 추가 시 자동으로 클래스도 추가)
+            if (addedClassName) {
+              google.script.run
+                .withSuccessHandler(function(classResult) {
+                  // 클래스 추가 성공/실패는 무시 (이미 존재할 수 있음)
+                })
+                .withFailureHandler(function(error) {
+                  // 에러 무시
+                })
+                .addClass(addedClassName);
+            }
+            
+            if (currentUser && currentUser.role === 'Admin') {
+              loadAdminStudents();
+            }
+            // 반 목록 새로고침
+            if (currentUser && currentUserType === 'teacher') {
+              // 학생 추가 후 현재 화면 상태에 따라 새로고침
+              const classListContainer = document.getElementById('classListContainer');
+              if (classListContainer && classListContainer.style.display !== 'none') {
+                // 클래스 목록 화면이면 새로고침
+                setTimeout(function() {
+                  showClassList();
+                }, 500);
+              } else {
+                // 특정 클래스의 학생 목록 화면이면 현재 클래스 이름 가져와서 새로고침
+                const title = document.getElementById('studentsTabTitle').textContent;
+                const className = title.replace(' - Students', '').trim();
+                if (className && className !== 'Class List') {
+                  setTimeout(function() {
+                    showStudentsInClass(className);
+                  }, 500);
+                } else {
+                  setTimeout(function() {
+                    showClassList();
+                  }, 500);
+                }
+              }
+            } else {
+              loadStudentsList();
+            }
+          } else {
+            showToast(result.message, 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('Error adding student: ' + error.message, 'danger');
+        })
+        .addStudent(studentID, name, className, pinCode, currentUser && currentUserType === 'teacher' ? currentUser.teacherID : null);
+    }
+  }
+  
+  /**
+   * 학생 삭제 확인
+   */
+  function deleteStudentConfirm(studentID, studentName) {
+    if (confirm(`Are you sure you want to delete student "${studentName}"?`)) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast(result.message, 'success');
+            loadAdminStudents();
+            loadStudentsList();
+          } else {
+            showToast(result.message, 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('학생 삭제 중 오류가 발생했습니다: ' + error.message, 'danger');
+        })
+        .deleteStudent(studentID);
+    }
+  }
+  
+  /**
+   * 관리자 교사 목록 로드
+   */
+  function loadAdminTeachers() {
+    const tbody = document.getElementById('adminTeachersTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">로딩 중...</td></tr>';
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result.success) {
+          displayAdminTeachersTable(result.teachers, tbody);
+        } else {
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">${result.message}</td></tr>`;
+        }
+      })
+      .withFailureHandler(function(error) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">오류: ${error.message}</td></tr>`;
+      })
+      .getAllTeachers();
+  }
+  
+  /**
+   * 관리자 교사 테이블 표시
+   */
+  function displayAdminTeachersTable(teachers, tbody) {
+    if (teachers.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">등록된 교사가 없습니다.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = '';
+    teachers.forEach(teacher => {
+      const row = document.createElement('tr');
+      const isAdmin = teacher.role === 'Admin';
+      const editBtn = isAdmin 
+        ? '<span class="badge bg-secondary">관리자 계정은 수정/삭제 불가</span>'
+        : `<button class="btn btn-sm btn-warning me-1" onclick="editTeacher('${teacher.teacherID}', '${teacher.name}', '${teacher.role}', '${teacher.assignedClasses || ''}')">
+             <i class="bi bi-pencil"></i> 수정
+           </button>
+           <button class="btn btn-sm btn-danger" onclick="deleteTeacherConfirm('${teacher.teacherID}', '${teacher.name}')">
+             <i class="bi bi-trash"></i> 삭제
+           </button>`;
+      
+      row.innerHTML = `
+        <td>${teacher.teacherID}</td>
+        <td>${teacher.name}</td>
+        <td>${teacher.role}</td>
+        <td>${teacher.assignedClasses || '-'}</td>
+        <td>${editBtn}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+  
+  /**
+   * 교사 추가 모달 표시
+   */
+  function showAddTeacherModal() {
+    document.getElementById('teacherModalTitle').textContent = '교사 추가';
+    document.getElementById('editTeacherID').value = '';
+    document.getElementById('teacherIDInput').value = '';
+    document.getElementById('teacherIDInput').disabled = false;
+    document.getElementById('teacherNameInput').value = '';
+    document.getElementById('teacherPasswordInput').value = '';
+    document.getElementById('teacherPasswordInput').required = true;
+    document.getElementById('passwordHint').style.display = 'none';
+    document.getElementById('teacherRoleInput').value = 'Teacher';
+    document.getElementById('teacherClassesInput').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('teacherModal'));
+    modal.show();
+  }
+  
+  /**
+   * 교사 수정
+   */
+  function editTeacher(teacherID, name, role, assignedClasses) {
+    document.getElementById('teacherModalTitle').textContent = '교사 수정';
+    document.getElementById('editTeacherID').value = teacherID;
+    document.getElementById('teacherIDInput').value = teacherID;
+    document.getElementById('teacherIDInput').disabled = true;
+    document.getElementById('teacherNameInput').value = name;
+    document.getElementById('teacherPasswordInput').value = '';
+    document.getElementById('teacherPasswordInput').required = false;
+    document.getElementById('passwordHint').style.display = 'block';
+    document.getElementById('teacherRoleInput').value = role;
+    document.getElementById('teacherClassesInput').value = assignedClasses || '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('teacherModal'));
+    modal.show();
+  }
+  
+  /**
+   * 교사 저장
+   */
+  function saveTeacher() {
+    const editID = document.getElementById('editTeacherID').value;
+    const teacherID = document.getElementById('teacherIDInput').value;
+    const name = document.getElementById('teacherNameInput').value;
+    const password = document.getElementById('teacherPasswordInput').value;
+    const role = document.getElementById('teacherRoleInput').value;
+    const assignedClasses = document.getElementById('teacherClassesInput').value;
+    
+    if (!teacherID || !name || !role) {
+      showToast('필수 필드를 입력해주세요.', 'danger');
+      return;
+    }
+    
+    if (editID) {
+      // 수정
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast(result.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('teacherModal'));
+            modal.hide();
+            loadAdminTeachers();
+          } else {
+            showToast(result.message, 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('교사 수정 중 오류가 발생했습니다: ' + error.message, 'danger');
+        })
+        .updateTeacher(teacherID, name, password, role, assignedClasses);
+    } else {
+      // 추가
+      if (!password) {
+        showToast('비밀번호를 입력해주세요.', 'danger');
+        return;
+      }
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast(result.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('teacherModal'));
+            modal.hide();
+            loadAdminTeachers();
+          } else {
+            showToast(result.message, 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('교사 추가 중 오류가 발생했습니다: ' + error.message, 'danger');
+        })
+        .addTeacher(teacherID, name, password, role, assignedClasses);
+    }
+  }
+  
+  /**
+   * 교사 삭제 확인
+   */
+  function deleteTeacherConfirm(teacherID, teacherName) {
+    if (confirm(`정말로 "${teacherName}" 교사를 삭제하시겠습니까?`)) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showToast(result.message, 'success');
+            loadAdminTeachers();
+          } else {
+            showToast(result.message, 'danger');
+          }
+        })
+        .withFailureHandler(function(error) {
+          showToast('교사 삭제 중 오류가 발생했습니다: ' + error.message, 'danger');
+        })
+        .deleteTeacher(teacherID);
+    }
+  }
+  
+  /**
+   * 로그아웃
+   */
+  function logout() {
+    currentUser = null;
+    currentUserType = null;
+    currentClassName = null;
+    
+    // 세션 삭제
+    sessionStorage.removeItem('dollarBankUser');
+    sessionStorage.removeItem('dollarBankUserType');
+    
+    // 로그인 화면 표시
+    document.getElementById('loginScreen').classList.remove('d-none');
+    document.getElementById('mainScreen').classList.add('d-none');
+    
+    // 입력 필드 초기화
+    document.getElementById('teacherID').value = '';
+    document.getElementById('teacherPassword').value = '';
+    document.getElementById('studentPinCode').value = '';
+    
+    // 에러 메시지 숨기기
+    document.getElementById('loginError').classList.add('d-none');
+    
+    // 로그인 탭 초기화 (교사 탭이 기본) - 즉시 실행
+    const teacherTab = document.getElementById('teacher-tab');
+    const studentTab = document.getElementById('student-tab');
+    const teacherLoginPane = document.getElementById('teacher-login');
+    const studentLoginPane = document.getElementById('student-login');
+    
+    if (teacherTab && studentTab && teacherLoginPane && studentLoginPane) {
+      // 즉시 교사 탭 활성화
+      switchLoginTab('teacher');
+      
+      // 추가로 DOM이 완전히 렌더링된 후 다시 한 번 확인
+      setTimeout(function() {
+        switchLoginTab('teacher');
+      }, 100);
+    }
+  }
+  
+  /**
+   * 에러 메시지 표시
+   */
+  function showError(message) {
+    const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('d-none');
+    setTimeout(() => {
+      errorDiv.classList.add('d-none');
+    }, 5000);
+  }
+  
+  /**
+   * 토스트 메시지 표시
+   */
+  function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    const toastBody = document.getElementById('toastBody');
+    
+    // 타입에 따른 클래스 변경
+    toast.className = 'toast';
+    if (type === 'success') {
+      toast.classList.add('bg-success', 'text-white');
+    } else if (type === 'danger') {
+      toast.classList.add('bg-danger', 'text-white');
+    } else if (type === 'warning') {
+      toast.classList.add('bg-warning');
+    } else {
+      toast.classList.add('bg-info', 'text-white');
+    }
+    
+    toastBody.textContent = message;
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+  }
+</script>

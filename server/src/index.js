@@ -110,7 +110,8 @@ const TOOL_PAGES = {
   timer: 'timer.html',
   dice: 'dice.html',
   roulette: 'roulette.html',
-  luckydraw: 'luckydraw.html'
+  luckydraw: 'luckydraw.html',
+  unluckydraw: 'unluckydraw.html'
 };
 
 app.get('/tools/:tool', requireTeacherPage, (req, res) => {
@@ -141,11 +142,13 @@ initRealtime(server);
 server.listen(PORT, () => {
   console.log('Mr.Park Class API listening on http://localhost:' + PORT);
   const { isSupabaseEnabled } = require('./supabaseClient');
+  console.log('[messages] storage =', isSupabaseEnabled() ? 'supabase' : 'google-sheets-legacy');
   if (isSupabaseEnabled()) {
     setImmediate(function() {
       const { warmSheetPortalLoginCache, canReadSheetPortalLogins } = require('./studentPasswordSync');
       const { getSupabase } = require('./supabaseClient');
       const { queryStudents } = require('./supabaseStudentColumns');
+      const { reconcileSheetMessagesToSupabase } = require('./messageService');
       (async function() {
         try {
           const tasks = [queryStudents(getSupabase(), { orderBy: 'name' })];
@@ -157,6 +160,25 @@ server.listen(PORT, () => {
         } catch (e) {
           console.warn('Portal warmup:', e.message || e);
         }
+        try {
+          const result = await reconcileSheetMessagesToSupabase({ hours: 72 });
+          if (result && result.upserted) {
+            console.warn('[messages] boot reconcile upserted', result.upserted);
+          } else {
+            console.log('[messages] boot reconcile ok', result);
+          }
+        } catch (e) {
+          console.warn('[messages] boot reconcile failed:', e.message || e);
+        }
+        setInterval(function() {
+          reconcileSheetMessagesToSupabase({ hours: 6 }).then(function(result) {
+            if (result && result.upserted) {
+              console.warn('[messages] periodic reconcile upserted', result.upserted);
+            }
+          }).catch(function(e) {
+            console.warn('[messages] periodic reconcile failed:', e.message || e);
+          });
+        }, 5 * 60 * 1000);
       })();
     });
   }

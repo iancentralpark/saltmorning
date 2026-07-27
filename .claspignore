@@ -1,2 +1,6 @@
 _dollar_system/**
 server/**
+morning-class/**
+**/node_modules/**
+.tmp-frames/**
+.tmp-frames2/**

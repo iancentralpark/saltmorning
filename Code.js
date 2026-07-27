@@ -20,6 +20,7 @@ function doGet(e) {
     t.label = min > 0 && sec > 0 ? (min + ' min ' + sec + ' sec') : (min > 0 ? (min + ' min') : (sec + ' sec'));
     return t.evaluate()
       .setTitle('Timer')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
@@ -35,12 +36,14 @@ function doGet(e) {
     t.studentsJson = JSON.stringify(students);
     return t.evaluate()
       .setTitle('Roulette — ' + className)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   if (params.page === 'dice') {
     return HtmlService.createTemplateFromFile('Dice').evaluate()
       .setTitle('Dice')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
@@ -53,23 +56,35 @@ function doGet(e) {
     t.className = className;
     t.studentsJson = JSON.stringify(students);
     t.nodeApiUrl = PropertiesService.getScriptProperties().getProperty('NODE_API_URL') ||
-      'https://mrpark-class-api-production.up.railway.app';
+      'https://mrpark.online';
     return t.evaluate()
       .setTitle('Lucky Draw — ' + className)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   if (params.page === 'student') {
-    return HtmlService.createTemplateFromFile('Student').evaluate()
+    // Always use the Railway student portal (realtime messenger + latest fixes).
+    const dest = 'https://mrpark.online/student';
+    return HtmlService.createHtmlOutput(
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<script>location.replace(' + JSON.stringify(dest) + ');</script>' +
+      '</head><body><p>Opening student portal…</p></body></html>'
+    )
       .setTitle('Mr.Park Student Portal')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   const template = HtmlService.createTemplateFromFile('Index');
   template.webAppUrl = ScriptApp.getService().getUrl();
-  template.nodeApiUrl = PropertiesService.getScriptProperties().getProperty('NODE_API_URL') || 'https://mrpark-class-api-production.up.railway.app';
+  template.nodeApiUrl = PropertiesService.getScriptProperties().getProperty('NODE_API_URL') || 'https://mrpark.online';
   return template.evaluate()
     .setTitle('Mr.Park\'s Class Attendance & Dollars')
+    // CRITICAL: this sets the viewport on the TOP-LEVEL GAS page. The <meta> inside
+    // Index.html only affects the sandboxed iframe, so without this the page renders
+    // at desktop width, shrinks on mobile, and iOS zooms on every input focus.
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -312,7 +327,7 @@ function buildClassAttendanceFromCtx_(ctx, dateStr) {
   for (let i = 1; i < attendData.length; i++) {
     const rDate = Utilities.formatDate(new Date(attendData[i][0]), tz, 'yyyy-MM-dd');
     if (rDate !== dateStr || String(attendData[i][1]) !== classId) continue;
-    existingMap[attendData[i][2]] = {
+    existingMap[String(attendData[i][2])] = {
       attendance: attendData[i][3],
       vocabScore: attendData[i][4]
     };
@@ -378,18 +393,16 @@ function buildClassAttendanceFromCtx_(ctx, dateStr) {
     let attendance;
     if (onLeave) {
       attendance = '휴원';
-    } else if (existingMap[student.id]) {
-      attendance = existingMap[student.id].attendance;
-    } else if (planned) {
-      attendance = planned.type;
+    } else if (existingMap[sid]) {
+      attendance = existingMap[sid].attendance;
     } else {
-      attendance = '출석';
+      attendance = '';
     }
     const row = {
       id: student.id,
       name: student.name,
       attendance: attendance,
-      vocabScore: existingMap[student.id] ? existingMap[student.id].vocabScore : 0,
+      vocabScore: existingMap[sid] ? existingMap[sid].vocabScore : 0,
       dollars: balanceMap[student.id] ?? 0,
       onLeave: onLeave,
       leaveInfo: leaveInfo,
@@ -955,28 +968,49 @@ function getStudentHistory(classId, studentId) {
 }
 
 // 6. 학생 1건(날짜 1개)의 출결/점수 정정 저장 (없으면 추가)
+function findAttendanceRows_(data, classId, studentId, dateStr, tz) {
+  const rows = [];
+  for (let i = 1; i < data.length; i++) {
+    const rDate = Utilities.formatDate(new Date(data[i][0]), tz, 'yyyy-MM-dd');
+    if (rDate === dateStr && String(data[i][1]) === String(classId) && String(data[i][2]) === String(studentId)) {
+      rows.push(i + 1);
+    }
+  }
+  return rows;
+}
+
 function updateStudentRecord(classId, studentId, dateStr, attendance, vocabScore) {
   const ss = getSS();
   const sheet = ss.getSheetByName('Attendance_Data');
   const data = sheet.getDataRange().getValues();
+  const tz = Session.getScriptTimeZone();
+  const rows = findAttendanceRows_(data, classId, studentId, dateStr, tz);
 
-  let foundRow = -1;
-  for (let i = 1; i < data.length; i++) {
-    const rDate = Utilities.formatDate(new Date(data[i][0]), Session.getScriptTimeZone(), "yyyy-MM-dd");
-    if (rDate === dateStr && data[i][1] === classId && data[i][2] === studentId) {
-      foundRow = i + 1;
-      break;
+  if (rows.length) {
+    const target = rows[rows.length - 1];
+    sheet.getRange(target, 4).setValue(attendance);
+    sheet.getRange(target, 5).setValue(vocabScore);
+    for (let j = rows.length - 2; j >= 0; j--) {
+      sheet.deleteRow(rows[j]);
     }
-  }
-
-  if (foundRow !== -1) {
-    sheet.getRange(foundRow, 4).setValue(attendance);
-    sheet.getRange(foundRow, 5).setValue(vocabScore);
-    return "Saved changes.";
+    return 'Saved changes.';
   }
 
   sheet.appendRow([dateStr, classId, studentId, attendance, vocabScore]);
-  return "Saved new record.";
+  return 'Saved new record.';
+}
+
+function deleteStudentRecord(classId, studentId, dateStr) {
+  const ss = getSS();
+  const sheet = ss.getSheetByName('Attendance_Data');
+  const data = sheet.getDataRange().getValues();
+  const tz = Session.getScriptTimeZone();
+  const rows = findAttendanceRows_(data, classId, studentId, dateStr, tz);
+  if (!rows.length) return 'No record to clear.';
+  for (let j = rows.length - 1; j >= 0; j--) {
+    sheet.deleteRow(rows[j]);
+  }
+  return "Cleared.";
 }
 
 // ===== Makeup lessons =====

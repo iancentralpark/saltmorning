@@ -15,7 +15,7 @@ const { getMakeupLessons } = require('./makeupService');
 const { getStudentHomeworkStatus, buildClassHomeworkFromCtx } = require('./homeworkService');
 const { buildRequestContext } = require('./sheets');
 const { signStudentToken } = require('./studentAuth');
-const { listStudentLuckyTickets, groupLuckyTickets } = require('./luckyDrawService');
+const { listStudentLuckyTickets, groupLuckyTickets, listFusionRecipes } = require('./luckyDrawService');
 const { isSupabaseEnabled } = require('./supabaseClient');
 const supabaseStudent = require('./supabaseStudentService');
 
@@ -238,7 +238,8 @@ async function getStudentDashboard(studentId, classId) {
   ]);
   const luckyDraw = {
     totalCount: luckyTicketsRaw.length,
-    tickets: groupLuckyTickets(luckyTicketsRaw)
+    tickets: groupLuckyTickets(luckyTicketsRaw),
+    recipes: listFusionRecipes()
   };
 
   const ctx = await buildRequestContext(classId);

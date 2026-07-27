@@ -1,0 +1,139 @@
+<style>
+  /* 커스텀 스타일 */
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+  }
+  
+  .min-vh-100 {
+    min-height: 100vh;
+  }
+  
+  .card {
+    border: none;
+    border-radius: 10px;
+  }
+  
+  .navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+  }
+  
+  .table-responsive {
+    border-radius: 8px;
+  }
+  
+  .btn {
+    border-radius: 6px;
+  }
+  
+  .modal-content {
+    border-radius: 10px;
+  }
+  
+  /* 모바일 반응형 */
+  @media (max-width: 768px) {
+    .container-fluid {
+      padding: 10px;
+    }
+    
+    .card-body {
+      padding: 1rem;
+    }
+    
+    .table {
+      font-size: 0.875rem;
+    }
+    
+    .btn {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+    }
+  }
+  
+  /* 잔액 표시 스타일 */
+  .balance-positive {
+    color: #28a745;
+    font-weight: bold;
+  }
+  
+  .balance-negative {
+    color: #dc3545;
+    font-weight: bold;
+  }
+  
+  /* 거래 내역 테이블 */
+  #transactionsTable tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  
+  /* 로딩 애니메이션 */
+  .loading {
+    text-align: center;
+    padding: 2rem;
+  }
+  
+  .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  /* 클래스 드래그 앤 드롭 스타일 */
+  .class-item {
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  
+  .class-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  
+  .class-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  
+  .class-item.drag-over-top {
+    border-top: 3px solid #0d6efd !important;
+    padding-top: 10px;
+    margin-top: -10px;
+  }
+  
+  .class-item.drag-over-bottom {
+    border-bottom: 3px solid #0d6efd !important;
+    padding-bottom: 10px;
+    margin-bottom: -10px;
+  }
+  
+  .class-item.drag-over-top::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #0d6efd;
+    z-index: 1;
+  }
+  
+  .class-item.drag-over-bottom::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #0d6efd;
+    z-index: 1;
+  }
+  
+  .bi-grip-vertical:hover,
+  .drag-handle:hover {
+    color: #0d6efd !important;
+    transform: scale(1.1);
+  }
+  
+  .drag-handle {
+    transition: all 0.2s ease;
+  }
+</style>

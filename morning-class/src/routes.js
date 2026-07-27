@@ -644,7 +644,7 @@ router.post('/student/english-buddy', requireRole('student'), async (req, res) =
     const result = await askEnglishBuddy(req.session.studentId, req.body.message, req.body.history);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not reach AI English Buddy.' });
+    res.status(400).json({ error: e.message || 'Could not reach Virtual Mr. Park.' });
   }
 });
 

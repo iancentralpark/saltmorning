@@ -34,9 +34,11 @@ function getSupabase() {
 }
 
 function shouldSyncPasswordsToSheet() {
-  if (process.env.SYNC_PASSWORDS_TO_SHEET === 'true') return true;
+  // Portal Logins shows plaintext passwords for teachers; keep the Student_List
+  // sheet in sync unless explicitly disabled.
   if (process.env.SYNC_PASSWORDS_TO_SHEET === 'false') return false;
-  return !isSupabaseEnabled();
+  if (process.env.SYNC_PASSWORDS_TO_SHEET === 'true') return true;
+  return true;
 }
 
 module.exports = { isSupabaseEnabled, getSupabase, shouldSyncPasswordsToSheet };

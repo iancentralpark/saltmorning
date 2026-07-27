@@ -2,7 +2,7 @@ const { STAMP_BOARD_SHEET, STAMPS_PER_DOLLAR, STAMPS_PER_COLUMN_MAX } = require(
 const { getSheetRows, appendRows, deleteRow, invalidateSheetRowsCache } = require('./sheets');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { getEnrolledStudents } = require('./homeworkService');
-const { applyDollarAdjustment } = require('./dollarService');
+const { applyDollarAdjustmentsBatch } = require('./dollarService');
 const { invalidateWorkCache } = require('./workCacheService');
 
 function clampPct(n) {
@@ -119,13 +119,70 @@ async function deleteStampsForStudents(classId, studentIds) {
   }
 }
 
-async function insertRemainderStamps(classId, studentId, count) {
+async function deleteAllClassStamps(classId) {
+  classId = String(classId);
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('stamp_board_stamps')
+      .delete()
+      .eq('class_id', classId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const data = await getSheetRows(STAMP_BOARD_SHEET);
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]) === classId) {
+      await deleteRow(STAMP_BOARD_SHEET, i + 1);
+    }
+  }
+}
+
+function buildRemainderInsertRows(classId, studentId, count) {
   const positions = [
     { x: 15, y: 15 }, { x: 35, y: 15 }, { x: 55, y: 15 }, { x: 75, y: 15 }
   ];
+  const rows = [];
   for (let i = 0; i < count && i < positions.length; i++) {
-    await insertStamp(classId, studentId, positions[i].x, positions[i].y, -8 + i * 5);
+    rows.push({
+      class_id: String(classId),
+      student_id: String(studentId),
+      x_pct: positions[i].x,
+      y_pct: positions[i].y,
+      rot_deg: -8 + i * 5
+    });
   }
+  return rows;
+}
+
+async function batchInsertStamps(rows) {
+  if (!rows.length) return [];
+
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { data, error } = await db.from('stamp_board_stamps')
+      .insert(rows)
+      .select('id, student_id, x_pct, y_pct, rot_deg');
+    if (error) throw new Error(error.message);
+    return (data || []).map(normalizeStampRow);
+  }
+
+  const sheetData = await getSheetRows(STAMP_BOARD_SHEET);
+  let rowId = sheetData.length;
+  const sheetRows = rows.map(function(r, idx) {
+    return [r.class_id, r.student_id, r.x_pct, r.y_pct, r.rot_deg, rowId + idx];
+  });
+  await appendRows(STAMP_BOARD_SHEET, sheetRows);
+  return sheetRows.map(function(row) {
+    return normalizeStampRow({
+      id: row[5],
+      student_id: row[1],
+      x_pct: row[2],
+      y_pct: row[3],
+      rot_deg: row[4]
+    });
+  });
 }
 
 async function redeemStampBoard(classId, opts) {
@@ -133,43 +190,69 @@ async function redeemStampBoard(classId, opts) {
   const options = opts || {};
   const board = await getStampBoard(classId);
   const awards = [];
+  const dollarAdjustments = [];
+  const remainderRows = [];
+  let hasStamps = false;
 
   for (let i = 0; i < board.students.length; i++) {
     const student = board.students[i];
-    const count = board.stamps.filter(s => s.studentId === student.id).length;
+    const count = board.stamps.filter(function(s) { return String(s.studentId) === String(student.id); }).length;
     if (!count) continue;
+    hasStamps = true;
 
     const dollars = Math.floor(count / STAMPS_PER_DOLLAR);
     const remainder = count % STAMPS_PER_DOLLAR;
 
-    await deleteStampsForStudents(classId, [student.id]);
-
     if (dollars > 0) {
-      const result = await applyDollarAdjustment(
-        classId,
-        student.id,
-        dollars,
-        options.reason || 'stamp-board'
-      );
+      dollarAdjustments.push({ studentId: student.id, amount: dollars });
       awards.push({
         studentId: student.id,
         name: student.name,
         stampCount: count,
         stampsUsed: dollars * STAMPS_PER_DOLLAR,
-        remainder,
-        dollars,
-        newBalance: result.newBalance
+        remainder: remainder,
+        dollars: dollars,
+        newBalance: null
       });
     }
 
     if (remainder > 0) {
-      await insertRemainderStamps(classId, student.id, remainder);
+      remainderRows.push.apply(remainderRows, buildRemainderInsertRows(classId, student.id, remainder));
     }
   }
 
+  if (!hasStamps) {
+    return { redeemed: true, awards: [], board: board };
+  }
+
+  await deleteAllClassStamps(classId);
+
+  const [balanceResults, remainderStamps] = await Promise.all([
+    applyDollarAdjustmentsBatch(classId, dollarAdjustments, options.reason || 'stamp-board'),
+    batchInsertStamps(remainderRows)
+  ]);
+
+  const balanceByStudent = {};
+  (balanceResults || []).forEach(function(row) {
+    balanceByStudent[String(row.studentId)] = row.newBalance;
+  });
+  awards.forEach(function(award) {
+    if (balanceByStudent[String(award.studentId)] != null) {
+      award.newBalance = balanceByStudent[String(award.studentId)];
+    }
+  });
+
   afterStampWrite(classId);
-  const refreshed = await getStampBoard(classId);
-  return { redeemed: true, awards, board: refreshed };
+  return {
+    redeemed: true,
+    awards: awards,
+    board: {
+      classId: classId,
+      students: board.students,
+      stamps: remainderStamps,
+      stampsPerDollar: STAMPS_PER_DOLLAR
+    }
+  };
 }
 
 async function addStamp(classId, studentId, xPct, yPct, rotDeg) {
