@@ -582,7 +582,6 @@ async function listStudentLuckyTickets(classId, studentId) {
   const data = await getSheetRows(LUCKY_DRAW_SHEET);
   const nowMs = Date.now();
   const active = [];
-  const expiredIds = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]) !== classId || String(data[i][2]) !== studentId) continue;
     const ticket = {
@@ -593,18 +592,9 @@ async function listStudentLuckyTickets(classId, studentId) {
       prizeText: String(data[i][4] || ''),
       drawnAt: String(data[i][5] || '')
     };
-    if (isLuckyTicketExpired(ticket, nowMs)) {
-      expiredIds.push(ticket.ticketId);
-      continue;
-    }
+    // Soft-expire only: never auto-delete on read (hard deletes caused irreversible loss).
+    if (isLuckyTicketExpired(ticket, nowMs)) continue;
     active.push(enrichLuckyTicket(ticket, nowMs));
-  }
-  if (expiredIds.length) {
-    try {
-      await purgeExpiredLuckyTickets_(expiredIds, classId);
-    } catch (err) {
-      console.error('purgeExpiredLuckyTickets_', err.message || err);
-    }
   }
   active.sort((a, b) => (a.drawnAt < b.drawnAt ? 1 : a.drawnAt > b.drawnAt ? -1 : 0));
   return active;
@@ -717,6 +707,7 @@ async function transferLuckyTicket(ticketId, toStudentId, opts) {
     throw new Error('You can only transfer your own tickets.');
   }
   await assertStudentInClass_(row.classId, toStudentId);
+  const previousOwner = row.studentId;
   if (isSupabaseEnabled()) {
     const db = getSupabase();
     const { error } = await db.from('lucky_draw_tickets').update({ student_id: toStudentId }).eq('ticket_id', ticketId);
@@ -730,25 +721,38 @@ async function transferLuckyTicket(ticketId, toStudentId, opts) {
     log = await logLuckyTransfer_({
       classId: row.classId,
       ticketId: ticketId,
-      fromStudentId: row.studentId,
+      fromStudentId: previousOwner,
       toStudentId: toStudentId,
       tier: row.tier,
       prizeText: row.prizeText,
       actorType: opts.actorType || 'teacher',
-      actorStudentId: opts.actorStudentId || (opts.actorType === 'student' ? row.studentId : '')
+      actorStudentId: opts.actorStudentId || (opts.actorType === 'student' ? previousOwner : '')
     });
   } catch (err) {
+    // Roll ownership back if audit log fails — otherwise tickets "vanish" with no trail.
     console.error('logLuckyTransfer_', err.message || err);
+    try {
+      if (isSupabaseEnabled()) {
+        const db = getSupabase();
+        await db.from('lucky_draw_tickets').update({ student_id: previousOwner }).eq('ticket_id', ticketId);
+      } else {
+        await updateRange(LUCKY_DRAW_SHEET, 'C' + row.row, [[previousOwner]]);
+      }
+      afterLuckyDrawWrite(row.classId);
+    } catch (rollbackErr) {
+      console.error('transferLuckyTicket rollback failed', rollbackErr.message || rollbackErr);
+    }
+    throw new Error('Transfer could not be recorded. Ticket was not moved.');
   }
   return {
     message: 'Ticket transferred.',
     ticketId,
     classId: row.classId,
-    fromStudentId: row.studentId,
+    fromStudentId: previousOwner,
     toStudentId,
     tier: row.tier,
     prizeText: row.prizeText,
-    fromRemainingCount: await countStudentTickets(row.classId, row.studentId),
+    fromRemainingCount: await countStudentTickets(row.classId, previousOwner),
     toRemainingCount: await countStudentTickets(row.classId, toStudentId),
     transfer: log
   };
@@ -790,23 +794,12 @@ async function getLuckyDrawCountsByClass(classId) {
   const data = await getSheetRows(LUCKY_DRAW_SHEET);
   const counts = {};
   const nowMs = Date.now();
-  const expiredIds = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]) !== classId) continue;
     const drawnAt = String(data[i][5] || '');
-    if (isLuckyTicketExpired(drawnAt, nowMs)) {
-      expiredIds.push(String(data[i][0]));
-      continue;
-    }
+    if (isLuckyTicketExpired(drawnAt, nowMs)) continue;
     const sid = String(data[i][2]);
     counts[sid] = (counts[sid] || 0) + 1;
-  }
-  if (expiredIds.length) {
-    try {
-      await purgeExpiredLuckyTickets_(expiredIds, classId);
-    } catch (err) {
-      console.error('purgeExpiredLuckyTickets_', err.message || err);
-    }
   }
   return counts;
 }
@@ -921,9 +914,20 @@ async function fuseLuckyTickets(classId, studentId, ticketIds) {
     throw new Error('Select exactly ' + recipe.need + ' ' + recipe.from + ' ticket' + (recipe.need === 1 ? '' : 's') + ' to make 1 ' + recipe.to + '.');
   }
 
-  await deleteLuckyTicketsOwned_(classId, studentId, uniqueIds);
+  // Create the upgraded ticket first, then consume inputs.
+  // Never delete-before-insert: a failed save after delete permanently loses tickets.
   const picked = await pickPrizeForTier_(recipe.to);
   const ticket = await saveLuckyDrawTicket(classId, studentId, picked.tierName, picked.prizeText);
+  try {
+    await deleteLuckyTicketsOwned_(classId, studentId, uniqueIds);
+  } catch (err) {
+    try {
+      await redeemLuckyTicket(ticket.ticketId);
+    } catch (rollbackErr) {
+      console.error('fuseLuckyTickets rollback failed', rollbackErr.message || rollbackErr);
+    }
+    throw err;
+  }
   const remaining = await listStudentLuckyTickets(classId, studentId);
 
   return {
@@ -941,7 +945,7 @@ async function fuseLuckyTickets(classId, studentId, ticketIds) {
       expiresInDays: ticket.expiresInDays,
       ttlDays: LUCKY_TICKET_TTL_DAYS
     },
-    ticketCount: ticket.ticketCount,
+    ticketCount: remaining.length,
     luckyDraw: {
       totalCount: remaining.length,
       tickets: groupLuckyTickets(remaining)
