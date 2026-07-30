@@ -16007,6 +16007,9 @@
                 if (res.skippedExisting) {
                     appToast('Skipped ' + res.skippedExisting + ' word(s) already in the bank.');
                 }
+                if (res.skippedJunk) {
+                    appToast('Skipped ' + res.skippedJunk + ' title/stopword entr' + (res.skippedJunk === 1 ? 'y' : 'ies') + '.');
+                }
                 startVocabGenPolling();
             }
         }).catch(function(err) {

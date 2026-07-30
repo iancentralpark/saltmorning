@@ -252,12 +252,14 @@ async function processJobTick(jobId) {
  */
 async function startGenerationJob(words, createdBy) {
   const { createGenerationJob, getExistingWordKeys } = require('./vocabLearningService');
+  const { filterJunkWords, normalizeKey: junkKey } = require('./vocabJunkFilter');
+  const filtered = filterJunkWords(Array.isArray(words) ? words : []);
   const seen = new Set();
   const candidates = [];
-  (Array.isArray(words) ? words : []).forEach(function (w) {
+  filtered.keep.forEach(function (w) {
     const word = String((w && w.word) || w || '').trim();
     if (!word) return;
-    const key = normalizeKey(word);
+    const key = junkKey(word);
     if (seen.has(key)) return;
     seen.add(key);
     const gradeLevel = Number(w && w.gradeLevel);
@@ -266,7 +268,17 @@ async function startGenerationJob(words, createdBy) {
       gradeLevel: Number.isFinite(gradeLevel) && gradeLevel >= GRADE_MIN && gradeLevel <= GRADE_MAX ? Math.round(gradeLevel) : null
     });
   });
-  if (!candidates.length) throw new Error('No valid words provided.');
+  const skippedJunk = filtered.skipped.length;
+  if (!candidates.length) {
+    const err = new Error(
+      skippedJunk
+        ? ('No usable words left after skipping ' + skippedJunk + ' title/stopword entr' + (skippedJunk === 1 ? 'y' : 'ies') + '.')
+        : 'No valid words provided.'
+    );
+    err.skippedJunk = skippedJunk;
+    err.skippedJunkWords = filtered.skipped.slice(0, 50);
+    throw err;
+  }
   if (candidates.length > 8000) throw new Error('Too many words in one upload (max 8000). Split into batches.');
 
   let existingKeys = new Set();
@@ -282,12 +294,13 @@ async function startGenerationJob(words, createdBy) {
       'All ' + candidates.length + ' word(s) already exist in the word bank. Nothing new to generate.'
     );
     err.skippedExisting = skippedExisting;
+    err.skippedJunk = skippedJunk;
     throw err;
   }
 
   const jobId = await createGenerationJob(pending, createdBy);
   setImmediate(function () { processJobTick(jobId).catch(function (err) { console.error('processJobTick', err); }); });
-  return { jobId, total: pending.length, skippedExisting };
+  return { jobId, total: pending.length, skippedExisting, skippedJunk, skippedJunkWords: filtered.skipped.slice(0, 50) };
 }
 
 /** Teacher-initiated stop. Safe even while a batch is mid-flight (see the re-check in processJobTick). */

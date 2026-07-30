@@ -1576,13 +1576,17 @@ router.post('/vocab/words/generate', requireTeacherAuth, async (req, res) => {
       ok: true,
       jobId: result.jobId,
       total: result.total,
-      skippedExisting: result.skippedExisting || 0
+      skippedExisting: result.skippedExisting || 0,
+      skippedJunk: result.skippedJunk || 0,
+      skippedJunkWords: result.skippedJunkWords || []
     });
   } catch (e) {
     console.error('POST /vocab/words/generate', e);
     res.status(400).json({
       error: e.message || 'Could not start generation job',
-      skippedExisting: e.skippedExisting || 0
+      skippedExisting: e.skippedExisting || 0,
+      skippedJunk: e.skippedJunk || 0,
+      skippedJunkWords: e.skippedJunkWords || []
     });
   }
 });

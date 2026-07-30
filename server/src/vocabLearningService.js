@@ -123,11 +123,21 @@ function normalizeWordEntry(raw, idx) {
 
 async function bulkUpsertWords(rawWords) {
   const db = requireDb();
+  const { filterJunkWords } = require('./vocabJunkFilter');
   const list = Array.isArray(rawWords) ? rawWords : [];
   if (!list.length) throw new Error('No words provided.');
   if (list.length > 8000) throw new Error('Too many words in one upload (max 8000). Split into batches.');
 
-  const normalized = list.map(normalizeWordEntry);
+  const filtered = filterJunkWords(list);
+  if (!filtered.keep.length) {
+    throw new Error(
+      filtered.skipped.length
+        ? ('No usable words left after skipping ' + filtered.skipped.length + ' title/stopword entries.')
+        : 'No words provided.'
+    );
+  }
+
+  const normalized = filtered.keep.map(normalizeWordEntry);
   // Collapse same-word rows inside one upload (keep last).
   const byKey = new Map();
   normalized.forEach(function (w) { byKey.set(w.word_key, w); });
@@ -163,7 +173,7 @@ async function bulkUpsertWords(rawWords) {
     if (error) throw new Error('Upload failed: ' + error.message);
     upserted += chunk.length;
   }
-  return { ok: true, upserted, total: unique.length };
+  return { ok: true, upserted, total: unique.length, skippedJunk: filtered.skipped.length, skippedJunkWords: filtered.skipped.slice(0, 50) };
 }
 
 /**

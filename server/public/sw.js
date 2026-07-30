@@ -1,4 +1,4 @@
-const CACHE = 'mrpark-shell-2026-07-30.23';
+const CACHE = 'mrpark-shell-2026-07-30.24';
 const SHELL = [
   '/',
   '/offline.html',
