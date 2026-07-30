@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PORTAL_BUILD = '2026-07-30.22';
+const PORTAL_BUILD = '2026-07-30.23';
 
 const serverDir = path.join(__dirname, '..');
 const repoRoot = path.join(serverDir, '..');
@@ -124,11 +124,15 @@ function injectPortalAssets(html) {
   if (out.includes('id="vocabShell"') && !out.includes('/js/vocab-learn.js')) {
     out = out.replace(
       '</head>',
-      '<link rel="stylesheet" href="/css/vocab-learn.css">\n' +
-      '<script src="/js/vocab-mock-data.js" defer></script>\n' +
-      '<script src="/js/vocab-learn.js" defer></script>\n</head>'
+      '<link rel="stylesheet" href="/css/vocab-learn.css?v=' + PORTAL_BUILD + '">\n' +
+      '<script src="/js/vocab-mock-data.js?v=' + PORTAL_BUILD + '" defer></script>\n' +
+      '<script src="/js/vocab-learn.js?v=' + PORTAL_BUILD + '" defer></script>\n</head>'
     );
   }
+  out = out
+    .replace(/\/css\/vocab-learn\.css(?:\?[^"']*)?/g, '/css/vocab-learn.css?v=' + PORTAL_BUILD)
+    .replace(/\/js\/vocab-mock-data\.js(?:\?[^"']*)?/g, '/js/vocab-mock-data.js?v=' + PORTAL_BUILD)
+    .replace(/\/js\/vocab-learn\.js(?:\?[^"']*)?/g, '/js/vocab-learn.js?v=' + PORTAL_BUILD);
   return out;
 }
 

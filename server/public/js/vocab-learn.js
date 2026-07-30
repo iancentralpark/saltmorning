@@ -141,6 +141,7 @@
     phase: 'idle', // idle | study | test | done
     testIndex: 0,
     testWords: [],
+    testTypes: [],
     testAnswers: [],
     currentTestQ: null,
     locked: false,
@@ -280,8 +281,64 @@
   }
 
   function pickDistractors(correctWord, pool, n) {
-    var others = pool.filter(function (w) { return w.word_id !== correctWord.word_id; });
+    var others = (pool || []).filter(function (w) {
+      return String(w.word_id || w.word) !== String(correctWord.word_id || correctWord.word);
+    });
     return shuffle(others).slice(0, n);
+  }
+
+  function wordDef(w) {
+    if (!w) return '';
+    var L = w.levels || {};
+    var basic = L.basic || {};
+    return String(w.simple_definition || basic.intuitive_definition || '').trim();
+  }
+
+  function wordKo(w) {
+    return w ? String(w.korean_meaning || '').trim() : '';
+  }
+
+  function wordLabel(w) {
+    return w ? String(w.word || '').trim() : '';
+  }
+
+  function clozePromptFor(word) {
+    var raw = String(word.cloze_question || '').trim();
+    if (raw) return raw.replace(/^\s*Fill the blank:\s*/i, '').trim();
+    var example = String(word.example_sentence || '').trim();
+    if (!example) {
+      var L = word.levels || {};
+      var mid = L.intermediate || {};
+      example = (mid.examples && mid.examples[0]) || '';
+    }
+    example = String(example || '').trim();
+    if (!example) return 'Choose the word that fits: ______';
+    var re = new RegExp('\\b' + String(word.word || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+    var blanked = example.replace(re, '______');
+    if (blanked === example) blanked = example + ' (______)';
+    return blanked;
+  }
+
+  function uniqueChoices(correct, wrongs, need) {
+    need = need || 4;
+    var out = [];
+    var seen = {};
+    function add(v) {
+      var s = String(v == null ? '' : v).trim();
+      if (!s || seen[s]) return;
+      seen[s] = true;
+      out.push(s);
+    }
+    add(correct);
+    (wrongs || []).forEach(add);
+    return out.slice(0, need);
+  }
+
+  function quizTypeLabel(type) {
+    if (type === 'meaning') return 'Meaning';
+    if (type === 'sentence' || type === 'cloze') return 'Sentence';
+    if (type === 'whichWord') return 'Which word?';
+    return 'Question';
   }
 
   function buildQuestion(targetGrade, qIndex) {
@@ -289,58 +346,43 @@
     if (!pack) return null;
     var band = pack.wordsInGrade(targetGrade, 1);
     if (band.length < 4) band = pack.sortedWords();
+    var pool = band.length >= 4 ? band : pack.WORDS;
     var word = pack.findNearestGrade(targetGrade);
-    // Prefer a word actually in band
     if (band.length) {
       word = band[Math.floor(Math.random() * band.length)];
     }
-    var types = ['meaning', 'cloze', 'nuance'];
+    // Rotate: Meaning → Sentence → Which word?
+    var types = ['meaning', 'sentence', 'whichWord'];
     var type = types[qIndex % types.length];
-    // Harder types only when ability is mid+
-    if (targetGrade < 3 && type === 'nuance') type = 'meaning';
-    if (targetGrade < 5 && type === 'nuance' && Math.random() < 0.5) type = 'cloze';
 
     var choices = [];
     var prompt = '';
     var correct = '';
+    var distractors = pickDistractors(word, pool, 3);
 
     if (type === 'meaning') {
-      prompt = 'What is the most intuitive meaning of “' + word.word + '”?';
-      correct = word.levels.basic.intuitive_definition;
-      choices = [correct].concat(pickDistractors(word, band.length >= 4 ? band : pack.WORDS, 3).map(function (w) {
-        return w.levels.basic.intuitive_definition;
-      }));
-    } else if (type === 'cloze') {
-      var ex = (word.levels.intermediate.examples && word.levels.intermediate.examples[0]) ||
-        ('Please use the word “' + word.word + '” correctly.');
-      var blanked = ex.replace(new RegExp('\\b' + word.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i'), '______');
-      if (blanked === ex) blanked = 'Fill the blank: “______” fits this idea — ' + word.levels.basic.intuitive_definition;
-      prompt = blanked;
-      correct = word.word;
-      choices = [correct].concat(pickDistractors(word, band.length >= 4 ? band : pack.WORDS, 3).map(function (w) {
-        return w.word;
-      }));
+      prompt = 'What does “' + word.word + '” mean?';
+      correct = wordDef(word) || word.word;
+      choices = uniqueChoices(correct, distractors.map(wordDef));
+    } else if (type === 'sentence') {
+      prompt = clozePromptFor(word);
+      correct = wordLabel(word);
+      choices = uniqueChoices(correct, distractors.map(wordLabel));
     } else {
-      prompt = 'Which statement best captures a nuance of “' + word.word + '”?';
-      correct = word.levels.intermediate.mechanism_and_nuance;
-      choices = [correct].concat(pickDistractors(word, band.length >= 4 ? band : pack.WORDS, 3).map(function (w) {
-        return w.levels.intermediate.mechanism_and_nuance;
-      }));
+      var def = wordDef(word) || word.word;
+      var ko = wordKo(word);
+      prompt = ko
+        ? ('Which word means this?\n' + ko + '\n(' + def + ')')
+        : ('Which word means “' + def + '”?');
+      correct = wordLabel(word);
+      choices = uniqueChoices(correct, distractors.map(wordLabel));
     }
 
-    choices = shuffle(choices);
-    // de-dupe
-    var seen = {};
-    choices = choices.filter(function (c) {
-      var k = String(c);
-      if (seen[k]) return false;
-      seen[k] = true;
-      return true;
-    });
     while (choices.length < 4) {
       var filler = pack.WORDS[Math.floor(Math.random() * pack.WORDS.length)];
-      var text = type === 'cloze' ? filler.word : filler.levels.basic.intuitive_definition;
-      if (choices.indexOf(text) < 0) choices.push(text);
+      var text = (type === 'meaning') ? wordDef(filler) : wordLabel(filler);
+      if (text && choices.indexOf(text) < 0) choices.push(text);
+      else break;
     }
 
     return {
@@ -348,8 +390,8 @@
       word: word,
       prompt: prompt,
       correct: correct,
-      choices: choices.slice(0, 4),
-      frequencyLevel: word.grade_level // wire field name kept for server compat; value is now Grade 1-12
+      choices: shuffle(choices.slice(0, 4)),
+      frequencyLevel: word.grade_level
     };
   }
 
@@ -358,7 +400,7 @@
     var correct = !!(item && item.correct);
     var seconds = Math.max(0.5, Number(item && item.seconds) || 8);
     var type = String((item && item.questionType) || 'meaning');
-    var step = type === 'nuance' ? 0.7 : type === 'cloze' ? 0.6 : 0.55;
+    var step = (type === 'sentence' || type === 'cloze' || type === 'whichWord') ? 0.6 : 0.55;
     var fast = seconds <= 6;
     var slow = seconds >= 18;
     if (correct) ability += step * (fast ? 1.25 : slow ? 0.75 : 1);
@@ -434,11 +476,11 @@
       $('vocabQuizBody').innerHTML = '<p class="vocab-empty">Mock data failed to load.</p>';
       return;
     }
-    var typeLabel = q.type === 'meaning' ? 'Intuitive meaning' : q.type === 'cloze' ? 'Context cloze' : 'Nuance check';
+    var typeLabel = quizTypeLabel(q.type);
     var html = '<div class="vocab-q-card has-timer">' +
       '<span class="vocab-quiz-timer" id="vocabQuizTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span>' +
       '<span class="vocab-q-type">' + escapeHtml(typeLabel) + '</span>' +
-      '<p class="vocab-q-prompt">' + escapeHtml(q.prompt) + '</p>' +
+      '<p class="vocab-q-prompt">' + escapeHtml(q.prompt).replace(/\n/g, '<br>') + '</p>' +
       '<div class="vocab-choices">' +
       q.choices.map(function (c, i) {
         return '<button type="button" class="vocab-choice" data-choice-i="' + i + '">' + escapeHtml(c) + '</button>';
@@ -833,34 +875,68 @@
     renderQuestStudyCard();
   }
 
+  function buildTestTypeSchedule(n) {
+    var base = ['sentence', 'meaning', 'whichWord'];
+    var out = [];
+    var i;
+    for (i = 0; i < n; i++) out.push(base[i % base.length]);
+    return shuffle(out);
+  }
+
   function buildTestQuestion(word, pool, qIndex) {
-    if (word.cloze_question && Array.isArray(word.wrong_options) && word.wrong_options.length === 3) {
-      var choices = shuffle([word.word].concat(word.wrong_options));
-      return {
-        type: 'cloze',
-        word: word,
-        prompt: word.cloze_question,
-        correct: word.word,
-        choices: choices,
-        explanation: word.explanation_for_wrong || ''
-      };
+    pool = pool || [];
+    var types = quest.testTypes || [];
+    var type = types[qIndex] || ['sentence', 'meaning', 'whichWord'][qIndex % 3];
+    var distractors = pickDistractors(word, pool, 3);
+    var prompt = '';
+    var correct = '';
+    var choices = [];
+    var explanation = '';
+
+    if (type === 'meaning') {
+      prompt = 'What does “' + wordLabel(word) + '” mean?';
+      correct = wordDef(word) || wordLabel(word);
+      choices = uniqueChoices(correct, distractors.map(wordDef));
+    } else if (type === 'whichWord') {
+      var def = wordDef(word) || wordLabel(word);
+      var ko = wordKo(word);
+      prompt = ko
+        ? ('Which word means this?\n' + ko + '\n(' + def + ')')
+        : ('Which word means “' + def + '”?');
+      correct = wordLabel(word);
+      choices = uniqueChoices(correct, distractors.map(wordLabel));
+    } else {
+      // Sentence / cloze — always use today's words as choices (blocks "pick today's word" cheat)
+      type = 'sentence';
+      prompt = clozePromptFor(word);
+      correct = wordLabel(word);
+      choices = uniqueChoices(correct, distractors.map(wordLabel));
+      explanation = word.explanation_for_wrong || '';
     }
-    var L = word.levels || {};
-    var basic = L.basic || {};
-    var definition = word.simple_definition || basic.intuitive_definition || word.word;
-    var distractors = (pool || []).filter(function (w2) { return w2.word_id !== word.word_id; });
-    var wrongDefs = shuffle(distractors).slice(0, 3).map(function (w2) {
-      var l2 = w2.levels || {};
-      return w2.simple_definition || (l2.basic || {}).intuitive_definition || w2.word;
-    });
-    while (wrongDefs.length < 3) wrongDefs.push('—');
+
+    // If today's pool is short, pad with bank wrong_options (words only) as last resort
+    if (choices.length < 4 && Array.isArray(word.wrong_options)) {
+      word.wrong_options.forEach(function (opt) {
+        if (choices.length >= 4) return;
+        if (type === 'meaning') return;
+        var s = String(opt || '').trim();
+        if (s && choices.indexOf(s) < 0) choices.push(s);
+      });
+    }
+    while (choices.length < 4) {
+      var filler = pool[Math.floor(Math.random() * Math.max(1, pool.length))] || word;
+      var text = type === 'meaning' ? wordDef(filler) : wordLabel(filler);
+      if (text && choices.indexOf(text) < 0) choices.push(text);
+      else break;
+    }
+
     return {
-      type: 'meaning',
+      type: type,
       word: word,
-      prompt: 'What does “' + word.word + '” mean?',
-      correct: definition,
-      choices: shuffle([definition].concat(wrongDefs.slice(0, 3))),
-      explanation: ''
+      prompt: prompt,
+      correct: correct,
+      choices: shuffle(choices.slice(0, 4)),
+      explanation: explanation
     };
   }
 
@@ -868,6 +944,7 @@
     clearQuestTestTimer();
     quest.phase = 'test';
     quest.testWords = quest.queue.slice();
+    quest.testTypes = buildTestTypeSchedule(quest.testWords.length);
     quest.testIndex = 0;
     quest.testAnswers = [];
     quest.locked = false;
@@ -929,7 +1006,8 @@
       '<div class="vocab-progress"><span style="width:' + pct + '%"></span></div>' +
       '<div class="vocab-q-card has-timer">' +
       '<span class="vocab-quiz-timer" id="vocabQuestTestTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span>' +
-      '<p class="vocab-q-prompt">' + escapeHtml(q.prompt) + '</p>' +
+      '<span class="vocab-q-type">' + escapeHtml(quizTypeLabel(q.type)) + '</span>' +
+      '<p class="vocab-q-prompt">' + escapeHtml(q.prompt).replace(/\n/g, '<br>') + '</p>' +
       '<div class="vocab-choices">' +
       q.choices.map(function (c, i) {
         return '<button type="button" class="vocab-choice" data-choice-i="' + i + '">' + escapeHtml(c) + '</button>';
