@@ -7,6 +7,7 @@
 
   var STORAGE_KEY = 'mrpark_vocab_placement_v1';
   var QUESTION_COUNT = 12;
+  var PLACEMENT_SECONDS = 60;
   var state = {
     view: 'home', // home | quiz | result | quest
     abilityGrade: 6,
@@ -15,6 +16,9 @@
     currentQ: null,
     qStartedAt: 0,
     locked: false,
+    selectedChoice: null,
+    placementTimerId: null,
+    placementTickId: null,
     placement: null,
     placementDone: false,
     deckIndex: 0,
@@ -299,6 +303,39 @@
     return Math.round(Math.max(0.5, Math.min(12.5, ability)) * 100) / 100;
   }
 
+  function clearPlacementTimer() {
+    if (state.placementTimerId) {
+      clearTimeout(state.placementTimerId);
+      state.placementTimerId = null;
+    }
+    if (state.placementTickId) {
+      clearInterval(state.placementTickId);
+      state.placementTickId = null;
+    }
+  }
+
+  function updatePlacementTimerUi(secondsLeft) {
+    var el = $('vocabQuizTimer');
+    if (!el) return;
+    var sec = Math.max(0, Math.ceil(secondsLeft));
+    el.textContent = sec + 's';
+    el.classList.toggle('is-urgent', sec <= 10);
+  }
+
+  function startPlacementTimer() {
+    clearPlacementTimer();
+    var endsAt = state.qStartedAt + PLACEMENT_SECONDS * 1000;
+    updatePlacementTimerUi(PLACEMENT_SECONDS);
+    state.placementTickId = setInterval(function () {
+      var left = (endsAt - Date.now()) / 1000;
+      updatePlacementTimerUi(left);
+      if (left <= 0) clearInterval(state.placementTickId);
+    }, 200);
+    state.placementTimerId = setTimeout(function () {
+      onPlacementTimeout();
+    }, PLACEMENT_SECONDS * 1000);
+  }
+
   function startPlacement() {
     if (state.placementDone) {
       if (typeof root.appAlert === 'function') {
@@ -309,16 +346,20 @@
       setView('home');
       return;
     }
+    clearPlacementTimer();
     state.abilityGrade = 6;
     state.questionIndex = 0;
     state.answers = [];
     state.locked = false;
+    state.selectedChoice = null;
     setView('quiz');
     showQuestion();
   }
 
   function showQuestion() {
+    clearPlacementTimer();
     state.locked = false;
+    state.selectedChoice = null;
     state.qStartedAt = Date.now();
     var q = buildQuestion(Math.round(state.abilityGrade), state.questionIndex);
     state.currentQ = q;
@@ -339,47 +380,69 @@
         return '<button type="button" class="vocab-choice" data-choice-i="' + i + '">' + escapeHtml(c) + '</button>';
       }).join('') +
       '</div>' +
-      '<div class="vocab-feedback" id="vocabFeedback"></div>' +
+      '<div class="vocab-actions vocab-q-actions">' +
+      '<button type="button" class="vocab-btn" id="vocabPlacementNextBtn" disabled>Next</button>' +
+      '</div>' +
       '</div>';
     $('vocabQuizBody').innerHTML = html;
     $('vocabQuizBody').querySelectorAll('.vocab-choice').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        onChoose(Number(btn.getAttribute('data-choice-i')));
+        onSelectPlacementChoice(Number(btn.getAttribute('data-choice-i')));
       });
     });
+    var nextBtn = $('vocabPlacementNextBtn');
+    if (nextBtn) nextBtn.addEventListener('click', function () { submitPlacementAnswer(false); });
+    startPlacementTimer();
   }
 
-  function onChoose(choiceIndex) {
+  function onSelectPlacementChoice(choiceIndex) {
+    if (state.locked || !state.currentQ) return;
+    state.selectedChoice = choiceIndex;
+    var buttons = $('vocabQuizBody').querySelectorAll('.vocab-choice');
+    buttons.forEach(function (btn, i) {
+      btn.classList.toggle('is-selected', i === choiceIndex);
+    });
+    var nextBtn = $('vocabPlacementNextBtn');
+    if (nextBtn) nextBtn.disabled = false;
+  }
+
+  function onPlacementTimeout() {
+    if (state.locked) return;
+    // Time’s up: submit current pick if any, otherwise count as incorrect.
+    submitPlacementAnswer(true);
+  }
+
+  /** @param {boolean} timedOut */
+  function submitPlacementAnswer(timedOut) {
     if (state.locked || !state.currentQ) return;
     state.locked = true;
+    clearPlacementTimer();
+
     var q = state.currentQ;
-    var picked = q.choices[choiceIndex];
-    var correct = picked === q.correct;
-    var seconds = (Date.now() - state.qStartedAt) / 1000;
+    var choiceIndex = state.selectedChoice;
+    var hasPick = choiceIndex != null && choiceIndex >= 0;
+    var picked = hasPick ? q.choices[choiceIndex] : null;
+    var correct = !!(hasPick && picked === q.correct);
+    var seconds = timedOut
+      ? PLACEMENT_SECONDS
+      : Math.min(PLACEMENT_SECONDS, (Date.now() - state.qStartedAt) / 1000);
     var answer = {
       correct: correct,
       seconds: seconds,
       questionType: q.type,
       frequencyLevel: q.frequencyLevel,
-      word: q.word.word
+      word: q.word.word,
+      timedOut: !!timedOut
     };
     state.answers.push(answer);
 
     var buttons = $('vocabQuizBody').querySelectorAll('.vocab-choice');
-    buttons.forEach(function (btn, i) {
-      btn.disabled = true;
-      if (q.choices[i] === q.correct) btn.classList.add('is-correct');
-      if (i === choiceIndex && !correct) btn.classList.add('is-wrong');
-    });
-    var fb = $('vocabFeedback');
-    if (fb) {
-      fb.className = 'vocab-feedback ' + (correct ? 'ok' : 'bad');
-      fb.textContent = correct ? 'Nice — adjusting difficulty…' : 'Not quite — easing the next item…';
-    }
+    buttons.forEach(function (btn) { btn.disabled = true; });
+    var nextBtn = $('vocabPlacementNextBtn');
+    if (nextBtn) nextBtn.disabled = true;
 
     state.abilityGrade = localUpdateAbility(state.abilityGrade, answer);
 
-    // Optional server adapt (non-blocking)
     apiFetch('/api/student/vocab/placement/next', {
       method: 'POST',
       body: {
@@ -393,14 +456,13 @@
       if (res && res.abilityGrade) state.abilityGrade = res.abilityGrade;
     }).catch(function () { /* keep local */ });
 
-    setTimeout(function () {
-      state.questionIndex += 1;
-      if (state.questionIndex >= QUESTION_COUNT) finishPlacement();
-      else showQuestion();
-    }, 750);
+    state.questionIndex += 1;
+    if (state.questionIndex >= QUESTION_COUNT) finishPlacement();
+    else showQuestion();
   }
 
   function finishPlacement() {
+    clearPlacementTimer();
     var body = { answers: state.answers };
     apiFetch('/api/student/vocab/placement/score', {
       method: 'POST',

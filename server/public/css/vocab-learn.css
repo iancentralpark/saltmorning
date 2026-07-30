@@ -229,6 +229,12 @@
   transform: translateY(-1px);
 }
 
+.vocab-choice.is-selected {
+  background: var(--vocab-mint-soft);
+  border-color: var(--vocab-mint);
+  box-shadow: inset 0 0 0 1px rgba(31, 138, 112, 0.35);
+}
+
 .vocab-choice.is-correct {
   background: var(--vocab-mint-soft);
   border-color: var(--vocab-mint);
@@ -240,6 +246,24 @@
 }
 
 .vocab-choice:disabled { cursor: default; }
+
+.vocab-q-actions {
+  margin-top: 0.85rem;
+  justify-content: flex-end;
+}
+
+.vocab-quiz-timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--vocab-muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.vocab-quiz-timer.is-urgent {
+  color: var(--vocab-rose);
+}
 
 .vocab-feedback {
   margin-top: 0.75rem;
