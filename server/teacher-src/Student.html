@@ -94,13 +94,23 @@
             margin-bottom: 1.25rem;
         }
         .brand h1 {
-            font-size: 1.65rem;
-            background: linear-gradient(135deg, var(--primary), var(--accent));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+            font-size: clamp(1.8rem, 5.2vw, 2.25rem);
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            color: #0a4f8a;
+            line-height: 1.15;
+            text-shadow: 0 2px 0 rgba(255, 255, 255, 0.85);
         }
-        .brand p { color: var(--muted); margin: 0.35rem 0 0; font-size: 0.92rem; }
+        .brand h1 .brand-name {
+            color: #e67e22;
+            text-shadow: 0 2px 0 rgba(230, 126, 34, 0.2);
+        }
+        .brand p {
+            color: #3d5566;
+            margin: 0.4rem 0 0;
+            font-size: 0.95rem;
+            font-weight: 650;
+        }
         .card {
             background: var(--surface);
             border-radius: var(--radius);
@@ -2049,7 +2059,7 @@
         <div class="portal-brand-snail">
             <svg class="snail-svg snail-mascot-md" role="img" aria-label="Snail mascot"><use href="#mrpark-snail"/></svg>
         </div>
-        <h1>Mr.Park Student Portal</h1>
+        <h1><span class="brand-name">Mr.Park</span> Student Portal</h1>
         <p>Check your attendance, homework, dollars &amp; Chambit</p>
     </div>
 

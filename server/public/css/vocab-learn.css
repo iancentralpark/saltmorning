@@ -471,16 +471,25 @@
   .mobile-bottom-nav .mobile-nav-btn span { font-size: 0.62rem; }
 }
 
+.vocab-shell > .card-title {
+  color: #0b6e9e;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.vocab-shell > .card-title i {
+  color: #e67e22;
+}
+
 .vocab-tier-hero {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1.1rem 1.15rem;
+  padding: 1.15rem 1.2rem;
   margin-bottom: 1rem;
-  border-radius: 1.1rem;
-  border: 1px solid var(--vocab-line);
-  background: linear-gradient(145deg, #f7fafc 0%, #eef5f8 55%, #f8f4ec 100%);
-  box-shadow: 0 10px 28px rgba(26, 35, 50, 0.06);
+  border-radius: 1.15rem;
+  border: 2px solid rgba(42, 111, 151, 0.28);
+  background: linear-gradient(135deg, #dff3ff 0%, #cfe9fb 42%, #ffe8c8 100%);
+  box-shadow: 0 10px 28px rgba(42, 111, 151, 0.14), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 .vocab-tier-badge-mark {
   flex: 0 0 auto;
@@ -491,19 +500,19 @@
   place-items: center;
   font-size: 1.85rem;
   color: #fff;
-  background: #6b7280;
-  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.35), 0 8px 18px rgba(0,0,0,0.12);
+  background: #2a6f97;
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.4), 0 8px 18px rgba(0,0,0,0.16);
 }
 .vocab-tier-hero-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .vocab-tier-hero-label {
   font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--vocab-muted); font-weight: 650;
+  color: #1f6f9c; font-weight: 750;
 }
 .vocab-tier-hero-name {
   font-size: clamp(1.85rem, 5vw, 2.55rem); line-height: 1.05;
-  font-weight: 800; color: var(--vocab-ink); letter-spacing: -0.02em;
+  font-weight: 800; color: #0d3550; letter-spacing: -0.02em;
 }
-.vocab-tier-hero-grade { font-size: 0.95rem; color: var(--vocab-muted); font-weight: 600; }
+.vocab-tier-hero-grade { font-size: 0.95rem; color: #2f5f7a; font-weight: 700; }
 
 .vocab-mastery-wrap {
   margin: 0.65rem 0 0.85rem;
@@ -537,10 +546,19 @@
 .vocab-tier-hero.tier-master .vocab-tier-badge-mark { background: linear-gradient(145deg, #ffb4a2, #c2410c); }
 .vocab-tier-hero.tier-grandmaster .vocab-tier-badge-mark { background: linear-gradient(145deg, #ff8fab, #be123c); }
 .vocab-tier-hero.tier-legend .vocab-tier-badge-mark { background: linear-gradient(145deg, #ffe08a, #b45309 45%, #7c2d12); }
-.vocab-tier-hero.tier-gold { background: linear-gradient(145deg, #fff8e8, #fff1cc 50%, #f7fafc); }
-.vocab-tier-hero.tier-emerald { background: linear-gradient(145deg, #edfff7, #e8faf3 50%, #f7fafc); }
-.vocab-tier-hero.tier-diamond { background: linear-gradient(145deg, #eef8ff, #e7f3ff 50%, #f7fafc); }
-.vocab-tier-hero.tier-legend { background: linear-gradient(145deg, #fff6df, #ffecd0 50%, #f7fafc); }
+
+.vocab-tier-hero.tier-rookie { background: linear-gradient(135deg, #eef1f5, #e2e7ee 55%, #fff0dd); border-color: rgba(107,114,128,0.35); }
+.vocab-tier-hero.tier-iron { background: linear-gradient(135deg, #e8edf3, #d5dde8 55%, #ffe8c8); border-color: rgba(123,132,148,0.4); }
+.vocab-tier-hero.tier-bronze { background: linear-gradient(135deg, #f8e6d4, #efd0ae 55%, #fff1dc); border-color: rgba(160,90,44,0.35); }
+.vocab-tier-hero.tier-silver { background: linear-gradient(135deg, #eef3f8, #d9e4f0 55%, #fff0d8); border-color: rgba(143,160,181,0.45); }
+.vocab-tier-hero.tier-gold { background: linear-gradient(135deg, #fff4cc, #ffe08a 50%, #fff8e8); border-color: rgba(212,160,23,0.45); }
+.vocab-tier-hero.tier-platinum { background: linear-gradient(135deg, #e8f1fa, #cfdff0 55%, #ffe9c9); border-color: rgba(127,155,184,0.45); }
+.vocab-tier-hero.tier-emerald { background: linear-gradient(135deg, #d9fff0, #aaf5d4 50%, #edfff7); border-color: rgba(15,159,110,0.4); }
+.vocab-tier-hero.tier-diamond { background: linear-gradient(135deg, #d9f0ff, #a8dbff 50%, #eef8ff); border-color: rgba(47,127,214,0.4); }
+.vocab-tier-hero.tier-ascendant { background: linear-gradient(135deg, #efe3ff, #d9b8ff 50%, #f7f0ff); border-color: rgba(124,58,237,0.4); }
+.vocab-tier-hero.tier-master { background: linear-gradient(135deg, #ffe0d4, #ffb59a 50%, #fff1ea); border-color: rgba(194,65,12,0.4); }
+.vocab-tier-hero.tier-grandmaster { background: linear-gradient(135deg, #ffd0dc, #ff9ab0 50%, #fff0f3); border-color: rgba(190,18,60,0.4); }
+.vocab-tier-hero.tier-legend { background: linear-gradient(135deg, #ffe8a8, #ffc857 45%, #fff6df); border-color: rgba(180,83,9,0.45); }
 @media (max-width: 640px) {
   .vocab-tier-badge-mark { width: 3.7rem; height: 3.7rem; font-size: 1.55rem; }
 }
