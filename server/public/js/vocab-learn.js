@@ -7,7 +7,8 @@
 
   var STORAGE_KEY = 'mrpark_vocab_placement_v1';
   var QUESTION_COUNT = 12;
-  var PLACEMENT_SECONDS = 60;
+  var QUESTION_SECONDS = 60;
+  var PLACEMENT_SECONDS = QUESTION_SECONDS;
   var state = {
     view: 'home', // home | quiz | result | quest
     abilityGrade: 6,
@@ -99,6 +100,10 @@
     testAnswers: [],
     currentTestQ: null,
     locked: false,
+    selectedChoice: null,
+    qStartedAt: 0,
+    timerId: null,
+    tickId: null,
     alreadyPassedToday: false
   };
 
@@ -799,21 +804,60 @@
   }
 
   function startQuestTest() {
+    clearQuestTestTimer();
     quest.phase = 'test';
     quest.testWords = quest.queue.slice();
     quest.testIndex = 0;
     quest.testAnswers = [];
     quest.locked = false;
+    quest.selectedChoice = null;
     renderQuestTestQuestion();
+  }
+
+  function clearQuestTestTimer() {
+    if (quest.timerId) {
+      clearTimeout(quest.timerId);
+      quest.timerId = null;
+    }
+    if (quest.tickId) {
+      clearInterval(quest.tickId);
+      quest.tickId = null;
+    }
+  }
+
+  function updateQuestTestTimerUi(secondsLeft) {
+    var el = $('vocabQuestTestTimer');
+    if (!el) return;
+    var sec = Math.max(0, Math.ceil(secondsLeft));
+    el.textContent = sec + 's';
+    el.classList.toggle('is-urgent', sec <= 10);
+  }
+
+  function startQuestTestTimer() {
+    clearQuestTestTimer();
+    var endsAt = quest.qStartedAt + QUESTION_SECONDS * 1000;
+    updateQuestTestTimerUi(QUESTION_SECONDS);
+    quest.tickId = setInterval(function () {
+      var left = (endsAt - Date.now()) / 1000;
+      updateQuestTestTimerUi(left);
+      if (left <= 0) clearInterval(quest.tickId);
+    }, 200);
+    quest.timerId = setTimeout(function () {
+      submitQuestTestAnswer(true);
+    }, QUESTION_SECONDS * 1000);
   }
 
   function renderQuestTestQuestion() {
     var box = $('vocabQuestBody');
     if (!box) return;
+    clearQuestTestTimer();
     if (quest.testIndex >= quest.testWords.length) {
       submitQuestTest();
       return;
     }
+    quest.locked = false;
+    quest.selectedChoice = null;
+    quest.qStartedAt = Date.now();
     var w = quest.testWords[quest.testIndex];
     var q = buildTestQuestion(w, quest.testWords, quest.testIndex);
     quest.currentTestQ = q;
@@ -821,7 +865,7 @@
     box.innerHTML =
       '<div class="d-flex justify-content-between align-items-center" style="gap:0.5rem;flex-wrap:wrap;">' +
       '<strong>Daily test ' + (quest.testIndex + 1) + ' / ' + quest.testWords.length + '</strong>' +
-      '<span class="vocab-empty">No going back during the test</span></div>' +
+      '<span class="vocab-quiz-timer" id="vocabQuestTestTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span></div>' +
       '<div class="vocab-progress"><span style="width:' + pct + '%"></span></div>' +
       '<div class="vocab-q-card">' +
       '<p class="vocab-q-prompt">' + escapeHtml(q.prompt) + '</p>' +
@@ -830,44 +874,57 @@
         return '<button type="button" class="vocab-choice" data-choice-i="' + i + '">' + escapeHtml(c) + '</button>';
       }).join('') +
       '</div>' +
-      '<div class="vocab-feedback" id="vocabQuestFeedback"></div>' +
+      '<div class="vocab-actions vocab-q-actions">' +
+      '<button type="button" class="vocab-btn" id="vocabQuestTestNextBtn" disabled>Next</button>' +
+      '</div>' +
       '</div>';
     box.querySelectorAll('.vocab-choice').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        onQuestChoose(Number(btn.getAttribute('data-choice-i')));
+        onSelectQuestTestChoice(Number(btn.getAttribute('data-choice-i')));
       });
     });
+    var nextBtn = $('vocabQuestTestNextBtn');
+    if (nextBtn) nextBtn.addEventListener('click', function () { submitQuestTestAnswer(false); });
+    startQuestTestTimer();
   }
 
-  function onQuestChoose(choiceIndex) {
+  function onSelectQuestTestChoice(choiceIndex) {
     if (quest.locked || !quest.currentTestQ) return;
-    quest.locked = true;
-    var q = quest.currentTestQ;
-    var picked = q.choices[choiceIndex];
-    var correct = picked === q.correct;
-    quest.testAnswers.push({ correct: correct, word: q.word });
-
+    quest.selectedChoice = choiceIndex;
     var box = $('vocabQuestBody');
     var buttons = box ? box.querySelectorAll('.vocab-choice') : [];
     buttons.forEach(function (btn, i) {
-      btn.disabled = true;
-      if (q.choices[i] === q.correct) btn.classList.add('is-correct');
-      if (i === choiceIndex && !correct) btn.classList.add('is-wrong');
+      btn.classList.toggle('is-selected', i === choiceIndex);
     });
-    var fb = $('vocabQuestFeedback');
-    if (fb) {
-      fb.className = 'vocab-feedback ' + (correct ? 'ok' : 'bad');
-      fb.textContent = correct ? 'Correct!' : (q.explanation || 'Not quite.');
-    }
+    var nextBtn = $('vocabQuestTestNextBtn');
+    if (nextBtn) nextBtn.disabled = false;
+  }
 
-    setTimeout(function () {
-      quest.locked = false;
-      quest.testIndex += 1;
-      renderQuestTestQuestion();
-    }, 700);
+  /** @param {boolean} timedOut */
+  function submitQuestTestAnswer(timedOut) {
+    if (quest.locked || !quest.currentTestQ) return;
+    quest.locked = true;
+    clearQuestTestTimer();
+
+    var q = quest.currentTestQ;
+    var choiceIndex = quest.selectedChoice;
+    var hasPick = choiceIndex != null && choiceIndex >= 0;
+    var picked = hasPick ? q.choices[choiceIndex] : null;
+    var correct = !!(hasPick && picked === q.correct);
+    quest.testAnswers.push({ correct: correct, word: q.word, timedOut: !!timedOut });
+
+    var box = $('vocabQuestBody');
+    var buttons = box ? box.querySelectorAll('.vocab-choice') : [];
+    buttons.forEach(function (btn) { btn.disabled = true; });
+    var nextBtn = $('vocabQuestTestNextBtn');
+    if (nextBtn) nextBtn.disabled = true;
+
+    quest.testIndex += 1;
+    renderQuestTestQuestion();
   }
 
   function submitQuestTest() {
+    clearQuestTestTimer();
     var correctCount = quest.testAnswers.filter(function (a) { return a.correct; }).length;
     var total = quest.testAnswers.length;
     var missed = quest.testAnswers.filter(function (a) { return !a.correct; }).map(function (a) { return a.word; });
@@ -896,6 +953,7 @@
   function renderMissedRestudyGate(res, correctCount, total, missed) {
     var box = $('vocabQuestBody');
     if (!box) return;
+    clearQuestTestTimer();
     quest.phase = 'idle';
     box.innerHTML =
       '<div class="vocab-result">' +
@@ -915,6 +973,7 @@
   function renderQuestDone(res, correctCount, total) {
     var box = $('vocabQuestBody');
     if (!box) return;
+    clearQuestTestTimer();
     var passed = !!res.passed;
     var reward = res.reward;
     quest.phase = passed ? 'done' : 'idle';
