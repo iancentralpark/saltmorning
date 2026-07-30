@@ -435,7 +435,8 @@
       return;
     }
     var typeLabel = q.type === 'meaning' ? 'Intuitive meaning' : q.type === 'cloze' ? 'Context cloze' : 'Nuance check';
-    var html = '<div class="vocab-q-card">' +
+    var html = '<div class="vocab-q-card has-timer">' +
+      '<span class="vocab-quiz-timer" id="vocabQuizTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span>' +
       '<span class="vocab-q-type">' + escapeHtml(typeLabel) + '</span>' +
       '<p class="vocab-q-prompt">' + escapeHtml(q.prompt) + '</p>' +
       '<div class="vocab-choices">' +
@@ -924,10 +925,10 @@
     var pct = Math.round((quest.testIndex / Math.max(1, quest.testWords.length)) * 100);
     box.innerHTML =
       '<div class="d-flex justify-content-between align-items-center" style="gap:0.5rem;flex-wrap:wrap;">' +
-      '<strong>Daily test ' + (quest.testIndex + 1) + ' / ' + quest.testWords.length + '</strong>' +
-      '<span class="vocab-quiz-timer" id="vocabQuestTestTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span></div>' +
+      '<strong>Daily test ' + (quest.testIndex + 1) + ' / ' + quest.testWords.length + '</strong></div>' +
       '<div class="vocab-progress"><span style="width:' + pct + '%"></span></div>' +
-      '<div class="vocab-q-card">' +
+      '<div class="vocab-q-card has-timer">' +
+      '<span class="vocab-quiz-timer" id="vocabQuestTestTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span>' +
       '<p class="vocab-q-prompt">' + escapeHtml(q.prompt) + '</p>' +
       '<div class="vocab-choices">' +
       q.choices.map(function (c, i) {

@@ -179,11 +179,16 @@
 }
 
 .vocab-q-card {
+  position: relative;
   background: var(--vocab-card);
   border: 1px solid var(--vocab-line);
   border-radius: 14px;
   padding: 1rem;
   margin-top: 0.5rem;
+}
+
+.vocab-q-card.has-timer {
+  padding-top: 2.35rem;
 }
 
 .vocab-q-type {
@@ -253,12 +258,16 @@
 }
 
 .vocab-quiz-timer {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.85rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--vocab-muted);
   min-width: 2.5rem;
   text-align: right;
+  line-height: 1;
 }
 
 .vocab-quiz-timer.is-urgent {
