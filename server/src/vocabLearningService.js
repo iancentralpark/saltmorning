@@ -477,6 +477,11 @@ async function getDailyQueue(studentId, classId) {
   studentId = String(studentId);
   const settings = await getClassSettings(classId);
   const state = await getStudentState(studentId);
+  if (!state || !state.placement_at) {
+    const err = new Error('Finish the Placement test before starting today\'s words.');
+    err.code = 'PLACEMENT_REQUIRED';
+    throw err;
+  }
   const gradeLevel = (state && state.grade_level) || 6;
   const daily = await getOrCreateDailyProgress(studentId, classId, settings.daily_target);
 
@@ -576,6 +581,15 @@ async function grantTierDollarBonus(classId, studentId, tierName) {
 async function applyRatingUpdate(studentId, score) {
   const db = requireDb();
   const state = (await getStudentState(studentId)) || {};
+  if (!state.placement_at) {
+    // Do not invent a tier for students who never finished Placement.
+    return {
+      gradeLevel: state.grade_level || null,
+      tierName: state.tier_name || null,
+      ratingScore: state.rating_score != null ? Number(state.rating_score) : null,
+      promoted: null
+    };
+  }
   let grade = Math.max(GRADE_MIN, Math.min(GRADE_MAX, Math.round(Number(state.grade_level) || 6)));
   let rating = Number.isFinite(Number(state.rating_score)) ? Number(state.rating_score) : RATING_START;
 
@@ -601,6 +615,8 @@ async function applyRatingUpdate(studentId, score) {
     grade_level: grade,
     tier_name: tier.name,
     rating_score: rating,
+    placement_at: state.placement_at,
+    placement_accuracy: state.placement_accuracy,
     updated_at: new Date().toISOString()
   };
   const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
@@ -612,6 +628,12 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   const db = requireDb();
   studentId = String(studentId);
   const settings = await getClassSettings(classId);
+  const state = await getStudentState(studentId);
+  if (!state || !state.placement_at) {
+    const err = new Error('Finish the Placement test before taking the daily test.');
+    err.code = 'PLACEMENT_REQUIRED';
+    throw err;
+  }
   const daily = await getOrCreateDailyProgress(studentId, classId, settings.daily_target);
   const total = Math.max(1, Number(totalCount) || 0);
   const score = Math.round((Math.max(0, Number(correctCount) || 0) / total) * 1000) / 10;
@@ -691,15 +713,16 @@ async function getStudentVocabSummary(studentId, classId) {
   const settings = await getClassSettings(classId);
   const state = await getStudentState(studentId);
   const daily = await getOrCreateDailyProgress(studentId, classId, settings.daily_target);
+  const placed = !!(state && state.placement_at);
   return {
-    tierName: state && state.tier_name,
-    gradeLevel: state && state.grade_level,
-    ratingScore: state && state.rating_score,
+    tierName: placed ? state.tier_name : null,
+    gradeLevel: placed ? state.grade_level : null,
+    ratingScore: placed ? state.rating_score : null,
     streakDays: (state && state.streak_days) || 0,
     longestStreak: (state && state.longest_streak) || 0,
-    placementDone: !!(state && state.placement_at),
+    placementDone: placed,
     placementAt: state && state.placement_at,
-    placementAccuracy: state && state.placement_accuracy,
+    placementAccuracy: placed ? state.placement_accuracy : null,
     today: {
       date: daily.quest_date,
       targetCount: daily.target_count,
@@ -739,12 +762,13 @@ async function getClassOverview(classId) {
   const rows = students.map(function (s) {
     const st = stateById.get(String(s.id));
     const d = dailyById.get(String(s.id));
+    const placed = !!(st && st.placement_at);
     return {
       studentId: s.id,
       name: s.name,
-      tierName: st ? st.tier_name : null,
-      gradeLevel: st ? st.grade_level : null,
-      ratingScore: st ? st.rating_score : null,
+      tierName: placed ? st.tier_name : null,
+      gradeLevel: placed ? st.grade_level : null,
+      ratingScore: placed ? st.rating_score : null,
       streakDays: st ? st.streak_days : 0,
       longestStreak: st ? st.longest_streak : 0,
       placementAt: st ? st.placement_at : null,

@@ -5,7 +5,8 @@
 (function (root) {
   'use strict';
 
-  var STORAGE_KEY = 'mrpark_vocab_placement_v1';
+  var STORAGE_KEY_PREFIX = 'mrpark_vocab_placement_v2:';
+  var LEGACY_STORAGE_KEY = 'mrpark_vocab_placement_v1';
   var QUESTION_COUNT = 12;
   var QUESTION_SECONDS = 60;
   var PLACEMENT_SECONDS = QUESTION_SECONDS;
@@ -26,6 +27,28 @@
     deck: []
   };
 
+  function currentStudentId() {
+    try {
+      if (typeof root.getLoggedInStudentId === 'function') {
+        var fromFn = String(root.getLoggedInStudentId() || '').trim();
+        if (fromFn) return fromFn;
+      }
+    } catch (e) { /* ignore */ }
+    try {
+      var raw = localStorage.getItem('mrpark_student_profile') || sessionStorage.getItem('mrpark_student_profile') || '';
+      if (!raw) return '';
+      var p = JSON.parse(raw);
+      return String((p && (p.studentId || p.id)) || '').trim();
+    } catch (err) {
+      return '';
+    }
+  }
+
+  function storageKeyForStudent() {
+    var sid = currentStudentId();
+    return sid ? (STORAGE_KEY_PREFIX + sid) : '';
+  }
+
   function data() {
     return root.MrParkVocabData || null;
   }
@@ -44,20 +67,41 @@
 
   function loadSaved() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
+      var key = storageKeyForStudent();
+      if (!key) return null;
+      var raw = localStorage.getItem(key);
       if (!raw) return null;
-      return JSON.parse(raw);
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.result) return null;
+      // Ignore cache that belongs to a different login.
+      if (parsed.studentId && parsed.studentId !== currentStudentId()) return null;
+      return parsed;
     } catch (e) {
       return null;
     }
   }
 
-  function savePlacement(result) {
+  function clearSavedPlacement() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        at: Date.now(),
-        result: result
-      }));
+      var key = storageKeyForStudent();
+      if (key) localStorage.removeItem(key);
+      // Old shared key leaked one student's tier onto every login on the same device.
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch (e) { /* ignore */ }
+  }
+
+  function savePlacement(result) {
+    var sid = currentStudentId();
+    try {
+      var key = storageKeyForStudent();
+      if (key) {
+        localStorage.setItem(key, JSON.stringify({
+          at: Date.now(),
+          studentId: sid,
+          result: result
+        }));
+      }
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch (e) { /* ignore */ }
     state.placement = result;
   }
@@ -151,6 +195,7 @@
 
   function applyServerSummary(summary) {
     if (!summary) return;
+    // Server is authoritative. Never keep a cached tier when placement is unfinished.
     state.placementDone = !!summary.placementDone;
     if (summary.placementDone) {
       state.placement = {
@@ -158,8 +203,9 @@
         accuracy: summary.placementAccuracy,
         tier: { name: summary.tierName, gradeLevel: summary.gradeLevel }
       };
+      savePlacement(state.placement);
     } else {
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+      clearSavedPlacement();
       state.placement = null;
     }
     if (summary.settings && summary.settings.passThreshold != null) {
@@ -185,10 +231,16 @@
         return summary;
       })
       .catch(function () {
+        // Offline/cache only for THIS student, and only if it looks like a real placement.
         var saved = loadSaved();
-        if (saved && saved.result) {
+        var sid = currentStudentId();
+        if (saved && saved.result && (!saved.studentId || saved.studentId === sid)) {
           state.placement = saved.result;
           state.placementDone = true;
+        } else {
+          clearSavedPlacement();
+          state.placement = null;
+          state.placementDone = false;
         }
         renderHomeStats();
         syncPlacementVisibility();
@@ -489,7 +541,9 @@
       var ability = state.abilityGrade;
       var pack = data();
       var gradeLevel = Math.max(1, Math.min(12, Math.round(ability)));
-      var tier = pack ? pack.tierForGrade(gradeLevel) : { name: 'Gold', gradeLevel: gradeLevel };
+      var tier = pack && typeof pack.tierForGrade === 'function'
+        ? pack.tierForGrade(gradeLevel)
+        : { name: 'Grade ' + gradeLevel, gradeLevel: gradeLevel };
       var correctCount = state.answers.filter(function (a) { return a.correct; }).length;
       var res = {
         ok: true,
@@ -1008,6 +1062,7 @@
     if (!data()) {
       console.warn('[vocab] MrParkVocabData missing');
     }
+    try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch (e) { /* ignore */ }
     if (state._bound) {
       refreshServerSummary();
       return;
