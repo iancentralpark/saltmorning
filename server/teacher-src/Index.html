@@ -14708,8 +14708,9 @@
         document.getElementById('luckyTicketsList').innerHTML = '<p class="text-muted small mb-0">Loading…</p>';
         const logBox = document.getElementById('luckyTransferLog');
         if (logBox) logBox.innerHTML = '<p class="text-muted mb-0">Loading…</p>';
-        const modal = new bootstrap.Modal(document.getElementById('luckyTicketsModal'));
-        modal.show();
+        const modalEl = document.getElementById('luckyTicketsModal');
+        elevateAppDialogModal(modalEl);
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
         loadLuckyGrantTierOptions();
         reloadLuckyTicketsModalList();
         reloadLuckyTransferLog();
