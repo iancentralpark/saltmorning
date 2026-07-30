@@ -23,6 +23,27 @@ const {
 
 const { hashPassword } = require('./supabaseStudentService');
 
+/**
+ * Sheet timestamps are written as "yyyy-MM-dd HH:mm:ss" in app-local (Seoul)
+ * time with no offset. `new Date(s)` would read them in the server's zone (UTC
+ * on the host), storing every value 9 hours off. Pin the app offset explicitly.
+ */
+function localSheetTimeToIso_(value) {
+  if (!value) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  const hasOffset = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  const naive = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!hasOffset && naive) {
+    const iso = naive[1] + '-' + naive[2] + '-' + naive[3] + 'T' + naive[4] + ':' +
+      naive[5] + ':' + (naive[6] || '00') + '+09:00';
+    const ms = Date.parse(iso);
+    if (!isNaN(ms)) return new Date(ms).toISOString();
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 const PHASE3_SHEETS = new Set([
   STUDENT_WITHDRAWN_SHEET,
   STUDENT_LEAVE_SHEET,
@@ -890,7 +911,7 @@ async function appendRows(sheetName, rows) {
         student_id: String(row[2]),
         tier: String(row[3] || ''),
         prize_text: String(row[4] || ''),
-        drawn_at: row[5] ? new Date(row[5]).toISOString() : null
+        drawn_at: localSheetTimeToIso_(row[5])
       };
     });
     const { error } = await db.from('lucky_draw_tickets').upsert(payload, { onConflict: 'ticket_id' });
@@ -1214,7 +1235,7 @@ async function updateRange(sheetName, a1, values) {
         student_id: String(patched[2]),
         tier: String(patched[3] || ''),
         prize_text: String(patched[4] || ''),
-        drawn_at: patched[5] ? new Date(patched[5]).toISOString() : null
+        drawn_at: localSheetTimeToIso_(patched[5])
       };
       const { error } = await db.from('lucky_draw_tickets').upsert(payload, { onConflict: 'ticket_id' });
       if (error) throw new Error(error.message);

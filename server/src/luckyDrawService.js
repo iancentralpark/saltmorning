@@ -192,30 +192,38 @@ function groupLuckyTickets(tickets) {
   return order.map((k) => map.get(k));
 }
 
-/** Delete expired ticket rows (lazy cleanup). Returns number removed. */
-async function purgeExpiredLuckyTickets_(ticketIds, classIdHint) {
-  const ids = (Array.isArray(ticketIds) ? ticketIds : []).map(String).filter(Boolean);
-  if (!ids.length) return 0;
-  if (isSupabaseEnabled()) {
-    const db = getSupabase();
-    const { error } = await db.from('lucky_draw_tickets').delete().in('ticket_id', ids);
-    if (error) throw new Error(error.message);
-    if (classIdHint) afterLuckyDrawWrite(classIdHint);
-    else invalidateSheetRowsCache(LUCKY_DRAW_SHEET);
-    return ids.length;
-  }
-  const data = await getSheetRows(LUCKY_DRAW_SHEET);
-  const rowsToDelete = [];
-  let classId = classIdHint || '';
-  for (let i = 1; i < data.length; i++) {
-    if (ids.indexOf(String(data[i][0])) < 0) continue;
-    rowsToDelete.push(i + 1);
-    if (!classId) classId = String(data[i][1] || '');
-  }
-  if (!rowsToDelete.length) return 0;
-  await deleteRows(LUCKY_DRAW_SHEET, rowsToDelete);
-  afterLuckyDrawWrite(classId);
-  return rowsToDelete.length;
+// NOTE: Expiry must never delete rows. Expired tickets are hidden from listings
+// and rejected on use, but the row stays so a bad expiry calculation can only
+// hide tickets temporarily instead of destroying them permanently.
+
+/**
+ * Copy tickets into the append-only archive before they are deleted, so any
+ * loss stays traceable and restorable. Must run before the DELETE, and must
+ * never let a logging failure silently drop the record.
+ * @param {Array<{ticketId:string,classId:string,studentId:string,tier:string,prizeText:string,drawnAt:*}>} tickets
+ */
+async function archiveLuckyTickets_(tickets, reason, opts) {
+  opts = opts || {};
+  const rows = (Array.isArray(tickets) ? tickets : []).filter(Boolean);
+  if (!rows.length) return;
+  if (!isSupabaseEnabled()) return;
+  const db = getSupabase();
+  const payload = rows.map(function(t) {
+    const bornMs = parseLuckyDrawnAtMs(t.drawnAt);
+    return {
+      ticket_id: String(t.ticketId || ''),
+      class_id: String(t.classId || ''),
+      student_id: String(t.studentId || ''),
+      tier: String(t.tier || ''),
+      prize_text: String(t.prizeText || ''),
+      drawn_at: isNaN(bornMs) ? null : new Date(bornMs).toISOString(),
+      reason: String(reason || 'unknown'),
+      actor_type: String(opts.actorType || ''),
+      actor_student_id: opts.actorStudentId ? String(opts.actorStudentId) : null
+    };
+  });
+  const { error } = await db.from('lucky_draw_ticket_archive').insert(payload);
+  if (error) throw new Error('Could not record ticket deletion: ' + error.message);
 }
 
 async function ensureLuckyDrawSheet() {
@@ -600,13 +608,14 @@ async function listStudentLuckyTickets(classId, studentId) {
   return active;
 }
 
-async function redeemLuckyTicket(ticketId) {
+async function redeemLuckyTicket(ticketId, opts) {
+  opts = opts || {};
   await ensureLuckyDrawSheet();
   ticketId = String(ticketId);
   if (isSupabaseEnabled()) {
     const db = getSupabase();
     const { data, error: readErr } = await db.from('lucky_draw_tickets')
-      .select('class_id, student_id, drawn_at')
+      .select('class_id, student_id, tier, prize_text, drawn_at')
       .eq('ticket_id', ticketId)
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
@@ -614,9 +623,16 @@ async function redeemLuckyTicket(ticketId) {
     const classId = String(data.class_id);
     const studentId = String(data.student_id);
     if (isLuckyTicketExpired(String(data.drawn_at || ''))) {
-      await purgeExpiredLuckyTickets_([ticketId], classId);
       throw new Error('This ticket expired (90-day limit).');
     }
+    await archiveLuckyTickets_([{
+      ticketId: ticketId,
+      classId: classId,
+      studentId: studentId,
+      tier: String(data.tier || ''),
+      prizeText: String(data.prize_text || ''),
+      drawnAt: String(data.drawn_at || '')
+    }], opts.reason || 'redeem', opts);
     const { error } = await db.from('lucky_draw_tickets').delete().eq('ticket_id', ticketId);
     if (error) throw new Error(error.message);
     afterLuckyDrawWrite(classId);
@@ -633,7 +649,6 @@ async function redeemLuckyTicket(ticketId) {
       const classId = String(data[i][1]);
       const studentId = String(data[i][2]);
       if (isLuckyTicketExpired(String(data[i][5] || ''))) {
-        await purgeExpiredLuckyTickets_([ticketId], classId);
         throw new Error('This ticket expired (90-day limit).');
       }
       await deleteRows(LUCKY_DRAW_SHEET, [i + 1]);
@@ -697,7 +712,6 @@ async function transferLuckyTicket(ticketId, toStudentId, opts) {
   const row = await findTicketRow_(ticketId);
   if (!row) throw new Error('Ticket not found.');
   if (isLuckyTicketExpired(row.drawnAt)) {
-    await purgeExpiredLuckyTickets_([ticketId], row.classId);
     throw new Error('This ticket expired (90-day limit).');
   }
   if (row.studentId === toStudentId) {
@@ -804,14 +818,15 @@ async function getLuckyDrawCountsByClass(classId) {
   return counts;
 }
 
-async function deleteLuckyTicketsOwned_(classId, studentId, ticketIds) {
+async function deleteLuckyTicketsOwned_(classId, studentId, ticketIds, opts) {
+  opts = opts || {};
   classId = String(classId);
   studentId = String(studentId);
   const idSet = new Set(ticketIds.map(String));
   if (isSupabaseEnabled()) {
     const db = getSupabase();
     const { data, error: readErr } = await db.from('lucky_draw_tickets')
-      .select('ticket_id, class_id, student_id, tier')
+      .select('ticket_id, class_id, student_id, tier, prize_text, drawn_at')
       .in('ticket_id', Array.from(idSet));
     if (readErr) throw new Error(readErr.message);
     const rows = data || [];
@@ -821,6 +836,16 @@ async function deleteLuckyTicketsOwned_(classId, studentId, ticketIds) {
         throw new Error('You can only upgrade your own tickets.');
       }
     }
+    await archiveLuckyTickets_(rows.map(function(row) {
+      return {
+        ticketId: String(row.ticket_id),
+        classId: String(row.class_id),
+        studentId: String(row.student_id),
+        tier: String(row.tier || ''),
+        prizeText: String(row.prize_text || ''),
+        drawnAt: String(row.drawn_at || '')
+      };
+    }), opts.reason || 'fuse', opts);
     const { error } = await db.from('lucky_draw_tickets').delete().in('ticket_id', Array.from(idSet));
     if (error) throw new Error(error.message);
     afterLuckyDrawWrite(classId);
@@ -919,10 +944,14 @@ async function fuseLuckyTickets(classId, studentId, ticketIds) {
   const picked = await pickPrizeForTier_(recipe.to);
   const ticket = await saveLuckyDrawTicket(classId, studentId, picked.tierName, picked.prizeText);
   try {
-    await deleteLuckyTicketsOwned_(classId, studentId, uniqueIds);
+    await deleteLuckyTicketsOwned_(classId, studentId, uniqueIds, {
+      reason: 'fuse',
+      actorType: 'student',
+      actorStudentId: studentId
+    });
   } catch (err) {
     try {
-      await redeemLuckyTicket(ticket.ticketId);
+      await redeemLuckyTicket(ticket.ticketId, { reason: 'fuse_rollback' });
     } catch (rollbackErr) {
       console.error('fuseLuckyTickets rollback failed', rollbackErr.message || rollbackErr);
     }
@@ -970,7 +999,11 @@ async function executeUnluckyDraw(classId, studentId, opts) {
     // Shield fires first: consume itself, keep every other ticket safe.
     const shield = findUnluckyDrawShield_(tickets);
     if (shield) {
-      const redeemed = await redeemLuckyTicket(shield.ticketId);
+      const redeemed = await redeemLuckyTicket(shield.ticketId, {
+        reason: 'unlucky_shield',
+        actorType: 'student',
+        actorStudentId: studentId
+      });
       const protectedCount = Math.max(0, tickets.length - 1);
       return {
         mode: 'shield',
@@ -991,7 +1024,11 @@ async function executeUnluckyDraw(classId, studentId, opts) {
     }
 
     const pick = pickUnluckyTicketWeighted_(tickets);
-    const redeemed = await redeemLuckyTicket(pick.ticketId);
+    const redeemed = await redeemLuckyTicket(pick.ticketId, {
+      reason: 'unlucky_destroy',
+      actorType: 'student',
+      actorStudentId: studentId
+    });
     return {
       mode: 'ticket',
       ticket: {

@@ -1070,7 +1070,7 @@ router.post('/lucky-draw/redeem', async (req, res) => {
   try {
     const { ticketId } = req.body || {};
     if (!ticketId) return res.status(400).json({ error: 'ticketId is required' });
-    res.json(await redeemLuckyTicket(ticketId));
+    res.json(await redeemLuckyTicket(ticketId, { reason: 'teacher_redeem', actorType: 'teacher' }));
   } catch (e) {
     console.error('POST /lucky-draw/redeem', e);
     res.status(500).json({ error: e.message || 'Server error' });
