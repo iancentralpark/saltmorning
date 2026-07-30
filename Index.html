@@ -3212,7 +3212,7 @@
             position: fixed;
             left: 14px;
             bottom: 14px;
-            z-index: 720;
+            z-index: 1040;
         }
         .messenger-float.messenger-minimized .messenger-panel { display: none; }
         .messenger-float:not(.messenger-minimized) .messenger-chip { display: none; }
@@ -3441,7 +3441,7 @@
             position: fixed;
             right: 14px;
             bottom: 14px;
-            z-index: 722;
+            z-index: 1040;
         }
         .abuse-alert-float.hidden-section { display: none !important; }
         .abuse-alert-chip {
@@ -6736,6 +6736,7 @@
                             <strong>Reset Placement</strong> sets the student’s grade and lets them take the Placement test again.
                             Gift grants a random Lucky Draw ticket.
                         </p>
+                    </div>
                 </div>
 
                 <div id="vocabLmsBankPane" class="abuse-hub-pane d-none">
@@ -13597,8 +13598,9 @@
         document.getElementById('classLogModalClassName').textContent = selectedClass.name;
         document.getElementById('classLogDateInput').value = dateStr;
         loadClassLogModalFields(dateStr);
-        const modal = new bootstrap.Modal(document.getElementById('classLogModal'));
-        modal.show();
+        const modalEl = document.getElementById('classLogModal');
+        elevateAppDialogModal(modalEl);
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
     }
 
     function saveClassLogFromModal() {
@@ -15548,8 +15550,9 @@
         }
         document.getElementById('vocabLmsClassName').textContent = selectedClass.name;
         setVocabLmsTab('overview');
-        const modal = new bootstrap.Modal(document.getElementById('vocabLmsModal'));
-        modal.show();
+        const modalEl = document.getElementById('vocabLmsModal');
+        elevateAppDialogModal(modalEl);
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
         refreshVocabLmsOverview();
         refreshVocabLmsWordCount();
         resumeVocabGenJobIfAny();
