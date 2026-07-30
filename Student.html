@@ -239,6 +239,54 @@
             font-weight: 800;
         }
         .lucky-meta { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+        .lucky-spin-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.65rem 1rem;
+            margin: 0 0 0.85rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #fff8e1, #fff3cd);
+            border: 1px solid rgba(241, 196, 15, 0.35);
+        }
+        .btn-spin {
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #3d2c00;
+            border: none;
+            font-weight: 800;
+            border-radius: 999px;
+            padding: 0.45rem 1rem;
+            box-shadow: 0 4px 12px rgba(230, 126, 34, 0.25);
+        }
+        .btn-spin:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+        .lucky-spin-meta { font-size: 0.82rem; color: #7d6608; font-weight: 600; }
+        .lucky-transfer-row {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+            margin-top: 0.55rem;
+            flex-wrap: wrap;
+        }
+        .lucky-transfer-row select {
+            flex: 1 1 140px;
+            min-width: 0;
+            border-radius: 10px;
+            border: 1px solid #f0e0a0;
+            padding: 0.3rem 0.45rem;
+            font-size: 0.8rem;
+            background: #fff;
+        }
+        .btn-transfer {
+            border: 1px solid #e67e22;
+            color: #c0392b;
+            background: #fff;
+            border-radius: 999px;
+            padding: 0.28rem 0.7rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .btn-transfer:disabled { opacity: 0.4; }
         .lucky-pick-row {
             display: flex;
             align-items: center;
@@ -355,6 +403,159 @@
             padding: 1rem;
         }
         .lucky-fuse-overlay.show { display: flex; }
+        .lucky-spin-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 12000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(20, 16, 8, 0.72);
+            backdrop-filter: blur(4px);
+        }
+        .lucky-spin-overlay.show { display: flex; }
+        .lucky-spin-stage {
+            width: min(100%, 380px);
+            border-radius: 22px;
+            padding: 1.1rem 1rem 1.25rem;
+            background: linear-gradient(160deg, #2c2416 0%, #1a140c 55%, #2a1f12 100%);
+            border: 2px solid rgba(241, 196, 15, 0.45);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+            text-align: center;
+            color: #fff8e1;
+        }
+        .lucky-spin-title {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .lucky-spin-sub { font-size: 0.88rem; opacity: 0.8; margin-bottom: 0.85rem; }
+        .lucky-spin-machine {
+            border-radius: 16px;
+            padding: 0.65rem;
+            background: linear-gradient(180deg, #5d4037, #3e2723);
+            box-shadow: inset 0 0 0 2px rgba(255, 215, 100, 0.25);
+        }
+        .lucky-spin-machine.is-spinning {
+            animation: lucky-spin-glow 0.45s ease-in-out infinite;
+        }
+        @keyframes lucky-spin-glow {
+            0%, 100% { box-shadow: inset 0 0 0 2px rgba(255, 215, 100, 0.25), 0 0 0 rgba(241,196,15,0); }
+            50% { box-shadow: inset 0 0 0 2px rgba(255, 215, 100, 0.55), 0 0 18px rgba(241,196,15,0.35); }
+        }
+        .lucky-spin-marquee {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.2rem;
+            margin-bottom: 0.45rem;
+        }
+        .lucky-spin-bulb {
+            width: 0.45rem;
+            height: 0.45rem;
+            border-radius: 50%;
+            background: #f1c40f;
+            opacity: 0.35;
+        }
+        .lucky-spin-machine.is-spinning .lucky-spin-bulb {
+            animation: lucky-spin-bulb 0.7s ease-in-out infinite alternate;
+        }
+        .lucky-spin-bulb:nth-child(odd) { animation-delay: 0.15s; }
+        @keyframes lucky-spin-bulb {
+            from { opacity: 0.25; }
+            to { opacity: 1; box-shadow: 0 0 8px #f1c40f; }
+        }
+        .lucky-spin-window {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #12121c;
+            border: 2px solid #3e2723;
+        }
+        .lucky-spin-reel {
+            height: 72px;
+            overflow: hidden;
+            position: relative;
+        }
+        .lucky-spin-reel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+            background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, transparent 28%, transparent 72%, rgba(0,0,0,0.55) 100%);
+        }
+        .lucky-spin-reel.spinning-fast .lucky-spin-strip { filter: blur(2.2px); }
+        .lucky-spin-reel.spinning-slow .lucky-spin-strip { filter: blur(0.5px); }
+        .lucky-spin-strip { will-change: transform; }
+        .lucky-spin-item {
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.3rem 0.7rem;
+            text-align: center;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            border-bottom: 1px solid rgba(0,0,0,0.25);
+            background: linear-gradient(135deg, #5d6d7e, #34495e);
+        }
+        .lucky-spin-item.tier-weird { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+        .lucky-spin-item.tier-common { background: linear-gradient(135deg, #bdc3c7, #7f8c8d); }
+        .lucky-spin-item.tier-rare { background: linear-gradient(135deg, #5dade2, #2980b9); }
+        .lucky-spin-item.tier-unique { background: linear-gradient(135deg, #af7ac5, #8e44ad); }
+        .lucky-spin-item.tier-legendary { background: linear-gradient(135deg, #f5b041, #e67e22); }
+        .lucky-spin-item.tier-mythical { background: linear-gradient(135deg, #f1948a, #e84393); }
+        .lucky-spin-item.tier-celestial { background: linear-gradient(135deg, #48dbfb, #00cec9); }
+        .lucky-spin-item.tier-godlike { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .lucky-spin-payline {
+            position: absolute;
+            left: 0; right: 0; top: 50%;
+            height: 2px;
+            margin-top: -1px;
+            background: rgba(241, 196, 15, 0.85);
+            z-index: 4;
+            pointer-events: none;
+            box-shadow: 0 0 8px rgba(241, 196, 15, 0.8);
+        }
+        .lucky-spin-result {
+            display: none;
+            margin-top: 0.9rem;
+            padding: 0.75rem;
+            border-radius: 14px;
+            background: rgba(255, 248, 225, 0.12);
+            border: 1px solid rgba(241, 196, 15, 0.35);
+        }
+        .lucky-spin-result.show { display: block; animation: lucky-fuse-pop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) forwards; }
+        .lucky-spin-result .tier {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #f9e79f;
+            margin-bottom: 0.25rem;
+        }
+        .lucky-spin-result .prize {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        .lucky-spin-done-btn {
+            display: none;
+            margin-top: 0.85rem;
+            width: 100%;
+            border: none;
+            border-radius: 999px;
+            padding: 0.55rem 1rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f1c40f, #e67e22);
+            color: #3d2c00;
+        }
+        .lucky-spin-done-btn.show { display: inline-block; }
         .lucky-fuse-stage {
             position: relative;
             width: min(420px, 100%);
@@ -1071,16 +1272,19 @@
         }
         .buddy-warn-badge.is-on { display: inline-flex; align-items: center; }
         .buddy-float.is-locked .buddy-compose {
+            display: none !important;
+        }
+        .buddy-float.is-locked .buddy-chat-wrap {
             pointer-events: none;
-            opacity: 0.45;
-            filter: grayscale(0.3);
+            filter: grayscale(0.35);
+            opacity: 0.55;
         }
         .buddy-lock-overlay {
             display: none;
             position: absolute;
             inset: 0;
-            z-index: 5;
-            background: rgba(44, 24, 56, 0.72);
+            z-index: 80;
+            background: rgba(44, 24, 56, 0.82);
             color: #fff;
             align-items: center;
             justify-content: center;
@@ -1090,6 +1294,7 @@
             font-weight: 800;
             font-size: 0.95rem;
             line-height: 1.45;
+            pointer-events: auto;
         }
         .buddy-float.is-locked .buddy-lock-overlay { display: flex; }
         .buddy-float-body { position: relative; }
@@ -1422,6 +1627,12 @@
                 position: relative;
                 z-index: 2;
                 touch-action: manipulation;
+            }
+            body.portal-mobile .buddy-panel-card.is-locked .buddy-compose {
+                display: none !important;
+            }
+            body.portal-mobile .buddy-panel-card .buddy-lock-overlay {
+                z-index: 80;
             }
             body.portal-mobile .msg-input,
             body.portal-mobile .buddy-input,
@@ -1883,6 +2094,45 @@
             <div class="stats" id="statsGrid"></div>
         </div>
 
+        <div class="card portal-card-cute dashboard-card vocab-shell" data-panel="home" id="vocabShell">
+            <div class="card-title"><i class="fa-solid fa-layer-group"></i> Words</div>
+
+            <div id="vocabNeedsPlacement">
+                <div class="vocab-hero">
+                    <p class="vocab-kicker">Placement</p>
+                    <h2>Find your tier first</h2>
+                    <p>Take a short placement test once. Then today’s words appear here automatically.</p>
+                </div>
+                <div class="vocab-actions">
+                    <button type="button" class="vocab-btn" id="vocabStartTestBtn">Start Placement Test</button>
+                </div>
+            </div>
+
+            <div id="vocabPlacedFlow" class="hidden">
+                <div class="vocab-tier-hero" id="vocabTierHero" aria-live="polite">
+                    <div class="vocab-tier-badge-mark" id="vocabTierBadgeMark" aria-hidden="true"></div>
+                    <div class="vocab-tier-hero-text">
+                        <span class="vocab-tier-hero-label">Your tier</span>
+                        <span class="vocab-tier-hero-name" id="vocabStatTier">—</span>
+                        <span class="vocab-tier-hero-grade" id="vocabStatStart"></span>
+                    </div>
+                </div>
+                <div id="vocabQuestBody"></div>
+            </div>
+
+            <div class="vocab-pane" id="vocabQuizPane">
+                <div class="d-flex justify-content-between align-items-center" style="gap:0.5rem;flex-wrap:wrap;">
+                    <strong id="vocabQuizCount">Question 1 / 12</strong>
+                </div>
+                <div class="vocab-progress"><span id="vocabQuizProgress"></span></div>
+                <div id="vocabQuizBody"></div>
+            </div>
+
+            <div class="vocab-pane" id="vocabResultPane">
+                <div id="vocabResultBody"></div>
+            </div>
+        </div>
+
         <div class="card portal-card-cute dashboard-card" data-panel="home">
             <div class="card-title"><i class="fa-solid fa-book-open-reader"></i> Chambit</div>
             <div id="chambitBox"></div>
@@ -1890,7 +2140,13 @@
 
         <div class="card portal-card-cute dashboard-card" data-panel="home">
             <div class="card-title"><i class="fa-solid fa-ticket"></i> Lucky Draw Tickets</div>
-            <p class="lucky-fuse-hint">Use <strong>+</strong> / <strong>−</strong> on a ticket stack to choose how many to upgrade. Same tier only — 3→1 (Weird–Legendary), 2→1 (Mythical &amp; Celestial).</p>
+            <div class="lucky-spin-bar" id="luckySpinBar">
+                <button type="button" class="btn btn-spin" id="luckySpinBtn" disabled>
+                    <i class="fa-solid fa-dice"></i> Spin for $3
+                </button>
+                <div class="lucky-spin-meta" id="luckySpinMeta">Loading spin status…</div>
+            </div>
+            <p class="lucky-fuse-hint">Use <strong>+</strong> / <strong>−</strong> on a ticket stack to choose how many to upgrade. Same tier only — 3→1 (Weird–Legendary), 2→1 (Mythical &amp; Celestial). You can also transfer 1 ticket to a classmate.</p>
             <div class="lucky-fuse-recipes" id="luckyFuseRecipes"></div>
             <div id="luckyTicketsBox"><p class="empty">No tickets yet.</p></div>
             <div id="luckyFuseBar" class="lucky-fuse-bar hidden">
@@ -1960,16 +2216,16 @@
             </div>
             <div class="buddy-float-body">
                 <div class="buddy-lock-overlay" id="buddyLockOverlay" aria-hidden="true">
-                    Virtual Mr. Park is locked (Warning 3/3).<br>Ask Mr. Park to unlock you.
+                    Virtual Mr. Park is frozen! 🥶<br>Contact Real Mr. Park to unlock your session.
                 </div>
                 <div class="buddy-chat-wrap" id="buddyChatWrap" aria-live="polite">
-                    <div class="buddy-chat-empty" id="buddyChatEmpty">Hi! I'm Mr. Park — words, essays, or sounding native. What do you need?</div>
+                    <div class="buddy-chat-empty" id="buddyChatEmpty">Hi! How can I help you today?</div>
                     <div class="buddy-chat-thread" id="buddyChatThread"></div>
                 </div>
                 <div class="buddy-compose">
                     <div class="buddy-quick-btns">
                         <button type="button" class="buddy-quick-btn" data-buddy-prefix="Help me understand the word: ">Word Help</button>
-                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="I want to write a 5-paragraph essay about: ">Essay Help</button>
+                        <button type="button" class="buddy-quick-btn" data-buddy-prefix="I want to write a 5-paragraph Salt Academy essay about: ">Essay Help</button>
                         <button type="button" class="buddy-quick-btn" data-buddy-prefix='Make this sentence sound natural: "'>Sound Native</button>
                     </div>
                     <form class="buddy-form" id="buddyForm">
@@ -2073,6 +2329,9 @@
     <button type="button" class="mobile-nav-btn" data-mobile-tab="buddy">
         <i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Buddy</span>
     </button>
+    <button type="button" class="mobile-nav-btn" data-mobile-tab="vocab">
+        <i class="fa-solid fa-layer-group"></i><span>Words</span>
+    </button>
     <button type="button" class="mobile-nav-btn" data-mobile-tab="more">
         <i class="fa-solid fa-ellipsis"></i><span>More</span>
     </button>
@@ -2121,6 +2380,102 @@
     var buddyWarningStrikes = 0;
     var buddyWarningLimit = 3;
     var buddyAbuseLocked = false;
+    var buddyFreezeActive = false;
+    var buddyFreezeRemainingSec = 0;
+    var buddySoftFreezeCount = 0;
+    var buddyLockPollTimer = null;
+    var buddyChatSyncTimer = null;
+    var buddyChatRevision = 0;
+    var buddyFreezeTickTimer = null;
+
+    function formatBuddyFreezeCountdown(sec) {
+        var n = Math.max(0, Math.ceil(Number(sec) || 0));
+        var m = Math.floor(n / 60);
+        var s = n % 60;
+        return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function isBuddyLockReplyText(text) {
+        return /3 misuse strikes|Virtual Mr\.?\s*Park is (locked|frozen)|ask (Real )?Mr\.?\s*Park to unlock|Contact Real Mr\.?\s*Park to unlock|\d+-minute brain cooldown/i.test(
+            String(text || '')
+        );
+    }
+
+    function buddyComposeBlocked() {
+        return !!(buddyAbuseLocked || buddyFreezeActive);
+    }
+
+    function forceBuddyLockedUi(strikes) {
+        applyBuddyWarningState({
+            abuseLocked: true,
+            freezeActive: false,
+            warningStrikes: Math.max(3, Number(strikes) || buddyWarningStrikes || 3),
+            warningLimit: buddyWarningLimit || 3
+        });
+    }
+
+    function stopBuddyLockPolling() {
+        if (buddyLockPollTimer) {
+            clearInterval(buddyLockPollTimer);
+            buddyLockPollTimer = null;
+        }
+        if (buddyFreezeTickTimer) {
+            clearInterval(buddyFreezeTickTimer);
+            buddyFreezeTickTimer = null;
+        }
+    }
+
+    function stopBuddyChatSyncPolling() {
+        if (buddyChatSyncTimer) {
+            clearInterval(buddyChatSyncTimer);
+            buddyChatSyncTimer = null;
+        }
+    }
+
+    function scheduleBuddyChatSyncPolling() {
+        if (buddyChatSyncTimer) return;
+        buddyChatSyncTimer = setInterval(function() {
+            var floater = $('buddyFloat');
+            if (!floater || floater.classList.contains('hidden')) {
+                stopBuddyChatSyncPolling();
+                return;
+            }
+            refreshBuddyStatus().catch(function() {});
+        }, 8000);
+    }
+
+    function scheduleBuddyLockPolling() {
+        if (buddyLockPollTimer) return;
+        buddyLockPollTimer = setInterval(function() {
+            if (!buddyComposeBlocked()) {
+                stopBuddyLockPolling();
+                return;
+            }
+            refreshBuddyStatus().catch(function() {});
+        }, buddyFreezeActive ? 1000 : 4000);
+    }
+
+    function scheduleBuddyFreezeTick() {
+        if (buddyFreezeTickTimer || !buddyFreezeActive) return;
+        buddyFreezeTickTimer = setInterval(function() {
+            if (!buddyFreezeActive) {
+                clearInterval(buddyFreezeTickTimer);
+                buddyFreezeTickTimer = null;
+                return;
+            }
+            if (buddyFreezeRemainingSec > 0) buddyFreezeRemainingSec -= 1;
+            applyBuddyWarningState({
+                abuseLocked: buddyAbuseLocked,
+                freezeActive: buddyFreezeRemainingSec > 0,
+                freezeRemainingSec: buddyFreezeRemainingSec,
+                warningStrikes: buddyWarningStrikes,
+                warningLimit: buddyWarningLimit
+            });
+            if (buddyFreezeRemainingSec <= 0) {
+                refreshBuddyStatus().catch(function() {});
+            }
+        }, 1000);
+    }
     var buddySending = false;
     var MONTH_NAMES = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -2186,6 +2541,10 @@
             throw new Error('Network error. Check your connection and try again.');
         });
     }
+
+    // Vocab learner (Placement + layered cards) shares the same auth fetch helper.
+    window.mrParkStudentApi = api;
+    window.NODE_API = NODE_API;
 
     function formatShortDate(dateStr) {
         if (!dateStr) return '—';
@@ -2313,8 +2672,21 @@
             activeMobilePanel === 'messages' || activeMobilePanel === 'buddy'
         );
         document.querySelectorAll('.dashboard-card').forEach(function(card) {
-            card.classList.toggle('panel-active', card.getAttribute('data-panel') === activeMobilePanel);
+            var panel = card.getAttribute('data-panel');
+            var show = panel === activeMobilePanel;
+            if (card.id === 'vocabShell' && (activeMobilePanel === 'home' || activeMobilePanel === 'vocab')) {
+                show = true;
+            }
+            card.classList.toggle('panel-active', show);
         });
+        if (activeMobilePanel === 'vocab') {
+            var shell = $('vocabShell');
+            if (shell && typeof shell.scrollIntoView === 'function') {
+                requestAnimationFrame(function() {
+                    shell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+            }
+        }
         if (!isPortalMobile()) {
             var msg = $('msgFloat');
             if (msg && !msg.classList.contains('hidden')) msg.classList.add('panel-active');
@@ -2331,6 +2703,10 @@
         }
         if (activeMobilePanel === 'buddy') {
             refreshBuddyStatus().catch(function() {});
+        } else if (activeMobilePanel === 'vocab') {
+            if (window.MrParkVocabLearn && typeof window.MrParkVocabLearn.init === 'function') {
+                try { window.MrParkVocabLearn.init(); } catch (e) { /* ignore */ }
+            }
         } else if (activeMobilePanel === 'messages' && prevPanel === 'messages') {
             /* already on messages — no layout burst */
         } else if (activeMobilePanel === 'messages' || activeMobilePanel === 'buddy') {
@@ -2602,6 +2978,10 @@
 
     var luckyFuseSelected = [];
     var luckyTicketGroups = [];
+    var luckyClassmates = [];
+    var luckySpinStatus = null;
+    var luckySpinBusy = false;
+    var luckyTransferBusy = false;
     var luckyFuseRecipes = [
         { from: 'Weird', need: 3, to: 'Common' },
         { from: 'Common', need: 3, to: 'Rare' },
@@ -2612,6 +2992,271 @@
         { from: 'Celestial', need: 2, to: 'Godlike' }
     ];
     var luckyFuseBusy = false;
+
+    function buildLuckyClassmateOptions() {
+        if (!luckyClassmates.length) {
+            return '<option value="">No classmates</option>';
+        }
+        return '<option value="">Transfer to…</option>' + luckyClassmates.map(function(s) {
+            return '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name || s.id) + '</option>';
+        }).join('');
+    }
+
+    function updateLuckySpinBar(spin) {
+        luckySpinStatus = spin || luckySpinStatus || {};
+        var btn = $('luckySpinBtn');
+        var meta = $('luckySpinMeta');
+        if (!btn || !meta) return;
+        var cost = Number(luckySpinStatus.cost) || 3;
+        var used = Number(luckySpinStatus.spinsUsedToday) || 0;
+        var limit = Number(luckySpinStatus.spinLimit) || 2;
+        var left = luckySpinStatus.spinsRemainingToday != null
+            ? Number(luckySpinStatus.spinsRemainingToday)
+            : Math.max(0, limit - used);
+        var bal = luckySpinStatus.balance;
+        btn.innerHTML = '<i class="fa-solid fa-dice"></i> Spin for $' + cost;
+        meta.textContent = 'Today ' + used + '/' + limit +
+            (bal != null ? ' · Balance $' + bal : '') +
+            (left <= 0 ? ' · limit reached' : '');
+        btn.disabled = luckySpinBusy || left <= 0 || (bal != null && bal < cost);
+    }
+
+    var LUCKY_SPIN_ITEM_H = 72;
+    var LUCKY_SPIN_FAST_MS = 2400;
+    var LUCKY_SPIN_SLOW_MS = 2800;
+    var LUCKY_SPIN_FILLERS = [
+        { tier: 'Weird', prize: 'Weird Sticker' },
+        { tier: 'Common', prize: '1 Haribo' },
+        { tier: 'Rare', prize: 'Handshake with Mr. Park' },
+        { tier: 'Unique', prize: '1 Minute Timestone' },
+        { tier: 'Legendary', prize: "The King's Throne" },
+        { tier: 'Mythical', prize: 'Be a Commander!' },
+        { tier: 'Celestial', prize: 'Starlight Pass' },
+        { tier: 'Godlike', prize: 'Double Dollars' },
+        { tier: 'Common', prize: 'Bathroom/Water Priority' },
+        { tier: 'Rare', prize: '5 Haribos' },
+        { tier: 'Weird', prize: 'Funny Face Challenge' },
+        { tier: 'Legendary', prize: '2 Minutes Freedom Bell' }
+    ];
+
+    function luckySpinTierClass(tier) {
+        return 'tier-' + String(tier || 'common').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    }
+
+    function randomLuckySpinFiller() {
+        return LUCKY_SPIN_FILLERS[Math.floor(Math.random() * LUCKY_SPIN_FILLERS.length)];
+    }
+
+    function buildLuckySpinStrip(finalTier, finalPrize, length) {
+        length = length || 36;
+        var strip = $('luckySpinStrip');
+        if (!strip) return 0;
+        var items = [];
+        for (var i = 0; i < length - 1; i++) items.push(randomLuckySpinFiller());
+        items.push({ tier: finalTier || 'Prize', prize: finalPrize || 'Mystery Prize' });
+        strip.style.transition = 'none';
+        strip.style.transform = 'translateY(0)';
+        strip.innerHTML = items.map(function(it) {
+            return '<div class="lucky-spin-item ' + luckySpinTierClass(it.tier) + '">' +
+                escapeHtml(it.prize) + '</div>';
+        }).join('');
+        return items.length;
+    }
+
+    function animateLuckySpinReel(itemCount) {
+        return new Promise(function(resolve) {
+            var reel = $('luckySpinReel');
+            var strip = $('luckySpinStrip');
+            var machine = $('luckySpinMachine');
+            if (!reel || !strip) { resolve(); return; }
+            var slowStartIndex = Math.max(itemCount - 9, Math.floor(itemCount * 0.72));
+            var fastEndY = -(slowStartIndex * LUCKY_SPIN_ITEM_H);
+            var finalY = -((itemCount - 1) * LUCKY_SPIN_ITEM_H);
+            var fastStart = performance.now();
+            var slowStart = 0;
+
+            reel.classList.add('spinning-fast');
+            if (machine) machine.classList.add('is-spinning');
+            strip.style.transition = 'none';
+
+            function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+            function finish() {
+                reel.classList.remove('spinning-slow');
+                if (machine) machine.classList.remove('is-spinning');
+                resolve();
+            }
+
+            function fastFrame(now) {
+                var progress = Math.min((now - fastStart) / LUCKY_SPIN_FAST_MS, 1);
+                strip.style.transform = 'translateY(' + (fastEndY * progress) + 'px)';
+                if (progress < 1) requestAnimationFrame(fastFrame);
+                else {
+                    reel.classList.remove('spinning-fast');
+                    reel.classList.add('spinning-slow');
+                    slowStart = performance.now();
+                    requestAnimationFrame(slowFrame);
+                }
+            }
+
+            function slowFrame(now) {
+                var progress = Math.min((now - slowStart) / LUCKY_SPIN_SLOW_MS, 1);
+                var y = fastEndY + (finalY - fastEndY) * easeOutCubic(progress);
+                strip.style.transform = 'translateY(' + y + 'px)';
+                if (progress < 1) requestAnimationFrame(slowFrame);
+                else finish();
+            }
+
+            requestAnimationFrame(fastFrame);
+        });
+    }
+
+    function closeLuckySpinOverlay() {
+        var overlay = $('luckySpinOverlay');
+        if (overlay) {
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+        var result = $('luckySpinResult');
+        var done = $('luckySpinDoneBtn');
+        if (result) result.classList.remove('show');
+        if (done) done.classList.remove('show');
+        var machine = $('luckySpinMachine');
+        var reel = $('luckySpinReel');
+        if (machine) machine.classList.remove('is-spinning');
+        if (reel) {
+            reel.classList.remove('spinning-fast');
+            reel.classList.remove('spinning-slow');
+        }
+    }
+
+    async function playLuckySpinEffect(apiPromise) {
+        var overlay = $('luckySpinOverlay');
+        var title = $('luckySpinTitle');
+        var sub = $('luckySpinSub');
+        var result = $('luckySpinResult');
+        var resultTier = $('luckySpinResultTier');
+        var resultPrize = $('luckySpinResultPrize');
+        var doneBtn = $('luckySpinDoneBtn');
+        if (!overlay) {
+            return apiPromise;
+        }
+
+        if (result) result.classList.remove('show');
+        if (doneBtn) doneBtn.classList.remove('show');
+        if (title) title.textContent = 'Lucky Draw!';
+        if (sub) sub.textContent = 'Pulling the reel…';
+        // Idle strip while waiting for API
+        buildLuckySpinStrip('Common', '???', 12);
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+
+        var res;
+        try {
+            res = await apiPromise;
+        } catch (err) {
+            closeLuckySpinOverlay();
+            throw err;
+        }
+
+        var ticket = (res && res.ticket) || {};
+        var tier = ticket.tier || 'Prize';
+        var prize = ticket.prizeText || 'Mystery Prize';
+        if (sub) sub.textContent = 'Here we go!';
+        var count = buildLuckySpinStrip(tier, prize, 36);
+        await animateLuckySpinReel(count);
+
+        if (title) title.textContent = 'You won!';
+        if (sub) sub.textContent = res && res.message ? String(res.message) : '';
+        if (resultTier) resultTier.textContent = tier;
+        if (resultPrize) resultPrize.textContent = prize;
+        if (result) result.classList.add('show');
+        if (doneBtn) doneBtn.classList.add('show');
+
+        await new Promise(function(resolve) {
+            if (!doneBtn) {
+                setTimeout(resolve, 1600);
+                return;
+            }
+            function onDone() {
+                doneBtn.removeEventListener('click', onDone);
+                resolve();
+            }
+            doneBtn.addEventListener('click', onDone);
+        });
+        closeLuckySpinOverlay();
+        return res;
+    }
+
+    async function runLuckyStudentSpin() {
+        if (luckySpinBusy) return;
+        var cost = (luckySpinStatus && luckySpinStatus.cost) || 3;
+        var left = luckySpinStatus ? Number(luckySpinStatus.spinsRemainingToday) : 0;
+        if (left <= 0) {
+            alert('You already used both Lucky Draw spins for today.');
+            return;
+        }
+        if (!confirm('Spend $' + cost + ' to spin Lucky Draw? (' + left + ' left today)')) return;
+        luckySpinBusy = true;
+        updateLuckySpinBar();
+        try {
+            var res = await playLuckySpinEffect(
+                api('/api/student/lucky-draw/spin', { method: 'POST', body: {} })
+            );
+            if (res.spin || res.spinsUsedToday != null) {
+                updateLuckySpinBar({
+                    cost: res.cost || cost,
+                    spinsUsedToday: res.spinsUsedToday,
+                    spinsRemainingToday: res.spinsRemainingToday,
+                    spinLimit: res.spinLimit || 2,
+                    balance: res.newBalance
+                });
+            }
+            if (res.luckyDraw) renderLuckyTicketsSection(res.luckyDraw);
+            if (res.newBalance != null) {
+                var balEl = document.querySelector('.dollar-balance');
+                if (balEl) balEl.textContent = 'Balance: $' + res.newBalance;
+            }
+        } catch (err) {
+            alert((err && err.message) || 'Spin failed');
+            try {
+                var st = await api('/api/student/lucky-draw/spin-status');
+                updateLuckySpinBar(st);
+            } catch (e2) { /* ignore */ }
+        } finally {
+            luckySpinBusy = false;
+            updateLuckySpinBar();
+        }
+    }
+
+    async function runLuckyStudentTransfer(groupKey, toStudentId) {
+        if (luckyTransferBusy || !toStudentId) return;
+        var group = null;
+        for (var i = 0; i < luckyTicketGroups.length; i++) {
+            if (luckyTicketGroups[i].groupKey === groupKey) { group = luckyTicketGroups[i]; break; }
+        }
+        if (!group || !group.ticketIds.length) return;
+        var ticketId = group.ticketIds[group.ticketIds.length - 1];
+        var mate = null;
+        for (var j = 0; j < luckyClassmates.length; j++) {
+            if (String(luckyClassmates[j].id) === String(toStudentId)) { mate = luckyClassmates[j]; break; }
+        }
+        var mateName = mate ? mate.name : toStudentId;
+        if (!confirm('Give 1 “' + (group.prizeText || group.tier) + '” ticket to ' + mateName + '?')) return;
+        luckyTransferBusy = true;
+        try {
+            var res = await api('/api/student/lucky-draw/transfer', {
+                method: 'POST',
+                body: { ticketId: ticketId, toStudentId: toStudentId }
+            });
+            if (res.luckyDraw) renderLuckyTicketsSection(res.luckyDraw);
+            alert(res.message || 'Ticket transferred.');
+        } catch (err) {
+            alert((err && err.message) || 'Transfer failed');
+        } finally {
+            luckyTransferBusy = false;
+        }
+    }
 
     function findLuckyRecipe(tier) {
         var want = String(tier || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
@@ -2867,10 +3512,14 @@
         var tickets = (luckyDraw && luckyDraw.tickets) || [];
         if (luckyDraw && luckyDraw.recipes) renderLuckyFuseRecipes(luckyDraw.recipes);
         else renderLuckyFuseRecipes(luckyFuseRecipes);
+        if (luckyDraw && Array.isArray(luckyDraw.classmates)) {
+            luckyClassmates = luckyDraw.classmates;
+        }
+        if (luckyDraw && luckyDraw.spin) updateLuckySpinBar(luckyDraw.spin);
 
         if (!tickets.length) {
             luckyTicketGroups = [];
-            box.innerHTML = '<p class="empty">No Lucky Draw tickets yet. Win one in class!</p>';
+            box.innerHTML = '<p class="empty">No Lucky Draw tickets yet. Spin for $3 or win one in class!</p>';
             clearLuckyFuseSelection();
             return;
         }
@@ -2879,11 +3528,8 @@
             var ids = (t.ticketIds && t.ticketIds.length)
                 ? t.ticketIds.map(String)
                 : (t.ticketId ? [String(t.ticketId)] : []);
-            // If count says more than unique ids, pad with unique slot placeholders
-            // using the real ids we have (upgrade uses real ticket ids only).
             var count = Math.max(Number(t.count) || ids.length, ids.length);
             while (ids.length < count && ids.length) {
-                // Shouldn't happen with good data; avoid inventing fake ids.
                 break;
             }
             return {
@@ -2891,6 +3537,8 @@
                 tier: t.tier || 'Prize',
                 prizeText: t.prizeText || '',
                 drawnAt: t.drawnAt || '—',
+                expiresAt: t.expiresAt || '',
+                expiresInDays: t.expiresInDays != null ? t.expiresInDays : null,
                 ticketIds: ids,
                 count: ids.length
             };
@@ -2903,9 +3551,18 @@
             });
         });
 
+        var transferOptions = buildLuckyClassmateOptions();
         box.innerHTML = luckyTicketGroups.map(function(g) {
             var selected = selectedCountForGroup(g.groupKey);
             var canUpgrade = !!findLuckyRecipe(g.tier);
+            var expiryLabel = g.expiresAt
+                ? ('Expires: ' + g.expiresAt +
+                    (g.expiresInDays != null
+                        ? (g.expiresInDays <= 0
+                            ? ' (today)'
+                            : ' (' + g.expiresInDays + 'd left)')
+                        : ''))
+                : '';
             return '<div class="lucky-item ' + tierStyleClass(g.tier) + (selected > 0 ? ' selected' : '') + '"' +
                 ' data-group-key="' + escapeHtml(g.groupKey) + '"' +
                 ' data-tier="' + escapeHtml(g.tier) + '"' +
@@ -2915,6 +3572,7 @@
                     (g.count > 1 ? '<span class="lucky-count">×' + g.count + '</span>' : '') +
                 '</div>' +
                 '<div class="lucky-meta">Won: ' + escapeHtml(g.drawnAt) +
+                    (expiryLabel ? ' · ' + escapeHtml(expiryLabel) : '') +
                     (canUpgrade ? '' : ' · max tier') +
                 '</div>' +
                 (canUpgrade
@@ -2931,6 +3589,14 @@
                         '</div>' +
                     '</div>')
                     : '') +
+                '<div class="lucky-transfer-row">' +
+                    '<select class="lucky-transfer-select" data-group-key="' + escapeHtml(g.groupKey) + '">' +
+                        transferOptions +
+                    '</select>' +
+                    '<button type="button" class="btn-transfer" data-group-key="' + escapeHtml(g.groupKey) + '">' +
+                        '<i class="fa-solid fa-right-left"></i> Give 1' +
+                    '</button>' +
+                '</div>' +
                 '</div>';
         }).join('');
 
@@ -2948,10 +3614,27 @@
                 adjustLuckyGroupSelect(btn.getAttribute('data-group-key'), 1);
             });
         });
+        box.querySelectorAll('.btn-transfer').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var key = btn.getAttribute('data-group-key');
+                var sel = box.querySelector('.lucky-transfer-select[data-group-key="' + key.replace(/"/g, '\\"') + '"]');
+                // Fallback: find select in same row
+                if (!sel) sel = btn.parentNode && btn.parentNode.querySelector('select');
+                var toId = sel ? sel.value : '';
+                if (!toId) {
+                    alert('Choose a classmate to give the ticket to.');
+                    return;
+                }
+                runLuckyStudentTransfer(key, toId);
+            });
+        });
         // Tap card body to +1 (handy on mobile)
         box.querySelectorAll('.lucky-item[data-group-key]').forEach(function(el) {
             el.addEventListener('click', function(e) {
                 if (e.target.closest('.lucky-pick-btn')) return;
+                if (e.target.closest('.lucky-transfer-row')) return;
                 if (!findLuckyRecipe(el.getAttribute('data-tier'))) return;
                 adjustLuckyGroupSelect(el.getAttribute('data-group-key'), 1);
             });
@@ -3188,6 +3871,15 @@
             }
         },
         onRead: handleStudentRealtimeRead,
+        onThreadCleared: function(payload) {
+            var tid = normalizeThreadId(payload && payload.threadId);
+            var myTid = currentStudentThreadId();
+            if (tid && myTid && tid !== myTid) return;
+            studentThreadMessages = [];
+            studentKnownIds = {};
+            renderMessages([], true);
+            updateMsgUnreadBadge(0);
+        },
         onFallbackPoll: pollStudentMessages
     };
 
@@ -3400,14 +4092,37 @@
         else if (data.abuseStrikeLimit != null) buddyWarningLimit = Number(data.abuseStrikeLimit) || 3;
         if (data.abuseLocked != null) buddyAbuseLocked = !!data.abuseLocked;
         else buddyAbuseLocked = buddyWarningStrikes >= buddyWarningLimit;
+        if (data.freezeActive != null) buddyFreezeActive = !!data.freezeActive;
+        if (data.freezeRemainingSec != null) buddyFreezeRemainingSec = Math.max(0, Number(data.freezeRemainingSec) || 0);
+        if (data.softFreezeCount != null) buddySoftFreezeCount = Math.max(0, Number(data.softFreezeCount) || 0);
+        if (buddyFreezeRemainingSec <= 0) buddyFreezeActive = false;
+        // Lock canned reply is a hard UI signal even if a field was dropped
+        if (isBuddyLockReplyText(data.answer) || isBuddyLockReplyText(data.aiReply)) {
+            if (/brain cooldown|\d+-minute/i.test(String(data.answer || data.aiReply || ''))) {
+                buddyFreezeActive = true;
+                var mm = String(data.answer || data.aiReply || '').match(/(\d+)-minute brain cooldown/i);
+                if (mm) buddySoftFreezeCount = Math.max(1, Number(mm[1]) || 1);
+                if (buddyFreezeRemainingSec <= 0) {
+                    buddyFreezeRemainingSec = Math.max(1, buddySoftFreezeCount || 1) * 60;
+                }
+            } else {
+                if (buddyWarningStrikes < buddyWarningLimit) buddyWarningStrikes = buddyWarningLimit;
+                buddyAbuseLocked = true;
+                buddyFreezeActive = false;
+            }
+        }
 
+        var blocked = buddyComposeBlocked();
         var badge = $('buddyWarnBadge');
         if (badge) {
-            if (buddyWarningStrikes > 0 && !buddyAbuseLocked) {
-                badge.textContent = 'Warning ' + buddyWarningStrikes + '/' + buddyWarningLimit;
+            if (buddyAbuseLocked) {
+                badge.textContent = 'FROZEN';
                 badge.classList.add('is-on');
-            } else if (buddyAbuseLocked) {
-                badge.textContent = 'LOCKED 3/3';
+            } else if (buddyFreezeActive) {
+                badge.textContent = 'COOLDOWN ' + formatBuddyFreezeCountdown(buddyFreezeRemainingSec);
+                badge.classList.add('is-on');
+            } else if (buddyWarningStrikes > 0) {
+                badge.textContent = 'Warning ' + buddyWarningStrikes + '/' + buddyWarningLimit;
                 badge.classList.add('is-on');
             } else {
                 badge.textContent = '';
@@ -3420,20 +4135,47 @@
         var input = $('buddyInput');
         var sendBtn = $('buddySendBtn');
         var resetBtn = $('buddyResetBtn');
-        if (floater) floater.classList.toggle('is-locked', buddyAbuseLocked);
-        if (overlay) overlay.setAttribute('aria-hidden', buddyAbuseLocked ? 'false' : 'true');
-        if (input) {
-            input.disabled = !!buddyAbuseLocked;
-            input.placeholder = buddyAbuseLocked
-                ? 'Virtual Mr. Park is locked…'
-                : 'Type in English…';
+        if (floater) floater.classList.toggle('is-locked', blocked);
+        if (overlay) {
+            if (buddyAbuseLocked) {
+                overlay.innerHTML = 'Virtual Mr. Park is frozen! 🥶<br>Contact Real Mr. Park to unlock your session.';
+            } else if (buddyFreezeActive) {
+                var mins = Math.max(1, Math.min(3, Number(buddySoftFreezeCount) || 0));
+                if (!mins) {
+                    if (buddyFreezeRemainingSec > 150) mins = 3;
+                    else if (buddyFreezeRemainingSec > 90) mins = 2;
+                    else mins = 1;
+                }
+                overlay.innerHTML =
+                    'Warning limit reached! 🧠 ' + mins + '-minute brain cooldown!<br>Think before you type your words.<br>(' +
+                    formatBuddyFreezeCountdown(buddyFreezeRemainingSec) +
+                    ' remaining)';
+            }
+            overlay.setAttribute('aria-hidden', blocked ? 'false' : 'true');
+            overlay.style.display = blocked ? 'flex' : '';
         }
-        if (sendBtn) sendBtn.disabled = !!buddyAbuseLocked || buddySending;
-        if (resetBtn) resetBtn.disabled = !!buddyAbuseLocked;
+        if (input) {
+            input.disabled = !!blocked;
+            input.readOnly = !!blocked;
+            input.value = blocked ? '' : input.value;
+            input.placeholder = buddyAbuseLocked
+                ? 'Virtual Mr. Park is frozen…'
+                : buddyFreezeActive
+                  ? 'Brain cooldown…'
+                  : 'Type in English…';
+        }
+        if (sendBtn) sendBtn.disabled = !!blocked || buddySending;
+        if (resetBtn) resetBtn.disabled = !!blocked;
         document.querySelectorAll('.buddy-quick-btn').forEach(function(btn) {
-            btn.disabled = !!buddyAbuseLocked;
+            btn.disabled = !!blocked;
         });
-        setBuddyActive(!buddyAbuseLocked);
+        setBuddyActive(!blocked);
+        if (blocked) {
+            scheduleBuddyLockPolling();
+            if (buddyFreezeActive) scheduleBuddyFreezeTick();
+        } else {
+            stopBuddyLockPolling();
+        }
     }
 
     function refreshBuddyStatus() {
@@ -3441,6 +4183,11 @@
             buddyConfigured = !!(data && data.configured);
             updateBuddyRemaining(data && data.remaining != null ? data.remaining : 0);
             applyBuddyWarningState(data || {});
+            var rev = Number(data && data.chatRevision) || 0;
+            if (buddyChatRevision && rev && rev !== buddyChatRevision && !buddySending) {
+                loadBuddyChatHistory().catch(function() {});
+            }
+            if (rev) buddyChatRevision = rev;
         }).catch(function() {
             buddyConfigured = false;
         });
@@ -3642,10 +4389,27 @@
         if (wrap) wrap.scrollTop = wrap.scrollHeight;
     }
 
+    function buddyGreetingName() {
+        try {
+            var profile = JSON.parse(authStore.getItem(STUDENT_KEY) || '{}');
+            var full = String(profile.name || '').trim();
+            if (!full) return '';
+            var parts = full.split(/\s+/).filter(Boolean);
+            var latin = parts.filter(function(t) { return /^[A-Za-z]/.test(t); });
+            return (latin[0] || parts[0] || '').trim();
+        } catch (e) {
+            return '';
+        }
+    }
+
     function renderBuddyEmpty() {
         var thread = $('buddyChatThread');
         var empty = $('buddyChatEmpty');
         if (!thread || !empty) return;
+        var name = buddyGreetingName();
+        empty.textContent = name
+            ? ('Hi! ' + name + '! How can I help you today?')
+            : 'Hi! How can I help you today?';
         empty.classList.toggle('hidden', thread.children.length > 0);
     }
 
@@ -3717,7 +4481,8 @@
         var btn = $('buddyResetBtn');
         if (btn) btn.disabled = true;
         api('/api/student/english-buddy/history', { method: 'DELETE' })
-            .then(function() {
+            .then(function(res) {
+                if (res && res.chatRevision) buddyChatRevision = Number(res.chatRevision) || buddyChatRevision;
                 clearBuddyChat();
             })
             .catch(function(err) {
@@ -3747,9 +4512,28 @@
             alert('Virtual Mr. Park is not available right now. Please try again later.');
             return;
         }
-        if (buddyAbuseLocked) {
-            alert('Virtual Mr. Park is locked (Warning 3/3). Ask Mr. Park to unlock you.');
-            applyBuddyWarningState({ abuseLocked: true, warningStrikes: 3, warningLimit: 3 });
+        if (buddyComposeBlocked()) {
+            refreshBuddyStatus().then(function() {
+                if (buddyComposeBlocked()) {
+                    alert(
+                        buddyAbuseLocked
+                            ? 'Virtual Mr. Park is frozen. Contact Real Mr. Park to unlock your session.'
+                            : 'Brain cooldown in progress — wait for the timer, then try again.'
+                    );
+                    applyBuddyWarningState({
+                        abuseLocked: buddyAbuseLocked,
+                        freezeActive: buddyFreezeActive,
+                        freezeRemainingSec: buddyFreezeRemainingSec,
+                        warningStrikes: buddyWarningStrikes,
+                        warningLimit: buddyWarningLimit
+                    });
+                    return;
+                }
+                // Teacher unlocked / freeze ended — send the message the student already typed
+                submitBuddyAsk(e);
+            }).catch(function() {
+                alert('Virtual Mr. Park is unavailable right now. Please try again.');
+            });
             return;
         }
         if (buddyRemaining <= 0) {
@@ -3787,6 +4571,7 @@
         if (token) headers.Authorization = 'Bearer ' + token;
         var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
         var clientTimer = controller ? setTimeout(function() { controller.abort(); }, 50000) : null;
+        var lastBuddyAnswer = '';
 
         fetch(NODE_API + '/api/student/english-buddy/stream', {
             method: 'POST',
@@ -3803,12 +4588,16 @@
                 return res.json().then(function(data) {
                     removeBuddyThinking();
                     var answer = String(data.answer || '').trim();
+                    lastBuddyAnswer = answer;
                     if (answer) {
                         appendBuddyBubble('ai', answer);
                         buddyChatHistory.push({ role: 'assistant', text: answer });
                     }
                     if (data.remaining != null) updateBuddyRemaining(data.remaining);
                     applyBuddyWarningState(data || {});
+                    if (data.abuseLocked || isBuddyLockReplyText(answer)) {
+                        forceBuddyLockedUi(data.warningStrikes != null ? data.warningStrikes : data.abuseStrikes);
+                    }
                 });
             }
             removeBuddyThinking();
@@ -3820,9 +4609,48 @@
             var decoder = new TextDecoder();
             var buffer = '';
             var answer = '';
+            var typedAnswer = '';
+            var typeQueue = '';
+            var typeTimer = null;
+            var streamDonePayload = null;
+            var resolveTyping = null;
+            var typingPromise = new Promise(function(resolve) { resolveTyping = resolve; });
+
+            function finishTypingIfIdle() {
+                if (typeQueue.length || typeTimer) return;
+                if (resolveTyping) {
+                    var fin = resolveTyping;
+                    resolveTyping = null;
+                    fin();
+                }
+            }
+
+            function flushBuddyType() {
+                if (!typeQueue.length) {
+                    typeTimer = null;
+                    finishTypingIfIdle();
+                    return;
+                }
+                var n = typeQueue.length > 80 ? 4 : (typeQueue.length > 24 ? 3 : 2);
+                typedAnswer += typeQueue.slice(0, n);
+                typeQueue = typeQueue.slice(n);
+                bubble.textContent = typedAnswer;
+                scrollBuddyChat();
+                typeTimer = setTimeout(flushBuddyType, 16);
+            }
+
+            function enqueueBuddyType(chunk) {
+                if (!chunk) return;
+                typeQueue += chunk;
+                if (!typeTimer) flushBuddyType();
+            }
+
             function pump() {
                 return reader.read().then(function(chunk) {
-                    if (chunk.done) return answer;
+                    if (chunk.done) {
+                        finishTypingIfIdle();
+                        return answer;
+                    }
                     buffer += decoder.decode(chunk.value, { stream: true });
                     var parts = buffer.split('\n\n');
                     buffer = parts.pop() || '';
@@ -3834,26 +4662,45 @@
                             if (payload.error) throw new Error(payload.error);
                             if (payload.text) {
                                 answer += payload.text;
-                                bubble.textContent = answer;
-                                scrollBuddyChat();
+                                enqueueBuddyType(payload.text);
                             }
                             if (payload.done) {
-                                if (payload.answer) answer = payload.answer;
+                                streamDonePayload = payload;
+                                if (payload.answer) {
+                                    var finalText = String(payload.answer);
+                                    var soFar = typedAnswer + typeQueue;
+                                    if (!soFar) {
+                                        enqueueBuddyType(finalText);
+                                    } else if (finalText.indexOf(soFar) === 0 && finalText.length > soFar.length) {
+                                        enqueueBuddyType(finalText.slice(soFar.length));
+                                    }
+                                    answer = finalText;
+                                }
                                 if (payload.remaining != null) updateBuddyRemaining(payload.remaining);
                                 applyBuddyWarningState(payload);
-                                if (payload.abuseBlocked && payload.answer) {
-                                    bubble.textContent = payload.answer;
-                                    answer = payload.answer;
+                                if (payload.abuseLocked || isBuddyLockReplyText(payload.answer || answer)) {
+                                    forceBuddyLockedUi(
+                                        payload.warningStrikes != null
+                                            ? payload.warningStrikes
+                                            : payload.abuseStrikes
+                                    );
                                 }
+                                finishTypingIfIdle();
                             }
                         });
                     });
                     return pump();
                 });
             }
-            return pump().then(function(finalAnswer) {
-                var text = String(finalAnswer || '').trim();
-                if (text) buddyChatHistory.push({ role: 'assistant', text: text });
+            return pump().then(function() {
+                return typingPromise.then(function() {
+                    var text = String(
+                        (streamDonePayload && streamDonePayload.answer) || typedAnswer || answer || ''
+                    ).trim();
+                    if (text) bubble.textContent = text;
+                    lastBuddyAnswer = text;
+                    if (text) buddyChatHistory.push({ role: 'assistant', text: text });
+                });
             });
         }).catch(function(err) {
             removeBuddyThinking();
@@ -3861,17 +4708,36 @@
             if (err && err.name === 'AbortError') {
                 msg = 'Virtual Mr. Park took too long. Please try a shorter message.';
             }
+            lastBuddyAnswer = msg;
             appendBuddyBubble('ai', msg, 'buddy-bubble-thinking');
-            if (/locked|3 misuse|Warning 3/i.test(msg)) {
-                applyBuddyWarningState({ abuseLocked: true, warningStrikes: 3, warningLimit: 3 });
+            if (/frozen|3 misuse|Warning 3|brain cooldown/i.test(msg)) {
+                if (/brain cooldown|\d+-minute/i.test(msg)) {
+                    var rem = 60;
+                    var m = String(msg).match(/(\d+)-minute brain cooldown/i);
+                    if (m) rem = Math.max(1, Number(m[1]) || 1) * 60;
+                    applyBuddyWarningState({
+                        freezeActive: true,
+                        freezeRemainingSec: rem,
+                        abuseLocked: false,
+                        warningStrikes: buddyWarningStrikes,
+                        warningLimit: buddyWarningLimit
+                    });
+                } else {
+                    forceBuddyLockedUi(3);
+                }
             }
         }).finally(function() {
             if (clientTimer) clearTimeout(clientTimer);
             buddySending = false;
-            if (btn) btn.disabled = !!buddyAbuseLocked;
-            if (input && !buddyAbuseLocked) input.focus();
+            if (isBuddyLockReplyText(lastBuddyAnswer) && /frozen|misuse|locked/i.test(lastBuddyAnswer || '') && !/brain cooldown/i.test(lastBuddyAnswer || '')) {
+                forceBuddyLockedUi(3);
+            }
+            if (btn) btn.disabled = !!buddyComposeBlocked();
+            if (input && !buddyComposeBlocked()) input.focus();
             applyBuddyWarningState({
                 abuseLocked: buddyAbuseLocked,
+                freezeActive: buddyFreezeActive,
+                freezeRemainingSec: buddyFreezeRemainingSec,
                 warningStrikes: buddyWarningStrikes,
                 warningLimit: buddyWarningLimit
             });
@@ -3938,10 +4804,12 @@
             show($('buddyFloat'));
             applyStoredDesktopChatPanelSizes();
             setBuddyActive(true);
+            scheduleBuddyChatSyncPolling();
             requestAnimationFrame(autoGrowBuddyFloat);
         }).catch(function() {
             hide($('buddyFloat'));
             setBuddyActive(false);
+            stopBuddyChatSyncPolling();
         });
 
         var s = data.summary;
@@ -4397,11 +5265,16 @@
     if (luckyFuseBtn) luckyFuseBtn.addEventListener('click', runLuckyFuse);
     var luckyFuseClearBtn = $('luckyFuseClearBtn');
     if (luckyFuseClearBtn) luckyFuseClearBtn.addEventListener('click', clearLuckyFuseSelection);
+    var luckySpinBtn = $('luckySpinBtn');
+    if (luckySpinBtn) luckySpinBtn.addEventListener('click', runLuckyStudentSpin);
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeStudentStampBoard();
             var fuseOverlay = $('luckyFuseOverlay');
             if (fuseOverlay && !luckyFuseBusy) fuseOverlay.classList.remove('show');
+            if ($('luckySpinOverlay') && $('luckySpinOverlay').classList.contains('show') && !luckySpinBusy) {
+                closeLuckySpinOverlay();
+            }
         }
     });
 
@@ -4429,6 +5302,33 @@
         <div class="lucky-fuse-sub" id="luckyFuseSub"></div>
         <div class="lucky-fuse-cards" id="luckyFuseCards"></div>
         <div class="lucky-fuse-result" id="luckyFuseResult"></div>
+    </div>
+</div>
+
+<div id="luckySpinOverlay" class="lucky-spin-overlay" aria-hidden="true">
+    <div class="lucky-spin-stage">
+        <div class="lucky-spin-title" id="luckySpinTitle">Lucky Draw!</div>
+        <div class="lucky-spin-sub" id="luckySpinSub">Spinning the reel…</div>
+        <div class="lucky-spin-machine" id="luckySpinMachine">
+            <div class="lucky-spin-marquee" aria-hidden="true">
+                <span class="lucky-spin-bulb"></span><span class="lucky-spin-bulb"></span>
+                <span class="lucky-spin-bulb"></span><span class="lucky-spin-bulb"></span>
+                <span class="lucky-spin-bulb"></span><span class="lucky-spin-bulb"></span>
+                <span class="lucky-spin-bulb"></span><span class="lucky-spin-bulb"></span>
+                <span class="lucky-spin-bulb"></span><span class="lucky-spin-bulb"></span>
+            </div>
+            <div class="lucky-spin-window">
+                <div class="lucky-spin-reel" id="luckySpinReel">
+                    <div class="lucky-spin-strip" id="luckySpinStrip"></div>
+                </div>
+                <div class="lucky-spin-payline" aria-hidden="true"></div>
+            </div>
+        </div>
+        <div class="lucky-spin-result" id="luckySpinResult">
+            <div class="tier" id="luckySpinResultTier"></div>
+            <div class="prize" id="luckySpinResultPrize"></div>
+        </div>
+        <button type="button" class="lucky-spin-done-btn" id="luckySpinDoneBtn">Nice!</button>
     </div>
 </div>
 </body>

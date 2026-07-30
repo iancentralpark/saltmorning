@@ -37,7 +37,8 @@ app.use(cors({
     }
   }
 }));
-app.use(express.json({ limit: '1mb' }));
+// Bumped from 1mb to fit large teacher-uploaded vocab word-bank batches (thousands of words).
+app.use(express.json({ limit: '8mb' }));
 
 const publicDir = path.join(__dirname, '..', 'public');
 
@@ -169,6 +170,12 @@ server.listen(PORT, () => {
           }
         } catch (e) {
           console.warn('[messages] boot reconcile failed:', e.message || e);
+        }
+        try {
+          const { resumePendingJobs } = require('./vocabWordGenService');
+          await resumePendingJobs();
+        } catch (e) {
+          console.warn('[vocab-gen] resume-on-boot failed:', e.message || e);
         }
         setInterval(function() {
           reconcileSheetMessagesToSupabase({ hours: 6 }).then(function(result) {

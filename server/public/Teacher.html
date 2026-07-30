@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-16.05';
+            var APP_BUILD = '2026-07-30.13';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -1112,38 +1112,6 @@
         .sidebar-panel[data-sidebar-id="googleSearch"] .sidebar-mini-chip { border-color: rgba(66, 133, 244, 0.5); color: #4285f4; }
         .sidebar-panel[data-sidebar-id="marqueeTicker"] .sidebar-mini-chip { border-color: rgba(245, 197, 24, 0.55); color: #f39c12; }
         .sidebar-panel[data-sidebar-id="stampBoard"] .sidebar-mini-chip { border-color: rgba(231, 76, 60, 0.5); color: #c0392b; }
-        .sidebar-panel[data-sidebar-id="abuseAlert"] .sidebar-mini-chip {
-            border-color: rgba(231, 76, 60, 0.65);
-            color: #c0392b;
-            position: relative;
-        }
-        .sidebar-abuse-launcher {
-            width: auto !important;
-            max-height: none !important;
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        .sidebar-abuse-launcher .sidebar-abuse-launcher-chip {
-            display: flex;
-        }
-        .sidebar-abuse-badge {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            min-width: 18px;
-            height: 18px;
-            padding: 0 5px;
-            border-radius: 999px;
-            background: #e74c3c;
-            color: #fff;
-            font-size: 0.65rem;
-            font-weight: 800;
-            line-height: 18px;
-            text-align: center;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.25);
-        }
-        .sidebar-abuse-badge.is-empty { display: none; }
         .abuse-flag-list { max-height: 420px; overflow: auto; }
         .abuse-flag-item {
             display: block;
@@ -1205,6 +1173,50 @@
             font-weight: 700;
             opacity: 0.7;
             margin-bottom: 0.15rem;
+        }
+        .abuse-hub-tabs {
+            display: flex;
+            gap: 0.35rem;
+            margin-bottom: 0.85rem;
+            padding: 0.2rem;
+            border-radius: 999px;
+            background: rgba(231, 76, 60, 0.08);
+            border: 1px solid rgba(231, 76, 60, 0.18);
+        }
+        .abuse-hub-tab {
+            flex: 1;
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            color: #7f1d1d;
+            font-weight: 700;
+            font-size: 0.82rem;
+            padding: 0.4rem 0.55rem;
+            cursor: pointer;
+        }
+        .abuse-hub-tab.active {
+            background: linear-gradient(180deg, #ff8a80, #e74c3c);
+            color: #fff;
+            box-shadow: 0 2px 0 rgba(127, 29, 29, 0.25);
+        }
+        .abuse-hub-pane.d-none { display: none !important; }
+        .abuse-monitor-search {
+            width: 100%;
+            border: 1px solid rgba(59, 158, 221, 0.28);
+            border-radius: 10px;
+            padding: 0.45rem 0.65rem;
+            font-size: 0.88rem;
+            margin-bottom: 0.55rem;
+        }
+        .abuse-coin-pill {
+            display: inline-block;
+            margin-left: 0.35rem;
+            padding: 0.12rem 0.45rem;
+            border-radius: 999px;
+            background: rgba(241, 196, 15, 0.2);
+            color: #8d6e00;
+            font-size: 0.68rem;
+            font-weight: 800;
         }
 
         /* ===== Class LED ticker (iPad / desktop projection) ===== */
@@ -3449,6 +3461,30 @@
             cursor: pointer;
         }
         .messenger-inbox-item:hover { background: #f4fbff; }
+        .messenger-inbox-delete {
+            flex: 0 0 auto;
+            width: 2rem;
+            height: 2rem;
+            border: 0;
+            border-radius: 0.5rem;
+            background: transparent;
+            color: #9aa7b5;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0.5;
+        }
+        .messenger-inbox-item:hover .messenger-inbox-delete,
+        .messenger-inbox-delete:focus-visible {
+            opacity: 1;
+            color: #c0392b;
+            background: rgba(192, 57, 43, 0.08);
+        }
+        .messenger-inbox-delete:hover {
+            color: #a93226;
+            background: rgba(192, 57, 43, 0.14);
+        }
         .messenger-inbox-avatar {
             width: 2.5rem;
             height: 2.5rem;
@@ -3546,169 +3582,62 @@
         }
         .messenger-chat-send span { display: none; }
 
-        /* ===== Virtual Mr. Park (teacher) — bottom-right ===== */
-        .teacher-buddy-float {
+        /* ===== Abuse / AI Monitor floater — bottom-right ===== */
+        .abuse-alert-float {
             position: fixed;
             right: 14px;
             bottom: 14px;
-            z-index: 721;
+            z-index: 722;
         }
-        .teacher-buddy-float.teacher-buddy-minimized .teacher-buddy-panel { display: none; }
-        .teacher-buddy-float:not(.teacher-buddy-minimized) .teacher-buddy-chip { display: none; }
-        .teacher-buddy-chip {
+        .abuse-alert-float.hidden-section { display: none !important; }
+        .abuse-alert-chip {
+            position: relative;
             width: 52px;
             height: 52px;
             border: none;
             border-radius: 50%;
-            background: linear-gradient(135deg, #8e44ad, #9b59b6 55%, #f39c12);
+            background: linear-gradient(135deg, #e74c3c, #ff7675 55%, #f39c12);
             color: #fff;
             font-size: 1.2rem;
-            box-shadow: 0 6px 20px rgba(142, 68, 173, 0.35), 0 3px 0 #6c3483;
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.35), 0 3px 0 #c0392b;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .teacher-buddy-chip:hover { transform: translateY(-2px); }
-        .teacher-buddy-panel {
-            width: min(360px, calc(100vw - 28px));
-            height: min(520px, calc(100vh - 100px));
-            display: flex;
-            flex-direction: column;
-            background: #fff;
-            border-radius: 18px;
-            box-shadow: 0 12px 40px rgba(45, 52, 54, 0.22);
-            overflow: hidden;
-            border: 1px solid rgba(155, 89, 182, 0.2);
-        }
-        .teacher-buddy-head {
-            display: flex;
-            align-items: center;
-            gap: 0.45rem;
-            padding: 0.7rem 0.85rem;
-            background: linear-gradient(135deg, #8e44ad, #9b59b6);
-            color: #fff;
-            font-weight: 800;
-        }
-        .teacher-buddy-head-title { flex: 1; font-size: 0.95rem; }
-        .teacher-buddy-head-btn {
-            border: none;
-            background: rgba(255,255,255,0.18);
-            color: #fff;
-            width: 2rem;
-            height: 2rem;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        .teacher-buddy-thread {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.7rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.45rem;
-            background: #faf7fc;
-            min-height: 0;
-        }
-        .teacher-buddy-empty {
-            color: #95a5a6;
-            font-size: 0.85rem;
-            text-align: center;
-            margin: auto;
-            padding: 1rem;
-        }
-        .teacher-buddy-empty.hidden-section { display: none !important; }
-        .teacher-buddy-bubble {
-            max-width: 88%;
-            padding: 0.55rem 0.7rem;
-            border-radius: 14px;
-            font-size: 0.88rem;
-            line-height: 1.35;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .teacher-buddy-bubble.user {
-            align-self: flex-end;
-            background: #9b59b6;
-            color: #fff;
-            border-bottom-right-radius: 4px;
-        }
-        .teacher-buddy-bubble.ai {
-            align-self: flex-start;
-            background: #fff;
-            color: #2d3436;
-            border: 1px solid rgba(155, 89, 182, 0.18);
-            border-bottom-left-radius: 4px;
-        }
-        .teacher-buddy-bubble.thinking { color: #95a5a6; font-style: italic; }
-        .teacher-buddy-compose {
-            border-top: 1px solid rgba(155, 89, 182, 0.15);
-            padding: 0.55rem 0.65rem 0.65rem;
-            background: #fff;
-        }
-        .teacher-buddy-quick {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-            margin-bottom: 0.45rem;
-        }
-        .teacher-buddy-quick-btn {
-            border: 1px solid rgba(155, 89, 182, 0.28);
-            background: #f8f1fc;
-            color: #6c3483;
+        .abuse-alert-chip:hover { transform: translateY(-2px); }
+        .abuse-alert-chip-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 1.25rem;
+            height: 1.25rem;
+            padding: 0 0.3rem;
             border-radius: 999px;
-            padding: 0.2rem 0.55rem;
-            font-size: 0.72rem;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        .teacher-buddy-form {
-            display: flex;
-            gap: 0.45rem;
-            align-items: flex-end;
-        }
-        .teacher-buddy-input {
-            flex: 1;
-            min-height: 2.6rem;
-            max-height: 7rem;
-            resize: none;
-            border: 1px solid rgba(155, 89, 182, 0.25);
-            border-radius: 12px;
-            padding: 0.55rem 0.65rem;
-            font-size: 0.9rem;
-        }
-        .teacher-buddy-send {
-            width: 2.6rem;
-            height: 2.6rem;
-            border: none;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #8e44ad, #9b59b6);
+            background: #2d3436;
             color: #fff;
-            cursor: pointer;
+            font-size: 0.68rem;
+            font-weight: 800;
+            line-height: 1.25rem;
+            text-align: center;
+            border: 2px solid #fff;
         }
-        body.teacher-mobile.teacher-has-class[data-teacher-tab="messages"] .teacher-buddy-float,
-        body.teacher-mobile:has(#messengerFloat:not(.messenger-minimized)) .teacher-buddy-float {
+        .abuse-alert-chip-badge.is-empty { display: none !important; }
+        body.teacher-mobile.teacher-has-class[data-teacher-tab="messages"] .abuse-alert-float,
+        body.teacher-mobile:has(#messengerFloat:not(.messenger-minimized)) .abuse-alert-float {
             display: none !important;
         }
-        body.teacher-mobile.teacher-has-class:not([data-teacher-tab="messages"]) .teacher-buddy-float {
+        body.teacher-mobile.teacher-has-class:not([data-teacher-tab="messages"]) .abuse-alert-float {
             right: max(0.85rem, env(safe-area-inset-right));
             bottom: calc(var(--tm-nav-h, 5.1rem) + 0.65rem);
             z-index: 80;
         }
-        body.teacher-mobile:not(.teacher-has-class) .teacher-buddy-float {
+        body.teacher-mobile:not(.teacher-has-class) .abuse-alert-float {
             right: max(0.85rem, env(safe-area-inset-right));
             bottom: max(1rem, env(safe-area-inset-bottom));
             z-index: 80;
         }
-        [data-theme="dark"] .teacher-buddy-panel { background: #1e2430; border-color: rgba(155, 89, 182, 0.35); }
-        [data-theme="dark"] .teacher-buddy-thread { background: #171b24; }
-        [data-theme="dark"] .teacher-buddy-bubble.ai { background: #252b38; color: #ecf0f1; }
-        [data-theme="dark"] .teacher-buddy-compose { background: #1e2430; }
-        [data-theme="dark"] .teacher-buddy-input {
-            background: #252b38;
-            color: #ecf0f1;
-            border-color: rgba(155, 89, 182, 0.35);
-        }
+
 
         .messenger-date-sep {
             align-self: center;
@@ -6180,6 +6109,9 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="portalLoginsBtn">
                     <i class="fa-solid fa-key"></i> Portal logins
                 </button>
+                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" id="vocabLmsBtn">
+                    <i class="fa-solid fa-layer-group"></i> Vocab LMS
+                </button>
                 <button type="button" class="btn btn-sm btn-warning rounded-pill px-3" id="openClassPendingBtn">
                     <i class="fa-solid fa-hourglass-half"></i> Pending Homework
                 </button>
@@ -6503,13 +6435,6 @@
 <aside id="stampBoardFloat" class="sidebar-panel hidden-section no-print sidebar-stamp-launcher" data-sidebar-id="stampBoard" aria-label="Stamp Board">
     <button type="button" class="sidebar-mini-chip sidebar-stamp-launcher-chip" data-sidebar-id="stampBoard" title="Stamp Board — tap to open">
         <i class="fa-solid fa-stamp" aria-hidden="true"></i>
-    </button>
-</aside>
-
-<aside id="abuseAlertFloat" class="sidebar-panel hidden-section no-print sidebar-abuse-launcher" data-sidebar-id="abuseAlert" aria-label="Abuse Detection">
-    <button type="button" class="sidebar-mini-chip sidebar-abuse-launcher-chip" data-sidebar-id="abuseAlert" title="Abuse Detection — Virtual Mr. Park warnings" id="abuseAlertChipBtn">
-        <span aria-hidden="true">🚨</span>
-        <span class="sidebar-abuse-badge is-empty" id="abuseAlertBadge">0</span>
     </button>
 </aside>
 
@@ -6903,38 +6828,248 @@
     </div>
 </div>
 
-<!-- Virtual Mr. Park Abuse Detection -->
+<!-- Vocab LMS: roster overview + word bank uploads + daily-quest settings -->
+<div class="modal fade app-modal" id="vocabLmsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-layer-group"></i> Vocab LMS — <span id="vocabLmsClassName">Class</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="abuse-hub-tabs" role="tablist">
+                    <button type="button" class="abuse-hub-tab active" id="vocabLmsTabOverviewBtn" data-vocab-lms-tab="overview">Overview &amp; settings</button>
+                    <button type="button" class="abuse-hub-tab" id="vocabLmsTabBankBtn" data-vocab-lms-tab="bank">Word bank</button>
+                    <button type="button" class="abuse-hub-tab" id="vocabLmsTabTiersBtn" data-vocab-lms-tab="tiers">By tier</button>
+                </div>
+
+                <div id="vocabLmsOverviewPane" class="abuse-hub-pane">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">Daily target (words/day)</label>
+                            <input type="number" class="form-control form-control-sm" id="vocabLmsDailyTarget" min="3" max="60" value="10">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">Pass threshold (%)</label>
+                            <input type="number" class="form-control form-control-sm" id="vocabLmsPassThreshold" min="30" max="100" value="100">
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-3 mb-md-2">Daily quest pass → random Lucky Draw ticket (same odds as a spin) + tier dollar bonus.</p>
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <button type="button" class="btn btn-sm btn-primary" id="vocabLmsSaveSettingsBtn">
+                            <i class="fa-solid fa-floppy-disk"></i> Save settings
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="vocabLmsRefreshBtn">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="vocabLmsOverviewLoading" class="text-muted small py-3">Loading…</div>
+                    <div class="table-responsive d-none" id="vocabLmsRosterWrap">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Tier</th>
+                                    <th>Streak</th>
+                                    <th>Today</th>
+                                    <th>Test</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="vocabLmsRosterBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="vocabLmsBankPane" class="abuse-hub-pane d-none">
+                    <p class="small text-muted mb-2">
+                        Active words in bank: <strong id="vocabLmsWordCount">—</strong>
+                    </p>
+                    <div class="abuse-hub-tabs" role="tablist" style="margin-bottom:0.75rem;">
+                        <button type="button" class="abuse-hub-tab active" data-vocab-bank-tab="paste">Paste word list</button>
+                        <button type="button" class="abuse-hub-tab" data-vocab-bank-tab="file">CSV / Excel</button>
+                        <button type="button" class="abuse-hub-tab" data-vocab-bank-tab="json">JSON (advanced)</button>
+                    </div>
+
+                    <div id="vocabBankPastePane" class="vocab-bank-subpane">
+                        <label class="form-label small mb-1">
+                            Paste words — one per line, or straight from a spreadsheet column/table (commas and tabs are fine too). AI will fill in the definition, Korean meaning, example sentence, and quiz automatically.
+                        </label>
+                        <textarea class="form-control form-control-sm" id="vocabBankPasteInput" rows="8" placeholder="resilient&#10;hypothesis, contrast&#10;establish"></textarea>
+                        <div class="row g-2 mt-2 align-items-end">
+                            <div class="col-auto">
+                                <label class="form-label small mb-1">Target grade (optional)</label>
+                                <select class="form-select form-select-sm" id="vocabBankPasteGrade">
+                                    <option value="">Let AI estimate each word</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-primary" id="vocabBankPasteGoBtn">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="vocabBankFilePane" class="vocab-bank-subpane d-none">
+                        <label class="form-label small mb-1">
+                            Upload a CSV or Excel file with a <code>word</code> column (optional <code>grade_level</code> or <code>tier</code> column).
+                        </label>
+                        <input type="file" class="form-control form-control-sm" id="vocabBankFileInput" accept=".csv,.xlsx,.xls">
+                        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-primary" id="vocabBankFileGoBtn" disabled>
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI
+                            </button>
+                            <span class="small text-muted" id="vocabBankFilePreview"></span>
+                        </div>
+                    </div>
+
+                    <div id="vocabBankJsonPane" class="vocab-bank-subpane d-none">
+                        <label class="form-label small mb-1">
+                            Upload a JSON file (array of complete word objects) to import directly — skips AI generation.
+                            Schema: word, grade_level 1–12, tier_name, simple_definition, korean_meaning, example_sentence, synonyms, antonyms, cloze_question, wrong_options [exactly 3], explanation_for_wrong.
+                        </label>
+                        <input type="file" class="form-control form-control-sm" id="vocabBankJsonFileInput" accept=".json,application/json">
+                        <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-primary" id="vocabBankJsonFileGoBtn" disabled>
+                                <i class="fa-solid fa-upload"></i> Import / update words
+                            </button>
+                            <span class="small text-muted" id="vocabBankJsonFilePreview"></span>
+                        </div>
+                        <details class="mt-3">
+                            <summary class="small text-muted" style="cursor:pointer;">Or paste JSON instead</summary>
+                            <textarea class="form-control form-control-sm mt-2" id="vocabLmsBulkInput" rows="6" placeholder='[&#10;  {&#10;    "word": "resilient",&#10;    "grade_level": 7,&#10;    "tier_name": "Emerald",&#10;    "simple_definition": "…",&#10;    "korean_meaning": "…",&#10;    "example_sentence": "…"&#10;  }&#10;]'></textarea>
+                            <div class="d-flex gap-2 flex-wrap align-items-center mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="vocabLmsBulkImportBtn">
+                                    <i class="fa-solid fa-paste"></i> Import pasted JSON
+                                </button>
+                                <span class="small text-muted" id="vocabLmsBulkStatus"></span>
+                            </div>
+                        </details>
+                    </div>
+
+                    <div id="vocabGenJobsWrap" class="mt-3 d-none"></div>
+                    <div class="small text-danger mt-2 d-none" id="vocabGenJobFailed"></div>
+                </div>
+
+                <div id="vocabLmsTiersPane" class="abuse-hub-pane d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <p class="small text-muted mb-0">
+                            Active words: <strong id="vocabLmsTierTotalWords">—</strong>
+                            · Quiz-ready: <strong id="vocabLmsTierTotalQuiz">—</strong>
+                            · Missing quiz: <strong id="vocabLmsTierTotalMissing">—</strong>
+                        </p>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="vocabLmsTierRefreshBtn">
+                            <i class="fa-solid fa-rotate"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="vocabLmsTiersLoading" class="text-muted small py-3">Loading…</div>
+                    <div class="table-responsive d-none" id="vocabLmsTiersWrap">
+                        <table class="table table-sm table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Grade</th>
+                                    <th>Tier</th>
+                                    <th class="text-end">Words</th>
+                                    <th class="text-end">Quiz ready</th>
+                                    <th class="text-end">Missing quiz</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vocabLmsTiersBody"></tbody>
+                            <tfoot>
+                                <tr class="fw-semibold">
+                                    <td colspan="2">Total</td>
+                                    <td class="text-end" id="vocabLmsTierFootWords">0</td>
+                                    <td class="text-end" id="vocabLmsTierFootQuiz">0</td>
+                                    <td class="text-end" id="vocabLmsTierFootMissing">0</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        “Quiz ready” = word has a cloze question and 3 wrong options baked in. Each such word counts as one quiz item for that tier.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Virtual Mr. Park Alerts & Monitor -->
 <div class="modal fade app-modal" id="abuseAlertModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><span aria-hidden="true">🚨</span> Abuse Detection — Virtual Mr. Park</h5>
+                <h5 class="modal-title"><span aria-hidden="true">🚨</span> Virtual Mr. Park — Alerts &amp; Monitor</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-muted mb-3">
-                    Class: <strong id="abuseAlertClassName">—</strong>
+                <p class="small text-muted mb-2">
+                    All classes
                     · Open warnings: <strong id="abuseAlertOpenCount">0</strong>
+                    · Coins today (Pacific): <strong id="abuseMonitorDateKey">—</strong>
                 </p>
-                <div class="row g-3">
-                    <div class="col-lg-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="small fw-semibold">Flagged students</span>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="abuseAlertRefreshBtn">Refresh</button>
+                <div class="abuse-hub-tabs" role="tablist">
+                    <button type="button" class="abuse-hub-tab active" id="abuseTabAlertsBtn" data-abuse-tab="alerts">Alerts</button>
+                    <button type="button" class="abuse-hub-tab" id="abuseTabMonitorBtn" data-abuse-tab="monitor">Monitor &amp; coins</button>
+                </div>
+
+                <div id="abuseHubAlertsPane" class="abuse-hub-pane">
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-semibold">Flagged students</span>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="abuseAlertRefreshBtn">Refresh</button>
+                            </div>
+                            <div id="abuseAlertLoading" class="text-muted small py-3">Loading…</div>
+                            <div id="abuseFlagList" class="abuse-flag-list d-none"></div>
                         </div>
-                        <div id="abuseAlertLoading" class="text-muted small py-3">Loading…</div>
-                        <div id="abuseFlagList" class="abuse-flag-list d-none"></div>
-                    </div>
-                    <div class="col-lg-8">
-                        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                            <span class="small fw-semibold" id="abuseChatTitle">Conversation log</span>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-outline-primary btn-sm d-none" id="abuseUnlockBtn">Unlock AI</button>
-                                <button type="button" class="btn btn-outline-success btn-sm d-none" id="abuseMarkReviewedBtn">Mark reviewed</button>
+                        <div class="col-lg-8">
+                            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                                <span class="small fw-semibold" id="abuseChatTitle">Conversation log</span>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-danger btn-sm d-none" id="abuseClearChatBtn" title="Delete this student's Virtual Mr. Park chat from the database">
+                                        <i class="fa-solid fa-trash-can"></i> Clear chat
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm d-none" id="abuseUnlockBtn" title="Unlock only — keep this alert open">Unlock AI</button>
+                                    <button type="button" class="btn btn-outline-success btn-sm d-none" id="abuseMarkReviewedBtn" title="Unlock and clear this alert">Mark reviewed</button>
+                                </div>
+                            </div>
+                            <div id="abuseChatLog" class="abuse-chat-log">
+                                <div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>
                             </div>
                         </div>
-                        <div id="abuseChatLog" class="abuse-chat-log">
-                            <div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>
+                    </div>
+                </div>
+
+                <div id="abuseHubMonitorPane" class="abuse-hub-pane d-none">
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-semibold">All students</span>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="abuseMonitorRefreshBtn">Refresh</button>
+                            </div>
+                            <input type="search" class="abuse-monitor-search" id="abuseMonitorSearch" placeholder="Search name or class…" autocomplete="off">
+                            <div id="abuseMonitorLoading" class="text-muted small py-3">Loading…</div>
+                            <div id="abuseMonitorList" class="abuse-flag-list d-none"></div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                                <span class="small fw-semibold" id="abuseMonitorChatTitle">Student chat &amp; coins</span>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-danger btn-sm d-none" id="abuseMonitorClearChatBtn" title="Delete this student's Virtual Mr. Park chat from the database">
+                                        <i class="fa-solid fa-trash-can"></i> Clear chat
+                                    </button>
+                                    <button type="button" class="btn btn-outline-warning btn-sm d-none" id="abuseRefillBtn">
+                                        <i class="fa-solid fa-rotate-right"></i> Refill coins
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm d-none" id="abuseMonitorUnlockBtn">Unlock AI</button>
+                                </div>
+                            </div>
+                            <div id="abuseMonitorCoinStatus" class="small text-muted mb-2 d-none"></div>
+                            <div id="abuseMonitorChatLog" class="abuse-chat-log">
+                                <div class="text-muted small">Select a student to monitor their Virtual Mr. Park chat and refill coins.</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -7302,6 +7437,12 @@
                 <div id="luckyTicketsList">
                     <p class="text-muted small mb-0">Loading…</p>
                 </div>
+                <div class="mt-3 pt-3 border-top">
+                    <div class="fw-bold small mb-2"><i class="fa-solid fa-right-left"></i> Transfer log</div>
+                    <div id="luckyTransferLog" class="small">
+                        <p class="text-muted mb-0">Loading…</p>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -7321,6 +7462,7 @@
         <div class="messenger-head">
             <button type="button" class="messenger-head-btn hidden-section" id="messengerBackBtn" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
             <div class="messenger-head-title" id="messengerHeadTitle">Messages</div>
+            <button type="button" class="messenger-head-btn hidden-section" id="messengerDeleteThreadBtn" title="Delete conversation"><i class="fa-solid fa-trash-can"></i></button>
             <button type="button" class="messenger-head-btn" id="messengerMinimizeBtn" title="Minimize"><i class="fa-solid fa-minus"></i></button>
         </div>
         <div class="messenger-inbox-view" id="messengerInboxView">
@@ -7336,32 +7478,12 @@
     </div>
 </div>
 
-<!-- Virtual Mr. Park floater (teacher) -->
-<div id="teacherBuddyFloat" class="teacher-buddy-float teacher-buddy-minimized no-print" aria-label="Virtual Mr. Park">
-    <button type="button" class="teacher-buddy-chip" id="teacherBuddyChip" title="Virtual Mr. Park">
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
+<!-- Abuse / AI Monitor floater -->
+<div id="abuseAlertFloat" class="abuse-alert-float no-print hidden-section" aria-label="Virtual Mr. Park Alerts">
+    <button type="button" class="abuse-alert-chip" id="abuseAlertChipBtn" title="Virtual Mr. Park — Alerts & Monitor">
+        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+        <span class="abuse-alert-chip-badge is-empty" id="abuseAlertBadge">0</span>
     </button>
-    <div class="teacher-buddy-panel" id="teacherBuddyPanel">
-        <div class="teacher-buddy-head">
-            <div class="teacher-buddy-head-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Virtual Mr. Park</div>
-            <button type="button" class="teacher-buddy-head-btn" id="teacherBuddyResetBtn" title="Clear chat"><i class="fa-solid fa-trash-can"></i></button>
-            <button type="button" class="teacher-buddy-head-btn" id="teacherBuddyMinimizeBtn" title="Minimize"><i class="fa-solid fa-minus"></i></button>
-        </div>
-        <div class="teacher-buddy-thread" id="teacherBuddyThread" aria-live="polite">
-            <div class="teacher-buddy-empty" id="teacherBuddyEmpty">Hi! Ask me for lesson ideas, essay coaching tips, or writing examples for class.</div>
-        </div>
-        <div class="teacher-buddy-compose">
-            <div class="teacher-buddy-quick">
-                <button type="button" class="teacher-buddy-quick-btn" data-tb-prefix="Give me a warm-up speaking prompt about: ">Warm-up</button>
-                <button type="button" class="teacher-buddy-quick-btn" data-tb-prefix="Help me coach a 5-paragraph essay about: ">Essay coach</button>
-                <button type="button" class="teacher-buddy-quick-btn" data-tb-prefix="Make this sentence more natural for ESL kids: ">Polish</button>
-            </div>
-            <form class="teacher-buddy-form" id="teacherBuddyForm">
-                <textarea class="teacher-buddy-input" id="teacherBuddyInput" rows="1" placeholder="Message Virtual Mr. Park…"></textarea>
-                <button type="submit" class="teacher-buddy-send" id="teacherBuddySendBtn" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
-            </form>
-        </div>
-    </div>
 </div>
 
 <!-- Makeup lesson modal -->
@@ -7542,6 +7664,10 @@
     function getToolPageUrl(tool, params) {
         const base = getNodeApiUrl() || location.origin.replace(/\/$/, '');
         const qs = new URLSearchParams(params || {});
+        // Bust stale tool iframes/popups after deploys (overlay used to keep old HTML).
+        try {
+            if (window.MRPARK_BUILD) qs.set('v', String(window.MRPARK_BUILD));
+        } catch (e) { /* ignore */ }
         const q = qs.toString();
         return base + '/tools/' + tool + (q ? '?' + q : '');
     }
@@ -7701,7 +7827,7 @@
     const SIDEBAR_LAYOUT_KEY = 'mrpark_sidebar_layout_v3';
     const SIDEBAR_IDS = [
         'upcomingEvent', 'classTools', 'booksReturn', 'marqueeTicker',
-        'announcement', 'classRules', 'youtube', 'googleSearch', 'stampBoard', 'abuseAlert'
+        'announcement', 'classRules', 'youtube', 'googleSearch', 'stampBoard'
     ];
     const SIDEBAR_META = {
         upcomingEvent: { el: 'upcomingEventFloat', label: 'Upcoming Event', icon: 'fa-calendar-days' },
@@ -7712,8 +7838,7 @@
         classRules: { el: 'classRulesFloat', label: 'Class Rules', icon: 'fa-scroll' },
         youtube: { el: 'youtubeFloat', label: 'Vocab Timer', icon: 'fa-stopwatch' },
         googleSearch: { el: 'googleSearchFloat', label: 'Search & AI', icon: 'fa-magnifying-glass' },
-        stampBoard: { el: 'stampBoardFloat', label: 'Stamp Board', icon: 'fa-stamp' },
-        abuseAlert: { el: 'abuseAlertFloat', label: 'Abuse Detection', icon: 'fa-triangle-exclamation' }
+        stampBoard: { el: 'stampBoardFloat', label: 'Stamp Board', icon: 'fa-stamp' }
     };
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const WORK_SECTION_IDS = ['hwLastSection', 'studentSection', 'textbookSection', 'homeworkUploadSection'];
@@ -8533,8 +8658,12 @@
         popup.style.height = h + 'px';
         if (titleEl) titleEl.textContent = title || toolPopupTitleFromUrl(url);
         const embedUrl = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'embed=1';
-        // Reopen same tool without reload so roulette/timer state survives stamp board, etc.
-        if (frame.dataset.toolUrl !== embedUrl || !frame.src || frame.src === 'about:blank') {
+        // Keep roulette/timer alive across overlay toggles; always reload other tools
+        // so API/UI updates (e.g. Unlucky Shield) are not stuck on a stale iframe.
+        var pathOnly = String(url || '').split('?')[0];
+        var preserveState = /\/tools\/(roulette|timer)$/.test(pathOnly);
+        var sameTool = frame.dataset.toolUrl === embedUrl && frame.src && frame.src !== 'about:blank';
+        if (!(preserveState && sameTool)) {
             frame.src = embedUrl;
             frame.dataset.toolUrl = embedUrl;
         }
@@ -8785,6 +8914,8 @@
         });
         document.getElementById('addStudentBtn').addEventListener('click', openAddStudentModal);
         document.getElementById('portalLoginsBtn').addEventListener('click', openPortalLoginsModal);
+        var vocabLmsBtn = document.getElementById('vocabLmsBtn');
+        if (vocabLmsBtn) vocabLmsBtn.addEventListener('click', openVocabLmsModal);
         document.getElementById('openWithdrawnStudentsBtn').addEventListener('click', openWithdrawnStudentsModal);
         const portalWithdrawnLink = document.getElementById('portalLoginsWithdrawnLink');
         if (portalWithdrawnLink) {
@@ -8848,11 +8979,28 @@
         document.getElementById('openUnluckyDrawBtn').addEventListener('click', openUnluckyDrawWindow);
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
+        initVocabLmsModal();
         document.getElementById('abuseAlertRefreshBtn').addEventListener('click', function() {
             refreshAbuseAlertModal(true);
         });
+        document.getElementById('abuseMonitorRefreshBtn').addEventListener('click', function() {
+            refreshAbuseMonitorRoster(false);
+        });
+        document.getElementById('abuseTabAlertsBtn').addEventListener('click', function() {
+            setAbuseHubTab('alerts');
+        });
+        document.getElementById('abuseTabMonitorBtn').addEventListener('click', function() {
+            setAbuseHubTab('monitor');
+        });
+        document.getElementById('abuseMonitorSearch').addEventListener('input', function() {
+            renderAbuseMonitorList(false);
+        });
         document.getElementById('abuseMarkReviewedBtn').addEventListener('click', markSelectedAbuseFlagReviewed);
         document.getElementById('abuseUnlockBtn').addEventListener('click', unlockSelectedAbuseStudent);
+        document.getElementById('abuseMonitorUnlockBtn').addEventListener('click', unlockSelectedAbuseStudent);
+        document.getElementById('abuseRefillBtn').addEventListener('click', refillSelectedMonitorStudent);
+        document.getElementById('abuseClearChatBtn').addEventListener('click', clearSelectedBuddyChat);
+        document.getElementById('abuseMonitorClearChatBtn').addEventListener('click', clearSelectedBuddyChat);
         document.getElementById('stampBoardCloseBtn').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardBackdrop').addEventListener('click', closeStampBoardOverlay);
         document.getElementById('stampBoardCashBtn').addEventListener('click', cashInStampBoard);
@@ -8913,7 +9061,6 @@
         });
         refreshGeminiStatus();
         initMessenger();
-        initTeacherVirtualMrPark();
         applyTeacherMobileMode();
         document.getElementById('editUpcomingEventBtn').addEventListener('click', openUpcomingEventsModal);
         document.getElementById('showEventAddFormBtn').addEventListener('click', showEventAddForm);
@@ -9116,7 +9263,12 @@
         const timeoutId = controller ? setTimeout(function() { controller.abort(); }, 45000) : null;
         nodeFetch('/api/homework/sync-classroom', {
             method: 'POST',
-            body: JSON.stringify({ classId: selectedClass.id, dateStr: dateStr }),
+            body: JSON.stringify({
+                classId: selectedClass.id,
+                dateStr: dateStr,
+                title: document.getElementById('hwTitleInput').value.trim(),
+                items: items
+            }),
             signal: controller ? controller.signal : undefined
         })
             .then(function(cr) {
@@ -9751,7 +9903,7 @@
         updateSidebarCompactBackdrop();
     }
 
-    const SIDEBAR_STACK_LEFT = ['upcomingEvent', 'booksReturn', 'googleSearch', 'classTools', 'stampBoard', 'abuseAlert'];
+    const SIDEBAR_STACK_LEFT = ['upcomingEvent', 'booksReturn', 'googleSearch', 'classTools', 'stampBoard'];
     const SIDEBAR_STACK_RIGHT = ['marqueeTicker', 'announcement', 'classRules', 'youtube'];
     const SIDEBAR_HEIGHT_FALLBACK = {
         upcomingEvent: 190,
@@ -9762,8 +9914,7 @@
         announcement: 190,
         classRules: 230,
         youtube: 200,
-        stampBoard: 44,
-        abuseAlert: 44
+        stampBoard: 44
     };
 
     function getSidebarPanelHeight(id) {
@@ -13788,6 +13939,7 @@
                 classId: selectedClass.id,
                 completed: true
             }, function(res) {
+                invalidateClientWorkCache();
                 if (res && res.pendingCount != null) {
                     updateStudentPendingBadge(studentId, res.pendingCount);
                 }
@@ -13795,6 +13947,7 @@
             }, { loading: false })) {
             google.script.run
                 .withSuccessHandler(function() {
+                    invalidateClientWorkCache();
                     if (onSuccess) onSuccess(itemId, studentId, null);
                 })
                 .withFailureHandler(handleError)
@@ -13828,11 +13981,16 @@
         const sid = String(studentId || '');
         if (!sid) return;
 
-        if (Array.isArray(lastRenderedStudents)) {
-            lastRenderedStudents.forEach(function(std) {
+        function syncStudentPending(list) {
+            if (!Array.isArray(list)) return;
+            list.forEach(function(std) {
                 if (String(std.id) === sid) std.pendingHomework = pending;
             });
         }
+        syncStudentPending(lastRenderedStudents);
+        syncStudentPending(lastTeacherMobileStudents);
+        const work = activeSessionCache().work;
+        if (work && Array.isArray(work.students)) syncStudentPending(work.students);
 
         const pair = getStudentRowElements(sid);
         [pair.table, pair.mobile].forEach(function(el) {
@@ -13892,10 +14050,17 @@
             meta.textContent = parts.join(' · ');
             meta.style.display = parts.length ? '' : 'none';
         });
+
+        if (typeof tmUpdateAccBadges === 'function') tmUpdateAccBadges();
     }
 
     function updateLuckyTicketBadge(studentId, count) {
         const n = Number(count) || 0;
+        if (Array.isArray(lastRenderedStudents)) {
+            lastRenderedStudents.forEach(function(std) {
+                if (String(std.id) === String(studentId)) std.luckyTickets = n;
+            });
+        }
         const pair = getStudentRowElements(studentId);
         [pair.table, pair.mobile].forEach(function(el) {
             if (!el) return;
@@ -14182,6 +14347,14 @@
             refreshMessengerInbox().catch(function() {});
         },
         onRead: handleMessengerRealtimeRead,
+        onThreadCleared: function(payload) {
+            var parts = String((payload && payload.threadId) || '').split('|');
+            var classId = (payload && payload.classId) || parts[0] || '';
+            var studentId = (payload && payload.studentId) || parts[1] || '';
+            if (!classId || !studentId) return;
+            applyMessengerThreadClearedLocally(classId, studentId);
+            refreshMessengerInbox().catch(function() {});
+        },
         onFallbackPoll: pollMessengerMessages
     };
 
@@ -14293,6 +14466,8 @@
         document.getElementById('messengerInboxView').classList.remove('hidden-section');
         document.getElementById('messengerChatView').classList.add('hidden-section');
         document.getElementById('messengerBackBtn').classList.add('hidden-section');
+        var delBtn = document.getElementById('messengerDeleteThreadBtn');
+        if (delBtn) delBtn.classList.add('hidden-section');
         document.getElementById('messengerHeadTitle').textContent = 'Messages';
         activeMessageClassId = '';
         activeMessageStudentId = '';
@@ -14312,6 +14487,8 @@
         document.getElementById('messengerInboxView').classList.add('hidden-section');
         document.getElementById('messengerChatView').classList.remove('hidden-section');
         document.getElementById('messengerBackBtn').classList.remove('hidden-section');
+        var delBtn = document.getElementById('messengerDeleteThreadBtn');
+        if (delBtn) delBtn.classList.remove('hidden-section');
         document.getElementById('messengerHeadTitle').textContent = title || 'Chat';
         document.body.classList.add('messenger-in-chat');
         syncTeacherBottomNav();
@@ -14330,24 +14507,95 @@
             const badge = unread > 0
                 ? '<span class="messenger-inbox-badge">' + (unread > 99 ? '99+' : unread) + '</span>'
                 : '';
-            return '<button type="button" class="messenger-inbox-item" data-msg-class="' + escapeHtml(row.classId) +
+            return '<div class="messenger-inbox-item" role="button" tabindex="0" data-msg-class="' + escapeHtml(row.classId) +
                 '" data-msg-student="' + escapeHtml(row.studentId) + '" data-msg-name="' + escapeHtml(row.studentName) + '">' +
                 '<span class="messenger-inbox-avatar">' + escapeHtml(messengerInitial(row.studentName)) + '</span>' +
                 '<span class="messenger-inbox-main">' +
                 '<div class="messenger-inbox-name">' + escapeHtml(row.studentName || row.studentId) + '</div>' +
                 '<div class="messenger-inbox-class">' + escapeHtml(row.className || row.classId) + '</div>' +
                 '<div class="messenger-inbox-preview">' + escapeHtml(messengerPreviewText(row)) + '</div>' +
-                '</span>' + badge + '</button>';
+                '</span>' + badge +
+                '<button type="button" class="messenger-inbox-delete" title="Delete conversation" aria-label="Delete conversation" data-msg-class="' +
+                escapeHtml(row.classId) + '" data-msg-student="' + escapeHtml(row.studentId) + '" data-msg-name="' +
+                escapeHtml(row.studentName || row.studentId) + '"><i class="fa-solid fa-trash-can"></i></button>' +
+                '</div>';
         }).join('');
-        list.querySelectorAll('.messenger-inbox-item').forEach(function(btn) {
-            btn.addEventListener('click', function() {
+        list.querySelectorAll('.messenger-inbox-item').forEach(function(row) {
+            function openRow() {
                 openMessengerChat(
+                    row.getAttribute('data-msg-class'),
+                    row.getAttribute('data-msg-student'),
+                    row.getAttribute('data-msg-name')
+                );
+            }
+            row.addEventListener('click', openRow);
+            row.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openRow();
+                }
+            });
+        });
+        list.querySelectorAll('.messenger-inbox-delete').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearMessengerThread(
                     btn.getAttribute('data-msg-class'),
                     btn.getAttribute('data-msg-student'),
                     btn.getAttribute('data-msg-name')
                 );
             });
         });
+    }
+
+    function clearMessengerThread(classId, studentId, studentName) {
+        if (!classId || !studentId) return;
+        var label = studentName || studentId;
+        appConfirm(
+            'Delete the entire conversation with ' + label + '?\n\n' +
+            'Messages are permanently removed from the database. The student’s screen will clear too.\n\n' +
+            'This cannot be undone.',
+            function() {
+                nodeFetch('/api/messages/thread/clear', {
+                    method: 'POST',
+                    body: JSON.stringify({ classId: classId, studentId: studentId })
+                }).then(function() {
+                    appToast('Conversation deleted.');
+                    applyMessengerThreadClearedLocally(classId, studentId);
+                    refreshMessengerInbox();
+                }).catch(function(err) {
+                    appAlert(err.message || 'Could not delete conversation.');
+                });
+            }
+        );
+    }
+
+    function applyMessengerThreadClearedLocally(classId, studentId) {
+        var cid = String(classId || '');
+        var sid = String(studentId || '');
+        messengerInbox = messengerInbox.filter(function(row) {
+            return !(String(row.classId) === cid && String(row.studentId) === sid);
+        });
+        var cacheKey = cid + '|' + sid;
+        if (messengerThreadsById && messengerThreadsById[cacheKey]) {
+            delete messengerThreadsById[cacheKey];
+        }
+        if (pendingTeacherRealtimeMessages && pendingTeacherRealtimeMessages[cacheKey]) {
+            delete pendingTeacherRealtimeMessages[cacheKey];
+        }
+        var total = 0;
+        messengerInbox.forEach(function(row) { total += row.unreadCount || 0; });
+        updateMessengerChipBadge(total);
+        if (String(activeMessageClassId) === cid && String(activeMessageStudentId) === sid) {
+            messengerThreadMessages = [];
+            messengerKnownIds = {};
+            var thread = document.getElementById('messengerChatThread');
+            if (thread) thread.innerHTML = '';
+            showMessengerInboxView();
+        } else {
+            renderMessengerInboxList();
+        }
     }
 
     function refreshMessengerInbox() {
@@ -14540,215 +14788,6 @@
         ensureMessengerRealtime();
     }
 
-    var teacherBuddyHistory = [];
-    var teacherBuddySending = false;
-    var teacherBuddyConfigured = false;
-
-    function setTeacherBuddyMinimized(on) {
-        var el = document.getElementById('teacherBuddyFloat');
-        if (!el) return;
-        el.classList.toggle('teacher-buddy-minimized', !!on);
-    }
-
-    function renderTeacherBuddyEmpty() {
-        var empty = document.getElementById('teacherBuddyEmpty');
-        if (!empty) return;
-        empty.classList.toggle('hidden-section', teacherBuddyHistory.length > 0);
-    }
-
-    function appendTeacherBuddyBubble(role, text, extraClass) {
-        var thread = document.getElementById('teacherBuddyThread');
-        if (!thread) return;
-        var bubble = document.createElement('div');
-        bubble.className = 'teacher-buddy-bubble ' + (role === 'user' ? 'user' : 'ai') +
-            (extraClass ? (' ' + extraClass) : '');
-        bubble.textContent = text;
-        thread.appendChild(bubble);
-        renderTeacherBuddyEmpty();
-        thread.scrollTop = thread.scrollHeight;
-    }
-
-    function clearTeacherBuddyChatUi() {
-        teacherBuddyHistory = [];
-        var thread = document.getElementById('teacherBuddyThread');
-        if (thread) {
-            thread.innerHTML = '';
-            var empty = document.createElement('div');
-            empty.className = 'teacher-buddy-empty';
-            empty.id = 'teacherBuddyEmpty';
-            empty.textContent = 'Hi! Ask me for lesson ideas, essay coaching tips, or writing examples for class.';
-            thread.appendChild(empty);
-        }
-    }
-
-    function loadTeacherBuddyHistory() {
-        return nodeFetch('/api/teacher/virtual-mr-park/history?_=' + Date.now())
-            .then(function(data) {
-                clearTeacherBuddyChatUi();
-                (data.messages || []).forEach(function(m) {
-                    var role = m.role === 'user' ? 'user' : 'assistant';
-                    var text = String(m.text || '').trim();
-                    if (!text) return;
-                    teacherBuddyHistory.push({ role: role, text: text });
-                    appendTeacherBuddyBubble(role === 'user' ? 'user' : 'ai', text);
-                });
-                renderTeacherBuddyEmpty();
-            })
-            .catch(function() {});
-    }
-
-    function submitTeacherBuddyAsk(e) {
-        if (e) e.preventDefault();
-        if (teacherBuddySending) return;
-        var input = document.getElementById('teacherBuddyInput');
-        var btn = document.getElementById('teacherBuddySendBtn');
-        if (!input) return;
-        var prompt = input.value.trim();
-        if (!prompt) return;
-        if (!teacherBuddyConfigured) {
-            appAlert('Virtual Mr. Park is not available right now.');
-            return;
-        }
-
-        appendTeacherBuddyBubble('user', prompt);
-        input.value = '';
-        var history = teacherBuddyHistory.slice();
-        teacherBuddyHistory.push({ role: 'user', text: prompt });
-
-        var thinking = document.createElement('div');
-        thinking.id = 'teacherBuddyThinking';
-        thinking.className = 'teacher-buddy-bubble ai thinking';
-        thinking.textContent = 'Thinking…';
-        document.getElementById('teacherBuddyThread').appendChild(thinking);
-        renderTeacherBuddyEmpty();
-
-        if (btn) btn.disabled = true;
-        teacherBuddySending = true;
-        var headers = { 'Content-Type': 'application/json', Accept: 'text/event-stream' };
-        var token = getTeacherToken();
-        if (token) headers.Authorization = 'Bearer ' + token;
-        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        var clientTimer = controller ? setTimeout(function() { controller.abort(); }, 50000) : null;
-
-        fetch(getNodeApiUrl() + '/api/teacher/virtual-mr-park/stream', {
-            method: 'POST',
-            headers: headers,
-            credentials: 'same-origin',
-            body: JSON.stringify({ prompt: prompt, history: history }),
-            signal: controller ? controller.signal : undefined
-        }).then(function(res) {
-            if (!res.ok) {
-                return res.json().catch(function() { return {}; }).then(function(body) {
-                    throw new Error(body.error || res.statusText || 'Virtual Mr. Park failed');
-                });
-            }
-            var thinkEl = document.getElementById('teacherBuddyThinking');
-            if (thinkEl && thinkEl.parentNode) thinkEl.parentNode.removeChild(thinkEl);
-            var bubble = document.createElement('div');
-            bubble.className = 'teacher-buddy-bubble ai';
-            document.getElementById('teacherBuddyThread').appendChild(bubble);
-            var reader = res.body && res.body.getReader ? res.body.getReader() : null;
-            if (!reader) {
-                return res.json().then(function(data) {
-                    var answer = String(data.answer || '').trim();
-                    bubble.textContent = answer;
-                    if (answer) teacherBuddyHistory.push({ role: 'assistant', text: answer });
-                });
-            }
-            var decoder = new TextDecoder();
-            var buffer = '';
-            var answer = '';
-            function pump() {
-                return reader.read().then(function(chunk) {
-                    if (chunk.done) return answer;
-                    buffer += decoder.decode(chunk.value, { stream: true });
-                    var parts = buffer.split('\n\n');
-                    buffer = parts.pop() || '';
-                    parts.forEach(function(block) {
-                        block.split('\n').forEach(function(line) {
-                            if (!line.startsWith('data:')) return;
-                            var payload;
-                            try { payload = JSON.parse(line.slice(5).trim()); } catch (err) { return; }
-                            if (payload.error) throw new Error(payload.error);
-                            if (payload.text) {
-                                answer += payload.text;
-                                bubble.textContent = answer;
-                                var thread = document.getElementById('teacherBuddyThread');
-                                if (thread) thread.scrollTop = thread.scrollHeight;
-                            }
-                            if (payload.done && payload.answer) answer = payload.answer;
-                        });
-                    });
-                    return pump();
-                });
-            }
-            return pump().then(function(finalAnswer) {
-                var text = String(finalAnswer || '').trim();
-                if (text) teacherBuddyHistory.push({ role: 'assistant', text: text });
-            });
-        }).catch(function(err) {
-            var thinkEl = document.getElementById('teacherBuddyThinking');
-            if (thinkEl && thinkEl.parentNode) thinkEl.parentNode.removeChild(thinkEl);
-            var msg = (err && err.message) ? err.message : String(err);
-            if (err && err.name === 'AbortError') msg = 'Virtual Mr. Park took too long. Try a shorter message.';
-            appendTeacherBuddyBubble('ai', msg, 'thinking');
-        }).finally(function() {
-            if (clientTimer) clearTimeout(clientTimer);
-            teacherBuddySending = false;
-            if (btn) btn.disabled = false;
-            if (input) input.focus();
-        });
-    }
-
-    function initTeacherVirtualMrPark() {
-        var floatEl = document.getElementById('teacherBuddyFloat');
-        if (!floatEl) return;
-        document.getElementById('teacherBuddyChip').addEventListener('click', function() {
-            setTeacherBuddyMinimized(false);
-            loadTeacherBuddyHistory();
-            var input = document.getElementById('teacherBuddyInput');
-            if (input) setTimeout(function() { input.focus(); }, 50);
-        });
-        document.getElementById('teacherBuddyMinimizeBtn').addEventListener('click', function() {
-            setTeacherBuddyMinimized(true);
-        });
-        document.getElementById('teacherBuddyResetBtn').addEventListener('click', function() {
-            if (teacherBuddySending) return;
-            if (!teacherBuddyHistory.length) {
-                appAlert('No chat history to clear.');
-                return;
-            }
-            appConfirm('Clear Virtual Mr. Park chat history?', function() {
-                nodeFetch('/api/teacher/virtual-mr-park/history', { method: 'DELETE' })
-                    .then(function() { clearTeacherBuddyChatUi(); })
-                    .catch(function(err) { appAlert(err.message || 'Could not clear chat.'); });
-            });
-        });
-        document.getElementById('teacherBuddyForm').addEventListener('submit', submitTeacherBuddyAsk);
-        document.getElementById('teacherBuddyInput').addEventListener('keydown', function(e) {
-            if (e.isComposing || e.keyCode === 229) return;
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submitTeacherBuddyAsk(e);
-            }
-        });
-        document.querySelectorAll('[data-tb-prefix]').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var input = document.getElementById('teacherBuddyInput');
-                if (!input) return;
-                input.value = btn.getAttribute('data-tb-prefix') || '';
-                input.focus();
-            });
-        });
-        nodeFetch('/api/teacher/virtual-mr-park/status')
-            .then(function(data) {
-                teacherBuddyConfigured = !!(data && data.configured);
-            })
-            .catch(function() {
-                teacherBuddyConfigured = false;
-            });
-    }
-
     function initMessenger() {
         const floater = document.getElementById('messengerFloat');
         if (!floater || !nodeApiEnabled()) return;
@@ -14761,6 +14800,13 @@
             showMessengerInboxView();
             refreshMessengerInbox();
         });
+        var deleteThreadBtn = document.getElementById('messengerDeleteThreadBtn');
+        if (deleteThreadBtn) {
+            deleteThreadBtn.addEventListener('click', function() {
+                if (!activeMessageClassId || !activeMessageStudentId) return;
+                clearMessengerThread(activeMessageClassId, activeMessageStudentId, activeMessageStudentName);
+            });
+        }
         document.getElementById('messengerChatForm').addEventListener('submit', submitMessengerReply);
         document.getElementById('messengerChatForm').addEventListener('click', function(e) {
             if (e.target.closest('.messenger-chat-send')) return;
@@ -14797,10 +14843,13 @@
         document.getElementById('luckyTicketsStudentName').textContent = studentName;
         document.getElementById('luckyGrantPrize').value = '';
         document.getElementById('luckyTicketsList').innerHTML = '<p class="text-muted small mb-0">Loading…</p>';
+        const logBox = document.getElementById('luckyTransferLog');
+        if (logBox) logBox.innerHTML = '<p class="text-muted mb-0">Loading…</p>';
         const modal = new bootstrap.Modal(document.getElementById('luckyTicketsModal'));
         modal.show();
         loadLuckyGrantTierOptions();
         reloadLuckyTicketsModalList();
+        reloadLuckyTransferLog();
     }
 
     function loadLuckyGrantTierOptions() {
@@ -14915,9 +14964,59 @@
         const q = '/api/lucky-draw/student?classId=' + encodeURIComponent(selectedClass.id) +
             '&studentId=' + encodeURIComponent(luckyModalStudentId);
         if (!apiGet(q, function(data) {
+            updateLuckyTicketBadge(luckyModalStudentId, data.totalCount || 0);
             renderLuckyTicketsList(luckyModalStudentId, data.tickets || []);
         }, { loading: false })) {
             appAlert('Lucky Draw tickets require the Node API.');
+        }
+    }
+
+    function luckyStudentNameById(id) {
+        const sid = String(id || '');
+        const hit = (loadedStudents || []).find(function(s) { return String(s.id) === sid; });
+        return hit ? hit.name : sid;
+    }
+
+    function formatLuckyTransferWhen(at) {
+        const s = String(at || '').trim();
+        if (!s) return '—';
+        const d = new Date(s);
+        if (!isNaN(d.getTime())) {
+            return d.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 16);
+        }
+        return s.slice(0, 16);
+    }
+
+    function reloadLuckyTransferLog() {
+        if (!selectedClass) return;
+        const box = document.getElementById('luckyTransferLog');
+        if (!box) return;
+        const q = '/api/lucky-draw/transfers?classId=' + encodeURIComponent(selectedClass.id) +
+            '&studentId=' + encodeURIComponent(luckyModalStudentId || '') +
+            '&limit=30';
+        if (!apiGet(q, function(data) {
+            const rows = data.transfers || [];
+            if (!rows.length) {
+                box.innerHTML = '<p class="text-muted mb-0">No transfers yet for this student.</p>';
+                return;
+            }
+            box.innerHTML = '<div class="list-group list-group-flush">' + rows.map(function(t) {
+                const actor = t.actorType === 'student' ? 'student' : 'teacher';
+                return '<div class="list-group-item px-0 py-2">' +
+                    '<div class="fw-semibold">' +
+                        escapeHtml(luckyStudentNameById(t.fromStudentId)) +
+                        ' → ' + escapeHtml(luckyStudentNameById(t.toStudentId)) +
+                    '</div>' +
+                    '<div class="text-muted">' +
+                        escapeHtml(t.tier || '') +
+                        (t.prizeText ? ' · ' + escapeHtml(t.prizeText) : '') +
+                        ' · ' + escapeHtml(formatLuckyTransferWhen(t.transferredAt)) +
+                        ' · by ' + actor +
+                    '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }, { loading: false })) {
+            box.innerHTML = '<p class="text-muted mb-0">Transfer log requires the Node API.</p>';
         }
     }
 
@@ -14953,7 +15052,17 @@
             el.innerHTML =
                 '<div class="lucky-ticket-tier">' + escapeHtml(t.tier || 'Prize') + '</div>' +
                 '<div class="lucky-ticket-prize">' + escapeHtml(t.prizeText) + countBadge + '</div>' +
-                '<div class="lucky-ticket-meta">' + escapeHtml(t.drawnAt || '') + '</div>' +
+                '<div class="lucky-ticket-meta">' +
+                    escapeHtml(t.drawnAt || '') +
+                    (t.expiresAt
+                        ? (' · Expires: ' + escapeHtml(t.expiresAt) +
+                            (t.expiresInDays != null
+                                ? (t.expiresInDays <= 0
+                                    ? ' (today)'
+                                    : ' (' + t.expiresInDays + 'd left)')
+                                : ''))
+                        : '') +
+                '</div>' +
                 '<div class="d-flex gap-2 mt-2 flex-wrap">' +
                 '<button type="button" class="btn btn-sm btn-success lucky-use-btn"><i class="fa-solid fa-check"></i> Use 1</button>' +
                 '<button type="button" class="btn btn-sm btn-outline-danger lucky-remove-btn"><i class="fa-solid fa-trash"></i> Remove 1</button>' +
@@ -15010,6 +15119,7 @@
                         updateLuckyTicketBadge(toId, res.toRemainingCount);
                         appToast('Transferred to ' + toName + '.');
                         reloadLuckyTicketsModalList();
+                        reloadLuckyTransferLog();
                     })) {
                         appAlert('Lucky Draw requires the Node API.');
                     }
@@ -15563,6 +15673,647 @@
                 handleError({ message: 'Restore requires the Node server.' });
             }
         }, { title: 'Restore student', okLabel: 'Restore' });
+    }
+
+    var vocabLmsState = { settings: null };
+
+    function openVocabLmsModal() {
+        if (!selectedClass) {
+            appAlert('Please select a class first.');
+            return;
+        }
+        document.getElementById('vocabLmsClassName').textContent = selectedClass.name;
+        setVocabLmsTab('overview');
+        const modal = new bootstrap.Modal(document.getElementById('vocabLmsModal'));
+        modal.show();
+        refreshVocabLmsOverview();
+        refreshVocabLmsWordCount();
+        resumeVocabGenJobIfAny();
+    }
+
+    function setVocabLmsTab(tab) {
+        document.getElementById('vocabLmsTabOverviewBtn').classList.toggle('active', tab === 'overview');
+        document.getElementById('vocabLmsTabBankBtn').classList.toggle('active', tab === 'bank');
+        const tiersBtn = document.getElementById('vocabLmsTabTiersBtn');
+        if (tiersBtn) tiersBtn.classList.toggle('active', tab === 'tiers');
+        document.getElementById('vocabLmsOverviewPane').classList.toggle('d-none', tab !== 'overview');
+        document.getElementById('vocabLmsBankPane').classList.toggle('d-none', tab !== 'bank');
+        const tiersPane = document.getElementById('vocabLmsTiersPane');
+        if (tiersPane) tiersPane.classList.toggle('d-none', tab !== 'tiers');
+        if (tab === 'bank') resumeVocabGenJobIfAny();
+        if (tab === 'tiers') refreshVocabLmsTierStats();
+    }
+
+    function refreshVocabLmsOverview() {
+        if (!selectedClass) return;
+        const classId = encodeURIComponent(selectedClass.id);
+        document.getElementById('vocabLmsOverviewLoading').classList.remove('d-none');
+        document.getElementById('vocabLmsRosterWrap').classList.add('d-none');
+        nodeFetch('/api/vocab/class/' + classId + '/overview?_=' + Date.now())
+            .then(function(res) {
+                vocabLmsState.settings = res.settings || {};
+                document.getElementById('vocabLmsDailyTarget').value = vocabLmsState.settings.daily_target || 10;
+                document.getElementById('vocabLmsPassThreshold').value = vocabLmsState.settings.pass_threshold != null ? vocabLmsState.settings.pass_threshold : 100;
+                renderVocabLmsRoster(res.students || []);
+                document.getElementById('vocabLmsOverviewLoading').classList.add('d-none');
+                document.getElementById('vocabLmsRosterWrap').classList.remove('d-none');
+            })
+            .catch(function(err) {
+                document.getElementById('vocabLmsOverviewLoading').textContent = err.message || 'Could not load roster.';
+            });
+    }
+
+    function refreshVocabLmsWordCount() {
+        nodeFetch('/api/vocab/words/stats?_=' + Date.now())
+            .then(function(res) {
+                document.getElementById('vocabLmsWordCount').textContent = (res && res.activeCount != null) ? res.activeCount : '—';
+            })
+            .catch(function() {
+                document.getElementById('vocabLmsWordCount').textContent = '—';
+            });
+    }
+
+    function refreshVocabLmsTierStats() {
+        const loading = document.getElementById('vocabLmsTiersLoading');
+        const wrap = document.getElementById('vocabLmsTiersWrap');
+        if (loading) {
+            loading.classList.remove('d-none');
+            loading.textContent = 'Loading\u2026';
+        }
+        if (wrap) wrap.classList.add('d-none');
+        nodeFetch('/api/vocab/words/stats?_=' + Date.now())
+            .then(function(res) {
+                renderVocabLmsTierStats(res || {});
+                if (loading) loading.classList.add('d-none');
+                if (wrap) wrap.classList.remove('d-none');
+                const countEl = document.getElementById('vocabLmsWordCount');
+                if (countEl && res.activeCount != null) countEl.textContent = res.activeCount;
+            })
+            .catch(function(err) {
+                if (loading) loading.textContent = err.message || 'Could not load tier stats.';
+            });
+    }
+
+    function renderVocabLmsTierStats(res) {
+        const byTier = Array.isArray(res.byTier) ? res.byTier : [];
+        const body = document.getElementById('vocabLmsTiersBody');
+        if (!body) return;
+
+        let words = 0;
+        let quiz = 0;
+        let missing = 0;
+        body.innerHTML = byTier.map(function(t) {
+            words += t.words || 0;
+            quiz += t.withQuiz || 0;
+            missing += t.missingQuiz || 0;
+            const sparse = (t.words || 0) < 20 ? ' class="table-warning"' : '';
+            return '<tr' + sparse + '>' +
+                '<td>' + (t.gradeLevel || '—') + '</td>' +
+                '<td>' + escapeHtml(t.tierName || '—') + '</td>' +
+                '<td class="text-end">' + (t.words || 0) + '</td>' +
+                '<td class="text-end">' + (t.withQuiz || 0) + '</td>' +
+                '<td class="text-end">' + ((t.missingQuiz || 0) > 0
+                    ? '<span class="text-danger">' + t.missingQuiz + '</span>'
+                    : '0') + '</td>' +
+                '</tr>';
+        }).join('') || '<tr><td colspan="5" class="text-muted small">No words in the bank yet.</td></tr>';
+
+        const setText = function(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        setText('vocabLmsTierTotalWords', res.activeCount != null ? res.activeCount : words);
+        setText('vocabLmsTierTotalQuiz', res.withQuizTotal != null ? res.withQuizTotal : quiz);
+        setText('vocabLmsTierTotalMissing', res.missingQuizTotal != null ? res.missingQuizTotal : missing);
+        setText('vocabLmsTierFootWords', words);
+        setText('vocabLmsTierFootQuiz', quiz);
+        setText('vocabLmsTierFootMissing', missing);
+    }
+
+    function renderVocabLmsRoster(students) {
+        const body = document.getElementById('vocabLmsRosterBody');
+        if (!students.length) {
+            body.innerHTML = '<tr><td colspan="6" class="text-muted small">No enrolled students.</td></tr>';
+            return;
+        }
+        body.innerHTML = students.map(function(s) {
+            const streak = (s.streakDays || 0) + (s.streakDays ? ' 🔥' : '');
+            const testBadge = s.todayTestPassed
+                ? '<span class="badge bg-success">Passed' + (s.todayTestScore != null ? ' (' + s.todayTestScore + '%)' : '') + '</span>'
+                : '<span class="badge bg-secondary">Not yet</span>';
+            return '<tr>' +
+                '<td>' + escapeHtml(s.name || s.studentId) + '</td>' +
+                '<td>' + escapeHtml(s.tierName || '—') + (s.gradeLevel ? ' <span class="text-muted small">(Grade ' + s.gradeLevel + ')</span>' : '') + '</td>' +
+                '<td>' + streak + '</td>' +
+                '<td>' + (s.todayStudied || 0) + ' / ' + (s.todayTarget || '—') + '</td>' +
+                '<td>' + testBadge + '</td>' +
+                '<td class="text-nowrap">' +
+                '<button type="button" class="btn btn-outline-secondary btn-sm vocab-lms-override-btn" data-student-id="' + escapeHtml(s.studentId) + '" title="Set grade level"><i class="fa-solid fa-sliders"></i></button> ' +
+                '<button type="button" class="btn btn-outline-warning btn-sm vocab-lms-reward-btn" data-student-id="' + escapeHtml(s.studentId) + '" title="Grant a reward ticket manually"><i class="fa-solid fa-gift"></i></button>' +
+                '</td></tr>';
+        }).join('');
+
+        body.querySelectorAll('.vocab-lms-override-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                promptVocabOverride(btn.getAttribute('data-student-id'));
+            });
+        });
+        body.querySelectorAll('.vocab-lms-reward-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                grantVocabRewardManually(btn.getAttribute('data-student-id'));
+            });
+        });
+    }
+
+    function promptVocabOverride(studentId) {
+        const value = prompt('Set grade level (1–12). This also unlocks Placement retake for the student:', '6');
+        if (value == null) return;
+        const grade = Number(value);
+        if (!Number.isFinite(grade) || grade < 1 || grade > 12) {
+            appAlert('Enter a number between 1 and 12.');
+            return;
+        }
+        nodeFetch('/api/vocab/student/' + encodeURIComponent(studentId) + '/override', {
+            method: 'POST',
+            body: JSON.stringify({ gradeLevel: grade, resetPlacement: true })
+        }).then(function() {
+            appToast('Grade updated — student can retake Placement.');
+            refreshVocabLmsOverview();
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not update student.');
+        });
+    }
+
+    function grantVocabRewardManually(studentId) {
+        if (!selectedClass) return;
+        nodeFetch('/api/vocab/student/' + encodeURIComponent(studentId) + '/grant-reward', {
+            method: 'POST',
+            body: JSON.stringify({ classId: selectedClass.id })
+        }).then(function(res) {
+            appToast('Lucky reward: ' + (res.tier || '') + ' — ' + (res.prizeText || ''));
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not grant reward.');
+        });
+    }
+
+    function saveVocabLmsSettings() {
+        if (!selectedClass) return;
+        const dailyTarget = Number(document.getElementById('vocabLmsDailyTarget').value);
+        const passThreshold = Number(document.getElementById('vocabLmsPassThreshold').value);
+        nodeFetch('/api/vocab/class/' + encodeURIComponent(selectedClass.id) + '/settings', {
+            method: 'POST',
+            body: JSON.stringify({ dailyTarget: dailyTarget, passThreshold: passThreshold })
+        }).then(function(res) {
+            vocabLmsState.settings = res;
+            appToast('Vocab settings saved.');
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not save settings.');
+        });
+    }
+
+    function importVocabWordBankFromWords(words, statusEl, btn, onSuccess) {
+        if (!Array.isArray(words)) {
+            if (statusEl) {
+                statusEl.textContent = 'Expected a JSON array of word objects.';
+                statusEl.className = 'small text-danger';
+            }
+            return;
+        }
+        if (btn) btn.disabled = true;
+        if (statusEl) {
+            statusEl.textContent = 'Uploading ' + words.length + ' word(s)\u2026';
+            statusEl.className = 'small text-muted';
+        }
+        nodeFetch('/api/vocab/words/bulk', {
+            method: 'POST',
+            body: JSON.stringify({ words: words })
+        }).then(function(res) {
+            if (statusEl) {
+                statusEl.textContent = 'Imported ' + res.upserted + ' word(s).';
+                statusEl.className = 'small text-success';
+            }
+            refreshVocabLmsWordCount();
+            if (typeof onSuccess === 'function') onSuccess(res);
+            appToast('Imported ' + res.upserted + ' word(s).');
+        }).catch(function(err) {
+            if (statusEl) {
+                statusEl.textContent = err.message || 'Import failed.';
+                statusEl.className = 'small text-danger';
+            } else {
+                appAlert(err.message || 'Import failed.');
+            }
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    function parseVocabJsonText(raw) {
+        const words = JSON.parse(raw);
+        if (!Array.isArray(words)) throw new Error('Expected a JSON array of word objects.');
+        return words;
+    }
+
+    function importVocabWordBank() {
+        const raw = document.getElementById('vocabLmsBulkInput').value;
+        const statusEl = document.getElementById('vocabLmsBulkStatus');
+        const btn = document.getElementById('vocabLmsBulkImportBtn');
+        let words;
+        try {
+            words = parseVocabJsonText(raw);
+        } catch (e) {
+            statusEl.textContent = 'Invalid JSON: ' + e.message;
+            statusEl.className = 'small text-danger';
+            return;
+        }
+        importVocabWordBankFromWords(words, statusEl, btn, function() {
+            document.getElementById('vocabLmsBulkInput').value = '';
+        });
+    }
+
+    function readVocabJsonFile(file) {
+        return new Promise(function(resolve, reject) {
+            if (!file) {
+                reject(new Error('No file selected.'));
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function() {
+                try {
+                    resolve(parseVocabJsonText(String(reader.result || '')));
+                } catch (err) {
+                    reject(new Error('Invalid JSON: ' + (err.message || err)));
+                }
+            };
+            reader.onerror = function() { reject(new Error('Could not read the file.')); };
+            reader.readAsText(file);
+        });
+    }
+
+    var VOCAB_TIER_LADDER = ['Rookie', 'Iron', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Emerald', 'Diamond', 'Ascendant', 'Master', 'Grandmaster', 'Legend'];
+    var vocabXlsxLoadPromise = null;
+
+    function populateVocabGradeSelect() {
+        const sel = document.getElementById('vocabBankPasteGrade');
+        if (!sel || sel.dataset.filled) return;
+        VOCAB_TIER_LADDER.forEach(function(name, i) {
+            const opt = document.createElement('option');
+            opt.value = String(i + 1);
+            opt.textContent = (i + 1) + ' \u00b7 ' + name;
+            sel.appendChild(opt);
+        });
+        sel.dataset.filled = '1';
+    }
+
+    function setVocabBankSubTab(tab) {
+        document.querySelectorAll('[data-vocab-bank-tab]').forEach(function(btn) {
+            btn.classList.toggle('active', btn.getAttribute('data-vocab-bank-tab') === tab);
+        });
+        document.getElementById('vocabBankPastePane').classList.toggle('d-none', tab !== 'paste');
+        document.getElementById('vocabBankFilePane').classList.toggle('d-none', tab !== 'file');
+        document.getElementById('vocabBankJsonPane').classList.toggle('d-none', tab !== 'json');
+    }
+
+    function parsePastedWordList(raw) {
+        const seen = new Set();
+        const words = [];
+        String(raw || '').split(/\r?\n/).forEach(function(line) {
+            line.split(/[,\t]/).forEach(function(part) {
+                const w = part.trim();
+                if (!w) return;
+                const key = w.toLowerCase();
+                if (seen.has(key)) return;
+                seen.add(key);
+                words.push(w);
+            });
+        });
+        return words;
+    }
+
+    function ensureXlsxLoaded() {
+        if (window.XLSX) return Promise.resolve();
+        if (vocabXlsxLoadPromise) return vocabXlsxLoadPromise;
+        vocabXlsxLoadPromise = new Promise(function(resolve, reject) {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+            script.onload = function() { resolve(); };
+            script.onerror = function() { reject(new Error('Could not load the file-parsing library.')); };
+            document.head.appendChild(script);
+        });
+        return vocabXlsxLoadPromise;
+    }
+
+    function parseWordFile(file) {
+        return ensureXlsxLoaded().then(function() {
+            return new Promise(function(resolve, reject) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const wb = window.XLSX.read(e.target.result, { type: 'array' });
+                        const sheet = wb.Sheets[wb.SheetNames[0]];
+                        const rows = window.XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                        const seen = new Set();
+                        const words = [];
+                        rows.forEach(function(row) {
+                            const keys = Object.keys(row);
+                            const wordKey = keys.find(function(k) { return k.trim().toLowerCase() === 'word'; }) || keys[0];
+                            const gradeKey = keys.find(function(k) {
+                                const kk = k.trim().toLowerCase();
+                                return kk === 'grade_level' || kk === 'grade' || kk === 'tier';
+                            });
+                            const word = String(row[wordKey] || '').trim();
+                            if (!word) return;
+                            const key = word.toLowerCase();
+                            if (seen.has(key)) return;
+                            seen.add(key);
+                            let gradeLevel = null;
+                            if (gradeKey) {
+                                const rawGrade = row[gradeKey];
+                                const asNum = Number(rawGrade);
+                                if (Number.isFinite(asNum) && asNum >= 1 && asNum <= 12) {
+                                    gradeLevel = Math.round(asNum);
+                                } else {
+                                    const idx = VOCAB_TIER_LADDER.findIndex(function(t) { return t.toLowerCase() === String(rawGrade).trim().toLowerCase(); });
+                                    if (idx >= 0) gradeLevel = idx + 1;
+                                }
+                            }
+                            words.push(gradeLevel ? { word: word, gradeLevel: gradeLevel } : { word: word });
+                        });
+                        resolve(words);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = function() { reject(new Error('Could not read the file.')); };
+                reader.readAsArrayBuffer(file);
+            });
+        });
+    }
+
+    var vocabGenStarting = false;
+    var vocabGenTrackedIds = {}; // jobId -> true
+    var vocabGenPollTimer = null;
+
+    function ensureVocabGenJobRow(jobId, totalHint) {
+        const wrap = document.getElementById('vocabGenJobsWrap');
+        if (!wrap) return null;
+        wrap.classList.remove('d-none');
+        let row = document.getElementById('vocabGenJobRow_' + jobId);
+        if (row) return row;
+        row = document.createElement('div');
+        row.id = 'vocabGenJobRow_' + jobId;
+        row.className = 'mb-2 vocab-gen-job-row';
+        row.setAttribute('data-job-id', jobId);
+        row.innerHTML =
+            '<div class="d-flex justify-content-between small mb-1">' +
+            '<span class="vocab-gen-job-label">Generating\u2026</span>' +
+            '<span class="d-flex align-items-center gap-2">' +
+            '<span class="vocab-gen-job-count">0 / ' + (totalHint || 0) + '</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 vocab-gen-cancel-btn" style="font-size:11px;">Cancel</button>' +
+            '</span></div>' +
+            '<div class="progress" style="height:8px;">' +
+            '<div class="progress-bar vocab-gen-job-bar" role="progressbar" style="width:0%"></div>' +
+            '</div>';
+        row.querySelector('.vocab-gen-cancel-btn').addEventListener('click', function() {
+            cancelVocabGenJob(jobId);
+        });
+        wrap.appendChild(row);
+        return row;
+    }
+
+    function updateVocabGenJobRow(job) {
+        if (!job || !job.id) return;
+        const row = ensureVocabGenJobRow(job.id, job.total);
+        if (!row) return;
+        const pct = job.total ? Math.round((job.completed / job.total) * 100) : 0;
+        const label = row.querySelector('.vocab-gen-job-label');
+        const count = row.querySelector('.vocab-gen-job-count');
+        const bar = row.querySelector('.vocab-gen-job-bar');
+        if (label) {
+            label.textContent = job.status === 'done' ? 'Done' :
+                (job.status === 'cancelled' ? 'Cancelled' :
+                (job.status === 'error' ? 'Error' : 'Generating\u2026'));
+        }
+        if (count) count.textContent = (job.completed || 0) + ' / ' + (job.total || 0);
+        if (bar) bar.style.width = pct + '%';
+        if (job.failedWords && job.failedWords.length) {
+            const failedBox = document.getElementById('vocabGenJobFailed');
+            if (failedBox) {
+                failedBox.classList.remove('d-none');
+                failedBox.textContent = job.failedWords.length + ' word(s) failed: ' +
+                    job.failedWords.slice(0, 10).map(function(f) { return f.word; }).join(', ') +
+                    (job.failedWords.length > 10 ? '\u2026' : '');
+            }
+        }
+        if (job.status === 'done' || job.status === 'error' || job.status === 'cancelled') {
+            delete vocabGenTrackedIds[job.id];
+            const cancelBtn = row.querySelector('.vocab-gen-cancel-btn');
+            if (cancelBtn) cancelBtn.disabled = true;
+        }
+    }
+
+    function startVocabGeneration(words) {
+        if (!words.length) {
+            appAlert('No words found to generate.');
+            return;
+        }
+        if (vocabGenStarting) {
+            appAlert('Already starting a generation job — wait a second.');
+            return;
+        }
+        if (!confirm('Generate AI definitions + quiz for ' + words.length + ' word(s)? This runs in the background and may take a few minutes for large lists.')) return;
+        vocabGenStarting = true;
+        const failedBox = document.getElementById('vocabGenJobFailed');
+        if (failedBox) failedBox.classList.add('d-none');
+        nodeFetch('/api/vocab/words/generate', {
+            method: 'POST',
+            body: JSON.stringify({ words: words })
+        }).then(function(res) {
+            vocabGenStarting = false;
+            if (res && res.jobId) {
+                vocabGenTrackedIds[res.jobId] = true;
+                ensureVocabGenJobRow(res.jobId, res.total || words.length);
+                if (res.skippedExisting) {
+                    appToast('Skipped ' + res.skippedExisting + ' word(s) already in the bank.');
+                }
+                startVocabGenPolling();
+            }
+        }).catch(function(err) {
+            vocabGenStarting = false;
+            appAlert(err.message || 'Could not start generation.');
+        });
+    }
+
+    function startVocabGenPolling() {
+        if (vocabGenPollTimer) return;
+        function tick() {
+            const ids = Object.keys(vocabGenTrackedIds);
+            if (!ids.length) {
+                // Still check server for any active jobs we might have missed
+                nodeFetch('/api/vocab/words/generate?_=' + Date.now())
+                    .then(function(res) {
+                        const jobs = (res && res.jobs) || [];
+                        if (!jobs.length) {
+                            clearInterval(vocabGenPollTimer);
+                            vocabGenPollTimer = null;
+                            return;
+                        }
+                        jobs.forEach(function(j) {
+                            vocabGenTrackedIds[j.id] = true;
+                            updateVocabGenJobRow(j);
+                        });
+                    })
+                    .catch(function() {
+                        clearInterval(vocabGenPollTimer);
+                        vocabGenPollTimer = null;
+                    });
+                return;
+            }
+            Promise.all(ids.map(function(id) {
+                return nodeFetch('/api/vocab/words/generate/' + encodeURIComponent(id) + '?_=' + Date.now())
+                    .then(function(job) {
+                        updateVocabGenJobRow(job);
+                        return job;
+                    })
+                    .catch(function() { return null; });
+            })).then(function(results) {
+                let anyFinishedOk = false;
+                (results || []).forEach(function(job) {
+                    if (job && (job.status === 'done' || job.status === 'error')) anyFinishedOk = true;
+                });
+                if (anyFinishedOk) refreshVocabLmsWordCount();
+                if (!Object.keys(vocabGenTrackedIds).length) {
+                    clearInterval(vocabGenPollTimer);
+                    vocabGenPollTimer = null;
+                    refreshVocabLmsWordCount();
+                    appToast('Word generation finished.');
+                }
+            });
+        }
+        tick();
+        vocabGenPollTimer = setInterval(tick, 2000);
+    }
+
+    function cancelVocabGenJob(jobId) {
+        if (!jobId) return;
+        if (!confirm('Stop this generation job? Words already generated are kept.')) return;
+        nodeFetch('/api/vocab/words/generate/' + encodeURIComponent(jobId) + '/cancel', { method: 'POST' })
+            .then(function() { appToast('Cancelling\u2026'); })
+            .catch(function(err) { appAlert(err.message || 'Could not cancel job.'); });
+    }
+
+    /** After refresh / reopen, show a progress bar for every still-running server job. */
+    function resumeVocabGenJobIfAny() {
+        if (vocabGenStarting) return;
+        nodeFetch('/api/vocab/words/generate?_=' + Date.now())
+            .then(function(res) {
+                const jobs = (res && res.jobs) || [];
+                if (!jobs.length) return;
+                const failedBox = document.getElementById('vocabGenJobFailed');
+                if (failedBox) failedBox.classList.add('d-none');
+                jobs.forEach(function(job) {
+                    vocabGenTrackedIds[job.id] = true;
+                    updateVocabGenJobRow(job);
+                });
+                startVocabGenPolling();
+            })
+            .catch(function() { /* silent */ });
+    }
+
+    function initVocabLmsModal() {
+        document.querySelectorAll('[data-vocab-lms-tab]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setVocabLmsTab(btn.getAttribute('data-vocab-lms-tab'));
+            });
+        });
+        const saveBtn = document.getElementById('vocabLmsSaveSettingsBtn');
+        if (saveBtn) saveBtn.addEventListener('click', saveVocabLmsSettings);
+        const refreshBtn = document.getElementById('vocabLmsRefreshBtn');
+        if (refreshBtn) refreshBtn.addEventListener('click', function() {
+            refreshVocabLmsOverview();
+            refreshVocabLmsWordCount();
+        });
+        const tierRefreshBtn = document.getElementById('vocabLmsTierRefreshBtn');
+        if (tierRefreshBtn) tierRefreshBtn.addEventListener('click', refreshVocabLmsTierStats);
+        const importBtn = document.getElementById('vocabLmsBulkImportBtn');
+        if (importBtn) importBtn.addEventListener('click', importVocabWordBank);
+
+        let selectedVocabJsonFile = null;
+        const jsonFileInput = document.getElementById('vocabBankJsonFileInput');
+        const jsonFileGoBtn = document.getElementById('vocabBankJsonFileGoBtn');
+        if (jsonFileInput) jsonFileInput.addEventListener('change', function() {
+            selectedVocabJsonFile = jsonFileInput.files && jsonFileInput.files[0];
+            const preview = document.getElementById('vocabBankJsonFilePreview');
+            if (selectedVocabJsonFile) {
+                preview.textContent = selectedVocabJsonFile.name;
+                if (jsonFileGoBtn) jsonFileGoBtn.disabled = false;
+            } else {
+                preview.textContent = '';
+                if (jsonFileGoBtn) jsonFileGoBtn.disabled = true;
+            }
+        });
+        if (jsonFileGoBtn) jsonFileGoBtn.addEventListener('click', function() {
+            if (!selectedVocabJsonFile) return;
+            const preview = document.getElementById('vocabBankJsonFilePreview');
+            jsonFileGoBtn.disabled = true;
+            preview.textContent = 'Reading file\u2026';
+            readVocabJsonFile(selectedVocabJsonFile).then(function(words) {
+                preview.textContent = selectedVocabJsonFile.name + ' \u2014 ' + words.length + ' word(s)';
+                importVocabWordBankFromWords(words, preview, jsonFileGoBtn, function() {
+                    selectedVocabJsonFile = null;
+                    jsonFileInput.value = '';
+                });
+            }).catch(function(err) {
+                preview.textContent = err.message || 'Could not read the file.';
+                preview.className = 'small text-danger';
+                jsonFileGoBtn.disabled = false;
+            });
+        });
+
+        populateVocabGradeSelect();
+        document.querySelectorAll('[data-vocab-bank-tab]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                setVocabBankSubTab(btn.getAttribute('data-vocab-bank-tab'));
+            });
+        });
+
+        const pasteGoBtn = document.getElementById('vocabBankPasteGoBtn');
+        if (pasteGoBtn) pasteGoBtn.addEventListener('click', function() {
+            const raw = document.getElementById('vocabBankPasteInput').value;
+            const gradeVal = Number(document.getElementById('vocabBankPasteGrade').value) || null;
+            const words = parsePastedWordList(raw).map(function(w) {
+                return gradeVal ? { word: w, gradeLevel: gradeVal } : { word: w };
+            });
+            startVocabGeneration(words);
+        });
+
+        let selectedVocabFile = null;
+        const fileInput = document.getElementById('vocabBankFileInput');
+        const fileGoBtn = document.getElementById('vocabBankFileGoBtn');
+        if (fileInput) fileInput.addEventListener('change', function() {
+            selectedVocabFile = fileInput.files && fileInput.files[0];
+            const preview = document.getElementById('vocabBankFilePreview');
+            if (selectedVocabFile) {
+                preview.textContent = selectedVocabFile.name;
+                if (fileGoBtn) fileGoBtn.disabled = false;
+            } else {
+                preview.textContent = '';
+                if (fileGoBtn) fileGoBtn.disabled = true;
+            }
+        });
+        if (fileGoBtn) fileGoBtn.addEventListener('click', function() {
+            if (!selectedVocabFile) return;
+            fileGoBtn.disabled = true;
+            const preview = document.getElementById('vocabBankFilePreview');
+            preview.textContent = 'Reading file\u2026';
+            parseWordFile(selectedVocabFile).then(function(words) {
+                preview.textContent = selectedVocabFile.name + ' \u2014 ' + words.length + ' word(s) found';
+                fileGoBtn.disabled = false;
+                startVocabGeneration(words);
+            }).catch(function(err) {
+                preview.textContent = err.message || 'Could not read the file.';
+                fileGoBtn.disabled = false;
+            });
+        });
     }
 
     function openPortalLoginsModal() {
@@ -16453,38 +17204,55 @@
 
     var abuseAlertState = {
         flags: [],
+        monitorStudents: [],
         selectedFlagId: null,
         selectedStudentId: null,
+        selectedClassId: null,
+        selectedClassName: null,
+        activeTab: 'alerts',
         pollTimer: null
     };
 
     function abuseReasonLabel(code) {
         var map = {
-            LAZY_SHORT_ANSWERS: '단답·게으른 응답',
-            ULTRA_SHORT_MESSAGES: '초단문 과다',
-            LAZY_KEYWORDS: '게으름 키워드',
-            AI_STUDENT_RATIO: 'AI 의존 비율',
-            KEYBOARD_SMASH: '무의미 연타',
-            WORD_SPAM: '단어 스팸',
-            PROFANITY: '욕설·인신공격',
-            PROMPT_INJECTION: '규칙 해킹 시도',
-            SPAM: '스팸',
-            LAZY: '단답 패턴',
-            INJECTION: '프롬프트 인젝션',
-            AI_RATIO: 'AI 의존',
-            COPYING: 'AI 문장 베끼기',
-            NUMBER_ONLY: '번호만 선택',
-            ECHO: 'AI 문장 따라쓰기',
-            OVERHELP_PROTEST: '과잉도움 항의(AI가 거의 다 씀)',
-            IDK_STREAK: 'I don\'t know 연속'
+            LAZY_SHORT_ANSWERS: 'Lazy short answers',
+            ULTRA_SHORT_MESSAGES: 'Too many ultra-short messages',
+            LAZY_KEYWORDS: 'Lazy keywords',
+            AI_STUDENT_RATIO: 'AI-dependent ratio',
+            KEYBOARD_SMASH: 'Keyboard smash',
+            WORD_SPAM: 'Word spam',
+            PROFANITY: 'Profanity / personal attack',
+            PROMPT_INJECTION: 'Prompt injection',
+            SPAM: 'Spam',
+            LAZY: 'Lazy reply pattern',
+            INJECTION: 'Prompt injection',
+            AI_RATIO: 'AI dependence',
+            COPYING: 'Copying AI text',
+            COPYING_WARN: 'Copying warning',
+            NUMBER_ONLY: 'Numbers only',
+            ECHO: 'Echoing AI text',
+            OVERHELP_PROTEST: 'Over-help protest',
+            IDK_STREAK: 'Repeated “I don’t know”',
+            IDK_SOFT_FREEZE: 'IDK soft freeze',
+            REFUSAL_SPAM: 'Refusal / joke spam',
+            DISRESPECT: 'Rude to teacher',
+            MILD_PROFANITY: 'Mild swear',
+            '3MIN_FREEZE': '3-min freeze'
         };
         return map[code] || String(code || '');
     }
 
     function abuseSeverityLabel(sev) {
-        if (sev === 'high') return '위험도: 높음';
-        if (sev === 'medium') return '위험도: 보통';
-        return '위험도: 낮음';
+        if (sev === 'high') return 'Severity: high';
+        if (sev === 'medium') return 'Severity: medium';
+        return 'Severity: low';
+    }
+
+    function ensureAbuseAlertChipVisible() {
+        if (typeof nodeApiEnabled === 'function' && !nodeApiEnabled()) return;
+        var panel = document.getElementById('abuseAlertFloat');
+        if (!panel) return;
+        panel.classList.remove('hidden-section');
     }
 
     function setAbuseAlertBadge(count) {
@@ -16495,16 +17263,13 @@
         badge.textContent = String(n);
         badge.classList.toggle('is-empty', n <= 0);
         if (chip) chip.title = n > 0
-            ? ('Abuse Detection — ' + n + ' warning' + (n === 1 ? '' : 's'))
-            : 'Abuse Detection — Virtual Mr. Park warnings';
+            ? ('Virtual Mr. Park — ' + n + ' open warning' + (n === 1 ? '' : 's'))
+            : 'Virtual Mr. Park — Alerts & Monitor';
     }
 
     function refreshAbuseAlertBadge() {
-        if (!selectedClass) {
-            setAbuseAlertBadge(0);
-            return;
-        }
-        nodeFetch('/api/english-buddy/abuse-flags?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+        if (typeof nodeApiEnabled === 'function' && !nodeApiEnabled()) return;
+        nodeFetch('/api/english-buddy/abuse-flags?_=' + Date.now())
             .then(function(res) {
                 setAbuseAlertBadge(res && res.openCount != null ? res.openCount : ((res && res.flags) || []).length);
             })
@@ -16514,7 +17279,7 @@
     function scheduleAbuseAlertPolling() {
         if (abuseAlertState.pollTimer) clearInterval(abuseAlertState.pollTimer);
         abuseAlertState.pollTimer = setInterval(function() {
-            if (!selectedClass || document.hidden) return;
+            if (document.hidden) return;
             refreshAbuseAlertBadge();
         }, 60000);
     }
@@ -16527,12 +17292,26 @@
         document.body.style.removeProperty('padding-right');
     }
 
+    function setAbuseHubTab(tab) {
+        abuseAlertState.activeTab = tab === 'monitor' ? 'monitor' : 'alerts';
+        var alertsBtn = document.getElementById('abuseTabAlertsBtn');
+        var monitorBtn = document.getElementById('abuseTabMonitorBtn');
+        var alertsPane = document.getElementById('abuseHubAlertsPane');
+        var monitorPane = document.getElementById('abuseHubMonitorPane');
+        if (alertsBtn) alertsBtn.classList.toggle('active', abuseAlertState.activeTab === 'alerts');
+        if (monitorBtn) monitorBtn.classList.toggle('active', abuseAlertState.activeTab === 'monitor');
+        if (alertsPane) alertsPane.classList.toggle('d-none', abuseAlertState.activeTab !== 'alerts');
+        if (monitorPane) monitorPane.classList.toggle('d-none', abuseAlertState.activeTab !== 'monitor');
+        if (abuseAlertState.activeTab === 'monitor' && !abuseAlertState.monitorStudents.length) {
+            refreshAbuseMonitorRoster(false);
+        }
+    }
+
     function openAbuseAlertModal() {
-        if (!selectedClass) {
-            appAlert('Please select a class first.');
+        if (typeof nodeApiEnabled === 'function' && !nodeApiEnabled()) {
+            appAlert('Node API is required for Virtual Mr. Park monitoring.');
             return;
         }
-        document.getElementById('abuseAlertClassName').textContent = selectedClass.name;
         document.getElementById('abuseAlertOpenCount').textContent = '0';
         document.getElementById('abuseAlertLoading').classList.remove('d-none');
         document.getElementById('abuseAlertLoading').textContent = 'Loading…';
@@ -16542,8 +17321,22 @@
         document.getElementById('abuseChatLog').innerHTML =
             '<div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>';
         document.getElementById('abuseMarkReviewedBtn').classList.add('d-none');
+        document.getElementById('abuseUnlockBtn').classList.add('d-none');
+        var clearAlertBtn = document.getElementById('abuseClearChatBtn');
+        if (clearAlertBtn) clearAlertBtn.classList.add('d-none');
+        var clearMonBtn = document.getElementById('abuseMonitorClearChatBtn');
+        if (clearMonBtn) clearMonBtn.classList.add('d-none');
+        document.getElementById('abuseRefillBtn').classList.add('d-none');
+        document.getElementById('abuseMonitorUnlockBtn').classList.add('d-none');
+        document.getElementById('abuseMonitorCoinStatus').classList.add('d-none');
+        document.getElementById('abuseMonitorChatTitle').textContent = 'Student chat & coins';
+        document.getElementById('abuseMonitorChatLog').innerHTML =
+            '<div class="text-muted small">Select a student to monitor their Virtual Mr. Park chat and refill coins.</div>';
         abuseAlertState.selectedFlagId = null;
         abuseAlertState.selectedStudentId = null;
+        abuseAlertState.selectedClassId = null;
+        abuseAlertState.selectedClassName = null;
+        setAbuseHubTab('alerts');
         var modalEl = document.getElementById('abuseAlertModal');
         if (!modalEl._abuseCleanupBound) {
             modalEl._abuseCleanupBound = true;
@@ -16559,9 +17352,19 @@
         refreshAbuseAlertModal(true);
     }
 
+    function formatFlagWhen(flaggedAt) {
+        if (!flaggedAt) return '';
+        // flaggedAt is stored as a UTC ISO string; convert to the browser's local time
+        // (Korea) instead of slicing the raw UTC text, which used to show the wrong hour.
+        var d = new Date(flaggedAt);
+        if (isNaN(d.getTime())) return '';
+        var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+            ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
     function refreshAbuseAlertModal(autoSelect) {
-        if (!selectedClass) return;
-        nodeFetch('/api/english-buddy/abuse-flags?classId=' + encodeURIComponent(selectedClass.id) + '&_=' + Date.now())
+        nodeFetch('/api/english-buddy/abuse-flags?_=' + Date.now())
             .then(function(res) {
                 abuseAlertState.flags = (res && res.flags) || [];
                 var openCount = res && res.openCount != null ? res.openCount : abuseAlertState.flags.length;
@@ -16584,7 +17387,7 @@
         if (!abuseAlertState.flags.length) {
             list.classList.add('d-none');
             loading.classList.remove('d-none');
-            loading.textContent = 'No open AI-dependency warnings for this class.';
+            loading.textContent = 'No open AI warnings across classes.';
             return;
         }
         list.classList.remove('d-none');
@@ -16592,12 +17395,15 @@
             var reasons = (flag.reasons || flag.abuseTypes || []).map(function(code) {
                 return '<span class="abuse-reason-pill">' + escapeHtml(abuseReasonLabel(code)) + '</span>';
             }).join('');
-            var when = flag.flaggedAt ? String(flag.flaggedAt).replace('T', ' ').slice(0, 16) : '';
+            var when = formatFlagWhen(flag.flaggedAt);
             var active = String(flag.id) === String(abuseAlertState.selectedFlagId) ? ' is-active' : '';
+            var classLine = flag.className
+                ? '<div class="abuse-flag-meta">' + escapeHtml(flag.className) + '</div>'
+                : '';
             var alertLine = (flag.naturalReason || flag.alertMessage)
                 ? '<div class="abuse-flag-meta" style="color:#c0392b;font-weight:700;margin-top:0.35rem;white-space:pre-wrap;">' +
                     escapeHtml(flag.naturalReason
-                        ? ('사유: ' + flag.naturalReason)
+                        ? ('Reason: ' + flag.naturalReason)
                         : flag.alertMessage) + '</div>'
                 : '';
             var detail = flag.triggerExplanation
@@ -16605,23 +17411,25 @@
                     escapeHtml(flag.triggerExplanation) + '</div>'
                 : '';
             var sample = flag.sampleText
-                ? '<div class="abuse-flag-meta" style="margin-top:0.25rem;font-style:italic;">메시지: "' +
+                ? '<div class="abuse-flag-meta" style="margin-top:0.25rem;font-style:italic;">Message: "' +
                     escapeHtml(String(flag.sampleText).slice(0, 100)) + '"</div>'
                 : '';
             var sev = flag.severity
                 ? '<span class="abuse-reason-pill">' + escapeHtml(abuseSeverityLabel(flag.severity)) + '</span>'
                 : '';
-            var strike = '<span class="abuse-reason-pill">경고 ' +
+            var strike = '<span class="abuse-reason-pill">Warnings ' +
                 escapeHtml(String(flag.strikes || 0)) + '/' +
                 escapeHtml(String(flag.strikeLimit || 3)) +
                 (flag.locked ? ' · LOCKED' : '') + '</span>';
             if (flag.hasChatSnapshot) {
-                strike += '<span class="abuse-reason-pill">대화 스냅샷 저장됨</span>';
+                strike += '<span class="abuse-reason-pill">Chat snapshot saved</span>';
             }
             return '<button type="button" class="abuse-flag-item' + active + '" data-flag-id="' +
-                escapeHtml(flag.id) + '" data-student-id="' + escapeHtml(flag.studentId) + '">' +
+                escapeHtml(flag.id) + '" data-student-id="' + escapeHtml(flag.studentId) +
+                '" data-class-id="' + escapeHtml(flag.classId || '') + '">' +
                 '<div class="abuse-flag-name">' + escapeHtml(flag.studentName || flag.studentId) +
                 (flag.locked ? ' 🔒' : '') + '</div>' +
+                classLine +
                 '<div class="abuse-flag-meta">' + escapeHtml(flag.abuseType || flag.status) +
                 (when ? ' · ' + escapeHtml(when) : '') + '</div>' +
                 alertLine + detail + sample +
@@ -16630,76 +17438,272 @@
         }).join('');
         list.querySelectorAll('.abuse-flag-item').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                selectAbuseFlag(btn.getAttribute('data-flag-id'), btn.getAttribute('data-student-id'));
+                selectAbuseFlag(
+                    btn.getAttribute('data-flag-id'),
+                    btn.getAttribute('data-student-id'),
+                    btn.getAttribute('data-class-id')
+                );
             });
         });
         if (autoSelect && abuseAlertState.flags[0]) {
-            selectAbuseFlag(abuseAlertState.flags[0].id, abuseAlertState.flags[0].studentId);
+            selectAbuseFlag(
+                abuseAlertState.flags[0].id,
+                abuseAlertState.flags[0].studentId,
+                abuseAlertState.flags[0].classId
+            );
         }
     }
 
-    function selectAbuseFlag(flagId, studentId) {
+    function loadAbuseChatInto(boxId, classId, studentId, preferSnapshot) {
+        var box = document.getElementById(boxId);
+        if (!box) return;
+        box.innerHTML = '<div class="text-muted small">Loading conversation…</div>';
+        if (!studentId) {
+            box.innerHTML = '<div class="text-danger small">Missing student.</div>';
+            return;
+        }
+        // Flag review: prefer the frozen snapshot captured at flag-time so this
+        // survives the student clearing their own chat afterward. Live monitoring
+        // (preferSnapshot=false) always shows current chat, ignoring old flags.
+        var url = preferSnapshot
+            ? '/api/english-buddy/abuse-flags/chat?studentId=' + encodeURIComponent(studentId) +
+              '&classId=' + encodeURIComponent(classId || '') + '&_=' + Date.now()
+            : '/api/english-buddy/history?studentId=' + encodeURIComponent(studentId) +
+              '&classId=' + encodeURIComponent(classId || '') + '&_=' + Date.now();
+        nodeFetch(url).then(function(res) {
+            renderAbuseChatLogInto(boxId, (res && res.messages) || [], !!(res && res.frozen));
+        }).catch(function(err) {
+            box.innerHTML =
+                '<div class="text-danger small">' + escapeHtml(err.message || 'Could not load chat.') + '</div>';
+        });
+    }
+
+    function selectAbuseFlag(flagId, studentId, classId) {
         abuseAlertState.selectedFlagId = flagId;
         abuseAlertState.selectedStudentId = studentId;
         var flag = abuseAlertState.flags.find(function(f) {
             return String(f.id) === String(flagId);
         });
+        abuseAlertState.selectedClassId = classId || (flag && flag.classId) || null;
+        abuseAlertState.selectedClassName = (flag && flag.className) || abuseAlertState.selectedClassId;
         document.querySelectorAll('#abuseFlagList .abuse-flag-item').forEach(function(el) {
             el.classList.toggle('is-active', el.getAttribute('data-flag-id') === String(flagId));
         });
         document.getElementById('abuseChatTitle').textContent =
             (flag && flag.studentName ? flag.studentName : studentId) +
-            ' — chat log' + (flag && flag.hasChatSnapshot ? ' (frozen)' : '');
+            (flag && flag.className ? ' · ' + flag.className : '') +
+            ' — chat log';
         document.getElementById('abuseMarkReviewedBtn').classList.remove('d-none');
         var unlockBtn = document.getElementById('abuseUnlockBtn');
         if (unlockBtn) {
             unlockBtn.classList.toggle('d-none', !(flag && flag.locked));
         }
-        document.getElementById('abuseChatLog').innerHTML =
-            '<div class="text-muted small">Loading conversation…</div>';
-        if (!selectedClass) return;
-        nodeFetch(
-            '/api/english-buddy/abuse-flags/chat?classId=' + encodeURIComponent(selectedClass.id) +
-            '&studentId=' + encodeURIComponent(studentId) + '&_=' + Date.now()
-        ).then(function(res) {
-            renderAbuseChatLog((res && res.messages) || []);
-        }).catch(function(err) {
-            document.getElementById('abuseChatLog').innerHTML =
-                '<div class="text-danger small">' + escapeHtml(err.message || 'Could not load chat.') + '</div>';
-        });
+        var clearBtn = document.getElementById('abuseClearChatBtn');
+        if (clearBtn) clearBtn.classList.remove('d-none');
+        loadAbuseChatInto('abuseChatLog', abuseAlertState.selectedClassId, studentId, true);
     }
 
     function renderAbuseChatLog(messages) {
-        var box = document.getElementById('abuseChatLog');
+        renderAbuseChatLogInto('abuseChatLog', messages, false);
+    }
+
+    function renderAbuseChatLogInto(boxId, messages, frozen) {
+        var box = document.getElementById(boxId);
+        if (!box) return;
         if (!messages.length) {
             box.innerHTML = '<div class="text-muted small">No stored chat messages for this student yet.</div>';
             return;
         }
-        box.innerHTML = messages.map(function(m) {
+        var frozenNote = frozen
+            ? '<div class="text-muted small mb-2">Frozen snapshot from abuse flag.</div>'
+            : '';
+        box.innerHTML = frozenNote + messages.map(function(m) {
             var role = m.role === 'user' ? 'user' : 'assistant';
             var label = role === 'user' ? 'Student' : 'Virtual Mr. Park';
             return '<div class="abuse-chat-bubble ' + role + '">' +
                 '<span class="abuse-chat-role">' + label + '</span>' +
-                escapeHtml(m.text || '') +
+                escapeHtml(m.text || m.content || '') +
                 '</div>';
         }).join('');
         box.scrollTop = box.scrollHeight;
     }
 
+    function refreshAbuseMonitorRoster(autoSelect) {
+        var loading = document.getElementById('abuseMonitorLoading');
+        var list = document.getElementById('abuseMonitorList');
+        if (loading) {
+            loading.classList.remove('d-none');
+            loading.textContent = 'Loading…';
+        }
+        if (list) list.classList.add('d-none');
+        nodeFetch('/api/english-buddy/monitor?_=' + Date.now())
+            .then(function(res) {
+                abuseAlertState.monitorStudents = (res && res.students) || [];
+                var dateEl = document.getElementById('abuseMonitorDateKey');
+                if (dateEl) dateEl.textContent = (res && res.dateKey) || '—';
+                renderAbuseMonitorList(autoSelect);
+            })
+            .catch(function(err) {
+                if (loading) {
+                    loading.classList.remove('d-none');
+                    loading.textContent = err.message || 'Could not load students.';
+                }
+            });
+    }
+
+    function filteredMonitorStudents() {
+        var q = String((document.getElementById('abuseMonitorSearch') || {}).value || '').trim().toLowerCase();
+        if (!q) return abuseAlertState.monitorStudents;
+        return abuseAlertState.monitorStudents.filter(function(s) {
+            return String(s.name || '').toLowerCase().indexOf(q) >= 0 ||
+                String(s.className || '').toLowerCase().indexOf(q) >= 0 ||
+                String(s.studentId || '').toLowerCase().indexOf(q) >= 0;
+        });
+    }
+
+    function renderAbuseMonitorList(autoSelect) {
+        var loading = document.getElementById('abuseMonitorLoading');
+        var list = document.getElementById('abuseMonitorList');
+        var rows = filteredMonitorStudents();
+        if (loading) loading.classList.add('d-none');
+        if (!list) return;
+        if (!rows.length) {
+            list.classList.add('d-none');
+            if (loading) {
+                loading.classList.remove('d-none');
+                loading.textContent = abuseAlertState.monitorStudents.length
+                    ? 'No students match this search.'
+                    : 'No enrolled students found.';
+            }
+            return;
+        }
+        list.classList.remove('d-none');
+        list.innerHTML = rows.map(function(s) {
+            var active =
+                String(s.studentId) === String(abuseAlertState.selectedStudentId) &&
+                String(s.classId) === String(abuseAlertState.selectedClassId) &&
+                abuseAlertState.activeTab === 'monitor'
+                    ? ' is-active'
+                    : '';
+            return '<button type="button" class="abuse-flag-item' + active +
+                '" data-student-id="' + escapeHtml(s.studentId) +
+                '" data-class-id="' + escapeHtml(s.classId) + '">' +
+                '<div class="abuse-flag-name">' + escapeHtml(s.name || s.studentId) +
+                (s.locked ? ' 🔒' : '') +
+                '<span class="abuse-coin-pill">' + escapeHtml(String(s.remaining)) +
+                '/' + escapeHtml(String(s.limit)) + '</span></div>' +
+                '<div class="abuse-flag-meta">' + escapeHtml(s.className || s.classId) +
+                (s.locked ? ' · LOCKED' : '') +
+                ' · Warnings ' + escapeHtml(String(s.strikes || 0)) + '/' +
+                escapeHtml(String(s.strikeLimit || 3)) + '</div>' +
+                '</button>';
+        }).join('');
+        list.querySelectorAll('.abuse-flag-item').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                selectMonitorStudent(
+                    btn.getAttribute('data-student-id'),
+                    btn.getAttribute('data-class-id')
+                );
+            });
+        });
+        if (autoSelect && rows[0]) {
+            selectMonitorStudent(rows[0].studentId, rows[0].classId);
+        }
+    }
+
+    function selectMonitorStudent(studentId, classId) {
+        var row = abuseAlertState.monitorStudents.find(function(s) {
+            return String(s.studentId) === String(studentId) && String(s.classId) === String(classId);
+        });
+        abuseAlertState.selectedFlagId = null;
+        abuseAlertState.selectedStudentId = studentId;
+        abuseAlertState.selectedClassId = classId;
+        abuseAlertState.selectedClassName = row ? row.className : classId;
+        document.querySelectorAll('#abuseMonitorList .abuse-flag-item').forEach(function(el) {
+            el.classList.toggle(
+                'is-active',
+                el.getAttribute('data-student-id') === String(studentId) &&
+                el.getAttribute('data-class-id') === String(classId)
+            );
+        });
+        document.getElementById('abuseMonitorChatTitle').textContent =
+            (row ? row.name : studentId) + (row && row.className ? ' · ' + row.className : '');
+        var coin = document.getElementById('abuseMonitorCoinStatus');
+        if (coin && row) {
+            coin.classList.remove('d-none');
+            coin.textContent = 'Coins remaining today: ' + row.remaining + ' / ' + row.limit +
+                ' (used ' + row.used + ')';
+        }
+        var refillBtn = document.getElementById('abuseRefillBtn');
+        if (refillBtn) refillBtn.classList.remove('d-none');
+        var unlockBtn = document.getElementById('abuseMonitorUnlockBtn');
+        if (unlockBtn) unlockBtn.classList.toggle('d-none', !(row && row.locked));
+        var clearBtn = document.getElementById('abuseMonitorClearChatBtn');
+        if (clearBtn) clearBtn.classList.remove('d-none');
+        loadAbuseChatInto('abuseMonitorChatLog', classId, studentId);
+    }
+
+    function clearSelectedBuddyChat() {
+        if (!abuseAlertState.selectedStudentId) return;
+        var flag = abuseAlertState.flags.find(function(f) {
+            return String(f.studentId) === String(abuseAlertState.selectedStudentId);
+        });
+        var mon = abuseAlertState.monitorStudents.find(function(s) {
+            return String(s.studentId) === String(abuseAlertState.selectedStudentId) &&
+                String(s.classId) === String(abuseAlertState.selectedClassId || '');
+        });
+        var label = (flag && flag.studentName) || (mon && mon.name) || String(abuseAlertState.selectedStudentId);
+        appConfirm(
+            'Delete ALL Virtual Mr. Park chat history for ' + label + '?\n\n' +
+            'This permanently removes messages from the database. The student’s screen will clear too.\n\n' +
+            'This cannot be undone.',
+            function() {
+                var btnIds = ['abuseClearChatBtn', 'abuseMonitorClearChatBtn'];
+                btnIds.forEach(function(id) {
+                    var b = document.getElementById(id);
+                    if (b) b.disabled = true;
+                });
+                nodeFetch('/api/english-buddy/history/clear', {
+                    method: 'POST',
+                    body: JSON.stringify({ studentId: abuseAlertState.selectedStudentId })
+                }).then(function() {
+                    appToast('Chat history deleted for ' + label + '.');
+                    var boxId = abuseAlertState.activeTab === 'monitor'
+                        ? 'abuseMonitorChatLog'
+                        : 'abuseChatLog';
+                    loadAbuseChatInto(boxId, abuseAlertState.selectedClassId, abuseAlertState.selectedStudentId);
+                }).catch(function(err) {
+                    appAlert(err.message || 'Could not clear chat.');
+                }).finally(function() {
+                    btnIds.forEach(function(id) {
+                        var b = document.getElementById(id);
+                        if (b) b.disabled = false;
+                    });
+                });
+            }
+        );
+    }
+
     function unlockSelectedAbuseStudent() {
-        if (!selectedClass || !abuseAlertState.selectedStudentId) return;
-        var btn = document.getElementById('abuseUnlockBtn');
+        if (!abuseAlertState.selectedStudentId || !abuseAlertState.selectedClassId) return;
+        var btn = document.getElementById(
+            abuseAlertState.activeTab === 'monitor' ? 'abuseMonitorUnlockBtn' : 'abuseUnlockBtn'
+        );
         if (btn) btn.disabled = true;
         nodeFetch('/api/english-buddy/abuse-flags/unlock', {
             method: 'POST',
             body: JSON.stringify({
-                classId: selectedClass.id,
+                classId: abuseAlertState.selectedClassId,
                 studentId: abuseAlertState.selectedStudentId
             })
         }).then(function() {
-            appToast('Unlocked Virtual Mr. Park for this student.');
-            refreshAbuseAlertModal(true);
+            appToast('Unlocked — alert kept for review.');
             refreshAbuseAlertBadge();
+            if (abuseAlertState.activeTab === 'monitor') {
+                refreshAbuseMonitorRoster(false);
+            } else {
+                refreshAbuseAlertModal(true);
+            }
         }).catch(function(err) {
             appAlert(err.message || 'Could not unlock.');
         }).finally(function() {
@@ -16708,24 +17712,29 @@
     }
 
     function markSelectedAbuseFlagReviewed() {
-        if (!selectedClass || !abuseAlertState.selectedFlagId) return;
+        if (!abuseAlertState.selectedFlagId || !abuseAlertState.selectedClassId) return;
         var btn = document.getElementById('abuseMarkReviewedBtn');
         if (btn) btn.disabled = true;
         nodeFetch('/api/english-buddy/abuse-flags/review', {
             method: 'POST',
             body: JSON.stringify({
                 flagId: abuseAlertState.selectedFlagId,
-                classId: selectedClass.id,
+                classId: abuseAlertState.selectedClassId,
                 studentId: abuseAlertState.selectedStudentId
             })
         }).then(function() {
-            appToast('Marked as reviewed.');
+            appToast('Reviewed — unlocked and alert cleared.');
             abuseAlertState.selectedFlagId = null;
             abuseAlertState.selectedStudentId = null;
+            abuseAlertState.selectedClassId = null;
             document.getElementById('abuseMarkReviewedBtn').classList.add('d-none');
+            document.getElementById('abuseUnlockBtn').classList.add('d-none');
+            var clearBtn = document.getElementById('abuseClearChatBtn');
+            if (clearBtn) clearBtn.classList.add('d-none');
             document.getElementById('abuseChatLog').innerHTML =
                 '<div class="text-muted small">Select a flagged student to view their Virtual Mr. Park chat.</div>';
             refreshAbuseAlertModal(true);
+            refreshAbuseAlertBadge();
         }).catch(function(err) {
             appAlert(err.message || 'Could not mark reviewed.');
         }).finally(function() {
@@ -16733,12 +17742,38 @@
         });
     }
 
+    function refillSelectedMonitorStudent() {
+        if (!abuseAlertState.selectedStudentId) return;
+        var btn = document.getElementById('abuseRefillBtn');
+        if (btn) btn.disabled = true;
+        nodeFetch('/api/english-buddy/refill', {
+            method: 'POST',
+            body: JSON.stringify({ studentId: abuseAlertState.selectedStudentId })
+        }).then(function(res) {
+            appToast('Coins refilled' + (res && res.remaining != null ? (' — ' + res.remaining + ' left') : '') + '.');
+            refreshAbuseMonitorRoster(false);
+            var sid = abuseAlertState.selectedStudentId;
+            var cid = abuseAlertState.selectedClassId;
+            setTimeout(function() {
+                if (sid && cid) selectMonitorStudent(sid, cid);
+            }, 120);
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not refill coins.');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
     function initAbuseAlertSidebarLauncher() {
         var panel = document.getElementById('abuseAlertFloat');
-        if (!panel) return;
-        var chip = panel.querySelector('.sidebar-abuse-launcher-chip, .sidebar-mini-chip');
-        if (!chip) return;
-        attachSidebarDrag(chip, panel, 'abuseAlert', function() { openAbuseAlertModal(); });
+        var chip = document.getElementById('abuseAlertChipBtn');
+        if (!panel || !chip) return;
+        if (typeof nodeApiEnabled === 'function' && !nodeApiEnabled()) return;
+        chip.addEventListener('click', function() {
+            openAbuseAlertModal();
+        });
+        ensureAbuseAlertChipVisible();
+        refreshAbuseAlertBadge();
         scheduleAbuseAlertPolling();
     }
 

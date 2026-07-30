@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PORTAL_BUILD = '2026-07-16.05';
+const PORTAL_BUILD = '2026-07-30.13';
 
 const serverDir = path.join(__dirname, '..');
 const repoRoot = path.join(serverDir, '..');
@@ -120,6 +120,15 @@ function injectPortalAssets(html) {
       out = out.replace('</head>', PORTAL_HEAD_ASSETS + '\n</head>');
     }
   }
+  // Vocab Placement + layered cards (student portal)
+  if (out.includes('id="vocabShell"') && !out.includes('/js/vocab-learn.js')) {
+    out = out.replace(
+      '</head>',
+      '<link rel="stylesheet" href="/css/vocab-learn.css">\n' +
+      '<script src="/js/vocab-mock-data.js" defer></script>\n' +
+      '<script src="/js/vocab-learn.js" defer></script>\n</head>'
+    );
+  }
   return out;
 }
 
@@ -185,7 +194,12 @@ const ROULETTE_INIT = `document.getElementById('classSubtitle').textContent = CL
         });
 
         var restored = loadWheelState();
-        entries = (restored && restored.length) ? restored : buildDefaultEntries(INITIAL_STUDENTS);
+        if (restored && restored.length) {
+            entries = pruneEntriesForActiveRoster(restored, INITIAL_STUDENTS);
+            if (!entries.length) entries = buildDefaultEntries(INITIAL_STUDENTS);
+        } else {
+            entries = buildDefaultEntries(INITIAL_STUDENTS);
+        }
         window.addEventListener('resize', resizeCanvas);
         syncSidebar();
         resizeCanvas();
@@ -207,7 +221,12 @@ const ROULETTE_BOOTSTRAP = `function startRouletteApp() {
         });
 
         var restored = loadWheelState();
-        entries = (restored && restored.length) ? restored : buildDefaultEntries(INITIAL_STUDENTS);
+        if (restored && restored.length) {
+            entries = pruneEntriesForActiveRoster(restored, INITIAL_STUDENTS);
+            if (!entries.length) entries = buildDefaultEntries(INITIAL_STUDENTS);
+        } else {
+            entries = buildDefaultEntries(INITIAL_STUDENTS);
+        }
         window.addEventListener('resize', resizeCanvas);
         syncSidebar();
         resizeCanvas();
@@ -220,7 +239,9 @@ const ROULETTE_BOOTSTRAP = `function startRouletteApp() {
             fetch(api + '/api/students?classId=' + encodeURIComponent(CLASS_ID), { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
                 .then(function(list) {
-                    INITIAL_STUDENTS = Array.isArray(list) ? list : [];
+                    INITIAL_STUDENTS = (Array.isArray(list) ? list : []).filter(function(s) {
+                        return s && !s.onLeave && !s.on_leave;
+                    });
                     startRouletteApp();
                 })
                 .catch(function() { startRouletteApp(); });
@@ -238,7 +259,9 @@ const LUCKY_DRAW_BOOTSTRAP = `function bootstrapLuckyDraw() {
             fetch(api + '/api/students?classId=' + encodeURIComponent(CLASS_ID), { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
                 .then(function(list) {
-                    STUDENTS = Array.isArray(list) ? list : [];
+                    STUDENTS = (Array.isArray(list) ? list : []).filter(function(s) {
+                        return s && !s.onLeave && !s.on_leave;
+                    });
                     initStudentSelect();
                     initDrawModeToggle();
                     loadLuckyDrawConfig();
@@ -301,7 +324,13 @@ function buildTools() {
         let INITIAL_STUDENTS = [];`
     );
     if (!html.includes('function startRouletteApp()')) {
+      if (!html.includes(ROULETTE_INIT)) {
+        console.warn('Roulette: ROULETTE_INIT snippet not found — bootstrap may be missing');
+      }
       html = html.replace(ROULETTE_INIT, ROULETTE_BOOTSTRAP);
+    }
+    if (!html.includes('function bootstrapRoulette()')) {
+      throw new Error('Roulette build failed: bootstrapRoulette missing after transform');
     }
     return html;
   });

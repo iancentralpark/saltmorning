@@ -322,6 +322,25 @@ async function teacherSendMessage(classId, studentId, studentName, body) {
   });
 }
 
+/** Permanently delete all messages in a teacher↔student thread. */
+async function deleteThread(classId, studentId) {
+  const cid = String(classId || '').trim();
+  const sid = String(studentId || '').trim();
+  if (!cid || !sid) throw new Error('classId and studentId are required.');
+  const db = getSupabase();
+  const { data, error } = await withDbRetry(function() {
+    return db
+      .from('messages')
+      .delete()
+      .eq('class_id', cid)
+      .eq('student_id', sid)
+      .select('id');
+  });
+  if (error) throw new Error(error.message || 'Could not delete conversation.');
+  invalidateMessageCaches();
+  return { ok: true, deleted: (data || []).length };
+}
+
 async function ensureMessagesSheet() {
   /* no-op — Supabase tables created via migration */
 }
@@ -337,5 +356,6 @@ module.exports = {
   getUnreadTotalForClass,
   getUnreadTotalGlobal,
   studentSendMessage,
-  teacherSendMessage
+  teacherSendMessage,
+  deleteThread
 };

@@ -384,6 +384,37 @@ async function teacherSendMessage(classId, studentId, studentName, body) {
   return msg;
 }
 
+/** Soft-delete entire thread on Sheets (DeletedAt). Supabase path hard-deletes. */
+async function deleteThread(classId, studentId) {
+  const { isSupabaseEnabled } = require('./supabaseClient');
+  if (isSupabaseEnabled()) {
+    return require('./supabaseMessageService').deleteThread(classId, studentId);
+  }
+
+  const cid = String(classId || '').trim();
+  const sid = String(studentId || '').trim();
+  if (!cid || !sid) throw new Error('classId and studentId are required.');
+  await ensureMessagesSheet();
+  const data = await getSheetRows(MESSAGES_SHEET);
+  const now = isoNow();
+  const updates = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][COL.classId] || '') !== cid) continue;
+    if (String(data[i][COL.studentId] || '') !== sid) continue;
+    if (String(data[i][COL.deleted] || '').trim()) continue;
+    updates.push({
+      sheetName: MESSAGES_SHEET,
+      a1: 'I' + (i + 1),
+      values: [[now]]
+    });
+  }
+  if (updates.length) {
+    await batchUpdateRanges(updates);
+    invalidateSheetRowsCache(MESSAGES_SHEET);
+  }
+  return { ok: true, deleted: updates.length };
+}
+
 let sheetApiWarned = false;
 let cachedSheetApi = null;
 
@@ -404,7 +435,8 @@ function sheetMessageApi() {
       getUnreadTotalForClass,
       getUnreadTotalGlobal,
       studentSendMessage,
-      teacherSendMessage
+      teacherSendMessage,
+      deleteThread
     };
   }
   return cachedSheetApi;
@@ -440,6 +472,9 @@ module.exports = {
   },
   teacherSendMessage: function(classId, studentId, studentName, body) {
     return getMessageApi().teacherSendMessage(classId, studentId, studentName, body);
+  },
+  deleteThread: function(classId, studentId) {
+    return getMessageApi().deleteThread(classId, studentId);
   },
   reconcileSheetMessagesToSupabase: reconcileSheetMessagesToSupabase,
   mirrorSheetMessageToSupabase: mirrorSheetMessageToSupabase

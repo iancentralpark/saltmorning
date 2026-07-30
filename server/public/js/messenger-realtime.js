@@ -48,6 +48,9 @@
     socket.on('messenger:read', function(payload) {
       if (handlers && handlers.onRead) handlers.onRead(payload || {});
     });
+    socket.on('messenger:thread-cleared', function(payload) {
+      if (handlers && handlers.onThreadCleared) handlers.onThreadCleared(payload || {});
+    });
     socket.on('disconnect', function() {
       if (handlers && handlers.onDisconnect) handlers.onDisconnect();
       startFallback();

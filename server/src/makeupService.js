@@ -3,6 +3,7 @@ const { getSheetRows, appendRows, updateRange, deleteRow } = require('./sheets')
 const { formatDateTimeNow, formatSheetDate } = require('./dateUtils');
 const { cacheDeletePrefix } = require('./cache');
 const { getEnrolledStudents } = require('./homeworkService');
+const { getActiveLeavesByClass } = require('./leaveService');
 
 const HEADERS = [
   'MakeupID', 'ClassID', 'StudentID', 'StudentName', 'Date',
@@ -134,7 +135,21 @@ async function findMakeupRowIndex(makeupId) {
 
 async function listClassStudents(classId) {
   const students = await getEnrolledStudents(classId);
-  return students.map(s => ({ id: s.id, name: s.name }));
+  const today = formatSheetDate(new Date());
+  let leaveMap = {};
+  try {
+    leaveMap = await getActiveLeavesByClass(classId, today);
+  } catch (err) {
+    console.error('listClassStudents leave lookup', err.message || err);
+  }
+  return students.map(function(s) {
+    const sid = String(s.id);
+    return {
+      id: s.id,
+      name: s.name,
+      onLeave: !!leaveMap[sid]
+    };
+  });
 }
 
 async function getMakeupLessons(classId, studentId, options) {

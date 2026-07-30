@@ -479,6 +479,110 @@
             pointer-events: none;
         }
 
+        .shield-scene {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+        }
+        .shield-stack {
+            position: absolute;
+            inset: 12% 18% 28%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .shield-mini {
+            width: 42px;
+            height: 56px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 200, 0.35);
+            background: linear-gradient(160deg, rgba(40, 60, 80, 0.9), rgba(12, 18, 28, 0.95));
+            box-shadow: 0 0 10px rgba(0, 255, 200, 0.2);
+            opacity: 0.85;
+            transform: scale(0.92);
+        }
+        .shield-mini.is-safe {
+            animation: shield-safe-glow 0.7s ease-in-out infinite alternate;
+            border-color: rgba(57, 255, 20, 0.7);
+        }
+        @keyframes shield-safe-glow {
+            from { box-shadow: 0 0 8px rgba(57, 255, 20, 0.25); transform: scale(0.92); }
+            to { box-shadow: 0 0 18px rgba(57, 255, 20, 0.55); transform: scale(0.98); }
+        }
+        .ticket-card.shield-hero {
+            z-index: 5;
+            border-color: rgba(0, 255, 200, 0.85);
+            background: linear-gradient(145deg, rgba(8, 60, 70, 0.96), rgba(6, 20, 40, 0.98));
+            box-shadow:
+                0 0 28px rgba(0, 255, 200, 0.45),
+                0 0 60px rgba(57, 255, 20, 0.2);
+            animation: shield-rise 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+        }
+        @keyframes shield-rise {
+            from { transform: scale(0.7) translateY(18px); opacity: 0.2; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .ticket-card.shield-hero.is-guarding {
+            animation: shield-guard-pulse 0.55s ease-in-out infinite alternate;
+        }
+        @keyframes shield-guard-pulse {
+            from { box-shadow: 0 0 22px rgba(0, 255, 200, 0.4), 0 0 40px rgba(57, 255, 20, 0.15); }
+            to { box-shadow: 0 0 40px rgba(0, 255, 200, 0.75), 0 0 70px rgba(57, 255, 20, 0.35); transform: scale(1.04); }
+        }
+        .shield-dome {
+            position: absolute;
+            width: 78%;
+            height: 78%;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 255, 200, 0.55);
+            box-shadow:
+                0 0 24px rgba(0, 255, 200, 0.35),
+                inset 0 0 30px rgba(57, 255, 20, 0.12);
+            z-index: 3;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.6);
+        }
+        .shield-dome.show {
+            animation: shield-dome-pop 0.7s cubic-bezier(0.2, 1.2, 0.4, 1) forwards;
+        }
+        @keyframes shield-dome-pop {
+            0% { opacity: 0; transform: scale(0.55); }
+            40% { opacity: 1; transform: scale(1.05); }
+            100% { opacity: 0.85; transform: scale(1); }
+        }
+        .shield-dome.is-hit {
+            animation: shield-dome-hit 0.45s ease-out;
+        }
+        @keyframes shield-dome-hit {
+            0% { transform: scale(1); border-color: rgba(0, 255, 200, 0.7); }
+            35% { transform: scale(1.12); border-color: #fff; box-shadow: 0 0 40px #39ff14; }
+            100% { transform: scale(1); border-color: rgba(0, 255, 200, 0.55); }
+        }
+        .void-bolt {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ff1e38, #7b1fa2 60%, transparent 70%);
+            box-shadow: 0 0 16px #ff1e38;
+            z-index: 4;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .result-banner.shield {
+            color: #39ff14;
+            text-shadow: 0 0 12px rgba(57, 255, 20, 0.65);
+            background: linear-gradient(90deg, rgba(0, 80, 60, 0.35), rgba(0, 40, 50, 0.5), rgba(0, 80, 60, 0.35));
+            border-color: rgba(0, 255, 200, 0.45);
+        }
+
         .execute-btn {
             width: 100%;
             border: 0;
@@ -677,6 +781,15 @@
             playTone(1200, 0.25, 'square', 0.06, 200);
             playTone(40, 0.7, 'sine', 0.18, 18);
         }
+        function sfxShield() {
+            playTone(523.25, 0.28, 'triangle', 0.11);
+            playTone(659.25, 0.32, 'triangle', 0.09);
+            playTone(783.99, 0.4, 'sine', 0.08);
+        }
+        function sfxShieldBreak() {
+            playTone(880, 0.14, 'square', 0.08, 220);
+            playTone(90, 0.55, 'sine', 0.14, 40);
+        }
 
         function setStatus(msg, kind) {
             statusLine.textContent = msg || '';
@@ -813,8 +926,14 @@
 
         function fillStudentSelect(list) {
             STUDENTS = (list || []).map(function(s) {
-                return { id: String(s.id || s.studentId || ''), name: String(s.name || s.studentName || '') };
-            }).filter(function(s) { return s.id && s.name; });
+                return {
+                    id: String(s.id || s.studentId || ''),
+                    name: String(s.name || s.studentName || ''),
+                    onLeave: !!(s.onLeave || s.on_leave)
+                };
+            }).filter(function(s) {
+                return s.id && s.name && !s.onLeave;
+            });
             studentSelect.innerHTML = '<option value="">— Select student —</option>' +
                 STUDENTS.map(function(s) {
                     return '<option value="' + escapeHtml(s.id) + '">' + escapeHtml(s.name) + '</option>';
@@ -1145,6 +1264,98 @@
             });
         }
 
+        function shieldProtectVisual(shield, protectedCount) {
+            return new Promise(function(resolve) {
+                var n = Math.max(0, Number(protectedCount) || 0);
+                var minis = '';
+                for (var i = 0; i < Math.min(n, 5); i++) {
+                    minis += '<div class="shield-mini" id="safeCard' + i + '"></div>';
+                }
+                setStageHtml(
+                    '<div class="shield-scene" id="shieldScene">' +
+                    '<div class="shield-stack">' + minis + '</div>' +
+                    '<div class="shield-dome" id="shieldDome"></div>' +
+                    '<div class="void-bolt" id="voidBolt"></div>' +
+                    '<div class="ticket-card shield-hero" id="shieldCard">' +
+                    '<div class="tier">' + escapeHtml(shield.tier || 'SHIELD') + '</div>' +
+                    '<div class="prize">' + escapeHtml(shield.title || 'Unlucky Draw Shield') + '</div>' +
+                    '</div></div>'
+                );
+                setStatus('SHIELD DETECTED…');
+                sfxShield();
+                sleep(700).then(function() {
+                    var dome = document.getElementById('shieldDome');
+                    var card = document.getElementById('shieldCard');
+                    if (dome) dome.classList.add('show');
+                    if (card) card.classList.add('is-guarding');
+                    for (var j = 0; j < Math.min(n, 5); j++) {
+                        var el = document.getElementById('safeCard' + j);
+                        if (el) el.classList.add('is-safe');
+                    }
+                    setStatus('PROTECTING ALL TICKETS!');
+                    return sleep(900);
+                }).then(function() {
+                    // Void bolts slam the dome and bounce away
+                    var bolt = document.getElementById('voidBolt');
+                    var dome = document.getElementById('shieldDome');
+                    var hits = 0;
+                    function hitOnce() {
+                        return new Promise(function(done) {
+                            if (!bolt || !dome) { done(); return; }
+                            bolt.style.opacity = '1';
+                            bolt.style.left = '8%';
+                            bolt.style.top = '12%';
+                            bolt.style.transition = 'none';
+                            requestAnimationFrame(function() {
+                                bolt.style.transition = 'left 0.38s ease-in, top 0.38s ease-in, opacity 0.38s';
+                                bolt.style.left = '46%';
+                                bolt.style.top = '44%';
+                                sleep(360).then(function() {
+                                    dome.classList.remove('is-hit');
+                                    void dome.offsetWidth;
+                                    dome.classList.add('is-hit');
+                                    sfxTick();
+                                    bolt.style.transition = 'left 0.45s ease-out, top 0.45s ease-out, opacity 0.45s';
+                                    bolt.style.left = (70 + Math.random() * 20) + '%';
+                                    bolt.style.top = (5 + Math.random() * 20) + '%';
+                                    bolt.style.opacity = '0';
+                                    sleep(420).then(done);
+                                });
+                            });
+                        });
+                    }
+                    function chain() {
+                        if (hits >= 3) return Promise.resolve();
+                        hits += 1;
+                        return hitOnce().then(chain);
+                    }
+                    return chain();
+                }).then(function() {
+                    setStatus('Shield burns out…');
+                    var card = document.getElementById('shieldCard');
+                    if (card) {
+                        card.classList.remove('is-guarding');
+                        card.classList.add('is-flashing');
+                    }
+                    sfxShieldBreak();
+                    spawnParticles(35, false);
+                    return sleep(700);
+                }).then(function() {
+                    var card = document.getElementById('shieldCard');
+                    if (card) card.classList.remove('is-flashing');
+                    return runShatterShards(card);
+                }).then(function() {
+                    var msg = n > 0
+                        ? ('SHIELD SACRIFICED — ' + n + ' TICKET' + (n === 1 ? '' : 'S') + ' SAFE!')
+                        : 'SHIELD SACRIFICED!';
+                    setStageHtml('<div class="result-banner shield">' + msg + '</div>');
+                    return sleep(1200);
+                }).then(function() {
+                    resolve();
+                });
+            });
+        }
+
         function stealDollarsVisual(amount, newBalance) {
             return new Promise(function(resolve) {
                 dollarStat.classList.add('draining');
@@ -1208,7 +1419,54 @@
                 return;
             }
 
-            if (result.mode === 'ticket' && result.ticket) {
+            if (result.mode === 'shield') {
+                var shieldInfo = result.shield || {};
+                var shieldId = String(shieldInfo.ticketId || '');
+                state = 'spinning';
+                setStatus('A shield rises from the void…');
+                var shieldLocal = tickets.slice();
+                if (shieldId && !shieldLocal.some(function(t) { return t.id === shieldId; })) {
+                    shieldLocal.push({
+                        id: shieldId,
+                        title: shieldInfo.prizeText || 'Unlucky Draw Shield',
+                        tier: shieldInfo.tier || '',
+                        icon: 'ticket'
+                    });
+                }
+                if (!shieldLocal.length) {
+                    shieldLocal = [{
+                        id: shieldId || 'shield',
+                        title: shieldInfo.prizeText || 'Unlucky Draw Shield',
+                        tier: shieldInfo.tier || '',
+                        icon: 'ticket'
+                    }];
+                }
+                var reelS = buildTicketReel(shieldLocal, shieldId || shieldLocal[0].id);
+                await spinToEnd(reelS.finalIndex);
+                state = 'landed';
+                highlightLandedReel();
+                setStatus('SHIELD LOCKED IN');
+                await sleep(1400);
+                state = 'destroying';
+                await shieldProtectVisual({
+                    id: shieldId || shieldLocal[0].id,
+                    title: shieldInfo.prizeText || 'Unlucky Draw Shield',
+                    tier: shieldInfo.tier || 'SHIELD'
+                }, result.protectedCount);
+                if (shieldId) {
+                    tickets = tickets.filter(function(t) { return t.id !== shieldId; });
+                }
+                if (result.remainingCount != null) {
+                    while (tickets.length > result.remainingCount) tickets.pop();
+                }
+                renderStats();
+                notifyParent({
+                    studentId: studentId,
+                    ticketCount: result.remainingCount,
+                    newBalance: result.dollars
+                });
+                setStatus(result.message || 'Shield protected the tickets!', 'ok');
+            } else if (result.mode === 'ticket' && result.ticket) {
                 // Ensure ticket exists in local list for reel
                 var local = tickets.slice();
                 if (!local.some(function(t) { return t.id === result.ticket.ticketId; })) {
@@ -1280,7 +1538,12 @@
                 });
                 setStatus(amount > 0 ? ('Stolen $' + amount + '.') : 'Nothing left to take.', 'ok');
             } else {
-                setStatus('Unexpected result.', 'error');
+                setStatus(
+                    'Unexpected result' +
+                    (result && result.mode ? (' (' + result.mode + ')') : '') +
+                    '. Close and reopen Unlucky Draw, then try again.',
+                    'error'
+                );
             }
 
             state = 'finished';

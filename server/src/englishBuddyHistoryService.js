@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { ENGLISH_BUDDY_HISTORY_SHEET, ENGLISH_BUDDY_HISTORY_DAYS, ENGLISH_BUDDY_HISTORY_MAX } = require('./config');
 const { getSheetRows, appendRows, deleteRow, invalidateSheetRowsCache } = require('./sheets');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+const { cacheGet, cacheSet } = require('./cache');
 
 const MAX_BODY_LEN = 4000;
 
@@ -192,6 +193,20 @@ async function recordBuddyExchange(studentId, classId, userText, assistantText) 
   await appendBuddyMessage(studentId, classId, 'assistant', assistantMsg);
 }
 
+function buddyChatRevisionKey(studentId) {
+  return 'buddy_chat_rev_' + String(studentId || '');
+}
+
+function getBuddyChatRevision(studentId) {
+  return Number(cacheGet(buddyChatRevisionKey(studentId)) || 0) || 0;
+}
+
+function bumpBuddyChatRevision(studentId) {
+  const rev = Date.now();
+  cacheSet(buddyChatRevisionKey(studentId), rev, 48 * 3600);
+  return rev;
+}
+
 async function clearBuddyChatHistory(studentId) {
   studentId = String(studentId);
 
@@ -201,7 +216,8 @@ async function clearBuddyChatHistory(studentId) {
       .delete()
       .eq('student_id', studentId);
     if (error) throw new Error(error.message);
-    return { ok: true, cleared: true };
+    const chatRevision = bumpBuddyChatRevision(studentId);
+    return { ok: true, cleared: true, chatRevision: chatRevision };
   }
 
   const data = await getSheetRows(ENGLISH_BUDDY_HISTORY_SHEET);
@@ -211,12 +227,15 @@ async function clearBuddyChatHistory(studentId) {
     }
   }
   invalidateSheetRowsCache(ENGLISH_BUDDY_HISTORY_SHEET);
-  return { ok: true, cleared: true };
+  const chatRevision = bumpBuddyChatRevision(studentId);
+  return { ok: true, cleared: true, chatRevision: chatRevision };
 }
 
 module.exports = {
   getBuddyChatHistory,
   recordBuddyExchange,
   clearBuddyChatHistory,
+  getBuddyChatRevision,
+  bumpBuddyChatRevision,
   ENGLISH_BUDDY_HISTORY_DAYS
 };

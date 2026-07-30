@@ -27,6 +27,7 @@ const { runBatched } = require('./supabaseBatch');
 const { isSupabaseEnabled } = require('./supabaseClient');
 const { getHolidayName, getHolidaysForMonth } = require('./holiday');
 const { buildPendingHomeworkCountsFromCtx } = require('./homeworkService');
+const { isLuckyTicketExpired } = require('./luckyDrawService');
 const {
   formatSheetDate,
   formatDateStr,
@@ -156,8 +157,10 @@ function isDateInLeaveRange(dateStr, startDate, endDate) {
 
 function buildLuckyMapFromRows(data, classId) {
   const counts = {};
+  const nowMs = Date.now();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]) !== classId) continue;
+    if (isLuckyTicketExpired(String(data[i][5] || ''), nowMs)) continue;
     const sid = String(data[i][2]);
     counts[sid] = (counts[sid] || 0) + 1;
   }
@@ -420,17 +423,18 @@ async function buildClassAttendanceFromCtx(ctx, dateStr) {
     for (let wi = 0; wi < weekRequired.length; wi++) {
       if (readSet[weekRequired[wi]]) weekRead++;
     }
+    const leaveOnDate = leaveMap[sid] || null;
+    const activeLeave = allActiveLeaves[sid] || null;
+    const onLeave = !!leaveOnDate;
     const base = {
-      pendingHomework: pendingMap[sid] || 0,
+      // Hide pending while on leave for this class date (HW is not assigned to leave students).
+      pendingHomework: onLeave ? 0 : (pendingMap[sid] || 0),
       luckyTickets: luckyMap[sid] || 0,
       chambitRead: chambitTodayMap[sid] || false,
       chambitCombo: chambitComboMap[sid] || 0,
       chambitWeekRead: weekRead,
       chambitWeekRequired: weekRequiredCount
     };
-    const leaveOnDate = leaveMap[sid] || null;
-    const activeLeave = allActiveLeaves[sid] || null;
-    const onLeave = !!leaveOnDate;
     const leaveInfo = leaveOnDate || activeLeave;
     const planned = plannedMap[sid] || null;
     let attendance;

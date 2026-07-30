@@ -378,16 +378,16 @@ function buildClassAttendanceFromCtx_(ctx, dateStr) {
     for (let wi = 0; wi < weekRequired.length; wi++) {
       if (readSet[weekRequired[wi]]) weekRead++;
     }
+    const leaveOnDate = leaveMap[sid] || null;
+    const activeLeave = allActiveLeaves[sid] || null;
+    const onLeave = !!leaveOnDate;
     const base = {
-      pendingHomework: pendingMap[sid] || 0,
+      pendingHomework: onLeave ? 0 : (pendingMap[sid] || 0),
       chambitRead: chambitTodayMap[sid] || false,
       chambitCombo: chambitComboMap[sid] || 0,
       chambitWeekRead: weekRead,
       chambitWeekRequired: weekRequiredCount
     };
-    const leaveOnDate = leaveMap[sid] || null;
-    const activeLeave = allActiveLeaves[sid] || null;
-    const onLeave = !!leaveOnDate;
     const leaveInfo = leaveOnDate || activeLeave;
     const planned = plannedMap[sid] || null;
     let attendance;
@@ -3149,7 +3149,7 @@ function ensureHomeworkTargetStudentColumn_() {
   sheet.getRange(1, 6).setValue('TargetStudentIDs').setFontWeight('bold');
 }
 
-function saveHomeworkItems_(homeworkId, classId, items) {
+function saveHomeworkItems_(homeworkId, classId, items, dateStr) {
   ensureHomeworkTargetStudentColumn_();
   deleteItemsForHomework_(homeworkId);
   const itemSheet = getSS().getSheetByName(HOMEWORK_SHEETS.ITEMS);
@@ -3157,6 +3157,9 @@ function saveHomeworkItems_(homeworkId, classId, items) {
   const students = getEnrolledStudents_(classId);
   const enrolledSet = {};
   students.forEach(function(s) { enrolledSet[String(s.id)] = true; });
+  const leaveMap = dateStr
+    ? getActiveLeavesByClass_(classId, dateStr)
+    : getAllActiveLeavesByClass_(classId);
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const itemId = newHomeworkItemId_(homeworkId, item.sortOrder);
@@ -3173,6 +3176,7 @@ function saveHomeworkItems_(homeworkId, classId, items) {
       ? item.targetStudentIds.filter(function(id) { return enrolledSet[String(id)]; })
       : students.map(function(s) { return s.id; });
     targetIds.forEach(function(sid) {
+      if (leaveMap[String(sid)]) return;
       compSheet.appendRow([itemId, sid, false, '', '']);
     });
   }
@@ -3242,11 +3246,22 @@ function patchHomeworkToClassroom_(courseId, workId, title, description) {
     return { ok: false, error: 'Enable Google Classroom API: Apps Script Editor → Services → Google Classroom API' };
   }
   try {
+    var safeTitle = String(title || '').trim();
+    var safeDescription = String(description || '');
+    // Separate patches — combined updateMask can update title only.
+    if (safeTitle) {
+      Classroom.Courses.CourseWork.patch(
+        { title: safeTitle },
+        courseId,
+        workId,
+        { updateMask: 'title' }
+      );
+    }
     Classroom.Courses.CourseWork.patch(
-      { title: title, description: description || '' },
+      { description: safeDescription },
       courseId,
       workId,
-      { updateMask: 'title,description' }
+      { updateMask: 'description' }
     );
     return { ok: true, workId: workId };
   } catch (e) {
@@ -3396,20 +3411,37 @@ function syncHomeworkClassroomForClassDate(classId, dateStr) {
     if (!map || !map.courseId) {
       return { ok: true, skipped: true, message: 'No Classroom link.' };
     }
+
+    // Prefer item rows (source of truth) over possibly-stale LOG description.
+    const students = getEnrolledStudents_(classId);
+    const nameById = {};
+    students.forEach(function(s) { nameById[String(s.id)] = s.name; });
+    const itemsByHw = readItemsMapForClass_(classId);
+    const items = (itemsByHw && itemsByHw[existing.homeworkId]) || [];
+    const title = String(existing.title || '').trim() || 'Homework';
+    const description = items.length
+      ? buildClassroomDescriptionFromItems_(items, nameById)
+      : String(existing.description || '');
+
     const synced = syncHomeworkToClassroom_(
       map.courseId,
-      existing.title,
-      existing.description,
+      title,
+      description,
       existing.classroomWorkId
     );
     if (!synced.ok) {
       return { ok: false, error: synced.error };
     }
-    if (synced.workId && synced.workId !== existing.classroomWorkId) {
-      const row = findHomeworkRow_(existing.homeworkId);
-      if (row > 0) {
-        getSS().getSheetByName(HOMEWORK_SHEETS.LOG).getRange(row, 6).setValue(synced.workId);
-      }
+    const row = findHomeworkRow_(existing.homeworkId);
+    if (row > 0) {
+      const sheet = getSS().getSheetByName(HOMEWORK_SHEETS.LOG);
+      const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+      sheet.getRange(row, 4, 1, 4).setValues([[
+        title,
+        description,
+        synced.workId || existing.classroomWorkId,
+        now
+      ]]);
     }
     return {
       ok: true,
@@ -3470,7 +3502,7 @@ function saveAndPostHomework(classId, dateStr, title, items) {
     sheet.appendRow([homeworkId, classId, dateStr, title, description, classroomWorkId, now]);
   }
 
-  saveHomeworkItems_(homeworkId, classId, normalized);
+  saveHomeworkItems_(homeworkId, classId, normalized, dateStr);
   return 'Homework saved (' + normalized.length + ' items).' + classroomMsg;
 }
 

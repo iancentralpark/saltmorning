@@ -650,8 +650,66 @@
             return 'u_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
         }
 
+        /* —— Fun SFX (Web Audio, no external files) —— */
+        var audioCtx = null;
+        function ensureAudio() {
+            if (!audioCtx) {
+                var AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                audioCtx = new AC();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+        function beep(freq, dur, type, gain, when) {
+            var ctx = ensureAudio();
+            if (!ctx) return;
+            var t0 = (when != null ? when : ctx.currentTime);
+            var o = ctx.createOscillator();
+            var g = ctx.createGain();
+            o.type = type || 'square';
+            o.frequency.value = freq;
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(gain || 0.08, t0 + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(t0);
+            o.stop(t0 + dur + 0.02);
+        }
+        function playSpinTicks(durationMs) {
+            var ctx = ensureAudio();
+            if (!ctx) return;
+            var start = ctx.currentTime;
+            var end = start + durationMs / 1000;
+            var t = start;
+            var step = 0.055;
+            while (t < end) {
+                var progress = (t - start) / (end - start);
+                step = 0.04 + progress * 0.12;
+                beep(520 + progress * 280, 0.035, 'square', 0.045 * (1 - progress * 0.4), t);
+                t += step;
+            }
+        }
+        function playWinnerFanfare() {
+            var ctx = ensureAudio();
+            if (!ctx) return;
+            var t0 = ctx.currentTime;
+            var notes = [523.25, 659.25, 783.99, 1046.5];
+            notes.forEach(function(f, i) {
+                beep(f, 0.22, 'triangle', 0.1, t0 + i * 0.12);
+            });
+            beep(1318.5, 0.45, 'triangle', 0.08, t0 + 0.5);
+        }
+
+        function activeStudentsOnly(students) {
+            return (students || []).filter(function(s) {
+                return s && !s.onLeave && !s.on_leave;
+            });
+        }
+
         function studentsToEntries(students) {
-            return (students || []).map(function(s) {
+            return activeStudentsOnly(students).map(function(s) {
                 return { uid: uid(), id: s.id || '', label: (s.name || '').trim() || 'Student' };
             }).filter(function(e) { return e.label; });
         }
@@ -660,6 +718,19 @@
             const list = studentsToEntries(students);
             list.push({ uid: uid(), id: 'mr_park', label: MR_PARK_LABEL });
             return list;
+        }
+
+        /** Drop on-leave roster names from a restored wheel (keep Mr. Park + custom labels). */
+        function pruneEntriesForActiveRoster(list, students) {
+            var allowed = { mr_park: true };
+            activeStudentsOnly(students).forEach(function(s) {
+                if (s && s.id != null) allowed[String(s.id)] = true;
+            });
+            return (list || []).filter(function(e) {
+                if (!e) return false;
+                if (!e.id) return !!(e.label || '').trim();
+                return !!allowed[String(e.id)];
+            });
         }
 
         /** Keep wheel list across close/reopen (stamp board, timer, etc.). */
@@ -851,6 +922,7 @@
             if (spinning || entries.length < 2) return;
             spinning = true;
             document.getElementById('spinBtn').disabled = true;
+            ensureAudio();
 
             const n = entries.length;
             const slice = 360 / n;
@@ -879,6 +951,7 @@
             const duration = 7200 + Math.random() * 1800;
             const startTime = performance.now();
             const settleStart = 0.84;
+            playSpinTicks(duration);
 
             function frame(now) {
                 const t = Math.min(1, (now - startTime) / duration);
@@ -924,6 +997,7 @@
             if (!entry) return;
             document.getElementById('winnerName').textContent = entry.label;
             document.getElementById('winnerOverlay').classList.add('show');
+            playWinnerFanfare();
         }
 
         function hideWinner() {
@@ -1025,7 +1099,12 @@
         });
 
         var restored = loadWheelState();
-        entries = (restored && restored.length) ? restored : buildDefaultEntries(INITIAL_STUDENTS);
+        if (restored && restored.length) {
+            entries = pruneEntriesForActiveRoster(restored, INITIAL_STUDENTS);
+            if (!entries.length) entries = buildDefaultEntries(INITIAL_STUDENTS);
+        } else {
+            entries = buildDefaultEntries(INITIAL_STUDENTS);
+        }
         window.addEventListener('resize', resizeCanvas);
         syncSidebar();
         resizeCanvas();
@@ -1038,7 +1117,9 @@
             fetch(api + '/api/students?classId=' + encodeURIComponent(CLASS_ID), { credentials: 'same-origin' })
                 .then(function(r) { return r.json(); })
                 .then(function(list) {
-                    INITIAL_STUDENTS = Array.isArray(list) ? list : [];
+                    INITIAL_STUDENTS = (Array.isArray(list) ? list : []).filter(function(s) {
+                        return s && !s.onLeave && !s.on_leave;
+                    });
                     startRouletteApp();
                 })
                 .catch(function() { startRouletteApp(); });

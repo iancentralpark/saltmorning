@@ -446,7 +446,7 @@ async function deleteItemsForHomework(homeworkId) {
   if (compDeletes.length) await deleteRows(HOMEWORK_SHEETS.COMPLETION, compDeletes);
 }
 
-async function saveHomeworkItems(homeworkId, classId, items) {
+async function saveHomeworkItems(homeworkId, classId, items, dateStr) {
   await deleteItemsForHomework(homeworkId);
   const rows = items.map(item => [
     newItemId(homeworkId, item.sortOrder),
@@ -460,14 +460,20 @@ async function saveHomeworkItems(homeworkId, classId, items) {
 
   const students = await getEnrolledStudents(classId);
   const enrolledIds = new Set(students.map(s => String(s.id)));
+  // Students on leave for this homework date do not get pending homework.
+  const { getActiveLeavesByClass, getAllActiveLeavesByClass } = require('./leaveService');
+  const leaveMap = dateStr
+    ? await getActiveLeavesByClass(classId, dateStr)
+    : await getAllActiveLeavesByClass(classId);
   const compAppends = [];
   for (const row of rows) {
     if (isChambitHomeworkTitle(row[3])) continue;
     const itemId = row[0];
     const targetRaw = String(row[5] || '').trim();
-    const targetIds = targetRaw
+    const targetIds = (targetRaw
       ? targetRaw.split(',').map(s => s.trim()).filter(id => enrolledIds.has(id))
-      : students.map(s => s.id);
+      : students.map(s => String(s.id))
+    ).filter(sid => !leaveMap[String(sid)]);
     for (const sid of targetIds) {
       compAppends.push([itemId, sid, false, '', '']);
     }
@@ -515,14 +521,23 @@ async function patchHomeworkToClassroom(courseId, workId, title, description) {
   }
   try {
     const classroom = await getClassroomApi();
+    const safeTitle = String(title || '').trim();
+    const safeDescription = String(description || '');
+    // Patch title and description separately. A combined updateMask sometimes
+    // applies only the title on Classroom courseWork updates.
+    if (safeTitle) {
+      await classroom.courses.courseWork.patch({
+        courseId,
+        id: workId,
+        updateMask: 'title',
+        requestBody: { title: safeTitle }
+      });
+    }
     await classroom.courses.courseWork.patch({
       courseId,
       id: workId,
-      updateMask: 'title,description',
-      requestBody: {
-        title,
-        description: description || ''
-      }
+      updateMask: 'description',
+      requestBody: { description: safeDescription }
     });
     return { ok: true, workId };
   } catch (e) {
@@ -816,7 +831,8 @@ async function saveAndPostHomework(classId, dateStr, title, items, options) {
     await appendRows(HOMEWORK_SHEETS.LOG, [[homeworkId, classId, dateStr, title, description, classroomWorkId, now]]);
   }
 
-  await saveHomeworkItems(homeworkId, classId, normalized);
+  await saveHomeworkItems(homeworkId, classId, normalized, dateStr);
+  invalidateWorkCache(classId);
   cacheDeletePrefix('sidebar_v1_');
 
   let classLogMsg = '';
@@ -840,7 +856,8 @@ async function saveAndPostHomework(classId, dateStr, title, items, options) {
 }
 
 /** Sync sheet homework for a class/date to Google Classroom (Node OAuth, else client falls back to GAS). */
-async function syncHomeworkClassroomForClassDate(classId, dateStr) {
+async function syncHomeworkClassroomForClassDate(classId, dateStr, options) {
+  options = options || {};
   await migrateLegacyHomeworkOnce();
   const existing = await findHomeworkByClassDate(classId, dateStr);
   if (!existing) {
@@ -853,10 +870,33 @@ async function syncHomeworkClassroomForClassDate(classId, dateStr) {
   if (!isClassroomConfigured()) {
     return { ok: false, fallbackGas: true, error: 'Node Classroom OAuth not configured.' };
   }
+
+  const students = await getEnrolledStudents(classId);
+  const nameById = {};
+  students.forEach(s => { nameById[String(s.id)] = s.name; });
+
+  let title = String(options.title || existing.title || '').trim();
+  let description = '';
+  if (Array.isArray(options.items) && options.items.length) {
+    description = buildClassroomDescriptionFromItems(
+      normalizeHomeworkItems(options.items),
+      nameById
+    );
+  } else if (options.description != null && String(options.description).trim()) {
+    description = String(options.description);
+  } else {
+    const itemsByHw = await readItemsMapForClass(classId);
+    const items = itemsByHw[existing.homeworkId] || [];
+    description = items.length
+      ? buildClassroomDescriptionFromItems(items, nameById)
+      : String(existing.description || '');
+  }
+  if (!title) title = existing.title || 'Homework';
+
   const synced = await syncHomeworkToClassroom(
     map.courseId,
-    existing.title,
-    existing.description,
+    title,
+    description,
     existing.classroomWorkId
   );
   if (!synced.ok) {
@@ -874,11 +914,16 @@ async function syncHomeworkClassroomForClassDate(classId, dateStr) {
     return { ok: false, error: err };
   }
   invalidateClassroomHomeworkCache(map.courseId);
-  if (synced.workId && synced.workId !== existing.classroomWorkId) {
-    const row = await findHomeworkRow(existing.homeworkId);
-    if (row > 0) {
-      await updateRange(HOMEWORK_SHEETS.LOG, `F${row}`, [[synced.workId]]);
-    }
+  const row = await findHomeworkRow(existing.homeworkId);
+  if (row > 0) {
+    const workId = synced.workId || existing.classroomWorkId;
+    const now = formatDateTimeNow(TIMEZONE);
+    await updateRange(HOMEWORK_SHEETS.LOG, `D${row}:G${row}`, [[
+      title,
+      description,
+      workId,
+      now
+    ]]);
   }
   cacheDeletePrefix('sidebar_v1_');
   return {
@@ -1041,6 +1086,12 @@ async function findCompletionRow(itemId, studentId) {
 async function afterHomeworkWrite(classId) {
   if (classId) invalidateWorkCache(classId);
   invalidateSheetRowsCache(HOMEWORK_SHEETS.COMPLETION);
+  invalidateSheetRowsCache(HOMEWORK_SHEETS.ITEMS);
+  invalidateSheetRowsCache(HOMEWORK_SHEETS.LOG);
+  try {
+    const { MANUAL_PENDING_SHEET } = require('./config');
+    invalidateSheetRowsCache(MANUAL_PENDING_SHEET);
+  } catch (e) { /* ignore */ }
 }
 
 async function upsertHomeworkCompletionSupabase(itemId, studentId, done, completedAt, fixNote) {
@@ -1149,6 +1200,14 @@ async function setHomeworkFixNote(itemId, studentId, fixNote, classId) {
 }
 
 async function countPendingItemsForStudent(classId, studentId) {
+  // Always re-read after a completion change so badge counts stay accurate.
+  invalidateSheetRowsCache(HOMEWORK_SHEETS.COMPLETION);
+  invalidateSheetRowsCache(HOMEWORK_SHEETS.ITEMS);
+  invalidateSheetRowsCache(HOMEWORK_SHEETS.LOG);
+  try {
+    const { MANUAL_PENDING_SHEET } = require('./config');
+    invalidateSheetRowsCache(MANUAL_PENDING_SHEET);
+  } catch (e) { /* ignore */ }
   const ctx = await buildRequestContext(classId);
   const pendingMap = await buildPendingHomeworkCountsFromCtx(ctx, classId);
   return pendingMap[String(studentId)] || 0;

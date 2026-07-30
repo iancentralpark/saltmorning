@@ -81,6 +81,20 @@ function notifyThreadRead(classId, studentId, role) {
   broadcastThreadsChanged();
 }
 
+function notifyThreadCleared(classId, studentId) {
+  if (!io) return;
+  const threadId = String(classId) + '|' + String(studentId);
+  const payload = {
+    threadId: threadId,
+    classId: String(classId),
+    studentId: String(studentId)
+  };
+  emitToThread(threadId, 'messenger:thread-cleared', payload);
+  io.to('user:student:' + String(studentId)).emit('messenger:thread-cleared', payload);
+  io.to('role:teacher').emit('messenger:thread-cleared', payload);
+  broadcastThreadsChanged();
+}
+
 function isRealtimeEnabled() {
   return !!io;
 }
@@ -89,6 +103,7 @@ module.exports = {
   initRealtime,
   notifyNewMessage,
   notifyThreadRead,
+  notifyThreadCleared,
   broadcastThreadsChanged,
   isRealtimeEnabled
 };

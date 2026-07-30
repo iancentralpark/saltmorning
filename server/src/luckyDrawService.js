@@ -1,9 +1,38 @@
-const { LUCKY_DRAW_SHEET, TIMEZONE, STUDENT_LIST_SHEET, LUCKY_DRAW_PURCHASE_COST } = require('./config');
+const {
+  LUCKY_DRAW_SHEET,
+  LUCKY_DRAW_TRANSFERS_SHEET,
+  TIMEZONE,
+  STUDENT_LIST_SHEET,
+  LUCKY_DRAW_PURCHASE_COST,
+  LUCKY_STUDENT_SPIN_DAILY_LIMIT,
+  DOLLAR_SHEETS
+} = require('./config');
 const { getSheetRows, appendRows, deleteRows, updateRange, invalidateSheetRowsCache } = require('./sheets');
-const { formatDateTimeNow } = require('./dateUtils');
+const { formatDateTimeNow, formatDateInTz } = require('./dateUtils');
+const { cacheDeletePrefix } = require('./cache');
 const { getStudentDollarBalance, applyDollarAdjustment } = require('./dollarService');
 const { invalidateWorkCache } = require('./workCacheService');
 const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
+
+/** Ticket lifetime from birth (draw / grant / fuse). */
+const LUCKY_TICKET_TTL_DAYS = 90;
+const LUCKY_TICKET_TTL_MS = LUCKY_TICKET_TTL_DAYS * 24 * 60 * 60 * 1000;
+const STUDENT_LUCKY_SPIN_REASON = 'Student Lucky Draw ($' + LUCKY_DRAW_PURCHASE_COST + ')';
+
+/**
+ * Unlucky Draw destroy weights — Legendary+ slightly more likely than Weird/Common.
+ * Relative only among owned tickets.
+ */
+const UNLUCKY_DESTROY_WEIGHT = {
+  Weird: 1,
+  Common: 1,
+  Rare: 1.15,
+  Unique: 1.3,
+  Legendary: 1.55,
+  Mythical: 1.7,
+  Celestial: 1.85,
+  Godlike: 2
+};
 
 /** Student ticket upgrade ladder (same-tier fuse). */
 const FUSION_RECIPES = [
@@ -29,6 +58,7 @@ const FUSION_PRIZE_FALLBACKS = {
 function afterLuckyDrawWrite(classId) {
   if (classId) invalidateWorkCache(classId);
   invalidateSheetRowsCache(LUCKY_DRAW_SHEET);
+  if (classId) cacheDeletePrefix('sidebar_v1_' + String(classId));
 }
 
 function normalizeTierName(tier) {
@@ -65,10 +95,76 @@ function listFusionRecipes() {
   });
 }
 
+/** Parse DrawnAt ("yyyy-MM-dd HH:mm:ss" or ISO) → epoch ms (Asia/Seoul wall clock). */
+function parseLuckyDrawnAtMs(drawnAt) {
+  const s = String(drawnAt || '').trim();
+  if (!s) return NaN;
+  // Already timezone-aware (Supabase TIMESTAMPTZ / ISO)
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(s) || s.indexOf('T') >= 0 && /[zZ]|[+-]\d{2}/.test(s)) {
+    const ms = Date.parse(s);
+    if (!isNaN(ms)) return ms;
+  }
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const hh = m[4] != null ? m[4] : '00';
+    const mm = m[5] != null ? m[5] : '00';
+    const ss = m[6] != null ? m[6] : '00';
+    // DrawnAt from formatDateTimeNow is Seoul local without offset; pin +09:00.
+    const ms = Date.parse(m[1] + '-' + m[2] + '-' + m[3] + 'T' + hh + ':' + mm + ':' + ss + '+09:00');
+    if (!isNaN(ms)) return ms;
+  }
+  const d = new Date(s);
+  return d.getTime();
+}
+
+function computeLuckyExpiresAtMs(drawnAt) {
+  const born = parseLuckyDrawnAtMs(drawnAt);
+  if (isNaN(born)) return NaN;
+  return born + LUCKY_TICKET_TTL_MS;
+}
+
+function formatLuckyExpiresAt(drawnAt) {
+  const expMs = computeLuckyExpiresAtMs(drawnAt);
+  if (isNaN(expMs)) return '';
+  return formatDateInTz(new Date(expMs), TIMEZONE);
+}
+
+function luckyExpiresInDays(drawnAt, nowMs) {
+  const expMs = computeLuckyExpiresAtMs(drawnAt);
+  if (isNaN(expMs)) return null;
+  const now = nowMs != null ? nowMs : Date.now();
+  return Math.ceil((expMs - now) / (24 * 60 * 60 * 1000));
+}
+
+function isLuckyTicketExpired(ticketOrDrawnAt, nowMs) {
+  const drawnAt =
+    ticketOrDrawnAt && typeof ticketOrDrawnAt === 'object'
+      ? ticketOrDrawnAt.drawnAt
+      : ticketOrDrawnAt;
+  const born = parseLuckyDrawnAtMs(drawnAt);
+  // Missing/unparseable birth date: keep ticket (legacy safety)
+  if (isNaN(born)) return false;
+  const now = nowMs != null ? nowMs : Date.now();
+  return now >= born + LUCKY_TICKET_TTL_MS;
+}
+
+function enrichLuckyTicket(ticket, nowMs) {
+  const drawnAt = String((ticket && ticket.drawnAt) || '');
+  const expiresAt = formatLuckyExpiresAt(drawnAt);
+  const expiresInDays = luckyExpiresInDays(drawnAt, nowMs);
+  return Object.assign({}, ticket, {
+    expiresAt: expiresAt,
+    expiresInDays: expiresInDays,
+    ttlDays: LUCKY_TICKET_TTL_DAYS
+  });
+}
+
 function groupLuckyTickets(tickets) {
   const map = new Map();
   const order = [];
-  for (const t of tickets) {
+  const nowMs = Date.now();
+  for (const raw of tickets) {
+    const t = enrichLuckyTicket(raw, nowMs);
     const key = String(t.tier || '').trim() + '\0' + String(t.prizeText || '').trim();
     if (!map.has(key)) {
       map.set(key, {
@@ -76,7 +172,10 @@ function groupLuckyTickets(tickets) {
         prizeText: t.prizeText,
         count: 0,
         ticketIds: [],
-        drawnAt: t.drawnAt || ''
+        drawnAt: t.drawnAt || '',
+        expiresAt: t.expiresAt || '',
+        expiresInDays: t.expiresInDays,
+        ttlDays: LUCKY_TICKET_TTL_DAYS
       });
       order.push(key);
     }
@@ -84,8 +183,39 @@ function groupLuckyTickets(tickets) {
     g.count += 1;
     g.ticketIds.push(t.ticketId);
     if ((t.drawnAt || '') > (g.drawnAt || '')) g.drawnAt = t.drawnAt;
+    // Show soonest expiry in the stack so teachers/students use oldest first
+    if (t.expiresAt && (!g.expiresAt || t.expiresAt < g.expiresAt)) {
+      g.expiresAt = t.expiresAt;
+      g.expiresInDays = t.expiresInDays;
+    }
   }
   return order.map((k) => map.get(k));
+}
+
+/** Delete expired ticket rows (lazy cleanup). Returns number removed. */
+async function purgeExpiredLuckyTickets_(ticketIds, classIdHint) {
+  const ids = (Array.isArray(ticketIds) ? ticketIds : []).map(String).filter(Boolean);
+  if (!ids.length) return 0;
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('lucky_draw_tickets').delete().in('ticket_id', ids);
+    if (error) throw new Error(error.message);
+    if (classIdHint) afterLuckyDrawWrite(classIdHint);
+    else invalidateSheetRowsCache(LUCKY_DRAW_SHEET);
+    return ids.length;
+  }
+  const data = await getSheetRows(LUCKY_DRAW_SHEET);
+  const rowsToDelete = [];
+  let classId = classIdHint || '';
+  for (let i = 1; i < data.length; i++) {
+    if (ids.indexOf(String(data[i][0])) < 0) continue;
+    rowsToDelete.push(i + 1);
+    if (!classId) classId = String(data[i][1] || '');
+  }
+  if (!rowsToDelete.length) return 0;
+  await deleteRows(LUCKY_DRAW_SHEET, rowsToDelete);
+  afterLuckyDrawWrite(classId);
+  return rowsToDelete.length;
 }
 
 async function ensureLuckyDrawSheet() {
@@ -132,13 +262,24 @@ async function saveLuckyDrawTicket(classId, studentId, tier, prizeText) {
   }
   const ticketId = 'LDT_' + classId + '_' + studentId + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
   const drawnAt = formatDateTimeNow(TIMEZONE);
+  const expiresAt = formatLuckyExpiresAt(drawnAt);
   await appendRows(LUCKY_DRAW_SHEET, [[ticketId, classId, studentId, tier, prizeText, drawnAt]]);
   afterLuckyDrawWrite(classId);
   const ticketCount = await countStudentTickets(classId, studentId);
-  return { ticketId, tier, prizeText, drawnAt, ticketCount };
+  return {
+    ticketId,
+    tier,
+    prizeText,
+    drawnAt,
+    expiresAt: expiresAt,
+    expiresInDays: luckyExpiresInDays(drawnAt),
+    ttlDays: LUCKY_TICKET_TTL_DAYS,
+    ticketCount
+  };
 }
 
-async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost) {
+async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost, opts) {
+  opts = opts || {};
   cost = Number(cost);
   if (!Number.isFinite(cost) || cost <= 0) {
     cost = LUCKY_DRAW_PURCHASE_COST;
@@ -154,12 +295,8 @@ async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost
     err.cost = cost;
     throw err;
   }
-  const { newBalance } = await applyDollarAdjustment(
-    classId,
-    studentId,
-    -cost,
-    'Lucky Draw purchase ($' + cost + ')'
-  );
+  const reason = String(opts.reason || ('Lucky Draw purchase ($' + cost + ')')).trim();
+  const { newBalance } = await applyDollarAdjustment(classId, studentId, -cost, reason);
   const ticket = await saveLuckyDrawTicket(classId, studentId, tier, prizeText);
   return {
     ticket,
@@ -170,25 +307,307 @@ async function purchaseLuckyDrawTicket(classId, studentId, tier, prizeText, cost
   };
 }
 
+async function ensureLuckyTransferSheet_() {
+  if (isSupabaseEnabled()) return;
+  const data = await getSheetRows(LUCKY_DRAW_TRANSFERS_SHEET);
+  if (!data.length || String(data[0][0]) !== 'TransferID') {
+    if (!data.length) {
+      await appendRows(LUCKY_DRAW_TRANSFERS_SHEET, [[
+        'TransferID', 'TransferredAt', 'ClassID', 'TicketID', 'FromStudentID', 'ToStudentID',
+        'Tier', 'PrizeText', 'ActorType', 'ActorStudentID'
+      ]]);
+    }
+  }
+}
+
+async function logLuckyTransfer_(entry) {
+  const transferId = String(entry.transferId || ('LDX_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)));
+  const at = entry.transferredAt || formatDateTimeNow(TIMEZONE);
+  const row = {
+    transferId: transferId,
+    transferredAt: at,
+    classId: String(entry.classId || ''),
+    ticketId: String(entry.ticketId || ''),
+    fromStudentId: String(entry.fromStudentId || ''),
+    toStudentId: String(entry.toStudentId || ''),
+    tier: String(entry.tier || ''),
+    prizeText: String(entry.prizeText || ''),
+    actorType: String(entry.actorType || 'teacher'),
+    actorStudentId: entry.actorStudentId != null ? String(entry.actorStudentId) : ''
+  };
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { error } = await db.from('lucky_draw_transfers').insert({
+      transfer_id: row.transferId,
+      transferred_at: new Date().toISOString(),
+      class_id: row.classId,
+      ticket_id: row.ticketId,
+      from_student_id: row.fromStudentId,
+      to_student_id: row.toStudentId,
+      tier: row.tier,
+      prize_text: row.prizeText,
+      actor_type: row.actorType,
+      actor_student_id: row.actorStudentId || null
+    });
+    if (error) throw new Error(error.message);
+    return row;
+  }
+  await ensureLuckyTransferSheet_();
+  await appendRows(LUCKY_DRAW_TRANSFERS_SHEET, [[
+    row.transferId, row.transferredAt, row.classId, row.ticketId,
+    row.fromStudentId, row.toStudentId, row.tier, row.prizeText,
+    row.actorType, row.actorStudentId
+  ]]);
+  invalidateSheetRowsCache(LUCKY_DRAW_TRANSFERS_SHEET);
+  return row;
+}
+
+async function listLuckyTransfersForClass(classId, opts) {
+  opts = opts || {};
+  classId = String(classId || '');
+  const limit = Math.min(100, Math.max(1, Number(opts.limit) || 40));
+  const studentId = opts.studentId != null ? String(opts.studentId) : '';
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    let q = db.from('lucky_draw_transfers')
+      .select('transfer_id, transferred_at, class_id, ticket_id, from_student_id, to_student_id, tier, prize_text, actor_type, actor_student_id')
+      .eq('class_id', classId)
+      .order('transferred_at', { ascending: false })
+      .limit(limit * 2);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    let rows = (data || []).map(function(r) {
+      return {
+        transferId: String(r.transfer_id),
+        transferredAt: r.transferred_at ? String(r.transferred_at) : '',
+        classId: String(r.class_id || ''),
+        ticketId: String(r.ticket_id || ''),
+        fromStudentId: String(r.from_student_id || ''),
+        toStudentId: String(r.to_student_id || ''),
+        tier: String(r.tier || ''),
+        prizeText: String(r.prize_text || ''),
+        actorType: String(r.actor_type || ''),
+        actorStudentId: r.actor_student_id ? String(r.actor_student_id) : ''
+      };
+    });
+    if (studentId) {
+      rows = rows.filter(function(r) {
+        return r.fromStudentId === studentId || r.toStudentId === studentId;
+      });
+    }
+    return rows.slice(0, limit);
+  }
+  await ensureLuckyTransferSheet_();
+  const data = await getSheetRows(LUCKY_DRAW_TRANSFERS_SHEET);
+  const out = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][2]) !== classId) continue;
+    const fromId = String(data[i][4] || '');
+    const toId = String(data[i][5] || '');
+    if (studentId && fromId !== studentId && toId !== studentId) continue;
+    out.push({
+      transferId: String(data[i][0] || ''),
+      transferredAt: String(data[i][1] || ''),
+      classId: String(data[i][2] || ''),
+      ticketId: String(data[i][3] || ''),
+      fromStudentId: fromId,
+      toStudentId: toId,
+      tier: String(data[i][6] || ''),
+      prizeText: String(data[i][7] || ''),
+      actorType: String(data[i][8] || ''),
+      actorStudentId: String(data[i][9] || '')
+    });
+  }
+  out.sort(function(a, b) {
+    return a.transferredAt < b.transferredAt ? 1 : a.transferredAt > b.transferredAt ? -1 : 0;
+  });
+  return out.slice(0, limit);
+}
+
+function seoulDayBoundsIso_() {
+  const day = formatDateInTz(new Date(), TIMEZONE);
+  return {
+    day: day,
+    startIso: day + 'T00:00:00+09:00',
+    endIso: formatDateInTz(new Date(Date.parse(day + 'T00:00:00+09:00') + 24 * 60 * 60 * 1000), TIMEZONE) + 'T00:00:00+09:00'
+  };
+}
+
+async function countStudentLuckySpinsToday(studentId) {
+  studentId = String(studentId);
+  const bounds = seoulDayBoundsIso_();
+  if (isSupabaseEnabled()) {
+    const db = getSupabase();
+    const { data, error } = await db.from('dollar_transactions')
+      .select('created_at')
+      .eq('student_id', studentId)
+      .eq('reason', STUDENT_LUCKY_SPIN_REASON)
+      .gte('created_at', bounds.startIso)
+      .lt('created_at', bounds.endIso);
+    if (error) throw new Error(error.message);
+    return (data || []).length;
+  }
+  const data = await getSheetRows(DOLLAR_SHEETS.TRANSACTIONS);
+  let count = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][2]) !== studentId) continue;
+    if (String(data[i][5] || '') !== STUDENT_LUCKY_SPIN_REASON) continue;
+    const at = String(data[i][0] || '');
+    const day = formatDateInTz(at, TIMEZONE);
+    if (day === bounds.day) count += 1;
+  }
+  return count;
+}
+
+async function rollLuckyPrize_() {
+  const { getLuckyDrawConfig, getActiveClientTiers } = require('./luckyDrawConfigService');
+  const config = await getLuckyDrawConfig();
+  const tiers = getActiveClientTiers(config);
+  if (!tiers.length) throw new Error('No Lucky Draw prizes are configured.');
+  let total = 0;
+  for (let i = 0; i < tiers.length; i++) {
+    total += Math.max(0, Number(tiers[i].weight) || 0);
+  }
+  if (total <= 0) throw new Error('Lucky Draw weights are invalid.');
+  let r = Math.random() * total;
+  let picked = tiers[tiers.length - 1];
+  for (let i = 0; i < tiers.length; i++) {
+    r -= Math.max(0, Number(tiers[i].weight) || 0);
+    if (r <= 0) {
+      picked = tiers[i];
+      break;
+    }
+  }
+  const items = Array.isArray(picked.items) ? picked.items.filter(Boolean) : [];
+  if (!items.length) throw new Error('No prizes in tier: ' + (picked.name || 'unknown'));
+  const raw = items[Math.floor(Math.random() * items.length)];
+  const prizeText = typeof raw === 'string' ? raw : String(raw.text || raw.prizeText || '').trim();
+  if (!prizeText) throw new Error('Empty prize text.');
+  return { tier: String(picked.name || 'Prize'), prizeText: prizeText };
+}
+
+async function studentPurchaseLuckyDraw(classId, studentId) {
+  classId = String(classId);
+  studentId = String(studentId);
+  const used = await countStudentLuckySpinsToday(studentId);
+  const limit = LUCKY_STUDENT_SPIN_DAILY_LIMIT || 2;
+  if (used >= limit) {
+    const err = new Error('You can spin Lucky Draw only ' + limit + ' times per day. Come back tomorrow!');
+    err.code = 'DAILY_LIMIT';
+    err.used = used;
+    err.limit = limit;
+    throw err;
+  }
+  const rolled = await rollLuckyPrize_();
+  const result = await purchaseLuckyDrawTicket(
+    classId,
+    studentId,
+    rolled.tier,
+    rolled.prizeText,
+    LUCKY_DRAW_PURCHASE_COST,
+    { reason: STUDENT_LUCKY_SPIN_REASON }
+  );
+  const remaining = await listStudentLuckyTickets(classId, studentId);
+  return {
+    message: 'You won a ' + rolled.tier + ' ticket!',
+    ticket: result.ticket,
+    cost: result.cost,
+    previousBalance: result.previousBalance,
+    newBalance: result.newBalance,
+    spinsUsedToday: used + 1,
+    spinsRemainingToday: Math.max(0, limit - used - 1),
+    spinLimit: limit,
+    luckyDraw: {
+      totalCount: remaining.length,
+      tickets: groupLuckyTickets(remaining),
+      recipes: listFusionRecipes()
+    }
+  };
+}
+
+async function getStudentLuckySpinStatus(classId, studentId) {
+  const used = await countStudentLuckySpinsToday(studentId);
+  const limit = LUCKY_STUDENT_SPIN_DAILY_LIMIT || 2;
+  const balance = await getStudentDollarBalance(studentId);
+  return {
+    cost: LUCKY_DRAW_PURCHASE_COST,
+    spinsUsedToday: used,
+    spinsRemainingToday: Math.max(0, limit - used),
+    spinLimit: limit,
+    balance: balance
+  };
+}
+
+function pickUnluckyTicketWeighted_(tickets) {
+  if (!tickets || !tickets.length) return null;
+  if (tickets.length === 1) return tickets[0];
+  let total = 0;
+  const weights = tickets.map(function(t) {
+    const key = canonicalTierName(t.tier);
+    const w = UNLUCKY_DESTROY_WEIGHT[key] != null ? UNLUCKY_DESTROY_WEIGHT[key] : 1.2;
+    total += w;
+    return w;
+  });
+  let r = Math.random() * total;
+  for (let i = 0; i < tickets.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return tickets[i];
+  }
+  return tickets[tickets.length - 1];
+}
+
+/** Match prize text for the special Unlucky Draw Shield ticket. */
+function isUnluckyDrawShieldTicket(ticket) {
+  const prize = String((ticket && ticket.prizeText) || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!prize) return false;
+  return (
+    prize === 'unlucky draw shield' ||
+    /unlucky\s*draw\s*shield/.test(prize) ||
+    /^unlucky\s*shield$/.test(prize)
+  );
+}
+
+function findUnluckyDrawShield_(tickets) {
+  const list = Array.isArray(tickets) ? tickets : [];
+  for (let i = 0; i < list.length; i++) {
+    if (isUnluckyDrawShieldTicket(list[i])) return list[i];
+  }
+  return null;
+}
+
 async function listStudentLuckyTickets(classId, studentId) {
   await ensureLuckyDrawSheet();
   classId = String(classId);
   studentId = String(studentId);
   const data = await getSheetRows(LUCKY_DRAW_SHEET);
-  const tickets = [];
+  const nowMs = Date.now();
+  const active = [];
+  const expiredIds = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]) !== classId || String(data[i][2]) !== studentId) continue;
-    tickets.push({
+    const ticket = {
       ticketId: String(data[i][0]),
       classId,
       studentId,
       tier: String(data[i][3] || ''),
       prizeText: String(data[i][4] || ''),
       drawnAt: String(data[i][5] || '')
-    });
+    };
+    if (isLuckyTicketExpired(ticket, nowMs)) {
+      expiredIds.push(ticket.ticketId);
+      continue;
+    }
+    active.push(enrichLuckyTicket(ticket, nowMs));
   }
-  tickets.sort((a, b) => (a.drawnAt < b.drawnAt ? 1 : a.drawnAt > b.drawnAt ? -1 : 0));
-  return tickets;
+  if (expiredIds.length) {
+    try {
+      await purgeExpiredLuckyTickets_(expiredIds, classId);
+    } catch (err) {
+      console.error('purgeExpiredLuckyTickets_', err.message || err);
+    }
+  }
+  active.sort((a, b) => (a.drawnAt < b.drawnAt ? 1 : a.drawnAt > b.drawnAt ? -1 : 0));
+  return active;
 }
 
 async function redeemLuckyTicket(ticketId) {
@@ -197,13 +616,17 @@ async function redeemLuckyTicket(ticketId) {
   if (isSupabaseEnabled()) {
     const db = getSupabase();
     const { data, error: readErr } = await db.from('lucky_draw_tickets')
-      .select('class_id, student_id')
+      .select('class_id, student_id, drawn_at')
       .eq('ticket_id', ticketId)
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
     if (!data) throw new Error('Ticket not found.');
     const classId = String(data.class_id);
     const studentId = String(data.student_id);
+    if (isLuckyTicketExpired(String(data.drawn_at || ''))) {
+      await purgeExpiredLuckyTickets_([ticketId], classId);
+      throw new Error('This ticket expired (90-day limit).');
+    }
     const { error } = await db.from('lucky_draw_tickets').delete().eq('ticket_id', ticketId);
     if (error) throw new Error(error.message);
     afterLuckyDrawWrite(classId);
@@ -219,6 +642,10 @@ async function redeemLuckyTicket(ticketId) {
     if (String(data[i][0]) === ticketId) {
       const classId = String(data[i][1]);
       const studentId = String(data[i][2]);
+      if (isLuckyTicketExpired(String(data[i][5] || ''))) {
+        await purgeExpiredLuckyTickets_([ticketId], classId);
+        throw new Error('This ticket expired (90-day limit).');
+      }
       await deleteRows(LUCKY_DRAW_SHEET, [i + 1]);
       afterLuckyDrawWrite(classId);
       return {
@@ -272,14 +699,22 @@ async function assertStudentInClass_(classId, studentId) {
   throw new Error('Student not found.');
 }
 
-async function transferLuckyTicket(ticketId, toStudentId) {
+async function transferLuckyTicket(ticketId, toStudentId, opts) {
+  opts = opts || {};
   await ensureLuckyDrawSheet();
   ticketId = String(ticketId);
   toStudentId = String(toStudentId);
   const row = await findTicketRow_(ticketId);
   if (!row) throw new Error('Ticket not found.');
+  if (isLuckyTicketExpired(row.drawnAt)) {
+    await purgeExpiredLuckyTickets_([ticketId], row.classId);
+    throw new Error('This ticket expired (90-day limit).');
+  }
   if (row.studentId === toStudentId) {
     throw new Error('This student already owns the ticket.');
+  }
+  if (opts.fromStudentId && String(opts.fromStudentId) !== row.studentId) {
+    throw new Error('You can only transfer your own tickets.');
   }
   await assertStudentInClass_(row.classId, toStudentId);
   if (isSupabaseEnabled()) {
@@ -290,6 +725,21 @@ async function transferLuckyTicket(ticketId, toStudentId) {
     await updateRange(LUCKY_DRAW_SHEET, 'C' + row.row, [[toStudentId]]);
   }
   afterLuckyDrawWrite(row.classId);
+  let log = null;
+  try {
+    log = await logLuckyTransfer_({
+      classId: row.classId,
+      ticketId: ticketId,
+      fromStudentId: row.studentId,
+      toStudentId: toStudentId,
+      tier: row.tier,
+      prizeText: row.prizeText,
+      actorType: opts.actorType || 'teacher',
+      actorStudentId: opts.actorStudentId || (opts.actorType === 'student' ? row.studentId : '')
+    });
+  } catch (err) {
+    console.error('logLuckyTransfer_', err.message || err);
+  }
   return {
     message: 'Ticket transferred.',
     ticketId,
@@ -299,8 +749,39 @@ async function transferLuckyTicket(ticketId, toStudentId) {
     tier: row.tier,
     prizeText: row.prizeText,
     fromRemainingCount: await countStudentTickets(row.classId, row.studentId),
-    toRemainingCount: await countStudentTickets(row.classId, toStudentId)
+    toRemainingCount: await countStudentTickets(row.classId, toStudentId),
+    transfer: log
   };
+}
+
+async function studentTransferLuckyTicket(classId, fromStudentId, ticketId, toStudentId) {
+  classId = String(classId);
+  fromStudentId = String(fromStudentId);
+  toStudentId = String(toStudentId);
+  if (fromStudentId === toStudentId) {
+    throw new Error('You already own this ticket.');
+  }
+  await assertStudentInClass_(classId, toStudentId);
+  const row = await findTicketRow_(String(ticketId));
+  if (!row) throw new Error('Ticket not found.');
+  if (String(row.classId) !== classId) {
+    throw new Error('Ticket is not in your class.');
+  }
+  const remaining = await listStudentLuckyTickets(classId, fromStudentId);
+  const result = await transferLuckyTicket(ticketId, toStudentId, {
+    fromStudentId: fromStudentId,
+    actorType: 'student',
+    actorStudentId: fromStudentId
+  });
+  const after = await listStudentLuckyTickets(classId, fromStudentId);
+  return Object.assign({}, result, {
+    luckyDraw: {
+      totalCount: after.length,
+      tickets: groupLuckyTickets(after),
+      recipes: listFusionRecipes()
+    },
+    previousCount: remaining.length
+  });
 }
 
 async function getLuckyDrawCountsByClass(classId) {
@@ -308,10 +789,24 @@ async function getLuckyDrawCountsByClass(classId) {
   classId = String(classId);
   const data = await getSheetRows(LUCKY_DRAW_SHEET);
   const counts = {};
+  const nowMs = Date.now();
+  const expiredIds = [];
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][1]) !== classId) continue;
+    const drawnAt = String(data[i][5] || '');
+    if (isLuckyTicketExpired(drawnAt, nowMs)) {
+      expiredIds.push(String(data[i][0]));
+      continue;
+    }
     const sid = String(data[i][2]);
     counts[sid] = (counts[sid] || 0) + 1;
+  }
+  if (expiredIds.length) {
+    try {
+      await purgeExpiredLuckyTickets_(expiredIds, classId);
+    } catch (err) {
+      console.error('purgeExpiredLuckyTickets_', err.message || err);
+    }
   }
   return counts;
 }
@@ -441,7 +936,10 @@ async function fuseLuckyTickets(classId, studentId, ticketIds) {
       ticketId: ticket.ticketId,
       tier: ticket.tier,
       prizeText: ticket.prizeText,
-      drawnAt: ticket.drawnAt
+      drawnAt: ticket.drawnAt,
+      expiresAt: ticket.expiresAt,
+      expiresInDays: ticket.expiresInDays,
+      ttlDays: LUCKY_TICKET_TTL_DAYS
     },
     ticketCount: ticket.ticketCount,
     luckyDraw: {
@@ -465,7 +963,30 @@ async function executeUnluckyDraw(classId, studentId, opts) {
   const balance = await getStudentDollarBalance(studentId);
 
   if (tickets.length > 0) {
-    const pick = tickets[Math.floor(Math.random() * tickets.length)];
+    // Shield fires first: consume itself, keep every other ticket safe.
+    const shield = findUnluckyDrawShield_(tickets);
+    if (shield) {
+      const redeemed = await redeemLuckyTicket(shield.ticketId);
+      const protectedCount = Math.max(0, tickets.length - 1);
+      return {
+        mode: 'shield',
+        shield: {
+          ticketId: shield.ticketId,
+          tier: shield.tier,
+          prizeText: shield.prizeText,
+          drawnAt: shield.drawnAt
+        },
+        protectedCount: protectedCount,
+        remainingCount: redeemed.remainingCount,
+        dollars: balance,
+        message: protectedCount > 0
+          ? 'Unlucky Draw Shield activated! ' + protectedCount + ' ticket' +
+            (protectedCount === 1 ? '' : 's') + ' protected.'
+          : 'Unlucky Draw Shield activated and burned out.'
+      };
+    }
+
+    const pick = pickUnluckyTicketWeighted_(tickets);
     const redeemed = await redeemLuckyTicket(pick.ticketId);
     return {
       mode: 'ticket',
@@ -517,16 +1038,28 @@ async function executeUnluckyDraw(classId, studentId, opts) {
 
 module.exports = {
   FUSION_RECIPES,
+  LUCKY_TICKET_TTL_DAYS,
+  LUCKY_DRAW_PURCHASE_COST,
+  STUDENT_LUCKY_SPIN_REASON,
   groupLuckyTickets,
   saveLuckyDrawTicket,
   purchaseLuckyDrawTicket,
+  studentPurchaseLuckyDraw,
+  getStudentLuckySpinStatus,
   listStudentLuckyTickets,
   redeemLuckyTicket,
   transferLuckyTicket,
+  studentTransferLuckyTicket,
+  listLuckyTransfersForClass,
   getLuckyDrawCountsByClass,
   countStudentTickets,
   findFusionRecipe,
   listFusionRecipes,
   fuseLuckyTickets,
-  executeUnluckyDraw
+  executeUnluckyDraw,
+  isLuckyTicketExpired,
+  enrichLuckyTicket,
+  formatLuckyExpiresAt,
+  pickPrizeForTier: pickPrizeForTier_,
+  rollLuckyPrize: rollLuckyPrize_
 };

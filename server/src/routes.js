@@ -46,9 +46,35 @@ const {
   setTeacherAuthCookie,
   clearTeacherAuthCookie
 } = require('./teacherAuth');
-const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy, listBuddyUsageForClass, refillBuddyUsage, refillBuddyUsageForClass, getTeacherBuddyStatus, streamTeacherVirtualMrPark, TEACHER_BUDDY_ID, TEACHER_BUDDY_CLASS } = require('./englishBuddyService');
+const { getBuddyStatus, askEnglishBuddy, streamEnglishBuddy, listBuddyUsageForClass, listBuddyMonitorRoster, refillBuddyUsage, refillBuddyUsageForClass, getTeacherBuddyStatus, streamTeacherVirtualMrPark, TEACHER_BUDDY_ID, TEACHER_BUDDY_CLASS } = require('./englishBuddyService');
 const { getBuddyChatHistory, clearBuddyChatHistory } = require('./englishBuddyHistoryService');
-const { listAbuseFlagsForClass, reviewAbuseFlag, getAbuseFlagChatLog, unlockBuddyAbuse } = require('./englishBuddyAbuseService');
+const { listAbuseFlagsForClass, listAbuseFlagsAll, reviewAbuseFlag, getAbuseFlagChatLog, unlockBuddyAbuse } = require('./englishBuddyAbuseService');
+const {
+  getPlacementMeta,
+  scorePlacement,
+  deepDiveWord,
+  nextTargetFreq,
+  updateAbility
+} = require('./vocabPlacementService');
+const {
+  bulkUpsertWords,
+  listWords: listVocabWords,
+  getWordBankStats,
+  deleteWord: deleteVocabWord,
+  savePlacementResult,
+  getDailyQueue,
+  recordReview,
+  recordDailyTestResult,
+  getStudentVocabSummary,
+  getClassSettings: getVocabClassSettings,
+  saveClassSettings: saveVocabClassSettings,
+  getClassOverview: getVocabClassOverview,
+  overrideStudentState: overrideVocabStudentState,
+  manualGrantReward: manualGrantVocabReward,
+  getGenerationJob: getVocabGenerationJob,
+  listActiveGenerationJobs: listActiveVocabGenerationJobs
+} = require('./vocabLearningService');
+const { startGenerationJob: startVocabGenerationJob, cancelGenerationJob: cancelVocabGenerationJob } = require('./vocabWordGenService');
 const {
   getThread,
   markMessagesRead,
@@ -58,15 +84,20 @@ const {
   getUnreadTotalForClass,
   getUnreadTotalGlobal,
   studentSendMessage,
-  teacherSendMessage
+  teacherSendMessage,
+  deleteThread
 } = require('./messageService');
 const {
   groupLuckyTickets,
   saveLuckyDrawTicket,
   purchaseLuckyDrawTicket,
+  studentPurchaseLuckyDraw,
+  getStudentLuckySpinStatus,
   listStudentLuckyTickets,
   redeemLuckyTicket,
   transferLuckyTicket,
+  studentTransferLuckyTicket,
+  listLuckyTransfersForClass,
   fuseLuckyTickets,
   listFusionRecipes,
   executeUnluckyDraw
@@ -129,7 +160,7 @@ const {
 const { getClassCalendarData } = require('./calendarService');
 const { saveClassLogEntry, getClassLogEntry } = require('./classLogService');
 const { isGeminiConfigured, askGemini, streamAskGemini, teacherGeminiOptions, getGeminiCallStats } = require('./geminiService');
-const { notifyNewMessage, notifyThreadRead, isRealtimeEnabled } = require('./realtime');
+const { notifyNewMessage, notifyThreadRead, notifyThreadCleared, isRealtimeEnabled } = require('./realtime');
 const { buildRequestContext } = require('./sheets');
 const { TEACHER_GATE_PASSWORD, LUCKY_DRAW_PURCHASE_COST } = require('./config');
 
@@ -864,9 +895,13 @@ router.post('/homework/post', async (req, res) => {
 
 router.post('/homework/sync-classroom', async (req, res) => {
   try {
-    const { classId, dateStr } = req.body || {};
+    const { classId, dateStr, title, description, items } = req.body || {};
     if (!classId || !dateStr) return res.status(400).json({ error: 'classId and dateStr are required' });
-    res.json(await syncHomeworkClassroomForClassDate(classId, dateStr));
+    res.json(await syncHomeworkClassroomForClassDate(classId, dateStr, {
+      title,
+      description,
+      items
+    }));
   } catch (e) {
     console.error('POST /homework/sync-classroom', e);
     res.status(500).json({ error: e.message || 'Server error' });
@@ -1009,10 +1044,25 @@ router.post('/lucky-draw/transfer', async (req, res) => {
     if (!ticketId || !toStudentId) {
       return res.status(400).json({ error: 'ticketId and toStudentId are required' });
     }
-    res.json(await transferLuckyTicket(ticketId, toStudentId));
+    res.json(await transferLuckyTicket(ticketId, toStudentId, { actorType: 'teacher' }));
   } catch (e) {
     console.error('POST /lucky-draw/transfer', e);
     res.status(400).json({ error: e.message || 'Transfer failed' });
+  }
+});
+
+router.get('/lucky-draw/transfers', async (req, res) => {
+  try {
+    const classId = req.query.classId;
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    const transfers = await listLuckyTransfersForClass(classId, {
+      studentId: req.query.studentId || '',
+      limit: req.query.limit
+    });
+    res.json({ transfers });
+  } catch (e) {
+    console.error('GET /lucky-draw/transfers', e);
+    res.status(500).json({ error: e.message || 'Server error' });
   }
 });
 
@@ -1245,6 +1295,54 @@ router.post('/student/lucky-draw/fuse', requireStudentAuth, async (req, res) => 
   }
 });
 
+router.post('/student/lucky-draw/transfer', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const ticketId = req.body && req.body.ticketId;
+    const toStudentId = req.body && req.body.toStudentId;
+    if (!ticketId || !toStudentId) {
+      return res.status(400).json({ error: 'ticketId and toStudentId are required' });
+    }
+    res.json(await studentTransferLuckyTicket(classId, studentId, ticketId, toStudentId));
+  } catch (e) {
+    console.error('POST /student/lucky-draw/transfer', e);
+    const msg = e.message || 'Transfer failed';
+    const status = /own|not found|expired|already|not in|enrolled/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
+  }
+});
+
+router.get('/student/lucky-draw/spin-status', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await getStudentLuckySpinStatus(classId, studentId));
+  } catch (e) {
+    console.error('GET /student/lucky-draw/spin-status', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/student/lucky-draw/spin', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await studentPurchaseLuckyDraw(classId, studentId));
+  } catch (e) {
+    console.error('POST /student/lucky-draw/spin', e);
+    const msg = e.message || 'Spin failed';
+    let status = 500;
+    if (e.code === 'INSUFFICIENT_DOLLARS' || e.code === 'DAILY_LIMIT') status = 400;
+    else if (/enough dollars|only .* times|configured|weights|prizes/i.test(msg)) status = 400;
+    res.status(status).json({
+      error: msg,
+      code: e.code || null,
+      used: e.used,
+      limit: e.limit,
+      balance: e.balance,
+      cost: e.cost
+    });
+  }
+});
+
 router.get('/student/stamp-board', requireStudentAuth, async (req, res) => {
   try {
     const { studentId, classId } = req.studentSession;
@@ -1356,11 +1454,23 @@ router.post('/english-buddy/refill', async (req, res) => {
 router.get('/english-buddy/abuse-flags', requireTeacherAuth, async (req, res) => {
   try {
     const classId = String(req.query.classId || '').trim();
-    if (!classId) return res.status(400).json({ error: 'classId is required' });
     const includeReviewed = String(req.query.includeReviewed || '') === '1';
+    if (!classId) {
+      res.json(await listAbuseFlagsAll({ includeReviewed: includeReviewed }));
+      return;
+    }
     res.json(await listAbuseFlagsForClass(classId, { includeReviewed: includeReviewed }));
   } catch (e) {
     console.error('GET /english-buddy/abuse-flags', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/english-buddy/monitor', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await listBuddyMonitorRoster());
+  } catch (e) {
+    console.error('GET /english-buddy/monitor', e);
     res.status(500).json({ error: e.message || 'Server error' });
   }
 });
@@ -1376,6 +1486,196 @@ router.get('/english-buddy/abuse-flags/chat', requireTeacherAuth, async (req, re
   } catch (e) {
     console.error('GET /english-buddy/abuse-flags/chat', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/english-buddy/history', requireTeacherAuth, async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    const studentId = String(req.query.studentId || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'studentId is required' });
+    res.json(await getBuddyChatHistory(studentId, classId));
+  } catch (e) {
+    console.error('GET /english-buddy/history', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/english-buddy/history/clear', requireTeacherAuth, async (req, res) => {
+  try {
+    const studentId = String((req.body && req.body.studentId) || '').trim();
+    if (!studentId) return res.status(400).json({ error: 'studentId is required' });
+    res.json(await clearBuddyChatHistory(studentId));
+  } catch (e) {
+    console.error('POST /english-buddy/history/clear', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+// ---- Vocab LMS: word bank uploads, class settings, roster overview (Round 2) ----
+
+router.get('/vocab/words', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await listVocabWords({
+      limit: req.query.limit,
+      offset: req.query.offset,
+      search: req.query.search
+    }));
+  } catch (e) {
+    console.error('GET /vocab/words', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/vocab/words/stats', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await getWordBankStats());
+  } catch (e) {
+    console.error('GET /vocab/words/stats', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/vocab/words/bulk', requireTeacherAuth, async (req, res) => {
+  try {
+    const words = (req.body && req.body.words) || [];
+    res.json(await bulkUpsertWords(words));
+  } catch (e) {
+    console.error('POST /vocab/words/bulk', e);
+    res.status(400).json({ error: e.message || 'Bulk upload failed' });
+  }
+});
+
+// AI-generated word bank: raw word list (paste / CSV / Excel, already normalized client-side)
+// -> background Gemini batch job -> full vocab_words rows (definitions + pre-baked quiz).
+router.get('/vocab/words/generate', requireTeacherAuth, async (req, res) => {
+  try {
+    const jobs = await listActiveVocabGenerationJobs();
+    res.json({
+      jobs: jobs.map(function (job) {
+        return {
+          id: job.id,
+          status: job.status,
+          total: job.total,
+          completed: job.completed,
+          failedWords: job.failed_words || []
+        };
+      })
+    });
+  } catch (e) {
+    console.error('GET /vocab/words/generate', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/vocab/words/generate', requireTeacherAuth, async (req, res) => {
+  try {
+    const words = (req.body && req.body.words) || [];
+    const result = await startVocabGenerationJob(words, 'teacher');
+    res.json({
+      ok: true,
+      jobId: result.jobId,
+      total: result.total,
+      skippedExisting: result.skippedExisting || 0
+    });
+  } catch (e) {
+    console.error('POST /vocab/words/generate', e);
+    res.status(400).json({
+      error: e.message || 'Could not start generation job',
+      skippedExisting: e.skippedExisting || 0
+    });
+  }
+});
+
+router.get('/vocab/words/generate/:jobId', requireTeacherAuth, async (req, res) => {
+  try {
+    const job = await getVocabGenerationJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    res.json({
+      id: job.id,
+      status: job.status,
+      total: job.total,
+      completed: job.completed,
+      failedWords: job.failed_words || []
+    });
+  } catch (e) {
+    console.error('GET /vocab/words/generate/:jobId', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/vocab/words/generate/:jobId/cancel', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await cancelVocabGenerationJob(req.params.jobId));
+  } catch (e) {
+    console.error('POST /vocab/words/generate/:jobId/cancel', e);
+    res.status(400).json({ error: e.message || 'Could not cancel job' });
+  }
+});
+
+router.delete('/vocab/words/:wordId', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await deleteVocabWord(req.params.wordId));
+  } catch (e) {
+    console.error('DELETE /vocab/words/:wordId', e);
+    res.status(400).json({ error: e.message || 'Delete failed' });
+  }
+});
+
+router.get('/vocab/class/:classId/overview', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await getVocabClassOverview(req.params.classId));
+  } catch (e) {
+    console.error('GET /vocab/class/overview', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/vocab/class/:classId/settings', requireTeacherAuth, async (req, res) => {
+  try {
+    res.json(await getVocabClassSettings(req.params.classId));
+  } catch (e) {
+    console.error('GET /vocab/class/settings', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/vocab/class/:classId/settings', requireTeacherAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json(await saveVocabClassSettings(req.params.classId, {
+      dailyTarget: body.dailyTarget,
+      passThreshold: body.passThreshold,
+      rewardTier: body.rewardTier
+    }));
+  } catch (e) {
+    console.error('POST /vocab/class/settings', e);
+    res.status(400).json({ error: e.message || 'Could not save settings' });
+  }
+});
+
+router.post('/vocab/student/:studentId/override', requireTeacherAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json(await overrideVocabStudentState(req.params.studentId, {
+      gradeLevel: body.gradeLevel,
+      resetPlacement: body.resetPlacement !== false
+    }));
+  } catch (e) {
+    console.error('POST /vocab/student/override', e);
+    res.status(400).json({ error: e.message || 'Could not override student state' });
+  }
+});
+
+router.post('/vocab/student/:studentId/grant-reward', requireTeacherAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const classId = String(body.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'classId is required' });
+    res.json(await manualGrantVocabReward(classId, req.params.studentId));
+  } catch (e) {
+    console.error('POST /vocab/student/grant-reward', e);
+    res.status(400).json({ error: e.message || 'Could not grant reward' });
   }
 });
 
@@ -1420,6 +1720,110 @@ router.delete('/student/english-buddy/history', requireStudentAuth, async (req, 
   } catch (e) {
     console.error('DELETE /student/english-buddy/history', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/student/vocab/placement/meta', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(getPlacementMeta());
+  } catch (e) {
+    console.error('GET /student/vocab/placement/meta', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/student/vocab/placement/score', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const result = scorePlacement(req.body || {});
+    try {
+      await savePlacementResult(studentId, classId, result);
+    } catch (persistErr) {
+      console.error('savePlacementResult', persistErr.message || persistErr);
+      result.persisted = false;
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('POST /student/vocab/placement/score', e);
+    res.status(400).json({ error: e.message || 'Could not score placement' });
+  }
+});
+
+router.post('/student/vocab/placement/next', requireStudentAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const ability = updateAbility(body.abilityGrade, {
+      correct: !!body.correct,
+      seconds: body.seconds,
+      questionType: body.questionType
+    });
+    res.json({
+      abilityGrade: ability,
+      nextTargetGrade: nextTargetFreq(ability, Number(body.questionIndex) || 0)
+    });
+  } catch (e) {
+    console.error('POST /student/vocab/placement/next', e);
+    res.status(400).json({ error: e.message || 'Could not adapt difficulty' });
+  }
+});
+
+router.post('/student/vocab/deep-dive', requireStudentAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json(await deepDiveWord({
+      word: body.word,
+      partOfSpeech: body.partOfSpeech || body.part_of_speech,
+      focus: body.focus,
+      levelHint: body.levelHint,
+      studentLevel: body.studentLevel
+    }));
+  } catch (e) {
+    console.error('POST /student/vocab/deep-dive', e);
+    res.status(400).json({ error: e.message || 'Deep-dive failed' });
+  }
+});
+
+// ---- Daily Quest: SRS review queue -> mini test -> auto reward (Round 2) ----
+
+router.get('/student/vocab/summary', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await getStudentVocabSummary(studentId, classId));
+  } catch (e) {
+    console.error('GET /student/vocab/summary', e);
+    res.status(400).json({ error: e.message || 'Could not load vocab summary' });
+  }
+});
+
+router.get('/student/vocab/daily-queue', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await getDailyQueue(studentId, classId));
+  } catch (e) {
+    console.error('GET /student/vocab/daily-queue', e);
+    res.status(400).json({ error: e.message || 'Could not load today\'s queue' });
+  }
+});
+
+router.post('/student/vocab/review', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const body = req.body || {};
+    res.json(await recordReview(studentId, classId, body.wordId, !!body.correct));
+  } catch (e) {
+    console.error('POST /student/vocab/review', e);
+    res.status(400).json({ error: e.message || 'Could not record review' });
+  }
+});
+
+router.post('/student/vocab/daily-test/submit', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    const body = req.body || {};
+    res.json(await recordDailyTestResult(studentId, classId, body.correctCount, body.totalCount));
+  } catch (e) {
+    console.error('POST /student/vocab/daily-test/submit', e);
+    res.status(400).json({ error: e.message || 'Could not submit daily test' });
   }
 });
 
@@ -1571,6 +1975,22 @@ router.post('/messages', async (req, res) => {
   } catch (e) {
     console.error('POST /messages', e);
     res.status(400).json({ error: e.message || 'Send failed' });
+  }
+});
+
+router.post('/messages/thread/clear', requireTeacherAuth, async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || '').trim();
+    const studentId = String((req.body && req.body.studentId) || '').trim();
+    if (!classId || !studentId) {
+      return res.status(400).json({ error: 'classId and studentId are required' });
+    }
+    const result = await deleteThread(classId, studentId);
+    notifyThreadCleared(classId, studentId);
+    res.json(result);
+  } catch (e) {
+    console.error('POST /messages/thread/clear', e);
+    res.status(500).json({ error: e.message || 'Server error' });
   }
 });
 

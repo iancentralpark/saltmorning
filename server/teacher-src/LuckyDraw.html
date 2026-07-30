@@ -54,6 +54,7 @@
             position: absolute;
             top: 0.85rem;
             right: 0.9rem;
+            z-index: 20;
             border: 2px solid rgba(241, 196, 15, 0.55);
             border-radius: 999px;
             background: #fffdf5;
@@ -67,6 +68,7 @@
             cursor: pointer;
             line-height: 1.2;
             transition: transform 0.12s, background 0.12s;
+            pointer-events: auto;
         }
         .edit-prizes-btn:hover {
             background: #fff8e1;
@@ -238,7 +240,10 @@
             font-size: 1.35rem;
             font-weight: 700;
             margin: 0 0 0.2rem;
+            padding: 0 3.5rem;
             color: #6d4c00;
+            position: relative;
+            z-index: 1;
         }
         .title i { color: #f1c40f; margin-right: 0.3rem; }
         .sub { font-size: 0.82rem; color: var(--muted); margin: 0 0 0.45rem; font-weight: 700; }
@@ -948,6 +953,64 @@
 
         var configDraft = [];
 
+        /* —— Fun SFX (Web Audio) —— */
+        var audioCtx = null;
+        function ensureAudio() {
+            if (!audioCtx) {
+                var AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return null;
+                audioCtx = new AC();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+        function beep(freq, dur, type, gain, when) {
+            var ctx = ensureAudio();
+            if (!ctx) return;
+            var t0 = when != null ? when : ctx.currentTime;
+            var o = ctx.createOscillator();
+            var g = ctx.createGain();
+            o.type = type || 'square';
+            o.frequency.value = freq;
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(gain || 0.08, t0 + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(t0);
+            o.stop(t0 + dur + 0.02);
+        }
+        function playSpinTicks(durationMs) {
+            var ctx = ensureAudio();
+            if (!ctx) return;
+            var start = ctx.currentTime;
+            var end = start + durationMs / 1000;
+            var t = start;
+            var step = 0.05;
+            while (t < end) {
+                var progress = (t - start) / (end - start);
+                step = 0.035 + progress * 0.11;
+                beep(480 + progress * 320, 0.03, 'square', 0.04 * (1 - progress * 0.35), t);
+                t += step;
+            }
+        }
+        /** 축하축하~ fanfare on win */
+        function playCelebrateFanfare(big) {
+            var ctx = ensureAudio();
+            if (!ctx) return;
+            var t0 = ctx.currentTime;
+            var notes = big
+                ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568]
+                : [523.25, 659.25, 783.99, 1046.5];
+            notes.forEach(function(f, i) {
+                beep(f, 0.2 + (big ? 0.08 : 0), 'triangle', 0.11, t0 + i * 0.11);
+            });
+            beep(big ? 1760 : 1318.5, 0.5, 'triangle', 0.09, t0 + notes.length * 0.11);
+            // little "ta-da" sparkle
+            beep(2093, 0.15, 'sine', 0.06, t0 + notes.length * 0.11 + 0.15);
+            beep(2637, 0.2, 'sine', 0.05, t0 + notes.length * 0.11 + 0.28);
+        }
+
         function apiJson(res) {
             return res.text().then(function(text) {
                 var data = {};
@@ -1048,7 +1111,10 @@
         }
 
         function openConfigEditor() {
-            if (isSpinning) return;
+            if (isSpinning) {
+                alert('Wait for the spin to finish first.');
+                return;
+            }
             var overlay = document.getElementById('configOverlay');
             var statusEl = document.getElementById('configSaveStatus');
             if (statusEl) statusEl.textContent = '';
@@ -1456,7 +1522,9 @@
             document.getElementById('leverLabel').textContent = 'Nice pull!';
 
             var id = tier.id;
-            if (id === 'legendary' || id === 'mythical' || id === 'godlike') {
+            var bigWin = id === 'legendary' || id === 'mythical' || id === 'godlike';
+            playCelebrateFanfare(bigWin);
+            if (bigWin) {
                 showConfetti(id === 'godlike' ? 70 : id === 'mythical' ? 50 : 35);
             }
             document.getElementById('slotMachine').classList.add('machine-shake');
@@ -1468,7 +1536,9 @@
         function initStudentSelect() {
             var sel = document.getElementById('studentSelect');
             if (!sel) return;
-            (STUDENTS || []).forEach(function(st) {
+            (STUDENTS || []).filter(function(st) {
+                return st && !st.onLeave && !st.on_leave;
+            }).forEach(function(st) {
                 var opt = document.createElement('option');
                 opt.value = st.id;
                 opt.textContent = st.name;
@@ -1478,7 +1548,9 @@
                 if (paidDrawMode) loadStudentBalance(sel.value);
                 else updateStudentBalanceDisplay(null);
             });
-            if (!CLASS_ID || !(STUDENTS || []).length) {
+            if (!CLASS_ID || !(STUDENTS || []).filter(function(st) {
+                return st && !st.onLeave && !st.on_leave;
+            }).length) {
                 document.getElementById('studentPickWrap').style.display = 'none';
             }
             updateDrawModeUi();
@@ -1554,6 +1626,8 @@
 
             isSpinning = true;
             currentPrize = pickPrize();
+            ensureAudio();
+            playSpinTicks(SPIN_FAST_MS + SPIN_SLOW_MS);
 
             var lever = document.getElementById('leverBtn');
             lever.disabled = true;

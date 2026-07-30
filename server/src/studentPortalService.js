@@ -12,10 +12,15 @@ const { formatSheetDate, formatDateInTz, chambitWeekMonday, chambitWeekSunday, c
 const { getHolidaysForMonth } = require('./holiday');
 const { getStudentHistory } = require('./studentService');
 const { getMakeupLessons } = require('./makeupService');
-const { getStudentHomeworkStatus, buildClassHomeworkFromCtx } = require('./homeworkService');
+const { getStudentHomeworkStatus, buildClassHomeworkFromCtx, getEnrolledStudents } = require('./homeworkService');
 const { buildRequestContext } = require('./sheets');
 const { signStudentToken } = require('./studentAuth');
-const { listStudentLuckyTickets, groupLuckyTickets, listFusionRecipes } = require('./luckyDrawService');
+const {
+  listStudentLuckyTickets,
+  groupLuckyTickets,
+  listFusionRecipes,
+  getStudentLuckySpinStatus
+} = require('./luckyDrawService');
 const { isSupabaseEnabled } = require('./supabaseClient');
 const supabaseStudent = require('./supabaseStudentService');
 
@@ -228,18 +233,26 @@ async function getStudentDashboard(studentId, classId) {
     }
   }
 
-  const [attendance, homeworkStatus, chambit, dollars, makeup, luckyTicketsRaw] = await Promise.all([
-    getStudentHistory(classId, studentId),
-    getStudentHomeworkStatus(classId, studentId),
-    getStudentChambit(classId, studentId, today),
-    getStudentDollars(studentId),
-    getMakeupLessons(classId, studentId),
-    listStudentLuckyTickets(classId, studentId)
-  ]);
+  const [attendance, homeworkStatus, chambit, dollars, makeup, luckyTicketsRaw, classmatesRaw, spinStatus] =
+    await Promise.all([
+      getStudentHistory(classId, studentId),
+      getStudentHomeworkStatus(classId, studentId),
+      getStudentChambit(classId, studentId, today),
+      getStudentDollars(studentId),
+      getMakeupLessons(classId, studentId),
+      listStudentLuckyTickets(classId, studentId),
+      getEnrolledStudents(classId),
+      getStudentLuckySpinStatus(classId, studentId)
+    ]);
+  const classmates = (classmatesRaw || [])
+    .filter(function(s) { return String(s.id) !== String(studentId); })
+    .map(function(s) { return { id: String(s.id), name: String(s.name || s.id) }; });
   const luckyDraw = {
     totalCount: luckyTicketsRaw.length,
     tickets: groupLuckyTickets(luckyTicketsRaw),
-    recipes: listFusionRecipes()
+    recipes: listFusionRecipes(),
+    classmates: classmates,
+    spin: spinStatus
   };
 
   const ctx = await buildRequestContext(classId);
