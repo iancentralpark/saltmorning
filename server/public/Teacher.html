@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-30.13';
+            var APP_BUILD = '2026-07-30.16';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -6873,12 +6873,15 @@
                                     <th>Streak</th>
                                     <th>Today</th>
                                     <th>Test</th>
-                                    <th></th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="vocabLmsRosterBody"></tbody>
                         </table>
-                    </div>
+                        <p class="text-muted small mt-2 mb-0">
+                            <strong>Reset Placement</strong> sets the student’s grade and lets them take the Placement test again.
+                            Gift grants a random Lucky Draw ticket.
+                        </p>
                 </div>
 
                 <div id="vocabLmsBankPane" class="abuse-hub-pane d-none">
@@ -15808,8 +15811,10 @@
                 '<td>' + (s.todayStudied || 0) + ' / ' + (s.todayTarget || '—') + '</td>' +
                 '<td>' + testBadge + '</td>' +
                 '<td class="text-nowrap">' +
-                '<button type="button" class="btn btn-outline-secondary btn-sm vocab-lms-override-btn" data-student-id="' + escapeHtml(s.studentId) + '" title="Set grade level"><i class="fa-solid fa-sliders"></i></button> ' +
-                '<button type="button" class="btn btn-outline-warning btn-sm vocab-lms-reward-btn" data-student-id="' + escapeHtml(s.studentId) + '" title="Grant a reward ticket manually"><i class="fa-solid fa-gift"></i></button>' +
+                '<button type="button" class="btn btn-outline-secondary btn-sm vocab-lms-override-btn" data-student-id="' + escapeHtml(s.studentId) + '" title="Set grade and unlock Placement retake">' +
+                '<i class="fa-solid fa-rotate-left"></i> Reset Placement</button> ' +
+                '<button type="button" class="btn btn-outline-warning btn-sm vocab-lms-reward-btn" data-student-id="' + escapeHtml(s.studentId) + '" title="Grant a random Lucky Draw ticket">' +
+                '<i class="fa-solid fa-gift"></i></button>' +
                 '</td></tr>';
         }).join('');
 
@@ -15826,7 +15831,10 @@
     }
 
     function promptVocabOverride(studentId) {
-        const value = prompt('Set grade level (1–12). This also unlocks Placement retake for the student:', '6');
+        const value = prompt(
+            'Reset Placement for this student?\n\nEnter their grade level (1–12).\nThey will see “Start Placement Test” again on the student portal.',
+            '6'
+        );
         if (value == null) return;
         const grade = Number(value);
         if (!Number.isFinite(grade) || grade < 1 || grade > 12) {
@@ -15837,7 +15845,7 @@
             method: 'POST',
             body: JSON.stringify({ gradeLevel: grade, resetPlacement: true })
         }).then(function() {
-            appToast('Grade updated — student can retake Placement.');
+            appToast('Placement reset — student can retake the test.');
             refreshVocabLmsOverview();
         }).catch(function(err) {
             appAlert(err.message || 'Could not update student.');

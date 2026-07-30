@@ -167,7 +167,13 @@
     }
     renderHomeStats();
     syncPlacementVisibility();
-    if (state.placementDone && state.view !== 'quiz' && state.view !== 'result') {
+    // Don't wipe an in-progress study/test or the post-test reward screen.
+    if (
+      state.placementDone &&
+      state.view !== 'quiz' &&
+      state.view !== 'result' &&
+      quest.phase === 'idle'
+    ) {
       loadQuestInline();
     }
   }
@@ -186,7 +192,7 @@
         }
         renderHomeStats();
         syncPlacementVisibility();
-        if (state.placementDone) loadQuestInline();
+        if (state.placementDone && quest.phase === 'idle') loadQuestInline();
       });
   }
 
@@ -670,7 +676,7 @@
   function loadQuestInline() {
     var box = $('vocabQuestBody');
     if (!box) return;
-    if (quest.phase === 'study' || quest.phase === 'test') return;
+    if (quest.phase === 'study' || quest.phase === 'test' || quest.phase === 'done') return;
     box.innerHTML = '<p class="vocab-empty">Loading today\u2019s words…</p>';
     apiFetch('/api/student/vocab/daily-queue')
       .then(function (queue) {
