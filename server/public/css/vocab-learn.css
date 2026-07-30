@@ -504,6 +504,27 @@
   font-weight: 800; color: var(--vocab-ink); letter-spacing: -0.02em;
 }
 .vocab-tier-hero-grade { font-size: 0.95rem; color: var(--vocab-muted); font-weight: 600; }
+
+.vocab-mastery-wrap {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--vocab-line);
+  background: rgba(255,255,255,0.65);
+}
+.vocab-mastery-wrap.hidden { display: none; }
+.vocab-mastery-label {
+  font-size: 0.88rem;
+  color: var(--vocab-ink);
+  margin-bottom: 0.4rem;
+  line-height: 1.35;
+}
+.vocab-mastery-bar { margin: 0.25rem 0 0.35rem; }
+.vocab-mastery-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--vocab-muted);
+}
 .vocab-tier-hero.tier-rookie .vocab-tier-badge-mark { background: linear-gradient(145deg, #9ca3af, #6b7280); }
 .vocab-tier-hero.tier-iron .vocab-tier-badge-mark { background: linear-gradient(145deg, #c0c5ce, #7b8494); }
 .vocab-tier-hero.tier-bronze .vocab-tier-badge-mark { background: linear-gradient(145deg, #d89a5b, #a05a2c); }

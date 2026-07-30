@@ -54,7 +54,8 @@ const {
   scorePlacement,
   deepDiveWord,
   nextTargetFreq,
-  updateAbility
+  updateAbility,
+  shouldStopPlacement
 } = require('./vocabPlacementService');
 const {
   bulkUpsertWords,
@@ -72,7 +73,8 @@ const {
   overrideStudentState: overrideVocabStudentState,
   manualGrantReward: manualGrantVocabReward,
   getGenerationJob: getVocabGenerationJob,
-  listActiveGenerationJobs: listActiveVocabGenerationJobs
+  listActiveGenerationJobs: listActiveVocabGenerationJobs,
+  buildPlacementItem
 } = require('./vocabLearningService');
 const { startGenerationJob: startVocabGenerationJob, cancelGenerationJob: cancelVocabGenerationJob } = require('./vocabWordGenService');
 const {
@@ -1650,7 +1652,8 @@ router.post('/vocab/class/:classId/settings', requireTeacherAuth, async (req, re
     res.json(await saveVocabClassSettings(req.params.classId, {
       dailyTarget: body.dailyTarget,
       passThreshold: body.passThreshold,
-      rewardTier: body.rewardTier
+      rewardTier: body.rewardTier,
+      maxDailySessions: body.maxDailySessions
     }));
   } catch (e) {
     console.error('POST /vocab/class/settings', e);
@@ -1761,13 +1764,34 @@ router.post('/student/vocab/placement/next', requireStudentAuth, async (req, res
       seconds: body.seconds,
       questionType: body.questionType
     });
+    const abilityTrail = Array.isArray(body.abilityTrail)
+      ? body.abilityTrail.map(Number).concat([ability])
+      : [ability];
     res.json({
       abilityGrade: ability,
-      nextTargetGrade: nextTargetFreq(ability, Number(body.questionIndex) || 0)
+      nextTargetGrade: nextTargetFreq(ability, Number(body.questionIndex) || 0),
+      stop: shouldStopPlacement(abilityTrail),
+      abilityTrail: abilityTrail
     });
   } catch (e) {
     console.error('POST /student/vocab/placement/next', e);
     res.status(400).json({ error: e.message || 'Could not adapt difficulty' });
+  }
+});
+
+router.post('/student/vocab/placement/item', requireStudentAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const item = await buildPlacementItem({
+      abilityGrade: body.abilityGrade,
+      questionIndex: body.questionIndex,
+      avoidWordIds: body.avoidWordIds,
+      abilityTrail: body.abilityTrail
+    });
+    res.json(item);
+  } catch (e) {
+    console.error('POST /student/vocab/placement/item', e);
+    res.status(400).json({ error: e.message || 'Could not build placement item' });
   }
 });
 
@@ -1824,6 +1848,16 @@ router.post('/student/vocab/daily-test/submit', requireStudentAuth, async (req, 
   try {
     const { studentId, classId } = req.studentSession;
     const body = req.body || {};
+    if (Array.isArray(body.answers)) {
+      for (const a of body.answers) {
+        if (!a || !a.wordId || !a.correct) continue;
+        try {
+          await recordReview(studentId, classId, a.wordId, true);
+        } catch (err) {
+          console.warn('daily-test answer sync', err.message || err);
+        }
+      }
+    }
     res.json(await recordDailyTestResult(studentId, classId, body.correctCount, body.totalCount));
   } catch (e) {
     console.error('POST /student/vocab/daily-test/submit', e);

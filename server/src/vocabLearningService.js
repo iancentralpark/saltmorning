@@ -13,15 +13,15 @@ const { applyDollarAdjustment } = require('./dollarService');
 const DEFAULT_DAILY_TARGET = 10;
 const DEFAULT_PASS_THRESHOLD = 100;
 const DEFAULT_REWARD_TIER = 'Common';
+const DEFAULT_MAX_DAILY_SESSIONS = 3;
+const MASTERY_PROMOTE_AT = 0.8;
+const RATING_START = 100;
 
 // Leitner box -> review interval in days. Box 0 = due immediately (new/failed).
 const BOX_INTERVAL_DAYS = [0, 1, 3, 7, 14, 30];
 const MAX_BOX = BOX_INTERVAL_DAYS.length - 1;
 
-// Rating-based promotion/demotion (Elo-style), like the students.rating_score idea.
-const RATING_START = 100;
-const RATING_PROMOTE_AT = 130;
-const RATING_DEMOTE_AT = 70;
+// rating_score kept on student state for display/legacy; no longer drives promote/demote.
 
 // Tier-scaled daily Dollar bonus, granted every day the quest is completed (on top of
 // the existing Lucky Draw ticket reward). Rookie/Iron are $0 (no adjustment call made).
@@ -427,12 +427,15 @@ async function getClassSettings(classId) {
   classId = String(classId);
   const { data, error } = await db.from('vocab_class_settings').select('*').eq('class_id', classId).maybeSingle();
   if (error) throw new Error(error.message);
-  return data || {
+  const row = data || {
     class_id: classId,
     daily_target: DEFAULT_DAILY_TARGET,
     pass_threshold: DEFAULT_PASS_THRESHOLD,
-    reward_tier: DEFAULT_REWARD_TIER
+    reward_tier: DEFAULT_REWARD_TIER,
+    max_daily_sessions: DEFAULT_MAX_DAILY_SESSIONS
   };
+  if (row.max_daily_sessions == null) row.max_daily_sessions = DEFAULT_MAX_DAILY_SESSIONS;
+  return row;
 }
 
 async function saveClassSettings(classId, opts) {
@@ -442,6 +445,9 @@ async function saveClassSettings(classId, opts) {
   const existing = await getClassSettings(classId);
   const dailyTarget = Math.max(3, Math.min(60, Math.round(Number(opts.dailyTarget) || DEFAULT_DAILY_TARGET)));
   const passThreshold = Math.max(30, Math.min(100, Math.round(Number(opts.passThreshold) || DEFAULT_PASS_THRESHOLD)));
+  const maxSessions = Math.max(1, Math.min(5, Math.round(
+    Number(opts.maxDailySessions != null ? opts.maxDailySessions : existing.max_daily_sessions) || DEFAULT_MAX_DAILY_SESSIONS
+  )));
   // reward_tier kept in DB for backwards compat; grants now use rollLuckyPrize.
   const rewardTier = String(opts.rewardTier || existing.reward_tier || DEFAULT_REWARD_TIER).trim() || DEFAULT_REWARD_TIER;
   const row = {
@@ -449,6 +455,7 @@ async function saveClassSettings(classId, opts) {
     daily_target: dailyTarget,
     pass_threshold: passThreshold,
     reward_tier: rewardTier,
+    max_daily_sessions: maxSessions,
     updated_at: new Date().toISOString()
   };
   const { error } = await db.from('vocab_class_settings').upsert(row, { onConflict: 'class_id' });
@@ -475,7 +482,8 @@ async function getOrCreateDailyProgress(studentId, classId, dailyTarget) {
     studied_count: 0,
     studied_word_ids: '[]',
     test_attempts: 0,
-    test_passed: false
+    test_passed: false,
+    sessions_completed: 0
   };
   const { data: inserted, error: insErr } = await db.from('vocab_daily_progress').insert(row).select().maybeSingle();
   if (insErr) throw new Error(insErr.message);
@@ -494,6 +502,24 @@ async function getDailyQueue(studentId, classId) {
   }
   const gradeLevel = (state && state.grade_level) || 6;
   const daily = await getOrCreateDailyProgress(studentId, classId, settings.daily_target);
+  const maxSessions = Math.max(1, Number(settings.max_daily_sessions) || DEFAULT_MAX_DAILY_SESSIONS);
+  const sessionsCompleted = Math.max(0, Number(daily.sessions_completed) || 0);
+  const canStartAnother = sessionsCompleted < maxSessions;
+
+  if (!canStartAnother) {
+    return {
+      date: daily.quest_date,
+      targetCount: settings.daily_target,
+      passThreshold: settings.pass_threshold,
+      studiedCount: daily.studied_count,
+      testPassed: !!daily.test_passed,
+      testAttempts: daily.test_attempts,
+      sessionsCompleted: sessionsCompleted,
+      maxSessions: maxSessions,
+      canStartAnother: false,
+      words: []
+    };
+  }
 
   const nowIso = new Date().toISOString();
   const { data: due, error: dueErr } = await db.from('vocab_student_progress')
@@ -506,14 +532,35 @@ async function getDailyQueue(studentId, classId) {
 
   const dueIds = (due || []).map(r => r.word_id);
   let words = await getWordsByIds(dueIds);
-  // preserve due order
   words.sort((a, b) => dueIds.indexOf(a.word_id) - dueIds.indexOf(b.word_id));
 
+  const { data: seenRows } = await db.from('vocab_student_progress').select('word_id').eq('student_id', studentId);
+  // Also exclude words already studied in earlier sets today so extra sets get fresh items.
+  let studiedToday = [];
+  try {
+    studiedToday = JSON.parse(daily.studied_word_ids || '[]');
+  } catch (e) {
+    studiedToday = [];
+  }
+  const seenIds = (seenRows || []).map(r => r.word_id).concat(dueIds).concat(studiedToday);
+
   if (words.length < settings.daily_target) {
-    const { data: seenRows } = await db.from('vocab_student_progress').select('word_id').eq('student_id', studentId);
-    const seenIds = (seenRows || []).map(r => r.word_id).concat(dueIds);
     const fresh = await pickWordsForGrade(gradeLevel, settings.daily_target - words.length, seenIds);
     words = words.concat(fresh);
+  }
+
+  // If this is a later set and due words were already studied today, prefer fresh only.
+  if (sessionsCompleted > 0) {
+    const studiedSet = new Set(studiedToday.map(String));
+    words = words.filter(function (w) { return !studiedSet.has(String(w.word_id)); });
+    if (words.length < settings.daily_target) {
+      const more = await pickWordsForGrade(
+        gradeLevel,
+        settings.daily_target - words.length,
+        seenIds.concat(words.map(function (w) { return w.word_id; }))
+      );
+      words = words.concat(more);
+    }
   }
 
   return {
@@ -523,6 +570,9 @@ async function getDailyQueue(studentId, classId) {
     studiedCount: daily.studied_count,
     testPassed: !!daily.test_passed,
     testAttempts: daily.test_attempts,
+    sessionsCompleted: sessionsCompleted,
+    maxSessions: maxSessions,
+    canStartAnother: true,
     words: words.slice(0, settings.daily_target)
   };
 }
@@ -585,53 +635,134 @@ async function grantTierDollarBonus(classId, studentId, tierName) {
 }
 
 /**
- * Elo-style rating nudge after a passed daily test, with promotion/demotion at the
- * high/low thresholds (reset rating to the starting value after moving a grade).
+ * Tier mastery: share of current-grade bank words with correct_count >= 1.
  */
-async function applyRatingUpdate(studentId, score) {
+async function getTierMastery(studentId, gradeLevel) {
+  const db = requireDb();
+  studentId = String(studentId);
+  const grade = Math.max(GRADE_MIN, Math.min(GRADE_MAX, Math.round(Number(gradeLevel) || 6)));
+
+  const { count: tierCount, error: countErr } = await db
+    .from('vocab_words')
+    .select('word_id', { count: 'exact', head: true })
+    .eq('active', true)
+    .eq('grade_level', grade);
+  if (countErr) throw new Error(countErr.message);
+  const tierWords = Number(tierCount) || 0;
+
+  if (!tierWords) {
+    return {
+      gradeLevel: grade,
+      tierWords: 0,
+      mastered: 0,
+      remaining: 0,
+      percent: 0,
+      promoteAt: Math.round(MASTERY_PROMOTE_AT * 100),
+      ready: false
+    };
+  }
+
+  // Fetch progress for this student, then filter to current-grade word ids.
+  const PAGE = 1000;
+  let offset = 0;
+  const progressRows = [];
+  for (;;) {
+    const { data, error } = await db
+      .from('vocab_student_progress')
+      .select('word_id, correct_count')
+      .eq('student_id', studentId)
+      .gt('correct_count', 0)
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || !data.length) break;
+    progressRows.push.apply(progressRows, data);
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  const progressedIds = progressRows.map(function (r) { return r.word_id; });
+  let mastered = 0;
+  if (progressedIds.length) {
+    for (let i = 0; i < progressedIds.length; i += 200) {
+      const slice = progressedIds.slice(i, i + 200);
+      const { data: matched, error: mErr } = await db
+        .from('vocab_words')
+        .select('word_id')
+        .eq('active', true)
+        .eq('grade_level', grade)
+        .in('word_id', slice);
+      if (mErr) throw new Error(mErr.message);
+      mastered += (matched || []).length;
+    }
+  }
+
+  const percent = Math.round((mastered / tierWords) * 1000) / 10;
+  const need = Math.ceil(tierWords * MASTERY_PROMOTE_AT);
+  const remaining = Math.max(0, need - mastered);
+  return {
+    gradeLevel: grade,
+    tierWords: tierWords,
+    mastered: mastered,
+    remaining: remaining,
+    percent: percent,
+    promoteAt: Math.round(MASTERY_PROMOTE_AT * 100),
+    ready: mastered / tierWords >= MASTERY_PROMOTE_AT
+  };
+}
+
+/**
+ * After a passed daily test: promote one grade if tier mastery ≥ 80%.
+ * Elo promote/demote removed — rating_score is left unchanged.
+ */
+async function applyMasteryPromotion(studentId) {
   const db = requireDb();
   const state = (await getStudentState(studentId)) || {};
   if (!state.placement_at) {
-    // Do not invent a tier for students who never finished Placement.
     return {
       gradeLevel: state.grade_level || null,
       tierName: state.tier_name || null,
       ratingScore: state.rating_score != null ? Number(state.rating_score) : null,
-      promoted: null
+      promoted: null,
+      mastery: null
     };
   }
   let grade = Math.max(GRADE_MIN, Math.min(GRADE_MAX, Math.round(Number(state.grade_level) || 6)));
-  let rating = Number.isFinite(Number(state.rating_score)) ? Number(state.rating_score) : RATING_START;
-
-  const delta = Math.round((Number(score) - 75) / 5);
-  rating += delta;
-
+  const mastery = await getTierMastery(studentId, grade);
   let promoted = null;
-  if (rating >= RATING_PROMOTE_AT && grade < GRADE_MAX) {
+
+  if (mastery.ready && grade < GRADE_MAX) {
     grade += 1;
-    rating = RATING_START;
     promoted = 'up';
-  } else if (rating <= RATING_DEMOTE_AT && grade > GRADE_MIN) {
-    grade -= 1;
-    rating = RATING_START;
-    promoted = 'down';
-  } else {
-    rating = Math.max(0, Math.min(200, rating));
+    const tier = tierForGrade(grade);
+    const row = {
+      student_id: String(studentId),
+      grade_level: grade,
+      tier_name: tier.name,
+      rating_score: state.rating_score != null ? Number(state.rating_score) : RATING_START,
+      placement_at: state.placement_at,
+      placement_accuracy: state.placement_accuracy,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
+    if (error) throw new Error(error.message);
+    const nextMastery = await getTierMastery(studentId, grade);
+    return {
+      gradeLevel: grade,
+      tierName: tier.name,
+      ratingScore: row.rating_score,
+      promoted: promoted,
+      mastery: nextMastery
+    };
   }
 
   const tier = tierForGrade(grade);
-  const row = {
-    student_id: String(studentId),
-    grade_level: grade,
-    tier_name: tier.name,
-    rating_score: rating,
-    placement_at: state.placement_at,
-    placement_accuracy: state.placement_accuracy,
-    updated_at: new Date().toISOString()
+  return {
+    gradeLevel: grade,
+    tierName: tier.name,
+    ratingScore: state.rating_score != null ? Number(state.rating_score) : RATING_START,
+    promoted: null,
+    mastery: mastery
   };
-  const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
-  if (error) throw new Error(error.message);
-  return { gradeLevel: grade, tierName: tier.name, ratingScore: rating, promoted: promoted };
 }
 
 async function recordDailyTestResult(studentId, classId, correctCount, totalCount) {
@@ -648,12 +779,14 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   const total = Math.max(1, Number(totalCount) || 0);
   const score = Math.round((Math.max(0, Number(correctCount) || 0) / total) * 1000) / 10;
   const passed = score >= settings.pass_threshold;
-  const alreadyPassedToday = !!daily.test_passed;
+  const maxSessions = Math.max(1, Number(settings.max_daily_sessions) || DEFAULT_MAX_DAILY_SESSIONS);
+  const sessionsBefore = Math.max(0, Number(daily.sessions_completed) || 0);
+  const alreadyRewardedToday = sessionsBefore >= 1 || !!daily.reward_ticket_id;
 
   const update = {
     test_attempts: (daily.test_attempts || 0) + 1,
     test_score: score,
-    test_passed: alreadyPassedToday || passed,
+    test_passed: !!daily.test_passed || passed,
     updated_at: new Date().toISOString()
   };
 
@@ -661,21 +794,35 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   let dollarBonus = null;
   let streakInfo = null;
   let ratingUpdate = null;
-  if (passed && !alreadyPassedToday) {
-    update.completed_at = new Date().toISOString();
-    try {
-      reward = await grantDailyReward(classId, studentId);
-      update.reward_ticket_id = reward.ticketId;
-    } catch (e) {
-      console.error('grantDailyReward failed', e.message || e);
+  let sessionsCompleted = sessionsBefore;
+
+  if (passed) {
+    sessionsCompleted = sessionsBefore + 1;
+    update.sessions_completed = sessionsCompleted;
+    update.completed_at = daily.completed_at || new Date().toISOString();
+
+    // First passed set of the day gets Lucky Draw + Dollar; later sets are mastery-only.
+    if (!alreadyRewardedToday) {
+      try {
+        reward = await grantDailyReward(classId, studentId);
+        update.reward_ticket_id = reward.ticketId;
+      } catch (e) {
+        console.error('grantDailyReward failed', e.message || e);
+      }
+      try {
+        const tierName = state.tier_name || tierForGrade(state.grade_level).name;
+        dollarBonus = await grantTierDollarBonus(classId, studentId, tierName);
+      } catch (e) {
+        console.error('grantTierDollarBonus failed', e.message || e);
+      }
+      streakInfo = await bumpStreak(studentId, daily.quest_date);
     }
+
     try {
-      ratingUpdate = await applyRatingUpdate(studentId, score);
-      dollarBonus = await grantTierDollarBonus(classId, studentId, ratingUpdate.tierName);
+      ratingUpdate = await applyMasteryPromotion(studentId);
     } catch (e) {
-      console.error('applyRatingUpdate/grantTierDollarBonus failed', e.message || e);
+      console.error('applyMasteryPromotion failed', e.message || e);
     }
-    streakInfo = await bumpStreak(studentId, daily.quest_date);
   }
 
   const { error } = await db.from('vocab_daily_progress').update(update)
@@ -689,8 +836,13 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
     reward,
     dollarBonus,
     rating: ratingUpdate,
+    mastery: ratingUpdate && ratingUpdate.mastery,
     streak: streakInfo,
-    alreadyPassedToday
+    alreadyPassedToday: alreadyRewardedToday,
+    sessionsCompleted: sessionsCompleted,
+    maxSessions: maxSessions,
+    canStartAnother: sessionsCompleted < maxSessions,
+    rewardClaimedToday: alreadyRewardedToday || !!reward
   };
 }
 
@@ -724,6 +876,16 @@ async function getStudentVocabSummary(studentId, classId) {
   const state = await getStudentState(studentId);
   const daily = await getOrCreateDailyProgress(studentId, classId, settings.daily_target);
   const placed = !!(state && state.placement_at);
+  const sessionsCompleted = Math.max(0, Number(daily.sessions_completed) || 0);
+  const maxSessions = Math.max(1, Number(settings.max_daily_sessions) || DEFAULT_MAX_DAILY_SESSIONS);
+  let mastery = null;
+  if (placed) {
+    try {
+      mastery = await getTierMastery(studentId, state.grade_level);
+    } catch (e) {
+      console.warn('getTierMastery', e.message || e);
+    }
+  }
   return {
     tierName: placed ? state.tier_name : null,
     gradeLevel: placed ? state.grade_level : null,
@@ -733,19 +895,152 @@ async function getStudentVocabSummary(studentId, classId) {
     placementDone: placed,
     placementAt: state && state.placement_at,
     placementAccuracy: placed ? state.placement_accuracy : null,
+    mastery: mastery,
     today: {
       date: daily.quest_date,
       targetCount: daily.target_count,
       studiedCount: daily.studied_count,
       testPassed: !!daily.test_passed,
       testAttempts: daily.test_attempts,
-      testScore: daily.test_score
+      testScore: daily.test_score,
+      sessionsCompleted: sessionsCompleted,
+      maxSessions: maxSessions,
+      canStartAnother: sessionsCompleted < maxSessions
     },
     settings: {
       dailyTarget: settings.daily_target,
       passThreshold: settings.pass_threshold,
-      rewardTier: settings.reward_tier
+      rewardTier: settings.reward_tier,
+      maxDailySessions: maxSessions
     }
+  };
+}
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = arr[i];
+    arr[i] = arr[j];
+    arr[j] = t;
+  }
+  return arr;
+}
+
+function wordDefFromRow(w) {
+  if (!w) return '';
+  const L = w.levels || {};
+  const basic = L.basic || {};
+  return String(w.simple_definition || basic.intuitive_definition || '').trim();
+}
+
+/**
+ * Build one adaptive Placement item from the live word bank.
+ * @param {{ abilityGrade?: number, questionIndex?: number, avoidWordIds?: string[] }} opts
+ */
+async function buildPlacementItem(opts) {
+  const { buildClozePrompt } = require('./vocabClozeUtils');
+  const { nextTargetFreq, shouldStopPlacement } = require('./vocabPlacementService');
+  opts = opts || {};
+  const abilityGrade = Number(opts.abilityGrade);
+  const qIndex = Math.max(0, Number(opts.questionIndex) || 0);
+  const abilityTrail = Array.isArray(opts.abilityTrail) ? opts.abilityTrail.map(Number) : [];
+  const avoid = new Set((opts.avoidWordIds || []).map(String));
+
+  if (shouldStopPlacement(abilityTrail) && abilityTrail.length) {
+    return { done: true, reason: 'stable' };
+  }
+  if (qIndex >= 24) {
+    return { done: true, reason: 'max' };
+  }
+
+  const targetGrade = nextTargetFreq(
+    Number.isFinite(abilityGrade) ? abilityGrade : 6,
+    qIndex
+  );
+
+  let pool = await pickWordsForGrade(targetGrade, 40, Array.from(avoid));
+  if (!pool.length) {
+    pool = await pickWordsForGrade(targetGrade, 40, []);
+  }
+  if (!pool.length) throw new Error('Word bank is empty — ask your teacher to upload vocabulary.');
+
+  const word = pool[Math.floor(Math.random() * pool.length)];
+  const distractorPool = pool.filter(function (w) { return w.word_id !== word.word_id; });
+  const types = ['meaning', 'sentence', 'whichWord'];
+  let type = types[qIndex % types.length];
+
+  function uniqueChoices(correct, wrongs) {
+    const out = [];
+    const seen = {};
+    function add(v) {
+      const s = String(v == null ? '' : v).trim();
+      if (!s || seen[s]) return;
+      seen[s] = true;
+      out.push(s);
+    }
+    add(correct);
+    (wrongs || []).forEach(add);
+    return out;
+  }
+
+  let prompt = '';
+  let correct = '';
+  let choices = [];
+  const distractors = shuffleInPlace(distractorPool.slice()).slice(0, 3);
+
+  if (type === 'meaning') {
+    prompt = 'What does “' + word.word + '” mean?';
+    correct = wordDefFromRow(word) || word.word;
+    choices = uniqueChoices(correct, distractors.map(wordDefFromRow));
+  } else if (type === 'whichWord') {
+    const def = wordDefFromRow(word) || word.word;
+    const ko = String(word.korean_meaning || '').trim();
+    prompt = ko
+      ? ('Which word means this?\n' + ko + '\n(' + def + ')')
+      : ('Which word means “' + def + '”?');
+    correct = String(word.word || '').trim();
+    choices = uniqueChoices(correct, distractors.map(function (w) { return w.word; }));
+  } else {
+    const cloze = buildClozePrompt(word);
+    if (!cloze) {
+      // Leak-safe fallback
+      type = 'meaning';
+      prompt = 'What does “' + word.word + '” mean?';
+      correct = wordDefFromRow(word) || word.word;
+      choices = uniqueChoices(correct, distractors.map(wordDefFromRow));
+    } else {
+      type = 'sentence';
+      prompt = cloze;
+      correct = String(word.word || '').trim();
+      choices = uniqueChoices(correct, distractors.map(function (w) { return w.word; }));
+    }
+  }
+
+  while (choices.length < 4 && distractorPool.length) {
+    const filler = distractorPool[Math.floor(Math.random() * distractorPool.length)];
+    const text = type === 'meaning' ? wordDefFromRow(filler) : String(filler.word || '');
+    if (text && choices.indexOf(text) < 0) choices.push(text);
+    else break;
+  }
+
+  return {
+    done: false,
+    type: type,
+    prompt: prompt,
+    correct: correct,
+    choices: shuffleInPlace(choices.slice(0, 4)),
+    word: {
+      word_id: word.word_id,
+      word: word.word,
+      grade_level: word.grade_level,
+      tier_name: word.tier_name,
+      part_of_speech: word.part_of_speech
+    },
+    frequencyLevel: word.grade_level,
+    targetGrade: targetGrade,
+    questionIndex: qIndex,
+    questionMin: 15,
+    questionMax: 24
   };
 }
 
@@ -871,11 +1166,15 @@ module.exports = {
   DEFAULT_DAILY_TARGET,
   DEFAULT_PASS_THRESHOLD,
   DEFAULT_REWARD_TIER,
+  DEFAULT_MAX_DAILY_SESSIONS,
+  MASTERY_PROMOTE_AT,
   bulkUpsertWords,
   normalizeWordEntry,
   listWords,
   getWordBankStats,
   deleteWord,
+  getWordsByIds,
+  pickWordsForGrade,
   savePlacementResult,
   getStudentState,
   getClassSettings,
@@ -894,5 +1193,8 @@ module.exports = {
   getExistingWordKeys,
   dedupeVocabWords,
   wordKeyFor,
-  wordIdForWord
+  wordIdForWord,
+  getTierMastery,
+  applyMasteryPromotion,
+  buildPlacementItem
 };

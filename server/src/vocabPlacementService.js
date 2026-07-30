@@ -22,7 +22,12 @@ const TIER_BANDS = [
 
 const GRADE_MIN = 1;
 const GRADE_MAX = 12;
-const PLACEMENT_QUESTION_COUNT = 12;
+/** @deprecated use PLACEMENT_MAX — kept for older clients that show a fixed count */
+const PLACEMENT_QUESTION_COUNT = 24;
+const PLACEMENT_MIN = 15;
+const PLACEMENT_MAX = 24;
+const PLACEMENT_STABLE_WINDOW = 4;
+const PLACEMENT_STABLE_RANGE = 0.4;
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
@@ -46,25 +51,39 @@ function updateAbility(abilityGrade, item) {
   const seconds = Math.max(0.5, Number(item && item.seconds) || 8);
   const type = String((item && item.questionType) || 'meaning');
 
-  let step = 0.55;
-  if (type === 'cloze') step = 0.6;
-  if (type === 'nuance') step = 0.7;
+  let step = 0.7;
+  if (type === 'cloze' || type === 'sentence') step = 0.8;
+  if (type === 'whichWord') step = 0.75;
+  if (type === 'nuance') step = 0.85;
 
-  // Speed bonus: fast correct → jump further; slow wrong → smaller retreat
   const fast = seconds <= 6;
   const slow = seconds >= 18;
   if (correct) {
-    ability += step * (fast ? 1.25 : slow ? 0.75 : 1);
+    ability += step * (fast ? 1.3 : slow ? 0.85 : 1);
   } else {
-    ability -= step * (fast ? 0.9 : slow ? 1.15 : 1);
+    ability -= step * (fast ? 1.05 : slow ? 1.25 : 1.1);
   }
   return clamp(Math.round(ability * 100) / 100, GRADE_MIN - 0.5, GRADE_MAX + 0.5);
 }
 
 function nextTargetFreq(abilityGrade, questionIndex) {
-  // Slight oscillation early, converge later
-  const wobble = questionIndex < 4 ? ((questionIndex % 2) * 0.4 - 0.2) : 0;
+  const wobble = questionIndex < 4 ? ((questionIndex % 2) * 0.5 - 0.25) : 0;
   return clamp(Math.round((Number(abilityGrade) || 6) + wobble), GRADE_MIN, GRADE_MAX);
+}
+
+/**
+ * Early-stop when we have enough items and recent ability estimates have converged.
+ * @param {number[]} abilityTrail chronological ability values after each answer
+ */
+function shouldStopPlacement(abilityTrail) {
+  const n = Array.isArray(abilityTrail) ? abilityTrail.length : 0;
+  if (n >= PLACEMENT_MAX) return true;
+  if (n < PLACEMENT_MIN) return false;
+  const window = abilityTrail.slice(-PLACEMENT_STABLE_WINDOW);
+  if (window.length < PLACEMENT_STABLE_WINDOW) return false;
+  const lo = Math.min.apply(null, window);
+  const hi = Math.max.apply(null, window);
+  return (hi - lo) <= PLACEMENT_STABLE_RANGE;
 }
 
 /**
@@ -87,7 +106,6 @@ function scorePlacement(payload) {
     });
   }
 
-  // Blend with highest correctly answered grade
   let peakCorrect = 0;
   answers.forEach(function (a) {
     if (a && a.correct && Number(a.frequencyLevel) > peakCorrect) {
@@ -207,10 +225,12 @@ async function deepDiveWord(opts) {
 function getPlacementMeta() {
   return {
     questionCount: PLACEMENT_QUESTION_COUNT,
+    questionMin: PLACEMENT_MIN,
+    questionMax: PLACEMENT_MAX,
     gradeMin: GRADE_MIN,
     gradeMax: GRADE_MAX,
     tiers: TIER_BANDS,
-    questionTypes: ['meaning', 'cloze'],
+    questionTypes: ['meaning', 'sentence', 'whichWord'],
     dbFree: false
   };
 }
@@ -220,9 +240,12 @@ module.exports = {
   GRADE_MIN,
   GRADE_MAX,
   PLACEMENT_QUESTION_COUNT,
+  PLACEMENT_MIN,
+  PLACEMENT_MAX,
   tierForGrade,
   updateAbility,
   nextTargetFreq,
+  shouldStopPlacement,
   scorePlacement,
   deepDiveWord,
   getPlacementMeta

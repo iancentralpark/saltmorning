@@ -48,7 +48,9 @@ function buildUserPrompt(batch) {
     '7. "example_sentence": (string) one natural US textbook-style sentence containing the word\n' +
     '8. "synonyms": (array of strings) 2-3 accurate synonyms (empty array if none fit)\n' +
     '9. "antonyms": (array of strings) 1-2 antonyms if applicable, else an empty array\n' +
-    '10. "cloze_question": (string) the example_sentence with the target word replaced by "______"\n' +
+    '10. "cloze_question": (string) the example_sentence with the target word (and any conjugated form) ' +
+    'fully replaced by "______". CRITICAL: the blanked sentence must NOT contain the headword or any ' +
+    'inflection of it (e.g. for "juxtapose", do not leave "juxtaposes"/"juxtaposing"/"juxtaposed" visible).\n' +
     '11. "wrong_options": (array of EXACTLY 3 strings) plausible but incorrect distractor words, ' +
     'same part of speech, appropriate for that grade level\n' +
     '12. "explanation_for_wrong": (string) a gentle 1-2 sentence explanation IN KOREAN of why the correct ' +
@@ -58,6 +60,7 @@ function buildUserPrompt(batch) {
 }
 
 function validateEntry(entry, expectedWord) {
+  const { textLeaksWord, blankWordInText } = require('./vocabClozeUtils');
   if (!entry || typeof entry !== 'object') return 'not an object';
   if (normalizeKey(entry.word) !== normalizeKey(expectedWord)) return 'word mismatch';
   const grade = Number(entry.grade_level);
@@ -68,6 +71,19 @@ function validateEntry(entry, expectedWord) {
   if (!requiredNonEmptyString(entry.cloze_question)) return 'missing cloze_question';
   if (!Array.isArray(entry.wrong_options) || entry.wrong_options.length !== 3) return 'wrong_options must have exactly 3 items';
   if (entry.wrong_options.some(function (o) { return !requiredNonEmptyString(o); })) return 'empty wrong_option';
+  // Auto-repair mild leaks; reject only if blank still exposes the stem.
+  if (textLeaksWord(entry.cloze_question, expectedWord)) {
+    const repaired = blankWordInText(entry.cloze_question, expectedWord);
+    if (repaired.leaked) {
+      const fromExample = blankWordInText(entry.example_sentence, expectedWord);
+      if (fromExample.leaked || fromExample.prompt.indexOf('______') < 0) {
+        return 'cloze_question leaks target word';
+      }
+      entry.cloze_question = fromExample.prompt;
+    } else {
+      entry.cloze_question = repaired.prompt;
+    }
+  }
   return null;
 }
 

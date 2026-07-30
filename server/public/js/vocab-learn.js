@@ -7,12 +7,16 @@
 
   var STORAGE_KEY_PREFIX = 'mrpark_vocab_placement_v2:';
   var LEGACY_STORAGE_KEY = 'mrpark_vocab_placement_v1';
-  var QUESTION_COUNT = 12;
+  var PLACEMENT_MIN = 15;
+  var PLACEMENT_MAX = 24;
+  var QUESTION_COUNT = PLACEMENT_MAX; // progress denominator / legacy label
   var QUESTION_SECONDS = 60;
   var PLACEMENT_SECONDS = QUESTION_SECONDS;
   var state = {
     view: 'home', // home | quiz | result | quest
     abilityGrade: 6,
+    abilityTrail: [],
+    avoidWordIds: [],
     questionIndex: 0,
     answers: [],
     currentQ: null,
@@ -24,7 +28,9 @@
     placement: null,
     placementDone: false,
     deckIndex: 0,
-    deck: []
+    deck: [],
+    mastery: null,
+    summary: null
   };
 
   function currentStudentId() {
@@ -149,6 +155,9 @@
     qStartedAt: 0,
     timerId: null,
     tickId: null,
+    sessionsCompleted: 0,
+    maxSessions: 3,
+    forceAnotherSet: false,
     alreadyPassedToday: false
   };
 
@@ -196,6 +205,8 @@
 
   function applyServerSummary(summary) {
     if (!summary) return;
+    state.summary = summary;
+    state.mastery = summary.mastery || null;
     // Server is authoritative. Never keep a cached tier when placement is unfinished.
     state.placementDone = !!summary.placementDone;
     if (summary.placementDone) {
@@ -211,6 +222,11 @@
     }
     if (summary.settings && summary.settings.passThreshold != null) {
       quest.passThreshold = summary.settings.passThreshold;
+    }
+    if (summary.today) {
+      quest.sessionsCompleted = summary.today.sessionsCompleted || 0;
+      quest.maxSessions = summary.today.maxSessions || 3;
+      quest.alreadyPassedToday = !!summary.today.testPassed;
     }
     renderHomeStats();
     syncPlacementVisibility();
@@ -262,6 +278,7 @@
       if (startEl) startEl.textContent = '';
       if (mark) mark.innerHTML = '';
       if (hero) hero.className = 'vocab-tier-hero';
+      renderMasteryBar(null);
       return;
     }
     tierEl.textContent = tierName;
@@ -269,6 +286,36 @@
     var badge = TIER_BADGES[tierName] || TIER_BADGES.Rookie;
     if (mark) mark.innerHTML = '<i class="fa-solid ' + badge.icon + '"></i>';
     if (hero) hero.className = 'vocab-tier-hero ' + badge.className;
+    renderMasteryBar(state.mastery);
+  }
+
+  function renderMasteryBar(mastery) {
+    var wrap = $('vocabMasteryWrap');
+    if (!wrap) {
+      var hero = $('vocabTierHero');
+      if (!hero || !hero.parentNode) return;
+      wrap = document.createElement('div');
+      wrap.id = 'vocabMasteryWrap';
+      wrap.className = 'vocab-mastery-wrap';
+      hero.insertAdjacentElement('afterend', wrap);
+    }
+    if (!mastery || !mastery.tierWords) {
+      wrap.innerHTML = '';
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+    var pct = Math.min(100, Math.max(0, Number(mastery.percent) || 0));
+    var left = Math.max(0, Number(mastery.remaining) || 0);
+    wrap.innerHTML =
+      '<div class="vocab-mastery-label">' +
+      'Tier progress · Mastered <strong>' + mastery.mastered + ' / ' + mastery.tierWords + '</strong> (' + pct + '%)' +
+      (left > 0
+        ? ' · <strong>' + left + '</strong> more correct to promote'
+        : ' · Ready to promote on next passed test!') +
+      '</div>' +
+      '<div class="vocab-progress vocab-mastery-bar"><span style="width:' + Math.min(100, Math.round((mastery.mastered / Math.max(1, mastery.tierWords)) * 100)) + '%"></span></div>' +
+      '<p class="vocab-mastery-hint">Promote at ' + (mastery.promoteAt || 80) + '% of this grade\'s words answered correctly at least once.</p>';
   }
 
   function shuffle(arr) {
@@ -303,20 +350,67 @@
   }
 
   function clozePromptFor(word) {
-    var raw = String(word.cloze_question || '').trim();
-    if (raw) return raw.replace(/^\s*Fill the blank:\s*/i, '').trim();
+    function escapeRegExp(s) {
+      return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    function wordFormRegex(w) {
+      var lower = String(w || '').trim().toLowerCase();
+      if (!lower) return null;
+      var forms = {};
+      function add(f) { if (f) forms[f] = true; }
+      add(lower);
+      add(lower + 's');
+      add(lower + 'es');
+      add(lower + 'ed');
+      add(lower + 'd');
+      add(lower + 'ing');
+      add(lower + 'er');
+      add(lower + 'est');
+      add(lower + 'ly');
+      if (lower.endsWith('y') && lower.length > 1 && !/[aeiou]y$/.test(lower)) {
+        add(lower.slice(0, -1) + 'ies');
+        add(lower.slice(0, -1) + 'ied');
+        add(lower.slice(0, -1) + 'ier');
+        add(lower.slice(0, -1) + 'iest');
+        add(lower.slice(0, -1) + 'ily');
+      }
+      if (lower.endsWith('e') && lower.length > 1) {
+        add(lower.slice(0, -1) + 'ing');
+      }
+      if (/[aeiou][bcdfghjklmnpqrstvwxyz]$/.test(lower) && lower.length <= 6) {
+        var last = lower.charAt(lower.length - 1);
+        add(lower + last + 'ing');
+        add(lower + last + 'ed');
+      }
+      var alts = Object.keys(forms).sort(function (a, b) { return b.length - a.length; }).map(escapeRegExp);
+      return new RegExp('\\b(?:' + alts.join('|') + ')\\b', 'gi');
+    }
+    function blankText(text, w) {
+      var raw = String(text || '').trim().replace(/^\s*Fill the blank:\s*/i, '').trim();
+      if (!raw) return { prompt: 'Choose the word that fits: ______', leaked: false };
+      var re = wordFormRegex(w);
+      if (!re) return { prompt: raw, leaked: true };
+      var prompt = raw.replace(re, '______').replace(/(?:______)(\s*______)+/g, '______');
+      var leaked = wordFormRegex(w).test(prompt);
+      return { prompt: prompt, leaked: leaked };
+    }
+    var w = wordLabel(word);
+    var cloze = String(word.cloze_question || '').trim();
+    if (cloze) {
+      var fromCloze = blankText(cloze, w);
+      if (!fromCloze.leaked && fromCloze.prompt.indexOf('______') >= 0) return fromCloze.prompt;
+    }
     var example = String(word.example_sentence || '').trim();
     if (!example) {
       var L = word.levels || {};
       var mid = L.intermediate || {};
       example = (mid.examples && mid.examples[0]) || '';
     }
-    example = String(example || '').trim();
-    if (!example) return 'Choose the word that fits: ______';
-    var re = new RegExp('\\b' + String(word.word || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
-    var blanked = example.replace(re, '______');
-    if (blanked === example) blanked = example + ' (______)';
-    return blanked;
+    if (example) {
+      var fromEx = blankText(example, w);
+      if (!fromEx.leaked && fromEx.prompt.indexOf('______') >= 0) return fromEx.prompt;
+    }
+    return null;
   }
 
   function uniqueChoices(correct, wrongs, need) {
@@ -365,9 +459,17 @@
       correct = wordDef(word) || word.word;
       choices = uniqueChoices(correct, distractors.map(wordDef));
     } else if (type === 'sentence') {
-      prompt = clozePromptFor(word);
-      correct = wordLabel(word);
-      choices = uniqueChoices(correct, distractors.map(wordLabel));
+      var cloze = clozePromptFor(word);
+      if (!cloze) {
+        type = 'meaning';
+        prompt = 'What does “' + word.word + '” mean?';
+        correct = wordDef(word) || word.word;
+        choices = uniqueChoices(correct, distractors.map(wordDef));
+      } else {
+        prompt = cloze;
+        correct = wordLabel(word);
+        choices = uniqueChoices(correct, distractors.map(wordLabel));
+      }
     } else {
       var def = wordDef(word) || word.word;
       var ko = wordKo(word);
@@ -453,6 +555,8 @@
     }
     clearPlacementTimer();
     state.abilityGrade = 6;
+    state.abilityTrail = [];
+    state.avoidWordIds = [];
     state.questionIndex = 0;
     state.answers = [];
     state.locked = false;
@@ -466,16 +570,55 @@
     state.locked = false;
     state.selectedChoice = null;
     state.qStartedAt = Date.now();
-    var q = buildQuestion(Math.round(state.abilityGrade), state.questionIndex);
-    state.currentQ = q;
+    var body = $('vocabQuizBody');
+    if (body) body.innerHTML = '<p class="vocab-empty">Loading adaptive question…</p>';
     var progress = $('vocabQuizProgress');
-    if (progress) progress.style.width = Math.round((state.questionIndex / QUESTION_COUNT) * 100) + '%';
-    var count = $('vocabQuizCount');
-    if (count) count.textContent = 'Question ' + (state.questionIndex + 1) + ' / ' + QUESTION_COUNT;
-    if (!q) {
-      $('vocabQuizBody').innerHTML = '<p class="vocab-empty">Mock data failed to load.</p>';
-      return;
+    if (progress) {
+      progress.style.width = Math.round((state.questionIndex / PLACEMENT_MAX) * 100) + '%';
     }
+    var count = $('vocabQuizCount');
+    if (count) {
+      count.textContent = 'Question ' + (state.questionIndex + 1) + ' · adapting (min ' + PLACEMENT_MIN + ', max ' + PLACEMENT_MAX + ')';
+    }
+
+    apiFetch('/api/student/vocab/placement/item', {
+      method: 'POST',
+      body: {
+        abilityGrade: state.abilityGrade,
+        questionIndex: state.questionIndex,
+        avoidWordIds: state.avoidWordIds,
+        abilityTrail: state.abilityTrail
+      }
+    }).then(function (item) {
+      if (item && item.done) {
+        finishPlacement();
+        return;
+      }
+      state.currentQ = {
+        type: item.type,
+        prompt: item.prompt,
+        correct: item.correct,
+        choices: item.choices || [],
+        word: item.word || { word: '' },
+        frequencyLevel: item.frequencyLevel || item.targetGrade
+      };
+      if (item.word && item.word.word_id) {
+        state.avoidWordIds.push(String(item.word.word_id));
+      }
+      renderPlacementQuestionCard(state.currentQ);
+    }).catch(function (err) {
+      // Fallback to local mock pack if bank API fails
+      var q = buildQuestion(Math.round(state.abilityGrade), state.questionIndex);
+      state.currentQ = q;
+      if (!q) {
+        if (body) body.innerHTML = '<p class="vocab-empty">Could not load a question: ' + escapeHtml(err.message || 'error') + '</p>';
+        return;
+      }
+      renderPlacementQuestionCard(q);
+    });
+  }
+
+  function renderPlacementQuestionCard(q) {
     var typeLabel = quizTypeLabel(q.type);
     var html = '<div class="vocab-q-card has-timer">' +
       '<span class="vocab-quiz-timer" id="vocabQuizTimer" aria-live="polite">' + QUESTION_SECONDS + 's</span>' +
@@ -547,8 +690,7 @@
     var nextBtn = $('vocabPlacementNextBtn');
     if (nextBtn) nextBtn.disabled = true;
 
-    state.abilityGrade = localUpdateAbility(state.abilityGrade, answer);
-
+    // Server is authoritative for ability (avoid double-stepping).
     apiFetch('/api/student/vocab/placement/next', {
       method: 'POST',
       body: {
@@ -556,15 +698,26 @@
         correct: correct,
         seconds: seconds,
         questionType: q.type,
-        questionIndex: state.questionIndex
+        questionIndex: state.questionIndex,
+        abilityTrail: state.abilityTrail
       }
     }).then(function (res) {
-      if (res && res.abilityGrade) state.abilityGrade = res.abilityGrade;
-    }).catch(function () { /* keep local */ });
-
-    state.questionIndex += 1;
-    if (state.questionIndex >= QUESTION_COUNT) finishPlacement();
-    else showQuestion();
+      if (res && res.abilityGrade != null) state.abilityGrade = res.abilityGrade;
+      else state.abilityGrade = localUpdateAbility(state.abilityGrade, answer);
+      if (res && Array.isArray(res.abilityTrail)) state.abilityTrail = res.abilityTrail;
+      else state.abilityTrail.push(state.abilityGrade);
+      state.questionIndex += 1;
+      var stop = !!(res && res.stop) || state.questionIndex >= PLACEMENT_MAX;
+      if (stop && state.questionIndex >= PLACEMENT_MIN) finishPlacement();
+      else if (state.questionIndex >= PLACEMENT_MAX) finishPlacement();
+      else showQuestion();
+    }).catch(function () {
+      state.abilityGrade = localUpdateAbility(state.abilityGrade, answer);
+      state.abilityTrail.push(state.abilityGrade);
+      state.questionIndex += 1;
+      if (state.questionIndex >= PLACEMENT_MAX) finishPlacement();
+      else showQuestion();
+    });
   }
 
   function finishPlacement() {
@@ -773,24 +926,53 @@
   function loadQuestInline() {
     var box = $('vocabQuestBody');
     if (!box) return;
-    if (quest.phase === 'study' || quest.phase === 'test' || quest.phase === 'done') return;
+    if (quest.phase === 'study' || quest.phase === 'test') return;
     box.innerHTML = '<p class="vocab-empty">Loading today\u2019s words…</p>';
     apiFetch('/api/student/vocab/daily-queue')
       .then(function (queue) {
         quest.targetCount = queue.targetCount || 10;
         quest.passThreshold = queue.passThreshold || 100;
+        quest.sessionsCompleted = queue.sessionsCompleted || 0;
+        quest.maxSessions = queue.maxSessions || 3;
+        quest.alreadyPassedToday = !!queue.testPassed;
         quest.masterQueue = (queue.words || []).slice();
         quest.queue = quest.masterQueue.slice();
-        quest.alreadyPassedToday = !!queue.testPassed;
-        if (quest.alreadyPassedToday) {
+
+        if (!queue.canStartAnother) {
           quest.phase = 'done';
           box.innerHTML =
             '<div class="vocab-result">' +
-            '<div class="vocab-tier-badge"><i class="fa-solid fa-trophy"></i> Today\u2019s quest is complete!</div>' +
-            '<p>Nice work — come back tomorrow to keep your streak going.</p>' +
+            '<div class="vocab-tier-badge"><i class="fa-solid fa-trophy"></i> Today\u2019s sets complete!</div>' +
+            '<p>You finished ' + quest.sessionsCompleted + ' / ' + quest.maxSessions + ' sets. Come back tomorrow to keep going.</p>' +
             '</div>';
           return;
         }
+
+        // After at least one set today, wait for an explicit "another set" click
+        // (unless the student just pressed that button).
+        if (quest.sessionsCompleted > 0 && !quest.forceAnotherSet) {
+          quest.phase = 'done';
+          box.innerHTML =
+            '<div class="vocab-result">' +
+            '<div class="vocab-tier-badge"><i class="fa-solid fa-circle-check"></i> Set complete</div>' +
+            '<p>Sets today: ' + quest.sessionsCompleted + ' / ' + quest.maxSessions +
+            (quest.alreadyPassedToday ? ' · Reward already claimed' : '') + '</p>' +
+            (quest.queue.length
+              ? '<div class="vocab-actions" style="justify-content:center;margin-top:0.75rem;">' +
+                '<button type="button" class="vocab-btn" id="vocabAnotherSetBtn">Study another set (' +
+                (quest.sessionsCompleted + 1) + '/' + quest.maxSessions + ')</button></div>'
+              : '<p class="vocab-empty">No more words available right now.</p>') +
+            '</div>';
+          var againBtn = $('vocabAnotherSetBtn');
+          if (againBtn) againBtn.addEventListener('click', function () {
+            quest.forceAnotherSet = true;
+            quest.phase = 'idle';
+            loadQuestInline();
+          });
+          return;
+        }
+        quest.forceAnotherSet = false;
+
         if (!quest.queue.length) {
           quest.phase = 'idle';
           box.innerHTML = '<p class="vocab-empty">No words available right now. Try again later.</p>';
@@ -907,11 +1089,19 @@
       choices = uniqueChoices(correct, distractors.map(wordLabel));
     } else {
       // Sentence / cloze — always use today's words as choices (blocks "pick today's word" cheat)
-      type = 'sentence';
-      prompt = clozePromptFor(word);
-      correct = wordLabel(word);
-      choices = uniqueChoices(correct, distractors.map(wordLabel));
-      explanation = word.explanation_for_wrong || '';
+      var clozeDaily = clozePromptFor(word);
+      if (!clozeDaily) {
+        type = 'meaning';
+        prompt = 'What does “' + wordLabel(word) + '” mean?';
+        correct = wordDef(word) || wordLabel(word);
+        choices = uniqueChoices(correct, distractors.map(wordDef));
+      } else {
+        type = 'sentence';
+        prompt = clozeDaily;
+        correct = wordLabel(word);
+        choices = uniqueChoices(correct, distractors.map(wordLabel));
+        explanation = word.explanation_for_wrong || '';
+      }
     }
 
     // If today's pool is short, pad with bank wrong_options (words only) as last resort
@@ -1076,7 +1266,16 @@
 
     apiFetch('/api/student/vocab/daily-test/submit', {
       method: 'POST',
-      body: { correctCount: correctCount, totalCount: total }
+      body: {
+        correctCount: correctCount,
+        totalCount: total,
+        answers: quest.testAnswers.map(function (a) {
+          return {
+            wordId: a.word && a.word.word_id,
+            correct: !!a.correct
+          };
+        })
+      }
     }).then(function (res) {
       if (!res.passed && missed.length) {
         renderMissedRestudyGate(res, correctCount, total, missed);
@@ -1116,19 +1315,48 @@
     var passed = !!res.passed;
     var reward = res.reward;
     quest.phase = passed ? 'done' : 'idle';
+    if (passed) {
+      quest.sessionsCompleted = res.sessionsCompleted != null ? res.sessionsCompleted : (quest.sessionsCompleted + 1);
+      quest.maxSessions = res.maxSessions || quest.maxSessions || 3;
+      quest.alreadyPassedToday = true;
+    }
+    var mastery = res.mastery || (res.rating && res.rating.mastery);
+    var canMore = passed && res.canStartAnother;
     box.innerHTML =
       '<div class="vocab-result">' +
       '<div class="vocab-tier-badge"><i class="fa-solid ' + (passed ? 'fa-trophy' : 'fa-rotate-left') + '"></i> ' +
-      (passed ? 'Quest complete!' : 'Almost there') + '</div>' +
+      (passed ? 'Set complete!' : 'Almost there') + '</div>' +
       '<h3>Score: ' + correctCount + ' / ' + total + ' (' + res.score + '%)</h3>' +
-      '<p>Pass threshold: ' + res.threshold + '%' + (res.alreadyPassedToday ? ' · Already rewarded today' : '') + '</p>' +
+      '<p>Pass threshold: ' + res.threshold + '%' +
+      (passed ? ' · Sets today: ' + quest.sessionsCompleted + ' / ' + quest.maxSessions : '') +
+      (res.rewardClaimedToday && !reward ? ' · Reward already claimed today' : '') + '</p>' +
       (reward ? '<p>🎁 Reward earned: <strong>' + escapeHtml(reward.tier || '') + '</strong> — “' + escapeHtml(reward.prizeText || '') + '”</p>' : '') +
       (res.dollarBonus ? '<p>💵 Tier bonus: <strong>+$' + escapeHtml(String(res.dollarBonus.amount)) + '</strong> (' + escapeHtml(res.dollarBonus.tierName || '') + ')</p>' : '') +
-      (res.rating && res.rating.promoted ? '<p>' + (res.rating.promoted === 'up'
-        ? '⬆️ Promoted to Grade ' + escapeHtml(String(res.rating.gradeLevel)) + ' (' + escapeHtml(res.rating.tierName) + ')!'
-        : '⬇️ Moved to Grade ' + escapeHtml(String(res.rating.gradeLevel)) + ' (' + escapeHtml(res.rating.tierName) + ') to rebuild your streak.') + '</p>' : '') +
+      (passed && !reward && res.rewardClaimedToday
+        ? '<p class="vocab-empty">Progress saved — reward already claimed for today.</p>'
+        : '') +
+      (res.rating && res.rating.promoted === 'up'
+        ? '<p>⬆️ Promoted to Grade ' + escapeHtml(String(res.rating.gradeLevel)) + ' (' + escapeHtml(res.rating.tierName) + ')!</p>'
+        : '') +
+      (mastery
+        ? '<p>Tier mastery: <strong>' + mastery.mastered + ' / ' + mastery.tierWords + '</strong> (' + mastery.percent + '%)' +
+          (mastery.remaining > 0 ? ' · ' + mastery.remaining + ' left to promote' : ' · promote-ready!') + '</p>'
+        : '') +
       (res.streak ? '<p>🔥 Streak: ' + res.streak.streakDays + ' day' + (res.streak.streakDays === 1 ? '' : 's') + ' (best ' + res.streak.longestStreak + ')</p>' : '') +
+      (canMore
+        ? '<div class="vocab-actions" style="justify-content:center;margin-top:0.85rem;">' +
+          '<button type="button" class="vocab-btn" id="vocabAnotherSetBtn">Study another set (' +
+          (quest.sessionsCompleted + 1) + '/' + quest.maxSessions + ')</button></div>'
+        : '') +
       '</div>';
+    if (canMore) {
+      var again = $('vocabAnotherSetBtn');
+      if (again) again.addEventListener('click', function () {
+        quest.forceAnotherSet = true;
+        quest.phase = 'idle';
+        loadQuestInline();
+      });
+    }
     if (passed) refreshServerSummary();
   }
 

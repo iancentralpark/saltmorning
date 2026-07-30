@@ -6699,16 +6699,20 @@
 
                 <div id="vocabLmsOverviewPane" class="abuse-hub-pane">
                     <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small mb-1">Daily target (words/day)</label>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Daily target (words/set)</label>
                             <input type="number" class="form-control form-control-sm" id="vocabLmsDailyTarget" min="3" max="60" value="10">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label small mb-1">Pass threshold (%)</label>
                             <input type="number" class="form-control form-control-sm" id="vocabLmsPassThreshold" min="30" max="100" value="100">
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Max sets / day</label>
+                            <input type="number" class="form-control form-control-sm" id="vocabLmsMaxSessions" min="1" max="5" value="3">
+                        </div>
                     </div>
-                    <p class="text-muted small mb-3 mb-md-2">Daily quest pass → random Lucky Draw ticket (same odds as a spin) + tier dollar bonus.</p>
+                    <p class="text-muted small mb-3 mb-md-2">First passed set of the day → Lucky Draw ticket + tier dollar bonus. Extra sets count toward tier mastery (80% to promote).</p>
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                         <button type="button" class="btn btn-sm btn-primary" id="vocabLmsSaveSettingsBtn">
                             <i class="fa-solid fa-floppy-disk"></i> Save settings
@@ -15581,6 +15585,8 @@
                 vocabLmsState.settings = res.settings || {};
                 document.getElementById('vocabLmsDailyTarget').value = vocabLmsState.settings.daily_target || 10;
                 document.getElementById('vocabLmsPassThreshold').value = vocabLmsState.settings.pass_threshold != null ? vocabLmsState.settings.pass_threshold : 100;
+                var maxSessEl = document.getElementById('vocabLmsMaxSessions');
+                if (maxSessEl) maxSessEl.value = vocabLmsState.settings.max_daily_sessions || 3;
                 renderVocabLmsRoster(res.students || []);
                 document.getElementById('vocabLmsOverviewLoading').classList.add('d-none');
                 document.getElementById('vocabLmsRosterWrap').classList.remove('d-none');
@@ -15732,9 +15738,10 @@
         if (!selectedClass) return;
         const dailyTarget = Number(document.getElementById('vocabLmsDailyTarget').value);
         const passThreshold = Number(document.getElementById('vocabLmsPassThreshold').value);
+        const maxDailySessions = Number((document.getElementById('vocabLmsMaxSessions') || {}).value) || 3;
         nodeFetch('/api/vocab/class/' + encodeURIComponent(selectedClass.id) + '/settings', {
             method: 'POST',
-            body: JSON.stringify({ dailyTarget: dailyTarget, passThreshold: passThreshold })
+            body: JSON.stringify({ dailyTarget: dailyTarget, passThreshold: passThreshold, maxDailySessions: maxDailySessions })
         }).then(function(res) {
             vocabLmsState.settings = res;
             appToast('Vocab settings saved.');
