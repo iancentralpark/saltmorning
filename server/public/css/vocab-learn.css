@@ -491,6 +491,27 @@
   background: linear-gradient(135deg, #dff3ff 0%, #cfe9fb 42%, #ffe8c8 100%);
   box-shadow: 0 10px 28px rgba(42, 111, 151, 0.14), inset 0 1px 0 rgba(255,255,255,0.7);
 }
+.vocab-tier-hero.is-clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.vocab-tier-hero.is-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(42, 111, 151, 0.18), inset 0 1px 0 rgba(255,255,255,0.7);
+}
+.vocab-tier-hero.is-clickable:focus-visible {
+  outline: 3px solid rgba(42, 111, 151, 0.45);
+  outline-offset: 2px;
+}
+.vocab-tier-hero.is-clickable .vocab-tier-hero-label::after {
+  content: ' · tap for ladder';
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.75;
+}
 .vocab-tier-badge-mark {
   flex: 0 0 auto;
   width: 4.4rem;
@@ -559,6 +580,119 @@
 .vocab-tier-hero.tier-master { background: linear-gradient(135deg, #ffe0d4, #ffb59a 50%, #fff1ea); border-color: rgba(194,65,12,0.4); }
 .vocab-tier-hero.tier-grandmaster { background: linear-gradient(135deg, #ffd0dc, #ff9ab0 50%, #fff0f3); border-color: rgba(190,18,60,0.4); }
 .vocab-tier-hero.tier-legend { background: linear-gradient(135deg, #ffe8a8, #ffc857 45%, #fff6df); border-color: rgba(180,83,9,0.45); }
+
+.vocab-tier-ladder {
+  margin: -0.35rem 0 1rem;
+  padding: 0.85rem 0.9rem 0.95rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(42, 111, 151, 0.22);
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 12px 28px rgba(13, 53, 80, 0.12);
+  max-height: min(70vh, 28rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.vocab-tier-ladder.hidden { display: none; }
+.vocab-tier-ladder-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+  padding-right: 1.8rem;
+  position: relative;
+}
+.vocab-tier-ladder-head strong {
+  font-size: 0.95rem;
+  color: #0d3550;
+}
+.vocab-tier-ladder-head span {
+  font-size: 0.78rem;
+  color: #5a7a90;
+  font-weight: 650;
+}
+.vocab-tier-ladder-close {
+  position: absolute;
+  right: 0;
+  top: -0.15rem;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: #eef3f7;
+  color: #355870;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.vocab-tier-ladder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.vocab-tier-ladder-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  background: #f7fafc;
+}
+.vocab-tier-ladder-mark {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.35);
+  background: #6b7280;
+}
+.vocab-tier-ladder-name {
+  font-weight: 800;
+  color: #16384f;
+  font-size: 0.98rem;
+}
+.vocab-tier-ladder-meta {
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6b879a;
+}
+.vocab-tier-ladder-row.is-you {
+  border-color: rgba(42, 111, 151, 0.35);
+  background: #e8f5ff;
+  box-shadow: 0 0 0 2px rgba(42, 111, 151, 0.12);
+}
+.vocab-tier-ladder-row.is-you .vocab-tier-ladder-meta { color: #1f6f9c; }
+.vocab-tier-ladder-row.is-next {
+  border-color: rgba(15, 159, 110, 0.28);
+  background: #f0fff8;
+}
+.vocab-tier-ladder-row.is-next .vocab-tier-ladder-meta { color: #0f9f6e; }
+.vocab-tier-ladder-row.is-cleared { opacity: 0.72; }
+.vocab-tier-ladder-row.is-locked .vocab-tier-ladder-name { color: #4a6578; }
+.vocab-tier-ladder-row.tier-rookie .vocab-tier-ladder-mark { background: linear-gradient(145deg, #9ca3af, #6b7280); }
+.vocab-tier-ladder-row.tier-iron .vocab-tier-ladder-mark { background: linear-gradient(145deg, #c0c5ce, #7b8494); }
+.vocab-tier-ladder-row.tier-bronze .vocab-tier-ladder-mark { background: linear-gradient(145deg, #d89a5b, #a05a2c); }
+.vocab-tier-ladder-row.tier-silver .vocab-tier-ladder-mark { background: linear-gradient(145deg, #e8eef5, #8fa0b5); color: #334155; }
+.vocab-tier-ladder-row.tier-gold .vocab-tier-ladder-mark { background: linear-gradient(145deg, #ffd76a, #d4a017); color: #5b3b00; }
+.vocab-tier-ladder-row.tier-platinum .vocab-tier-ladder-mark { background: linear-gradient(145deg, #e5eef8, #7f9bb8); color: #1e293b; }
+.vocab-tier-ladder-row.tier-emerald .vocab-tier-ladder-mark { background: linear-gradient(145deg, #5dffb0, #0f9f6e); }
+.vocab-tier-ladder-row.tier-diamond .vocab-tier-ladder-mark { background: linear-gradient(145deg, #b7ecff, #2f7fd6); }
+.vocab-tier-ladder-row.tier-ascendant .vocab-tier-ladder-mark { background: linear-gradient(145deg, #d7b3ff, #7c3aed); }
+.vocab-tier-ladder-row.tier-master .vocab-tier-ladder-mark { background: linear-gradient(145deg, #ffb4a2, #c2410c); }
+.vocab-tier-ladder-row.tier-grandmaster .vocab-tier-ladder-mark { background: linear-gradient(145deg, #ff8fab, #be123c); }
+.vocab-tier-ladder-row.tier-legend .vocab-tier-ladder-mark { background: linear-gradient(145deg, #ffe08a, #b45309 45%, #7c2d12); }
+
 @media (max-width: 640px) {
   .vocab-tier-badge-mark { width: 3.7rem; height: 3.7rem; font-size: 1.55rem; }
+  .vocab-tier-hero.is-clickable .vocab-tier-hero-label::after { content: ' · tap'; }
 }

@@ -175,6 +175,7 @@
     Grandmaster: { icon: 'fa-crown', className: 'tier-grandmaster' },
     Legend: { icon: 'fa-trophy', className: 'tier-legend' }
   };
+  var TIER_LADDER = Object.keys(TIER_BADGES);
 
   function setView(view) {
     state.view = view;
@@ -277,16 +278,116 @@
       tierEl.textContent = '—';
       if (startEl) startEl.textContent = '';
       if (mark) mark.innerHTML = '';
-      if (hero) hero.className = 'vocab-tier-hero';
+      if (hero) {
+        hero.className = 'vocab-tier-hero';
+        hero.setAttribute('aria-disabled', 'true');
+      }
       renderMasteryBar(null);
+      renderTierLadder(null);
       return;
     }
     tierEl.textContent = tierName;
     if (startEl) startEl.textContent = grade ? ('Grade ' + grade) : '';
     var badge = TIER_BADGES[tierName] || TIER_BADGES.Rookie;
     if (mark) mark.innerHTML = '<i class="fa-solid ' + badge.icon + '"></i>';
-    if (hero) hero.className = 'vocab-tier-hero ' + badge.className;
+    if (hero) {
+      hero.className = 'vocab-tier-hero is-clickable ' + badge.className;
+      hero.setAttribute('aria-disabled', 'false');
+      hero.setAttribute('title', 'See all tiers');
+    }
     renderMasteryBar(state.mastery);
+    renderTierLadder(tierName);
+  }
+
+  function ensureTierLadderEl() {
+    var el = $('vocabTierLadder');
+    if (el) return el;
+    var hero = $('vocabTierHero');
+    if (!hero || !hero.parentNode) return null;
+    el = document.createElement('div');
+    el.id = 'vocabTierLadder';
+    el.className = 'vocab-tier-ladder hidden';
+    el.setAttribute('hidden', '');
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', 'Vocab tier ladder');
+    hero.insertAdjacentElement('afterend', el);
+    return el;
+  }
+
+  function renderTierLadder(currentTierName) {
+    var el = ensureTierLadderEl();
+    if (!el) return;
+    var current = String(currentTierName || '').trim();
+    var currentIdx = TIER_LADDER.findIndex(function (name) {
+      return name.toLowerCase() === current.toLowerCase();
+    });
+    el.innerHTML =
+      '<div class="vocab-tier-ladder-head">' +
+      '<strong>Tier ladder</strong>' +
+      '<span>Rookie → Legend</span>' +
+      '<button type="button" class="vocab-tier-ladder-close" id="vocabTierLadderClose" aria-label="Close">' +
+      '<i class="fa-solid fa-xmark"></i></button>' +
+      '</div>' +
+      '<ol class="vocab-tier-ladder-list">' +
+      TIER_LADDER.map(function (name, i) {
+        var badge = TIER_BADGES[name];
+        var isYou = currentIdx >= 0 && i === currentIdx;
+        var isBelow = currentIdx >= 0 && i < currentIdx;
+        var isNext = currentIdx >= 0 && i === currentIdx + 1;
+        var isAbove = currentIdx >= 0 && i > currentIdx + 1;
+        var status = isYou ? 'you' : (isBelow ? 'cleared' : (isNext ? 'next' : (isAbove ? 'locked' : '')));
+        var meta = isYou ? 'You are here' : (isBelow ? 'Cleared' : (isNext ? 'Next' : ''));
+        return (
+          '<li class="vocab-tier-ladder-row ' + badge.className +
+          (status ? ' is-' + status : '') + '">' +
+          '<span class="vocab-tier-ladder-mark" aria-hidden="true">' +
+          '<i class="fa-solid ' + badge.icon + '"></i></span>' +
+          '<span class="vocab-tier-ladder-name">' + name + '</span>' +
+          '<span class="vocab-tier-ladder-meta">' + meta + '</span></li>'
+        );
+      }).join('') +
+      '</ol>';
+    var closeBtn = $('vocabTierLadderClose');
+    if (closeBtn) {
+      closeBtn.onclick = function (e) {
+        e.stopPropagation();
+        setTierLadderOpen(false);
+      };
+    }
+  }
+
+  function isTierLadderOpen() {
+    var el = $('vocabTierLadder');
+    return !!(el && !el.classList.contains('hidden'));
+  }
+
+  function setTierLadderOpen(open) {
+    var el = ensureTierLadderEl();
+    var hero = $('vocabTierHero');
+    if (!el) return;
+    if (open) {
+      var tierName = (state.placement && state.placement.tier && state.placement.tier.name) || '';
+      renderTierLadder(tierName);
+      el.classList.remove('hidden');
+      el.removeAttribute('hidden');
+      if (hero) hero.setAttribute('aria-expanded', 'true');
+      var you = el.querySelector('.vocab-tier-ladder-row.is-you');
+      if (you && typeof you.scrollIntoView === 'function') {
+        setTimeout(function () { you.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 40);
+      }
+    } else {
+      el.classList.add('hidden');
+      el.setAttribute('hidden', '');
+      if (hero) hero.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function toggleTierLadder() {
+    var hero = $('vocabTierHero');
+    if (!hero || hero.getAttribute('aria-disabled') === 'true') return;
+    var tierName = (state.placement && state.placement.tier && state.placement.tier.name) || '';
+    if (!tierName) return;
+    setTierLadderOpen(!isTierLadderOpen());
   }
 
   function renderMasteryBar(mastery) {
@@ -1363,6 +1464,40 @@
   function bindShell() {
     var start = $('vocabStartTestBtn');
     if (start) start.addEventListener('click', startPlacement);
+    var hero = $('vocabTierHero');
+    if (hero && !hero.dataset.tierLadderBound) {
+      hero.dataset.tierLadderBound = '1';
+      hero.setAttribute('role', 'button');
+      hero.setAttribute('tabindex', '0');
+      hero.setAttribute('aria-expanded', 'false');
+      hero.setAttribute('aria-controls', 'vocabTierLadder');
+      hero.addEventListener('click', function (e) {
+        e.preventDefault();
+        toggleTierLadder();
+      });
+      hero.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleTierLadder();
+        } else if (e.key === 'Escape') {
+          setTierLadderOpen(false);
+        }
+      });
+    }
+    if (!state._tierLadderDocBound) {
+      state._tierLadderDocBound = true;
+      document.addEventListener('click', function (e) {
+        if (!isTierLadderOpen()) return;
+        var t = e.target;
+        if (hero && hero.contains(t)) return;
+        var ladder = $('vocabTierLadder');
+        if (ladder && ladder.contains(t)) return;
+        setTierLadderOpen(false);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') setTierLadderOpen(false);
+      });
+    }
   }
 
   function init() {
