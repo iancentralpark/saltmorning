@@ -83,7 +83,7 @@ async function getRows(sheetName) {
   const header = HEADERS[sheetName];
 
   if (sheetName === CLASS_LIST_SHEET) {
-    const { data, error } = await db.from('classes').select('id, name, schedule_type, allowed_days').order('name');
+    const { data, error } = await db.from('classes').select('id, name, schedule_type, allowed_days, sort_order').order('sort_order', { ascending: true }).order('name', { ascending: true });
     if (error) throw new Error(error.message);
     const rows = [header];
     (data || []).forEach(function(r) {

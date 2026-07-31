@@ -109,17 +109,31 @@ async function getInitialClasses() {
   const db = getSupabase();
   const { data, error } = await db
     .from('classes')
-    .select('id, name, schedule_type, allowed_days')
-    .order('name');
+    .select('id, name, schedule_type, allowed_days, sort_order')
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
   if (error) throw new Error(error.message || 'Database error.');
   return (data || []).map(function(row) {
     return {
       id: row.id,
       name: row.name,
       scheduleType: row.schedule_type || '',
-      allowedDays: Array.isArray(row.allowed_days) ? row.allowed_days : []
+      allowedDays: Array.isArray(row.allowed_days) ? row.allowed_days : [],
+      sortOrder: row.sort_order != null ? Number(row.sort_order) || 0 : 0
     };
   });
+}
+
+async function nextClassSortOrder() {
+  const db = getSupabase();
+  const { data, error } = await db
+    .from('classes')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message || 'Database error.');
+  const max = data && data[0] && data[0].sort_order != null ? Number(data[0].sort_order) : -1;
+  return (Number.isFinite(max) ? max : -1) + 1;
 }
 
 function normalizeAllowedDays(raw) {
@@ -197,15 +211,23 @@ async function createClass(opts) {
   }
   const scheduleType = String(opts.scheduleType || '').trim() || scheduleTypeForDays(allowedDays);
   const id = String(opts.id || '').trim() || await nextClassId();
+  const sortOrder = opts.sortOrder != null && Number.isFinite(Number(opts.sortOrder))
+    ? Math.max(0, Math.round(Number(opts.sortOrder)))
+    : await nextClassSortOrder();
 
   const row = {
     id: id,
     name: name,
     schedule_type: scheduleType,
     allowed_days: allowedDays,
+    sort_order: sortOrder,
     updated_at: new Date().toISOString()
   };
-  const { data, error } = await db.from('classes').insert(row).select('id, name, schedule_type, allowed_days').maybeSingle();
+  const { data, error } = await db
+    .from('classes')
+    .insert(row)
+    .select('id, name, schedule_type, allowed_days, sort_order')
+    .maybeSingle();
   if (error) {
     if (/duplicate|unique/i.test(error.message || '')) {
       throw new Error('A class with that ID already exists.');
@@ -216,7 +238,8 @@ async function createClass(opts) {
     id: data.id,
     name: data.name,
     scheduleType: data.schedule_type || '',
-    allowedDays: Array.isArray(data.allowed_days) ? data.allowed_days : allowedDays
+    allowedDays: Array.isArray(data.allowed_days) ? data.allowed_days : allowedDays,
+    sortOrder: data.sort_order != null ? Number(data.sort_order) || sortOrder : sortOrder
   };
 }
 
@@ -246,7 +269,7 @@ async function updateClass(classId, opts) {
     .from('classes')
     .update(patch)
     .eq('id', classId)
-    .select('id, name, schedule_type, allowed_days')
+    .select('id, name, schedule_type, allowed_days, sort_order')
     .maybeSingle();
   if (error) throw new Error(error.message || 'Could not update class.');
   if (!data) throw new Error('Class not found.');
@@ -254,7 +277,43 @@ async function updateClass(classId, opts) {
     id: data.id,
     name: data.name,
     scheduleType: data.schedule_type || '',
-    allowedDays: Array.isArray(data.allowed_days) ? data.allowed_days : []
+    allowedDays: Array.isArray(data.allowed_days) ? data.allowed_days : [],
+    sortOrder: data.sort_order != null ? Number(data.sort_order) || 0 : 0
+  };
+}
+
+async function reorderClasses(classIds) {
+  const db = getSupabase();
+  const orderedIds = (Array.isArray(classIds) ? classIds : [])
+    .map(function(id) { return String(id || '').trim(); })
+    .filter(Boolean);
+  if (!orderedIds.length) throw new Error('classIds are required.');
+
+  const existing = await getInitialClasses();
+  const existingIds = existing.map(function(c) { return String(c.id); });
+  const existingSet = new Set(existingIds);
+  for (let i = 0; i < orderedIds.length; i++) {
+    if (!existingSet.has(orderedIds[i])) {
+      throw new Error('Unknown class: ' + orderedIds[i]);
+    }
+  }
+  const finalOrder = orderedIds.slice();
+  existingIds.forEach(function(id) {
+    if (finalOrder.indexOf(id) < 0) finalOrder.push(id);
+  });
+
+  for (let i = 0; i < finalOrder.length; i++) {
+    const { error } = await db
+      .from('classes')
+      .update({ sort_order: i, updated_at: new Date().toISOString() })
+      .eq('id', finalOrder[i]);
+    if (error) throw new Error(error.message || 'Could not save class order.');
+  }
+
+  return {
+    ok: true,
+    classIds: finalOrder,
+    message: 'Class order saved.'
   };
 }
 
@@ -479,6 +538,7 @@ module.exports = {
   listManagedClasses,
   createClass,
   updateClass,
+  reorderClasses,
   deleteClass,
   setPortalPassword,
   listPortalLoginsForClass,

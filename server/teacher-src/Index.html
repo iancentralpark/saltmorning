@@ -2148,6 +2148,15 @@
             box-shadow: 0 5px 0 #2a8fc9, 0 10px 24px rgba(59, 158, 221, 0.35);
             transform: translateY(-2px);
         }
+        .manage-class-drag-handle {
+            cursor: grab;
+            color: #6c757d;
+        }
+        .manage-class-drag-handle:active { cursor: grabbing; }
+        .manage-class-row-ghost {
+            opacity: 0.55;
+            background: #f8f9fa;
+        }
 
         .status-toggle { width: auto; max-width: 13.5rem; }
         .vocab-input {
@@ -6650,6 +6659,9 @@
                     <div class="form-text mt-2 mb-0">Class ID is assigned automatically (C006, C007, …).</div>
                 </div>
                 <div id="manageClassesLoading" class="text-muted small py-2">Loading…</div>
+                <p id="manageClassesOrderHint" class="d-none small text-muted mb-2">
+                    <i class="fa-solid fa-up-down-left-right"></i> Drag classes to change their order on Select Class (left → right).
+                </p>
                 <div id="manageClassesList" class="d-none"></div>
             </div>
             <div class="modal-footer">
@@ -9351,12 +9363,68 @@
             });
     }
 
+    var manageClassesSortable = null;
+    var manageClassesReorderSaving = false;
+
+    function destroyManageClassesSortable() {
+        if (manageClassesSortable) {
+            manageClassesSortable.destroy();
+            manageClassesSortable = null;
+        }
+    }
+
+    function collectManageClassOrderFromDom() {
+        const list = document.getElementById('manageClassesList');
+        if (!list) return [];
+        return Array.prototype.map.call(list.querySelectorAll('.manage-class-row[data-class-id]'), function(el) {
+            return String(el.getAttribute('data-class-id') || '');
+        }).filter(Boolean);
+    }
+
+    function saveManageClassesOrder(preferredIds) {
+        const classIds = (Array.isArray(preferredIds) && preferredIds.length)
+            ? preferredIds
+            : collectManageClassOrderFromDom();
+        if (!classIds.length || manageClassesReorderSaving) return Promise.resolve();
+        manageClassesReorderSaving = true;
+        return nodeFetch('/api/classes/reorder', {
+            method: 'POST',
+            body: JSON.stringify({ classIds: classIds })
+        }).then(function() {
+            return refreshClassButtonsFromServer();
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not save class order.', 'error');
+            loadManageClassesList();
+        }).finally(function() {
+            manageClassesReorderSaving = false;
+        });
+    }
+
+    function initManageClassesSortable() {
+        destroyManageClassesSortable();
+        const list = document.getElementById('manageClassesList');
+        if (!list || typeof Sortable === 'undefined') return;
+        if (!list.querySelector('.manage-class-row')) return;
+        manageClassesSortable = Sortable.create(list, {
+            handle: '.manage-class-drag-handle',
+            animation: 150,
+            draggable: '.manage-class-row',
+            ghostClass: 'manage-class-row-ghost',
+            onEnd: function() {
+                saveManageClassesOrder();
+            }
+        });
+    }
+
     function renderManageClassesList(classes) {
         const loading = document.getElementById('manageClassesLoading');
         const list = document.getElementById('manageClassesList');
+        const hint = document.getElementById('manageClassesOrderHint');
+        destroyManageClassesSortable();
         if (loading) loading.classList.add('d-none');
         if (!list) return;
         list.classList.remove('d-none');
+        if (hint) hint.classList.toggle('d-none', !classes.length);
         if (!classes.length) {
             list.innerHTML = '<p class="text-muted small mb-0">No classes yet. Add one above.</p>';
             return;
@@ -9368,11 +9436,14 @@
             return (
                 '<div class="border rounded-3 p-3 mb-2 manage-class-row" data-class-id="' + escapeHtml(cls.id) + '">' +
                 '<div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-2">' +
+                '<div class="d-flex gap-2 align-items-start">' +
+                '<button type="button" class="btn btn-sm btn-light border manage-class-drag-handle" title="Drag to reorder" aria-label="Drag to reorder">' +
+                '<i class="fa-solid fa-grip-vertical"></i></button>' +
                 '<div><div class="fw-bold">' + escapeHtml(cls.name) +
                 ' <span class="text-muted small fw-normal">(' + escapeHtml(cls.id) + ')</span></div>' +
                 '<div class="small text-muted">' + escapeHtml(cls.scheduleType || scheduleTypeFromDays(days)) +
                 ' · ' + escapeHtml(formatClassDays(days)) +
-                ' · ' + (cls.studentCount || 0) + ' student' + ((cls.studentCount || 0) === 1 ? '' : 's') + '</div></div>' +
+                ' · ' + (cls.studentCount || 0) + ' student' + ((cls.studentCount || 0) === 1 ? '' : 's') + '</div></div></div>' +
                 '<button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 manage-class-delete-btn"' +
                 ((cls.studentCount || 0) > 0 ? ' disabled title="Withdraw or move students first"' : '') +
                 '><i class="fa-solid fa-trash"></i> Delete</button></div>' +
@@ -9461,6 +9532,7 @@
                 });
             }
         });
+        initManageClassesSortable();
     }
 
     function createClassFromForm() {

@@ -6,6 +6,7 @@ const {
   listManagedClasses,
   createClass,
   updateClass,
+  reorderClasses,
   deleteClass
 } = require('./supabaseStudentService');
 const { syncStudentPasswordToSheet } = require('./studentPasswordSync');
@@ -333,6 +334,19 @@ router.put('/classes/:classId', requireTeacherAuth, async (req, res) => {
   } catch (e) {
     console.error('PUT /classes/:classId', e);
     res.status(400).json({ error: e.message || 'Could not update class' });
+  }
+});
+
+router.post('/classes/reorder', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Class management requires Supabase.' });
+    }
+    const body = req.body || {};
+    res.json(await reorderClasses(body.classIds));
+  } catch (e) {
+    console.error('POST /classes/reorder', e);
+    res.status(400).json({ error: e.message || 'Could not reorder classes' });
   }
 });
 
