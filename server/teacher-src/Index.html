@@ -8897,6 +8897,7 @@
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
         initVocabLmsModal();
+        bindManageClassesUi();
         document.getElementById('abuseAlertRefreshBtn').addEventListener('click', function() {
             refreshAbuseAlertModal(true);
         });
@@ -9439,7 +9440,7 @@
             if (delBtn) {
                 delBtn.addEventListener('click', function() {
                     appConfirm(
-                        'Delete class “‘ + cls.name + '”? This cannot be undone.',
+                        'Delete class "' + cls.name + '"? This cannot be undone.',
                         function() {
                             delBtn.disabled = true;
                             nodeFetch('/api/classes/' + encodeURIComponent(cls.id), { method: 'DELETE' })

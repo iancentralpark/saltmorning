@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-31.01';
+            var APP_BUILD = '2026-07-31.02';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -9037,6 +9037,7 @@
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
         initVocabLmsModal();
+        bindManageClassesUi();
         document.getElementById('abuseAlertRefreshBtn').addEventListener('click', function() {
             refreshAbuseAlertModal(true);
         });
@@ -9579,7 +9580,7 @@
             if (delBtn) {
                 delBtn.addEventListener('click', function() {
                     appConfirm(
-                        'Delete class “‘ + cls.name + '”? This cannot be undone.',
+                        'Delete class "' + cls.name + '"? This cannot be undone.',
                         function() {
                             delBtn.disabled = true;
                             nodeFetch('/api/classes/' + encodeURIComponent(cls.id), { method: 'DELETE' })
