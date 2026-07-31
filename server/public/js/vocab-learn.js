@@ -1544,6 +1544,7 @@
     clearQuestTestTimer();
     var passed = !!res.passed;
     var reward = res.reward;
+    var dollarBonus = res.dollarBonus;
     quest.phase = passed ? 'done' : 'idle';
     if (passed) {
       quest.sessionsCompleted = res.sessionsCompleted != null ? res.sessionsCompleted : (quest.sessionsCompleted + 1);
@@ -1552,16 +1553,17 @@
     }
     var mastery = res.mastery || (res.rating && res.rating.mastery);
     var canMore = passed && res.canStartAnother;
+    var hasSpinReward = !!(passed && reward && (reward.tier || reward.prizeText));
+    var hasDollarReward = !!(passed && dollarBonus && Number(dollarBonus.amount) > 0);
+
     box.innerHTML =
-      '<div class="vocab-result">' +
+      '<div class="vocab-result vocab-result-celebrate">' +
       '<div class="vocab-tier-badge"><i class="fa-solid ' + (passed ? 'fa-trophy' : 'fa-rotate-left') + '"></i> ' +
       (passed ? 'Set complete!' : 'Almost there') + '</div>' +
       '<h3>Score: ' + correctCount + ' / ' + total + ' (' + res.score + '%)</h3>' +
       '<p>Pass threshold: ' + res.threshold + '%' +
       (passed ? ' · Sets today: ' + quest.sessionsCompleted + ' / ' + quest.maxSessions : '') +
       (res.rewardClaimedToday && !reward ? ' · Reward already claimed today' : '') + '</p>' +
-      (reward ? '<p>🎁 Reward earned: <strong>' + escapeHtml(reward.tier || '') + '</strong> — “' + escapeHtml(reward.prizeText || '') + '”</p>' : '') +
-      (res.dollarBonus ? '<p>💵 Tier bonus: <strong>+$' + escapeHtml(String(res.dollarBonus.amount)) + '</strong> (' + escapeHtml(res.dollarBonus.tierName || '') + ')</p>' : '') +
       (passed && !reward && res.rewardClaimedToday
         ? '<p class="vocab-empty">Progress saved — reward already claimed for today.</p>'
         : '') +
@@ -1573,12 +1575,21 @@
           (mastery.remaining > 0 ? ' · ' + mastery.remaining + ' left to promote' : ' · promote-ready!') + '</p>'
         : '') +
       (res.streak ? '<p>🔥 Streak: ' + res.streak.streakDays + ' day' + (res.streak.streakDays === 1 ? '' : 's') + ' (best ' + res.streak.longestStreak + ')</p>' : '') +
+      '<div id="vocabRewardStage" class="vocab-reward-stage">' +
+      (hasSpinReward
+        ? '<p class="vocab-reward-hint">Your Lucky Draw ticket is ready — open it!</p>' +
+          '<div class="vocab-actions" style="justify-content:center;">' +
+          '<button type="button" class="vocab-btn vocab-reward-spin-btn" id="vocabOpenLuckyBtn">' +
+          '<i class="fa-solid fa-dice"></i> Open Lucky Draw</button></div>'
+        : '') +
+      '</div>' +
       (canMore
-        ? '<div class="vocab-actions" style="justify-content:center;margin-top:0.85rem;">' +
-          '<button type="button" class="vocab-btn" id="vocabAnotherSetBtn">Study another set (' +
+        ? '<div class="vocab-actions" style="justify-content:center;margin-top:0.85rem;" id="vocabAnotherSetWrap">' +
+          '<button type="button" class="vocab-btn secondary" id="vocabAnotherSetBtn">Study another set (' +
           (quest.sessionsCompleted + 1) + '/' + quest.maxSessions + ')</button></div>'
         : '') +
       '</div>';
+
     if (canMore) {
       var again = $('vocabAnotherSetBtn');
       if (again) again.addEventListener('click', function () {
@@ -1587,7 +1598,99 @@
         loadQuestInline();
       });
     }
+
+    if (hasSpinReward) {
+      var openBtn = $('vocabOpenLuckyBtn');
+      if (openBtn) {
+        openBtn.addEventListener('click', function () {
+          runVocabRewardCeremony(reward, hasDollarReward ? dollarBonus : null);
+        });
+      }
+    } else if (hasDollarReward) {
+      // Ticket already claimed earlier but dollar shown? Unlikely; still offer claim.
+      showVocabDollarClaimButton(dollarBonus);
+    }
+
     if (passed) refreshServerSummary();
+  }
+
+  function showVocabDollarClaimButton(dollarBonus) {
+    var stage = $('vocabRewardStage');
+    if (!stage || !dollarBonus) return;
+    stage.innerHTML =
+      '<p class="vocab-reward-hint">Tier dollar bonus unlocked!</p>' +
+      '<div class="vocab-actions" style="justify-content:center;">' +
+      '<button type="button" class="vocab-btn vocab-reward-dollar-btn" id="vocabClaimDollarBtn">' +
+      '<i class="fa-solid fa-sack-dollar"></i> Claim $' +
+      escapeHtml(String(dollarBonus.amount)) + '</button></div>';
+    var btn = $('vocabClaimDollarBtn');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        runVocabDollarCeremony(dollarBonus);
+      });
+    }
+  }
+
+  function runVocabRewardCeremony(reward, dollarBonus) {
+    var openBtn = $('vocabOpenLuckyBtn');
+    if (openBtn) openBtn.disabled = true;
+    var effects = root.MrParkLuckyEffects;
+    var tier = (reward && reward.tier) || 'Prize';
+    var prize = (reward && reward.prizeText) || 'Mystery Prize';
+    var done = function () {
+      var stage = $('vocabRewardStage');
+      if (stage) {
+        stage.innerHTML =
+          '<p class="vocab-reward-won"><strong>' + escapeHtml(tier) + '</strong> — “' +
+          escapeHtml(prize) + '”</p>';
+      }
+      if (dollarBonus && Number(dollarBonus.amount) > 0) {
+        showVocabDollarClaimButton(dollarBonus);
+      }
+      try {
+        if (typeof root.refreshStudentLuckyDraw === 'function') root.refreshStudentLuckyDraw();
+      } catch (e) { /* ignore */ }
+    };
+    if (effects && typeof effects.revealSpin === 'function') {
+      Promise.resolve(effects.revealSpin(tier, prize, {
+        title: 'Vocab reward!',
+        sub: 'Feeling lucky?',
+        resultSub: 'Ticket added to your Lucky Draw.',
+        doneLabel: 'Collect!'
+      })).then(done).catch(function () {
+        if (openBtn) openBtn.disabled = false;
+        done();
+      });
+    } else {
+      done();
+    }
+  }
+
+  function runVocabDollarCeremony(dollarBonus) {
+    var btn = $('vocabClaimDollarBtn');
+    if (btn) btn.disabled = true;
+    var amount = Number(dollarBonus && dollarBonus.amount) || 0;
+    var tierName = (dollarBonus && dollarBonus.tierName) || '';
+    var effects = root.MrParkLuckyEffects;
+    var finish = function () {
+      var stage = $('vocabRewardStage');
+      if (stage) {
+        stage.innerHTML =
+          '<p class="vocab-reward-won">💵 You collected <strong>+$' +
+          escapeHtml(String(amount)) + '</strong>' +
+          (tierName ? ' (' + escapeHtml(tierName) + ' tier)' : '') + '!</p>';
+      }
+    };
+    if (effects && typeof effects.celebrateDollars === 'function') {
+      Promise.resolve(effects.celebrateDollars(amount, {
+        tierName: tierName,
+        message: tierName
+          ? ('Nice work — ' + tierName + ' tier bonus!')
+          : 'Nice work — tier dollar bonus!'
+      })).then(finish).catch(finish);
+    } else {
+      finish();
+    }
   }
 
   function bindShell() {

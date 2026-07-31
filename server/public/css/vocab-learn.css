@@ -333,6 +333,35 @@
   padding: 1.1rem;
   margin-top: 0.5rem;
 }
+.vocab-reward-stage {
+  margin-top: 0.85rem;
+  padding: 0.85rem 0.75rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #fff8e7, #eaf6ff);
+  border: 1px dashed rgba(42, 111, 151, 0.28);
+  text-align: center;
+}
+.vocab-reward-stage:empty { display: none; }
+.vocab-reward-hint {
+  margin: 0 0 0.65rem;
+  font-weight: 750;
+  color: #1f4e6b;
+}
+.vocab-reward-won {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0d3550;
+}
+.vocab-reward-spin-btn,
+.vocab-reward-dollar-btn {
+  min-width: 12rem;
+  font-size: 1.02rem;
+  box-shadow: 0 6px 0 rgba(42, 111, 151, 0.2);
+}
+.vocab-reward-dollar-btn {
+  background: linear-gradient(135deg, #2e7d32, #43a047);
+  box-shadow: 0 6px 0 rgba(46, 125, 50, 0.28);
+}
 
 .vocab-tier-badge {
   display: inline-flex;

@@ -522,6 +522,79 @@
         .lucky-spin-item.tier-mythical { background: linear-gradient(135deg, #f1948a, #e84393); }
         .lucky-spin-item.tier-celestial { background: linear-gradient(135deg, #48dbfb, #00cec9); }
         .lucky-spin-item.tier-godlike { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .lucky-spin-item.tier-idle {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            font-style: italic;
+            letter-spacing: 0.02em;
+        }
+        .lucky-dollar-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10050;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(8, 18, 28, 0.72);
+            padding: 1rem;
+        }
+        .lucky-dollar-overlay.show { display: flex; }
+        .lucky-dollar-stage {
+            position: relative;
+            width: min(100%, 22rem);
+            text-align: center;
+        }
+        .lucky-dollar-burst {
+            position: absolute;
+            inset: -2rem;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .lucky-dollar-spark {
+            position: absolute;
+            left: 50%;
+            top: 45%;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            opacity: 0;
+            animation: lucky-dollar-spark 1.05s ease-out forwards;
+        }
+        @keyframes lucky-dollar-spark {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0.15); }
+        }
+        .lucky-dollar-card {
+            position: relative;
+            z-index: 1;
+            background: linear-gradient(160deg, #fff8e7, #ffe082 55%, #ffd54f);
+            border-radius: 1.25rem;
+            padding: 1.4rem 1.2rem 1.15rem;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.7);
+            animation: lucky-fuse-pop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+        }
+        .lucky-dollar-amount {
+            font-size: clamp(2.2rem, 8vw, 3rem);
+            font-weight: 900;
+            color: #1b5e20;
+            line-height: 1.05;
+            text-shadow: 0 2px 0 rgba(255,255,255,0.5);
+        }
+        .lucky-dollar-msg {
+            margin-top: 0.35rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #5d4037;
+        }
+        .lucky-dollar-done-btn {
+            margin-top: 1rem;
+            border: 0;
+            border-radius: 999px;
+            padding: 0.55rem 1.35rem;
+            font-weight: 800;
+            background: #2e7d32;
+            color: #fff;
+            cursor: pointer;
+        }
         .lucky-spin-payline {
             position: absolute;
             left: 0; right: 0; top: 50%;
@@ -3057,6 +3130,14 @@
         return LUCKY_SPIN_FILLERS[Math.floor(Math.random() * LUCKY_SPIN_FILLERS.length)];
     }
 
+    function buildLuckySpinIdleStrip() {
+        var strip = $('luckySpinStrip');
+        if (!strip) return;
+        strip.style.transition = 'none';
+        strip.style.transform = 'translateY(0)';
+        strip.innerHTML = '<div class="lucky-spin-item tier-idle">Feeling lucky?</div>';
+    }
+
     function buildLuckySpinStrip(finalTier, finalPrize, length) {
         length = length || 36;
         var strip = $('luckySpinStrip');
@@ -3156,8 +3237,8 @@
         if (doneBtn) doneBtn.classList.remove('show');
         if (title) title.textContent = 'Lucky Draw!';
         if (sub) sub.textContent = 'Pulling the reel…';
-        // Idle strip while waiting for API
-        buildLuckySpinStrip('Common', '???', 12);
+        // Neutral idle text — do not preview a random prize before the spin.
+        buildLuckySpinIdleStrip();
         overlay.classList.add('show');
         overlay.setAttribute('aria-hidden', 'false');
 
@@ -3197,6 +3278,138 @@
         closeLuckySpinOverlay();
         return res;
     }
+
+    /** Reveal a known prize with the Lucky Draw reel (no API). Used by vocab daily rewards. */
+    async function playLuckySpinReveal(tier, prize, opts) {
+        opts = opts || {};
+        var overlay = $('luckySpinOverlay');
+        var title = $('luckySpinTitle');
+        var sub = $('luckySpinSub');
+        var result = $('luckySpinResult');
+        var resultTier = $('luckySpinResultTier');
+        var resultPrize = $('luckySpinResultPrize');
+        var doneBtn = $('luckySpinDoneBtn');
+        if (!overlay) return;
+
+        if (result) result.classList.remove('show');
+        if (doneBtn) doneBtn.classList.remove('show');
+        if (title) title.textContent = opts.title || 'Vocab reward!';
+        if (sub) sub.textContent = opts.sub || 'Tap into your Lucky Draw…';
+        buildLuckySpinIdleStrip();
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+
+        await new Promise(function(r) { setTimeout(r, 450); });
+        if (sub) sub.textContent = 'Here we go!';
+        var count = buildLuckySpinStrip(tier || 'Prize', prize || 'Mystery Prize', 36);
+        await animateLuckySpinReel(count);
+
+        if (title) title.textContent = 'You won!';
+        if (sub) sub.textContent = opts.resultSub || 'Ticket added to your Lucky Draw.';
+        if (resultTier) resultTier.textContent = tier || 'Prize';
+        if (resultPrize) resultPrize.textContent = prize || 'Mystery Prize';
+        if (result) result.classList.add('show');
+        if (doneBtn) {
+            doneBtn.textContent = opts.doneLabel || 'Nice!';
+            doneBtn.classList.add('show');
+        }
+
+        await new Promise(function(resolve) {
+            if (!doneBtn) {
+                setTimeout(resolve, 1600);
+                return;
+            }
+            function onDone() {
+                doneBtn.removeEventListener('click', onDone);
+                resolve();
+            }
+            doneBtn.addEventListener('click', onDone);
+        });
+        closeLuckySpinOverlay();
+        if (doneBtn) doneBtn.textContent = 'Nice!';
+    }
+
+    function ensureLuckyDollarOverlay() {
+        var el = $('luckyDollarOverlay');
+        if (el) return el;
+        el = document.createElement('div');
+        el.id = 'luckyDollarOverlay';
+        el.className = 'lucky-dollar-overlay';
+        el.setAttribute('aria-hidden', 'true');
+        el.innerHTML =
+            '<div class="lucky-dollar-stage">' +
+            '<div class="lucky-dollar-burst" id="luckyDollarBurst" aria-hidden="true"></div>' +
+            '<div class="lucky-dollar-card">' +
+            '<div class="lucky-dollar-amount" id="luckyDollarAmount"></div>' +
+            '<div class="lucky-dollar-msg" id="luckyDollarMsg"></div>' +
+            '<button type="button" class="lucky-dollar-done-btn" id="luckyDollarDoneBtn">Awesome!</button>' +
+            '</div></div>';
+        document.body.appendChild(el);
+        return el;
+    }
+
+    function spawnLuckyDollarSparks() {
+        var burst = $('luckyDollarBurst');
+        if (!burst) return;
+        burst.innerHTML = '';
+        var colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#e67e22', '#9b59b6', '#fff'];
+        for (var i = 0; i < 28; i++) {
+            var spark = document.createElement('span');
+            spark.className = 'lucky-dollar-spark';
+            var angle = (Math.PI * 2 * i) / 28 + (Math.random() * 0.35);
+            var dist = 70 + Math.random() * 110;
+            spark.style.setProperty('--sx', Math.cos(angle) * dist + 'px');
+            spark.style.setProperty('--sy', Math.sin(angle) * dist + 'px');
+            spark.style.background = colors[i % colors.length];
+            spark.style.animationDelay = (Math.random() * 0.18) + 's';
+            burst.appendChild(spark);
+        }
+    }
+
+    async function playDollarCelebrate(amount, opts) {
+        opts = opts || {};
+        var overlay = ensureLuckyDollarOverlay();
+        var amountEl = $('luckyDollarAmount');
+        var msgEl = $('luckyDollarMsg');
+        var doneBtn = $('luckyDollarDoneBtn');
+        var n = Number(amount);
+        if (!Number.isFinite(n)) n = 0;
+        if (amountEl) amountEl.textContent = '+$' + (Math.round(n * 100) / 100);
+        if (msgEl) {
+            msgEl.textContent = opts.message ||
+                ('Tier bonus' + (opts.tierName ? ' (' + opts.tierName + ')' : '') + ' — added to your balance!');
+        }
+        spawnLuckyDollarSparks();
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+        // Second burst for extra pop
+        setTimeout(spawnLuckyDollarSparks, 280);
+
+        await new Promise(function(resolve) {
+            if (!doneBtn) {
+                setTimeout(resolve, 1800);
+                return;
+            }
+            function onDone() {
+                doneBtn.removeEventListener('click', onDone);
+                resolve();
+            }
+            doneBtn.addEventListener('click', onDone);
+        });
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        var balEl = document.querySelector('.dollar-balance');
+        if (balEl && opts.newBalance != null) {
+            balEl.textContent = 'Balance: $' + opts.newBalance;
+        } else if (typeof window.refreshStudentHome === 'function') {
+            try { window.refreshStudentHome(); } catch (e) { /* ignore */ }
+        }
+    }
+
+    window.MrParkLuckyEffects = {
+        revealSpin: playLuckySpinReveal,
+        celebrateDollars: playDollarCelebrate
+    };
 
     async function runLuckyStudentSpin() {
         if (luckySpinBusy) return;
