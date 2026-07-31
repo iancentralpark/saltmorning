@@ -24,7 +24,7 @@ const MAX_BOX = BOX_INTERVAL_DAYS.length - 1;
 // rating_score kept on student state for display/legacy; no longer drives promote/demote.
 
 // Tier-scaled daily Dollar bonus, granted every day the quest is completed (on top of
-// the existing Lucky Draw ticket reward). Rookie/Iron are $0 (no adjustment call made).
+// the existing Lucky Draw ticket reward). Amount 0 skips the adjustment call.
 const DAILY_DOLLAR_BONUS_BY_TIER = {
   Rookie: 0.5,
   Iron: 0.5,
