@@ -21,10 +21,14 @@
     answers: [],
     currentQ: null,
     qStartedAt: 0,
+    timerEndsAt: 0,
     locked: false,
     selectedChoice: null,
     placementTimerId: null,
     placementTickId: null,
+    pauseUsed: false,
+    paused: false,
+    pauseRemainingMs: 0,
     placement: null,
     placementDone: false,
     deckIndex: 0,
@@ -153,8 +157,12 @@
     locked: false,
     selectedChoice: null,
     qStartedAt: 0,
+    timerEndsAt: 0,
     timerId: null,
     tickId: null,
+    pauseUsed: false,
+    paused: false,
+    pauseRemainingMs: 0,
     sessionsCompleted: 0,
     maxSessions: 3,
     forceAnotherSet: false,
@@ -630,18 +638,64 @@
     el.classList.toggle('is-urgent', sec <= 10);
   }
 
-  function startPlacementTimer() {
+  function placementSecondsUsed(timedOut) {
+    if (timedOut) return PLACEMENT_SECONDS;
+    var remainingMs = state.paused
+      ? state.pauseRemainingMs
+      : Math.max(0, (state.timerEndsAt || Date.now()) - Date.now());
+    return Math.min(PLACEMENT_SECONDS, Math.max(0, (PLACEMENT_SECONDS * 1000 - remainingMs) / 1000));
+  }
+
+  function setPlacementPausedUi(paused) {
+    var card = document.querySelector('#vocabQuizBody .vocab-q-card');
+    var overlay = $('vocabPlacementPauseOverlay');
+    var pauseBtn = $('vocabPlacementPauseBtn');
+    if (card) card.classList.toggle('is-paused', !!paused);
+    if (overlay) overlay.classList.toggle('hidden', !paused);
+    if (pauseBtn) pauseBtn.classList.add('hidden');
+    var buttons = $('vocabQuizBody') ? $('vocabQuizBody').querySelectorAll('.vocab-choice') : [];
+    buttons.forEach(function (btn) {
+      btn.disabled = !!paused || state.locked;
+    });
+    var nextBtn = $('vocabPlacementNextBtn');
+    if (nextBtn) nextBtn.disabled = !!paused || state.locked || state.selectedChoice == null;
+  }
+
+  function pausePlacementTest() {
+    if (state.pauseUsed || state.paused || state.locked || !state.currentQ) return;
+    state.pauseUsed = true;
+    state.paused = true;
+    state.pauseRemainingMs = Math.max(0, (state.timerEndsAt || Date.now()) - Date.now());
     clearPlacementTimer();
-    var endsAt = state.qStartedAt + PLACEMENT_SECONDS * 1000;
-    updatePlacementTimerUi(PLACEMENT_SECONDS);
+    updatePlacementTimerUi(state.pauseRemainingMs / 1000);
+    setPlacementPausedUi(true);
+  }
+
+  function resumePlacementTest() {
+    if (!state.paused) return;
+    state.paused = false;
+    setPlacementPausedUi(false);
+    startPlacementTimer(state.pauseRemainingMs);
+  }
+
+  /** @param {number=} remainingMs */
+  function startPlacementTimer(remainingMs) {
+    clearPlacementTimer();
+    var ms = remainingMs != null ? Math.max(0, Number(remainingMs) || 0) : PLACEMENT_SECONDS * 1000;
+    state.timerEndsAt = Date.now() + ms;
+    updatePlacementTimerUi(ms / 1000);
+    if (ms <= 0) {
+      onPlacementTimeout();
+      return;
+    }
     state.placementTickId = setInterval(function () {
-      var left = (endsAt - Date.now()) / 1000;
+      var left = (state.timerEndsAt - Date.now()) / 1000;
       updatePlacementTimerUi(left);
       if (left <= 0) clearInterval(state.placementTickId);
     }, 200);
     state.placementTimerId = setTimeout(function () {
       onPlacementTimeout();
-    }, PLACEMENT_SECONDS * 1000);
+    }, ms);
   }
 
   function startPlacement() {
@@ -662,6 +716,9 @@
     state.answers = [];
     state.locked = false;
     state.selectedChoice = null;
+    state.pauseUsed = false;
+    state.paused = false;
+    state.pauseRemainingMs = 0;
     setView('quiz');
     showQuestion();
   }
@@ -670,6 +727,7 @@
     clearPlacementTimer();
     state.locked = false;
     state.selectedChoice = null;
+    state.paused = false;
     state.qStartedAt = Date.now();
     var body = $('vocabQuizBody');
     if (body) body.innerHTML = '<p class="vocab-empty">Loading adaptive question…</p>';
@@ -731,8 +789,17 @@
       }).join('') +
       '</div>' +
       '<div class="vocab-actions vocab-q-actions">' +
+      (!state.pauseUsed
+        ? '<button type="button" class="vocab-btn ghost" id="vocabPlacementPauseBtn" title="One pause per test"><i class="fa-solid fa-pause"></i> Pause</button>'
+        : '') +
       '<button type="button" class="vocab-btn" id="vocabPlacementNextBtn" disabled>Next</button>' +
       '</div>' +
+      '<div class="vocab-pause-overlay hidden" id="vocabPlacementPauseOverlay">' +
+      '<div class="vocab-pause-card">' +
+      '<strong>Paused</strong>' +
+      '<p>Timer is frozen. You get <strong>1 pause</strong> per test — bathroom breaks welcome.</p>' +
+      '<button type="button" class="vocab-btn" id="vocabPlacementResumeBtn"><i class="fa-solid fa-play"></i> Resume</button>' +
+      '</div></div>' +
       '</div>';
     $('vocabQuizBody').innerHTML = html;
     $('vocabQuizBody').querySelectorAll('.vocab-choice').forEach(function (btn) {
@@ -742,11 +809,15 @@
     });
     var nextBtn = $('vocabPlacementNextBtn');
     if (nextBtn) nextBtn.addEventListener('click', function () { submitPlacementAnswer(false); });
+    var pauseBtn = $('vocabPlacementPauseBtn');
+    if (pauseBtn) pauseBtn.addEventListener('click', pausePlacementTest);
+    var resumeBtn = $('vocabPlacementResumeBtn');
+    if (resumeBtn) resumeBtn.addEventListener('click', resumePlacementTest);
     startPlacementTimer();
   }
 
   function onSelectPlacementChoice(choiceIndex) {
-    if (state.locked || !state.currentQ) return;
+    if (state.locked || state.paused || !state.currentQ) return;
     state.selectedChoice = choiceIndex;
     var buttons = $('vocabQuizBody').querySelectorAll('.vocab-choice');
     buttons.forEach(function (btn, i) {
@@ -757,14 +828,14 @@
   }
 
   function onPlacementTimeout() {
-    if (state.locked) return;
+    if (state.locked || state.paused) return;
     // Time’s up: submit current pick if any, otherwise count as incorrect.
     submitPlacementAnswer(true);
   }
 
   /** @param {boolean} timedOut */
   function submitPlacementAnswer(timedOut) {
-    if (state.locked || !state.currentQ) return;
+    if (state.locked || state.paused || !state.currentQ) return;
     state.locked = true;
     clearPlacementTimer();
 
@@ -773,9 +844,7 @@
     var hasPick = choiceIndex != null && choiceIndex >= 0;
     var picked = hasPick ? q.choices[choiceIndex] : null;
     var correct = !!(hasPick && picked === q.correct);
-    var seconds = timedOut
-      ? PLACEMENT_SECONDS
-      : Math.min(PLACEMENT_SECONDS, (Date.now() - state.qStartedAt) / 1000);
+    var seconds = placementSecondsUsed(timedOut);
     var answer = {
       correct: correct,
       seconds: seconds,
@@ -790,6 +859,8 @@
     buttons.forEach(function (btn) { btn.disabled = true; });
     var nextBtn = $('vocabPlacementNextBtn');
     if (nextBtn) nextBtn.disabled = true;
+    var pauseBtn = $('vocabPlacementPauseBtn');
+    if (pauseBtn) pauseBtn.disabled = true;
 
     // Server is authoritative for ability (avoid double-stepping).
     apiFetch('/api/student/vocab/placement/next', {
@@ -1240,6 +1311,9 @@
     quest.testAnswers = [];
     quest.locked = false;
     quest.selectedChoice = null;
+    quest.pauseUsed = false;
+    quest.paused = false;
+    quest.pauseRemainingMs = 0;
     renderQuestTestQuestion();
   }
 
@@ -1262,18 +1336,57 @@
     el.classList.toggle('is-urgent', sec <= 10);
   }
 
-  function startQuestTestTimer() {
+  function setQuestTestPausedUi(paused) {
+    var card = document.querySelector('#vocabQuestBody .vocab-q-card');
+    var overlay = $('vocabQuestPauseOverlay');
+    var pauseBtn = $('vocabQuestPauseBtn');
+    if (card) card.classList.toggle('is-paused', !!paused);
+    if (overlay) overlay.classList.toggle('hidden', !paused);
+    if (pauseBtn) pauseBtn.classList.add('hidden');
+    var box = $('vocabQuestBody');
+    var buttons = box ? box.querySelectorAll('.vocab-choice') : [];
+    buttons.forEach(function (btn) {
+      btn.disabled = !!paused || quest.locked;
+    });
+    var nextBtn = $('vocabQuestTestNextBtn');
+    if (nextBtn) nextBtn.disabled = !!paused || quest.locked || quest.selectedChoice == null;
+  }
+
+  function pauseQuestTest() {
+    if (quest.pauseUsed || quest.paused || quest.locked || !quest.currentTestQ) return;
+    quest.pauseUsed = true;
+    quest.paused = true;
+    quest.pauseRemainingMs = Math.max(0, (quest.timerEndsAt || Date.now()) - Date.now());
     clearQuestTestTimer();
-    var endsAt = quest.qStartedAt + QUESTION_SECONDS * 1000;
-    updateQuestTestTimerUi(QUESTION_SECONDS);
+    updateQuestTestTimerUi(quest.pauseRemainingMs / 1000);
+    setQuestTestPausedUi(true);
+  }
+
+  function resumeQuestTest() {
+    if (!quest.paused) return;
+    quest.paused = false;
+    setQuestTestPausedUi(false);
+    startQuestTestTimer(quest.pauseRemainingMs);
+  }
+
+  /** @param {number=} remainingMs */
+  function startQuestTestTimer(remainingMs) {
+    clearQuestTestTimer();
+    var ms = remainingMs != null ? Math.max(0, Number(remainingMs) || 0) : QUESTION_SECONDS * 1000;
+    quest.timerEndsAt = Date.now() + ms;
+    updateQuestTestTimerUi(ms / 1000);
+    if (ms <= 0) {
+      submitQuestTestAnswer(true);
+      return;
+    }
     quest.tickId = setInterval(function () {
-      var left = (endsAt - Date.now()) / 1000;
+      var left = (quest.timerEndsAt - Date.now()) / 1000;
       updateQuestTestTimerUi(left);
       if (left <= 0) clearInterval(quest.tickId);
     }, 200);
     quest.timerId = setTimeout(function () {
       submitQuestTestAnswer(true);
-    }, QUESTION_SECONDS * 1000);
+    }, ms);
   }
 
   function renderQuestTestQuestion() {
@@ -1286,6 +1399,7 @@
     }
     quest.locked = false;
     quest.selectedChoice = null;
+    quest.paused = false;
     quest.qStartedAt = Date.now();
     var w = quest.testWords[quest.testIndex];
     var q = buildTestQuestion(w, quest.testWords, quest.testIndex);
@@ -1305,8 +1419,17 @@
       }).join('') +
       '</div>' +
       '<div class="vocab-actions vocab-q-actions">' +
+      (!quest.pauseUsed
+        ? '<button type="button" class="vocab-btn ghost" id="vocabQuestPauseBtn" title="One pause per test"><i class="fa-solid fa-pause"></i> Pause</button>'
+        : '') +
       '<button type="button" class="vocab-btn" id="vocabQuestTestNextBtn" disabled>Next</button>' +
       '</div>' +
+      '<div class="vocab-pause-overlay hidden" id="vocabQuestPauseOverlay">' +
+      '<div class="vocab-pause-card">' +
+      '<strong>Paused</strong>' +
+      '<p>Timer is frozen. You get <strong>1 pause</strong> per test — bathroom breaks welcome.</p>' +
+      '<button type="button" class="vocab-btn" id="vocabQuestResumeBtn"><i class="fa-solid fa-play"></i> Resume</button>' +
+      '</div></div>' +
       '</div>';
     box.querySelectorAll('.vocab-choice').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -1315,11 +1438,15 @@
     });
     var nextBtn = $('vocabQuestTestNextBtn');
     if (nextBtn) nextBtn.addEventListener('click', function () { submitQuestTestAnswer(false); });
+    var pauseBtn = $('vocabQuestPauseBtn');
+    if (pauseBtn) pauseBtn.addEventListener('click', pauseQuestTest);
+    var resumeBtn = $('vocabQuestResumeBtn');
+    if (resumeBtn) resumeBtn.addEventListener('click', resumeQuestTest);
     startQuestTestTimer();
   }
 
   function onSelectQuestTestChoice(choiceIndex) {
-    if (quest.locked || !quest.currentTestQ) return;
+    if (quest.locked || quest.paused || !quest.currentTestQ) return;
     quest.selectedChoice = choiceIndex;
     var box = $('vocabQuestBody');
     var buttons = box ? box.querySelectorAll('.vocab-choice') : [];
@@ -1332,7 +1459,7 @@
 
   /** @param {boolean} timedOut */
   function submitQuestTestAnswer(timedOut) {
-    if (quest.locked || !quest.currentTestQ) return;
+    if (quest.locked || quest.paused || !quest.currentTestQ) return;
     quest.locked = true;
     clearQuestTestTimer();
 
@@ -1348,6 +1475,8 @@
     buttons.forEach(function (btn) { btn.disabled = true; });
     var nextBtn = $('vocabQuestTestNextBtn');
     if (nextBtn) nextBtn.disabled = true;
+    var pauseBtn = $('vocabQuestPauseBtn');
+    if (pauseBtn) pauseBtn.disabled = true;
 
     quest.testIndex += 1;
     renderQuestTestQuestion();
