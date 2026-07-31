@@ -122,6 +122,188 @@ async function getInitialClasses() {
   });
 }
 
+function normalizeAllowedDays(raw) {
+  const days = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = {};
+  days.forEach(function(d) {
+    const n = Math.round(Number(d));
+    if (!Number.isFinite(n) || n < 0 || n > 6) return;
+    if (seen[n]) return;
+    seen[n] = true;
+    out.push(n);
+  });
+  out.sort(function(a, b) { return a - b; });
+  return out;
+}
+
+function scheduleTypeForDays(days) {
+  const key = (days || []).slice().sort(function(a, b) { return a - b; }).join(',');
+  const map = {
+    '1,2,3,4,5': '주 5일',
+    '1,3': '월수',
+    '2,4': '화목',
+    '1,3,5': '월수금'
+  };
+  return map[key] || 'Custom';
+}
+
+async function nextClassId() {
+  const db = getSupabase();
+  const { data, error } = await db.from('classes').select('id');
+  if (error) throw new Error(error.message || 'Database error.');
+  let max = 0;
+  (data || []).forEach(function(row) {
+    const m = String(row.id || '').match(/^C(\d+)$/i);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return 'C' + String(max + 1).padStart(3, '0');
+}
+
+async function countStudentsInClass(classId) {
+  const db = getSupabase();
+  const { count, error } = await db
+    .from('students')
+    .select('id', { count: 'exact', head: true })
+    .eq('class_id', String(classId));
+  if (error) throw new Error(error.message || 'Database error.');
+  return Number(count) || 0;
+}
+
+async function listManagedClasses() {
+  const classes = await getInitialClasses();
+  const out = [];
+  for (let i = 0; i < classes.length; i++) {
+    const cls = classes[i];
+    let studentCount = 0;
+    try {
+      studentCount = await countStudentsInClass(cls.id);
+    } catch (e) { /* ignore */ }
+    out.push(Object.assign({}, cls, { studentCount: studentCount }));
+  }
+  return out;
+}
+
+async function createClass(opts) {
+  const db = getSupabase();
+  opts = opts || {};
+  const name = String(opts.name || '').trim();
+  if (!name) throw new Error('Class name is required.');
+  if (name.length > 80) throw new Error('Class name is too long (max 80 characters).');
+
+  const allowedDays = normalizeAllowedDays(opts.allowedDays);
+  if (!allowedDays.length) {
+    throw new Error('Pick at least one class day (Mon–Sun).');
+  }
+  const scheduleType = String(opts.scheduleType || '').trim() || scheduleTypeForDays(allowedDays);
+  const id = String(opts.id || '').trim() || await nextClassId();
+
+  const row = {
+    id: id,
+    name: name,
+    schedule_type: scheduleType,
+    allowed_days: allowedDays,
+    updated_at: new Date().toISOString()
+  };
+  const { data, error } = await db.from('classes').insert(row).select('id, name, schedule_type, allowed_days').maybeSingle();
+  if (error) {
+    if (/duplicate|unique/i.test(error.message || '')) {
+      throw new Error('A class with that ID already exists.');
+    }
+    throw new Error(error.message || 'Could not create class.');
+  }
+  return {
+    id: data.id,
+    name: data.name,
+    scheduleType: data.schedule_type || '',
+    allowedDays: Array.isArray(data.allowed_days) ? data.allowed_days : allowedDays
+  };
+}
+
+async function updateClass(classId, opts) {
+  const db = getSupabase();
+  classId = String(classId || '').trim();
+  if (!classId) throw new Error('classId is required.');
+  opts = opts || {};
+
+  const patch = { updated_at: new Date().toISOString() };
+  if (opts.name != null) {
+    const name = String(opts.name || '').trim();
+    if (!name) throw new Error('Class name is required.');
+    if (name.length > 80) throw new Error('Class name is too long (max 80 characters).');
+    patch.name = name;
+  }
+  if (opts.allowedDays != null) {
+    const allowedDays = normalizeAllowedDays(opts.allowedDays);
+    if (!allowedDays.length) throw new Error('Pick at least one class day (Mon–Sun).');
+    patch.allowed_days = allowedDays;
+    patch.schedule_type = String(opts.scheduleType || '').trim() || scheduleTypeForDays(allowedDays);
+  } else if (opts.scheduleType != null) {
+    patch.schedule_type = String(opts.scheduleType || '').trim();
+  }
+
+  const { data, error } = await db
+    .from('classes')
+    .update(patch)
+    .eq('id', classId)
+    .select('id, name, schedule_type, allowed_days')
+    .maybeSingle();
+  if (error) throw new Error(error.message || 'Could not update class.');
+  if (!data) throw new Error('Class not found.');
+  return {
+    id: data.id,
+    name: data.name,
+    scheduleType: data.schedule_type || '',
+    allowedDays: Array.isArray(data.allowed_days) ? data.allowed_days : []
+  };
+}
+
+async function deleteClass(classId) {
+  const db = getSupabase();
+  classId = String(classId || '').trim();
+  if (!classId) throw new Error('classId is required.');
+
+  const studentCount = await countStudentsInClass(classId);
+  if (studentCount > 0) {
+    const err = new Error(
+      'This class still has ' + studentCount + ' student' + (studentCount === 1 ? '' : 's') +
+      '. Move or withdraw them first, then delete the class.'
+    );
+    err.code = 'CLASS_HAS_STUDENTS';
+    err.studentCount = studentCount;
+    throw err;
+  }
+
+  // Best-effort cleanup of class-scoped settings that would block delete.
+  try {
+    await db.from('vocab_class_settings').delete().eq('class_id', classId);
+  } catch (e) { /* ignore */ }
+  try {
+    await db.from('class_rules').delete().eq('class_id', classId);
+  } catch (e) { /* ignore */ }
+  try {
+    await db.from('class_announcements').delete().eq('class_id', classId);
+  } catch (e) { /* ignore */ }
+  try {
+    await db.from('class_events').delete().eq('class_id', classId);
+  } catch (e) { /* ignore */ }
+  try {
+    await db.from('class_textbooks').delete().eq('class_id', classId);
+  } catch (e) { /* ignore */ }
+  try {
+    await db.from('classroom_map').delete().eq('class_id', classId);
+  } catch (e) { /* ignore */ }
+
+  const { error } = await db.from('classes').delete().eq('id', classId);
+  if (error) {
+    throw new Error(
+      'Could not delete class. Related records may still exist (homework, attendance, tickets, etc.). ' +
+      (error.message || '')
+    );
+  }
+  return { ok: true, id: classId };
+}
+
 async function setPortalPassword(studentId, plainPassword, options) {
   const db = getSupabase();
   plainPassword = String(plainPassword || '');
@@ -294,6 +476,10 @@ module.exports = {
   getClassNameMap,
   getClassLabel,
   getInitialClasses,
+  listManagedClasses,
+  createClass,
+  updateClass,
+  deleteClass,
   setPortalPassword,
   listPortalLoginsForClass,
   resetPortalPasswordByTeacher,

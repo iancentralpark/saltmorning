@@ -2,7 +2,11 @@ const express = require('express');
 const { isSupabaseEnabled, shouldSyncPasswordsToSheet } = require('./supabaseClient');
 const {
   listPortalLoginsForClass,
-  resetPortalPasswordByTeacher
+  resetPortalPasswordByTeacher,
+  listManagedClasses,
+  createClass,
+  updateClass,
+  deleteClass
 } = require('./supabaseStudentService');
 const { syncStudentPasswordToSheet } = require('./studentPasswordSync');
 const { getInitialData } = require('./initialService');
@@ -291,6 +295,57 @@ router.get('/initial', async (req, res) => {
   } catch (e) {
     console.error('GET /initial', e);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/classes', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Class management requires Supabase.' });
+    }
+    res.json({ classes: await listManagedClasses() });
+  } catch (e) {
+    console.error('GET /classes', e);
+    res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.post('/classes', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Class management requires Supabase.' });
+    }
+    const body = req.body || {};
+    res.json({ ok: true, class: await createClass(body) });
+  } catch (e) {
+    console.error('POST /classes', e);
+    res.status(400).json({ error: e.message || 'Could not create class' });
+  }
+});
+
+router.put('/classes/:classId', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Class management requires Supabase.' });
+    }
+    const body = req.body || {};
+    res.json({ ok: true, class: await updateClass(req.params.classId, body) });
+  } catch (e) {
+    console.error('PUT /classes/:classId', e);
+    res.status(400).json({ error: e.message || 'Could not update class' });
+  }
+});
+
+router.delete('/classes/:classId', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'Class management requires Supabase.' });
+    }
+    res.json(await deleteClass(req.params.classId));
+  } catch (e) {
+    console.error('DELETE /classes/:classId', e);
+    const status = e.code === 'CLASS_HAS_STUDENTS' ? 409 : 400;
+    res.status(status).json({ error: e.message || 'Could not delete class', code: e.code || null });
   }
 });
 

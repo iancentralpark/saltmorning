@@ -5900,7 +5900,12 @@
     </header>
 
     <section class="app-section mb-4" id="teacherClassSection" data-teacher-panel="shared">
-        <div class="step-label"><span class="step-num">1</span><i class="fa-solid fa-list-check"></i> Select Class</div>
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+            <div class="step-label mb-0"><span class="step-num">1</span><i class="fa-solid fa-list-check"></i> Select Class</div>
+            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="manageClassesBtn" title="Add, rename, or delete classes">
+                <i class="fa-solid fa-pen-to-square"></i> Manage classes
+            </button>
+        </div>
         <div class="d-flex flex-wrap justify-content-center teacher-mobile-class-scroll" id="classButtonGroup"></div>
     </section>
 
@@ -6166,6 +6171,7 @@
         <div class="tm-more-heading">Admin Tools</div>
         <div class="teacher-mobile-more-grid">
             <button type="button" class="teacher-more-btn" data-trigger-click="addStudentBtn"><i class="fa-solid fa-user-plus"></i> Add Student</button>
+            <button type="button" class="teacher-more-btn" data-trigger-click="manageClassesBtn"><i class="fa-solid fa-school"></i> Manage Classes</button>
             <button type="button" class="teacher-more-btn" data-trigger-click="openCalendarBtn"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
             <button type="button" class="teacher-more-btn" data-trigger-click="openReportBtn"><i class="fa-solid fa-chart-line"></i> Monthly Report</button>
             <button type="button" class="teacher-more-btn" data-trigger-click="openClassLogBtn"><i class="fa-solid fa-book-open"></i> Class Log</button>
@@ -6602,6 +6608,49 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manage classes modal -->
+<div class="modal fade app-modal" id="manageClassesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-school"></i> Manage classes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="app-panel-white mb-3 p-3 border rounded-3">
+                    <div class="fw-bold mb-2"><i class="fa-solid fa-plus"></i> Add a class</div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1" for="newClassNameInput">Name</label>
+                            <input type="text" class="form-control form-control-sm" id="newClassNameInput" placeholder="e.g. Sat Class">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small mb-1" for="newClassSchedulePreset">Schedule</label>
+                            <select class="form-select form-select-sm" id="newClassSchedulePreset">
+                                <option value="1,2,3,4,5">주 5일 (Mon–Fri)</option>
+                                <option value="1,3">월수 (Mon/Wed)</option>
+                                <option value="2,4">화목 (Tue/Thu)</option>
+                                <option value="1,3,5">월수금 (Mon/Wed/Fri)</option>
+                                <option value="custom">Custom days…</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-primary w-100" id="createClassBtn">Add</button>
+                        </div>
+                    </div>
+                    <div id="newClassCustomDays" class="d-none mt-2 d-flex flex-wrap gap-2"></div>
+                    <div class="form-text mt-2 mb-0">Class ID is assigned automatically (C006, C007, …).</div>
+                </div>
+                <div id="manageClassesLoading" class="text-muted small py-2">Loading…</div>
+                <div id="manageClassesList" class="d-none"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -8848,6 +8897,7 @@
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
         initVocabLmsModal();
+        bindManageClassesUi();
         document.getElementById('abuseAlertRefreshBtn').addEventListener('click', function() {
             refreshAbuseAlertModal(true);
         });
@@ -9179,6 +9229,295 @@
         tryRestoreLastClass();
         updateClassWelcomePanel();
         showLoading(false);
+    }
+
+    var CLASS_DAY_LABELS = [
+        { d: 0, short: 'Sun' },
+        { d: 1, short: 'Mon' },
+        { d: 2, short: 'Tue' },
+        { d: 3, short: 'Wed' },
+        { d: 4, short: 'Thu' },
+        { d: 5, short: 'Fri' },
+        { d: 6, short: 'Sat' }
+    ];
+
+    function formatClassDays(days) {
+        const set = {};
+        (days || []).forEach(function(d) { set[Number(d)] = true; });
+        return CLASS_DAY_LABELS.filter(function(x) { return set[x.d]; }).map(function(x) { return x.short; }).join('/') || '—';
+    }
+
+    function scheduleTypeFromDays(days) {
+        const key = (days || []).slice().sort(function(a, b) { return a - b; }).join(',');
+        const map = {
+            '1,2,3,4,5': '주 5일',
+            '1,3': '월수',
+            '2,4': '화목',
+            '1,3,5': '월수금'
+        };
+        return map[key] || 'Custom';
+    }
+
+    function parsePresetDays(value) {
+        if (!value || value === 'custom') return [];
+        return String(value).split(',').map(Number).filter(function(n) { return n >= 0 && n <= 6; });
+    }
+
+    function renderDayCheckboxes(container, selectedDays) {
+        if (!container) return;
+        const selected = {};
+        (selectedDays || []).forEach(function(d) { selected[Number(d)] = true; });
+        container.innerHTML = CLASS_DAY_LABELS.map(function(x) {
+            return '<label class="btn btn-sm btn-outline-secondary' + (selected[x.d] ? ' active' : '') + '" style="user-select:none;">' +
+                '<input type="checkbox" class="form-check-input me-1 class-day-check" value="' + x.d + '"' +
+                (selected[x.d] ? ' checked' : '') + '> ' + x.short + '</label>';
+        }).join('');
+        container.querySelectorAll('label').forEach(function(lab) {
+            lab.addEventListener('click', function(e) {
+                // let checkbox toggle, then sync active class
+                setTimeout(function() {
+                    const cb = lab.querySelector('input');
+                    lab.classList.toggle('active', !!(cb && cb.checked));
+                }, 0);
+            });
+        });
+    }
+
+    function readDayCheckboxes(container) {
+        if (!container) return [];
+        return Array.prototype.slice.call(container.querySelectorAll('input.class-day-check:checked'))
+            .map(function(el) { return Number(el.value); })
+            .filter(function(n) { return n >= 0 && n <= 6; })
+            .sort(function(a, b) { return a - b; });
+    }
+
+    function refreshClassButtonsFromServer() {
+        return nodeFetch('/api/initial?_=' + Date.now()).then(function(data) {
+            const prevId = selectedClass && selectedClass.id;
+            initClassButtons(data);
+            if (prevId) {
+                const cls = globalClasses.find(function(c) { return String(c.id) === String(prevId); });
+                const btn = document.querySelector('.class-btn[data-id="' + prevId + '"]');
+                if (cls && btn) {
+                    selectedClass = cls;
+                    document.querySelectorAll('.class-btn').forEach(function(b) { b.classList.remove('is-active'); });
+                    btn.classList.add('is-active');
+                    const badge = document.getElementById('selectedClassBadge');
+                    if (badge) badge.innerText = cls.name;
+                    updateTeacherMobileHeader();
+                } else {
+                    // Deleted currently selected class
+                    selectedClass = null;
+                    const dateSection = document.getElementById('dateSection');
+                    if (dateSection) dateSection.classList.add('hidden-section');
+                    updateClassWelcomePanel();
+                    updateTeacherMobileHeader();
+                }
+            }
+            return data;
+        });
+    }
+
+    function openManageClassesModal() {
+        const modalEl = document.getElementById('manageClassesModal');
+        if (!modalEl) return;
+        const nameInput = document.getElementById('newClassNameInput');
+        const preset = document.getElementById('newClassSchedulePreset');
+        const customWrap = document.getElementById('newClassCustomDays');
+        if (nameInput) nameInput.value = '';
+        if (preset) preset.value = '1,2,3,4,5';
+        if (customWrap) {
+            customWrap.classList.add('d-none');
+            renderDayCheckboxes(customWrap, [1, 2, 3, 4, 5]);
+        }
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        loadManageClassesList();
+    }
+
+    function loadManageClassesList() {
+        const loading = document.getElementById('manageClassesLoading');
+        const list = document.getElementById('manageClassesList');
+        if (loading) {
+            loading.classList.remove('d-none');
+            loading.textContent = 'Loading…';
+        }
+        if (list) list.classList.add('d-none');
+        nodeFetch('/api/classes?_=' + Date.now())
+            .then(function(res) {
+                renderManageClassesList(res.classes || []);
+            })
+            .catch(function(err) {
+                if (loading) loading.textContent = err.message || 'Could not load classes.';
+            });
+    }
+
+    function renderManageClassesList(classes) {
+        const loading = document.getElementById('manageClassesLoading');
+        const list = document.getElementById('manageClassesList');
+        if (loading) loading.classList.add('d-none');
+        if (!list) return;
+        list.classList.remove('d-none');
+        if (!classes.length) {
+            list.innerHTML = '<p class="text-muted small mb-0">No classes yet. Add one above.</p>';
+            return;
+        }
+        list.innerHTML = classes.map(function(cls) {
+            const days = Array.isArray(cls.allowedDays) ? cls.allowedDays : [];
+            const dayKey = days.slice().sort(function(a, b) { return a - b; }).join(',');
+            const presetMatch = ['1,2,3,4,5', '1,3', '2,4', '1,3,5'].indexOf(dayKey) >= 0 ? dayKey : 'custom';
+            return (
+                '<div class="border rounded-3 p-3 mb-2 manage-class-row" data-class-id="' + escapeHtml(cls.id) + '">' +
+                '<div class="d-flex flex-wrap justify-content-between gap-2 align-items-start mb-2">' +
+                '<div><div class="fw-bold">' + escapeHtml(cls.name) +
+                ' <span class="text-muted small fw-normal">(' + escapeHtml(cls.id) + ')</span></div>' +
+                '<div class="small text-muted">' + escapeHtml(cls.scheduleType || scheduleTypeFromDays(days)) +
+                ' · ' + escapeHtml(formatClassDays(days)) +
+                ' · ' + (cls.studentCount || 0) + ' student' + ((cls.studentCount || 0) === 1 ? '' : 's') + '</div></div>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 manage-class-delete-btn"' +
+                ((cls.studentCount || 0) > 0 ? ' disabled title="Withdraw or move students first"' : '') +
+                '><i class="fa-solid fa-trash"></i> Delete</button></div>' +
+                '<div class="row g-2 align-items-end">' +
+                '<div class="col-md-5"><label class="form-label small mb-1">Name</label>' +
+                '<input type="text" class="form-control form-control-sm manage-class-name" value="' + escapeHtml(cls.name) + '"></div>' +
+                '<div class="col-md-5"><label class="form-label small mb-1">Schedule</label>' +
+                '<select class="form-select form-select-sm manage-class-preset">' +
+                '<option value="1,2,3,4,5"' + (presetMatch === '1,2,3,4,5' ? ' selected' : '') + '>주 5일 (Mon–Fri)</option>' +
+                '<option value="1,3"' + (presetMatch === '1,3' ? ' selected' : '') + '>월수 (Mon/Wed)</option>' +
+                '<option value="2,4"' + (presetMatch === '2,4' ? ' selected' : '') + '>화목 (Tue/Thu)</option>' +
+                '<option value="1,3,5"' + (presetMatch === '1,3,5' ? ' selected' : '') + '>월수금 (Mon/Wed/Fri)</option>' +
+                '<option value="custom"' + (presetMatch === 'custom' ? ' selected' : '') + '>Custom days…</option>' +
+                '</select></div>' +
+                '<div class="col-md-2"><button type="button" class="btn btn-sm btn-outline-primary w-100 manage-class-save-btn">Save</button></div>' +
+                '</div>' +
+                '<div class="manage-class-custom-days mt-2' + (presetMatch === 'custom' ? '' : ' d-none') + '"></div>' +
+                '</div>'
+            );
+        }).join('');
+
+        list.querySelectorAll('.manage-class-row').forEach(function(row) {
+            const cls = classes.find(function(c) { return String(c.id) === String(row.getAttribute('data-class-id')); });
+            const custom = row.querySelector('.manage-class-custom-days');
+            const preset = row.querySelector('.manage-class-preset');
+            renderDayCheckboxes(custom, cls && cls.allowedDays);
+            if (preset) {
+                preset.addEventListener('change', function() {
+                    if (preset.value === 'custom') {
+                        custom.classList.remove('d-none');
+                    } else {
+                        custom.classList.add('d-none');
+                        renderDayCheckboxes(custom, parsePresetDays(preset.value));
+                    }
+                });
+            }
+            const saveBtn = row.querySelector('.manage-class-save-btn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function() {
+                    const name = (row.querySelector('.manage-class-name') || {}).value || '';
+                    let days = [];
+                    if (preset && preset.value === 'custom') days = readDayCheckboxes(custom);
+                    else days = parsePresetDays(preset && preset.value);
+                    saveBtn.disabled = true;
+                    nodeFetch('/api/classes/' + encodeURIComponent(cls.id), {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            name: name,
+                            allowedDays: days,
+                            scheduleType: scheduleTypeFromDays(days)
+                        })
+                    }).then(function() {
+                        appToast('Class updated.');
+                        return refreshClassButtonsFromServer();
+                    }).then(function() {
+                        loadManageClassesList();
+                    }).catch(function(err) {
+                        appAlert(err.message || 'Could not update class.', 'error');
+                    }).finally(function() {
+                        saveBtn.disabled = false;
+                    });
+                });
+            }
+            const delBtn = row.querySelector('.manage-class-delete-btn');
+            if (delBtn) {
+                delBtn.addEventListener('click', function() {
+                    appConfirm(
+                        'Delete class “‘ + cls.name + '”? This cannot be undone.',
+                        function() {
+                            delBtn.disabled = true;
+                            nodeFetch('/api/classes/' + encodeURIComponent(cls.id), { method: 'DELETE' })
+                                .then(function() {
+                                    appToast('Class deleted.');
+                                    return refreshClassButtonsFromServer();
+                                })
+                                .then(function() {
+                                    loadManageClassesList();
+                                })
+                                .catch(function(err) {
+                                    appAlert(err.message || 'Could not delete class.', 'error');
+                                    delBtn.disabled = false;
+                                });
+                        },
+                        { title: 'Delete class', okLabel: 'Delete', danger: true }
+                    );
+                });
+            }
+        });
+    }
+
+    function createClassFromForm() {
+        const nameInput = document.getElementById('newClassNameInput');
+        const preset = document.getElementById('newClassSchedulePreset');
+        const customWrap = document.getElementById('newClassCustomDays');
+        const btn = document.getElementById('createClassBtn');
+        const name = nameInput ? String(nameInput.value || '').trim() : '';
+        let days = [];
+        if (preset && preset.value === 'custom') days = readDayCheckboxes(customWrap);
+        else days = parsePresetDays(preset && preset.value);
+        if (!name) {
+            appAlert('Enter a class name.', 'warning');
+            return;
+        }
+        if (!days.length) {
+            appAlert('Pick at least one class day.', 'warning');
+            return;
+        }
+        if (btn) btn.disabled = true;
+        nodeFetch('/api/classes', {
+            method: 'POST',
+            body: JSON.stringify({
+                name: name,
+                allowedDays: days,
+                scheduleType: scheduleTypeFromDays(days)
+            })
+        }).then(function(res) {
+            appToast('Added ' + ((res.class && res.class.name) || name) + '.');
+            if (nameInput) nameInput.value = '';
+            return refreshClassButtonsFromServer();
+        }).then(function() {
+            loadManageClassesList();
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not create class.', 'error');
+        }).finally(function() {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    function bindManageClassesUi() {
+        const manageBtn = document.getElementById('manageClassesBtn');
+        if (manageBtn) manageBtn.addEventListener('click', openManageClassesModal);
+        const createBtn = document.getElementById('createClassBtn');
+        if (createBtn) createBtn.addEventListener('click', createClassFromForm);
+        const preset = document.getElementById('newClassSchedulePreset');
+        const customWrap = document.getElementById('newClassCustomDays');
+        if (preset && customWrap) {
+            preset.addEventListener('change', function() {
+                if (preset.value === 'custom') {
+                    customWrap.classList.remove('d-none');
+                    if (!customWrap.querySelector('input')) renderDayCheckboxes(customWrap, []);
+                } else {
+                    customWrap.classList.add('d-none');
+                }
+            });
+        }
     }
 
     function updateClassWelcomePanel() {
