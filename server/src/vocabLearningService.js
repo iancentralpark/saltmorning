@@ -26,18 +26,18 @@ const MAX_BOX = BOX_INTERVAL_DAYS.length - 1;
 // Tier-scaled daily Dollar bonus, granted every day the quest is completed (on top of
 // the existing Lucky Draw ticket reward). Rookie/Iron are $0 (no adjustment call made).
 const DAILY_DOLLAR_BONUS_BY_TIER = {
-  Rookie: 0,
-  Iron: 0,
-  Bronze: 0.5,
-  Silver: 0.5,
-  Gold: 0.5,
-  Platinum: 1,
-  Emerald: 1,
-  Diamond: 1,
-  Ascendant: 2,
-  Master: 2,
-  Grandmaster: 2,
-  Legend: 3
+  Rookie: 0.5,
+  Iron: 0.5,
+  Bronze: 1,
+  Silver: 1,
+  Gold: 1,
+  Platinum: 2,
+  Emerald: 2,
+  Diamond: 2,
+  Ascendant: 3,
+  Master: 3,
+  Grandmaster: 3,
+  Legend: 5
 };
 
 function requireDb() {
