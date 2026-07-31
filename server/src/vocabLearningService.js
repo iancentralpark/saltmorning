@@ -886,6 +886,16 @@ async function getStudentVocabSummary(studentId, classId) {
       console.warn('getTierMastery', e.message || e);
     }
   }
+  let schoolGrade = null;
+  try {
+    const { getStudentSchoolGrade } = require('./supabaseStudentService');
+    const profile = await getStudentSchoolGrade(studentId);
+    schoolGrade = profile.schoolGrade;
+  } catch (e) {
+    console.warn('getStudentSchoolGrade', e.message || e);
+  }
+  const { placementStartAbility } = require('./vocabPlacementService');
+  const placementStartGrade = placementStartAbility(schoolGrade);
   return {
     tierName: placed ? state.tier_name : null,
     gradeLevel: placed ? state.grade_level : null,
@@ -895,6 +905,8 @@ async function getStudentVocabSummary(studentId, classId) {
     placementDone: placed,
     placementAt: state && state.placement_at,
     placementAccuracy: placed ? state.placement_accuracy : null,
+    schoolGrade: schoolGrade,
+    placementStartGrade: placementStartGrade,
     mastery: mastery,
     today: {
       date: daily.quest_date,

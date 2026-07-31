@@ -7,7 +7,10 @@ function isMissingLoginPasswordColumn(error) {
 function withLoginPasswordField(row) {
   return Object.assign({}, row, {
     login_password: row && row.login_password != null ? String(row.login_password) : '',
-    sort_order: row && row.sort_order != null ? Number(row.sort_order) || 0 : 0
+    sort_order: row && row.sort_order != null ? Number(row.sort_order) || 0 : 0,
+    school_grade: row && row.school_grade != null && Number.isFinite(Number(row.school_grade))
+      ? Math.round(Number(row.school_grade))
+      : null
   });
 }
 
@@ -25,7 +28,7 @@ function isLoginPasswordColumnMissing() {
  */
 async function queryStudents(db, options) {
   const opts = options || {};
-  const baseCols = 'id, name, class_id, status, login_id, sort_order';
+  const baseCols = 'id, name, class_id, status, login_id, sort_order, school_grade';
 
   function applyFilters(q) {
     if (opts.classId) q = q.eq('class_id', String(opts.classId));

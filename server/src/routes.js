@@ -7,7 +7,9 @@ const {
   createClass,
   updateClass,
   reorderClasses,
-  deleteClass
+  deleteClass,
+  getStudentSchoolGrade,
+  setStudentSchoolGrade
 } = require('./supabaseStudentService');
 const { syncStudentPasswordToSheet } = require('./studentPasswordSync');
 const { getInitialData } = require('./initialService');
@@ -1285,6 +1287,31 @@ router.post('/students/reorder', async (req, res) => {
   } catch (e) {
     console.error('POST /students/reorder', e);
     res.status(400).json({ error: e.message || 'Reorder failed' });
+  }
+});
+
+router.get('/students/:studentId/school-grade', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'School grade requires Supabase.' });
+    }
+    res.json(await getStudentSchoolGrade(req.params.studentId));
+  } catch (e) {
+    console.error('GET /students/:studentId/school-grade', e);
+    res.status(400).json({ error: e.message || 'Could not load school grade' });
+  }
+});
+
+router.put('/students/:studentId/school-grade', requireTeacherAuth, async (req, res) => {
+  try {
+    if (!isSupabaseEnabled()) {
+      return res.status(503).json({ error: 'School grade requires Supabase.' });
+    }
+    const body = req.body || {};
+    res.json(await setStudentSchoolGrade(req.params.studentId, body.schoolGrade));
+  } catch (e) {
+    console.error('PUT /students/:studentId/school-grade', e);
+    res.status(400).json({ error: e.message || 'Could not save school grade' });
   }
 });
 

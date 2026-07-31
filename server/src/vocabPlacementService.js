@@ -28,9 +28,24 @@ const PLACEMENT_MIN = 15;
 const PLACEMENT_MAX = 24;
 const PLACEMENT_STABLE_WINDOW = 4;
 const PLACEMENT_STABLE_RANGE = 0.4;
+/** Fallback Placement start when teacher has not set school_grade */
+const DEFAULT_PLACEMENT_START = 4;
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
+}
+
+function normalizeSchoolGrade(raw) {
+  if (raw == null || raw === '') return null;
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < GRADE_MIN || n > GRADE_MAX) return null;
+  return n;
+}
+
+function placementStartAbility(raw) {
+  return normalizeSchoolGrade(raw) != null
+    ? normalizeSchoolGrade(raw)
+    : DEFAULT_PLACEMENT_START;
 }
 
 function tierForGrade(grade) {
@@ -88,13 +103,14 @@ function shouldStopPlacement(abilityTrail) {
 
 /**
  * Score a finished placement session.
- * @param {{ answers: Array<{ correct: boolean, seconds?: number, questionType?: string, frequencyLevel?: number }> }} payload
+ * @param {{ answers: Array<{ correct: boolean, seconds?: number, questionType?: string, frequencyLevel?: number }>, startAbility?: number, schoolGrade?: number }} payload
  *   `frequencyLevel` on each answer is actually the Grade (1-12) that question targeted;
  *   kept as the wire field name for client backward-compat.
  */
 function scorePlacement(payload) {
   const answers = Array.isArray(payload && payload.answers) ? payload.answers : [];
-  let ability = 6;
+  const startRaw = payload && (payload.startAbility != null ? payload.startAbility : payload.schoolGrade);
+  let ability = placementStartAbility(startRaw);
   const trail = [];
 
   for (let i = 0; i < answers.length; i++) {
@@ -104,16 +120,6 @@ function scorePlacement(payload) {
       abilityGrade: ability,
       correct: !!(answers[i] && answers[i].correct)
     });
-  }
-
-  let peakCorrect = 0;
-  answers.forEach(function (a) {
-    if (a && a.correct && Number(a.frequencyLevel) > peakCorrect) {
-      peakCorrect = Number(a.frequencyLevel);
-    }
-  });
-  if (peakCorrect > 0) {
-    ability = clamp(Math.round((ability * 0.7 + peakCorrect * 0.3) * 100) / 100, GRADE_MIN, GRADE_MAX);
   }
 
   const correctCount = answers.filter(function (a) { return a && a.correct; }).length;
@@ -127,6 +133,7 @@ function scorePlacement(payload) {
     correctCount: correctCount,
     accuracy: Math.round(accuracy * 1000) / 10,
     abilityGrade: ability,
+    startAbility: placementStartAbility(startRaw),
     gradeLevel: gradeLevel,
     tier: tier,
     trail: trail,
@@ -242,7 +249,10 @@ module.exports = {
   PLACEMENT_QUESTION_COUNT,
   PLACEMENT_MIN,
   PLACEMENT_MAX,
+  DEFAULT_PLACEMENT_START,
   tierForGrade,
+  normalizeSchoolGrade,
+  placementStartAbility,
   updateAbility,
   nextTargetFreq,
   shouldStopPlacement,

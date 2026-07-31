@@ -29,6 +29,9 @@
     pauseUsed: false,
     paused: false,
     pauseRemainingMs: 0,
+    schoolGrade: null,
+    placementStartGrade: 4,
+    startAbility: 4,
     placement: null,
     placementDone: false,
     deckIndex: 0,
@@ -218,6 +221,14 @@
     state.mastery = summary.mastery || null;
     // Server is authoritative. Never keep a cached tier when placement is unfinished.
     state.placementDone = !!summary.placementDone;
+    if (summary.schoolGrade != null) state.schoolGrade = summary.schoolGrade;
+    else state.schoolGrade = null;
+    state.placementStartGrade = summary.placementStartGrade != null
+      ? Number(summary.placementStartGrade)
+      : (state.schoolGrade != null ? Number(state.schoolGrade) : 4);
+    if (!Number.isFinite(state.placementStartGrade) || state.placementStartGrade < 1 || state.placementStartGrade > 12) {
+      state.placementStartGrade = 4;
+    }
     if (summary.placementDone) {
       state.placement = {
         gradeLevel: summary.gradeLevel,
@@ -709,7 +720,8 @@
       return;
     }
     clearPlacementTimer();
-    state.abilityGrade = 6;
+    state.abilityGrade = state.placementStartGrade || 4;
+    state.startAbility = state.abilityGrade;
     state.abilityTrail = [];
     state.avoidWordIds = [];
     state.questionIndex = 0;
@@ -894,7 +906,10 @@
 
   function finishPlacement() {
     clearPlacementTimer();
-    var body = { answers: state.answers };
+    var body = {
+      answers: state.answers,
+      startAbility: state.startAbility != null ? state.startAbility : (state.placementStartGrade || 4)
+    };
     apiFetch('/api/student/vocab/placement/score', {
       method: 'POST',
       body: body
@@ -918,6 +933,7 @@
         correctCount: correctCount,
         accuracy: Math.round((correctCount / Math.max(1, state.answers.length)) * 1000) / 10,
         abilityGrade: ability,
+        startAbility: state.startAbility,
         gradeLevel: gradeLevel,
         tier: tier,
         message: 'Start at Grade ' + gradeLevel + ' (' + tier.name + ').'

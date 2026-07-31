@@ -6084,6 +6084,25 @@
             <div class="detail-header-main">
                 <div class="detail-student-name" id="detailStudentName">Student</div>
                 <div class="text-muted small" id="detailSummary">Summary</div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mb-1">
+                    <label class="small fw-bold text-muted mb-0" for="detailSchoolGradeSelect">School grade</label>
+                    <select class="form-select form-select-sm" id="detailSchoolGradeSelect" style="width:auto;min-width:14rem;" title="Used as Placement test starting level">
+                        <option value="">Not set (Placement starts at 4)</option>
+                        <option value="1">1 — Rookie</option>
+                        <option value="2">2 — Iron</option>
+                        <option value="3">3 — Bronze</option>
+                        <option value="4">4 — Silver</option>
+                        <option value="5">5 — Gold</option>
+                        <option value="6">6 — Platinum</option>
+                        <option value="7">7 — Emerald</option>
+                        <option value="8">8 — Diamond</option>
+                        <option value="9">9 — Ascendant</option>
+                        <option value="10">10 — Master</option>
+                        <option value="11">11 — Grandmaster</option>
+                        <option value="12">12 — Legend</option>
+                    </select>
+                    <span class="form-text mb-0 small">Placement adaptive start</span>
+                </div>
                 <div class="detail-header-actions">
                     <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="detailMakeupBtn" title="Record makeup lesson">
                         <i class="fa-solid fa-clock-rotate-left"></i> Record makeup
@@ -8910,6 +8929,7 @@
         initAbuseAlertSidebarLauncher();
         initVocabLmsModal();
         bindManageClassesUi();
+        bindStudentSchoolGradeUi();
         document.getElementById('abuseAlertRefreshBtn').addEventListener('click', function() {
             refreshAbuseAlertModal(true);
         });
@@ -13731,6 +13751,7 @@
         document.getElementById('hwStudentPending').innerHTML = 'Loading…';
         const historyMonthInput = document.getElementById('studentHistoryMonth');
         if (historyMonthInput) delete historyMonthInput.dataset.userPicked;
+        resetDetailSchoolGradeSelect();
 
         setWorkSectionsHidden(true);
         updateMakeupOffDayBar(false);
@@ -13751,6 +13772,7 @@
         loadStudentHomework();
         loadStudentLeavePanel();
         loadStudentPlannedPanel();
+        loadStudentSchoolGrade();
 
         if (options.scrollToPending) {
             setTimeout(function() {
@@ -13758,6 +13780,66 @@
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 120);
         }
+    }
+
+    function resetDetailSchoolGradeSelect() {
+        const sel = document.getElementById('detailSchoolGradeSelect');
+        if (!sel) return;
+        sel.dataset.loading = '1';
+        sel.value = '';
+        sel.disabled = true;
+    }
+
+    function loadStudentSchoolGrade() {
+        if (!selectedStudent) return;
+        const sel = document.getElementById('detailSchoolGradeSelect');
+        if (!sel) return;
+        sel.dataset.loading = '1';
+        sel.disabled = true;
+        nodeFetch('/api/students/' + encodeURIComponent(selectedStudent.id) + '/school-grade?_=' + Date.now())
+            .then(function(res) {
+                if (!selectedStudent || String(selectedStudent.id) !== String(res.studentId)) return;
+                selectedStudent.schoolGrade = res.schoolGrade;
+                sel.value = res.schoolGrade != null ? String(res.schoolGrade) : '';
+            })
+            .catch(function() {
+                if (sel) sel.value = '';
+            })
+            .finally(function() {
+                if (sel) {
+                    sel.disabled = false;
+                    delete sel.dataset.loading;
+                }
+            });
+    }
+
+    function saveStudentSchoolGradeFromSelect() {
+        const sel = document.getElementById('detailSchoolGradeSelect');
+        if (!sel || !selectedStudent || sel.dataset.loading) return;
+        const raw = sel.value;
+        const schoolGrade = raw === '' ? null : Number(raw);
+        sel.disabled = true;
+        nodeFetch('/api/students/' + encodeURIComponent(selectedStudent.id) + '/school-grade', {
+            method: 'PUT',
+            body: JSON.stringify({ schoolGrade: schoolGrade })
+        }).then(function(res) {
+            selectedStudent.schoolGrade = res.schoolGrade;
+            appToast(res.schoolGrade != null
+                ? ('School grade set to ' + res.schoolGrade + '.')
+                : 'School grade cleared.');
+        }).catch(function(err) {
+            appAlert(err.message || 'Could not save school grade.', 'error');
+            loadStudentSchoolGrade();
+        }).finally(function() {
+            sel.disabled = false;
+        });
+    }
+
+    function bindStudentSchoolGradeUi() {
+        const sel = document.getElementById('detailSchoolGradeSelect');
+        if (!sel || sel.dataset.bound) return;
+        sel.dataset.bound = '1';
+        sel.addEventListener('change', saveStudentSchoolGradeFromSelect);
     }
 
     function openStudentPendingHomework(studentId, studentName) {

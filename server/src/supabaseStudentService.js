@@ -65,12 +65,60 @@ async function getStudentById(studentId) {
   const db = getSupabase();
   const { data, error } = await db
     .from('students')
-    .select('id, name, class_id, status')
+    .select('id, name, class_id, status, school_grade')
     .eq('id', String(studentId))
     .maybeSingle();
 
   if (error) throw new Error(error.message || 'Database error.');
   return data;
+}
+
+function normalizeSchoolGradeValue(raw) {
+  if (raw == null || raw === '') return null;
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < 1 || n > 12) {
+    throw new Error('School grade must be between 1 and 12.');
+  }
+  return n;
+}
+
+async function getStudentSchoolGrade(studentId) {
+  const row = await getStudentById(studentId);
+  if (!row) throw new Error('Student not found.');
+  const grade = row.school_grade != null ? Number(row.school_grade) : null;
+  return {
+    studentId: String(row.id),
+    name: String(row.name || ''),
+    classId: String(row.class_id || ''),
+    schoolGrade: Number.isFinite(grade) && grade >= 1 && grade <= 12 ? Math.round(grade) : null
+  };
+}
+
+async function setStudentSchoolGrade(studentId, schoolGrade) {
+  const db = getSupabase();
+  studentId = String(studentId || '').trim();
+  if (!studentId) throw new Error('studentId is required.');
+  const grade = schoolGrade == null || schoolGrade === ''
+    ? null
+    : normalizeSchoolGradeValue(schoolGrade);
+
+  const { data, error } = await db
+    .from('students')
+    .update({
+      school_grade: grade,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', studentId)
+    .select('id, name, class_id, school_grade')
+    .maybeSingle();
+  if (error) throw new Error(error.message || 'Could not save school grade.');
+  if (!data) throw new Error('Student not found.');
+  return {
+    studentId: String(data.id),
+    name: String(data.name || ''),
+    classId: String(data.class_id || ''),
+    schoolGrade: data.school_grade != null ? Number(data.school_grade) : null
+  };
 }
 
 async function lookupStudentName(studentId, classId) {
@@ -531,6 +579,8 @@ module.exports = {
   verifyPassword,
   findStudentByLogin,
   getStudentById,
+  getStudentSchoolGrade,
+  setStudentSchoolGrade,
   lookupStudentName,
   getClassNameMap,
   getClassLabel,
