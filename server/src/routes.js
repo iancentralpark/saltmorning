@@ -1858,7 +1858,8 @@ router.post('/student/vocab/placement/next', requireStudentAuth, async (req, res
     const ability = updateAbility(body.abilityGrade, {
       correct: !!body.correct,
       seconds: body.seconds,
-      questionType: body.questionType
+      questionType: body.questionType,
+      frequencyLevel: body.frequencyLevel != null ? body.frequencyLevel : body.targetGrade
     });
     const abilityTrail = Array.isArray(body.abilityTrail)
       ? body.abilityTrail.map(Number).concat([ability])

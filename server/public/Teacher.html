@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-31.07';
+            var APP_BUILD = '2026-07-31.08';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -6938,7 +6938,7 @@
                             <input type="number" class="form-control form-control-sm" id="vocabLmsMaxSessions" min="1" max="5" value="3">
                         </div>
                     </div>
-                    <p class="text-muted small mb-3 mb-md-2">First passed set of the day → Lucky Draw ticket + tier dollar bonus. Extra sets count toward tier mastery (80% to promote).</p>
+                    <p class="text-muted small mb-3 mb-md-2">Each passed set → Lucky Draw ticket + tier dollar bonus. Extra sets also build tier mastery (80% to promote).</p>
                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                         <button type="button" class="btn btn-sm btn-primary" id="vocabLmsSaveSettingsBtn">
                             <i class="fa-solid fa-floppy-disk"></i> Save settings

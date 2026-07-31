@@ -27,7 +27,7 @@ const PLACEMENT_QUESTION_COUNT = 24;
 const PLACEMENT_MIN = 15;
 const PLACEMENT_MAX = 24;
 const PLACEMENT_STABLE_WINDOW = 4;
-const PLACEMENT_STABLE_RANGE = 0.4;
+const PLACEMENT_STABLE_RANGE = 0.25;
 /** Fallback Placement start when teacher has not set school_grade */
 const DEFAULT_PLACEMENT_START = 4;
 
@@ -55,28 +55,37 @@ function tierForGrade(grade) {
 
 /**
  * Adaptive ability update after one item, on a discrete Grade 1-12 scale.
- * Keep the caller-side value as a float for smooth convergence; round only
- * when picking a question's target grade or reporting the final result.
+ * Small steps so one lucky hit cannot jump tiers — harder items answered
+ * consistently raise ability gradually. No speed multipliers.
  * @param {number} abilityGrade estimated grade level (1-12, float)
- * @param {{ correct: boolean, seconds: number, questionType: string }} item
+ * @param {{ correct: boolean, seconds?: number, questionType?: string, frequencyLevel?: number }} item
  */
 function updateAbility(abilityGrade, item) {
-  let ability = clamp(Number(abilityGrade) || 6, GRADE_MIN - 0.5, GRADE_MAX + 0.5);
+  let ability = clamp(Number(abilityGrade) || DEFAULT_PLACEMENT_START, GRADE_MIN - 0.5, GRADE_MAX + 0.5);
   const correct = !!(item && item.correct);
-  const seconds = Math.max(0.5, Number(item && item.seconds) || 8);
   const type = String((item && item.questionType) || 'meaning');
+  const itemGrade = Number(item && (item.frequencyLevel != null ? item.frequencyLevel : item.targetGrade));
 
-  let step = 0.7;
-  if (type === 'cloze' || type === 'sentence') step = 0.8;
-  if (type === 'whichWord') step = 0.75;
-  if (type === 'nuance') step = 0.85;
+  // Base step ~0.35 so roughly 3 consistent hits ≈ +1 grade.
+  let step = 0.35;
+  if (type === 'cloze' || type === 'sentence') step = 0.38;
+  if (type === 'whichWord') step = 0.36;
+  if (type === 'nuance') step = 0.4;
 
-  const fast = seconds <= 6;
-  const slow = seconds >= 18;
   if (correct) {
-    ability += step * (fast ? 1.3 : slow ? 0.85 : 1);
+    // Easy items (well below current ability) barely move the needle.
+    if (Number.isFinite(itemGrade) && itemGrade < ability - 0.75) {
+      ability += step * 0.35;
+    } else {
+      ability += step;
+    }
   } else {
-    ability -= step * (fast ? 1.05 : slow ? 1.25 : 1.1);
+    // Missing a much harder item hurts less than missing at your level.
+    if (Number.isFinite(itemGrade) && itemGrade > ability + 0.75) {
+      ability -= step * 0.5;
+    } else {
+      ability -= step;
+    }
   }
   return clamp(Math.round(ability * 100) / 100, GRADE_MIN - 0.5, GRADE_MAX + 0.5);
 }

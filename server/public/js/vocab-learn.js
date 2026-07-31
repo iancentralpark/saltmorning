@@ -618,15 +618,21 @@
   }
 
   function localUpdateAbility(abilityGrade, item) {
-    var ability = Math.max(0.5, Math.min(12.5, Number(abilityGrade) || 6));
+    var ability = Math.max(0.5, Math.min(12.5, Number(abilityGrade) || 4));
     var correct = !!(item && item.correct);
-    var seconds = Math.max(0.5, Number(item && item.seconds) || 8);
     var type = String((item && item.questionType) || 'meaning');
-    var step = (type === 'sentence' || type === 'cloze' || type === 'whichWord') ? 0.6 : 0.55;
-    var fast = seconds <= 6;
-    var slow = seconds >= 18;
-    if (correct) ability += step * (fast ? 1.25 : slow ? 0.75 : 1);
-    else ability -= step * (fast ? 0.9 : slow ? 1.15 : 1);
+    var itemGrade = Number(item && (item.frequencyLevel != null ? item.frequencyLevel : item.targetGrade));
+    var step = 0.35;
+    if (type === 'cloze' || type === 'sentence') step = 0.38;
+    if (type === 'whichWord') step = 0.36;
+    if (type === 'nuance') step = 0.4;
+    if (correct) {
+      if (Number.isFinite(itemGrade) && itemGrade < ability - 0.75) ability += step * 0.35;
+      else ability += step;
+    } else {
+      if (Number.isFinite(itemGrade) && itemGrade > ability + 0.75) ability -= step * 0.5;
+      else ability -= step;
+    }
     return Math.round(Math.max(0.5, Math.min(12.5, ability)) * 100) / 100;
   }
 
@@ -882,6 +888,7 @@
         correct: correct,
         seconds: seconds,
         questionType: q.type,
+        frequencyLevel: q.frequencyLevel,
         questionIndex: state.questionIndex,
         abilityTrail: state.abilityTrail
       }
@@ -1578,11 +1585,7 @@
       (passed ? 'Set complete!' : 'Almost there') + '</div>' +
       '<h3>Score: ' + correctCount + ' / ' + total + ' (' + res.score + '%)</h3>' +
       '<p>Pass threshold: ' + res.threshold + '%' +
-      (passed ? ' · Sets today: ' + quest.sessionsCompleted + ' / ' + quest.maxSessions : '') +
-      (res.rewardClaimedToday && !reward ? ' · Reward already claimed today' : '') + '</p>' +
-      (passed && !reward && res.rewardClaimedToday
-        ? '<p class="vocab-empty">Progress saved — reward already claimed for today.</p>'
-        : '') +
+      (passed ? ' · Sets today: ' + quest.sessionsCompleted + ' / ' + quest.maxSessions : '') + '</p>' +
       (res.rating && res.rating.promoted === 'up'
         ? '<p>⬆️ Promoted to Grade ' + escapeHtml(String(res.rating.gradeLevel)) + ' (' + escapeHtml(res.rating.tierName) + ')!</p>'
         : '') +
@@ -1597,7 +1600,9 @@
           '<div class="vocab-actions" style="justify-content:center;">' +
           '<button type="button" class="vocab-btn vocab-reward-spin-btn" id="vocabOpenLuckyBtn">' +
           '<i class="fa-solid fa-dice"></i> Open Lucky Draw</button></div>'
-        : '') +
+        : (passed && !reward
+          ? '<p class="vocab-empty">Set saved. (Reward ticket could not be granted — try again next set.)</p>'
+          : '')) +
       '</div>' +
       (canMore
         ? '<div class="vocab-actions" style="justify-content:center;margin-top:0.85rem;" id="vocabAnotherSetWrap">' +
@@ -1650,7 +1655,6 @@
   function runVocabRewardCeremony(reward, dollarBonus) {
     var openBtn = $('vocabOpenLuckyBtn');
     if (openBtn) openBtn.disabled = true;
-    var effects = root.MrParkLuckyEffects;
     var tier = (reward && reward.tier) || 'Prize';
     var prize = (reward && reward.prizeText) || 'Mystery Prize';
     var done = function () {
@@ -1667,19 +1671,28 @@
         if (typeof root.refreshStudentLuckyDraw === 'function') root.refreshStudentLuckyDraw();
       } catch (e) { /* ignore */ }
     };
-    if (effects && typeof effects.revealSpin === 'function') {
-      Promise.resolve(effects.revealSpin(tier, prize, {
-        title: 'Vocab reward!',
-        sub: 'Feeling lucky?',
-        resultSub: 'Ticket added to your Lucky Draw.',
-        doneLabel: 'Collect!'
-      })).then(done).catch(function () {
-        if (openBtn) openBtn.disabled = false;
-        done();
-      });
-    } else {
+    function tryReveal(attempt) {
+      var effects = root.MrParkLuckyEffects;
+      if (effects && typeof effects.revealSpin === 'function') {
+        Promise.resolve(effects.revealSpin(tier, prize, {
+          title: 'Vocab reward!',
+          sub: 'Feeling lucky?',
+          resultSub: 'Ticket added to your Lucky Draw.',
+          doneLabel: 'Collect!'
+        })).then(done).catch(function () {
+          if (openBtn) openBtn.disabled = false;
+          done();
+        });
+        return;
+      }
+      if (attempt < 8) {
+        setTimeout(function () { tryReveal(attempt + 1); }, 150);
+        return;
+      }
+      console.warn('[vocab] MrParkLuckyEffects.revealSpin missing — showing plain reward');
       done();
     }
+    tryReveal(0);
   }
 
   function runVocabDollarCeremony(dollarBonus) {
@@ -1687,7 +1700,6 @@
     if (btn) btn.disabled = true;
     var amount = Number(dollarBonus && dollarBonus.amount) || 0;
     var tierName = (dollarBonus && dollarBonus.tierName) || '';
-    var effects = root.MrParkLuckyEffects;
     var finish = function () {
       var stage = $('vocabRewardStage');
       if (stage) {
@@ -1697,16 +1709,25 @@
           (tierName ? ' (' + escapeHtml(tierName) + ' tier)' : '') + '!</p>';
       }
     };
-    if (effects && typeof effects.celebrateDollars === 'function') {
-      Promise.resolve(effects.celebrateDollars(amount, {
-        tierName: tierName,
-        message: tierName
-          ? ('Nice work — ' + tierName + ' tier bonus!')
-          : 'Nice work — tier dollar bonus!'
-      })).then(finish).catch(finish);
-    } else {
+    function tryCelebrate(attempt) {
+      var effects = root.MrParkLuckyEffects;
+      if (effects && typeof effects.celebrateDollars === 'function') {
+        Promise.resolve(effects.celebrateDollars(amount, {
+          tierName: tierName,
+          message: tierName
+            ? ('Nice work — ' + tierName + ' tier bonus!')
+            : 'Nice work — tier dollar bonus!'
+        })).then(finish).catch(finish);
+        return;
+      }
+      if (attempt < 8) {
+        setTimeout(function () { tryCelebrate(attempt + 1); }, 150);
+        return;
+      }
+      console.warn('[vocab] MrParkLuckyEffects.celebrateDollars missing — showing plain dollar text');
       finish();
     }
+    tryCelebrate(0);
   }
 
   function bindShell() {

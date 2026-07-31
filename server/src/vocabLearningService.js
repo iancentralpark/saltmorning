@@ -781,7 +781,6 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   const passed = score >= settings.pass_threshold;
   const maxSessions = Math.max(1, Number(settings.max_daily_sessions) || DEFAULT_MAX_DAILY_SESSIONS);
   const sessionsBefore = Math.max(0, Number(daily.sessions_completed) || 0);
-  const alreadyRewardedToday = sessionsBefore >= 1 || !!daily.reward_ticket_id;
 
   const update = {
     test_attempts: (daily.test_attempts || 0) + 1,
@@ -801,20 +800,21 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
     update.sessions_completed = sessionsCompleted;
     update.completed_at = daily.completed_at || new Date().toISOString();
 
-    // First passed set of the day gets Lucky Draw + Dollar; later sets are mastery-only.
-    if (!alreadyRewardedToday) {
-      try {
-        reward = await grantDailyReward(classId, studentId);
-        update.reward_ticket_id = reward.ticketId;
-      } catch (e) {
-        console.error('grantDailyReward failed', e.message || e);
-      }
-      try {
-        const tierName = state.tier_name || tierForGrade(state.grade_level).name;
-        dollarBonus = await grantTierDollarBonus(classId, studentId, tierName);
-      } catch (e) {
-        console.error('grantTierDollarBonus failed', e.message || e);
-      }
+    // Every passed set earns Lucky Draw + tier dollar bonus (up to max sessions/day).
+    try {
+      reward = await grantDailyReward(classId, studentId);
+      update.reward_ticket_id = reward.ticketId;
+    } catch (e) {
+      console.error('grantDailyReward failed', e.message || e);
+    }
+    try {
+      const tierName = state.tier_name || tierForGrade(state.grade_level).name;
+      dollarBonus = await grantTierDollarBonus(classId, studentId, tierName);
+    } catch (e) {
+      console.error('grantTierDollarBonus failed', e.message || e);
+    }
+    // Streak still bumps once per calendar day.
+    if (sessionsBefore === 0) {
       streakInfo = await bumpStreak(studentId, daily.quest_date);
     }
 
@@ -838,11 +838,11 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
     rating: ratingUpdate,
     mastery: ratingUpdate && ratingUpdate.mastery,
     streak: streakInfo,
-    alreadyPassedToday: alreadyRewardedToday,
+    alreadyPassedToday: sessionsBefore >= 1,
     sessionsCompleted: sessionsCompleted,
     maxSessions: maxSessions,
     canStartAnother: sessionsCompleted < maxSessions,
-    rewardClaimedToday: alreadyRewardedToday || !!reward
+    rewardClaimedToday: false
   };
 }
 
