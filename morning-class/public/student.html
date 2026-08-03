@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260803portal">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/app.css?v=20260803vocab2">
+  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260803vocab2">
 </head>
 <body class="student-body">
 <div class="shell student-shell">
@@ -19,12 +21,43 @@
 
     <div class="stu-summary-grid" id="homeSummary"></div>
 
-    <div class="card stu-card" id="sectionVocab">
-      <h3>Vocab Booster</h3>
-      <p class="muted" id="vocabStatus">Loading…</p>
-      <div id="vocabStats" class="stu-summary-grid" style="margin:0.75rem 0"></div>
-      <div id="vocabMount"></div>
-      <div class="error" id="vocabError"></div>
+    <div class="card stu-card vocab-shell" id="vocabShell">
+      <div class="card-title"><i class="fa-solid fa-rocket"></i> Vocab Booster</div>
+
+      <div id="vocabNeedsPlacement">
+        <div class="vocab-hero">
+          <p class="vocab-kicker">Vocab Booster</p>
+          <h2>Find your tier first</h2>
+          <p>Take a short placement test once. Then today’s words appear here automatically.</p>
+        </div>
+        <div class="vocab-actions">
+          <button type="button" class="vocab-btn" id="vocabStartTestBtn">Start Placement Test</button>
+        </div>
+      </div>
+
+      <div id="vocabPlacedFlow" class="hidden">
+        <div class="vocab-tier-hero" id="vocabTierHero" role="button" tabindex="0" aria-expanded="false" aria-controls="vocabTierLadder" aria-live="polite" title="See all tiers">
+          <div class="vocab-tier-badge-mark" id="vocabTierBadgeMark" aria-hidden="true"></div>
+          <div class="vocab-tier-hero-text">
+            <span class="vocab-tier-hero-label">Your tier</span>
+            <span class="vocab-tier-hero-name" id="vocabStatTier">—</span>
+            <span class="vocab-tier-hero-grade" id="vocabStatStart"></span>
+          </div>
+        </div>
+        <div id="vocabQuestBody"></div>
+      </div>
+
+      <div class="vocab-pane" id="vocabQuizPane">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <strong id="vocabQuizCount">Question 1 / 12</strong>
+        </div>
+        <div class="vocab-progress"><span id="vocabQuizProgress"></span></div>
+        <div id="vocabQuizBody"></div>
+      </div>
+
+      <div class="vocab-pane" id="vocabResultPane">
+        <div id="vocabResultBody"></div>
+      </div>
     </div>
 
     <div class="card stu-card" id="sectionHomework">
@@ -50,7 +83,7 @@
   </div>
 </div>
 
-<!-- English Buddy — bottom-right float (Mr. Park style) -->
+<!-- English Buddy — bottom-right float -->
 <div id="buddyFloat" class="buddy-float panel-collapsed hidden" aria-label="English Buddy">
   <button type="button" class="buddy-float-fab" id="buddyFloatToggle" title="English Buddy" aria-expanded="false">
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a9 9 0 0 0-9 9c0 3.2 1.7 6 4.2 7.6L6 22l4.1-1.7c.6.1 1.2.2 1.9.2a9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14c-.6 0-1.1-.1-1.6-.2l-.5-.1-.9.4.3-1-.3-.4A6.9 6.9 0 0 1 5 11a7 7 0 0 1 7-7z"/></svg>
@@ -77,7 +110,8 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
-<script src="/js/messenger.js?v=20260803portal"></script>
+<script src="/js/messenger.js?v=20260803vocab2"></script>
+<script src="/js/vocab-learn.js?v=20260803vocab2"></script>
 <script>
 (function() {
   const role = 'student';
@@ -90,6 +124,22 @@
     location.replace('/');
     return;
   }
+
+  // Bridge for Mr.Park vocab-learn.js
+  window.mrParkStudentApi = function(path, opts) {
+    return api(path, opts || {}, role);
+  };
+  window.getLoggedInStudentId = function() {
+    const p = getProfile(role) || {};
+    return p.studentId || '';
+  };
+  window.MrParkLuckyEffects = {
+    revealSpin: function() { return Promise.resolve(); },
+    celebrateDollars: function() {
+      loadDashboard();
+      return Promise.resolve();
+    }
+  };
 
   function chip(label, value) {
     return '<div class="stu-chip"><span class="stu-chip-label">' + escapeHtml(label) +
@@ -154,13 +204,12 @@
   function renderHome() {
     if (!dashboard) return;
     const s = dashboard.summary || {};
+    const v = dashboard.vocab || {};
     $('homeSummary').innerHTML =
       chip('Messages', s.unreadMessages || 0) +
       chip('Homework', s.pendingHomework || 0) +
       chip('Dollars', s.dollars == null ? '—' : s.dollars) +
-      chip('Buddy', (dashboard.buddy && dashboard.buddy.remaining != null)
-        ? (dashboard.buddy.remaining + ' left')
-        : '—');
+      chip('Vocab', v.placementDone ? (v.tierName || v.tier || 'Ready') : 'Place first');
   }
 
   function renderHomework() {
@@ -233,147 +282,6 @@
       (p.studentId ? ' · ' + p.studentId : '');
   }
 
-  function renderVocab() {
-    const v = (dashboard && dashboard.vocab) || {};
-    $('vocabError').textContent = '';
-    if (!v.available) {
-      $('vocabStatus').textContent = v.message || 'Vocab Booster unavailable.';
-      $('vocabStats').innerHTML = '';
-      $('vocabMount').innerHTML = '';
-      return;
-    }
-    $('vocabStatus').textContent = v.message || '';
-    $('vocabStats').innerHTML =
-      chip('Tier', v.tier || '—') +
-      chip('Level', v.gradeLevel != null ? v.gradeLevel : '—') +
-      chip('Streak', v.streak || 0) +
-      chip('Mastered', v.wordsMastered || 0);
-
-    if (!v.placementDone) {
-      $('vocabMount').innerHTML =
-        '<p class="muted small">Take a short placement quiz to set your starting level.</p>' +
-        '<button type="button" class="btn btn-primary" id="vocabStartPlacement">Start placement</button>';
-      const btn = $('vocabStartPlacement');
-      if (btn) btn.onclick = () => runPlacement();
-      return;
-    }
-    if (v.questDone) {
-      $('vocabMount').innerHTML = '<p class="muted">Daily quest complete — come back tomorrow!</p>';
-      return;
-    }
-    $('vocabMount').innerHTML =
-      '<p class="muted small">Study ' + (v.dailyTarget || 5) + ' words, then take a quick quiz. Sessions today: ' +
-      (v.sessionsToday || 0) + '/' + (v.maxSessions || 3) + '</p>' +
-      '<button type="button" class="btn btn-primary" id="vocabStartQuest">Start daily quest</button>';
-    const qbtn = $('vocabStartQuest');
-    if (qbtn) qbtn.onclick = () => runQuest();
-  }
-
-  function renderMcQuiz(items, onSubmit) {
-    let idx = 0;
-    const answers = [];
-    const mount = $('vocabMount');
-    function showQ() {
-      if (idx >= items.length) {
-        onSubmit(answers);
-        return;
-      }
-      const it = items[idx];
-      mount.innerHTML = '<p><strong>' + (idx + 1) + '/' + items.length + '</strong> ' +
-        escapeHtml(it.prompt || it.word) + '</p><div class="stu-quick-links" id="vocabChoices"></div>';
-      (it.choices || []).forEach((c) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'btn btn-ghost';
-        b.textContent = c;
-        b.onclick = () => {
-          answers.push({ wordId: it.wordId, choice: c });
-          idx++;
-          showQ();
-        };
-        $('vocabChoices').appendChild(b);
-      });
-    }
-    showQ();
-  }
-
-  async function runPlacement() {
-    $('vocabError').textContent = '';
-    try {
-      const data = await api('/api/student/vocab/placement/start', { method: 'POST' }, role);
-      if (data.alreadyDone) {
-        await loadDashboard();
-        return;
-      }
-      renderMcQuiz(data.items || [], async (responses) => {
-        $('vocabMount').innerHTML = '<p class="muted">Scoring…</p>';
-        try {
-          const result = await api('/api/student/vocab/placement/submit', {
-            method: 'POST', body: { responses }
-          }, role);
-          await loadDashboard();
-          $('vocabMount').innerHTML = '<p>Placement done! Level <strong>' +
-            escapeHtml(String(result.gradeLevel)) + '</strong> · ' +
-            escapeHtml(result.tier || '') +
-            ' (' + result.correct + '/' + result.total + ')</p>' +
-            '<button type="button" class="btn btn-primary" id="vocabAfterPlacement">Continue</button>';
-          $('vocabAfterPlacement').onclick = () => renderVocab();
-        } catch (e) {
-          $('vocabError').textContent = e.message;
-          renderVocab();
-        }
-      });
-    } catch (e) {
-      $('vocabError').textContent = e.message;
-    }
-  }
-
-  async function runQuest() {
-    $('vocabError').textContent = '';
-    try {
-      const data = await api('/api/student/vocab/quest/start', { method: 'POST' }, role);
-      const study = data.study || [];
-      let i = 0;
-      const mount = $('vocabMount');
-      function showStudy() {
-        if (i >= study.length) {
-          mount.innerHTML = '<p class="muted">Quiz time!</p>';
-          setTimeout(() => {
-            renderMcQuiz(data.quiz || [], async (responses) => {
-              mount.innerHTML = '<p class="muted">Checking…</p>';
-              try {
-                const result = await api('/api/student/vocab/quest/submit', {
-                  method: 'POST', body: { responses }
-                }, role);
-                await loadDashboard();
-                mount.innerHTML = '<p>' + (result.passed ? 'Quest passed!' : 'Keep practicing.') +
-                  ' ' + result.correct + '/' + result.total +
-                  (result.reward ? ' · +$' + result.reward : '') + '</p>' +
-                  '<button type="button" class="btn btn-primary" id="vocabAfterQuest">Done</button>';
-                $('vocabAfterQuest').onclick = () => renderVocab();
-              } catch (e) {
-                $('vocabError').textContent = e.message;
-                renderVocab();
-              }
-            });
-          }, 400);
-          return;
-        }
-        const w = study[i];
-        mount.innerHTML = '<p class="muted small">Study ' + (i + 1) + '/' + study.length + '</p>' +
-          '<h3 style="margin:0.25rem 0">' + escapeHtml(w.word) + '</h3>' +
-          '<p>' + escapeHtml(w.definition) + '</p>' +
-          '<p class="muted small">' + escapeHtml(w.korean || '') + '</p>' +
-          '<p class="muted small"><em>' + escapeHtml(w.example || '') + '</em></p>' +
-          '<button type="button" class="btn btn-primary" id="vocabNextStudy">Next</button>';
-        $('vocabNextStudy').onclick = () => { i++; showStudy(); };
-      }
-      showStudy();
-    } catch (e) {
-      $('vocabError').textContent = e.message;
-    }
-  }
-
   async function loadDashboard() {
     try {
       dashboard = await api('/api/student/dashboard', {}, role);
@@ -381,13 +289,15 @@
       $('welcomeText').textContent = 'Hi, ' + (p.name || 'Student');
       $('classLabel').textContent = p.className || '';
       renderHome();
-      renderVocab();
       renderHomework();
       renderDollars();
       if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
       show($('buddyFloat'));
+      if (window.MrParkVocabLearn) {
+        window.MrParkVocabLearn.onLogin();
+      }
     } catch (e) {
-      $('vocabStatus').textContent = e.message || 'Could not load dashboard.';
+      $('homeworkStatus').textContent = e.message || 'Could not load dashboard.';
     }
   }
 
@@ -400,6 +310,14 @@
 
   $('buddyFloatToggle').addEventListener('click', () => setBuddyOpen(!buddyOpen));
   $('buddyFloatClose').addEventListener('click', () => setBuddyOpen(false));
+
+  // Enter sends; Shift+Enter inserts newline
+  $('buddyInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      $('buddyForm').requestSubmit();
+    }
+  });
 
   $('buddyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -424,12 +342,14 @@
   });
 
   $('logoutBtn').addEventListener('click', () => {
+    if (window.MrParkVocabLearn) window.MrParkVocabLearn.onLogout();
     setToken(role, '');
     setProfile(role, null);
     location.href = '/';
   });
 
   show($('appView'));
+  if (window.MrParkVocabLearn) window.MrParkVocabLearn.init();
   SaltMessenger.init(role);
   loadDashboard();
 })();

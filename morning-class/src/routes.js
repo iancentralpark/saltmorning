@@ -126,13 +126,16 @@ const {
 } = require('./services/homeworkService');
 const {
   getStudentVocabSummary,
-  startPlacement,
-  submitPlacement,
-  startDailyQuest,
-  submitDailyQuest,
+  buildPlacementItem,
+  processPlacementNext,
+  savePlacementResult,
+  getDailyQueue,
+  recordReview,
+  recordDailyTestResult,
   getClassVocabOverview,
   overrideStudentVocab
 } = require('./services/vocabService');
+const { scorePlacement } = require('./services/vocabPlacementService');
 const { todayStr } = require('./dateUtils');
 
 const photoUpload = multer({
@@ -766,35 +769,97 @@ router.get('/student/vocab', requireRole('student'), async (req, res) => {
   }
 });
 
-router.post('/student/vocab/placement/start', requireRole('student'), async (req, res) => {
+router.get('/student/vocab/summary', requireRole('student'), async (req, res) => {
   try {
-    res.json(await startPlacement(req.session.studentId, req.session.classId));
+    res.json(await getStudentVocabSummary(req.session.studentId, req.session.classId));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not start placement.' });
+    res.status(500).json({ error: e.message || 'Could not load vocab.' });
   }
 });
 
-router.post('/student/vocab/placement/submit', requireRole('student'), async (req, res) => {
+router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
-    res.json(await submitPlacement(req.session.studentId, req.session.classId, req.body.responses));
+    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
+    if (summary.placementDone) {
+      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
+    }
+    const body = req.body || {};
+    res.json(await buildPlacementItem({
+      abilityGrade: body.abilityGrade,
+      questionIndex: body.questionIndex,
+      avoidWordIds: body.avoidWordIds,
+      abilityTrail: body.abilityTrail
+    }));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not submit placement.' });
+    res.status(400).json({ error: e.message || 'Could not build placement item.' });
   }
 });
 
-router.post('/student/vocab/quest/start', requireRole('student'), async (req, res) => {
+router.post('/student/vocab/placement/next', requireRole('student'), async (req, res) => {
   try {
-    res.json(await startDailyQuest(req.session.studentId, req.session.classId));
+    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
+    if (summary.placementDone) {
+      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
+    }
+    res.json(processPlacementNext(req.body || {}));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not start quest.' });
+    res.status(400).json({ error: e.message || 'Could not adapt difficulty.' });
   }
 });
 
-router.post('/student/vocab/quest/submit', requireRole('student'), async (req, res) => {
+router.post('/student/vocab/placement/score', requireRole('student'), async (req, res) => {
   try {
-    res.json(await submitDailyQuest(req.session.studentId, req.session.classId, req.body.responses));
+    const result = scorePlacement(req.body || {});
+    const saved = await savePlacementResult(req.session.studentId, req.session.classId, result);
+    res.json(saved);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not submit quest.' });
+    const status = e.code === 'PLACEMENT_ALREADY_DONE' ? 409 : 400;
+    res.status(status).json({ error: e.message || 'Could not score placement.', code: e.code });
+  }
+});
+
+router.get('/student/vocab/daily-queue', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await getDailyQueue(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load daily queue.' });
+  }
+});
+
+router.post('/student/vocab/review', requireRole('student'), async (req, res) => {
+  try {
+    const { wordId, correct } = req.body || {};
+    res.json(await recordReview(req.session.studentId, req.session.classId, wordId, correct));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not record review.' });
+  }
+});
+
+router.post('/student/vocab/daily-test/submit', requireRole('student'), async (req, res) => {
+  try {
+    const { correctCount, totalCount, answers } = req.body || {};
+    res.json(await recordDailyTestResult(
+      req.session.studentId,
+      req.session.classId,
+      correctCount,
+      totalCount,
+      answers
+    ));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not submit daily test.' });
+  }
+});
+
+router.post('/student/vocab/deep-dive', requireRole('student'), async (req, res) => {
+  try {
+    const { deepDiveWord } = require('./services/vocabPlacementService');
+    const result = await deepDiveWord(req.body || {});
+    const text = typeof result === 'string'
+      ? result
+      : String((result && (result.text || result.answer || result.explanation)) || '');
+    res.json({ text, ...(typeof result === 'object' && result ? result : {}) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Deep-dive unavailable.' });
   }
 });
 

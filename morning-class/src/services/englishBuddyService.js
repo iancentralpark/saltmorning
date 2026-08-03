@@ -204,9 +204,9 @@ async function askEnglishBuddy(studentId, classId, message, history) {
 
   usage.set(usageKey(studentId), (usage.get(usageKey(studentId)) || 0) + 1);
   await appendHistory(studentId, classId, 'user', message);
-  await appendHistory(studentId, classId, 'assistant', reply);
+  await appendHistory(studentId, classId, 'assistant', String(reply.answer || reply.text || reply));
 
-  return { reply, status: getBuddyStatus(studentId) };
+  return { reply: String(reply.answer || reply.text || reply), status: getBuddyStatus(studentId) };
 }
 
 async function listBuddyMonitorForClass(classId) {
