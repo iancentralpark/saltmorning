@@ -45,9 +45,12 @@ window.SaltGrades = (function() {
 
   async function onClassOpen() {
     const cls = getClass();
-    if (cls && cls.subjects && cls.subjects !== 'All subjects') {
+    const sel = $('gradeSubjectSelect');
+    if (sel && sel.value) {
+      $('gradeSubject').value = sel.value;
+    } else if (cls && cls.subjects && cls.subjects !== 'All subjects') {
       $('gradeSubject').value = cls.subjects.split(',')[0].trim();
-    } else {
+    } else if (!$('gradeSubject').value) {
       $('gradeSubject').value = 'English';
     }
     await loadActiveTerm();

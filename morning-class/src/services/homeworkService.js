@@ -6,7 +6,10 @@ const LOG_SHEET = 'Homework_Log';
 const ITEMS_SHEET = 'Homework_Items';
 const COMPLETION_SHEET = 'Homework_Completion';
 
-const LOG_HEADERS = ['HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt'];
+const LOG_HEADERS = [
+  'HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description',
+  'ClassroomWorkId', 'PostedAt', 'PostedByTeacherID', 'PostedByName'
+];
 const ITEM_HEADERS = ['ItemID', 'HomeworkID', 'SortOrder', 'Title', 'Description', 'TargetStudentIDs'];
 const COMP_HEADERS = ['ItemID', 'StudentID', 'Completed', 'CompletedAt', 'FixNote'];
 
@@ -22,6 +25,20 @@ async function ensureHomeworkSheets() {
   await ensureSheet(LOG_SHEET, LOG_HEADERS);
   await ensureSheet(ITEMS_SHEET, ITEM_HEADERS);
   await ensureSheet(COMPLETION_SHEET, COMP_HEADERS);
+  await migrateHomeworkLogHeaders();
+}
+
+async function migrateHomeworkLogHeaders() {
+  const rows = await getSheetRows(LOG_SHEET, { skipCache: true });
+  if (!rows.length) {
+    await appendRows(LOG_SHEET, [LOG_HEADERS]);
+    invalidateSheetRowsCache(LOG_SHEET);
+    return;
+  }
+  const header = (rows[0] || []).map((c) => String(c || ''));
+  if (header[7] === 'PostedByTeacherID') return;
+  await updateRange(LOG_SHEET, 'A1:I1', [LOG_HEADERS]);
+  invalidateSheetRowsCache(LOG_SHEET);
 }
 
 function parseTargets(raw) {
@@ -31,7 +48,7 @@ function parseTargets(raw) {
     .filter(Boolean);
 }
 
-async function postHomework(classId, payload) {
+async function postHomework(classId, payload, poster) {
   await ensureHomeworkSheets();
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
@@ -45,8 +62,11 @@ async function postHomework(classId, payload) {
 
   const homeworkId = newId('hw');
   const postedAt = new Date().toISOString();
+  const postedByTeacherId = String((poster && poster.teacherId) || '').trim();
+  const postedByName = String((poster && poster.teacherName) || '').trim();
   await appendRows(LOG_SHEET, [[
-    homeworkId, classId, assignedDate, title, description, '', postedAt
+    homeworkId, classId, assignedDate, title, description, '', postedAt,
+    postedByTeacherId, postedByName
   ]]);
 
   const itemRows = itemsIn.map((it, idx) => {
@@ -67,7 +87,10 @@ async function postHomework(classId, payload) {
   invalidateSheetRowsCache(LOG_SHEET);
   invalidateSheetRowsCache(ITEMS_SHEET);
 
-  return getClassHomework(classId);
+  return getClassHomework(classId, {
+    teacherId: postedByTeacherId,
+    viewerIsHomeroom: !!(poster && poster.viewerIsHomeroom)
+  });
 }
 
 async function loadHomeworkBundle() {
@@ -96,18 +119,28 @@ function completionMap(comps) {
   return map;
 }
 
-async function getClassHomework(classId) {
+async function getClassHomework(classId, opts) {
   classId = String(classId || '');
+  const viewerId = String((opts && opts.teacherId) || '');
+  const viewerIsHomeroom = !!(opts && opts.viewerIsHomeroom);
   const { logs, items, comps } = await loadHomeworkBundle();
   const done = completionMap(comps);
   const roster = await getClassRoster(classId);
-  const nameById = {};
-  roster.forEach((s) => { nameById[s.studentId] = s.name; });
 
   const homeworks = [];
   for (let i = 1; i < logs.length; i++) {
     if (String(logs[i][1]) !== classId) continue;
     const homeworkId = String(logs[i][0]);
+    const postedByTeacherId = String(logs[i][7] || '').trim();
+    const postedByName = String(logs[i][8] || '').trim();
+
+    if (!viewerIsHomeroom && viewerId) {
+      if (postedByTeacherId && postedByTeacherId !== viewerId) continue;
+    }
+
+    const isMine = !postedByTeacherId || postedByTeacherId === viewerId;
+    const canMarkDone = isMine;
+
     const hwItems = [];
     for (let j = 1; j < items.length; j++) {
       if (String(items[j][1]) !== homeworkId) continue;
@@ -144,13 +177,39 @@ async function getClassHomework(classId) {
       title: String(logs[i][3] || ''),
       description: String(logs[i][4] || ''),
       postedAt: String(logs[i][6] || ''),
+      postedByTeacherId,
+      postedByName,
+      canMarkDone,
+      isMine,
       items: hwItems
     });
   }
 
   homeworks.sort((a, b) => String(b.assignedDate).localeCompare(String(a.assignedDate)) ||
     String(b.postedAt).localeCompare(String(a.postedAt)));
-  return { homeworks, students: roster };
+  return { homeworks, students: roster, viewerIsHomeroom };
+}
+
+async function findHomeworkPosterByItemId(itemId) {
+  itemId = String(itemId || '');
+  const { logs, items } = await loadHomeworkBundle();
+  let homeworkId = '';
+  for (let j = 1; j < items.length; j++) {
+    if (String(items[j][0]) === itemId) {
+      homeworkId = String(items[j][1] || '');
+      break;
+    }
+  }
+  if (!homeworkId) return null;
+  for (let i = 1; i < logs.length; i++) {
+    if (String(logs[i][0]) !== homeworkId) continue;
+    return {
+      homeworkId,
+      classId: String(logs[i][1] || ''),
+      postedByTeacherId: String(logs[i][7] || '').trim()
+    };
+  }
+  return null;
 }
 
 async function getStudentHomeworkStatus(studentId, classId) {
@@ -203,11 +262,18 @@ async function getStudentHomeworkStatus(studentId, classId) {
   };
 }
 
-async function setHomeworkCompletion(itemId, studentId, completed, fixNote) {
+async function setHomeworkCompletion(itemId, studentId, completed, fixNote, actor) {
   await ensureHomeworkSheets();
   itemId = String(itemId || '').trim();
   studentId = String(studentId || '').trim();
   if (!itemId || !studentId) throw new Error('Item and student are required.');
+
+  if (actor && actor.teacherId) {
+    const meta = await findHomeworkPosterByItemId(itemId);
+    if (meta && meta.postedByTeacherId && meta.postedByTeacherId !== String(actor.teacherId)) {
+      throw new Error('Only the teacher who posted this homework can mark it done.');
+    }
+  }
 
   const comps = await getSheetRows(COMPLETION_SHEET, { skipCache: true });
   let rowIndex = -1;
@@ -242,5 +308,6 @@ module.exports = {
   getClassHomework,
   getStudentHomeworkStatus,
   setHomeworkCompletion,
+  findHomeworkPosterByItemId,
   todaySeoul
 };
