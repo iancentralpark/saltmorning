@@ -109,7 +109,7 @@ const {
 } = require('./services/timetableRequirementsService');
 const { generateClassTimetable } = require('./services/timetableGenerateService');
 const { saveTeacherSubjectStyle } = require('./services/subjectStyleService');
-const { getBuddyStatus, askEnglishBuddy, getBuddyChatHistory, listBuddyMonitorForClass, unlockBuddy, refillBuddyUsage } = require('./services/englishBuddyService');
+const { getBuddyStatus, askEnglishBuddy, getBuddyChatHistory, listBuddyMonitorForClass, unlockBuddy, refillBuddyUsage, clearBuddyChatHistory } = require('./services/englishBuddyService');
 const { getStudentDashboard } = require('./services/studentPortalService');
 const {
   getStudentDollars,
@@ -889,6 +889,14 @@ router.get('/student/english-buddy/history', requireRole('student'), async (req,
     res.json({ messages, status: getBuddyStatus(req.session.studentId) });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load chat history.' });
+  }
+});
+
+router.delete('/student/english-buddy/history', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await clearBuddyChatHistory(req.session.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not clear chat history.' });
   }
 });
 

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { isGeminiConfigured, askGemini } = require('./geminiService');
-const { getSheetRows, appendRows, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
+const { getSheetRows, appendRows, ensureSheet, invalidateSheetRowsCache, deleteRows } = require('../sheets');
 const { getClassRoster } = require('./teacherPortalService');
 
 const HISTORY_SHEET = 'English_Buddy_History';
@@ -147,6 +147,20 @@ async function getBuddyChatHistory(studentId, classId) {
   return out.slice(-MAX_HISTORY);
 }
 
+async function clearBuddyChatHistory(studentId) {
+  await ensureBuddySheets();
+  const sid = String(studentId || '');
+  if (!sid) throw new Error('Student ID is required.');
+  const rows = await getSheetRows(HISTORY_SHEET, { skipCache: true });
+  const toDelete = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][3]) === sid) toDelete.push(i + 1);
+  }
+  if (toDelete.length) await deleteRows(HISTORY_SHEET, toDelete);
+  invalidateSheetRowsCache(HISTORY_SHEET);
+  return { ok: true, cleared: true, deleted: toDelete.length };
+}
+
 const SYSTEM =
   'You are English Buddy for SALT Academy Morning Class students. ' +
   'Use simple, encouraging English. Help with vocabulary and essay structure. ' +
@@ -271,5 +285,6 @@ module.exports = {
   listBuddyMonitorForClass,
   unlockBuddy,
   refillBuddyUsage,
-  getRecentBuddyActivity
+  getRecentBuddyActivity,
+  clearBuddyChatHistory
 };

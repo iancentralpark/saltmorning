@@ -190,6 +190,39 @@ async function batchUpdateRanges(updates) {
   touched.forEach((name) => invalidateSheetRowsCache(name));
 }
 
+/** Delete 1-based sheet rows (highest index first). */
+async function deleteRows(sheetName, rowIndices1Based) {
+  const indices = (rowIndices1Based || [])
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n) && n >= 1)
+    .sort((a, b) => b - a);
+  if (!indices.length) return;
+  const idMap = await getSheetIdMap();
+  const sheetId = idMap[sheetName];
+  if (sheetId == null) throw new Error('Sheet not found: ' + sheetName);
+  const sheets = await getSheetsApi();
+  await withRetry(() => sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: indices.map((row) => ({
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: row - 1,
+            endIndex: row
+          }
+        }
+      }))
+    }
+  }));
+  invalidateSheetRowsCache(sheetName);
+}
+
+async function deleteRow(sheetName, rowIndex1Based) {
+  await deleteRows(sheetName, [rowIndex1Based]);
+}
+
 module.exports = {
   getSheetRows,
   getSheetsApi,
@@ -199,6 +232,8 @@ module.exports = {
   updateRange,
   appendRows,
   batchUpdateRanges,
+  deleteRow,
+  deleteRows,
   invalidateSheetRowsCache,
   invalidateSheetIdCache
 };

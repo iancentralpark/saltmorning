@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20260803vocab2">
+  <link rel="stylesheet" href="/css/app.css?v=20260803buddyui">
   <link rel="stylesheet" href="/css/vocab-learn.css?v=20260803vocab2">
 </head>
 <body class="student-body">
@@ -88,10 +88,15 @@
   <button type="button" class="buddy-float-fab" id="buddyFloatToggle" title="English Buddy" aria-expanded="false">
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a9 9 0 0 0-9 9c0 3.2 1.7 6 4.2 7.6L6 22l4.1-1.7c.6.1 1.2.2 1.9.2a9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14c-.6 0-1.1-.1-1.6-.2l-.5-.1-.9.4.3-1-.3-.4A6.9 6.9 0 0 1 5 11a7 7 0 0 1 7-7z"/></svg>
   </button>
-  <div class="buddy-float-panel" aria-hidden="true">
+  <div class="buddy-float-panel" id="buddyFloatPanel" aria-hidden="true">
+    <div class="buddy-resize-grip" id="buddyResizeGrip" role="separator" aria-label="Resize chat window" title="Drag to resize"></div>
     <div class="buddy-float-head">
-      <strong>English Buddy</strong>
-      <button type="button" class="btn btn-ghost" id="buddyFloatClose" aria-label="Close">✕</button>
+      <strong class="buddy-float-title">English Buddy</strong>
+      <span class="buddy-head-spacer"></span>
+      <button type="button" class="buddy-icon-btn buddy-reset-btn" id="buddyResetBtn" aria-label="Clear chat history" title="Clear chat history">
+        <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="buddy-icon-btn buddy-minimize-btn" id="buddyFloatClose" aria-label="Minimize" title="Minimize">−</button>
     </div>
     <p id="buddyStatus" class="muted small buddy-status-line"></p>
     <div id="buddyChat" class="buddy-chat"></div>
@@ -153,9 +158,87 @@
     float.querySelector('.buddy-float-panel').setAttribute('aria-hidden', buddyOpen ? 'false' : 'true');
     $('buddyFloatToggle').setAttribute('aria-expanded', buddyOpen ? 'true' : 'false');
     if (buddyOpen) {
+      applyBuddyPanelSize();
       loadBuddyHistory();
       loadBuddyStatus();
     }
+  }
+
+  const BUDDY_SIZE_KEY = 'salt_buddy_float_size';
+
+  function buddySizeLimits() {
+    return {
+      minW: 280,
+      minH: 360,
+      maxW: Math.min(560, window.innerWidth - 24),
+      maxH: Math.min(720, window.innerHeight - 24)
+    };
+  }
+
+  function applyBuddyPanelSize() {
+    const panel = $('buddyFloatPanel');
+    if (!panel) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(BUDDY_SIZE_KEY) || 'null');
+      if (!saved) return;
+      const lim = buddySizeLimits();
+      const w = Math.max(lim.minW, Math.min(lim.maxW, Number(saved.w) || 0));
+      const h = Math.max(lim.minH, Math.min(lim.maxH, Number(saved.h) || 0));
+      if (w) panel.style.width = w + 'px';
+      if (h) panel.style.height = h + 'px';
+    } catch (e) { /* ignore */ }
+  }
+
+  function persistBuddyPanelSize() {
+    const panel = $('buddyFloatPanel');
+    if (!panel || !buddyOpen) return;
+    try {
+      localStorage.setItem(BUDDY_SIZE_KEY, JSON.stringify({
+        w: panel.offsetWidth,
+        h: panel.offsetHeight
+      }));
+    } catch (e) { /* ignore */ }
+  }
+
+  function initBuddyResize() {
+    const panel = $('buddyFloatPanel');
+    const grip = $('buddyResizeGrip');
+    if (!panel || !grip) return;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startW = 0;
+    let startH = 0;
+
+    grip.addEventListener('pointerdown', (e) => {
+      if (!buddyOpen) return;
+      e.preventDefault();
+      dragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startW = panel.offsetWidth;
+      startH = panel.offsetHeight;
+      grip.setPointerCapture(e.pointerId);
+      document.body.classList.add('buddy-resize-active');
+    });
+    grip.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const lim = buddySizeLimits();
+      // Grip is top-left: drag left/up grows the panel (anchored bottom-right)
+      const w = Math.max(lim.minW, Math.min(lim.maxW, startW + (startX - e.clientX)));
+      const h = Math.max(lim.minH, Math.min(lim.maxH, startH + (startY - e.clientY)));
+      panel.style.width = w + 'px';
+      panel.style.height = h + 'px';
+    });
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      document.body.classList.remove('buddy-resize-active');
+      try { grip.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      persistBuddyPanelSize();
+    }
+    grip.addEventListener('pointerup', endDrag);
+    grip.addEventListener('pointercancel', endDrag);
   }
 
   function renderBuddy() {
@@ -310,6 +393,27 @@
 
   $('buddyFloatToggle').addEventListener('click', () => setBuddyOpen(!buddyOpen));
   $('buddyFloatClose').addEventListener('click', () => setBuddyOpen(false));
+
+  $('buddyResetBtn').addEventListener('click', async () => {
+    if (!buddyHistory.length) {
+      alert('No chat history to clear.');
+      return;
+    }
+    if (!confirm('Clear all English Buddy chat history?\n\nThis cannot be undone.')) return;
+    const btn = $('buddyResetBtn');
+    btn.disabled = true;
+    try {
+      await api('/api/student/english-buddy/history', { method: 'DELETE' }, role);
+      buddyHistory = [];
+      renderBuddy();
+    } catch (e) {
+      alert(e.message || 'Could not clear chat.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  initBuddyResize();
 
   // Enter sends; Shift+Enter inserts newline
   $('buddyInput').addEventListener('keydown', (e) => {
