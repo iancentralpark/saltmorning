@@ -1,6 +1,6 @@
 /**
- * Vocab Placement + AI Deep-Dive.
- * V-Lox Adaptive Test: dynamic step size by question index, symmetric +/- ,
+ * Vocab Booster — Placement + AI Deep-Dive.
+ * Adaptive placement: dynamic step size by question index, symmetric +/- ,
  * immediate next-item difficulty from updated ability, final = round(ability).
  */
 const { isGeminiConfigured, askGemini, formatGeminiClientError } = require('./geminiService');
