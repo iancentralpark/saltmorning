@@ -133,4 +133,27 @@ async function loginAdmin(loginId, password) {
   throw new Error('Login ID or password is incorrect.');
 }
 
-module.exports = { loginStudent, loginParent, loginTeacher, loginAdmin };
+async function loginUnified(loginId, password) {
+  const attempts = [
+    { role: 'admin', fn: loginAdmin },
+    { role: 'teacher', fn: loginTeacher },
+    { role: 'parent', fn: loginParent },
+    { role: 'student', fn: loginStudent }
+  ];
+  let lastError = 'Login ID or password is incorrect.';
+  for (const a of attempts) {
+    try {
+      const result = await a.fn(loginId, password);
+      return { ...result, role: a.role };
+    } catch (e) {
+      lastError = e.message || lastError;
+      // Only continue when credentials simply don't match this role sheet
+      if (!/incorrect|not active/i.test(String(e.message || ''))) {
+        throw e;
+      }
+    }
+  }
+  throw new Error(lastError);
+}
+
+module.exports = { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified };

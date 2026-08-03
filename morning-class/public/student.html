@@ -4,21 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260803student">
+  <link rel="stylesheet" href="/css/app.css?v=20260803portal">
 </head>
 <body class="student-body">
 <div class="shell student-shell">
-  <div id="loginView" class="card">
-    <h2>Student login</h2>
-    <form id="loginForm" class="form-grid">
-      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
-      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
-      <div class="error" id="loginError"></div>
-      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
-      <a href="/">← Back</a>
-    </form>
-  </div>
-
   <div id="appView" class="hidden">
     <div class="topbar student-topbar">
       <div>
@@ -28,117 +17,95 @@
       <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
     </div>
 
-    <div id="panelHome" class="student-panel">
-      <div class="stu-summary-grid" id="homeSummary"></div>
-      <div class="card stu-card">
-        <h3>Today</h3>
-        <p class="muted small" id="homeTodayHint">Loading your dashboard…</p>
-        <div id="homeHomeworkPreview"></div>
-      </div>
-      <div class="card stu-card">
-        <h3>Quick links</h3>
-        <div class="stu-quick-links">
-          <button type="button" class="btn btn-primary" data-goto="homework">Homework</button>
-          <button type="button" class="btn btn-ghost" data-goto="buddy">English Buddy</button>
-          <button type="button" class="btn btn-ghost" data-goto="vocab">Vocab Booster</button>
-          <button type="button" class="btn btn-ghost" data-goto="more">Dollars &amp; more</button>
-        </div>
+    <div class="stu-summary-grid" id="homeSummary"></div>
+
+    <div class="card stu-card" id="sectionVocab">
+      <h3>Vocab Booster</h3>
+      <p class="muted" id="vocabStatus">Loading…</p>
+      <div id="vocabStats" class="stu-summary-grid" style="margin:0.75rem 0"></div>
+      <div id="vocabMount"></div>
+      <div class="error" id="vocabError"></div>
+    </div>
+
+    <div class="card stu-card" id="sectionHomework">
+      <h3>Homework</h3>
+      <p class="muted small" id="homeworkStatus">Loading…</p>
+      <div id="homeworkList"></div>
+    </div>
+
+    <div class="card stu-card" id="sectionDollars">
+      <h3>My dollars</h3>
+      <p class="muted small" id="dollarStatus">Loading…</p>
+      <div id="dollarBox">
+        <strong id="dollarBalance">—</strong>
+        <div id="dollarTx"></div>
       </div>
     </div>
 
-    <div id="panelHomework" class="student-panel hidden">
-      <div class="card stu-card">
-        <h3>Homework</h3>
-        <p class="muted small" id="homeworkStatus">Checking homework…</p>
-        <div id="homeworkList"></div>
-      </div>
+    <div class="card stu-card" id="sectionAccount">
+      <h3>Account</h3>
+      <p class="muted small" id="moreProfile"></p>
+      <p class="muted small" id="moreUnread"></p>
     </div>
+  </div>
+</div>
 
-    <div id="panelBuddy" class="student-panel hidden">
-      <div class="card stu-card">
-        <h3>English Buddy</h3>
-        <p id="buddyStatus" class="muted small"></p>
-        <div id="buddyChat" class="buddy-chat"></div>
-        <form id="buddyForm" class="form-grid">
-          <textarea id="buddyInput" placeholder="Ask about vocabulary or essay help…" maxlength="800" rows="3"></textarea>
-          <div class="stu-buddy-actions">
-            <button type="button" class="btn btn-ghost buddy-chip" data-prompt="Help me understand this word: ">Word Help</button>
-            <button type="button" class="btn btn-ghost buddy-chip" data-prompt="Help me plan my essay about ">Essay Help</button>
-            <button type="button" class="btn btn-ghost buddy-chip" data-prompt="How can I say this more naturally: ">Sound Native</button>
-          </div>
-          <button class="btn btn-primary" type="submit">Send</button>
-          <div class="error" id="buddyError"></div>
-        </form>
-      </div>
+<!-- English Buddy — bottom-right float (Mr. Park style) -->
+<div id="buddyFloat" class="buddy-float panel-collapsed hidden" aria-label="English Buddy">
+  <button type="button" class="buddy-float-fab" id="buddyFloatToggle" title="English Buddy" aria-expanded="false">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a9 9 0 0 0-9 9c0 3.2 1.7 6 4.2 7.6L6 22l4.1-1.7c.6.1 1.2.2 1.9.2a9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14c-.6 0-1.1-.1-1.6-.2l-.5-.1-.9.4.3-1-.3-.4A6.9 6.9 0 0 1 5 11a7 7 0 0 1 7-7z"/></svg>
+  </button>
+  <div class="buddy-float-panel" aria-hidden="true">
+    <div class="buddy-float-head">
+      <strong>English Buddy</strong>
+      <button type="button" class="btn btn-ghost" id="buddyFloatClose" aria-label="Close">✕</button>
     </div>
-
-    <div id="panelVocab" class="student-panel hidden">
-      <div class="card stu-card">
-        <h3>Vocab Booster</h3>
-        <p class="muted" id="vocabStatus">Loading…</p>
-        <div id="vocabStats" class="stu-summary-grid" style="margin:0.75rem 0"></div>
-        <div id="vocabMount"></div>
-        <div class="error" id="vocabError"></div>
+    <p id="buddyStatus" class="muted small buddy-status-line"></p>
+    <div id="buddyChat" class="buddy-chat"></div>
+    <form id="buddyForm" class="buddy-compose">
+      <div class="stu-buddy-actions">
+        <button type="button" class="btn btn-ghost buddy-chip" data-prompt="Help me understand this word: ">Word</button>
+        <button type="button" class="btn btn-ghost buddy-chip" data-prompt="Help me plan my essay about ">Essay</button>
+        <button type="button" class="btn btn-ghost buddy-chip" data-prompt="How can I say this more naturally: ">Native</button>
       </div>
-    </div>
-
-    <div id="panelMore" class="student-panel hidden">
-      <div class="card stu-card">
-        <h3>My dollars</h3>
-        <p class="muted small" id="dollarStatus">Dollar balance will appear here next.</p>
-        <div id="dollarBox" class="stu-placeholder">
-          <strong id="dollarBalance">—</strong>
-          <div id="dollarTx"></div>
-        </div>
-      </div>
-      <div class="card stu-card">
-        <h3>Messages</h3>
-        <p class="muted small">Use the chat button at the bottom-right to message your teacher.</p>
-        <p id="moreUnread" class="muted small"></p>
-      </div>
-      <div class="card stu-card">
-        <h3>Account</h3>
-        <p class="muted small" id="moreProfile"></p>
-      </div>
-    </div>
-
-    <nav class="stu-tabbar" aria-label="Student tabs">
-      <button type="button" class="stu-tab active" data-tab="home">Home</button>
-      <button type="button" class="stu-tab" data-tab="homework">Homework</button>
-      <button type="button" class="stu-tab" data-tab="buddy">Buddy</button>
-      <button type="button" class="stu-tab" data-tab="vocab">Vocab</button>
-      <button type="button" class="stu-tab" data-tab="more">More</button>
-    </nav>
+      <textarea id="buddyInput" placeholder="Ask English Buddy…" maxlength="800" rows="2"></textarea>
+      <button class="btn btn-primary" type="submit">Send</button>
+      <div class="error" id="buddyError"></div>
+    </form>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
-<script src="/js/messenger.js?v=20260803student"></script>
+<script src="/js/messenger.js?v=20260803portal"></script>
 <script>
 (function() {
   const role = 'student';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
   let buddyHistory = [];
   let dashboard = null;
-  let activeTab = 'home';
+  let buddyOpen = false;
 
-  function switchTab(name) {
-    activeTab = name;
-    document.querySelectorAll('.stu-tab').forEach((t) => {
-      t.classList.toggle('active', t.dataset.tab === name);
-    });
-    ['home', 'homework', 'buddy', 'vocab', 'more'].forEach((id) => {
-      const panel = $('panel' + id.charAt(0).toUpperCase() + id.slice(1));
-      if (!panel) return;
-      panel.classList.toggle('hidden', id !== name);
-    });
-    if (name === 'buddy') {
+  if (!getToken(role)) {
+    location.replace('/');
+    return;
+  }
+
+  function chip(label, value) {
+    return '<div class="stu-chip"><span class="stu-chip-label">' + escapeHtml(label) +
+      '</span><strong>' + escapeHtml(String(value)) + '</strong></div>';
+  }
+
+  function setBuddyOpen(on) {
+    buddyOpen = !!on;
+    const float = $('buddyFloat');
+    float.classList.toggle('panel-collapsed', !buddyOpen);
+    float.querySelector('.buddy-float-panel').setAttribute('aria-hidden', buddyOpen ? 'false' : 'true');
+    $('buddyFloatToggle').setAttribute('aria-expanded', buddyOpen ? 'true' : 'false');
+    if (buddyOpen) {
       loadBuddyHistory();
       loadBuddyStatus();
     }
-    if (name === 'homework') renderHomework();
-    if (name === 'vocab') renderVocab();
   }
 
   function renderBuddy() {
@@ -154,12 +121,11 @@
   function setBuddyStatusText(s) {
     if (!s) return;
     if (!s.configured) {
-      $('buddyStatus').textContent = 'English Buddy will be available when GEMINI_API_KEY is configured.';
+      $('buddyStatus').textContent = 'English Buddy is starting up…';
       return;
     }
     if (s.abuseLocked) {
-      $('buddyStatus').textContent = 'Locked for today — ask your teacher to unlock. (' +
-        (s.abuseStrikes || 0) + '/' + (s.abuseStrikeLimit || 3) + ' strikes)';
+      $('buddyStatus').textContent = 'Locked today — ask your teacher to unlock.';
       return;
     }
     $('buddyStatus').textContent = 'Remaining today: ' + s.remaining + ' / ' + s.dailyLimit;
@@ -167,11 +133,8 @@
 
   async function loadBuddyStatus() {
     try {
-      const s = await api('/api/student/english-buddy/status', {}, role);
-      setBuddyStatusText(s);
-    } catch (e) {
-      $('buddyStatus').textContent = '';
-    }
+      setBuddyStatusText(await api('/api/student/english-buddy/status', {}, role));
+    } catch (e) { /* ignore */ }
   }
 
   async function loadBuddyHistory() {
@@ -198,80 +161,55 @@
       chip('Buddy', (dashboard.buddy && dashboard.buddy.remaining != null)
         ? (dashboard.buddy.remaining + ' left')
         : '—');
-
-    const hw = dashboard.homework || {};
-    if (!hw.available) {
-      $('homeTodayHint').textContent = 'Homework and Vocab Booster are coming next. Dollars and messages are live.';
-      $('homeHomeworkPreview').innerHTML = '<p class="muted small">No homework feed yet — teacher posting comes in the next step.</p>';
-    } else {
-      $('homeTodayHint').textContent = 'Here is your class snapshot for today.';
-      $('homeHomeworkPreview').innerHTML = (hw.today || []).length
-        ? '<ul>' + (hw.today || []).map((x) => '<li>' + escapeHtml(x.title || x) + '</li>').join('') + '</ul>'
-        : '<p class="muted small">No homework posted today.</p>';
-    }
-  }
-
-  function chip(label, value) {
-    return '<div class="stu-chip"><span class="stu-chip-label">' + escapeHtml(label) +
-      '</span><strong>' + escapeHtml(String(value)) + '</strong></div>';
   }
 
   function renderHomework() {
     const hw = (dashboard && dashboard.homework) || {};
     if (!hw.available) {
-      $('homeworkStatus').textContent = 'Homework is not available yet.';
-      $('homeworkList').innerHTML = '<p class="muted">Ask your teacher if homework does not appear.</p>';
+      $('homeworkStatus').textContent = 'No homework yet.';
+      $('homeworkList').innerHTML = '';
       return;
     }
     const pending = hw.pending || [];
+    const today = hw.today || [];
     const completed = hw.completed || [];
     $('homeworkStatus').textContent = pending.length
-      ? (pending.length + ' pending')
+      ? (pending.length + ' pending — your teacher marks completion')
       : 'All caught up!';
 
     let html = '';
+    if (today.length) {
+      html += '<h4 class="stu-section-label">Today</h4><ul class="stu-list">' +
+        today.map((x) => hwItem(x)).join('') + '</ul>';
+    }
     if (pending.length) {
-      html += '<ul class="stu-list">' + pending.map((x) =>
-        '<li><strong>' + escapeHtml(x.title || 'Homework') + '</strong>' +
-        (x.assignedDate ? '<div class="muted small">' + escapeHtml(x.assignedDate) + '</div>' : '') +
-        (x.description ? '<div class="muted small">' + escapeHtml(x.description) + '</div>' : '') +
-        '<button type="button" class="btn btn-primary hw-done" data-item="' +
-        escapeHtml(x.itemId) + '" style="margin-top:0.4rem">Mark done</button></li>'
-      ).join('') + '</ul>';
+      html += '<h4 class="stu-section-label">Pending</h4><ul class="stu-list">' +
+        pending.map((x) => hwItem(x)).join('') + '</ul>';
     }
     if (completed.length) {
-      html += '<h4 class="muted" style="margin-top:1rem">Recently completed</h4><ul class="stu-list">' +
-        completed.slice(0, 10).map((x) =>
+      html += '<h4 class="stu-section-label">Recently done</h4><ul class="stu-list">' +
+        completed.slice(0, 8).map((x) =>
           '<li><strong>' + escapeHtml(x.title || 'Homework') + '</strong>' +
-          '<div class="muted small">Done' +
+          '<div class="muted small">Completed' +
           (x.completedAt ? ' · ' + escapeHtml(String(x.completedAt).slice(0, 16).replace('T', ' ')) : '') +
           '</div></li>'
         ).join('') + '</ul>';
     }
     $('homeworkList').innerHTML = html || '<p class="muted">No homework right now.</p>';
-    $('homeworkList').querySelectorAll('.hw-done').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        try {
-          await api('/api/student/homework/complete', {
-            method: 'POST',
-            body: { itemId: btn.dataset.item, completed: true }
-          }, role);
-          await loadDashboard();
-          if (activeTab === 'homework') renderHomework();
-        } catch (e) {
-          btn.disabled = false;
-          $('homeworkStatus').textContent = e.message || 'Could not mark done.';
-        }
-      });
-    });
   }
 
-  function renderMore() {
+  function hwItem(x) {
+    return '<li><strong>' + escapeHtml(x.title || 'Homework') + '</strong>' +
+      (x.assignedDate ? '<div class="muted small">' + escapeHtml(x.assignedDate) + '</div>' : '') +
+      (x.description ? '<div class="muted small">' + escapeHtml(x.description) + '</div>' : '') +
+      '</li>';
+  }
+
+  function renderDollars() {
     const d = (dashboard && dashboard.dollars) || {};
     const p = (dashboard && dashboard.profile) || getProfile(role) || {};
     if (!d.available) {
-      $('dollarStatus').textContent = 'Dollar balances will appear once the sheet is ready.';
+      $('dollarStatus').textContent = 'Balance will appear when ready.';
       $('dollarBalance').textContent = '—';
       $('dollarTx').innerHTML = '';
     } else {
@@ -288,7 +226,7 @@
         : '<p class="muted small">No transactions yet.</p>';
     }
     $('moreUnread').textContent = dashboard && dashboard.summary
-      ? ('Unread messages: ' + (dashboard.summary.unreadMessages || 0))
+      ? ('Unread messages: ' + (dashboard.summary.unreadMessages || 0) + ' — tap the chat icon (bottom left)')
       : '';
     $('moreProfile').textContent = (p.name || '') +
       (p.className ? ' · ' + p.className : '') +
@@ -320,7 +258,7 @@
       return;
     }
     if (v.questDone) {
-      $('vocabMount').innerHTML = '<p class="muted">Nice work — come back tomorrow for another quest.</p>';
+      $('vocabMount').innerHTML = '<p class="muted">Daily quest complete — come back tomorrow!</p>';
       return;
     }
     $('vocabMount').innerHTML =
@@ -335,7 +273,7 @@
     let idx = 0;
     const answers = [];
     const mount = $('vocabMount');
-    function show() {
+    function showQ() {
       if (idx >= items.length) {
         onSubmit(answers);
         return;
@@ -351,12 +289,12 @@
         b.onclick = () => {
           answers.push({ wordId: it.wordId, choice: c });
           idx++;
-          show();
+          showQ();
         };
         $('vocabChoices').appendChild(b);
       });
     }
-    show();
+    showQ();
   }
 
   async function runPlacement() {
@@ -365,15 +303,13 @@
       const data = await api('/api/student/vocab/placement/start', { method: 'POST' }, role);
       if (data.alreadyDone) {
         await loadDashboard();
-        renderVocab();
         return;
       }
       renderMcQuiz(data.items || [], async (responses) => {
         $('vocabMount').innerHTML = '<p class="muted">Scoring…</p>';
         try {
           const result = await api('/api/student/vocab/placement/submit', {
-            method: 'POST',
-            body: { responses }
+            method: 'POST', body: { responses }
           }, role);
           await loadDashboard();
           $('vocabMount').innerHTML = '<p>Placement done! Level <strong>' +
@@ -407,8 +343,7 @@
               mount.innerHTML = '<p class="muted">Checking…</p>';
               try {
                 const result = await api('/api/student/vocab/quest/submit', {
-                  method: 'POST',
-                  body: { responses }
+                  method: 'POST', body: { responses }
                 }, role);
                 await loadDashboard();
                 mount.innerHTML = '<p>' + (result.passed ? 'Quest passed!' : 'Keep practicing.') +
@@ -446,21 +381,16 @@
       $('welcomeText').textContent = 'Hi, ' + (p.name || 'Student');
       $('classLabel').textContent = p.className || '';
       renderHome();
-      renderHomework();
       renderVocab();
-      renderMore();
+      renderHomework();
+      renderDollars();
       if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
+      show($('buddyFloat'));
     } catch (e) {
-      $('homeTodayHint').textContent = e.message || 'Could not load dashboard.';
+      $('vocabStatus').textContent = e.message || 'Could not load dashboard.';
     }
   }
 
-  document.querySelectorAll('.stu-tab').forEach((btn) => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
-  document.querySelectorAll('[data-goto]').forEach((btn) => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.goto));
-  });
   document.querySelectorAll('.buddy-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
       $('buddyInput').value = btn.dataset.prompt || '';
@@ -468,21 +398,8 @@
     });
   });
 
-  $('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    $('loginError').textContent = '';
-    try {
-      const data = await api('/api/auth/student/login', {
-        method: 'POST',
-        body: { loginId: $('loginId').value, password: $('password').value }
-      });
-      setToken(role, data.token);
-      setProfile(role, data.profile);
-      bootApp();
-    } catch (err) {
-      $('loginError').textContent = err.message;
-    }
-  });
+  $('buddyFloatToggle').addEventListener('click', () => setBuddyOpen(!buddyOpen));
+  $('buddyFloatClose').addEventListener('click', () => setBuddyOpen(false));
 
   $('buddyForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -499,7 +416,7 @@
       }, role);
       buddyHistory.push({ role: 'buddy', text: data.reply });
       renderBuddy();
-      loadBuddyStatus();
+      if (data.status) setBuddyStatusText(data.status);
       loadDashboard();
     } catch (err) {
       $('buddyError').textContent = err.message;
@@ -509,21 +426,12 @@
   $('logoutBtn').addEventListener('click', () => {
     setToken(role, '');
     setProfile(role, null);
-    location.reload();
+    location.href = '/';
   });
 
-  function bootApp() {
-    const p = getProfile(role);
-    if (!p) return;
-    hide($('loginView'));
-    show($('appView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name;
-    switchTab('home');
-    loadDashboard();
-    SaltMessenger.init(role);
-  }
-
-  if (getToken(role)) bootApp();
+  show($('appView'));
+  SaltMessenger.init(role);
+  loadDashboard();
 })();
 </script>
 </body>

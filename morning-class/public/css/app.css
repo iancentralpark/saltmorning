@@ -726,7 +726,8 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .salt-messenger * { pointer-events: auto; }
 .msg-fab {
   position: fixed;
-  right: max(1rem, env(safe-area-inset-right));
+  left: max(1rem, env(safe-area-inset-left));
+  right: auto;
   bottom: max(1rem, env(safe-area-inset-bottom));
   width: 3.25rem;
   height: 3.25rem;
@@ -899,7 +900,7 @@ body.lp-lesson-drawer-open { overflow: hidden; }
     transform: translateY(100%);
   }
   .msg-panel.open { transform: translateY(0); }
-  .msg-fab { bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+  .msg-fab { bottom: max(1.25rem, env(safe-area-inset-bottom)); left: max(1.25rem, env(safe-area-inset-left)); right: auto; }
   .msg-chat-body { max-height: none; flex: 1; }
   .msg-thread-list { max-height: none; flex: 1; }
 }
@@ -1373,11 +1374,24 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 
 /* —— Student portal —— */
-.student-body { padding-bottom: 5.5rem; }
+.student-body { padding-bottom: 6.5rem; }
 .student-shell { max-width: 720px; }
 .student-panel { margin-bottom: 1rem; }
 .stu-card { margin-bottom: 0.85rem; }
 .stu-card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.stu-section-label {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.login-card {
+  max-width: 22rem;
+  margin: 1.5rem auto 0;
+  text-align: left;
+}
+.landing .login-card h2 { text-align: left; }
 .stu-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1471,4 +1485,74 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 @media (min-width: 720px) {
   .stu-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* English Buddy float — bottom right (Mr. Park style) */
+.buddy-float {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 880;
+  pointer-events: none;
+}
+.buddy-float.hidden { display: none !important; }
+.buddy-float * { pointer-events: auto; }
+.buddy-float-fab {
+  width: 3.25rem;
+  height: 3.25rem;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6b8fd4 0%, #4a6fb5 100%);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(74, 111, 181, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.buddy-float-fab:hover { transform: translateY(-2px); }
+.buddy-float-panel {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(3.5rem + 0.35rem);
+  width: min(22rem, calc(100vw - 1.5rem));
+  max-height: min(70vh, 34rem);
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 1rem;
+  box-shadow: 0 16px 40px rgba(30, 41, 59, 0.18);
+  padding: 0.75rem;
+  flex-direction: column;
+}
+.buddy-float:not(.panel-collapsed) .buddy-float-panel {
+  display: flex;
+}
+.buddy-float:not(.panel-collapsed) .buddy-float-fab {
+  display: none;
+}
+.buddy-float-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.buddy-status-line { margin: 0 0 0.35rem; }
+.buddy-float .buddy-chat {
+  flex: 1;
+  min-height: 10rem;
+  max-height: 40vh;
+  margin: 0.35rem 0;
+}
+.buddy-compose {
+  display: grid;
+  gap: 0.45rem;
+}
+.buddy-compose textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 3rem;
+}
+.stu-tabbar { display: none !important; }
+
 

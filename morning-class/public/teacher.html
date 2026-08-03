@@ -12,14 +12,9 @@
 <body>
 <div class="shell">
   <div id="loginView" class="card">
-    <h2>Teacher login</h2>
-    <form id="loginForm" class="form-grid">
-      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
-      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
-      <div class="error" id="loginError"></div>
-      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
-      <a href="/">← Back</a>
-    </form>
+    <h2>Teacher</h2>
+    <p class="muted">Redirecting to sign in…</p>
+    <p><a href="/">Go to login</a></p>
   </div>
 
   <div id="classesView" class="hidden">
@@ -739,22 +734,8 @@
     currentClass = null;
   });
 
-  $('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    $('loginError').textContent = '';
-    try {
-      const data = await api('/api/auth/teacher/login', {
-        method: 'POST',
-        body: { loginId: $('loginId').value, password: $('password').value }
-      });
-      setToken(role, data.token);
-      setProfile(role, data.profile);
-      bootApp();
-    } catch (err) { $('loginError').textContent = err.message; }
-  });
-
   $('logoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
+    setToken(role, ''); setProfile(role, null); location.href = '/';
   });
 
   function bootApp() {
@@ -771,6 +752,7 @@
   }
 
   if (getToken(role)) bootApp();
+  else location.replace('/');
 })();
 </script>
 </body>

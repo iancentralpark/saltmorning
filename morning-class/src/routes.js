@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
-const { loginStudent, loginParent, loginTeacher, loginAdmin } = require('./services/authService');
+const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified } = require('./services/authService');
 const { requireRole } = require('./auth/tokenAuth');
 const { getTeacherClasses, getClassRoster } = require('./services/teacherPortalService');
 const { getAttendanceForDate, saveAttendance, getClassWorkData, upsertStudentRecord } = require('./services/attendanceService');
@@ -184,6 +184,15 @@ router.post('/auth/teacher/login', async (req, res) => {
 router.post('/auth/admin/login', async (req, res) => {
   try {
     const result = await loginAdmin(req.body.loginId, req.body.password);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Login failed.' });
+  }
+});
+
+router.post('/auth/login', async (req, res) => {
+  try {
+    const result = await loginUnified(req.body.loginId, req.body.password);
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Login failed.' });

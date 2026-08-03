@@ -4,42 +4,57 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Salt Academy Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708theme">
+  <link rel="stylesheet" href="/css/app.css?v=20260803login">
 </head>
 <body>
   <div class="landing">
     <h1>Salt Academy</h1>
     <p>Morning Class Portal</p>
-    <div class="choice-grid">
-      <button type="button" class="choice-btn choice-student" onclick="location.href='/student'">
-        <span class="icon">🎓</span>
-        <span>
-          <span class="choice-label">I am a student</span>
-          <span class="choice-hint">Homework, English Buddy, vocab &amp; messages</span>
-        </span>
-      </button>
-      <button type="button" class="choice-btn choice-parent" onclick="location.href='/parent'">
-        <span class="icon">👪</span>
-        <span>
-          <span class="choice-label">I am a parent</span>
-          <span class="choice-hint">Announcements &amp; teacher messages</span>
-        </span>
-      </button>
-      <button type="button" class="choice-btn choice-teacher" onclick="location.href='/teacher'">
-        <span class="icon">📋</span>
-        <span>
-          <span class="choice-label">I am a teacher</span>
-          <span class="choice-hint">Classes, grades &amp; lesson plans</span>
-        </span>
-      </button>
-      <button type="button" class="choice-btn choice-admin" onclick="location.href='/admin'">
-        <span class="icon">⚙️</span>
-        <span>
-          <span class="choice-label">Admin</span>
-          <span class="choice-hint">Teachers, terms &amp; monitoring</span>
-        </span>
-      </button>
-    </div>
+    <form id="unifiedLogin" class="card login-card form-grid">
+      <h2 style="margin:0">Sign in</h2>
+      <p class="muted small" style="margin:0">One login for students, parents, teachers, and admin.</p>
+      <input id="loginId" placeholder="Login ID" autocomplete="username" required>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="error" id="loginError"></div>
+      <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+    </form>
   </div>
+<script src="/js/app.js"></script>
+<script>
+(function() {
+  const { api, setToken, setProfile, $ } = SaltApp;
+  const DEST = { student: '/student', parent: '/parent', teacher: '/teacher', admin: '/admin' };
+
+  // If already signed in as any role, go there
+  ['admin', 'teacher', 'parent', 'student'].forEach((role) => {
+    if (localStorage.getItem('salt_' + role + '_token')) {
+      location.replace(DEST[role]);
+    }
+  });
+
+  $('unifiedLogin').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginError').textContent = '';
+    try {
+      const data = await api('/api/auth/login', {
+        method: 'POST',
+        body: { loginId: $('loginId').value, password: $('password').value }
+      });
+      const role = data.role;
+      if (!role || !DEST[role]) throw new Error('Unknown account type.');
+      // Clear other role sessions so one active identity
+      ['admin', 'teacher', 'parent', 'student'].forEach((r) => {
+        setToken(r, '');
+        setProfile(r, null);
+      });
+      setToken(role, data.token);
+      setProfile(role, data.profile);
+      location.href = DEST[role];
+    } catch (err) {
+      $('loginError').textContent = err.message || 'Login failed.';
+    }
+  });
+})();
+</script>
 </body>
 </html>
