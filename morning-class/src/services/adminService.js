@@ -13,6 +13,9 @@ const {
 const { getSheetRows, appendRows, updateRange } = require('../sheets');
 const { formatSheetDate } = require('../dateUtils');
 const { listAllGradeTerms, saveGradeTerm, ensureGradeSheets } = require('./gradeWeightService');
+const { TRANSACTIONS_SHEET } = require('./dollarService');
+const { getRecentBuddyActivity } = require('./englishBuddyService');
+const { getRecentVocabActivity } = require('./vocabService');
 const crypto = require('crypto');
 
 function newId(prefix) {
@@ -210,6 +213,95 @@ async function getMonitoringFeed(options) {
       summary: sender + ': ' + body.slice(0, 80)
     });
   }
+
+  try {
+    const txs = await getSheetRows(TRANSACTIONS_SHEET);
+    for (let i = 1; i < txs.length; i++) {
+      const classId = String(txs[i][1] || '');
+      if (classFilter && classId && classId !== classFilter) continue;
+      const studentId = String(txs[i][2] || '');
+      const amt = Number(txs[i][3]) || 0;
+      items.push({
+        type: 'dollar',
+        at: String(txs[i][0] || ''),
+        date: String(txs[i][0] || '').slice(0, 10),
+        classId,
+        className: nameMaps.class[classId] || classId,
+        studentId,
+        studentName: nameMaps.student[studentId] || studentId,
+        summary: (amt > 0 ? '+' : '') + amt + ' · bal ' + (txs[i][4] || '') +
+          (txs[i][5] ? ' — ' + txs[i][5] : '')
+      });
+    }
+  } catch (e) { /* dollar sheet may not exist yet */ }
+
+  try {
+    const hwLogs = await getSheetRows('Homework_Log');
+    for (let i = 1; i < hwLogs.length; i++) {
+      const classId = String(hwLogs[i][1] || '');
+      if (classFilter && classId && classId !== classFilter) continue;
+      items.push({
+        type: 'homework',
+        at: String(hwLogs[i][6] || hwLogs[i][2] || ''),
+        date: String(hwLogs[i][2] || '').slice(0, 10),
+        classId,
+        className: nameMaps.class[classId] || classId,
+        studentId: '',
+        studentName: '',
+        summary: 'Posted: ' + String(hwLogs[i][3] || 'Homework')
+      });
+    }
+    const hwComp = await getSheetRows('Homework_Completion');
+    for (let i = 1; i < hwComp.length; i++) {
+      if (String(hwComp[i][2] || '').toUpperCase() !== 'TRUE' && hwComp[i][2] !== true) continue;
+      const studentId = String(hwComp[i][1] || '');
+      const at = String(hwComp[i][3] || '');
+      items.push({
+        type: 'homework',
+        at,
+        date: at.slice(0, 10),
+        classId: classFilter || '',
+        className: classFilter ? (nameMaps.class[classFilter] || classFilter) : '',
+        studentId,
+        studentName: nameMaps.student[studentId] || studentId,
+        summary: 'Completed item ' + String(hwComp[i][0] || '') +
+          (hwComp[i][4] ? ' — ' + hwComp[i][4] : '')
+      });
+    }
+  } catch (e) { /* homework sheets may not exist yet */ }
+
+  try {
+    const buddyActs = await getRecentBuddyActivity(80);
+    for (const b of buddyActs) {
+      if (classFilter && b.classId && b.classId !== classFilter) continue;
+      items.push({
+        type: 'english_buddy',
+        at: b.at,
+        date: String(b.at || '').slice(0, 10),
+        classId: b.classId,
+        className: nameMaps.class[b.classId] || b.classId,
+        studentId: b.studentId,
+        studentName: nameMaps.student[b.studentId] || b.studentId,
+        summary: 'Buddy: ' + (b.summary || '')
+      });
+    }
+  } catch (e) { /* buddy history may not exist yet */ }
+
+  try {
+    const vocabActs = await getRecentVocabActivity(80);
+    for (const v of vocabActs) {
+      items.push({
+        type: 'vocab',
+        at: v.at,
+        date: String(v.at || '').slice(0, 10),
+        classId: classFilter || '',
+        className: '',
+        studentId: v.studentId,
+        studentName: nameMaps.student[v.studentId] || v.studentId,
+        summary: (v.kind || 'vocab') + ': ' + (v.wordId || '') + (v.correct ? ' ✓' : ' ✗')
+      });
+    }
+  } catch (e) { /* vocab may not exist yet */ }
 
   let filtered = items;
   if (typeFilter) filtered = filtered.filter((it) => it.type === typeFilter);

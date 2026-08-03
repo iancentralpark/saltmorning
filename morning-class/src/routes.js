@@ -109,6 +109,30 @@ const {
 } = require('./services/timetableRequirementsService');
 const { generateClassTimetable } = require('./services/timetableGenerateService');
 const { saveTeacherSubjectStyle } = require('./services/subjectStyleService');
+const { getBuddyStatus, askEnglishBuddy, getBuddyChatHistory, listBuddyMonitorForClass, unlockBuddy, refillBuddyUsage } = require('./services/englishBuddyService');
+const { getStudentDashboard } = require('./services/studentPortalService');
+const {
+  getStudentDollars,
+  applyDollarAdjustment,
+  listClassDollarBalances,
+  ensureDollarSheets
+} = require('./services/dollarService');
+const {
+  postHomework,
+  getClassHomework,
+  getStudentHomeworkStatus,
+  setHomeworkCompletion,
+  ensureHomeworkSheets
+} = require('./services/homeworkService');
+const {
+  getStudentVocabSummary,
+  startPlacement,
+  submitPlacement,
+  startDailyQuest,
+  submitDailyQuest,
+  getClassVocabOverview,
+  overrideStudentVocab
+} = require('./services/vocabService');
 const { todayStr } = require('./dateUtils');
 
 const photoUpload = multer({
@@ -635,16 +659,209 @@ router.post('/student/messages/read', requireRole('student'), async (req, res) =
   }
 });
 
+router.get('/teacher/class/:classId/dollars', requireRole('teacher'), async (req, res) => {
+  try {
+    await ensureDollarSheets();
+    const roster = await getClassRoster(req.params.classId);
+    const students = await listClassDollarBalances(req.params.classId, roster);
+    res.json({ students });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load dollar balances.' });
+  }
+});
+
+router.post('/teacher/class/:classId/dollars', requireRole('teacher'), async (req, res) => {
+  try {
+    const { studentId, amount, reason } = req.body || {};
+    const result = await applyDollarAdjustment(req.params.classId, studentId, amount, reason);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not adjust dollars.' });
+  }
+});
+
+router.get('/teacher/class/:classId/homework', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await getClassHomework(req.params.classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load homework.' });
+  }
+});
+
+router.post('/teacher/class/:classId/homework', requireRole('teacher'), async (req, res) => {
+  try {
+    const data = await postHomework(req.params.classId, req.body || {});
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not post homework.' });
+  }
+});
+
+router.post('/teacher/class/:classId/homework/complete', requireRole('teacher'), async (req, res) => {
+  try {
+    const { itemId, studentId, completed, fixNote } = req.body || {};
+    const result = await setHomeworkCompletion(itemId, studentId, completed !== false, fixNote);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update completion.' });
+  }
+});
+
+router.get('/student/dashboard', requireRole('student'), async (req, res) => {
+  try {
+    const dashboard = await getStudentDashboard(req.session);
+    res.json(dashboard);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load dashboard.' });
+  }
+});
+
+router.get('/student/dollars', requireRole('student'), async (req, res) => {
+  try {
+    await ensureDollarSheets();
+    res.json(await getStudentDollars(req.session.studentId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load dollars.' });
+  }
+});
+
+router.get('/student/homework', requireRole('student'), async (req, res) => {
+  try {
+    await ensureHomeworkSheets();
+    res.json(await getStudentHomeworkStatus(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load homework.' });
+  }
+});
+
+router.post('/student/homework/complete', requireRole('student'), async (req, res) => {
+  try {
+    const { itemId, completed, fixNote } = req.body || {};
+    const result = await setHomeworkCompletion(
+      itemId,
+      req.session.studentId,
+      completed !== false,
+      fixNote
+    );
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not mark homework.' });
+  }
+});
+
+router.get('/student/vocab', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await getStudentVocabSummary(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load vocab.' });
+  }
+});
+
+router.post('/student/vocab/placement/start', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await startPlacement(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not start placement.' });
+  }
+});
+
+router.post('/student/vocab/placement/submit', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await submitPlacement(req.session.studentId, req.session.classId, req.body.responses));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not submit placement.' });
+  }
+});
+
+router.post('/student/vocab/quest/start', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await startDailyQuest(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not start quest.' });
+  }
+});
+
+router.post('/student/vocab/quest/submit', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await submitDailyQuest(req.session.studentId, req.session.classId, req.body.responses));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not submit quest.' });
+  }
+});
+
+router.get('/teacher/class/:classId/vocab', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await getClassVocabOverview(req.params.classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load vocab overview.' });
+  }
+});
+
+router.post('/teacher/class/:classId/vocab/:studentId', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await overrideStudentVocab(req.params.studentId, req.params.classId, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update vocab state.' });
+  }
+});
+
 router.get('/student/english-buddy/status', requireRole('student'), (req, res) => {
   res.json(getBuddyStatus(req.session.studentId));
 });
 
+router.get('/student/english-buddy/history', requireRole('student'), async (req, res) => {
+  try {
+    const messages = await getBuddyChatHistory(req.session.studentId, req.session.classId);
+    res.json({ messages, status: getBuddyStatus(req.session.studentId) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load chat history.' });
+  }
+});
+
 router.post('/student/english-buddy', requireRole('student'), async (req, res) => {
   try {
-    const result = await askEnglishBuddy(req.session.studentId, req.body.message, req.body.history);
+    const result = await askEnglishBuddy(
+      req.session.studentId,
+      req.session.classId,
+      req.body.message,
+      req.body.history
+    );
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not reach Virtual Mr. Park.' });
+    res.status(400).json({ error: e.message || 'Could not reach English Buddy.' });
+  }
+});
+
+router.get('/teacher/class/:classId/english-buddy', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await listBuddyMonitorForClass(req.params.classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load English Buddy monitor.' });
+  }
+});
+
+router.get('/teacher/class/:classId/english-buddy/:studentId/history', requireRole('teacher'), async (req, res) => {
+  try {
+    const messages = await getBuddyChatHistory(req.params.studentId, req.params.classId);
+    res.json({ messages, status: getBuddyStatus(req.params.studentId) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load history.' });
+  }
+});
+
+router.post('/teacher/class/:classId/english-buddy/:studentId/unlock', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await unlockBuddy(req.params.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not unlock.' });
+  }
+});
+
+router.post('/teacher/class/:classId/english-buddy/:studentId/refill', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await refillBuddyUsage(req.params.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not refill.' });
   }
 });
 

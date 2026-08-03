@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708libs">
+  <link rel="stylesheet" href="/css/app.css?v=20260803student">
 </head>
-<body>
-<div class="shell">
+<body class="student-body">
+<div class="shell student-shell">
   <div id="loginView" class="card">
     <h2>Student login</h2>
     <form id="loginForm" class="form-grid">
@@ -20,46 +20,453 @@
   </div>
 
   <div id="appView" class="hidden">
-    <div class="topbar">
-      <div class="brand" id="welcomeText">Student</div>
+    <div class="topbar student-topbar">
+      <div>
+        <div class="brand" id="welcomeText">Student</div>
+        <div class="muted small" id="classLabel"></div>
+      </div>
       <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
     </div>
-    <div id="tabBuddy" class="card">
-      <p id="buddyStatus" style="color:var(--muted);font-size:.9rem"></p>
-      <div id="buddyChat" style="min-height:180px;margin:0.75rem 0"></div>
-      <form id="buddyForm" class="form-grid">
-        <textarea id="buddyInput" placeholder="Ask about vocabulary or essay help…" maxlength="800"></textarea>
-        <button class="btn btn-primary" type="submit">Send</button>
-        <div class="error" id="buddyError"></div>
-      </form>
+
+    <div id="panelHome" class="student-panel">
+      <div class="stu-summary-grid" id="homeSummary"></div>
+      <div class="card stu-card">
+        <h3>Today</h3>
+        <p class="muted small" id="homeTodayHint">Loading your dashboard…</p>
+        <div id="homeHomeworkPreview"></div>
+      </div>
+      <div class="card stu-card">
+        <h3>Quick links</h3>
+        <div class="stu-quick-links">
+          <button type="button" class="btn btn-primary" data-goto="homework">Homework</button>
+          <button type="button" class="btn btn-ghost" data-goto="buddy">English Buddy</button>
+          <button type="button" class="btn btn-ghost" data-goto="vocab">Vocab Booster</button>
+          <button type="button" class="btn btn-ghost" data-goto="more">Dollars &amp; more</button>
+        </div>
+      </div>
     </div>
+
+    <div id="panelHomework" class="student-panel hidden">
+      <div class="card stu-card">
+        <h3>Homework</h3>
+        <p class="muted small" id="homeworkStatus">Checking homework…</p>
+        <div id="homeworkList"></div>
+      </div>
+    </div>
+
+    <div id="panelBuddy" class="student-panel hidden">
+      <div class="card stu-card">
+        <h3>English Buddy</h3>
+        <p id="buddyStatus" class="muted small"></p>
+        <div id="buddyChat" class="buddy-chat"></div>
+        <form id="buddyForm" class="form-grid">
+          <textarea id="buddyInput" placeholder="Ask about vocabulary or essay help…" maxlength="800" rows="3"></textarea>
+          <div class="stu-buddy-actions">
+            <button type="button" class="btn btn-ghost buddy-chip" data-prompt="Help me understand this word: ">Word Help</button>
+            <button type="button" class="btn btn-ghost buddy-chip" data-prompt="Help me plan my essay about ">Essay Help</button>
+            <button type="button" class="btn btn-ghost buddy-chip" data-prompt="How can I say this more naturally: ">Sound Native</button>
+          </div>
+          <button class="btn btn-primary" type="submit">Send</button>
+          <div class="error" id="buddyError"></div>
+        </form>
+      </div>
+    </div>
+
+    <div id="panelVocab" class="student-panel hidden">
+      <div class="card stu-card">
+        <h3>Vocab Booster</h3>
+        <p class="muted" id="vocabStatus">Loading…</p>
+        <div id="vocabStats" class="stu-summary-grid" style="margin:0.75rem 0"></div>
+        <div id="vocabMount"></div>
+        <div class="error" id="vocabError"></div>
+      </div>
+    </div>
+
+    <div id="panelMore" class="student-panel hidden">
+      <div class="card stu-card">
+        <h3>My dollars</h3>
+        <p class="muted small" id="dollarStatus">Dollar balance will appear here next.</p>
+        <div id="dollarBox" class="stu-placeholder">
+          <strong id="dollarBalance">—</strong>
+          <div id="dollarTx"></div>
+        </div>
+      </div>
+      <div class="card stu-card">
+        <h3>Messages</h3>
+        <p class="muted small">Use the chat button at the bottom-right to message your teacher.</p>
+        <p id="moreUnread" class="muted small"></p>
+      </div>
+      <div class="card stu-card">
+        <h3>Account</h3>
+        <p class="muted small" id="moreProfile"></p>
+      </div>
+    </div>
+
+    <nav class="stu-tabbar" aria-label="Student tabs">
+      <button type="button" class="stu-tab active" data-tab="home">Home</button>
+      <button type="button" class="stu-tab" data-tab="homework">Homework</button>
+      <button type="button" class="stu-tab" data-tab="buddy">Buddy</button>
+      <button type="button" class="stu-tab" data-tab="vocab">Vocab</button>
+      <button type="button" class="stu-tab" data-tab="more">More</button>
+    </nav>
   </div>
 </div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
-<script src="/js/messenger.js?v=20260708libs"></script>
+<script src="/js/messenger.js?v=20260803student"></script>
 <script>
 (function() {
   const role = 'student';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
   let buddyHistory = [];
+  let dashboard = null;
+  let activeTab = 'home';
+
+  function switchTab(name) {
+    activeTab = name;
+    document.querySelectorAll('.stu-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === name);
+    });
+    ['home', 'homework', 'buddy', 'vocab', 'more'].forEach((id) => {
+      const panel = $('panel' + id.charAt(0).toUpperCase() + id.slice(1));
+      if (!panel) return;
+      panel.classList.toggle('hidden', id !== name);
+    });
+    if (name === 'buddy') {
+      loadBuddyHistory();
+      loadBuddyStatus();
+    }
+    if (name === 'homework') renderHomework();
+    if (name === 'vocab') renderVocab();
+  }
 
   function renderBuddy() {
     const box = $('buddyChat');
-    box.innerHTML = buddyHistory.map(h =>
-      '<div class="msg ' + h.role + '"><div class="msg-meta">' + escapeHtml(h.role) + '</div>' + escapeHtml(h.text) + '</div>'
-    ).join('') || '<p style="color:var(--muted)">Say hello to Virtual Mr. Park!</p>';
+    box.innerHTML = buddyHistory.map((h) =>
+      '<div class="msg ' + (h.role === 'student' || h.role === 'user' ? 'user' : 'buddy') + '"><div class="msg-meta">' +
+      escapeHtml(h.role === 'buddy' || h.role === 'assistant' ? 'English Buddy' : 'You') +
+      '</div>' + escapeHtml(h.text) + '</div>'
+    ).join('') || '<p class="muted">Say hello to English Buddy!</p>';
     box.scrollTop = box.scrollHeight;
+  }
+
+  function setBuddyStatusText(s) {
+    if (!s) return;
+    if (!s.configured) {
+      $('buddyStatus').textContent = 'English Buddy will be available when GEMINI_API_KEY is configured.';
+      return;
+    }
+    if (s.abuseLocked) {
+      $('buddyStatus').textContent = 'Locked for today — ask your teacher to unlock. (' +
+        (s.abuseStrikes || 0) + '/' + (s.abuseStrikeLimit || 3) + ' strikes)';
+      return;
+    }
+    $('buddyStatus').textContent = 'Remaining today: ' + s.remaining + ' / ' + s.dailyLimit;
   }
 
   async function loadBuddyStatus() {
     try {
       const s = await api('/api/student/english-buddy/status', {}, role);
-      $('buddyStatus').textContent = s.configured
-        ? ('Remaining today: ' + s.remaining + ' / ' + s.dailyLimit)
-        : 'Virtual Mr. Park will be available when GEMINI_API_KEY is configured.';
-    } catch (e) { $('buddyStatus').textContent = ''; }
+      setBuddyStatusText(s);
+    } catch (e) {
+      $('buddyStatus').textContent = '';
+    }
   }
+
+  async function loadBuddyHistory() {
+    try {
+      const data = await api('/api/student/english-buddy/history', {}, role);
+      buddyHistory = (data.messages || []).map((m) => ({
+        role: m.role === 'user' ? 'student' : 'buddy',
+        text: m.text
+      }));
+      renderBuddy();
+      if (data.status) setBuddyStatusText(data.status);
+    } catch (e) {
+      renderBuddy();
+    }
+  }
+
+  function renderHome() {
+    if (!dashboard) return;
+    const s = dashboard.summary || {};
+    $('homeSummary').innerHTML =
+      chip('Messages', s.unreadMessages || 0) +
+      chip('Homework', s.pendingHomework || 0) +
+      chip('Dollars', s.dollars == null ? '—' : s.dollars) +
+      chip('Buddy', (dashboard.buddy && dashboard.buddy.remaining != null)
+        ? (dashboard.buddy.remaining + ' left')
+        : '—');
+
+    const hw = dashboard.homework || {};
+    if (!hw.available) {
+      $('homeTodayHint').textContent = 'Homework and Vocab Booster are coming next. Dollars and messages are live.';
+      $('homeHomeworkPreview').innerHTML = '<p class="muted small">No homework feed yet — teacher posting comes in the next step.</p>';
+    } else {
+      $('homeTodayHint').textContent = 'Here is your class snapshot for today.';
+      $('homeHomeworkPreview').innerHTML = (hw.today || []).length
+        ? '<ul>' + (hw.today || []).map((x) => '<li>' + escapeHtml(x.title || x) + '</li>').join('') + '</ul>'
+        : '<p class="muted small">No homework posted today.</p>';
+    }
+  }
+
+  function chip(label, value) {
+    return '<div class="stu-chip"><span class="stu-chip-label">' + escapeHtml(label) +
+      '</span><strong>' + escapeHtml(String(value)) + '</strong></div>';
+  }
+
+  function renderHomework() {
+    const hw = (dashboard && dashboard.homework) || {};
+    if (!hw.available) {
+      $('homeworkStatus').textContent = 'Homework is not available yet.';
+      $('homeworkList').innerHTML = '<p class="muted">Ask your teacher if homework does not appear.</p>';
+      return;
+    }
+    const pending = hw.pending || [];
+    const completed = hw.completed || [];
+    $('homeworkStatus').textContent = pending.length
+      ? (pending.length + ' pending')
+      : 'All caught up!';
+
+    let html = '';
+    if (pending.length) {
+      html += '<ul class="stu-list">' + pending.map((x) =>
+        '<li><strong>' + escapeHtml(x.title || 'Homework') + '</strong>' +
+        (x.assignedDate ? '<div class="muted small">' + escapeHtml(x.assignedDate) + '</div>' : '') +
+        (x.description ? '<div class="muted small">' + escapeHtml(x.description) + '</div>' : '') +
+        '<button type="button" class="btn btn-primary hw-done" data-item="' +
+        escapeHtml(x.itemId) + '" style="margin-top:0.4rem">Mark done</button></li>'
+      ).join('') + '</ul>';
+    }
+    if (completed.length) {
+      html += '<h4 class="muted" style="margin-top:1rem">Recently completed</h4><ul class="stu-list">' +
+        completed.slice(0, 10).map((x) =>
+          '<li><strong>' + escapeHtml(x.title || 'Homework') + '</strong>' +
+          '<div class="muted small">Done' +
+          (x.completedAt ? ' · ' + escapeHtml(String(x.completedAt).slice(0, 16).replace('T', ' ')) : '') +
+          '</div></li>'
+        ).join('') + '</ul>';
+    }
+    $('homeworkList').innerHTML = html || '<p class="muted">No homework right now.</p>';
+    $('homeworkList').querySelectorAll('.hw-done').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await api('/api/student/homework/complete', {
+            method: 'POST',
+            body: { itemId: btn.dataset.item, completed: true }
+          }, role);
+          await loadDashboard();
+          if (activeTab === 'homework') renderHomework();
+        } catch (e) {
+          btn.disabled = false;
+          $('homeworkStatus').textContent = e.message || 'Could not mark done.';
+        }
+      });
+    });
+  }
+
+  function renderMore() {
+    const d = (dashboard && dashboard.dollars) || {};
+    const p = (dashboard && dashboard.profile) || getProfile(role) || {};
+    if (!d.available) {
+      $('dollarStatus').textContent = 'Dollar balances will appear once the sheet is ready.';
+      $('dollarBalance').textContent = '—';
+      $('dollarTx').innerHTML = '';
+    } else {
+      $('dollarStatus').textContent = 'Current balance';
+      $('dollarBalance').textContent = '$' + (d.balance || 0);
+      const txs = d.transactions || [];
+      $('dollarTx').innerHTML = txs.length
+        ? '<ul class="stu-list">' + txs.map((t) =>
+          '<li><strong>' + (t.amount > 0 ? '+' : '') + escapeHtml(String(t.amount)) + '</strong>' +
+          '<div class="muted small">' + escapeHtml(t.reason || '') +
+          (t.at ? ' · ' + escapeHtml(String(t.at).slice(0, 16).replace('T', ' ')) : '') +
+          '</div></li>'
+        ).join('') + '</ul>'
+        : '<p class="muted small">No transactions yet.</p>';
+    }
+    $('moreUnread').textContent = dashboard && dashboard.summary
+      ? ('Unread messages: ' + (dashboard.summary.unreadMessages || 0))
+      : '';
+    $('moreProfile').textContent = (p.name || '') +
+      (p.className ? ' · ' + p.className : '') +
+      (p.studentId ? ' · ' + p.studentId : '');
+  }
+
+  function renderVocab() {
+    const v = (dashboard && dashboard.vocab) || {};
+    $('vocabError').textContent = '';
+    if (!v.available) {
+      $('vocabStatus').textContent = v.message || 'Vocab Booster unavailable.';
+      $('vocabStats').innerHTML = '';
+      $('vocabMount').innerHTML = '';
+      return;
+    }
+    $('vocabStatus').textContent = v.message || '';
+    $('vocabStats').innerHTML =
+      chip('Tier', v.tier || '—') +
+      chip('Level', v.gradeLevel != null ? v.gradeLevel : '—') +
+      chip('Streak', v.streak || 0) +
+      chip('Mastered', v.wordsMastered || 0);
+
+    if (!v.placementDone) {
+      $('vocabMount').innerHTML =
+        '<p class="muted small">Take a short placement quiz to set your starting level.</p>' +
+        '<button type="button" class="btn btn-primary" id="vocabStartPlacement">Start placement</button>';
+      const btn = $('vocabStartPlacement');
+      if (btn) btn.onclick = () => runPlacement();
+      return;
+    }
+    if (v.questDone) {
+      $('vocabMount').innerHTML = '<p class="muted">Nice work — come back tomorrow for another quest.</p>';
+      return;
+    }
+    $('vocabMount').innerHTML =
+      '<p class="muted small">Study ' + (v.dailyTarget || 5) + ' words, then take a quick quiz. Sessions today: ' +
+      (v.sessionsToday || 0) + '/' + (v.maxSessions || 3) + '</p>' +
+      '<button type="button" class="btn btn-primary" id="vocabStartQuest">Start daily quest</button>';
+    const qbtn = $('vocabStartQuest');
+    if (qbtn) qbtn.onclick = () => runQuest();
+  }
+
+  function renderMcQuiz(items, onSubmit) {
+    let idx = 0;
+    const answers = [];
+    const mount = $('vocabMount');
+    function show() {
+      if (idx >= items.length) {
+        onSubmit(answers);
+        return;
+      }
+      const it = items[idx];
+      mount.innerHTML = '<p><strong>' + (idx + 1) + '/' + items.length + '</strong> ' +
+        escapeHtml(it.prompt || it.word) + '</p><div class="stu-quick-links" id="vocabChoices"></div>';
+      (it.choices || []).forEach((c) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn-ghost';
+        b.textContent = c;
+        b.onclick = () => {
+          answers.push({ wordId: it.wordId, choice: c });
+          idx++;
+          show();
+        };
+        $('vocabChoices').appendChild(b);
+      });
+    }
+    show();
+  }
+
+  async function runPlacement() {
+    $('vocabError').textContent = '';
+    try {
+      const data = await api('/api/student/vocab/placement/start', { method: 'POST' }, role);
+      if (data.alreadyDone) {
+        await loadDashboard();
+        renderVocab();
+        return;
+      }
+      renderMcQuiz(data.items || [], async (responses) => {
+        $('vocabMount').innerHTML = '<p class="muted">Scoring…</p>';
+        try {
+          const result = await api('/api/student/vocab/placement/submit', {
+            method: 'POST',
+            body: { responses }
+          }, role);
+          await loadDashboard();
+          $('vocabMount').innerHTML = '<p>Placement done! Level <strong>' +
+            escapeHtml(String(result.gradeLevel)) + '</strong> · ' +
+            escapeHtml(result.tier || '') +
+            ' (' + result.correct + '/' + result.total + ')</p>' +
+            '<button type="button" class="btn btn-primary" id="vocabAfterPlacement">Continue</button>';
+          $('vocabAfterPlacement').onclick = () => renderVocab();
+        } catch (e) {
+          $('vocabError').textContent = e.message;
+          renderVocab();
+        }
+      });
+    } catch (e) {
+      $('vocabError').textContent = e.message;
+    }
+  }
+
+  async function runQuest() {
+    $('vocabError').textContent = '';
+    try {
+      const data = await api('/api/student/vocab/quest/start', { method: 'POST' }, role);
+      const study = data.study || [];
+      let i = 0;
+      const mount = $('vocabMount');
+      function showStudy() {
+        if (i >= study.length) {
+          mount.innerHTML = '<p class="muted">Quiz time!</p>';
+          setTimeout(() => {
+            renderMcQuiz(data.quiz || [], async (responses) => {
+              mount.innerHTML = '<p class="muted">Checking…</p>';
+              try {
+                const result = await api('/api/student/vocab/quest/submit', {
+                  method: 'POST',
+                  body: { responses }
+                }, role);
+                await loadDashboard();
+                mount.innerHTML = '<p>' + (result.passed ? 'Quest passed!' : 'Keep practicing.') +
+                  ' ' + result.correct + '/' + result.total +
+                  (result.reward ? ' · +$' + result.reward : '') + '</p>' +
+                  '<button type="button" class="btn btn-primary" id="vocabAfterQuest">Done</button>';
+                $('vocabAfterQuest').onclick = () => renderVocab();
+              } catch (e) {
+                $('vocabError').textContent = e.message;
+                renderVocab();
+              }
+            });
+          }, 400);
+          return;
+        }
+        const w = study[i];
+        mount.innerHTML = '<p class="muted small">Study ' + (i + 1) + '/' + study.length + '</p>' +
+          '<h3 style="margin:0.25rem 0">' + escapeHtml(w.word) + '</h3>' +
+          '<p>' + escapeHtml(w.definition) + '</p>' +
+          '<p class="muted small">' + escapeHtml(w.korean || '') + '</p>' +
+          '<p class="muted small"><em>' + escapeHtml(w.example || '') + '</em></p>' +
+          '<button type="button" class="btn btn-primary" id="vocabNextStudy">Next</button>';
+        $('vocabNextStudy').onclick = () => { i++; showStudy(); };
+      }
+      showStudy();
+    } catch (e) {
+      $('vocabError').textContent = e.message;
+    }
+  }
+
+  async function loadDashboard() {
+    try {
+      dashboard = await api('/api/student/dashboard', {}, role);
+      const p = dashboard.profile || {};
+      $('welcomeText').textContent = 'Hi, ' + (p.name || 'Student');
+      $('classLabel').textContent = p.className || '';
+      renderHome();
+      renderHomework();
+      renderVocab();
+      renderMore();
+      if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
+    } catch (e) {
+      $('homeTodayHint').textContent = e.message || 'Could not load dashboard.';
+    }
+  }
+
+  document.querySelectorAll('.stu-tab').forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  document.querySelectorAll('[data-goto]').forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.goto));
+  });
+  document.querySelectorAll('.buddy-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      $('buddyInput').value = btn.dataset.prompt || '';
+      $('buddyInput').focus();
+    });
+  });
 
   $('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -93,22 +500,26 @@
       buddyHistory.push({ role: 'buddy', text: data.reply });
       renderBuddy();
       loadBuddyStatus();
+      loadDashboard();
     } catch (err) {
       $('buddyError').textContent = err.message;
     }
   });
 
   $('logoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
+    setToken(role, '');
+    setProfile(role, null);
+    location.reload();
   });
 
   function bootApp() {
     const p = getProfile(role);
     if (!p) return;
-    hide($('loginView')); show($('appView'));
+    hide($('loginView'));
+    show($('appView'));
     $('welcomeText').textContent = 'Hi, ' + p.name;
-    loadBuddyStatus();
-    renderBuddy();
+    switchTab('home');
+    loadDashboard();
     SaltMessenger.init(role);
   }
 

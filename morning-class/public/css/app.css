@@ -1372,3 +1372,103 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   .tt-week-grid { grid-template-columns: 1fr; }
 }
 
+/* —— Student portal —— */
+.student-body { padding-bottom: 5.5rem; }
+.student-shell { max-width: 720px; }
+.student-panel { margin-bottom: 1rem; }
+.stu-card { margin-bottom: 0.85rem; }
+.stu-card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.stu-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+.stu-chip {
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.stu-chip-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
+.stu-chip strong { font-size: 1.25rem; }
+.stu-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.stu-placeholder {
+  border: 1px dashed var(--border-soft);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: var(--cream);
+  color: var(--muted);
+}
+.buddy-chat {
+  min-height: 200px;
+  max-height: 45vh;
+  overflow: auto;
+  margin: 0.75rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.75rem;
+  background: var(--cream);
+}
+.buddy-chat .msg {
+  margin-bottom: 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.65rem;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+}
+.buddy-chat .msg.buddy { border-left: 3px solid var(--sage); }
+.buddy-chat .msg.student { border-left: 3px solid var(--student); }
+.buddy-chat .msg-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+  font-weight: 600;
+}
+.stu-buddy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.buddy-chip { font-size: 0.78rem; }
+.stu-list { list-style: none; padding: 0; margin: 0; }
+.stu-list li {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.stu-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid var(--border-soft);
+  padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
+  z-index: 800;
+  backdrop-filter: blur(8px);
+}
+.stu-tab {
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+.stu-tab.active { color: var(--sage); }
+#dollarBalance { font-size: 1.6rem; display: block; margin-bottom: 0.5rem; }
+@media (min-width: 720px) {
+  .stu-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
