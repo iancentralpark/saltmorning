@@ -768,7 +768,8 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .msg-panel {
   position: fixed;
-  right: max(0.75rem, env(safe-area-inset-right));
+  left: max(0.75rem, env(safe-area-inset-left));
+  right: auto;
   bottom: calc(4.5rem + env(safe-area-inset-bottom));
   width: min(22rem, calc(100vw - 1.5rem));
   max-height: min(32rem, calc(100vh - 6rem - env(safe-area-inset-top)));
