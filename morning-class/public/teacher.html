@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708ag2">
+  <link rel="stylesheet" href="/css/app.css?v=20260803att2">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -30,8 +30,9 @@
       <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.5rem">
         <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
         <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
+        <button type="button" class="btn btn-ghost" id="openLessonPlansBtn">Lesson plans</button>
       </div>
-      <p class="muted small" style="margin-top:0.35rem">View student records and your weekly teaching schedule.</p>
+      <p class="muted small" style="margin-top:0.35rem">Lesson plans cover every class you teach. Open a class for attendance, grades, and homework.</p>
     </div>
   </div>
 
@@ -59,97 +60,15 @@
     <div class="card" id="teacherTimetableMount"></div>
   </div>
 
-  <div id="classView" class="hidden">
+  <div id="lessonPlansView" class="hidden">
     <div class="topbar">
       <div>
-        <button class="btn btn-ghost" id="backBtn" type="button">← Classes</button>
-        <div class="brand" id="classTitle"></div>
+        <button class="btn btn-ghost" id="lessonPlansBackBtn" type="button">← Classes</button>
+        <div class="brand">Lesson plans</div>
       </div>
+      <button class="btn btn-ghost" id="lessonPlansLogoutBtn" type="button">Log out</button>
     </div>
-    <div class="tabs">
-      <button class="tab active" data-tab="attendance" type="button">Attendance</button>
-      <button class="tab" data-tab="grades" type="button">Grades</button>
-      <button class="tab" data-tab="dollars" type="button">Dollars</button>
-      <button class="tab" data-tab="homework" type="button">Homework</button>
-      <button class="tab" data-tab="buddy" type="button">English Buddy</button>
-      <button class="tab" data-tab="vocab" type="button">Vocab</button>
-      <button class="tab" data-tab="report" type="button">Report card</button>
-      <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
-    </div>
-
-    <div id="panelAttendance" class="card att-panel">
-      <div class="att-toolbar">
-        <label class="att-date-label">Date <input type="date" id="attDate"></label>
-        <button type="button" class="btn btn-primary" id="monthlyReportBtn">Monthly Report</button>
-      </div>
-      <div id="attScheduleAlert" class="att-alert"></div>
-      <div id="attStudentList" class="att-student-list"></div>
-    </div>
-
-    <div id="panelGrades" class="card hidden grades-panel">
-      <div class="grades-toolbar-minimal">
-        <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
-        <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
-        <span id="gradeContextLabel" class="muted small"></span>
-      </div>
-      <input type="hidden" id="gradeTerm">
-      <input type="hidden" id="gradeSubject">
-      <div id="gradeWeightSummary" class="grade-weight-summary"></div>
-      <div id="gradebookWrap" class="gb-wrap">
-        <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
-      </div>
-      <div class="error" id="gradesError"></div>
-    </div>
-
-    <div id="panelDollars" class="card hidden">
-      <p class="muted small">Adjust student dollar balances. Positive = earn, negative = spend.</p>
-      <div id="dollarTeacherList" class="table-wrap" style="margin:0.75rem 0"><p class="muted">Loading…</p></div>
-      <div class="error" id="dollarTeacherError"></div>
-    </div>
-
-    <div id="panelHomework" class="card hidden">
-      <form id="hwPostForm" class="form-grid" style="margin-bottom:1rem">
-        <h3 style="margin:0">Post homework</h3>
-        <input id="hwTitle" placeholder="Title" required maxlength="120">
-        <textarea id="hwDesc" placeholder="Description (optional)" rows="2" maxlength="500"></textarea>
-        <label class="muted small">Date <input type="date" id="hwDate"></label>
-        <button class="btn btn-primary" type="submit">Post</button>
-        <div class="error" id="hwPostError"></div>
-      </form>
-      <div id="hwTeacherList"><p class="muted">Loading…</p></div>
-      <div class="error" id="hwTeacherError"></div>
-    </div>
-
-    <div id="panelBuddy" class="card hidden">
-      <p class="muted small">Monitor English Buddy usage, unlock students, and review chats.</p>
-      <div id="buddyTeacherList"><p class="muted">Loading…</p></div>
-      <div id="buddyTeacherChat" class="hidden" style="margin-top:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
-          <strong id="buddyChatTitle">Chat</strong>
-          <button type="button" class="btn btn-ghost" id="buddyChatClose">Close</button>
-        </div>
-        <div id="buddyChatBody" class="buddy-chat" style="max-height:280px;margin-top:0.5rem"></div>
-      </div>
-      <div class="error" id="buddyTeacherError"></div>
-    </div>
-
-    <div id="panelVocab" class="card hidden">
-      <p class="muted small">Vocab Booster progress. Reset placement or adjust level if needed.</p>
-      <div id="vocabTeacherList"><p class="muted">Loading…</p></div>
-      <div class="error" id="vocabTeacherError"></div>
-    </div>
-
-    <div id="panelReport" class="card hidden">
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-        <input id="reportTerm" value="Term1" placeholder="Term">
-        <input id="reportSubject" placeholder="Subject filter">
-        <button class="btn btn-primary" id="loadReportBtn" type="button">Load</button>
-      </div>
-      <div id="reportBody"></div>
-      <div class="error" id="reportError"></div>
-    </div>
-
-    <div id="panelLesson" class="card hidden lp-cal-panel">
+    <div class="card lp-cal-panel">
       <div id="lpGradeWeights" class="lp-weights-box"></div>
       <div id="lpSubjectsClass" class="lp-subjects-panel"></div>
       <div class="lp-cal-toolbar">
@@ -163,6 +82,77 @@
           <div id="lpCalendarMount"><p class="muted">Loading calendar…</p></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="classView" class="hidden">
+    <div class="topbar">
+      <div>
+        <button class="btn btn-ghost" id="backBtn" type="button">← Classes</button>
+        <div class="brand" id="classTitle"></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="attendance" type="button">Attendance</button>
+      <button class="tab" data-tab="grades" type="button">Grades</button>
+      <button class="tab" data-tab="homework" type="button">Homework</button>
+      <button class="tab" data-tab="report" type="button">Report card</button>
+    </div>
+
+    <div id="panelAttendance" class="card att-panel">
+      <p class="muted small" id="attBoardHint">Homeroom: take attendance, dollars, Buddy &amp; Vocab Booster. Subject teachers: dollars only (attendance is read-only).</p>
+      <div class="att-toolbar">
+        <label class="att-date-label">Date <input type="date" id="attDate"></label>
+        <button type="button" class="btn btn-primary" id="monthlyReportBtn">Monthly Report</button>
+      </div>
+      <div id="attScheduleAlert" class="att-alert"></div>
+      <div id="attStudentList" class="att-student-list"></div>
+    </div>
+
+    <div id="panelGrades" class="card hidden grades-panel">
+      <div class="grades-toolbar-minimal">
+        <label class="muted small" id="gradeSubjectWrap">Subject
+          <select id="gradeSubjectSelect"></select>
+        </label>
+        <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
+        <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
+        <span id="gradeContextLabel" class="muted small"></span>
+      </div>
+      <input type="hidden" id="gradeTerm">
+      <input type="hidden" id="gradeSubject">
+      <div id="gradeWeightSummary" class="grade-weight-summary"></div>
+      <div id="gradebookWrap" class="gb-wrap">
+        <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
+      </div>
+      <div class="error" id="gradesError"></div>
+    </div>
+
+    <div id="panelHomework" class="card hidden">
+      <form id="hwPostForm" class="form-grid" style="margin-bottom:1rem">
+        <h3 style="margin:0">Post homework</h3>
+        <input id="hwTitle" placeholder="Title" required maxlength="120">
+        <textarea id="hwDesc" placeholder="Description (optional)" rows="2" maxlength="500"></textarea>
+        <label class="muted small">Date <input type="date" id="hwDate"></label>
+        <button class="btn btn-primary" type="submit">Post</button>
+        <div class="error" id="hwPostError"></div>
+      </form>
+      <p class="muted small" id="hwVisibilityHint"></p>
+      <div id="hwTeacherList"><p class="muted">Loading…</p></div>
+      <div class="error" id="hwTeacherError"></div>
+    </div>
+
+    <div id="panelReport" class="card hidden">
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem;align-items:center">
+        <input id="reportTerm" value="Term1" placeholder="Term">
+        <label class="muted small">Subject
+          <select id="reportSubjectSelect">
+            <option value="">All subjects</option>
+          </select>
+        </label>
+        <button class="btn btn-primary" id="loadReportBtn" type="button">Load</button>
+      </div>
+      <div id="reportBody"></div>
+      <div class="error" id="reportError"></div>
     </div>
   </div>
 </div>
@@ -281,8 +271,8 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260708ag"></script>
-<script src="/js/teacher-attendance.js?v=20260708ag"></script>
-<script src="/js/teacher-grades.js?v=20260708quota"></script>
+<script src="/js/teacher-attendance.js?v=20260803att2"></script>
+<script src="/js/teacher-grades.js?v=20260803att"></script>
 <script src="/js/teacher-lesson.js?v=20260708ag"></script>
 <script src="/js/messenger.js?v=20260708ag"></script>
 <script src="/js/student-registry.js?v=20260709registry"></script>
@@ -315,8 +305,12 @@
 
   function classCard(c, isHomeroom) {
     const subj = (c.subjects && c.subjects.length) ? c.subjects.join(', ') : (isHomeroom ? 'All subjects' : '');
-    return '<div class="class-card" data-id="' + escapeHtml(c.classId) + '" data-name="' + escapeHtml(c.className) + '" data-subjects="' + escapeHtml(subj) + '">' +
-      '<strong>' + escapeHtml(c.className) + '</strong><br><small>' + escapeHtml(c.classId) + ' · ' + escapeHtml(subj) + '</small></div>';
+    return '<div class="class-card" data-id="' + escapeHtml(c.classId) +
+      '" data-name="' + escapeHtml(c.className) +
+      '" data-subjects="' + escapeHtml(subj) +
+      '" data-homeroom="' + (isHomeroom ? '1' : '0') + '">' +
+      '<strong>' + escapeHtml(c.className) + '</strong><br><small>' +
+      escapeHtml(c.classId) + ' · ' + escapeHtml(subj) + '</small></div>';
   }
 
   async function loadClasses() {
@@ -329,7 +323,8 @@
       el.addEventListener('click', () => openClass({
         classId: el.dataset.id,
         className: el.dataset.name,
-        subjects: el.dataset.subjects
+        subjects: el.dataset.subjects,
+        isHomeroom: el.dataset.homeroom === '1'
       }));
     });
     const teacherClasses = [].concat(data.homeroom || [], data.assigned || []);
@@ -355,6 +350,23 @@
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', '', '');
   });
 
+  $('openLessonPlansBtn').addEventListener('click', () => {
+    currentClass = null;
+    hide($('classesView'));
+    show($('lessonPlansView'));
+    SaltLesson.onClassOpen();
+  });
+
+  $('lessonPlansBackBtn').addEventListener('click', () => {
+    SaltLesson.closeDrawer();
+    hide($('lessonPlansView'));
+    show($('classesView'));
+  });
+
+  $('lessonPlansLogoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.href = '/';
+  });
+
   $('timetableBackBtn').addEventListener('click', () => {
     hide($('timetableView'));
     show($('classesView'));
@@ -373,89 +385,91 @@
     setToken(role, ''); setProfile(role, null); location.reload();
   });
 
+  async function setupSubjectSelectors(cls) {
+    const gradeSel = $('gradeSubjectSelect');
+    const reportSel = $('reportSubjectSelect');
+    let subjects = [];
+    if (cls.isHomeroom) {
+      try {
+        const catalog = await api('/api/teacher/class-subjects', {}, role);
+        const group = (catalog.classes || []).find((g) => g.classId === cls.classId);
+        const all = new Set((group && group.subjects) || []);
+        (catalog.catalog || []).forEach((s) => {
+          const name = typeof s === 'string' ? s : (s && s.name);
+          if (name) all.add(name);
+        });
+        (catalog.classes || []).forEach((g) => (g.subjects || []).forEach((s) => all.add(s)));
+        subjects = Array.from(all).sort((a, b) => a.localeCompare(b));
+        if (!subjects.length) subjects = ['English', 'Math', 'Science'];
+      } catch (e) {
+        subjects = ['English', 'Math', 'Science'];
+      }
+      gradeSel.disabled = false;
+      reportSel.innerHTML = '<option value="">All subjects</option>' +
+        subjects.map((s) => '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>').join('');
+      reportSel.disabled = false;
+      $('attBoardHint').textContent =
+        'Take attendance, adjust dollars, and monitor English Buddy & Vocab Booster.';
+      $('hwVisibilityHint').textContent =
+        'Homeroom: you can see every teacher’s homework. Mark done only on posts you created.';
+    } else {
+      subjects = (cls.subjects || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!subjects.length) subjects = ['English'];
+      gradeSel.disabled = subjects.length <= 1;
+      reportSel.innerHTML = subjects.map((s) =>
+        '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>'
+      ).join('');
+      reportSel.disabled = subjects.length <= 1;
+      $('attBoardHint').textContent =
+        'Attendance is read-only (homeroom only). You can still adjust dollars.';
+      $('hwVisibilityHint').textContent =
+        'You only see homework you posted. Only you can Mark done on your posts.';
+    }
+    gradeSel.innerHTML = subjects.map((s) =>
+      '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>'
+    ).join('');
+    const first = subjects[0] || 'English';
+    gradeSel.value = first;
+    $('gradeSubject').value = first;
+    if (!cls.isHomeroom) reportSel.value = first;
+    else reportSel.value = '';
+  }
+
   function openClass(cls) {
     currentClass = cls;
     hide($('classesView')); show($('classView'));
     $('classTitle').textContent = cls.className;
     $('attDate').value = todayISO();
-    $('gradeSubject').value = (cls.subjects && cls.subjects !== 'All subjects') ? cls.subjects.split(',')[0].trim() : 'English';
     $('reportTerm').value = $('gradeTerm').value || 'Term1';
-    switchTab('attendance');
-    SaltAttendance.onClassOpen();
+    setupSubjectSelectors(cls).then(() => {
+      switchTab('attendance');
+      SaltAttendance.onClassOpen();
+    });
   }
 
   function switchTab(name) {
     document.querySelectorAll('#classView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelBuddy','panelVocab','panelReport','panelLesson'].forEach(id => hide($(id)));
+    ['panelAttendance','panelGrades','panelHomework','panelReport'].forEach(id => hide($(id)));
     const map = {
       attendance: 'panelAttendance',
       grades: 'panelGrades',
-      dollars: 'panelDollars',
       homework: 'panelHomework',
-      buddy: 'panelBuddy',
-      vocab: 'panelVocab',
-      report: 'panelReport',
-      lesson: 'panelLesson'
+      report: 'panelReport'
     };
     show($(map[name]));
     if (name === 'grades') SaltGrades.onClassOpen();
-    if (name === 'dollars') loadDollars();
     if (name === 'homework') loadHomework();
-    if (name === 'buddy') loadBuddyMonitor();
-    if (name === 'vocab') loadVocabOverview();
     if (name === 'report') loadReport();
-    if (name === 'lesson') SaltLesson.onClassOpen();
     if (name === 'attendance') SaltAttendance.loadWork();
   }
 
-  async function loadDollars() {
-    if (!currentClass) return;
-    const box = $('dollarTeacherList');
-    const err = $('dollarTeacherError');
-    err.textContent = '';
-    box.innerHTML = '<p class="muted">Loading…</p>';
-    try {
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/dollars', {}, role);
-      const students = data.students || [];
-      if (!students.length) {
-        box.innerHTML = '<p class="muted">No students in this class.</p>';
-        return;
-      }
-      let html = '<table class="grades-table"><thead><tr><th>Student</th><th>Balance</th><th>Adjust</th><th>Reason</th><th></th></tr></thead><tbody>';
-      students.forEach((s) => {
-        html += '<tr data-sid="' + escapeHtml(s.studentId) + '">' +
-          '<td>' + escapeHtml(s.name) + '</td>' +
-          '<td><strong>$' + escapeHtml(String(s.balance || 0)) + '</strong></td>' +
-          '<td><input type="number" class="dollar-amt" step="1" placeholder="+5 / -2" style="width:5.5rem"></td>' +
-          '<td><input type="text" class="dollar-reason" placeholder="Reason" maxlength="80"></td>' +
-          '<td><button type="button" class="btn btn-primary dollar-save">Save</button></td></tr>';
-      });
-      html += '</tbody></table>';
-      box.innerHTML = html;
-      box.querySelectorAll('.dollar-save').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const tr = btn.closest('tr');
-          err.textContent = '';
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/dollars', {
-              method: 'POST',
-              body: {
-                studentId: tr.dataset.sid,
-                amount: tr.querySelector('.dollar-amt').value,
-                reason: tr.querySelector('.dollar-reason').value
-              }
-            }, role);
-            loadDollars();
-          } catch (e) {
-            err.textContent = e.message;
-          }
-        });
-      });
-    } catch (e) {
-      box.innerHTML = '';
-      err.textContent = e.message;
-    }
-  }
+  $('gradeSubjectSelect').addEventListener('change', () => {
+    $('gradeSubject').value = $('gradeSubjectSelect').value;
+    if (currentClass) SaltGrades.onClassOpen();
+  });
 
   async function loadHomework() {
     if (!currentClass) return;
@@ -472,10 +486,13 @@
         return;
       }
       box.innerHTML = homeworks.map((hw) => {
+        const by = hw.postedByName
+          ? '<span class="muted small"> · ' + escapeHtml(hw.postedByName) + '</span>'
+          : '';
         let html = '<div class="card" style="margin-bottom:0.75rem">' +
           '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
           '<strong>' + escapeHtml(hw.title) + '</strong>' +
-          '<span class="muted small">' + escapeHtml(hw.assignedDate || '') + '</span></div>' +
+          '<span class="muted small">' + escapeHtml(hw.assignedDate || '') + by + '</span></div>' +
           (hw.description ? '<p class="muted small">' + escapeHtml(hw.description) + '</p>' : '');
         (hw.items || []).forEach((item) => {
           html += '<div style="margin-top:0.5rem"><div class="muted small">' +
@@ -485,7 +502,7 @@
             html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' +
               (c.completed ? '<span class="muted">Done</span>' : '<span>Pending</span>') +
               '</td><td>' +
-              (c.completed
+              (c.completed || !hw.canMarkDone
                 ? ''
                 : '<button type="button" class="btn btn-ghost hw-mark" data-item="' +
                   escapeHtml(item.itemId) + '" data-sid="' + escapeHtml(c.studentId) +
@@ -539,191 +556,53 @@
     }
   });
 
-  async function loadBuddyMonitor() {
-    if (!currentClass) return;
-    const box = $('buddyTeacherList');
-    const err = $('buddyTeacherError');
-    err.textContent = '';
-    box.innerHTML = '<p class="muted">Loading…</p>';
-    hide($('buddyTeacherChat'));
-    try {
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/english-buddy', {}, role);
-      const students = data.students || [];
-      let html = '<p class="muted small">Today (' + escapeHtml(data.dateKey || '') + ')</p>';
-      if (!students.length) {
-        html += '<p class="muted">No students.</p>';
-      } else {
-        html += '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
-          '<th>Student</th><th>Used</th><th>Left</th><th>Strikes</th><th></th></tr></thead><tbody>';
-        students.forEach((s) => {
-          html += '<tr><td>' + escapeHtml(s.name) +
-            (s.locked ? ' <span class="muted">(locked)</span>' : '') +
-            '</td><td>' + s.used + '/' + s.limit + '</td><td>' + s.remaining +
-            '</td><td>' + s.strikes + '</td><td style="white-space:nowrap">' +
-            '<button type="button" class="btn btn-ghost buddy-view" data-sid="' + escapeHtml(s.studentId) +
-            '" data-name="' + escapeHtml(s.name) + '">Chat</button> ' +
-            (s.locked
-              ? '<button type="button" class="btn btn-primary buddy-unlock" data-sid="' +
-                escapeHtml(s.studentId) + '">Unlock</button> '
-              : '') +
-            '<button type="button" class="btn btn-ghost buddy-refill" data-sid="' +
-            escapeHtml(s.studentId) + '">Refill</button></td></tr>';
-        });
-        html += '</tbody></table></div>';
-      }
-      if ((data.flags || []).length) {
-        html += '<h4 style="margin-top:1rem">Open flags</h4><ul class="stu-list">';
-        data.flags.forEach((f) => {
-          html += '<li><strong>' + escapeHtml(f.type) + '</strong> · ' +
-            escapeHtml(f.studentId) +
-            '<div class="muted small">' + escapeHtml(f.detail) + '</div></li>';
-        });
-        html += '</ul>';
-      }
-      box.innerHTML = html;
-      box.querySelectorAll('.buddy-view').forEach((btn) => {
-        btn.addEventListener('click', () => openBuddyChat(btn.dataset.sid, btn.dataset.name));
-      });
-      box.querySelectorAll('.buddy-unlock').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/english-buddy/' + encodeURIComponent(btn.dataset.sid) + '/unlock', { method: 'POST' }, role);
-            loadBuddyMonitor();
-          } catch (e) { err.textContent = e.message; }
-        });
-      });
-      box.querySelectorAll('.buddy-refill').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/english-buddy/' + encodeURIComponent(btn.dataset.sid) + '/refill', { method: 'POST' }, role);
-            loadBuddyMonitor();
-          } catch (e) { err.textContent = e.message; }
-        });
-      });
-    } catch (e) {
-      box.innerHTML = '';
-      err.textContent = e.message;
-    }
-  }
-
-  async function openBuddyChat(studentId, name) {
-    const err = $('buddyTeacherError');
-    err.textContent = '';
-    try {
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-        '/english-buddy/' + encodeURIComponent(studentId) + '/history', {}, role);
-      $('buddyChatTitle').textContent = (name || studentId) + ' — chat';
-      $('buddyChatBody').innerHTML = (data.messages || []).map((m) =>
-        '<div class="msg ' + (m.role === 'user' ? 'user' : 'buddy') + '"><div class="msg-meta">' +
-        escapeHtml(m.role === 'user' ? 'Student' : 'English Buddy') +
-        '</div>' + escapeHtml(m.text) + '</div>'
-      ).join('') || '<p class="muted">No messages yet.</p>';
-      show($('buddyTeacherChat'));
-    } catch (e) {
-      err.textContent = e.message;
-    }
-  }
-
-  $('buddyChatClose').addEventListener('click', () => hide($('buddyTeacherChat')));
-
-  async function loadVocabOverview() {
-    if (!currentClass) return;
-    const box = $('vocabTeacherList');
-    const err = $('vocabTeacherError');
-    err.textContent = '';
-    box.innerHTML = '<p class="muted">Loading…</p>';
-    try {
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/vocab', {}, role);
-      const students = data.students || [];
-      if (!students.length) {
-        box.innerHTML = '<p class="muted">No students.</p>';
-        return;
-      }
-      let html = '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
-        '<th>Student</th><th>Tier</th><th>Lv</th><th>Quest</th><th>Streak</th><th></th></tr></thead><tbody>';
-      students.forEach((s) => {
-        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tier || '—') +
-          '</td><td>' + (s.placementDone ? s.gradeLevel : '—') +
-          '</td><td>' + (s.questDone ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
-          '</td><td>' + (s.streak || 0) + '</td><td style="white-space:nowrap">' +
-          '<button type="button" class="btn btn-ghost vocab-reset" data-sid="' + escapeHtml(s.studentId) +
-          '">Reset</button> ' +
-          '<button type="button" class="btn btn-ghost vocab-up" data-sid="' + escapeHtml(s.studentId) +
-          '" data-g="' + (s.gradeLevel || 4) + '">+Lv</button></td></tr>';
-      });
-      html += '</tbody></table></div>';
-      box.innerHTML = html;
-      box.querySelectorAll('.vocab-reset').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/vocab/' + encodeURIComponent(btn.dataset.sid), {
-              method: 'POST',
-              body: { resetPlacement: true }
-            }, role);
-            loadVocabOverview();
-          } catch (e) { err.textContent = e.message; }
-        });
-      });
-      box.querySelectorAll('.vocab-up').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/vocab/' + encodeURIComponent(btn.dataset.sid), {
-              method: 'POST',
-              body: { gradeLevel: Number(btn.dataset.g) + 1, placementDone: true }
-            }, role);
-            loadVocabOverview();
-          } catch (e) { err.textContent = e.message; }
-        });
-      });
-    } catch (e) {
-      box.innerHTML = '';
-      err.textContent = e.message;
-    }
-  }
-
   document.querySelectorAll('#classView .tab').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
   async function loadReport() {
+    if (!currentClass) return;
+    const err = $('reportError');
+    err.textContent = '';
     const term = $('reportTerm').value.trim();
-    const subject = $('reportSubject').value.trim();
+    const subject = $('reportSubjectSelect').value.trim();
     const q = '?term=' + encodeURIComponent(term) + (subject ? '&subject=' + encodeURIComponent(subject) : '');
-    const data = await api('/api/teacher/class/' + currentClass.classId + '/report-card' + q, {}, role);
-    let html = '';
+    try {
+      const data = await api('/api/teacher/class/' + currentClass.classId + '/report-card' + q, {}, role);
+      let html = '';
 
-    if (data.computed && data.computed.length && subject) {
-      html += '<h3>Calculated grades (' + escapeHtml(subject) + ')</h3>';
-      html += '<p class="muted small">From grade weights + entries. Use Sync on Grades tab to push to stored report card.</p>';
-      html += '<table class="grades-table"><thead><tr><th>Student</th><th>Term grade</th>';
-      (data.weights || []).forEach((w) => { html += '<th>' + escapeHtml(w.label) + '</th>'; });
-      html += '</tr></thead><tbody>';
-      data.computed.forEach((st) => {
-        html += '<tr><td>' + escapeHtml(st.name) + '</td><td><strong>' + (st.weightedTotal != null ? st.weightedTotal : '—') + '</strong></td>';
-        (st.categories || []).forEach((c) => {
-          html += '<td>' + (c.categoryPercent != null ? c.categoryPercent + '%' : '—') + '</td>';
+      if (data.computed && data.computed.length && subject) {
+        html += '<h3>Calculated grades (' + escapeHtml(subject) + ')</h3>';
+        html += '<p class="muted small">From grade weights + entries. Use Sync on Grades tab to push to stored report card.</p>';
+        html += '<table class="grades-table"><thead><tr><th>Student</th><th>Term grade</th>';
+        (data.weights || []).forEach((w) => { html += '<th>' + escapeHtml(w.label) + '</th>'; });
+        html += '</tr></thead><tbody>';
+        data.computed.forEach((st) => {
+          html += '<tr><td>' + escapeHtml(st.name) + '</td><td><strong>' + (st.weightedTotal != null ? st.weightedTotal : '—') + '</strong></td>';
+          (st.categories || []).forEach((c) => {
+            html += '<td>' + (c.categoryPercent != null ? c.categoryPercent + '%' : '—') + '</td>';
+          });
+          html += '</tr>';
         });
-        html += '</tr>';
+        html += '</tbody></table>';
+      }
+
+      (data.summary || []).forEach(st => {
+        html += '<h3>' + escapeHtml(st.name) + '</h3><table><thead><tr><th>Field</th><th>Score</th><th>Comment</th></tr></thead><tbody>';
+        Object.keys(st.subjects || {}).forEach(sub => {
+          (st.subjects[sub] || []).forEach(f => {
+            html += '<tr><td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
+              '<td>' + (f.score != null ? f.score : '—') + '</td>' +
+              '<td>' + escapeHtml(f.comment || '') + '</td></tr>';
+          });
+        });
+        html += '</tbody></table>';
       });
-      html += '</tbody></table>';
+      $('reportBody').innerHTML = html || '<p style="color:var(--muted)">No report card data yet. Set grades and sync, or pick a subject and load.</p>';
+    } catch (e) {
+      $('reportBody').innerHTML = '';
+      err.textContent = e.message;
     }
-
-    (data.summary || []).forEach(st => {
-      html += '<h3>' + escapeHtml(st.name) + '</h3><table><thead><tr><th>Field</th><th>Score</th><th>Comment</th></tr></thead><tbody>';
-      Object.keys(st.subjects || {}).forEach(sub => {
-        (st.subjects[sub] || []).forEach(f => {
-          html += '<tr><td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
-            '<td>' + (f.score != null ? f.score : '—') + '</td>' +
-            '<td>' + escapeHtml(f.comment || '') + '</td></tr>';
-        });
-      });
-      html += '</tbody></table>';
-    });
-    $('reportBody').innerHTML = html || '<p style="color:var(--muted)">Select a subject and load. Set grade weights on the Grades tab first.</p>';
   }
 
   $('loadReportBtn').addEventListener('click', loadReport);

@@ -11,6 +11,7 @@ window.SaltAttendance = (function() {
 
   let deps = {};
   let workData = null;
+  let boardExtras = {};
   let saving = {};
 
   function $(id) { return deps.$(id); }
@@ -19,6 +20,11 @@ window.SaltAttendance = (function() {
 
   function getClass() {
     return typeof deps.getClass === 'function' ? deps.getClass() : null;
+  }
+
+  function isHomeroom() {
+    const cls = getClass();
+    return !!(cls && cls.isHomeroom);
   }
 
   function api(path, opts) {
@@ -47,8 +53,12 @@ window.SaltAttendance = (function() {
     $('attScheduleAlert').textContent = 'Loading…';
     $('attScheduleAlert').className = 'att-alert';
     $('attStudentList').innerHTML = '';
+    boardExtras = {};
     try {
       workData = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/work?date=' + encodeURIComponent(date));
+      const q = isHomeroom() ? '?monitors=1' : '';
+      const extras = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/attendance-board' + q);
+      (extras.students || []).forEach((s) => { boardExtras[s.studentId] = s; });
       renderScheduleAlert();
       renderStudentList();
     } catch (e) {
@@ -98,6 +108,15 @@ window.SaltAttendance = (function() {
     box.querySelectorAll('.att-excuse-input').forEach((inp) => {
       inp.addEventListener('blur', () => onExcuseBlur(inp));
     });
+    box.querySelectorAll('.att-dollar-save').forEach((btn) => {
+      btn.addEventListener('click', () => onDollarSave(btn));
+    });
+    box.querySelectorAll('.att-buddy-unlock').forEach((btn) => {
+      btn.addEventListener('click', () => onBuddyUnlock(btn));
+    });
+    box.querySelectorAll('.att-vocab-reset').forEach((btn) => {
+      btn.addEventListener('click', () => onVocabReset(btn));
+    });
   }
 
   function renderStudentCard(std) {
@@ -112,25 +131,147 @@ window.SaltAttendance = (function() {
     const excusedBadge = hasExcuse && showExcuse
       ? '<span class="att-badge att-badge-excused">Excused → counts Present</span>'
       : '';
+    const extra = boardExtras[key] || { dollars: 0 };
+    const hr = isHomeroom();
 
-    return '<article class="att-student-card" data-student-id="' + escapeHtml(key) + '" data-attendance="' + escapeHtml(att) + '" data-excuse="' + escapeHtml(std.excuse || '') + '">' +
+    let attBlock;
+    if (hr) {
+      attBlock =
+        '<div class="att-btn-row">' +
+          ['present', 'tardy', 'absent'].map((k) =>
+            '<button type="button" class="att-status-btn att-' + k + (attKey === k ? ' active' : '') + '" data-att="' + k + '">' + ATT_LABEL[k] + '</button>'
+          ).join('') +
+        '</div>' +
+        '<div class="att-excuse-row' + (showExcuse ? '' : ' hidden') + '" data-excuse-row>' +
+          '<label class="att-excuse-label"><input type="checkbox" class="att-excuse-toggle" data-excuse-toggle' + (hasExcuse ? ' checked' : '') + '> With excuse (counts Present)</label>' +
+          '<input type="text" class="att-excuse-input" placeholder="Excuse reason (doctor, family trip…)" value="' + escapeHtml(std.excuse || '') + '" maxlength="200">' +
+        '</div>';
+    } else {
+      attBlock =
+        '<div class="att-readonly">' +
+          '<span class="att-status-pill att-' + attKey + '">' + ATT_LABEL[attKey] + '</span>' +
+          (excusedBadge || '') +
+          (planned || '') +
+          '<span class="muted small">Homeroom only</span>' +
+        '</div>';
+    }
+
+    let tools = '<div class="att-tools">' +
+      '<div class="att-dollar-compact">' +
+        '<strong class="att-dollar-bal" data-dollar-bal>$' + escapeHtml(String(extra.dollars || 0)) + '</strong>' +
+        '<input type="number" class="att-dollar-amt" step="1" placeholder="±" title="Amount (+earn / −spend)">' +
+        '<button type="button" class="btn btn-primary att-dollar-save" data-sid="' + escapeHtml(key) + '" title="Apply dollars">$</button>' +
+      '</div>';
+
+    if (hr) {
+      const buddy = extra.buddy || { used: 0, remaining: '—', locked: false, strikes: 0 };
+      const vocab = extra.vocab || { placementDone: false, tier: null, streak: 0 };
+      tools += '<div class="att-tool-row att-monitor-row">' +
+        '<span class="att-tool-label">Buddy</span>' +
+        '<span class="muted small">' +
+          (buddy.locked ? 'Locked · ' : '') +
+          'left ' + escapeHtml(String(buddy.remaining)) +
+          (buddy.strikes ? ' · strikes ' + buddy.strikes : '') +
+        '</span>' +
+        (buddy.locked
+          ? '<button type="button" class="btn btn-ghost att-buddy-unlock" data-sid="' + escapeHtml(key) + '">Unlock</button>'
+          : '') +
+      '</div>';
+      tools += '<div class="att-tool-row att-monitor-row">' +
+        '<span class="att-tool-label">Booster</span>' +
+        '<span class="muted small">' +
+          (vocab.placementDone
+            ? escapeHtml(String(vocab.tier || '—')) + ' Lv' + escapeHtml(String(vocab.gradeLevel || '—')) +
+              ' · streak ' + escapeHtml(String(vocab.streak || 0)) +
+              (vocab.questDone ? ' · quest done' : ' · quest open')
+            : 'Placement pending') +
+        '</span>' +
+        '<button type="button" class="btn btn-ghost att-vocab-reset" data-sid="' + escapeHtml(key) + '">Reset</button>' +
+      '</div>';
+    }
+
+    tools += '</div>';
+
+    return '<article class="att-student-card' + (hr ? '' : ' att-card-subject') + '" data-student-id="' + escapeHtml(key) + '" data-attendance="' + escapeHtml(att) + '" data-excuse="' + escapeHtml(std.excuse || '') + '">' +
       '<div class="att-student-head">' +
         '<strong class="att-student-name">' + escapeHtml(std.name) + '</strong>' +
         '<div class="att-head-right">' +
-          '<div class="att-badges">' + planned + excusedBadge + '<span class="att-save-status" data-status></span></div>' +
-          '<button type="button" class="btn btn-ghost att-plan-btn" data-plan data-student-id="' + escapeHtml(key) + '" data-student-name="' + escapeHtml(std.name) + '">Plan absence</button>' +
+          '<div class="att-badges">' +
+            (hr ? planned + excusedBadge : '') +
+            '<span class="att-save-status" data-status></span>' +
+          '</div>' +
+          (hr
+            ? '<button type="button" class="btn btn-ghost att-plan-btn" data-plan data-student-id="' + escapeHtml(key) + '" data-student-name="' + escapeHtml(std.name) + '">Plan absence</button>'
+            : '') +
         '</div>' +
       '</div>' +
-      '<div class="att-btn-row">' +
-        ['present', 'tardy', 'absent'].map((k) =>
-          '<button type="button" class="att-status-btn att-' + k + (attKey === k ? ' active' : '') + '" data-att="' + k + '">' + ATT_LABEL[k] + '</button>'
-        ).join('') +
-      '</div>' +
-      '<div class="att-excuse-row' + (showExcuse ? '' : ' hidden') + '" data-excuse-row>' +
-        '<label class="att-excuse-label"><input type="checkbox" class="att-excuse-toggle" data-excuse-toggle' + (hasExcuse ? ' checked' : '') + '> With excuse (counts Present)</label>' +
-        '<input type="text" class="att-excuse-input" placeholder="Excuse reason (doctor, family trip…)" value="' + escapeHtml(std.excuse || '') + '" maxlength="200">' +
-      '</div>' +
+      attBlock +
+      tools +
     '</article>';
+  }
+
+  async function onDollarSave(btn) {
+    const cls = getClass();
+    if (!cls) return;
+    const card = btn.closest('.att-student-card');
+    const amt = card.querySelector('.att-dollar-amt');
+    if (!amt || amt.value === '' || Number(amt.value) === 0) {
+      setSaveStatus(btn.dataset.sid, 'Enter amount', false);
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const res = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/dollars', {
+        method: 'POST',
+        body: {
+          studentId: btn.dataset.sid,
+          amount: amt.value,
+          reason: 'Teacher adjust'
+        }
+      });
+      const bal = card.querySelector('[data-dollar-bal]');
+      if (bal) bal.textContent = '$' + (res.balance != null ? res.balance : (boardExtras[btn.dataset.sid] || {}).dollars || 0);
+      if (boardExtras[btn.dataset.sid]) boardExtras[btn.dataset.sid].dollars = res.balance;
+      amt.value = '';
+      setSaveStatus(btn.dataset.sid, 'Saved', true);
+      setTimeout(() => setSaveStatus(btn.dataset.sid, '', null), 1200);
+    } catch (e) {
+      setSaveStatus(btn.dataset.sid, e.message || 'Error', false);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function onBuddyUnlock(btn) {
+    const cls = getClass();
+    if (!cls) return;
+    btn.disabled = true;
+    try {
+      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
+        '/english-buddy/' + encodeURIComponent(btn.dataset.sid) + '/unlock', { method: 'POST' });
+      await loadWork();
+    } catch (e) {
+      setSaveStatus(btn.dataset.sid, e.message || 'Error', false);
+      btn.disabled = false;
+    }
+  }
+
+  async function onVocabReset(btn) {
+    const cls = getClass();
+    if (!cls) return;
+    if (!confirm('Reset Vocab Booster placement for this student?')) return;
+    btn.disabled = true;
+    try {
+      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
+        '/vocab/' + encodeURIComponent(btn.dataset.sid), {
+        method: 'POST',
+        body: { resetPlacement: true }
+      });
+      await loadWork();
+    } catch (e) {
+      setSaveStatus(btn.dataset.sid, e.message || 'Error', false);
+      btn.disabled = false;
+    }
   }
 
   function cardEl(studentId) {
@@ -154,6 +295,7 @@ window.SaltAttendance = (function() {
   }
 
   async function persistStudent(studentId, patch) {
+    if (!isHomeroom()) return;
     const cls = getClass();
     if (!cls) return;
     const card = cardEl(studentId);
@@ -204,6 +346,7 @@ window.SaltAttendance = (function() {
   }
 
   function onStatusClick(btn) {
+    if (!isHomeroom()) return;
     const card = btn.closest('.att-student-card');
     const studentId = card.dataset.studentId;
     const key = btn.dataset.att;
@@ -212,7 +355,7 @@ window.SaltAttendance = (function() {
     card.querySelectorAll('.att-status-btn').forEach((b) => b.classList.toggle('active', b === btn));
     const excuseRow = card.querySelector('[data-excuse-row]');
     const showExcuse = key === 'tardy' || key === 'absent';
-    excuseRow.classList.toggle('hidden', !showExcuse);
+    if (excuseRow) excuseRow.classList.toggle('hidden', !showExcuse);
     if (!showExcuse) {
       card.dataset.excuse = '';
       const toggle = card.querySelector('[data-excuse-toggle]');
@@ -224,6 +367,7 @@ window.SaltAttendance = (function() {
   }
 
   function onExcuseToggle(btn) {
+    if (!isHomeroom()) return;
     const card = btn.closest('.att-student-card');
     const inp = card.querySelector('.att-excuse-input');
     if (btn.checked && inp) inp.focus();
@@ -232,6 +376,7 @@ window.SaltAttendance = (function() {
   }
 
   function onExcuseBlur(inp) {
+    if (!isHomeroom()) return;
     const card = inp.closest('.att-student-card');
     const toggle = card.querySelector('[data-excuse-toggle]');
     const excuse = inp.value.trim();
@@ -243,6 +388,7 @@ window.SaltAttendance = (function() {
   let plannedStudentId = '';
 
   function openPlannedModal(studentId, studentName) {
+    if (!isHomeroom()) return;
     plannedStudentId = studentId;
     $('plannedStudentName').textContent = studentName;
     const base = $('attDate').value || todayISO();

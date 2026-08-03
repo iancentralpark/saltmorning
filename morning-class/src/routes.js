@@ -4,7 +4,7 @@ const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified } = require('./services/authService');
 const { requireRole } = require('./auth/tokenAuth');
-const { getTeacherClasses, getClassRoster } = require('./services/teacherPortalService');
+const { getTeacherClasses, getClassRoster, getTeacherProfile, isHomeroomOfClass } = require('./services/teacherPortalService');
 const { getAttendanceForDate, saveAttendance, getClassWorkData, upsertStudentRecord } = require('./services/attendanceService');
 const {
   listPlannedAttendance,
@@ -75,7 +75,9 @@ const {
   listAdminClassAssignments,
   saveAdminClassAssignment,
   deleteAdminClassAssignment,
-  assertTeacherClassAccess
+  assertTeacherClassAccess,
+  getSubjectsForClass,
+  listCatalogSubjects
 } = require('./services/subjectAssignmentService');
 const {
   listStudents,
@@ -136,6 +138,7 @@ const {
   overrideStudentVocab
 } = require('./services/vocabService');
 const { scorePlacement } = require('./services/vocabPlacementService');
+const { getAttendanceBoardExtras } = require('./services/attendanceBoardService');
 const { todayStr } = require('./dateUtils');
 
 const photoUpload = multer({
@@ -148,6 +151,23 @@ const photoUpload = multer({
 });
 
 const router = express.Router();
+
+async function assertHomeroomOfClass(teacherId, classId) {
+  await assertTeacherClassAccess(teacherId, classId);
+  if (!(await isHomeroomOfClass(teacherId, classId))) {
+    throw new Error('Homeroom teachers only.');
+  }
+}
+
+async function assertTeacherSubjectAccess(teacherId, classId, subject) {
+  await assertTeacherClassAccess(teacherId, classId);
+  if (await isHomeroomOfClass(teacherId, classId)) return;
+  const subjects = await getSubjectsForClass(teacherId, classId);
+  const subj = String(subject || '').trim();
+  if (!subj || !subjects.includes(subj)) {
+    throw new Error('You are not assigned to this subject.');
+  }
+}
 
 router.get('/health', (req, res) => {
   res.json({
@@ -222,6 +242,7 @@ router.get('/teacher/class/:classId/roster', requireRole('teacher'), async (req,
 
 router.get('/teacher/class/:classId/work', requireRole('teacher'), async (req, res) => {
   try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
     const data = await getClassWorkData(req.params.classId, req.query.date);
     res.json(data);
   } catch (e) {
@@ -229,8 +250,22 @@ router.get('/teacher/class/:classId/work', requireRole('teacher'), async (req, r
   }
 });
 
+router.get('/teacher/class/:classId/attendance-board', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const wantMonitors = String(req.query.monitors || '') === '1' ||
+      String(req.query.monitors || '').toLowerCase() === 'true';
+    const includeMonitors = wantMonitors &&
+      await isHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await getAttendanceBoardExtras(req.params.classId, { includeMonitors }));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load attendance board.' });
+  }
+});
+
 router.post('/teacher/class/:classId/attendance/record', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const { studentId, date, attendance, excuse } = req.body || {};
     if (!studentId || !date || !attendance) {
       return res.status(400).json({ error: 'studentId, date, and attendance are required.' });
@@ -245,7 +280,8 @@ router.post('/teacher/class/:classId/attendance/record', requireRole('teacher'),
     );
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save record.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save record.' });
   }
 });
 
@@ -275,6 +311,7 @@ router.get('/teacher/class/:classId/planned-attendance/calendar', requireRole('t
 
 router.post('/teacher/class/:classId/planned-attendance', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const { studentId, startDateStr, endDateStr, dateStr, type, note } = req.body || {};
     const start = startDateStr || dateStr;
     const result = await createPlannedAttendance(
@@ -287,16 +324,19 @@ router.post('/teacher/class/:classId/planned-attendance', requireRole('teacher')
     );
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save planned attendance.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save planned attendance.' });
   }
 });
 
 router.post('/teacher/class/:classId/planned-attendance/cancel', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const result = await cancelPlannedAttendance(req.body.noticeId);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not cancel notice.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not cancel notice.' });
   }
 });
 
@@ -322,10 +362,12 @@ router.get('/teacher/class/:classId/attendance', requireRole('teacher'), async (
 
 router.post('/teacher/class/:classId/attendance', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const result = await saveAttendance(req.params.classId, req.body.date || todayStr(), req.body.records);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save attendance.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save attendance.' });
   }
 });
 
@@ -371,6 +413,7 @@ router.get('/teacher/class/:classId/grades/gradebook', requireRole('teacher'), a
     const term = req.query.term || 'Term1';
     const subject = req.query.subject || '';
     if (!subject) return res.status(400).json({ error: 'subject is required.' });
+    await assertTeacherSubjectAccess(req.session.teacherId, classId, subject);
     const students = await getClassRoster(classId);
     const book = await getGradebook(classId, term, subject, students);
     res.json(book);
@@ -382,6 +425,7 @@ router.get('/teacher/class/:classId/grades/gradebook', requireRole('teacher'), a
 router.post('/teacher/class/:classId/grades/gradebook/column', requireRole('teacher'), async (req, res) => {
   try {
     const { term, subject, categoryKey, title, date, maxScore } = req.body || {};
+    await assertTeacherSubjectAccess(req.session.teacherId, req.params.classId, subject);
     const column = await createAssessment(
       req.params.classId,
       term,
@@ -397,6 +441,7 @@ router.post('/teacher/class/:classId/grades/gradebook/column', requireRole('teac
 
 router.delete('/teacher/class/:classId/grades/gradebook/column/:assessmentId', requireRole('teacher'), async (req, res) => {
   try {
+    await assertTeacherSubjectAccess(req.session.teacherId, req.params.classId, req.query.subject);
     const result = await deleteAssessment(
       req.params.assessmentId,
       req.params.classId,
@@ -412,6 +457,7 @@ router.delete('/teacher/class/:classId/grades/gradebook/column/:assessmentId', r
 router.post('/teacher/class/:classId/grades/gradebook/cell', requireRole('teacher'), async (req, res) => {
   try {
     const { assessmentId, studentId, score, subject, term } = req.body || {};
+    await assertTeacherSubjectAccess(req.session.teacherId, req.params.classId, subject);
     const result = await saveAssessmentCell(
       assessmentId,
       studentId,
@@ -510,7 +556,21 @@ router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async 
   try {
     const classId = req.params.classId;
     const term = req.query.term || 'Term1';
-    const subject = req.query.subject || '';
+    let subject = String(req.query.subject || '').trim();
+    const isHR = await isHomeroomOfClass(req.session.teacherId, classId);
+    await assertTeacherClassAccess(req.session.teacherId, classId);
+
+    let allowedSubjects = [];
+    if (isHR) {
+      allowedSubjects = await listCatalogSubjects();
+    } else {
+      allowedSubjects = await getSubjectsForClass(req.session.teacherId, classId);
+      if (!subject) subject = allowedSubjects[0] || '';
+      if (subject && !allowedSubjects.includes(subject)) {
+        return res.status(403).json({ error: 'You can only view your assigned subject(s).' });
+      }
+    }
+
     const students = await getClassRoster(classId);
     const computed = subject
       ? await buildReportCardFromGrades(classId, term, subject, students)
@@ -523,6 +583,8 @@ router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async 
     res.json({
       term,
       subject: subject || null,
+      isHomeroom: isHR,
+      allowedSubjects,
       fields: filteredFields,
       summary,
       computed,
@@ -536,6 +598,7 @@ router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async 
 
 router.post('/teacher/class/:classId/report-card', requireRole('teacher'), async (req, res) => {
   try {
+    await assertTeacherSubjectAccess(req.session.teacherId, req.params.classId, req.body.subject);
     const result = await saveReportCardEntries(
       req.params.classId,
       req.body.term,
@@ -694,7 +757,12 @@ router.post('/teacher/class/:classId/dollars', requireRole('teacher'), async (re
 
 router.get('/teacher/class/:classId/homework', requireRole('teacher'), async (req, res) => {
   try {
-    res.json(await getClassHomework(req.params.classId));
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const viewerIsHomeroom = await isHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await getClassHomework(req.params.classId, {
+      teacherId: req.session.teacherId,
+      viewerIsHomeroom
+    }));
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load homework.' });
   }
@@ -702,7 +770,14 @@ router.get('/teacher/class/:classId/homework', requireRole('teacher'), async (re
 
 router.post('/teacher/class/:classId/homework', requireRole('teacher'), async (req, res) => {
   try {
-    const data = await postHomework(req.params.classId, req.body || {});
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const profile = await getTeacherProfile(req.session.teacherId);
+    const viewerIsHomeroom = await isHomeroomOfClass(req.session.teacherId, req.params.classId);
+    const data = await postHomework(req.params.classId, req.body || {}, {
+      teacherId: req.session.teacherId,
+      teacherName: profile ? profile.name : '',
+      viewerIsHomeroom
+    });
     res.json(data);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not post homework.' });
@@ -711,8 +786,12 @@ router.post('/teacher/class/:classId/homework', requireRole('teacher'), async (r
 
 router.post('/teacher/class/:classId/homework/complete', requireRole('teacher'), async (req, res) => {
   try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
     const { itemId, studentId, completed, fixNote } = req.body || {};
-    const result = await setHomeworkCompletion(itemId, studentId, completed !== false, fixNote);
+    const result = await setHomeworkCompletion(
+      itemId, studentId, completed !== false, fixNote,
+      { teacherId: req.session.teacherId }
+    );
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not update completion.' });
@@ -865,17 +944,21 @@ router.post('/student/vocab/deep-dive', requireRole('student'), async (req, res)
 
 router.get('/teacher/class/:classId/vocab', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await getClassVocabOverview(req.params.classId));
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Could not load vocab overview.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load Vocab Booster overview.' });
   }
 });
 
 router.post('/teacher/class/:classId/vocab/:studentId', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await overrideStudentVocab(req.params.studentId, req.params.classId, req.body || {}));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not update vocab state.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not update Vocab Booster state.' });
   }
 });
 
@@ -916,34 +999,42 @@ router.post('/student/english-buddy', requireRole('student'), async (req, res) =
 
 router.get('/teacher/class/:classId/english-buddy', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await listBuddyMonitorForClass(req.params.classId));
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Could not load English Buddy monitor.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load English Buddy monitor.' });
   }
 });
 
 router.get('/teacher/class/:classId/english-buddy/:studentId/history', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const messages = await getBuddyChatHistory(req.params.studentId, req.params.classId);
     res.json({ messages, status: getBuddyStatus(req.params.studentId) });
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Could not load history.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load history.' });
   }
 });
 
 router.post('/teacher/class/:classId/english-buddy/:studentId/unlock', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await unlockBuddy(req.params.studentId));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not unlock.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not unlock.' });
   }
 });
 
 router.post('/teacher/class/:classId/english-buddy/:studentId/refill', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await refillBuddyUsage(req.params.studentId));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not refill.' });
+    const status = /Homeroom|assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not refill.' });
   }
 });
 
