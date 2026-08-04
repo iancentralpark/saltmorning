@@ -4,7 +4,12 @@ const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified } = require('./services/authService');
 const { requireRole } = require('./auth/tokenAuth');
-const { getTeacherClasses, getClassRoster } = require('./services/teacherPortalService');
+const {
+  getTeacherClasses,
+  getClassRoster,
+  isHomeroomOfClass
+} = require('./services/teacherPortalService');
+const { getAttendanceBoardExtras } = require('./services/attendanceBoardService');
 const { getAttendanceForDate, saveAttendance, getClassWorkData, upsertStudentRecord } = require('./services/attendanceService');
 const {
   listPlannedAttendance,
@@ -170,6 +175,13 @@ const photoUpload = multer({
 
 const router = express.Router();
 
+async function assertHomeroomOfClass(teacherId, classId) {
+  await assertTeacherClassAccess(teacherId, classId);
+  if (!(await isHomeroomOfClass(teacherId, classId))) {
+    throw new Error('Homeroom teachers only.');
+  }
+}
+
 router.get('/health', (req, res) => {
   res.json({
     ok: true,
@@ -249,15 +261,32 @@ router.get('/teacher/class/:classId/roster', requireRole('teacher'), async (req,
 
 router.get('/teacher/class/:classId/work', requireRole('teacher'), async (req, res) => {
   try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
     const data = await getClassWorkData(req.params.classId, req.query.date);
     res.json(data);
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Could not load class work.' });
+    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load class work.' });
+  }
+});
+
+router.get('/teacher/class/:classId/attendance-board', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const wantMonitors = String(req.query.monitors || '') === '1' ||
+      String(req.query.monitors || '').toLowerCase() === 'true';
+    const includeMonitors = wantMonitors &&
+      await isHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await getAttendanceBoardExtras(req.params.classId, { includeMonitors }));
+  } catch (e) {
+    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load attendance board.' });
   }
 });
 
 router.post('/teacher/class/:classId/attendance/record', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const { studentId, date, attendance, excuse } = req.body || {};
     if (!studentId || !date || !attendance) {
       return res.status(400).json({ error: 'studentId, date, and attendance are required.' });
@@ -272,7 +301,8 @@ router.post('/teacher/class/:classId/attendance/record', requireRole('teacher'),
     );
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save record.' });
+    const status = /Homeroom|assigned|access/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save record.' });
   }
 });
 
@@ -302,6 +332,7 @@ router.get('/teacher/class/:classId/planned-attendance/calendar', requireRole('t
 
 router.post('/teacher/class/:classId/planned-attendance', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const { studentId, startDateStr, endDateStr, dateStr, type, note } = req.body || {};
     const start = startDateStr || dateStr;
     const result = await createPlannedAttendance(
@@ -314,16 +345,20 @@ router.post('/teacher/class/:classId/planned-attendance', requireRole('teacher')
     );
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save planned attendance.' });
+    const status = /Homeroom|assigned|access/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save planned attendance.' });
   }
 });
 
 router.post('/teacher/class/:classId/planned-attendance/cancel', requireRole('teacher'), async (req, res) => {
   try {
+    // Cancel is scoped by noticeId; require homeroom of the class when classId is present
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const result = await cancelPlannedAttendance(req.body.noticeId);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not cancel notice.' });
+    const status = /Homeroom|assigned|access/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not cancel notice.' });
   }
 });
 
@@ -349,10 +384,12 @@ router.get('/teacher/class/:classId/attendance', requireRole('teacher'), async (
 
 router.post('/teacher/class/:classId/attendance', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const result = await saveAttendance(req.params.classId, req.body.date || todayStr(), req.body.records);
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save attendance.' });
+    const status = /Homeroom|assigned|access/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save attendance.' });
   }
 });
 
@@ -1679,7 +1716,9 @@ router.post('/admin/timetable/classes/:classId', requireRole('admin'), async (re
       teachersUpdated: timetable.teachersUpdated || 0
     });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save class timetable.' });
+    console.error('[timetable] save class failed:', e);
+    const status = /conflict|period|required|double-book/i.test(e.message || '') ? 400 : 500;
+    res.status(status).json({ error: e.message || 'Could not save class timetable.' });
   }
 });
 

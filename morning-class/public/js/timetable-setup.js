@@ -295,8 +295,8 @@
 
     mountEl.innerHTML =
       (solverOk
-        ? '<p class="tt-solver-ok muted small">✓ OR-Tools solver connected — Auto-Solve respects locked cells</p>'
-        : '<p class="tt-solver-warn error">Solver offline — run: <code>cd morning-class/solver && pip install -r requirements.txt && python main.py</code></p>') +
+        ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
+        : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
       '<div id="ttBellMount"></div><div id="ttReqMount"></div>';
 
     renderBellEditor(mountEl.querySelector('#ttBellMount'), bellData);

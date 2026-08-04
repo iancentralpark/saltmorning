@@ -492,52 +492,96 @@ async function saveClassTimetable(classId, entries, options) {
   return Object.assign({}, result, sync);
 }
 
+function teacherEntriesFromClassRows(allClassEntries, teacherId, now) {
+  return sortEntries(
+    allClassEntries
+      .filter((e) => e.teacherId === teacherId)
+      .map((e) => ({
+        entryId: newId('tte'),
+        ownerType: 'teacher',
+        ownerId: teacherId,
+        classId: e.classId || e.ownerId,
+        dayOfWeek: e.dayOfWeek,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        subject: e.subject,
+        teacherId,
+        room: e.room,
+        notes: e.notes,
+        sortOrder: e.sortOrder,
+        updatedAt: now,
+        locked: !!e.locked,
+        periodId: e.periodId || ''
+      }))
+  );
+}
+
 async function rebuildTeacherTimetable(teacherId) {
   const all = await loadAllEntries();
-  const classEntries = all.filter((e) => e.ownerType === 'class' && e.teacherId === teacherId);
-  const now = isoNow();
-  const entries = sortEntries(classEntries.map((e) => ({
-    entryId: newId('tte'),
-    ownerType: 'teacher',
-    ownerId: teacherId,
-    classId: e.classId,
-    dayOfWeek: e.dayOfWeek,
-    startTime: e.startTime,
-    endTime: e.endTime,
-    subject: e.subject,
-    teacherId,
-    room: e.room,
-    notes: e.notes,
-    sortOrder: e.sortOrder,
-    updatedAt: now,
-    locked: !!e.locked,
-    periodId: e.periodId || ''
-  })));
+  const classEntries = all.filter((e) => e.ownerType === 'class');
+  const entries = teacherEntriesFromClassRows(classEntries, teacherId, isoNow());
   await writeOwnerRows('teacher', teacherId, entries);
 }
 
+/**
+ * Sync teachers + clear stale per-student copies in ONE sheet rewrite.
+ * Students inherit the class timetable via getTimetable() fallback when they
+ * have no personal rows — avoids N full-sheet writes that timed out Save & sync.
+ */
 async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
   classId = String(classId);
   const roster = await getClassRoster(classId);
+  const rosterIds = new Set(roster.map((s) => String(s.studentId)));
+  const teacherIds = [...new Set(
+    (teacherIdsOverride || classEntries.map((e) => e.teacherId).filter(Boolean))
+      .map(String)
+  )];
+  const teacherIdSet = new Set(teacherIds);
   const now = isoNow();
-  const teacherIds = teacherIdsOverride
-    || [...new Set(classEntries.map((e) => e.teacherId).filter(Boolean))];
 
-  for (const teacherId of teacherIds) {
-    await rebuildTeacherTimetable(teacherId);
+  await ensureTimetableSheet();
+  const allRows = await getSheetRows(TIMETABLE_ENTRIES_SHEET, { skipCache: true });
+  const kept = [];
+  const classEntriesAll = [];
+
+  for (let i = 1; i < allRows.length; i++) {
+    const row = allRows[i].slice();
+    while (row.length < HEADERS.length) row.push('');
+    const type = String(row[COL.ownerType] || '');
+    const id = String(row[COL.ownerId] || '');
+
+    if (type === 'student' && rosterIds.has(id)) continue; // clear materializations
+    if (type === 'teacher' && teacherIdSet.has(id)) continue; // rebuild below
+
+    if (type === 'class') {
+      const parsed = rowToEntry(row);
+      if (parsed) classEntriesAll.push(parsed);
+    }
+    kept.push(row.slice(0, HEADERS.length));
   }
 
-  for (const student of roster) {
-    const studentEntries = classEntries.map((e) => ({
-      ...e,
-      entryId: newId('tte'),
-      ownerType: 'student',
-      ownerId: student.studentId,
-      classId,
-      updatedAt: now
-    }));
-    await writeOwnerRows('student', student.studentId, studentEntries);
+  const teacherRows = [];
+  teacherIds.forEach((teacherId) => {
+    teacherEntriesFromClassRows(classEntriesAll, teacherId, now).forEach((e) => {
+      teacherRows.push(entryToRow(e));
+    });
+  });
+
+  const combined = kept.concat(teacherRows);
+  const oldCount = Math.max(0, allRows.length - 1);
+  const rowWidth = HEADERS.length;
+
+  if (!oldCount && !combined.length) {
+    return { studentsUpdated: roster.length, teachersUpdated: teacherIds.length };
   }
+
+  const maxRows = Math.max(oldCount, combined.length);
+  const toWrite = [];
+  for (let i = 0; i < maxRows; i++) {
+    toWrite.push(i < combined.length ? combined[i] : new Array(rowWidth).fill(''));
+  }
+  await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:O${maxRows + 1}`, toWrite);
+  invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
 
   return {
     studentsUpdated: roster.length,
