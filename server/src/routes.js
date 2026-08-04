@@ -65,6 +65,7 @@ const {
   shouldStopPlacement
 } = require('./vocabPlacementService');
 const {
+  configureVocabLearning,
   bulkUpsertWords,
   listWords: listVocabWords,
   getWordBankStats,
@@ -83,6 +84,11 @@ const {
   listActiveGenerationJobs: listActiveVocabGenerationJobs,
   buildPlacementItem
 } = require('./vocabLearningService');
+
+configureVocabLearning({
+  tenantId: process.env.VOCAB_TENANT_ID || 'mrpark',
+  skipLuckyDraw: process.env.VOCAB_SKIP_LUCKY_DRAW === 'true'
+});
 const { startGenerationJob: startVocabGenerationJob, cancelGenerationJob: cancelVocabGenerationJob } = require('./vocabWordGenService');
 const {
   getThread,

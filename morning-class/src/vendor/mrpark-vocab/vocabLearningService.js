@@ -17,7 +17,9 @@ const adapters = {
   applyDollarAdjustment: null,
   getStudentSchoolGrade: null,
   grantLuckyReward: null,
-  skipLuckyDraw: process.env.VOCAB_SKIP_LUCKY_DRAW === 'true'
+  skipLuckyDraw: process.env.VOCAB_SKIP_LUCKY_DRAW === 'true',
+  /** Multi-tenant scope — required for shared central DB across schools/sites. */
+  tenantId: process.env.VOCAB_TENANT_ID || 'mrpark'
 };
 
 function configureVocabLearning(overrides) {
@@ -25,6 +27,16 @@ function configureVocabLearning(overrides) {
   Object.keys(overrides).forEach((k) => {
     if (Object.prototype.hasOwnProperty.call(adapters, k)) adapters[k] = overrides[k];
   });
+}
+
+function tenantId() {
+  const id = String(adapters.tenantId || process.env.VOCAB_TENANT_ID || 'mrpark').trim();
+  if (!id) throw new Error('VOCAB_TENANT_ID is required for Vocab Booster.');
+  return id;
+}
+
+function withTenant(row) {
+  return Object.assign({}, row || {}, { tenant_id: tenantId() });
 }
 
 function hostGetEnrolledStudents(classId) {
@@ -528,14 +540,15 @@ async function savePlacementResult(studentId, classId, result) {
     placement_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
+  const { error } = await db.from('vocab_student_state').upsert(withTenant(row), { onConflict: 'tenant_id,student_id' });
   if (error) throw new Error(error.message);
   return { ok: true };
 }
 
 async function getStudentState(studentId) {
   const db = requireDb();
-  const { data, error } = await db.from('vocab_student_state').select('*').eq('student_id', String(studentId)).maybeSingle();
+  const { data, error } = await db.from('vocab_student_state').select('*')
+    .eq('tenant_id', tenantId()).eq('student_id', String(studentId)).maybeSingle();
   if (error) throw new Error(error.message);
   return data || null;
 }
@@ -545,7 +558,8 @@ async function getStudentState(studentId) {
 async function getClassSettings(classId) {
   const db = requireDb();
   classId = String(classId);
-  const { data, error } = await db.from('vocab_class_settings').select('*').eq('class_id', classId).maybeSingle();
+  const { data, error } = await db.from('vocab_class_settings').select('*')
+    .eq('tenant_id', tenantId()).eq('class_id', classId).maybeSingle();
   if (error) throw new Error(error.message);
   const row = data || {
     class_id: classId,
@@ -578,7 +592,7 @@ async function saveClassSettings(classId, opts) {
     max_daily_sessions: maxSessions,
     updated_at: new Date().toISOString()
   };
-  const { error } = await db.from('vocab_class_settings').upsert(row, { onConflict: 'class_id' });
+  const { error } = await db.from('vocab_class_settings').upsert(withTenant(row), { onConflict: 'tenant_id,class_id' });
   if (error) throw new Error(error.message);
   return row;
 }
@@ -590,11 +604,15 @@ async function getOrCreateDailyProgress(studentId, classId, dailyTarget) {
   studentId = String(studentId);
   const date = todayStr();
   const { data: existing, error: readErr } = await db.from('vocab_daily_progress')
-    .select('*').eq('student_id', studentId).eq('quest_date', date).maybeSingle();
+    .select('*')
+    .eq('tenant_id', tenantId())
+    .eq('student_id', studentId)
+    .eq('quest_date', date)
+    .maybeSingle();
   if (readErr) throw new Error(readErr.message);
   if (existing) return existing;
 
-  const row = {
+  const row = withTenant({
     student_id: studentId,
     class_id: classId ? String(classId) : null,
     quest_date: date,
@@ -604,7 +622,7 @@ async function getOrCreateDailyProgress(studentId, classId, dailyTarget) {
     test_attempts: 0,
     test_passed: false,
     sessions_completed: 0
-  };
+  });
   const { data: inserted, error: insErr } = await db.from('vocab_daily_progress').insert(row).select().maybeSingle();
   if (insErr) throw new Error(insErr.message);
   return inserted || row;
@@ -644,6 +662,7 @@ async function getDailyQueue(studentId, classId) {
   const nowIso = new Date().toISOString();
   const { data: due, error: dueErr } = await db.from('vocab_student_progress')
     .select('word_id, box, next_due_at')
+    .eq('tenant_id', tenantId())
     .eq('student_id', studentId)
     .lte('next_due_at', nowIso)
     .order('next_due_at', { ascending: true })
@@ -654,7 +673,10 @@ async function getDailyQueue(studentId, classId) {
   let words = await getWordsByIds(dueIds);
   words.sort((a, b) => dueIds.indexOf(a.word_id) - dueIds.indexOf(b.word_id));
 
-  const { data: seenRows } = await db.from('vocab_student_progress').select('word_id').eq('student_id', studentId);
+  const { data: seenRows } = await db.from('vocab_student_progress')
+    .select('word_id')
+    .eq('tenant_id', tenantId())
+    .eq('student_id', studentId);
   // Also exclude words already studied in earlier sets today so extra sets get fresh items.
   let studiedToday = [];
   try {
@@ -702,7 +724,11 @@ async function recordReview(studentId, classId, wordId, correct) {
   studentId = String(studentId);
   wordId = String(wordId);
   const { data: existing, error: readErr } = await db.from('vocab_student_progress')
-    .select('*').eq('student_id', studentId).eq('word_id', wordId).maybeSingle();
+    .select('*')
+    .eq('tenant_id', tenantId())
+    .eq('student_id', studentId)
+    .eq('word_id', wordId)
+    .maybeSingle();
   if (readErr) throw new Error(readErr.message);
 
   let box = existing ? existing.box : 0;
@@ -710,7 +736,7 @@ async function recordReview(studentId, classId, wordId, correct) {
   const intervalDays = BOX_INTERVAL_DAYS[box];
   const nextDueAt = new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000).toISOString();
 
-  const row = {
+  const row = withTenant({
     student_id: studentId,
     class_id: classId ? String(classId) : null,
     word_id: wordId,
@@ -720,8 +746,8 @@ async function recordReview(studentId, classId, wordId, correct) {
     wrong_count: (existing ? existing.wrong_count : 0) + (correct ? 0 : 1),
     last_result: !!correct,
     updated_at: new Date().toISOString()
-  };
-  const { error } = await db.from('vocab_student_progress').upsert(row, { onConflict: 'student_id,word_id' });
+  });
+  const { error } = await db.from('vocab_student_progress').upsert(row, { onConflict: 'tenant_id,student_id,word_id' });
   if (error) throw new Error(error.message);
 
   const settings = await getClassSettings(classId);
@@ -733,7 +759,7 @@ async function recordReview(studentId, classId, wordId, correct) {
     studied_count: studiedList.length,
     studied_word_ids: JSON.stringify(studiedList),
     updated_at: new Date().toISOString()
-  }).eq('student_id', studentId).eq('quest_date', daily.quest_date);
+  }).eq('tenant_id', tenantId()).eq('student_id', studentId).eq('quest_date', daily.quest_date);
   if (updErr) throw new Error(updErr.message);
 
   return { box, nextDueAt, studiedCount: studiedList.length, targetCount: settings.daily_target };
@@ -794,6 +820,7 @@ async function getTierMastery(studentId, gradeLevel) {
     const { data, error } = await db
       .from('vocab_student_progress')
       .select('word_id, correct_count')
+      .eq('tenant_id', tenantId())
       .eq('student_id', studentId)
       .gt('correct_count', 0)
       .range(offset, offset + PAGE - 1);
@@ -905,7 +932,7 @@ async function applyPromotionScoreUpdate(studentId, answers, consumeShieldItems)
     last_active_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
-  const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
+  const { error } = await db.from('vocab_student_state').upsert(withTenant(row), { onConflict: 'tenant_id,student_id' });
   if (error) throw new Error(error.message);
 
   let mastery = null;
@@ -1009,7 +1036,7 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   }
 
   const { error } = await db.from('vocab_daily_progress').update(update)
-    .eq('student_id', studentId).eq('quest_date', daily.quest_date);
+    .eq('tenant_id', tenantId()).eq('student_id', studentId).eq('quest_date', daily.quest_date);
   if (error) throw new Error(error.message);
 
   return {
@@ -1050,7 +1077,7 @@ async function bumpStreak(studentId, questDate) {
     last_completed_date: questDate,
     updated_at: new Date().toISOString()
   };
-  const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
+  const { error } = await db.from('vocab_student_state').upsert(withTenant(row), { onConflict: 'tenant_id,student_id' });
   if (error) throw new Error(error.message);
   return { streakDays: streak, longestStreak: longest };
 }
@@ -1261,8 +1288,8 @@ async function getClassOverview(classId) {
   const date = todayStr();
 
   const [{ data: states }, { data: dailies }] = await Promise.all([
-    db.from('vocab_student_state').select('*').in('student_id', ids),
-    db.from('vocab_daily_progress').select('*').in('student_id', ids).eq('quest_date', date)
+    db.from('vocab_student_state').select('*').eq('tenant_id', tenantId()).in('student_id', ids),
+    db.from('vocab_daily_progress').select('*').eq('tenant_id', tenantId()).in('student_id', ids).eq('quest_date', date)
   ]);
 
   const stateById = new Map((states || []).map(s => [String(s.student_id), s]));
@@ -1317,7 +1344,7 @@ async function overrideStudentState(studentId, opts) {
     patch.placement_at = null;
     patch.placement_accuracy = null;
   }
-  const { error } = await db.from('vocab_student_state').upsert(patch, { onConflict: 'student_id' });
+  const { error } = await db.from('vocab_student_state').upsert(withTenant(patch), { onConflict: 'tenant_id,student_id' });
   if (error) throw new Error(error.message);
   return { ok: true, placementReset: opts.resetPlacement !== false };
 }
@@ -1413,5 +1440,6 @@ module.exports = {
   getTierMastery,
   applyMasteryPromotion,
   applyPromotionScoreUpdate,
-  buildPlacementItem
+  buildPlacementItem,
+  tenantId
 };
