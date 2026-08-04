@@ -8,6 +8,9 @@ const path = require('path');
 const { PORT } = require('./config');
 const apiRoutes = require('./routes');
 const { verifyTeacherToken, readTeacherTokenFromRequest } = require('./teacherAuth');
+const {
+  requirePlatformAdminPage
+} = require('./vocabPlatformAuth');
 
 const app = express();
 
@@ -20,6 +23,14 @@ function isAllowedCorsOrigin(origin) {
   if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.up\.railway\.app$/i.test(origin)) return true;
   if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.railway\.app$/i.test(origin)) return true;
   if (/^https:\/\/(www\.)?mrpark\.online$/i.test(origin)) return true;
+  if (/^https:\/\/(www\.)?saltmorning\.study$/i.test(origin)) return true;
+  // Vocab Booster embed hosts (comma list, or * for any https origin).
+  const embedOrigins = process.env.VOCAB_EMBED_ORIGINS;
+  if (embedOrigins === '*') {
+    if (/^https:\/\//i.test(origin)) return true;
+  } else if (embedOrigins) {
+    if (embedOrigins.split(',').map((s) => s.trim()).filter(Boolean).includes(origin)) return true;
+  }
   const corsOrigins = process.env.CORS_ORIGINS;
   if (corsOrigins) {
     return corsOrigins.split(',').map(s => s.trim()).filter(Boolean).includes(origin);
@@ -103,6 +114,16 @@ app.get('/teacher-login', (req, res) => {
   res.sendFile(path.join(publicDir, 'TeacherLogin.html'));
 });
 
+app.get('/vocab-admin-login', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(publicDir, 'VocabPlatformAdminLogin.html'));
+});
+
+app.get('/vocab-admin', requirePlatformAdminPage, (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(publicDir, 'VocabPlatformAdmin.html'));
+});
+
 app.get('/class', requireTeacherPage, sendTeacherApp);
 
 app.get('/teacher', requireTeacherPage, sendTeacherApp);
@@ -112,7 +133,8 @@ const TOOL_PAGES = {
   dice: 'dice.html',
   roulette: 'roulette.html',
   luckydraw: 'luckydraw.html',
-  unluckydraw: 'unluckydraw.html'
+  unluckydraw: 'unluckydraw.html',
+  jeopardy: 'jeopardy.html'
 };
 
 app.get('/tools/:tool', requireTeacherPage, (req, res) => {

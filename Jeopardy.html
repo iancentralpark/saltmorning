@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeopardy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --jp-blue: #060ce9;
+      --jp-blue-deep: #0b0a5c;
+      --jp-gold: #d69f00;
+      --jp-gold-bright: #ffd34d;
+      --jp-panel: #08107a;
+      --jp-tile: #0a1ad4;
+      --jp-tile-hover: #1a2fff;
+      --jp-used: #0a1458;
+      --text: #f7f3e8;
+      --muted: #b8c0ff;
+      --danger: #ff6b6b;
+      --ok: #2ecc71;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: 'Nunito', system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255, 211, 77, 0.12), transparent 35%),
+        radial-gradient(circle at 80% 100%, rgba(10, 26, 212, 0.45), transparent 40%),
+        linear-gradient(160deg, #04063a 0%, #060ce9 45%, #02042a 100%);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.65rem 1rem; background: rgba(2, 4, 42, 0.72); border-bottom: 2px solid rgba(214, 159, 0, 0.45);
+      flex-wrap: wrap;
+    }
+    .brand {
+      font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.06em; font-size: 1.7rem; color: var(--jp-gold-bright);
+      display: flex; align-items: center; gap: 0.45rem;
+    }
+    .brand small { font-family: 'Nunito', sans-serif; font-size: 0.75rem; color: var(--muted); letter-spacing: 0; font-weight: 700; }
+    .top-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+    .btn {
+      border: none; border-radius: 10px; padding: 0.55rem 0.9rem; font-weight: 800; cursor: pointer;
+      font-family: inherit; font-size: 0.92rem; display: inline-flex; align-items: center; gap: 0.4rem;
+      transition: transform 0.12s, filter 0.12s;
+    }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .btn-gold { background: linear-gradient(180deg, #ffd34d, #d69f00); color: #2a1a00; }
+    .btn-blue { background: linear-gradient(180deg, #3d4dff, #1a28c7); color: #fff; border: 1px solid rgba(255,255,255,0.18); }
+    .btn-ghost { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.18); }
+    .btn-danger { background: linear-gradient(180deg, #ff8585, #e74c3c); color: #fff; }
+    .btn-ok { background: linear-gradient(180deg, #58d68d, #27ae60); color: #fff; }
+    .btn-sm { padding: 0.35rem 0.65rem; font-size: 0.82rem; border-radius: 8px; }
+
+    .pane { flex: 1; padding: 1rem; }
+    .setup-card, .editor-card {
+      max-width: 920px; margin: 0 auto; background: rgba(8, 16, 122, 0.72);
+      border: 2px solid rgba(214, 159, 0, 0.35); border-radius: 18px; padding: 1.25rem 1.35rem;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+    }
+    .setup-card h1, .editor-card h1 {
+      font-family: 'Bebas Neue', sans-serif; margin: 0 0 0.35rem; font-size: 2.2rem; letter-spacing: 0.04em; color: var(--jp-gold-bright);
+    }
+    .hint { color: var(--muted); margin: 0 0 1rem; }
+    .grid-form {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem;
+    }
+    @media (max-width: 720px) { .grid-form { grid-template-columns: 1fr; } }
+    label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; font-weight: 800; color: var(--muted); }
+    label.full { grid-column: 1 / -1; }
+    input, select, textarea {
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.28);
+      color: #fff; padding: 0.55rem 0.7rem; font: inherit; font-weight: 700;
+    }
+    textarea { min-height: 64px; resize: vertical; }
+    .seg {
+      display: flex; gap: 0.3rem; background: rgba(0,0,0,0.25); border-radius: 999px; padding: 0.2rem;
+    }
+    .seg button {
+      flex: 1; border: none; border-radius: 999px; padding: 0.4rem 0.5rem; font-weight: 800; cursor: pointer;
+      background: transparent; color: var(--muted); font-family: inherit;
+    }
+    .seg button.active { background: linear-gradient(180deg, #ffd34d, #d69f00); color: #2a1a00; }
+    .actions-row { display: flex; gap: 0.55rem; flex-wrap: wrap; margin-top: 1rem; }
+    .status {
+      margin-top: 0.85rem; min-height: 1.3rem; color: var(--jp-gold-bright); font-weight: 800;
+    }
+    .status.error { color: #ffb4b4; }
+
+    .editor-cats { display: grid; gap: 0.85rem; margin-top: 0.75rem; }
+    .cat-card {
+      background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 0.75rem;
+    }
+    .cat-card h3 { margin: 0 0 0.5rem; color: var(--jp-gold-bright); font-size: 1rem; }
+    .cell-edit {
+      display: grid; grid-template-columns: 56px 1fr 1fr; gap: 0.4rem; margin-bottom: 0.4rem; align-items: start;
+    }
+    .cell-edit .pts {
+      align-self: stretch; display: flex; align-items: center; justify-content: center;
+      background: var(--jp-tile); border-radius: 8px; font-family: 'Bebas Neue', sans-serif; font-size: 1.25rem; color: var(--jp-gold-bright);
+    }
+    @media (max-width: 800px) {
+      .cell-edit { grid-template-columns: 48px 1fr; }
+      .cell-edit textarea:last-child { grid-column: 1 / -1; }
+    }
+
+    .board-wrap { display: flex; flex-direction: column; gap: 0.75rem; height: calc(100vh - 70px); }
+    .board {
+      flex: 1; display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.45rem; min-height: 0;
+    }
+    .cat-head {
+      background: var(--jp-panel); border: 2px solid rgba(214,159,0,0.45); border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      font-family: 'Bebas Neue', sans-serif; font-size: clamp(0.95rem, 1.8vw, 1.55rem);
+      letter-spacing: 0.03em; padding: 0.45rem 0.35rem; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+      min-height: 64px;
+    }
+    .tile {
+      background: linear-gradient(180deg, var(--jp-tile-hover), var(--jp-tile));
+      border: 2px solid rgba(255,255,255,0.12); border-radius: 10px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.6rem, 4vw, 3rem);
+      color: var(--jp-gold-bright); text-shadow: 0 3px 0 rgba(0,0,0,0.35);
+      transition: transform 0.12s, filter 0.12s, opacity 0.2s;
+      user-select: none;
+    }
+    .tile:hover:not(.used) { transform: scale(1.03); filter: brightness(1.08); }
+    .tile.used {
+      background: var(--jp-used); color: rgba(214,159,0,0.28); cursor: default; transform: none;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.04);
+    }
+
+    .scoreboard {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.45rem;
+      background: rgba(2,4,42,0.65); border: 2px solid rgba(214,159,0,0.35); border-radius: 14px; padding: 0.55rem;
+    }
+    .team-card {
+      border-radius: 12px; padding: 0.45rem 0.55rem; background: rgba(255,255,255,0.06);
+      border-left: 5px solid #fff; display: flex; flex-direction: column; gap: 0.25rem;
+    }
+    .team-name { font-weight: 800; font-size: 0.95rem; }
+    .team-score {
+      font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; color: var(--jp-gold-bright); line-height: 1;
+    }
+    .team-ops { display: flex; gap: 0.3rem; }
+    .team-ops .btn { flex: 1; justify-content: center; }
+
+    .modal {
+      position: fixed; inset: 0; z-index: 50; background: rgba(2,4,42,0.92);
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-card {
+      width: min(980px, 100%); max-height: 94vh; overflow: auto;
+      background: linear-gradient(180deg, #0b16a8, #06084f);
+      border: 3px solid rgba(214,159,0,0.55); border-radius: 18px; padding: 1.25rem 1.4rem 1.4rem;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    }
+    .modal-meta {
+      display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+      color: var(--muted); font-weight: 800; margin-bottom: 0.75rem;
+    }
+    .clue-text {
+      font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.8rem, 4.5vw, 3.2rem);
+      letter-spacing: 0.02em; line-height: 1.15; text-align: center; margin: 1rem 0 1.25rem;
+      text-shadow: 0 3px 0 rgba(0,0,0,0.35);
+    }
+    .answer-box {
+      background: rgba(0,0,0,0.28); border: 1px dashed rgba(255,211,77,0.45); border-radius: 12px;
+      padding: 0.85rem 1rem; margin-bottom: 1rem; text-align: center;
+    }
+    .answer-box .label { color: var(--jp-gold-bright); font-weight: 800; margin-bottom: 0.25rem; }
+    .answer-box .ans {
+      font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.4rem, 3vw, 2.2rem); margin-bottom: 0.35rem;
+    }
+    .answer-box .expl { color: var(--muted); font-weight: 700; }
+    .timer-ring {
+      width: 84px; height: 84px; border-radius: 50%; border: 4px solid rgba(255,211,77,0.35);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--jp-gold-bright);
+    }
+    .timer-ring.urgent { border-color: #ff6b6b; color: #ffb4b4; animation: pulse 0.7s infinite; }
+    @keyframes pulse { 50% { transform: scale(1.05); } }
+    .award-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.5rem 0 0.85rem; }
+    .award-row .btn { border-left: 4px solid #fff; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><i class="fa-solid fa-trophy"></i> JEOPARDY <small id="subtitle">Class Tool</small></div>
+      <div class="top-actions">
+        <button type="button" class="btn btn-ghost btn-sm hidden" id="btnBackSetup"><i class="fa-solid fa-arrow-left"></i> Setup</button>
+        <button type="button" class="btn btn-ghost btn-sm hidden" id="btnEdit"><i class="fa-solid fa-pen"></i> Edit</button>
+        <button type="button" class="btn btn-blue btn-sm hidden" id="btnLaunch"><i class="fa-solid fa-play"></i> Launch Board</button>
+      </div>
+    </header>
+
+    <main class="pane" id="setupPane">
+      <div class="setup-card">
+        <h1>AI Jeopardy Generator</h1>
+        <p class="hint">Build a 5×5 board for the smartboard. Generate with AI, tweak, then play with teams.</p>
+        <div class="grid-form">
+          <label class="full">Subject / Topic
+            <input id="subjectInput" type="text" placeholder="e.g. Grade 5 Science — Solar System" maxlength="160">
+          </label>
+          <label>Difficulty
+            <select id="difficultySelect">
+              <option value="elementary">Elementary</option>
+              <option value="middle">Middle School</option>
+              <option value="high">High School</option>
+            </select>
+          </label>
+          <label>Teams
+            <select id="teamCountSelect">
+              <option value="2">2 teams</option>
+              <option value="3" selected>3 teams</option>
+              <option value="4">4 teams</option>
+              <option value="5">5 teams</option>
+              <option value="6">6 teams</option>
+            </select>
+          </label>
+          <label>Language
+            <div class="seg" id="langSeg">
+              <button type="button" class="active" data-lang="en">English</button>
+              <button type="button" data-lang="ko">한국어</button>
+            </div>
+          </label>
+          <label>Clue timer (seconds)
+            <input id="timerInput" type="number" min="5" max="180" value="30">
+          </label>
+          <label>Sound on timer end
+            <select id="soundSelect">
+              <option value="1">On</option>
+              <option value="0">Off</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions-row">
+          <button type="button" class="btn btn-gold" id="btnGenerate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate with AI</button>
+          <button type="button" class="btn btn-blue" id="btnBlank"><i class="fa-solid fa-table-cells"></i> Blank board</button>
+        </div>
+        <div class="status" id="setupStatus"></div>
+      </div>
+    </main>
+
+    <main class="pane hidden" id="editorPane">
+      <div class="editor-card">
+        <h1>Edit Board</h1>
+        <p class="hint">Fix clues/answers before class. Empty cells still open in-game — fill what you need.</p>
+        <div class="grid-form" style="margin-bottom:0.75rem;">
+          <label>Game title
+            <input id="titleInput" type="text" maxlength="80">
+          </label>
+          <label>Team names (comma-separated)
+            <input id="teamNamesInput" type="text" placeholder="Red, Blue, Green">
+          </label>
+        </div>
+        <div class="editor-cats" id="editorCats"></div>
+        <div class="actions-row">
+          <button type="button" class="btn btn-gold" id="btnLaunchFromEditor"><i class="fa-solid fa-play"></i> Launch Board</button>
+          <button type="button" class="btn btn-ghost" id="btnRegen"><i class="fa-solid fa-rotate"></i> Regenerate AI</button>
+        </div>
+      </div>
+    </main>
+
+    <main class="pane hidden" id="gamePane">
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+        <div class="scoreboard" id="scoreboard"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="clueModal" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-meta">
+        <div id="clueMeta"></div>
+        <div class="timer-ring" id="timerRing">30</div>
+      </div>
+      <div class="clue-text" id="clueText"></div>
+      <div class="answer-box hidden" id="answerBox">
+        <div class="label">Answer</div>
+        <div class="ans" id="answerText"></div>
+        <div class="expl" id="explainText"></div>
+      </div>
+      <div class="award-row hidden" id="awardRow"></div>
+      <div class="actions-row">
+        <button type="button" class="btn btn-gold" id="btnShowAnswer"><i class="fa-solid fa-eye"></i> Show Answer</button>
+        <button type="button" class="btn btn-ok hidden" id="btnPlus"><i class="fa-solid fa-plus"></i> Award</button>
+        <button type="button" class="btn btn-danger hidden" id="btnMinus"><i class="fa-solid fa-minus"></i> Deduct</button>
+        <button type="button" class="btn btn-ghost" id="btnCloseClue"><i class="fa-solid fa-xmark"></i> Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(location.search);
+  var CLASS_NAME = params.get('className') || 'Class';
+  var language = 'en';
+  var view = 'setup'; // setup | editor | game
+  var game = null;
+  var timerSeconds = 30;
+  var soundOn = true;
+  var activeCell = null;
+  var selectedTeamId = null;
+  var timerId = null;
+  var tickId = null;
+  var timerLeft = 0;
+  var answerShown = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  $('subtitle').textContent = CLASS_NAME;
+
+  function toolFetch(url, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    var headers = opts.headers || {};
+    try {
+      var token = localStorage.getItem('mrpark_teacher_token') || '';
+      if (token) headers.Authorization = 'Bearer ' + token;
+    } catch (e) { /* ignore */ }
+    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    opts.headers = headers;
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+
+  function setStatus(msg, isError) {
+    var el = $('setupStatus');
+    el.textContent = msg || '';
+    el.classList.toggle('error', !!isError);
+  }
+
+  function readSetup() {
+    timerSeconds = Math.max(5, Math.min(180, Number($('timerInput').value) || 30));
+    soundOn = $('soundSelect').value !== '0';
+    return {
+      subject: String($('subjectInput').value || '').trim(),
+      difficulty: $('difficultySelect').value,
+      language: language,
+      teamCount: Number($('teamCountSelect').value) || 3,
+      title: String($('subjectInput').value || '').trim()
+    };
+  }
+
+  document.querySelectorAll('#langSeg button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      language = btn.getAttribute('data-lang') || 'en';
+      document.querySelectorAll('#langSeg button').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+    });
+  });
+
+  function setView(next) {
+    view = next;
+    $('setupPane').classList.toggle('hidden', next !== 'setup');
+    $('editorPane').classList.toggle('hidden', next !== 'editor');
+    $('gamePane').classList.toggle('hidden', next !== 'game');
+    $('btnBackSetup').classList.toggle('hidden', next === 'setup');
+    $('btnEdit').classList.toggle('hidden', next !== 'game');
+    $('btnLaunch').classList.toggle('hidden', next !== 'editor');
+  }
+
+  function syncTeamNamesFromInput() {
+    if (!game) return;
+    var raw = String($('teamNamesInput').value || '');
+    var names = raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    game.teams.forEach(function (t, i) {
+      if (names[i]) t.name = names[i].slice(0, 24);
+    });
+  }
+
+  function syncTitleFromInput() {
+    if (!game) return;
+    var t = String($('titleInput').value || '').trim();
+    if (t) game.title = t;
+  }
+
+  function renderEditor() {
+    if (!game) return;
+    $('titleInput').value = game.title || '';
+    $('teamNamesInput').value = (game.teams || []).map(function (t) { return t.name; }).join(', ');
+    var root = $('editorCats');
+    root.innerHTML = '';
+    (game.categories || []).forEach(function (cat, ci) {
+      var card = document.createElement('div');
+      card.className = 'cat-card';
+      card.innerHTML = '<h3>Category ' + (ci + 1) + '</h3>';
+      var title = document.createElement('input');
+      title.value = cat.title || '';
+      title.placeholder = 'Category title';
+      title.style.marginBottom = '0.45rem';
+      title.addEventListener('input', function () { cat.title = title.value; });
+      card.appendChild(title);
+      (cat.cells || []).forEach(function (cell) {
+        var row = document.createElement('div');
+        row.className = 'cell-edit';
+        row.innerHTML = '<div class="pts">' + cell.points + '</div>';
+        var clue = document.createElement('textarea');
+        clue.placeholder = 'Clue';
+        clue.value = cell.clue || '';
+        clue.addEventListener('input', function () { cell.clue = clue.value; });
+        var ans = document.createElement('textarea');
+        ans.placeholder = 'Answer (What is …?)';
+        ans.value = cell.answer || '';
+        ans.addEventListener('input', function () { cell.answer = ans.value; });
+        row.appendChild(clue);
+        row.appendChild(ans);
+        card.appendChild(row);
+      });
+      root.appendChild(card);
+    });
+  }
+
+  function renderBoard() {
+    var board = $('board');
+    board.innerHTML = '';
+    if (!game) return;
+    game.categories.forEach(function (cat) {
+      var h = document.createElement('div');
+      h.className = 'cat-head';
+      h.textContent = cat.title || '—';
+      board.appendChild(h);
+    });
+    for (var row = 0; row < 5; row++) {
+      game.categories.forEach(function (cat) {
+        var cell = cat.cells[row];
+        var tile = document.createElement('button');
+        tile.type = 'button';
+        tile.className = 'tile' + (cell.isRevealed ? ' used' : '');
+        tile.textContent = cell.isRevealed ? '' : ('$' + cell.points);
+        tile.setAttribute('aria-label', (cat.title || 'Category') + ' ' + cell.points);
+        if (!cell.isRevealed) {
+          tile.addEventListener('click', function () { openClue(cat, cell); });
+        }
+        board.appendChild(tile);
+      });
+    }
+    renderScoreboard();
+  }
+
+  function renderScoreboard() {
+    var root = $('scoreboard');
+    root.innerHTML = '';
+    (game.teams || []).forEach(function (team) {
+      var card = document.createElement('div');
+      card.className = 'team-card';
+      card.style.borderLeftColor = team.color || '#fff';
+      card.innerHTML =
+        '<div class="team-name"></div>' +
+        '<div class="team-score"></div>' +
+        '<div class="team-ops">' +
+        '<button type="button" class="btn btn-ok btn-sm" data-op="plus">+100</button>' +
+        '<button type="button" class="btn btn-danger btn-sm" data-op="minus">−100</button>' +
+        '</div>';
+      card.querySelector('.team-name').textContent = team.name;
+      card.querySelector('.team-score').textContent = String(team.score || 0);
+      card.querySelectorAll('[data-op]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var delta = btn.getAttribute('data-op') === 'plus' ? 100 : -100;
+          team.score = Math.round(Number(team.score) || 0) + delta;
+          renderScoreboard();
+        });
+      });
+      root.appendChild(card);
+    });
+  }
+
+  function clearTimers() {
+    if (timerId) clearTimeout(timerId);
+    if (tickId) clearInterval(tickId);
+    timerId = null;
+    tickId = null;
+  }
+
+  function beep() {
+    if (!soundOn) return;
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = 880;
+      g.gain.value = 0.04;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      setTimeout(function () { o.stop(); ctx.close(); }, 220);
+    } catch (e) { /* ignore */ }
+  }
+
+  function updateTimerUi() {
+    var el = $('timerRing');
+    el.textContent = String(Math.max(0, Math.ceil(timerLeft)));
+    el.classList.toggle('urgent', timerLeft <= 5);
+  }
+
+  function startClueTimer() {
+    clearTimers();
+    timerLeft = timerSeconds;
+    updateTimerUi();
+    tickId = setInterval(function () {
+      timerLeft -= 0.2;
+      updateTimerUi();
+      if (timerLeft <= 0) clearInterval(tickId);
+    }, 200);
+    timerId = setTimeout(function () {
+      timerLeft = 0;
+      updateTimerUi();
+      beep();
+    }, timerSeconds * 1000);
+  }
+
+  function openClue(cat, cell) {
+    activeCell = { cat: cat, cell: cell };
+    selectedTeamId = null;
+    answerShown = false;
+    $('clueMeta').textContent = (cat.title || 'Category') + ' · $' + cell.points;
+    $('clueText').textContent = cell.clue || '(No clue — edit the board)';
+    $('answerText').textContent = cell.answer || '(No answer set)';
+    $('explainText').textContent = cell.explanation || '';
+    $('answerBox').classList.add('hidden');
+    $('awardRow').classList.add('hidden');
+    $('btnPlus').classList.add('hidden');
+    $('btnMinus').classList.add('hidden');
+    $('btnShowAnswer').classList.remove('hidden');
+    $('clueModal').classList.remove('hidden');
+    startClueTimer();
+  }
+
+  function showAnswer() {
+    answerShown = true;
+    clearTimers();
+    $('answerBox').classList.remove('hidden');
+    $('btnShowAnswer').classList.add('hidden');
+    $('btnPlus').classList.remove('hidden');
+    $('btnMinus').classList.remove('hidden');
+    var row = $('awardRow');
+    row.classList.remove('hidden');
+    row.innerHTML = '';
+    (game.teams || []).forEach(function (team) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-ghost btn-sm';
+      btn.style.borderLeftColor = team.color || '#fff';
+      btn.textContent = team.name;
+      if (selectedTeamId === team.id) btn.classList.add('btn-gold');
+      btn.addEventListener('click', function () {
+        selectedTeamId = team.id;
+        showAnswer();
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  function adjustActive(deltaSign) {
+    if (!activeCell || !game) return;
+    if (!selectedTeamId) {
+      alert('Select a team first.');
+      return;
+    }
+    var team = game.teams.find(function (t) { return t.id === selectedTeamId; });
+    if (!team) return;
+    var pts = Number(activeCell.cell.points) || 0;
+    team.score = Math.round(Number(team.score) || 0) + (deltaSign * pts);
+    activeCell.cell.isRevealed = true;
+    closeClue();
+    renderBoard();
+  }
+
+  function closeClue() {
+    clearTimers();
+    $('clueModal').classList.add('hidden');
+    activeCell = null;
+  }
+
+  function goEditor(board) {
+    game = board;
+    setView('editor');
+    renderEditor();
+  }
+
+  function launchGame() {
+    if (!game) return;
+    syncTitleFromInput();
+    syncTeamNamesFromInput();
+    (game.categories || []).forEach(function (cat) {
+      (cat.cells || []).forEach(function (c) { c.isRevealed = !!c.isRevealed; });
+    });
+    setView('game');
+    renderBoard();
+  }
+
+  $('btnGenerate').addEventListener('click', function () {
+    var setup = readSetup();
+    if (!setup.subject) {
+      setStatus('Enter a subject / topic first.', true);
+      return;
+    }
+    setStatus('Generating board with AI… this can take up to a minute.');
+    $('btnGenerate').disabled = true;
+    toolFetch('/api/jeopardy/generate', { method: 'POST', body: setup })
+      .then(function (res) {
+        goEditor(res.game);
+        setStatus('');
+      })
+      .catch(function (err) {
+        setStatus(err.message || 'Generation failed.', true);
+      })
+      .finally(function () {
+        $('btnGenerate').disabled = false;
+      });
+  });
+
+  $('btnBlank').addEventListener('click', function () {
+    var setup = readSetup();
+    if (!setup.subject) setup.subject = 'Jeopardy';
+    setStatus('Creating blank board…');
+    toolFetch('/api/jeopardy/blank', { method: 'POST', body: setup })
+      .then(function (res) {
+        goEditor(res.game);
+        setStatus('');
+      })
+      .catch(function (err) {
+        setStatus(err.message || 'Could not create board.', true);
+      });
+  });
+
+  $('btnRegen').addEventListener('click', function () {
+    syncTitleFromInput();
+    var setup = readSetup();
+    setup.subject = String($('titleInput').value || setup.subject || '').trim() || setup.subject;
+    setup.teamCount = (game && game.teams && game.teams.length) || setup.teamCount;
+    setStatus('Regenerating…');
+    setView('setup');
+    $('subjectInput').value = setup.subject;
+    $('btnGenerate').click();
+  });
+
+  $('btnLaunch').addEventListener('click', launchGame);
+  $('btnLaunchFromEditor').addEventListener('click', launchGame);
+  $('btnEdit').addEventListener('click', function () {
+    setView('editor');
+    renderEditor();
+  });
+  $('btnBackSetup').addEventListener('click', function () {
+    if (view === 'game' || view === 'editor') {
+      if (!confirm('Leave the board and return to setup?')) return;
+    }
+    setView('setup');
+  });
+  $('btnShowAnswer').addEventListener('click', showAnswer);
+  $('btnPlus').addEventListener('click', function () { adjustActive(1); });
+  $('btnMinus').addEventListener('click', function () { adjustActive(-1); });
+  $('btnCloseClue').addEventListener('click', function () {
+    if (activeCell && activeCell.cell) activeCell.cell.isRevealed = true;
+    closeClue();
+    renderBoard();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('clueModal').classList.contains('hidden')) {
+      $('btnCloseClue').click();
+    }
+  });
+
+  setView('setup');
+})();
+  </script>
+</body>
+</html>
