@@ -6,7 +6,7 @@
   <title>Student — Salt Morning Class</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="/css/app.css?v=20260803buddyui">
-  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260803vocab2">
+  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260804shared2">
 </head>
 <body class="student-body">
 <div class="shell student-shell">
@@ -116,7 +116,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/messenger.js?v=20260803vocab2"></script>
-<script src="/js/vocab-learn.js?v=20260803vocab2"></script>
+<script src="/js/vocab-learn.js?v=20260804shared2"></script>
 <script>
 (function() {
   const role = 'student';
@@ -377,7 +377,15 @@
       if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
       show($('buddyFloat'));
       if (window.MrParkVocabLearn) {
-        window.MrParkVocabLearn.onLogin();
+        // Apply dashboard vocab immediately so Placement UI cannot flash/stuck as "not done".
+        if (dashboard.vocab && typeof window.MrParkVocabLearn.applyServerSummary === 'function') {
+          window.MrParkVocabLearn.applyServerSummary(dashboard.vocab);
+        }
+        if (typeof window.MrParkVocabLearn.onLogin === 'function') {
+          window.MrParkVocabLearn.onLogin();
+        } else if (typeof window.MrParkVocabLearn.refreshServerSummary === 'function') {
+          window.MrParkVocabLearn.refreshServerSummary();
+        }
       }
     } catch (e) {
       $('homeworkStatus').textContent = e.message || 'Could not load dashboard.';
