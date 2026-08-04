@@ -65,6 +65,7 @@ const {
   listTeachers,
   getTeacher,
   saveTeacher,
+  deleteTeacher,
   listAllGradeTerms,
   getMonitoringFeed,
   listClasses
@@ -87,7 +88,10 @@ const {
   listStudentsForTeacher,
   getStudentForTeacher,
   saveStudentPhoto,
-  ensureRegistrySheets
+  ensureRegistrySheets,
+  withdrawStudent,
+  restoreStudent,
+  deleteStudent
 } = require('./services/studentRegistryService');
 const {
   saveTeacherPhoto,
@@ -1334,6 +1338,15 @@ router.post('/admin/teachers', requireRole('admin'), async (req, res) => {
   }
 });
 
+router.delete('/admin/teachers/:teacherId', requireRole('admin'), async (req, res) => {
+  try {
+    const result = await deleteTeacher(req.params.teacherId);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete teacher.' });
+  }
+});
+
 router.post('/admin/teachers/:teacherId/photo', requireRole('admin'), (req, res) => {
   photoUpload.single('photo')(req, res, async (err) => {
     if (err) {
@@ -1457,6 +1470,36 @@ router.post('/admin/students', requireRole('admin'), async (req, res) => {
     res.json({ student });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save student.' });
+  }
+});
+
+router.post('/admin/students/:studentId/withdraw', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureRegistrySheets();
+    const student = await withdrawStudent(req.params.studentId);
+    res.json({ student });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not withdraw student.' });
+  }
+});
+
+router.post('/admin/students/:studentId/restore', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureRegistrySheets();
+    const student = await restoreStudent(req.params.studentId);
+    res.json({ student });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not restore student.' });
+  }
+});
+
+router.delete('/admin/students/:studentId', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureRegistrySheets();
+    const result = await deleteStudent(req.params.studentId);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete student.' });
   }
 });
 

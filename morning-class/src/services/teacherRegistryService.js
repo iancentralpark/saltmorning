@@ -262,6 +262,33 @@ async function saveTeacherPhoto(teacherId, file) {
   return { teacherId, photoPath: profile.photoPath };
 }
 
+async function deleteTeacherRecord(teacherId) {
+  teacherId = String(teacherId || '').trim();
+  if (!teacherId) throw new Error('Teacher ID is required.');
+  await ensureTeacherProfileSheet();
+
+  const listRows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  let found = -1;
+  for (let i = 1; i < listRows.length; i++) {
+    if (String(listRows[i][0]) === teacherId) {
+      found = i + 1;
+      break;
+    }
+  }
+  if (found < 0) throw new Error('Teacher not found.');
+  await updateRange(TEACHER_LIST_SHEET, `A${found}:F${found}`, [['', '', '', '', '', '']]);
+  invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+
+  const profileRows = await getSheetRows(TEACHER_PROFILE_SHEET, { skipCache: true });
+  for (let i = 1; i < profileRows.length; i++) {
+    if (String(profileRows[i][0]) !== teacherId) continue;
+    await updateRange(TEACHER_PROFILE_SHEET, `A${i + 1}:O${i + 1}`, [new Array(15).fill('')]);
+    break;
+  }
+  invalidateSheetRowsCache(TEACHER_PROFILE_SHEET);
+  return { deleted: true, teacherId };
+}
+
 module.exports = {
   ensureTeacherProfileSheet,
   emptyProfile,
@@ -269,5 +296,6 @@ module.exports = {
   upsertTeacherProfile,
   getTeacherDetail,
   listTeachersWithProfiles,
-  saveTeacherPhoto
+  saveTeacherPhoto,
+  deleteTeacherRecord
 };

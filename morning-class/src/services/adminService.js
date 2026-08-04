@@ -19,7 +19,8 @@ const { getRecentVocabActivity } = require('./vocabShared');
 const {
   listTeachersWithProfiles,
   upsertTeacherProfile,
-  getTeacherDetail
+  getTeacherDetail,
+  deleteTeacherRecord
 } = require('./teacherRegistryService');
 const crypto = require('crypto');
 
@@ -64,6 +65,10 @@ async function listTeachers() {
 
 async function getTeacher(teacherId) {
   return getTeacherDetail(teacherId);
+}
+
+async function deleteTeacher(teacherId) {
+  return deleteTeacherRecord(teacherId);
 }
 
 async function saveTeacher(payload) {
@@ -348,6 +353,7 @@ module.exports = {
   listTeachers,
   getTeacher,
   saveTeacher,
+  deleteTeacher,
   listAllGradeTerms,
   saveGradeTerm,
   getMonitoringFeed,

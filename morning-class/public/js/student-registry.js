@@ -194,8 +194,18 @@
       '<div class="sr-detail-title">' + avatarHtml(s, 'sr-photo-sm') +
       '<div><strong>' + escapeHtml(s.name || 'New student') + '</strong>' +
       '<div class="muted small">' + escapeHtml(s.studentId || 'Not saved yet') +
-      (s.className ? ' · ' + escapeHtml(s.className) : '') + '</div></div></div>' +
+      (s.className ? ' · ' + escapeHtml(s.className) : '') +
+      (s.status ? ' · <span class="sr-status-chip sr-status-' + escapeHtml(String(s.status).toLowerCase()) + '">' +
+        escapeHtml(s.status) + '</span>' : '') +
+      '</div></div></div>' +
+      '<div class="sr-detail-actions">' +
       (canEdit ? '<button type="button" class="btn btn-primary sr-save-btn">Save</button>' : '') +
+      (canEdit && s.studentId && s.status !== 'Withdrawn'
+        ? '<button type="button" class="btn btn-danger sr-withdraw-btn">Delete</button>' : '') +
+      (canEdit && s.studentId && s.status === 'Withdrawn'
+        ? '<button type="button" class="btn btn-ok sr-restore-btn">Restore</button>' +
+          '<button type="button" class="btn btn-danger sr-purge-btn">Permanently delete</button>' : '') +
+      '</div>' +
       '</div>' +
       '<div class="sr-section-tabs">' + tabs + '</div>' +
       '<div class="sr-section-body">' + body + '</div>' +
@@ -250,6 +260,7 @@
     let html = '<div class="sr-list-items">';
     students.forEach((s) => {
       const active = s.studentId === activeId ? ' active' : '';
+      const status = s.status || 'Enrolled';
       html +=
         '<button type="button" class="sr-list-item' + active + '" data-id="' + escapeHtml(s.studentId) + '">' +
         avatarHtml(s, 'sr-photo-xs') +
@@ -257,6 +268,10 @@
         '<strong>' + escapeHtml(s.name) + '</strong>' +
         '<span class="muted small">' + escapeHtml(s.className || 'Unassigned') +
         (s.gradeLevel ? ' · ' + escapeHtml(s.gradeLevel) : '') + '</span>' +
+        (role === 'admin'
+          ? '<span class="sr-status-chip sr-status-' + escapeHtml(String(status).toLowerCase()) + '">' +
+            escapeHtml(status) + '</span>'
+          : '') +
         '</div></button>';
     });
     html += '</div>';
@@ -277,8 +292,9 @@
       '<input type="search" class="sr-search" placeholder="Search students…">' +
       (role === 'admin' ? (
         '<select class="sr-filter-class"><option value="">All classes</option></select>' +
-        '<select class="sr-filter-status"><option value="">All statuses</option>' +
-        '<option value="Enrolled">Enrolled</option><option value="Inactive">Inactive</option><option value="Withdrawn">Withdrawn</option></select>'
+        '<select class="sr-filter-status"><option value="Enrolled">Enrolled</option>' +
+        '<option value="">All statuses</option>' +
+        '<option value="Inactive">Inactive</option><option value="Withdrawn">Withdrawn</option></select>'
       ) : (
         '<select class="sr-filter-class"><option value="">All my classes</option></select>'
       )) +
@@ -330,6 +346,15 @@
 
     const saveBtn = mountEl.querySelector('.sr-save-btn');
     if (saveBtn) saveBtn.addEventListener('click', saveStudent);
+
+    const withdrawBtn = mountEl.querySelector('.sr-withdraw-btn');
+    if (withdrawBtn) withdrawBtn.addEventListener('click', withdrawActiveStudent);
+
+    const restoreBtn = mountEl.querySelector('.sr-restore-btn');
+    if (restoreBtn) restoreBtn.addEventListener('click', restoreActiveStudent);
+
+    const purgeBtn = mountEl.querySelector('.sr-purge-btn');
+    if (purgeBtn) purgeBtn.addEventListener('click', purgeActiveStudent);
 
     mountEl.querySelectorAll('.sr-add-field').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -403,6 +428,70 @@
       }
     });
     return out;
+  }
+
+  async function withdrawActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    if (!confirm('Delete "' + activeStudent.name + '" from the active student list?\n\nThey will be marked Withdrawn and removed from their class. You can restore them later from the Withdrawn filter.')) {
+      return;
+    }
+    const errEl = mountEl.querySelector('.sr-save-error');
+    errEl.textContent = '';
+    try {
+      await api(apiBase() + '/' + encodeURIComponent(activeStudent.studentId) + '/withdraw', {
+        method: 'POST',
+        body: {}
+      }, role);
+      activeStudent = null;
+      activeId = '';
+      await loadList();
+      renderDetail();
+    } catch (e) {
+      errEl.style.color = '#dc2626';
+      errEl.textContent = e.message;
+    }
+  }
+
+  async function restoreActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    const errEl = mountEl.querySelector('.sr-save-error');
+    errEl.textContent = '';
+    try {
+      const data = await api(apiBase() + '/' + encodeURIComponent(activeStudent.studentId) + '/restore', {
+        method: 'POST',
+        body: {}
+      }, role);
+      activeStudent = data.student;
+      activeId = activeStudent.studentId;
+      listFilter.status = 'Enrolled';
+      const statusSelect = mountEl.querySelector('.sr-filter-status');
+      if (statusSelect) statusSelect.value = 'Enrolled';
+      await loadList();
+      renderDetail();
+    } catch (e) {
+      errEl.style.color = '#dc2626';
+      errEl.textContent = e.message;
+    }
+  }
+
+  async function purgeActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    if (!confirm('Permanently delete "' + activeStudent.name + '"?\n\nThis cannot be undone.')) return;
+    if (!confirm('Final confirmation: permanently erase this student record?')) return;
+    const errEl = mountEl.querySelector('.sr-save-error');
+    errEl.textContent = '';
+    try {
+      await api(apiBase() + '/' + encodeURIComponent(activeStudent.studentId), {
+        method: 'DELETE'
+      }, role);
+      activeStudent = null;
+      activeId = '';
+      await loadList();
+      renderDetail();
+    } catch (e) {
+      errEl.style.color = '#dc2626';
+      errEl.textContent = e.message;
+    }
   }
 
   async function saveStudent() {
@@ -524,7 +613,7 @@
     $ = opts.$;
     classes = opts.classes || [];
     mountEl = typeof opts.mount === 'string' ? document.getElementById(opts.mount) : opts.mount;
-    listFilter = { q: '', classId: '', status: '' };
+    listFilter = { q: '', classId: '', status: role === 'admin' ? 'Enrolled' : '' };
     students = [];
     activeId = null;
     activeStudent = null;

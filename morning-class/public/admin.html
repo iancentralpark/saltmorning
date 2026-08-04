@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260804teacherux">
+  <link rel="stylesheet" href="/css/app.css?v=20260804uxaudit">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -214,7 +214,7 @@
 <script src="/js/app.js"></script>
 <script src="/js/teacher-lesson.js?v=20260708libs"></script>
 <script src="/js/messenger.js?v=20260708libs"></script>
-<script src="/js/student-registry.js?v=20260709registry"></script>
+<script src="/js/student-registry.js?v=20260804uxaudit"></script>
 <script src="/js/class-registry.js?v=20260709classes"></script>
 <script src="/js/timetable.js?v=20260709tt"></script>
 <script src="/js/timetable-setup.js?v=20260709ttsetup"></script>
@@ -355,6 +355,7 @@
       $('assignmentError').style.color = '#16a34a';
       $('assignmentError').textContent = 'Assignment added.';
       $('assignSubject').value = '';
+      $('assignType').value = 'Subject';
       loadAssignments();
     } catch (err) {
       $('assignmentError').style.color = '#dc2626';
@@ -417,7 +418,10 @@
         '<td>' + escapeHtml(t.loginId) + '</td>' +
         '<td class="muted small">' + contact + '</td>' +
         '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td><td>' + escapeHtml(t.staffRole) + '</td>' +
-        '<td><button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button></td></tr>';
+        '<td style="white-space:nowrap">' +
+        '<button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button> ' +
+        '<button type="button" class="btn btn-danger" data-del-teacher="' + escapeHtml(t.teacherId) + '" data-del-name="' + escapeHtml(t.name) + '">Delete</button>' +
+        '</td></tr>';
     });
     html += '</tbody></table>';
     $('teacherList').innerHTML = html || '<p class="muted">No teachers.</p>';
@@ -426,6 +430,23 @@
     ).join('');
     document.querySelectorAll('[data-edit]').forEach(btn => {
       btn.addEventListener('click', () => fillTeacherForm(teachers.find(x => x.teacherId === btn.dataset.edit)));
+    });
+    document.querySelectorAll('[data-del-teacher]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.delName || 'this teacher';
+        if (!confirm('Delete teacher "' + name + '"?\n\nThis permanently removes their account from the teacher list.')) return;
+        try {
+          await api('/api/admin/teachers/' + encodeURIComponent(btn.dataset.delTeacher), {
+            method: 'DELETE'
+          }, role);
+          closeTeacherEditor();
+          showTeacherSaveToast('Teacher deleted.');
+          loadTeachers();
+          loadAssignments();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
     });
   }
 
@@ -626,6 +647,9 @@
       }, role);
       $('termError').style.color = '#16a34a';
       $('termError').textContent = 'Term saved.';
+      $('termLabel').value = '';
+      $('termStart').value = '';
+      $('termEnd').value = '';
       loadTerms();
     } catch (err) {
       $('termError').style.color = '#dc2626';

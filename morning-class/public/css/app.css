@@ -1428,7 +1428,36 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
+.sr-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
 .sr-detail-title { display: flex; align-items: center; gap: 0.75rem; }
+.sr-list-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.sr-status-chip {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  background: #eef3ea;
+  color: var(--olive-deep);
+}
+.sr-status-enrolled { background: #e8f5ec; color: #2f6b3c; }
+.sr-status-inactive { background: #fff4df; color: #8a6418; }
+.sr-status-withdrawn { background: #fdeceb; color: #9b3d37; }
+.btn-ok { background: #e7f3ea; color: #3d7a4a; border: 1px solid #c9e3d0; }
+.btn-danger { background: #f8e9e7; color: #c45d55; border: 1px solid #efd2ce; }
 .sr-section-tabs {
   display: flex;
   flex-wrap: wrap;
