@@ -99,6 +99,9 @@ const {
   listSubjects,
   getTimetable,
   saveTimetable,
+  saveClassTimetable,
+  getTeacherBusyMap,
+  getAllClassesMatrix,
   getStudentTimetableForTeacher
 } = require('./services/timetableService');
 const { getBellSchedule, saveBellSchedule } = require('./services/bellScheduleService');
@@ -1393,6 +1396,39 @@ router.get('/admin/timetable/classes/:classId', requireRole('admin'), async (req
   }
 });
 
+router.post('/admin/timetable/classes/:classId', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureTimetableSheet();
+    const timetable = await saveClassTimetable(req.params.classId, req.body.entries || []);
+    res.json({
+      timetable,
+      studentsUpdated: timetable.studentsUpdated || 0,
+      teachersUpdated: timetable.teachersUpdated || 0
+    });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save class timetable.' });
+  }
+});
+
+router.get('/admin/timetable/teacher-busy', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureTimetableSheet();
+    const data = await getTeacherBusyMap(req.query.excludeClassId || '');
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load teacher busy map.' });
+  }
+});
+
+router.get('/admin/timetable/matrix', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureTimetableSheet();
+    res.json(await getAllClassesMatrix());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load timetable matrix.' });
+  }
+});
+
 router.post('/admin/timetable/generate', requireRole('admin'), async (req, res) => {
   try {
     const { classId } = req.body || {};
@@ -1400,7 +1436,8 @@ router.post('/admin/timetable/generate', requireRole('admin'), async (req, res) 
     const timetable = await getTimetable('class', classId);
     res.json({ result, timetable });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not generate timetable.' });
+    const code = e.message && /solver|not running|timed out/i.test(e.message) ? 503 : 400;
+    res.status(code).json({ error: e.message || 'Could not generate timetable.' });
   }
 });
 

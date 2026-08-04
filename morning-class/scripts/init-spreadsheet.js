@@ -17,7 +17,7 @@ const SHEETS = [
   { name: 'Student_List', headers: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword'], seed: [['S001', 'Test Student', 'C001', 'Enrolled', 'student', 'student123']] },
   { name: 'Student_Profile', headers: ['StudentID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality', 'Address', 'Phone', 'Email', 'ParentName', 'ParentPhone', 'ParentEmail', 'EmergencyContact', 'EmergencyPhone', 'PreviousSchool', 'GradeLevel', 'EnrolledDate', 'Notes', 'UpdatedAt'] },
   { name: 'Student_Profile_Fields', headers: ['FieldID', 'StudentID', 'Section', 'Label', 'Value', 'SortOrder'] },
-  { name: 'Timetable_Entries', headers: ['EntryID', 'OwnerType', 'OwnerID', 'ClassID', 'DayOfWeek', 'StartTime', 'EndTime', 'Subject', 'TeacherID', 'Room', 'Notes', 'SortOrder', 'UpdatedAt'] },
+  { name: 'Timetable_Entries', headers: ['EntryID', 'OwnerType', 'OwnerID', 'ClassID', 'DayOfWeek', 'StartTime', 'EndTime', 'Subject', 'TeacherID', 'Room', 'Notes', 'SortOrder', 'UpdatedAt', 'Locked', 'PeriodID'] },
   { name: 'Bell_Schedule', headers: ['PeriodID', 'Label', 'PeriodType', 'StartTime', 'EndTime', 'SortOrder'] },
   { name: 'Timetable_Requirements', headers: ['ReqID', 'ClassID', 'Subject', 'TeacherID', 'TeacherName', 'PeriodsPerWeek', 'Room', 'Notes'] },
   { name: 'Teacher_List', headers: ['TeacherID', 'Name', 'LoginID', 'LoginPassword', 'HomeroomClassID', 'StaffRole'], seed: [['T001', 'Test Teacher', 'teacher', 'teacher123', 'C001', 'Teacher']] },
