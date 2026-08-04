@@ -89,6 +89,8 @@ configureVocabLearning({
   tenantId: process.env.VOCAB_TENANT_ID || 'mrpark',
   skipLuckyDraw: process.env.VOCAB_SKIP_LUCKY_DRAW === 'true'
 });
+const vocabV1Routes = require('./vocabV1Routes');
+router.use('/vocab/v1', vocabV1Routes);
 const { startGenerationJob: startVocabGenerationJob, cancelGenerationJob: cancelVocabGenerationJob } = require('./vocabWordGenService');
 const {
   getThread,

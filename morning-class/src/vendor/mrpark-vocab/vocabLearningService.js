@@ -9,9 +9,13 @@ const { isSupabaseEnabled, getSupabase } = require('./supabaseClient');
 const { tierForGrade, GRADE_MIN, GRADE_MAX } = require('./vocabPlacementService');
 
 /**
- * Host-app adapters (Mr. Park vs Salt Morning Class).
- * configureVocabLearning() lets Morning Class skip Lucky Draw and use Sheets dollars/roster.
+ * Host-app adapters (Mr. Park vs Salt Morning Class vs future schools).
+ * configureVocabLearning() sets process defaults; per-request tenant context
+ * uses AsyncLocalStorage so one Node process can serve many tenants safely.
  */
+const { AsyncLocalStorage } = require('async_hooks');
+const tenantAls = new AsyncLocalStorage();
+
 const adapters = {
   getEnrolledStudents: null,
   applyDollarAdjustment: null,
@@ -29,10 +33,34 @@ function configureVocabLearning(overrides) {
   });
 }
 
+function runWithTenantContext(ctx, fn) {
+  const base = {
+    tenantId: String((ctx && ctx.tenantId) || adapters.tenantId || 'mrpark'),
+    skipLuckyDraw: ctx && ctx.skipLuckyDraw != null
+      ? !!ctx.skipLuckyDraw
+      : adapters.skipLuckyDraw,
+    features: (ctx && ctx.features) || {}
+  };
+  return tenantAls.run(base, fn);
+}
+
 function tenantId() {
-  const id = String(adapters.tenantId || process.env.VOCAB_TENANT_ID || 'mrpark').trim();
+  const store = tenantAls.getStore();
+  const id = String(
+    (store && store.tenantId) ||
+    adapters.tenantId ||
+    process.env.VOCAB_TENANT_ID ||
+    'mrpark'
+  ).trim();
   if (!id) throw new Error('VOCAB_TENANT_ID is required for Vocab Booster.');
   return id;
+}
+
+function shouldSkipLuckyDraw() {
+  const store = tenantAls.getStore();
+  if (store && store.skipLuckyDraw != null) return !!store.skipLuckyDraw;
+  if (store && store.features && store.features.luckyDraw === false) return true;
+  return !!adapters.skipLuckyDraw;
 }
 
 function withTenant(row) {
@@ -767,7 +795,7 @@ async function recordReview(studentId, classId, wordId, correct) {
 
 /** Grant a random Lucky Draw ticket (same weighted roll as a student spin). */
 async function grantDailyReward(classId, studentId) {
-  if (adapters.skipLuckyDraw) return null;
+  if (shouldSkipLuckyDraw()) return null;
   if (typeof adapters.grantLuckyReward === 'function') {
     return adapters.grantLuckyReward(classId, studentId);
   }
@@ -1405,6 +1433,8 @@ async function listActiveGenerationJobs() {
 
 module.exports = {
   configureVocabLearning,
+  runWithTenantContext,
+  shouldSkipLuckyDraw,
   DEFAULT_DAILY_TARGET,
   DEFAULT_PASS_THRESHOLD,
   DEFAULT_REWARD_TIER,
@@ -1441,5 +1471,7 @@ module.exports = {
   applyMasteryPromotion,
   applyPromotionScoreUpdate,
   buildPlacementItem,
-  tenantId
+  tenantId,
+  /** Alias used by /v1 API + embed host adapters. */
+  getActiveTenantId: tenantId
 };

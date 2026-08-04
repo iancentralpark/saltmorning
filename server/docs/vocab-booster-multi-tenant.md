@@ -111,11 +111,43 @@ All routes require tenant context (JWT or `Authorization: Bearer <tenant-secret>
 
 | Phase | What | Status |
 |-------|------|--------|
-| **1** | `vocab_tenants` + `tenant_id` on progress tables; Mr.Park + Morning Class wired | **this PR** |
-| **2** | Versioned `/v1` HTTP API + signed student session JWT | next |
-| **3** | Embeddable JS widget (iframe or web component) | next |
+| **1** | `vocab_tenants` + `tenant_id` on progress tables; Mr.Park + Morning Class wired | **done** |
+| **2** | Versioned `/api/vocab/v1` + tenant API secret + student session JWT | **this PR** |
+| **3** | Embeddable JS widget (`/js/vocab-embed.js` + demo page) | **this PR** |
 | **4** | Central admin UI (tenants, word bank, cross-tenant analytics) | later |
 | **5** | Optional per-tenant word overlays / curriculum packs | later |
+
+## Phase 2/3 — attach API (live on Mr. Park = central host)
+
+### Host mint (server-to-server)
+
+```http
+POST /api/vocab/v1/session
+Authorization: Bearer <tenant_api_secret>
+X-Vocab-Tenant-Id: salt-morning
+Content-Type: application/json
+
+{ "studentId": "S001", "classId": "G7-A", "name": "Mina" }
+```
+
+Returns `{ token, expiresAt, session, tenant, summary }`.  
+Store the plaintext secret only on the host (`VOCAB_TENANT_API_SECRET`); the DB keeps `secret_hash`.
+
+### Embed
+
+```html
+<div id="vocab-booster-root"></div>
+<script src="https://CENTRAL/js/vocab-embed.js"
+        data-api-base="https://CENTRAL"
+        data-session="TOKEN_FROM_MINT"
+        async></script>
+```
+
+Demo page: `/vocab-embed-demo.html`  
+Platform signing secret: `VOCAB_PLATFORM_SECRET` on the central service.  
+CORS for arbitrary school sites: `VOCAB_EMBED_ORIGINS=*` (https origins).
+
+Seed / rotate secrets: `node server/scripts/seed-vocab-tenant-secrets.js`
 
 ## Why this is efficient *and* safe
 

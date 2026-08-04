@@ -20,6 +20,14 @@ function isAllowedCorsOrigin(origin) {
   if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.up\.railway\.app$/i.test(origin)) return true;
   if (/^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.railway\.app$/i.test(origin)) return true;
   if (/^https:\/\/(www\.)?mrpark\.online$/i.test(origin)) return true;
+  if (/^https:\/\/(www\.)?saltmorning\.study$/i.test(origin)) return true;
+  // Vocab Booster embed hosts (comma list, or * for any https origin).
+  const embedOrigins = process.env.VOCAB_EMBED_ORIGINS;
+  if (embedOrigins === '*') {
+    if (/^https:\/\//i.test(origin)) return true;
+  } else if (embedOrigins) {
+    if (embedOrigins.split(',').map((s) => s.trim()).filter(Boolean).includes(origin)) return true;
+  }
   const corsOrigins = process.env.CORS_ORIGINS;
   if (corsOrigins) {
     return corsOrigins.split(',').map(s => s.trim()).filter(Boolean).includes(origin);

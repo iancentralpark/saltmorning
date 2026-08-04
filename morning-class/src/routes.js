@@ -780,6 +780,44 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
   }
 });
 
+/** Mint a central Vocab Booster /v1 session JWT for embed hosts (optional). */
+router.post('/student/vocab/central-session', requireRole('student'), async (req, res) => {
+  try {
+    const base = String(process.env.VOCAB_CENTRAL_API_BASE || '').replace(/\/$/, '');
+    const secret = String(process.env.VOCAB_TENANT_API_SECRET || '').trim();
+    const tenantId = String(process.env.VOCAB_TENANT_ID || 'salt-morning').trim();
+    const publicKey = String(process.env.VOCAB_TENANT_PUBLIC_KEY || 'pk_salt_morning').trim();
+    if (!base || !secret) {
+      return res.status(503).json({
+        error: 'Central Vocab API not configured (VOCAB_CENTRAL_API_BASE + VOCAB_TENANT_API_SECRET).'
+      });
+    }
+    const r = await fetch(base + '/api/vocab/v1/session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + secret,
+        'X-Vocab-Tenant-Id': tenantId,
+        'X-Vocab-Public-Key': publicKey
+      },
+      body: JSON.stringify({
+        studentId: req.session.studentId,
+        classId: req.session.classId,
+        name: (req.body && req.body.name) || req.session.name || undefined,
+        tenantId,
+        publicKey
+      })
+    });
+    const payload = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return res.status(r.status).json({ error: (payload && payload.error) || 'Central mint failed' });
+    }
+    res.json(payload);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'Central mint failed' });
+  }
+});
+
 router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
     // Same hot path as Mr. Park: build the item only (no summary / Sheets / placement gate).
