@@ -126,6 +126,7 @@ const {
 } = require('./services/homeworkService');
 const {
   getStudentVocabSummary,
+  isPlacementDone,
   buildPlacementItem,
   processPlacementNext,
   savePlacementResult,
@@ -133,9 +134,15 @@ const {
   recordReview,
   recordDailyTestResult,
   getClassVocabOverview,
-  overrideStudentVocab
-} = require('./services/vocabService');
-const { scorePlacement } = require('./services/vocabPlacementService');
+  overrideStudentVocab,
+  scorePlacement,
+  deepDiveWord,
+  getPlacementMeta,
+  getPromotionTestStatus,
+  startPromotionTest,
+  submitPromotionTest,
+  ackPromotionTest
+} = require('./services/vocabShared');
 const { todayStr } = require('./dateUtils');
 
 const photoUpload = multer({
@@ -777,12 +784,105 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
   }
 });
 
+/**
+ * Platform admin directory lookup (name / school / class) for this host tenant.
+ * Auth: X-Vocab-Platform-Key must match VOCAB_PLATFORM_SECRET (shared with central).
+ */
+router.get('/vocab/directory', async (req, res) => {
+  try {
+    const expected = String(process.env.VOCAB_PLATFORM_SECRET || '').trim();
+    const key = String(req.headers['x-vocab-platform-key'] || '').trim();
+    if (!expected || key !== expected) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 200);
+    if (!ids.length) return res.json({ students: [] });
+
+    const { getStudent } = require('./services/studentRegistryService');
+    const schoolName = String(process.env.VOCAB_SCHOOL_NAME || 'Salt Morning Class');
+
+    const students = [];
+    for (const studentId of ids) {
+      try {
+        const student = await getStudent(studentId);
+        if (!student) continue;
+        const classId = student.classId || null;
+        const className = student.className && student.className !== '—'
+          ? student.className
+          : classId;
+        const gradeRaw =
+          (student.profile && student.profile.gradeLevel) ||
+          student.gradeLevel ||
+          null;
+        const gradeNum = gradeRaw != null
+          ? Math.round(Number(String(gradeRaw).replace(/[^0-9.]/g, '')))
+          : null;
+        const previousSchool =
+          (student.profile && student.profile.previousSchool) || null;
+        students.push({
+          studentId,
+          name: student.name || null,
+          schoolName: previousSchool || schoolName,
+          classId,
+          className,
+          schoolGrade: Number.isFinite(gradeNum) ? gradeNum : null
+        });
+      } catch (e) {
+        /* skip missing */
+      }
+    }
+    res.json({ students });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Directory lookup failed' });
+  }
+});
+
+/** Mint a central Vocab Booster /v1 session JWT for embed hosts (optional). */
+router.post('/student/vocab/central-session', requireRole('student'), async (req, res) => {
+  try {
+    const base = String(process.env.VOCAB_CENTRAL_API_BASE || '').replace(/\/$/, '');
+    const secret = String(process.env.VOCAB_TENANT_API_SECRET || '').trim();
+    const tenantId = String(process.env.VOCAB_TENANT_ID || 'salt-morning').trim();
+    const publicKey = String(process.env.VOCAB_TENANT_PUBLIC_KEY || 'pk_salt_morning').trim();
+    if (!base || !secret) {
+      return res.status(503).json({
+        error: 'Central Vocab API not configured (VOCAB_CENTRAL_API_BASE + VOCAB_TENANT_API_SECRET).'
+      });
+    }
+    const r = await fetch(base + '/api/vocab/v1/session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + secret,
+        'X-Vocab-Tenant-Id': tenantId,
+        'X-Vocab-Public-Key': publicKey
+      },
+      body: JSON.stringify({
+        studentId: req.session.studentId,
+        classId: req.session.classId,
+        name: (req.body && req.body.name) || req.session.name || undefined,
+        tenantId,
+        publicKey
+      })
+    });
+    const payload = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return res.status(r.status).json({ error: (payload && payload.error) || 'Central mint failed' });
+    }
+    res.json(payload);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'Central mint failed' });
+  }
+});
+
 router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Same hot path as Mr. Park: build the item only (no summary / Sheets / placement gate).
+    // Already-placed clients are blocked in the UI; /placement/score still enforces the gate.
     const body = req.body || {};
     res.json(await buildPlacementItem({
       abilityGrade: body.abilityGrade,
@@ -797,21 +897,35 @@ router.post('/student/vocab/placement/item', requireRole('student'), async (req,
 
 router.post('/student/vocab/placement/next', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Pure CPU adapt step — same as Mr. Park (no DB / Sheets on the hot path).
     res.json(processPlacementNext(req.body || {}));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not adapt difficulty.' });
   }
 });
 
+router.get('/student/vocab/placement/meta', requireRole('student'), async (req, res) => {
+  try {
+    res.json(getPlacementMeta());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load placement meta.' });
+  }
+});
+
 router.post('/student/vocab/placement/score', requireRole('student'), async (req, res) => {
   try {
+    if (await isPlacementDone(req.session.studentId)) {
+      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
+    }
     const result = scorePlacement(req.body || {});
-    const saved = await savePlacementResult(req.session.studentId, req.session.classId, result);
-    res.json(saved);
+    try {
+      await savePlacementResult(req.session.studentId, req.session.classId, result);
+      result.persisted = true;
+    } catch (persistErr) {
+      console.error('savePlacementResult', persistErr.message || persistErr);
+      result.persisted = false;
+    }
+    res.json(result);
   } catch (e) {
     const status = e.code === 'PLACEMENT_ALREADY_DONE' ? 409 : 400;
     res.status(status).json({ error: e.message || 'Could not score placement.', code: e.code });
@@ -850,10 +964,51 @@ router.post('/student/vocab/daily-test/submit', requireRole('student'), async (r
   }
 });
 
+router.get('/student/vocab/promotion-test/status', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await getPromotionTestStatus(req.session.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load promotion test.' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/start', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await startPromotionTest(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({
+      error: e.message || 'Could not start promotion test.',
+      code: e.code
+    });
+  }
+});
+
+router.post('/student/vocab/promotion-test/submit', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await submitPromotionTest(req.session.studentId, req.body || {}));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit promotion test.' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/ack', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await ackPromotionTest(req.session.studentId, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not ack promotion test.' });
+  }
+});
+
 router.post('/student/vocab/deep-dive', requireRole('student'), async (req, res) => {
   try {
-    const { deepDiveWord } = require('./services/vocabPlacementService');
-    const result = await deepDiveWord(req.body || {});
+    const body = req.body || {};
+    const result = await deepDiveWord({
+      word: body.word,
+      partOfSpeech: body.partOfSpeech || body.part_of_speech,
+      focus: body.focus,
+      levelHint: body.levelHint,
+      studentLevel: body.studentLevel
+    });
     const text = typeof result === 'string'
       ? result
       : String((result && (result.text || result.answer || result.explanation)) || '');
@@ -1413,6 +1568,47 @@ router.get('/admin/timetable/solver-health', requireRole('admin'), async (req, r
     res.json({ ok: r.ok, solver: data });
   } catch (e) {
     res.json({ ok: false, error: e.message });
+  }
+});
+
+const {
+  generateJeopardyBoard,
+  createBlankJeopardyBoard
+} = require('./services/jeopardyService');
+
+router.post('/jeopardy/generate', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const board = await generateJeopardyBoard({
+      subject: body.subject || body.topic,
+      title: body.title,
+      difficulty: body.difficulty,
+      language: body.language,
+      teamCount: body.teamCount
+    });
+    res.json({ ok: true, game: board });
+  } catch (e) {
+    console.error('POST /jeopardy/generate', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate Jeopardy board.' });
+  }
+});
+
+router.post('/jeopardy/blank', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json({
+      ok: true,
+      game: createBlankJeopardyBoard({
+        subject: body.subject || body.topic || 'Jeopardy',
+        title: body.title,
+        difficulty: body.difficulty,
+        language: body.language,
+        teamCount: body.teamCount
+      })
+    });
+  } catch (e) {
+    console.error('POST /jeopardy/blank', e);
+    res.status(400).json({ error: e.message || 'Could not create blank board.' });
   }
 });
 

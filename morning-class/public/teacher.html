@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708ag2">
+  <link rel="stylesheet" href="/css/app.css?v=20260804olive">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -166,6 +166,20 @@
     </div>
   </div>
 </div>
+
+<aside id="classToolsSidebar" class="class-tools-sidebar hidden" aria-label="Class Tools">
+  <div class="class-tools-card">
+    <div class="class-tools-head">
+      <strong>Class Tools</strong>
+      <button type="button" class="btn btn-ghost class-tools-min-btn" id="classToolsToggleBtn" aria-label="Minimize Class Tools">−</button>
+    </div>
+    <div class="class-tools-body" id="classToolsBody">
+      <button type="button" class="btn btn-primary class-tools-btn" id="openJeopardyBtn">AI Jeopardy</button>
+      <p class="muted small" style="margin:0.35rem 0 0">Smartboard quiz board</p>
+    </div>
+  </div>
+  <button type="button" class="class-tools-chip hidden" id="classToolsChip" title="Open Class Tools">Tools</button>
+</aside>
 
 <div id="lpDrawerBackdrop" class="lp-lesson-backdrop hidden" aria-hidden="true"></div>
 <aside id="lpLessonDrawer" class="lp-lesson-drawer" role="dialog" aria-modal="true" aria-hidden="true">
@@ -644,10 +658,10 @@
       let html = '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
         '<th>Student</th><th>Tier</th><th>Lv</th><th>Quest</th><th>Streak</th><th></th></tr></thead><tbody>';
       students.forEach((s) => {
-        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tier || '—') +
+        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tierLabel || s.tier || s.tierName || '—') +
           '</td><td>' + (s.placementDone ? s.gradeLevel : '—') +
-          '</td><td>' + (s.questDone ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
-          '</td><td>' + (s.streak || 0) + '</td><td style="white-space:nowrap">' +
+          '</td><td>' + ((s.questDone || s.todayTestPassed) ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
+          '</td><td>' + (s.streak || s.streakDays || 0) + '</td><td style="white-space:nowrap">' +
           '<button type="button" class="btn btn-ghost vocab-reset" data-sid="' + escapeHtml(s.studentId) +
           '">Reset</button> ' +
           '<button type="button" class="btn btn-ghost vocab-up" data-sid="' + escapeHtml(s.studentId) +
@@ -738,6 +752,41 @@
     setToken(role, ''); setProfile(role, null); location.href = '/';
   });
 
+  function showClassToolsSidebar() {
+    const bar = $('classToolsSidebar');
+    if (bar) bar.classList.remove('hidden');
+  }
+
+  function setClassToolsMinimized(min) {
+    const bar = $('classToolsSidebar');
+    const body = $('classToolsBody');
+    const chip = $('classToolsChip');
+    const toggle = $('classToolsToggleBtn');
+    if (!bar) return;
+    bar.classList.toggle('is-minimized', !!min);
+    if (body) body.classList.toggle('hidden', !!min);
+    if (chip) chip.classList.toggle('hidden', !min);
+    if (toggle) toggle.textContent = min ? '+' : '−';
+  }
+
+  const openJeopardyBtn = $('openJeopardyBtn');
+  if (openJeopardyBtn) {
+    openJeopardyBtn.addEventListener('click', () => {
+      window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
+    });
+  }
+  const classToolsToggleBtn = $('classToolsToggleBtn');
+  if (classToolsToggleBtn) {
+    classToolsToggleBtn.addEventListener('click', () => {
+      const bar = $('classToolsSidebar');
+      setClassToolsMinimized(!(bar && bar.classList.contains('is-minimized')));
+    });
+  }
+  const classToolsChip = $('classToolsChip');
+  if (classToolsChip) {
+    classToolsChip.addEventListener('click', () => setClassToolsMinimized(false));
+  }
+
   function bootApp() {
     const p = getProfile(role);
     if (!p) return;
@@ -749,6 +798,8 @@
     });
     loadClasses();
     SaltMessenger.init(role);
+    showClassToolsSidebar();
+    setClassToolsMinimized(false);
   }
 
   if (getToken(role)) bootApp();

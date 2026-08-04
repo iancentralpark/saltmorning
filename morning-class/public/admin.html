@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708libs">
+  <link rel="stylesheet" href="/css/app.css?v=20260804olive">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -29,6 +29,7 @@
       <button class="tab" data-tab="students" type="button">Students</button>
       <button class="tab" data-tab="timetables" type="button">Timetables</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
+      <button class="tab" data-tab="vocabPlatform" type="button">Vocab Platform</button>
     </div>
 
     <div id="panelMonitor" class="card">
@@ -150,6 +151,14 @@
       <h4>Manual view / edit</h4>
       <div id="timetableMount"></div>
     </div>
+
+    <div id="panelVocabPlatform" class="card hidden">
+      <h3>Vocab Platform</h3>
+      <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
+      <p style="margin:1rem 0 0">
+        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Open Vocab Platform</a>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -194,10 +203,11 @@
 
   function switchTab(name) {
     document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms'].forEach(id => hide($(id)));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
-      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables', terms: 'panelTerms'
+      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
+      terms: 'panelTerms', vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
     if (name === 'monitor') loadMonitor();
