@@ -90,7 +90,6 @@ configureVocabLearning({
   skipLuckyDraw: process.env.VOCAB_SKIP_LUCKY_DRAW === 'true'
 });
 const vocabV1Routes = require('./vocabV1Routes');
-router.use('/vocab/v1', vocabV1Routes);
 const { startGenerationJob: startVocabGenerationJob, cancelGenerationJob: cancelVocabGenerationJob } = require('./vocabWordGenService');
 const {
   getThread,
@@ -194,6 +193,8 @@ function isPublicApiRoute(req) {
   const key = req.method + ' ' + req.path;
   if (PUBLIC_API_ROUTES.has(key)) return true;
   if (req.path.startsWith('/student/')) return true;
+  // Multi-tenant Vocab Booster API has its own session / tenant-secret auth.
+  if (req.path === '/vocab/v1' || req.path.startsWith('/vocab/v1/')) return true;
   return false;
 }
 
@@ -209,6 +210,8 @@ function issueTeacherLogin(req, res) {
   setTeacherAuthCookie(res, req, token);
   res.json({ ok: true, token });
 }
+
+router.use('/vocab/v1', vocabV1Routes);
 
 router.use((req, res, next) => {
   if (isPublicApiRoute(req)) return next();
