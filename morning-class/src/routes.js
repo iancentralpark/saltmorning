@@ -1571,4 +1571,45 @@ router.get('/admin/timetable/solver-health', requireRole('admin'), async (req, r
   }
 });
 
+const {
+  generateJeopardyBoard,
+  createBlankJeopardyBoard
+} = require('./services/jeopardyService');
+
+router.post('/jeopardy/generate', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const board = await generateJeopardyBoard({
+      subject: body.subject || body.topic,
+      title: body.title,
+      difficulty: body.difficulty,
+      language: body.language,
+      teamCount: body.teamCount
+    });
+    res.json({ ok: true, game: board });
+  } catch (e) {
+    console.error('POST /jeopardy/generate', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate Jeopardy board.' });
+  }
+});
+
+router.post('/jeopardy/blank', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json({
+      ok: true,
+      game: createBlankJeopardyBoard({
+        subject: body.subject || body.topic || 'Jeopardy',
+        title: body.title,
+        difficulty: body.difficulty,
+        language: body.language,
+        teamCount: body.teamCount
+      })
+    });
+  } catch (e) {
+    console.error('POST /jeopardy/blank', e);
+    res.status(400).json({ error: e.message || 'Could not create blank board.' });
+  }
+});
+
 module.exports = router;

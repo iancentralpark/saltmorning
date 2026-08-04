@@ -31,7 +31,12 @@
         <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
         <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
       </div>
-      <p class="muted small" style="margin-top:0.35rem">View student records and your weekly teaching schedule.</p>
+      <div class="section-title" style="margin-top:1.35rem">Class Tools</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
+        <button type="button" class="btn btn-primary" id="openJeopardyBtn">AI Jeopardy</button>
+        <a class="btn btn-ghost" id="vocabPlatformTeacherBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Vocab Platform</a>
+      </div>
+      <p class="muted small" style="margin-top:0.35rem">Classroom tools and shared Vocab Platform admin.</p>
     </div>
   </div>
 
@@ -134,7 +139,10 @@
     </div>
 
     <div id="panelVocab" class="card hidden">
-      <p class="muted small">Vocab Booster progress. Reset placement or adjust level if needed.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <p class="muted small" style="margin:0">Vocab Booster progress. Reset placement or adjust level if needed.</p>
+        <a class="btn btn-ghost" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Vocab Platform</a>
+      </div>
       <div id="vocabTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="vocabTeacherError"></div>
     </div>
@@ -737,6 +745,13 @@
   $('logoutBtn').addEventListener('click', () => {
     setToken(role, ''); setProfile(role, null); location.href = '/';
   });
+
+  const openJeopardyBtn = $('openJeopardyBtn');
+  if (openJeopardyBtn) {
+    openJeopardyBtn.addEventListener('click', () => {
+      window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
+    });
+  }
 
   function bootApp() {
     const p = getProfile(role);
