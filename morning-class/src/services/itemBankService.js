@@ -37,7 +37,7 @@ function isoNow() {
 }
 
 function geminiModel() {
-  return process.env.TEACHER_GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+  return process.env.TEACHER_GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash';
 }
 
 function extractJson(text) {
