@@ -60,11 +60,20 @@ const DEFAULT_MAX_DAILY_SESSIONS = 3;
 const MASTERY_PROMOTE_AT = 0.8;
 const RATING_START = 100;
 
+// Promotion ladder (shared by Mr. Park + Morning Class): 400 pts to climb a tier.
+const PROMOTE_AT = 400;
+const DEMOTE_REENTRY_SCORE = 390;
+const SHIELD_ITEMS_ON_PROMOTE = 30;
+const SCORE_FIRST_CORRECT = 1.5;
+const SCORE_FIRST_WRONG = -1.5;
+const SCORE_RETRY_CORRECT = 1.5;
+const SCORE_RETRY_WRONG = -0.8;
+
 // Leitner box -> review interval in days. Box 0 = due immediately (new/failed).
 const BOX_INTERVAL_DAYS = [0, 1, 3, 7, 14, 30];
 const MAX_BOX = BOX_INTERVAL_DAYS.length - 1;
 
-// rating_score kept on student state for display/legacy; no longer drives promote/demote.
+// rating_score kept on student state for display/legacy; promote/demote uses promotion_score.
 
 // Tier-scaled daily Dollar bonus, granted every day the quest is completed (on top of
 // the existing Lucky Draw ticket reward). Amount 0 skips the adjustment call.
@@ -100,6 +109,65 @@ function todayStr() {
 function daysBetween(a, b) {
   const MS = 24 * 60 * 60 * 1000;
   return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / MS);
+}
+
+function roundScore(n) {
+  return Math.round((Number(n) || 0) * 10) / 10;
+}
+
+function clampPromotionScore(n) {
+  return roundScore(Math.max(0, Math.min(PROMOTE_AT, Number(n) || 0)));
+}
+
+function scoreDeltaForAnswer(answer) {
+  const correct = !!(answer && answer.correct);
+  const attempt = String((answer && answer.attempt) || 'first').toLowerCase();
+  const isRetry = attempt === 'retry' || attempt === 'retest' || !!(answer && answer.isRetry);
+  if (correct) return isRetry ? SCORE_RETRY_CORRECT : SCORE_FIRST_CORRECT;
+  return isRetry ? SCORE_RETRY_WRONG : SCORE_FIRST_WRONG;
+}
+
+function computeSetScoreDelta(answers) {
+  const list = Array.isArray(answers) ? answers : [];
+  let delta = 0;
+  list.forEach((a) => { delta += scoreDeltaForAnswer(a); });
+  return roundScore(delta);
+}
+
+function buildSyntheticAnswers(correctCount, totalCount) {
+  const total = Math.max(0, Math.round(Number(totalCount) || 0));
+  const correct = Math.max(0, Math.min(total, Math.round(Number(correctCount) || 0)));
+  const out = [];
+  for (let i = 0; i < correct; i++) out.push({ correct: true, attempt: 'first' });
+  for (let j = correct; j < total; j++) out.push({ correct: false, attempt: 'first' });
+  return out;
+}
+
+/** Division 1 (0–199) / Division 2 (200–399) inside the current tier — e.g. "Emerald 1". */
+function tierDivisionFromScore(score) {
+  return clampPromotionScore(score) >= PROMOTE_AT / 2 ? 2 : 1;
+}
+
+function promotionProgressFromState(state) {
+  if (!state || !state.placement_at) {
+    return {
+      promotionScore: 0,
+      promotionScoreMax: PROMOTE_AT,
+      promotionPercent: 0,
+      shieldCount: 0,
+      remainingToPromote: PROMOTE_AT,
+      tierDivision: 1
+    };
+  }
+  const score = clampPromotionScore(state.promotion_score);
+  return {
+    promotionScore: score,
+    promotionScoreMax: PROMOTE_AT,
+    promotionPercent: Math.round((score / PROMOTE_AT) * 1000) / 10,
+    shieldCount: Math.max(0, Math.round(Number(state.promotion_shield_count) || 0)),
+    remainingToPromote: roundScore(Math.max(0, PROMOTE_AT - score)),
+    tierDivision: tierDivisionFromScore(score)
+  };
 }
 
 /** Case-insensitive identity key for a vocab word. */
@@ -447,6 +515,8 @@ async function savePlacementResult(studentId, classId, result) {
     grade_level: Math.round(result.gradeLevel),
     tier_name: result.tier && result.tier.name,
     rating_score: RATING_START,
+    promotion_score: 0,
+    promotion_shield_count: 0,
     placement_accuracy: result.accuracy,
     placement_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -758,10 +828,10 @@ async function getTierMastery(studentId, gradeLevel) {
 }
 
 /**
- * After a passed daily test: promote one grade if tier mastery ≥ 80%.
- * Elo promote/demote removed — rating_score is left unchanged.
+ * Apply promotion-score delta after a daily set. Promote at 400 / demote at 0
+ * (shield absorbs a zero-score fall; promote grants a fresh shield).
  */
-async function applyMasteryPromotion(studentId) {
+async function applyPromotionScoreUpdate(studentId, answers, consumeShieldItems) {
   const db = requireDb();
   const state = (await getStudentState(studentId)) || {};
   if (!state.placement_at) {
@@ -770,49 +840,96 @@ async function applyMasteryPromotion(studentId) {
       tierName: state.tier_name || null,
       ratingScore: state.rating_score != null ? Number(state.rating_score) : null,
       promoted: null,
-      mastery: null
+      demoted: null,
+      mastery: null,
+      promotionScore: 0,
+      promotionScoreMax: PROMOTE_AT,
+      promotionPercent: 0,
+      remainingToPromote: PROMOTE_AT,
+      shieldCount: 0,
+      tierDivision: 1,
+      scoreDelta: 0
     };
   }
-  let grade = Math.max(GRADE_MIN, Math.min(GRADE_MAX, Math.round(Number(state.grade_level) || 6)));
-  const mastery = await getTierMastery(studentId, grade);
-  let promoted = null;
 
-  if (mastery.ready && grade < GRADE_MAX) {
+  let grade = Math.max(GRADE_MIN, Math.min(GRADE_MAX, Math.round(Number(state.grade_level) || 6)));
+  let score = roundScore(Number(state.promotion_score) || 0);
+  let shield = Math.max(0, Math.round(Number(state.promotion_shield_count) || 0));
+  const before = score;
+  const d = computeSetScoreDelta(answers);
+  score = roundScore(score + d);
+
+  let promoted = null;
+  let demoted = null;
+
+  while (score >= PROMOTE_AT && grade < GRADE_MAX) {
     grade += 1;
+    score = 0;
+    shield = SHIELD_ITEMS_ON_PROMOTE;
     promoted = 'up';
-    const tier = tierForGrade(grade);
-    const row = {
-      student_id: String(studentId),
-      grade_level: grade,
-      tier_name: tier.name,
-      rating_score: state.rating_score != null ? Number(state.rating_score) : RATING_START,
-      placement_at: state.placement_at,
-      placement_accuracy: state.placement_accuracy,
-      updated_at: new Date().toISOString()
-    };
-    const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
-    if (error) throw new Error(error.message);
-    const nextMastery = await getTierMastery(studentId, grade);
-    return {
-      gradeLevel: grade,
-      tierName: tier.name,
-      ratingScore: row.rating_score,
-      promoted: promoted,
-      mastery: nextMastery
-    };
   }
+  if (grade >= GRADE_MAX && score > PROMOTE_AT) score = PROMOTE_AT;
+
+  if (score <= 0) {
+    if (shield > 0) {
+      score = 0;
+    } else if (grade > GRADE_MIN) {
+      grade -= 1;
+      score = DEMOTE_REENTRY_SCORE;
+      demoted = 'down';
+    } else {
+      score = 0;
+    }
+  }
+
+  const used = Math.max(0, Math.round(Number(consumeShieldItems) || 0));
+  if (used > 0 && shield > 0) shield = Math.max(0, shield - used);
 
   const tier = tierForGrade(grade);
+  const row = {
+    student_id: String(studentId),
+    grade_level: grade,
+    tier_name: tier.name,
+    rating_score: state.rating_score != null ? Number(state.rating_score) : RATING_START,
+    promotion_score: clampPromotionScore(score),
+    promotion_shield_count: shield,
+    placement_at: state.placement_at,
+    placement_accuracy: state.placement_accuracy,
+    last_active_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await db.from('vocab_student_state').upsert(row, { onConflict: 'student_id' });
+  if (error) throw new Error(error.message);
+
+  let mastery = null;
+  try { mastery = await getTierMastery(studentId, grade); } catch (e) { /* optional */ }
+
+  const progress = promotionProgressFromState(row);
   return {
     gradeLevel: grade,
     tierName: tier.name,
-    ratingScore: state.rating_score != null ? Number(state.rating_score) : RATING_START,
-    promoted: null,
-    mastery: mastery
+    ratingScore: row.rating_score,
+    promoted,
+    demoted,
+    mastery,
+    promotionScore: progress.promotionScore,
+    promotionScoreMax: progress.promotionScoreMax,
+    promotionPercent: progress.promotionPercent,
+    remainingToPromote: progress.remainingToPromote,
+    shieldCount: progress.shieldCount,
+    tierDivision: progress.tierDivision,
+    scoreDelta: d,
+    beforeScore: before,
+    afterScore: progress.promotionScore
   };
 }
 
-async function recordDailyTestResult(studentId, classId, correctCount, totalCount) {
+/** @deprecated Prefer applyPromotionScoreUpdate — kept for older callers. */
+async function applyMasteryPromotion(studentId) {
+  return applyPromotionScoreUpdate(studentId, [], 0);
+}
+
+async function recordDailyTestResult(studentId, classId, correctCount, totalCount, answers) {
   const db = requireDb();
   studentId = String(studentId);
   const settings = await getClassSettings(classId);
@@ -829,6 +946,10 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   const maxSessions = Math.max(1, Number(settings.max_daily_sessions) || DEFAULT_MAX_DAILY_SESSIONS);
   const sessionsBefore = Math.max(0, Number(daily.sessions_completed) || 0);
 
+  const scoredAnswers = Array.isArray(answers) && answers.length
+    ? answers
+    : buildSyntheticAnswers(correctCount, totalCount);
+
   const update = {
     test_attempts: (daily.test_attempts || 0) + 1,
     test_score: score,
@@ -841,6 +962,17 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
   let streakInfo = null;
   let ratingUpdate = null;
   let sessionsCompleted = sessionsBefore;
+
+  // Promotion score updates on every submitted set (pass or fail), matching Morning Class.
+  try {
+    ratingUpdate = await applyPromotionScoreUpdate(
+      studentId,
+      scoredAnswers,
+      scoredAnswers.length
+    );
+  } catch (e) {
+    console.error('applyPromotionScoreUpdate failed', e.message || e);
+  }
 
   if (passed) {
     sessionsCompleted = sessionsBefore + 1;
@@ -856,7 +988,9 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
       console.error('grantDailyReward failed', e.message || e);
     }
     try {
-      const tierName = state.tier_name || tierForGrade(state.grade_level).name;
+      const tierName = (ratingUpdate && ratingUpdate.tierName)
+        || state.tier_name
+        || tierForGrade(state.grade_level).name;
       dollarBonus = await grantTierDollarBonus(classId, studentId, tierName);
     } catch (e) {
       console.error('grantTierDollarBonus failed', e.message || e);
@@ -864,12 +998,6 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
     // Streak still bumps once per calendar day.
     if (sessionsBefore === 0) {
       streakInfo = await bumpStreak(studentId, daily.quest_date);
-    }
-
-    try {
-      ratingUpdate = await applyMasteryPromotion(studentId);
-    } catch (e) {
-      console.error('applyMasteryPromotion failed', e.message || e);
     }
   }
 
@@ -884,6 +1012,7 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
     reward,
     dollarBonus,
     rating: ratingUpdate,
+    promotion: ratingUpdate,
     mastery: ratingUpdate && ratingUpdate.mastery,
     streak: streakInfo,
     alreadyPassedToday: sessionsBefore >= 1,
@@ -943,10 +1072,19 @@ async function getStudentVocabSummary(studentId, classId) {
   }
   const { placementStartAbility } = require('./vocabPlacementService');
   const placementStartGrade = placementStartAbility(schoolGrade);
+  const progress = promotionProgressFromState(state);
+  const tierName = placed ? state.tier_name : null;
   return {
-    tierName: placed ? state.tier_name : null,
+    tierName,
+    tierLabel: placed ? (tierName + ' ' + progress.tierDivision) : null,
+    tierDivision: placed ? progress.tierDivision : null,
     gradeLevel: placed ? state.grade_level : null,
     ratingScore: placed ? state.rating_score : null,
+    promotionScore: placed ? progress.promotionScore : 0,
+    promotionScoreMax: PROMOTE_AT,
+    promotionPercent: placed ? progress.promotionPercent : 0,
+    remainingToPromote: placed ? progress.remainingToPromote : PROMOTE_AT,
+    shieldCount: placed ? progress.shieldCount : 0,
     streakDays: (state && state.streak_days) || 0,
     longestStreak: (state && state.longest_streak) || 0,
     placementDone: placed,
@@ -1127,12 +1265,20 @@ async function getClassOverview(classId) {
     const st = stateById.get(String(s.id));
     const d = dailyById.get(String(s.id));
     const placed = !!(st && st.placement_at);
+    const progress = promotionProgressFromState(st);
     return {
       studentId: s.id,
+      localStudentId: s.localStudentId || null,
       name: s.name,
       tierName: placed ? st.tier_name : null,
+      tierLabel: placed ? (st.tier_name + ' ' + progress.tierDivision) : null,
+      tierDivision: placed ? progress.tierDivision : null,
       gradeLevel: placed ? st.grade_level : null,
       ratingScore: placed ? st.rating_score : null,
+      promotionScore: placed ? progress.promotionScore : 0,
+      promotionScoreMax: PROMOTE_AT,
+      promotionPercent: placed ? progress.promotionPercent : 0,
+      shieldCount: placed ? progress.shieldCount : 0,
       streakDays: st ? st.streak_days : 0,
       longestStreak: st ? st.longest_streak : 0,
       placementAt: st ? st.placement_at : null,
@@ -1156,6 +1302,8 @@ async function overrideStudentState(studentId, opts) {
     patch.grade_level = grade;
     patch.rating_score = RATING_START;
     patch.tier_name = tierForGrade(grade).name;
+    patch.promotion_score = 0;
+    patch.promotion_shield_count = 0;
   }
   // Teacher grade override also unlocks Placement retake.
   if (opts.resetPlacement !== false) {
@@ -1228,6 +1376,7 @@ module.exports = {
   DEFAULT_REWARD_TIER,
   DEFAULT_MAX_DAILY_SESSIONS,
   MASTERY_PROMOTE_AT,
+  PROMOTE_AT,
   bulkUpsertWords,
   normalizeWordEntry,
   listWords,
@@ -1256,5 +1405,6 @@ module.exports = {
   wordIdForWord,
   getTierMastery,
   applyMasteryPromotion,
+  applyPromotionScoreUpdate,
   buildPlacementItem
 };

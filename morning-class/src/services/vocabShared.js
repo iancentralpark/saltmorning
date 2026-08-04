@@ -1,6 +1,9 @@
 /**
  * Salt Morning Class — Vocab Booster bridge to Mr. Park's shared engine + Supabase DB.
- * Same word bank, SRS, placement, and daily quest. Lucky Draw is disabled here.
+ * Same word bank / placement / SRS / quest engine. Lucky Draw disabled.
+ *
+ * IMPORTANT: Morning Class student/class IDs (S001, C001, …) collide with Mr. Park's.
+ * All vocab_* rows for this app are stored under the `mc:` prefix.
  */
 'use strict';
 
@@ -11,9 +14,25 @@ const { getClassRoster } = require('./teacherPortalService');
 const VENDOR_SRC = process.env.VOCAB_CORE_PATH ||
   path.resolve(__dirname, '../vendor/mrpark-vocab');
 
+/** Prefix that scopes Morning Class rows inside the shared Supabase vocab tables. */
+const VOCAB_ID_PREFIX = String(process.env.VOCAB_ID_PREFIX || 'mc:').trim() || 'mc:';
+
 let wired = false;
 let learning = null;
 let placement = null;
+
+function toVocabId(id) {
+  const s = String(id == null ? '' : id).trim();
+  if (!s) return s;
+  if (s.startsWith(VOCAB_ID_PREFIX)) return s;
+  return VOCAB_ID_PREFIX + s;
+}
+
+function fromVocabId(id) {
+  const s = String(id == null ? '' : id).trim();
+  if (s.startsWith(VOCAB_ID_PREFIX)) return s.slice(VOCAB_ID_PREFIX.length);
+  return s;
+}
 
 function parseSchoolGrade(raw) {
   if (raw == null || raw === '') return null;
@@ -22,10 +41,10 @@ function parseSchoolGrade(raw) {
   return n;
 }
 
-async function resolveStudentSchoolGrade(studentId) {
+async function resolveStudentSchoolGrade(localStudentId) {
   try {
     const { getStudent } = require('./studentRegistryService');
-    const student = await getStudent(studentId);
+    const student = await getStudent(localStudentId);
     const schoolGrade = parseSchoolGrade(
       (student && student.profile && student.profile.gradeLevel) ||
       (student && student.gradeLevel)
@@ -47,17 +66,22 @@ function wire() {
   learning.configureVocabLearning({
     skipLuckyDraw: true,
     grantLuckyReward: async () => null,
+    // Dollars live in Morning Class Sheets — always use local (unprefixed) IDs.
     applyDollarAdjustment: async (classId, studentId, amount, reason) =>
-      applyDollarAdjustment(classId, studentId, amount, reason),
+      applyDollarAdjustment(fromVocabId(classId), fromVocabId(studentId), amount, reason),
     getEnrolledStudents: async (classId) => {
-      const roster = await getClassRoster(classId);
+      const roster = await getClassRoster(fromVocabId(classId));
       return roster.map((s) => ({
-        studentId: s.studentId,
-        id: s.studentId,
-        name: s.name
+        // Engine queries vocab_* with scoped ids…
+        id: toVocabId(s.studentId),
+        studentId: toVocabId(s.studentId),
+        name: s.name,
+        // …while UI still wants the Sheets id.
+        localStudentId: s.studentId
       }));
     },
-    getStudentSchoolGrade: resolveStudentSchoolGrade
+    getStudentSchoolGrade: async (scopedStudentId) =>
+      resolveStudentSchoolGrade(fromVocabId(scopedStudentId))
   });
   wired = true;
 }
@@ -73,30 +97,31 @@ function placementApi() {
 }
 
 async function getStudentVocabSummary(studentId, classId) {
-  return api().getStudentVocabSummary(studentId, classId);
+  return api().getStudentVocabSummary(toVocabId(studentId), toVocabId(classId));
 }
 
 async function getDailyQueue(studentId, classId) {
-  return api().getDailyQueue(studentId, classId);
+  return api().getDailyQueue(toVocabId(studentId), toVocabId(classId));
 }
 
 async function recordReview(studentId, classId, wordId, correct) {
-  return api().recordReview(studentId, classId, wordId, correct);
+  return api().recordReview(toVocabId(studentId), toVocabId(classId), wordId, correct);
 }
 
 async function recordDailyTestResult(studentId, classId, correctCount, totalCount, answers) {
-  // Match Mr. Park route: sync correct answers into SRS before scoring the set.
+  const sid = toVocabId(studentId);
+  const cid = toVocabId(classId);
   if (Array.isArray(answers)) {
     for (const a of answers) {
       if (!a || !a.wordId || !a.correct) continue;
       try {
-        await api().recordReview(studentId, classId, a.wordId, true);
+        await api().recordReview(sid, cid, a.wordId, true);
       } catch (err) {
         console.warn('daily-test answer sync', err.message || err);
       }
     }
   }
-  return api().recordDailyTestResult(studentId, classId, correctCount, totalCount);
+  return api().recordDailyTestResult(sid, cid, correctCount, totalCount, answers);
 }
 
 async function buildPlacementItem(opts) {
@@ -107,16 +132,17 @@ async function savePlacementResult(studentId, classId, payload) {
   const result = payload && payload.gradeLevel != null
     ? payload
     : placementApi().scorePlacement(payload || {});
-  await api().savePlacementResult(studentId, classId, result);
+  await api().savePlacementResult(toVocabId(studentId), toVocabId(classId), result);
   return result;
 }
 
 async function getClassVocabOverview(classId) {
-  const overview = await api().getClassOverview(classId);
+  const overview = await api().getClassOverview(toVocabId(classId));
   const students = (overview.students || []).map((s) => {
     const placementDone = !!(s.placementAt || s.tierName || s.gradeLevel);
+    const localId = s.localStudentId || fromVocabId(s.studentId);
     return {
-      studentId: s.studentId,
+      studentId: localId,
       name: s.name,
       placementDone,
       gradeLevel: placementDone ? s.gradeLevel : null,
@@ -131,6 +157,9 @@ async function getClassVocabOverview(classId) {
       todayTarget: Number(s.todayTarget || 0),
       todayTestScore: s.todayTestScore,
       ratingScore: s.ratingScore,
+      promotionScore: s.promotionScore,
+      promotionScoreMax: s.promotionScoreMax,
+      shieldCount: s.shieldCount,
       placementAt: s.placementAt || null
     };
   });
@@ -139,25 +168,26 @@ async function getClassVocabOverview(classId) {
 
 async function overrideStudentVocab(studentId, classId, opts) {
   opts = opts || {};
-  // Teacher Reset → clear placement. Teacher +Lv → keep/mark placed (do not wipe).
+  const sid = toVocabId(studentId);
+  const cid = toVocabId(classId);
   let resetPlacement;
   if (opts.resetPlacement === true) resetPlacement = true;
   else if (opts.placementDone === true) resetPlacement = false;
   else resetPlacement = opts.resetPlacement !== false;
 
-  await api().overrideStudentState(studentId, {
+  await api().overrideStudentState(sid, {
     gradeLevel: opts.gradeLevel,
     resetPlacement
   });
 
   if (opts.placementDone === true && !resetPlacement) {
-    const state = await api().getStudentState(studentId);
+    const state = await api().getStudentState(sid);
     if (state && !state.placement_at) {
       const grade = opts.gradeLevel != null
         ? opts.gradeLevel
         : (state.grade_level || placementApi().DEFAULT_PLACEMENT_START);
       const tier = placementApi().tierForGrade(grade);
-      await api().savePlacementResult(studentId, classId, {
+      await api().savePlacementResult(sid, cid, {
         gradeLevel: grade,
         tier,
         accuracy: state.placement_accuracy || 0
@@ -168,14 +198,12 @@ async function overrideStudentVocab(studentId, classId, opts) {
 }
 
 function scorePlacement(answersOrPayload) {
-  // Accept either raw answers array (legacy MC) or Mr. Park payload object.
   if (Array.isArray(answersOrPayload)) {
     return placementApi().scorePlacement({ answers: answersOrPayload });
   }
   return placementApi().scorePlacement(answersOrPayload || {});
 }
 
-/** Same wire shape as Mr. Park POST /student/vocab/placement/next */
 function processPlacementNext(body) {
   const p = placementApi();
   body = body || {};
@@ -205,7 +233,6 @@ function getPlacementMeta() {
 }
 
 async function getRecentVocabActivity(limit) {
-  // Best-effort feed from shared Supabase daily progress (no sheets review log).
   try {
     wire();
     const { getSupabase, isSupabaseEnabled } = require(path.join(VENDOR_SRC, 'supabaseClient.js'));
@@ -214,12 +241,13 @@ async function getRecentVocabActivity(limit) {
     const { data, error } = await db
       .from('vocab_daily_progress')
       .select('student_id, quest_date, test_passed, test_score, sessions_completed, updated_at')
+      .like('student_id', VOCAB_ID_PREFIX + '%')
       .order('updated_at', { ascending: false })
       .limit(Number(limit) || 50);
     if (error) throw new Error(error.message);
     return (data || []).map((row) => ({
       at: row.updated_at || row.quest_date,
-      studentId: row.student_id,
+      studentId: fromVocabId(row.student_id),
       wordId: '',
       correct: !!row.test_passed,
       kind: row.test_passed ? 'quest_pass' : 'quest_attempt'
@@ -232,6 +260,9 @@ async function getRecentVocabActivity(limit) {
 
 module.exports = {
   wire,
+  toVocabId,
+  fromVocabId,
+  VOCAB_ID_PREFIX,
   getStudentVocabSummary,
   getDailyQueue,
   recordReview,
