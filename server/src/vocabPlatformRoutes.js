@@ -19,7 +19,9 @@ const {
   createTenant,
   updateTenant,
   rotateTenantApiSecret,
-  getPlatformAnalytics
+  getPlatformAnalytics,
+  listTenantLearners,
+  getTenantLearnerDetail
 } = require('./vocabTenantService');
 const {
   listPacks,
@@ -143,6 +145,30 @@ router.post('/tenants/:tenantId/rotate-secret', asyncHandler(async (req, res) =>
 
 router.get('/tenants/:tenantId/packs', asyncHandler(async (req, res) => {
   res.json({ packs: await listTenantPacks(req.params.tenantId) });
+}));
+
+router.get('/tenants/:tenantId/learners', asyncHandler(async (req, res) => {
+  const tenant = await getTenantById(req.params.tenantId);
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+  const result = await listTenantLearners(tenant.id, {
+    search: req.query.search,
+    limit: req.query.limit
+  });
+  res.json({
+    tenant: { id: tenant.id, name: tenant.name },
+    ...result
+  });
+}));
+
+router.get('/tenants/:tenantId/learners/:studentId', asyncHandler(async (req, res) => {
+  const tenant = await getTenantById(req.params.tenantId);
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+  const detail = await getTenantLearnerDetail(tenant.id, req.params.studentId);
+  if (!detail) return res.status(404).json({ error: 'Learner not found' });
+  res.json({
+    tenant: { id: tenant.id, name: tenant.name },
+    ...detail
+  });
 }));
 
 router.put('/tenants/:tenantId/packs', asyncHandler(async (req, res) => {

@@ -172,6 +172,7 @@
   <main>
     <div class="tabs" role="tablist">
       <button type="button" class="active" data-tab="overview">Overview</button>
+      <button type="button" data-tab="learners">Learners</button>
       <button type="button" data-tab="tenants">Tenants</button>
       <button type="button" data-tab="packs">Packs</button>
       <button type="button" data-tab="words">Word bank</button>
@@ -193,7 +194,55 @@
       </table>
     </section>
 
+    <section class="panel" id="panel-learners">
+      <p class="muted" style="margin-top:0">테넌트별 학생 진도·상태. 호스트 명단이 아니라 Vocab DB에 기록이 있는 학습자입니다.</p>
+      <div class="grid2">
+        <div>
+          <label for="learnerTenant">Tenant</label>
+          <select id="learnerTenant"></select>
+        </div>
+        <div>
+          <label for="learnerSearch">Student id search</label>
+          <div style="display:flex;gap:0.5rem">
+            <input id="learnerSearch" placeholder="S001">
+            <button type="button" id="learnerSearchBtn">Load</button>
+          </div>
+        </div>
+      </div>
+      <table style="margin-top:0.85rem">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Class</th>
+            <th>Tier</th>
+            <th>Promo</th>
+            <th>Streak</th>
+            <th>Today</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="learnersBody"></tbody>
+      </table>
+      <p class="muted" id="learnersMeta"></p>
+      <div class="form-card" id="learnerDetailCard" style="display:none">
+        <h3 style="margin:0;font-family:Fraunces,Georgia,serif;">Learner detail — <span id="learnerDetailTitle"></span></h3>
+        <div class="stats" id="learnerDetailStats" style="margin-top:0.75rem"></div>
+        <h4 style="margin:1rem 0 0.35rem;font-size:0.95rem">Recent daily quests</h4>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Studied</th><th>Target</th><th>Test</th><th>Score</th></tr>
+          </thead>
+          <tbody id="learnerDailyBody"></tbody>
+        </table>
+        <p class="muted" id="learnerBoxMeta"></p>
+      </div>
+    </section>
+
     <section class="panel" id="panel-tenants">
+      <p class="muted" style="margin-top:0">
+        <strong>Rotate secret</strong> = 학교 서버가 API에 쓰는 비밀키를 새로 발급합니다. 유출 의심 시 돌리고, 학교 쪽 <code>VOCAB_TENANT_API_SECRET</code>도 같이 바꿔야 합니다.<br>
+        <strong>Packs</strong> = 그 학교가 쓸 단어 묶음. 비우면 전체 워드뱅크, 할당하면 placement/퀘스트가 그 팩 단어로만 제한됩니다.
+      </p>
       <table>
         <thead>
           <tr>
@@ -234,6 +283,11 @@
     </section>
 
     <section class="panel" id="panel-packs">
+      <p class="muted" style="margin-top:0">
+        Curriculum pack = 글로벌 워드뱅크에서 골라 만든 커리큘럼 묶음입니다.
+        테넌트에 할당하면 그 학교 학생의 placement / daily quest 단어가 팩에 있는 단어로만 나갑니다.
+        아무 팩도 없으면 전체 뱅크를 씁니다.
+      </p>
       <table>
         <thead>
           <tr>
@@ -374,7 +428,7 @@
           statHtml(data.wordBankActive || 0, 'Active words') +
           statHtml(data.packCount || 0, 'Packs');
         document.getElementById('overviewBody').innerHTML = (data.tenants || []).map(function (row) {
-          return '<tr>' +
+          return '<tr data-tenant="' + esc(row.tenantId) + '" style="cursor:pointer" title="Open learners">' +
             '<td><strong>' + esc(row.name) + '</strong><div class="muted">' + esc(row.tenantId) + '</div></td>' +
             '<td>' + row.learners + '</td>' +
             '<td>' + row.placed + '</td>' +
@@ -407,10 +461,11 @@
             '<td><span class="pill' + (t.active ? '' : ' off') + '">' + (t.active ? 'active' : 'off') + '</span>' +
               (t.hasSecret ? '' : ' <span class="pill off">no secret</span>') + '</td>' +
             '<td><div class="row-actions">' +
+              '<button type="button" class="ghost" data-act="learners" data-id="' + esc(t.id) + '">Learners</button>' +
               '<button type="button" class="ghost" data-act="packs" data-id="' + esc(t.id) + '">Packs</button>' +
               '<button type="button" class="ghost" data-act="toggle" data-id="' + esc(t.id) + '" data-active="' + (t.active ? '1' : '0') + '">' +
                 (t.active ? 'Disable' : 'Enable') + '</button>' +
-              '<button type="button" data-act="rotate" data-id="' + esc(t.id) + '">Rotate secret</button>' +
+              '<button type="button" data-act="rotate" data-id="' + esc(t.id) + '" title="Issue a new API secret; update the school host env">Rotate secret</button>' +
             '</div></td></tr>';
         }).join('') || '<tr><td colspan="5" class="muted">No tenants</td></tr>';
       }
@@ -450,6 +505,11 @@
         var id = btn.getAttribute('data-id');
         var act = btn.getAttribute('data-act');
         try {
+          if (act === 'learners') {
+            document.getElementById('learnerTenant').value = id;
+            setTab('learners');
+            return loadLearners();
+          }
           if (act === 'packs') return openAssignPacks(id);
           if (act === 'toggle') {
             await api('/tenants/' + encodeURIComponent(id), {
@@ -467,6 +527,99 @@
         } catch (err) {
           toast(err.message || String(err), true);
         }
+      });
+
+      function fillLearnerTenantSelect() {
+        var sel = document.getElementById('learnerTenant');
+        var cur = sel.value;
+        sel.innerHTML = (state.tenants || []).map(function (t) {
+          return '<option value="' + esc(t.id) + '">' + esc(t.name) + ' (' + esc(t.id) + ')</option>';
+        }).join('');
+        if (cur) sel.value = cur;
+      }
+
+      function renderLearners(payload) {
+        var rows = (payload && payload.learners) || [];
+        document.getElementById('learnersBody').innerHTML = rows.map(function (r) {
+          var today = r.placed
+            ? (r.todayStudied + '/' + (r.todayTarget != null ? r.todayTarget : '—') +
+              (r.todayTestPassed ? ' ✓' : ''))
+            : '—';
+          return '<tr>' +
+            '<td><strong>' + esc(r.studentId) + '</strong>' +
+              (r.placed ? '' : ' <span class="pill off">unplaced</span>') + '</td>' +
+            '<td>' + esc(r.classId || '—') + '</td>' +
+            '<td>' + esc(r.tierLabel || '—') +
+              (r.gradeLevel != null ? '<div class="muted">G' + esc(r.gradeLevel) + '</div>' : '') + '</td>' +
+            '<td>' + (r.placed ? (esc(r.promotionScore) + '/' + esc(r.promotionScoreMax) +
+              ' <span class="muted">(' + esc(r.promotionPercent) + '%)</span>') : '—') +
+              (r.shieldCount ? '<div class="muted">shield ' + esc(r.shieldCount) + '</div>' : '') + '</td>' +
+            '<td>' + esc(r.streakDays) + '</td>' +
+            '<td>' + today + '</td>' +
+            '<td><button type="button" class="ghost" data-sid="' + esc(r.studentId) + '">Detail</button></td>' +
+            '</tr>';
+        }).join('') || '<tr><td colspan="7" class="muted">No learners for this tenant</td></tr>';
+        document.getElementById('learnersMeta').textContent =
+          rows.length + ' learner(s)' + (payload.questDate ? ' · today ' + payload.questDate : '');
+      }
+
+      async function loadLearners() {
+        var tid = document.getElementById('learnerTenant').value;
+        if (!tid) return;
+        var q = document.getElementById('learnerSearch').value.trim();
+        var path = '/tenants/' + encodeURIComponent(tid) + '/learners?limit=300';
+        if (q) path += '&search=' + encodeURIComponent(q);
+        renderLearners(await api(path));
+        document.getElementById('learnerDetailCard').style.display = 'none';
+      }
+
+      async function showLearnerDetail(studentId) {
+        var tid = document.getElementById('learnerTenant').value;
+        var d = await api('/tenants/' + encodeURIComponent(tid) + '/learners/' + encodeURIComponent(studentId));
+        var L = d.learner;
+        document.getElementById('learnerDetailCard').style.display = 'block';
+        document.getElementById('learnerDetailTitle').textContent = tid + ' / ' + studentId;
+        document.getElementById('learnerDetailStats').innerHTML =
+          statHtml(L.placed ? (L.tierLabel || L.tierName) : '—', 'Tier') +
+          statHtml(L.placed ? (L.promotionScore + '/' + L.promotionScoreMax) : '—', 'Promotion') +
+          statHtml(L.shieldCount || 0, 'Shield') +
+          statHtml(L.streakDays || 0, 'Streak') +
+          statHtml(d.wordProgressCount || 0, 'Words tracked') +
+          statHtml(L.todayTestPassed ? 'Pass' : (L.todayStudied || 0), 'Today');
+        document.getElementById('learnerDailyBody').innerHTML = (d.recentDaily || []).map(function (row) {
+          return '<tr><td>' + esc(row.quest_date) + '</td><td>' + esc(row.studied_count) +
+            '</td><td>' + esc(row.target_count) + '</td><td>' + (row.test_passed ? 'pass' : '—') +
+            '</td><td>' + esc(row.test_score != null ? row.test_score : '—') + '</td></tr>';
+        }).join('') || '<tr><td colspan="5" class="muted">No daily history</td></tr>';
+        var boxes = d.leitnerByBox || {};
+        var boxTxt = Object.keys(boxes).sort().map(function (k) {
+          return 'box ' + k + ': ' + boxes[k];
+        }).join(' · ');
+        document.getElementById('learnerBoxMeta').textContent =
+          boxTxt ? ('Leitner ' + boxTxt) : 'No SRS word progress yet';
+      }
+
+      document.getElementById('learnerSearchBtn').addEventListener('click', function () {
+        loadLearners().catch(function (e) { toast(e.message, true); });
+      });
+      document.getElementById('learnerTenant').addEventListener('change', function () {
+        loadLearners().catch(function (e) { toast(e.message, true); });
+      });
+      document.getElementById('learnersBody').addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-sid]');
+        if (!btn) return;
+        showLearnerDetail(btn.getAttribute('data-sid')).catch(function (err) {
+          toast(err.message || String(err), true);
+        });
+      });
+
+      // overview row click → learners
+      document.getElementById('overviewBody').addEventListener('click', function (e) {
+        var tr = e.target.closest('tr[data-tenant]');
+        if (!tr) return;
+        document.getElementById('learnerTenant').value = tr.getAttribute('data-tenant');
+        setTab('learners');
+        loadLearners().catch(function (err) { toast(err.message, true); });
       });
 
       document.getElementById('packsBody').addEventListener('click', async function (e) {
@@ -597,13 +750,15 @@
       }
       async function loadTenants() {
         renderTenants((await api('/tenants')).tenants);
+        fillLearnerTenantSelect();
       }
       async function loadPacks() {
         renderPacks((await api('/packs')).packs);
       }
 
       api('/session').then(function () {
-        return Promise.all([loadOverview(), loadTenants(), loadPacks(), loadWordStats(), loadWords('')]);
+        return Promise.all([loadOverview(), loadTenants(), loadPacks(), loadWordStats(), loadWords('')])
+          .then(function () { return loadLearners(); });
       }).catch(function (e) {
         toast(e.message || String(e), true);
       });
