@@ -128,11 +128,29 @@
     }
     .print-root { display: none; }
     @media print {
-      body { background: #fff; }
-      .topbar, .side, .no-print, .card-actions, .tabs { display: none !important; }
-      .pane { padding: 0; }
+      body { background: #fff !important; }
+      .topbar,
+      .side,
+      .tabs,
+      .no-print,
+      .card-actions,
+      .card-grid,
+      .q-card,
+      .toolbar,
+      #viewBank,
+      #viewGenerate,
+      #examCards,
+      #examTitlePreview,
+      #examCount { display: none !important; }
+      .pane { padding: 0 !important; }
+      .layout { display: block !important; grid-template-columns: none !important; gap: 0 !important; }
+      .main-card {
+        box-shadow: none !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+      }
       .print-root { display: block !important; }
-      .main-card, .layout { box-shadow: none; border: none; background: transparent; padding: 0; display: block; }
       .print-page {
         column-count: 2; column-gap: 1.25rem; font-size: 11pt; line-height: 1.35;
       }
@@ -268,8 +286,8 @@
           <h2 style="margin:0;flex:1" id="examTitlePreview">2026-2027 Fall Salt Academy Final Exam</h2>
           <span class="hint" id="examCount" style="margin:0"></span>
         </div>
-        <div id="examCards" class="card-grid"><p class="empty">Add questions from the bank or AI sandbox.</p></div>
-        <div id="printArea" class="print-root"></div>
+        <div id="examCards" class="card-grid no-print"><p class="empty">Add questions from the bank or AI sandbox.</p></div>
+        <div id="printArea" class="print-root" aria-hidden="true"></div>
       </section>
     </div>
   </div>
