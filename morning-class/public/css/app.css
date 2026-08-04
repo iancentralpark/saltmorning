@@ -523,6 +523,37 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .grades-toolbar-minimal { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .admin-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .admin-form-grid { max-width: 420px; }
+.teacher-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.teacher-editor {
+  margin: 0.5rem 0 1.25rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, #fff 0%, var(--cream) 100%);
+  box-shadow: var(--shadow-sm);
+}
+.teacher-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.teacher-save-toast {
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: var(--sage-soft);
+  color: var(--olive-deep);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
 .teacher-profile-form { max-width: 720px; }
 .teacher-profile-grid { margin-top: 0.75rem; }
 .teacher-photo-row { margin-bottom: 0.25rem; }

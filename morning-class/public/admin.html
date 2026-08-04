@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260804teacherprofile">
+  <link rel="stylesheet" href="/css/app.css?v=20260804teacherux">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -81,57 +81,69 @@
     </div>
 
     <div id="panelTeachers" class="card hidden">
-      <h3>Teachers</h3>
-      <p class="muted small">계정 정보와 프로필(연락처·사진 등)을 관리합니다. 사진 업로드는 교사 저장 후 Edit에서 가능합니다.</p>
-      <div id="teacherList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3 id="teacherFormTitle">Add / edit teacher</h3>
-      <form id="teacherForm" class="teacher-profile-form">
-        <input type="hidden" id="teacherId">
-        <div class="sr-photo-row teacher-photo-row">
-          <div class="sr-photo-box" id="teacherPhotoBox">
-            <div class="sr-avatar-fallback sr-photo-lg" id="teacherPhotoFallback">?</div>
-            <img id="teacherPhotoImg" class="sr-photo-lg hidden" alt="Teacher photo">
+      <div class="teacher-panel-head">
+        <div>
+          <h3 style="margin:0">Teachers</h3>
+          <p class="muted small" style="margin:0.35rem 0 0">계정·프로필·사진을 관리합니다.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="teacherAddBtn">+ Add teacher</button>
+      </div>
+      <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
+      <div id="teacherList" class="table-wrap" style="margin:1rem 0"></div>
+
+      <div id="teacherEditor" class="teacher-editor hidden">
+        <div class="teacher-editor-head">
+          <h3 id="teacherFormTitle" style="margin:0">Add teacher</h3>
+          <button type="button" class="btn btn-ghost" id="teacherFormCloseBtn">Close</button>
+        </div>
+        <form id="teacherForm" class="teacher-profile-form">
+          <input type="hidden" id="teacherId">
+          <div class="sr-photo-row teacher-photo-row">
+            <div class="sr-photo-box" id="teacherPhotoBox">
+              <div class="sr-avatar-fallback sr-photo-lg" id="teacherPhotoFallback">?</div>
+              <img id="teacherPhotoImg" class="sr-photo-lg hidden" alt="Teacher photo">
+            </div>
+            <div>
+              <label class="btn btn-ghost sr-photo-upload" id="teacherPhotoUploadLabel">
+                Upload photo
+                <input type="file" accept="image/jpeg,image/png,image/webp" id="teacherPhotoInput" class="hidden">
+              </label>
+              <p class="muted small" id="teacherPhotoHint">Save the teacher first, then upload a photo.</p>
+              <div class="error" id="teacherPhotoError"></div>
+            </div>
           </div>
-          <div>
-            <label class="btn btn-ghost sr-photo-upload" id="teacherPhotoUploadLabel">
-              Upload photo
-              <input type="file" accept="image/jpeg,image/png,image/webp" id="teacherPhotoInput" class="hidden">
+          <div class="sr-form-grid teacher-profile-grid">
+            <label>Full name <input id="teacherName" required></label>
+            <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
+            <label>Login ID <input id="teacherLoginId" required></label>
+            <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
+            <label>Homeroom class ID <input id="teacherHomeroom" placeholder="e.g. C001"></label>
+            <label>Staff role
+              <select id="teacherRole">
+                <option value="Teacher">Teacher</option>
+                <option value="Director">Director</option>
+              </select>
             </label>
-            <p class="muted small" id="teacherPhotoHint">Save the teacher first, then upload a photo.</p>
-            <div class="error" id="teacherPhotoError"></div>
+            <label>Title / position <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
+            <label>Hire date <input id="teacherHireDate" type="date"></label>
+            <label>Date of birth <input id="teacherDob" type="date"></label>
+            <label>Gender <input id="teacherGender"></label>
+            <label>Nationality <input id="teacherNationality"></label>
+            <label>Phone <input id="teacherPhone" type="tel"></label>
+            <label>Email <input id="teacherEmail" type="email"></label>
+            <label class="sr-span2">Address <input id="teacherAddress"></label>
+            <label>Emergency contact <input id="teacherEmergencyContact"></label>
+            <label>Emergency phone <input id="teacherEmergencyPhone" type="tel"></label>
+            <label class="sr-span2">Education <input id="teacherEducation" placeholder="Degrees, certifications"></label>
+            <label class="sr-span2">Notes <textarea id="teacherNotes" rows="3"></textarea></label>
           </div>
-        </div>
-        <div class="sr-form-grid teacher-profile-grid">
-          <label>Full name <input id="teacherName" required></label>
-          <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
-          <label>Login ID <input id="teacherLoginId" required></label>
-          <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
-          <label>Homeroom class ID <input id="teacherHomeroom" placeholder="e.g. C001"></label>
-          <label>Staff role
-            <select id="teacherRole">
-              <option value="Teacher">Teacher</option>
-              <option value="Director">Director</option>
-            </select>
-          </label>
-          <label>Title / position <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
-          <label>Hire date <input id="teacherHireDate" type="date"></label>
-          <label>Date of birth <input id="teacherDob" type="date"></label>
-          <label>Gender <input id="teacherGender"></label>
-          <label>Nationality <input id="teacherNationality"></label>
-          <label>Phone <input id="teacherPhone" type="tel"></label>
-          <label>Email <input id="teacherEmail" type="email"></label>
-          <label class="sr-span2">Address <input id="teacherAddress"></label>
-          <label>Emergency contact <input id="teacherEmergencyContact"></label>
-          <label>Emergency phone <input id="teacherEmergencyPhone" type="tel"></label>
-          <label class="sr-span2">Education <input id="teacherEducation" placeholder="Degrees, certifications"></label>
-          <label class="sr-span2">Notes <textarea id="teacherNotes" rows="3"></textarea></label>
-        </div>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
-          <button type="submit" class="btn btn-primary">Save teacher</button>
-          <button type="button" class="btn btn-ghost" id="teacherFormResetBtn">Clear form</button>
-        </div>
-        <div class="error" id="teacherError"></div>
-      </form>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
+            <button type="submit" class="btn btn-primary">Save teacher</button>
+            <button type="button" class="btn btn-ghost" id="teacherFormResetBtn">Cancel</button>
+          </div>
+          <div class="error" id="teacherError"></div>
+        </form>
+      </div>
 
       <h3 style="margin-top:1.5rem">Class &amp; subject assignments</h3>
       <p class="muted small">Admin 배정은 Class_Teachers에 저장됩니다. 선생님이 직접 추가한 과목은 Teacher_Class_Subjects입니다.</p>
@@ -441,11 +453,35 @@
       : 'Save the teacher first, then upload a photo.';
   }
 
+  function showTeacherSaveToast(message) {
+    const toast = $('teacherSaveToast');
+    if (!toast) return;
+    toast.textContent = message || 'Saved.';
+    toast.classList.remove('hidden');
+    clearTimeout(showTeacherSaveToast._timer);
+    showTeacherSaveToast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  function openTeacherEditor() {
+    const editor = $('teacherEditor');
+    if (editor) {
+      editor.classList.remove('hidden');
+      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function closeTeacherEditor() {
+    clearTeacherForm();
+    const editor = $('teacherEditor');
+    if (editor) editor.classList.add('hidden');
+  }
+
   function clearTeacherForm() {
     $('teacherId').value = '';
     $('teacherForm').reset();
     $('teacherIdDisplay').value = '';
     $('teacherError').textContent = '';
+    $('teacherError').style.color = '';
     $('teacherPhotoError').textContent = '';
     $('teacherFormTitle').textContent = 'Add teacher';
     teacherAvatar('', '');
@@ -476,13 +512,22 @@
     $('teacherEducation').value = p.education || '';
     $('teacherNotes').value = p.notes || '';
     $('teacherError').textContent = '';
+    $('teacherError').style.color = '';
     $('teacherPhotoError').textContent = '';
     teacherAvatar(t.name, t.photoPath || p.photoPath || '');
     setTeacherPhotoEnabled(true);
-    $('teacherForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    openTeacherEditor();
   }
 
-  $('teacherFormResetBtn').addEventListener('click', clearTeacherForm);
+  $('teacherAddBtn').addEventListener('click', () => {
+    clearTeacherForm();
+    $('teacherFormTitle').textContent = 'Add teacher';
+    openTeacherEditor();
+    $('teacherName').focus();
+  });
+
+  $('teacherFormResetBtn').addEventListener('click', closeTeacherEditor);
+  $('teacherFormCloseBtn').addEventListener('click', closeTeacherEditor);
 
   $('teacherName').addEventListener('input', () => {
     if ($('teacherPhotoImg').classList.contains('hidden')) {
@@ -518,7 +563,8 @@
     e.preventDefault();
     $('teacherError').textContent = '';
     try {
-      const saved = await api('/api/admin/teachers', {
+      const wasNew = !$('teacherId').value.trim();
+      await api('/api/admin/teachers', {
         method: 'POST',
         body: {
           teacherId: $('teacherId').value,
@@ -541,15 +587,8 @@
           notes: $('teacherNotes').value
         }
       }, role);
-      const teacher = saved.teacher || saved;
-      $('teacherId').value = teacher.teacherId;
-      $('teacherIdDisplay').value = teacher.teacherId;
-      $('teacherPassword').value = '';
-      $('teacherFormTitle').textContent = 'Edit teacher';
-      setTeacherPhotoEnabled(true);
-      teacherAvatar(teacher.name, teacher.photoPath || (teacher.profile && teacher.profile.photoPath) || '');
-      $('teacherError').style.color = '#16a34a';
-      $('teacherError').textContent = 'Saved.';
+      closeTeacherEditor();
+      showTeacherSaveToast(wasNew ? 'Teacher added.' : 'Teacher saved.');
       loadTeachers();
     } catch (err) {
       $('teacherError').style.color = '#dc2626';
