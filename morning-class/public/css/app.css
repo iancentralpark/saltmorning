@@ -1487,6 +1487,68 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   .stu-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* Class Tools sidebar — teacher classroom tools */
+.class-tools-sidebar {
+  position: fixed;
+  top: 5.5rem;
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 860;
+  width: min(11.5rem, calc(100vw - 1.5rem));
+}
+.class-tools-sidebar.hidden { display: none !important; }
+.class-tools-card {
+  background: #fff;
+  border: 1px solid var(--border-soft, #d7e3ef);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(30, 41, 59, 0.14);
+  overflow: hidden;
+}
+.class-tools-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  background: linear-gradient(135deg, #e8f2fb, #f7fbff);
+  border-bottom: 1px solid var(--border-soft, #d7e3ef);
+  font-size: 0.9rem;
+}
+.class-tools-min-btn {
+  min-height: 1.75rem !important;
+  padding: 0.15rem 0.45rem !important;
+  line-height: 1;
+}
+.class-tools-body {
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.class-tools-btn {
+  width: 100%;
+  justify-content: center;
+}
+.class-tools-chip {
+  display: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #3b9edd, #2a8fc9);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(59, 158, 221, 0.35);
+}
+.class-tools-sidebar.is-minimized .class-tools-card { display: none; }
+.class-tools-sidebar.is-minimized .class-tools-chip { display: inline-flex; }
+@media (max-width: 720px) {
+  .class-tools-sidebar {
+    top: auto;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    right: max(0.75rem, env(safe-area-inset-right));
+  }
+}
+
 /* English Buddy float — bottom right (Mr. Park style) */
 .buddy-float {
   position: fixed;

@@ -18,10 +18,7 @@
   <div id="adminView" class="hidden">
     <div class="topbar">
       <div class="brand" id="welcomeText">Salt Admin</div>
-      <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-        <a class="btn btn-ghost" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Vocab Platform</a>
-        <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
-      </div>
+      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
     </div>
 
     <div class="tabs">
@@ -32,6 +29,7 @@
       <button class="tab" data-tab="students" type="button">Students</button>
       <button class="tab" data-tab="timetables" type="button">Timetables</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
+      <button class="tab" data-tab="vocabPlatform" type="button">Vocab Platform</button>
     </div>
 
     <div id="panelMonitor" class="card">
@@ -153,6 +151,14 @@
       <h4>Manual view / edit</h4>
       <div id="timetableMount"></div>
     </div>
+
+    <div id="panelVocabPlatform" class="card hidden">
+      <h3>Vocab Platform</h3>
+      <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
+      <p style="margin:1rem 0 0">
+        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Open Vocab Platform</a>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -197,10 +203,11 @@
 
   function switchTab(name) {
     document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms'].forEach(id => hide($(id)));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
-      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables', terms: 'panelTerms'
+      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
+      terms: 'panelTerms', vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
     if (name === 'monitor') loadMonitor();

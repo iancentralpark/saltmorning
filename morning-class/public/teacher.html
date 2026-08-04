@@ -31,12 +31,7 @@
         <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
         <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
       </div>
-      <div class="section-title" style="margin-top:1.35rem">Class Tools</div>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
-        <button type="button" class="btn btn-primary" id="openJeopardyBtn">AI Jeopardy</button>
-        <a class="btn btn-ghost" id="vocabPlatformTeacherBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Vocab Platform</a>
-      </div>
-      <p class="muted small" style="margin-top:0.35rem">Classroom tools and shared Vocab Platform admin.</p>
+      <p class="muted small" style="margin-top:0.35rem">View student records and your weekly teaching schedule.</p>
     </div>
   </div>
 
@@ -139,10 +134,7 @@
     </div>
 
     <div id="panelVocab" class="card hidden">
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
-        <p class="muted small" style="margin:0">Vocab Booster progress. Reset placement or adjust level if needed.</p>
-        <a class="btn btn-ghost" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Vocab Platform</a>
-      </div>
+      <p class="muted small">Vocab Booster progress. Reset placement or adjust level if needed.</p>
       <div id="vocabTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="vocabTeacherError"></div>
     </div>
@@ -174,6 +166,20 @@
     </div>
   </div>
 </div>
+
+<aside id="classToolsSidebar" class="class-tools-sidebar hidden" aria-label="Class Tools">
+  <div class="class-tools-card">
+    <div class="class-tools-head">
+      <strong>Class Tools</strong>
+      <button type="button" class="btn btn-ghost class-tools-min-btn" id="classToolsToggleBtn" aria-label="Minimize Class Tools">−</button>
+    </div>
+    <div class="class-tools-body" id="classToolsBody">
+      <button type="button" class="btn btn-primary class-tools-btn" id="openJeopardyBtn">AI Jeopardy</button>
+      <p class="muted small" style="margin:0.35rem 0 0">Smartboard quiz board</p>
+    </div>
+  </div>
+  <button type="button" class="class-tools-chip hidden" id="classToolsChip" title="Open Class Tools">Tools</button>
+</aside>
 
 <div id="lpDrawerBackdrop" class="lp-lesson-backdrop hidden" aria-hidden="true"></div>
 <aside id="lpLessonDrawer" class="lp-lesson-drawer" role="dialog" aria-modal="true" aria-hidden="true">
@@ -746,11 +752,39 @@
     setToken(role, ''); setProfile(role, null); location.href = '/';
   });
 
+  function showClassToolsSidebar() {
+    const bar = $('classToolsSidebar');
+    if (bar) bar.classList.remove('hidden');
+  }
+
+  function setClassToolsMinimized(min) {
+    const bar = $('classToolsSidebar');
+    const body = $('classToolsBody');
+    const chip = $('classToolsChip');
+    const toggle = $('classToolsToggleBtn');
+    if (!bar) return;
+    bar.classList.toggle('is-minimized', !!min);
+    if (body) body.classList.toggle('hidden', !!min);
+    if (chip) chip.classList.toggle('hidden', !min);
+    if (toggle) toggle.textContent = min ? '+' : '−';
+  }
+
   const openJeopardyBtn = $('openJeopardyBtn');
   if (openJeopardyBtn) {
     openJeopardyBtn.addEventListener('click', () => {
       window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
     });
+  }
+  const classToolsToggleBtn = $('classToolsToggleBtn');
+  if (classToolsToggleBtn) {
+    classToolsToggleBtn.addEventListener('click', () => {
+      const bar = $('classToolsSidebar');
+      setClassToolsMinimized(!(bar && bar.classList.contains('is-minimized')));
+    });
+  }
+  const classToolsChip = $('classToolsChip');
+  if (classToolsChip) {
+    classToolsChip.addEventListener('click', () => setClassToolsMinimized(false));
   }
 
   function bootApp() {
@@ -764,6 +798,8 @@
     });
     loadClasses();
     SaltMessenger.init(role);
+    showClassToolsSidebar();
+    setClassToolsMinimized(false);
   }
 
   if (getToken(role)) bootApp();
