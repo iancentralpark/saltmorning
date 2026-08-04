@@ -32,7 +32,10 @@
     const text = await res.text();
     let data = {};
     try { data = text ? JSON.parse(text) : {}; } catch (e) { /* ignore */ }
-    if (!res.ok) throw new Error(data.error || res.statusText || 'Request failed');
+    if (!res.ok) {
+      const detail = data.error || data.message || data.detail;
+      throw new Error(detail || (res.statusText ? (res.statusText + ' (' + res.status + ')') : ('Request failed (' + res.status + ')')));
+    }
     return data;
   }
 
