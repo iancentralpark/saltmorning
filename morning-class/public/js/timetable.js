@@ -261,7 +261,8 @@
         '<div class="tt-board-actions">' +
         (!readonly
           ? '<button type="button" class="btn btn-primary tt-board-save">Save & sync</button>' +
-            '<button type="button" class="btn btn-ghost tt-board-generate">Auto-Solve</button>'
+            '<button type="button" class="btn btn-ghost tt-board-generate">Auto-Solve</button>' +
+            '<button type="button" class="btn btn-ghost tt-board-clear">Clear all</button>'
           : '') +
         '<button type="button" class="btn btn-ghost tt-board-reload">Reload</button>' +
         '</div></div>' +
@@ -391,6 +392,40 @@
           } catch (e) {
             setStatus(e.message, false);
           }
+        });
+      }
+
+      const clearBtn = mountEl.querySelector('.tt-board-clear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          const filled = entries.filter((e) => !e.isBreak);
+          if (!filled.length) {
+            setStatus('Board is already empty.', true);
+            return;
+          }
+          if (!confirm('Clear all slots on this class board?')) return;
+
+          const lockedCount = filled.filter((e) => e.locked).length;
+          let next = [];
+          if (lockedCount > 0) {
+            const clearLocked = confirm(
+              lockedCount + ' locked slot(s) found.\n\n' +
+              'OK = clear everything (including locked)\n' +
+              'Cancel = keep locked slots, clear the rest'
+            );
+            next = clearLocked ? [] : filled.filter((e) => e.locked);
+          }
+
+          const removed = filled.length - next.length;
+          entries = next;
+          dirty = true;
+          setStatus(
+            removed
+              ? ('Cleared ' + removed + ' slot(s). Save & sync to apply.')
+              : 'Nothing cleared.',
+            true
+          );
+          render();
         });
       }
 
