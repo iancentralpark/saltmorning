@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708libs">
+  <link rel="stylesheet" href="/css/app.css?v=20260804teacherux">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -29,6 +29,7 @@
       <button class="tab" data-tab="students" type="button">Students</button>
       <button class="tab" data-tab="timetables" type="button">Timetables</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
+      <button class="tab" data-tab="vocabPlatform" type="button">Vocab Platform</button>
     </div>
 
     <div id="panelMonitor" class="card">
@@ -80,22 +81,69 @@
     </div>
 
     <div id="panelTeachers" class="card hidden">
-      <h3>Teachers</h3>
-      <div id="teacherList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3>Add / edit teacher</h3>
-      <form id="teacherForm" class="form-grid admin-form-grid">
-        <input type="hidden" id="teacherId">
-        <input id="teacherName" placeholder="Full name" required>
-        <input id="teacherLoginId" placeholder="Login ID" required>
-        <input id="teacherPassword" type="password" placeholder="Password (required for new)">
-        <input id="teacherHomeroom" placeholder="Homeroom class ID (e.g. C001)">
-        <select id="teacherRole">
-          <option value="Teacher">Teacher</option>
-          <option value="Director">Director</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Save teacher</button>
-        <div class="error" id="teacherError"></div>
-      </form>
+      <div class="teacher-panel-head">
+        <div>
+          <h3 style="margin:0">Teachers</h3>
+          <p class="muted small" style="margin:0.35rem 0 0">계정·프로필·사진을 관리합니다.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="teacherAddBtn">+ Add teacher</button>
+      </div>
+      <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
+      <div id="teacherList" class="table-wrap" style="margin:1rem 0"></div>
+
+      <div id="teacherEditor" class="teacher-editor hidden">
+        <div class="teacher-editor-head">
+          <h3 id="teacherFormTitle" style="margin:0">Add teacher</h3>
+          <button type="button" class="btn btn-ghost" id="teacherFormCloseBtn">Close</button>
+        </div>
+        <form id="teacherForm" class="teacher-profile-form">
+          <input type="hidden" id="teacherId">
+          <div class="sr-photo-row teacher-photo-row">
+            <div class="sr-photo-box" id="teacherPhotoBox">
+              <div class="sr-avatar-fallback sr-photo-lg" id="teacherPhotoFallback">?</div>
+              <img id="teacherPhotoImg" class="sr-photo-lg hidden" alt="Teacher photo">
+            </div>
+            <div>
+              <label class="btn btn-ghost sr-photo-upload" id="teacherPhotoUploadLabel">
+                Upload photo
+                <input type="file" accept="image/jpeg,image/png,image/webp" id="teacherPhotoInput" class="hidden">
+              </label>
+              <p class="muted small" id="teacherPhotoHint">Save the teacher first, then upload a photo.</p>
+              <div class="error" id="teacherPhotoError"></div>
+            </div>
+          </div>
+          <div class="sr-form-grid teacher-profile-grid">
+            <label>Full name <input id="teacherName" required></label>
+            <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
+            <label>Login ID <input id="teacherLoginId" required></label>
+            <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
+            <label>Homeroom class ID <input id="teacherHomeroom" placeholder="e.g. C001"></label>
+            <label>Staff role
+              <select id="teacherRole">
+                <option value="Teacher">Teacher</option>
+                <option value="Director">Director</option>
+              </select>
+            </label>
+            <label>Title / position <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
+            <label>Hire date <input id="teacherHireDate" type="date"></label>
+            <label>Date of birth <input id="teacherDob" type="date"></label>
+            <label>Gender <input id="teacherGender"></label>
+            <label>Nationality <input id="teacherNationality"></label>
+            <label>Phone <input id="teacherPhone" type="tel"></label>
+            <label>Email <input id="teacherEmail" type="email"></label>
+            <label class="sr-span2">Address <input id="teacherAddress"></label>
+            <label>Emergency contact <input id="teacherEmergencyContact"></label>
+            <label>Emergency phone <input id="teacherEmergencyPhone" type="tel"></label>
+            <label class="sr-span2">Education <input id="teacherEducation" placeholder="Degrees, certifications"></label>
+            <label class="sr-span2">Notes <textarea id="teacherNotes" rows="3"></textarea></label>
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
+            <button type="submit" class="btn btn-primary">Save teacher</button>
+            <button type="button" class="btn btn-ghost" id="teacherFormResetBtn">Cancel</button>
+          </div>
+          <div class="error" id="teacherError"></div>
+        </form>
+      </div>
 
       <h3 style="margin-top:1.5rem">Class &amp; subject assignments</h3>
       <p class="muted small">Admin 배정은 Class_Teachers에 저장됩니다. 선생님이 직접 추가한 과목은 Teacher_Class_Subjects입니다.</p>
@@ -150,6 +198,14 @@
       <h4>Manual view / edit</h4>
       <div id="timetableMount"></div>
     </div>
+
+    <div id="panelVocabPlatform" class="card hidden">
+      <h3>Vocab Platform</h3>
+      <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
+      <p style="margin:1rem 0 0">
+        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Open Vocab Platform</a>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -194,10 +250,11 @@
 
   function switchTab(name) {
     document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms'].forEach(id => hide($(id)));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
-      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables', terms: 'panelTerms'
+      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
+      terms: 'panelTerms', vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
     if (name === 'monitor') loadMonitor();
@@ -348,9 +405,17 @@
   async function loadTeachers() {
     const data = await api('/api/admin/teachers', {}, role);
     const teachers = data.teachers || [];
-    let html = '<table class="grades-table"><thead><tr><th>Name</th><th>Login</th><th>Homeroom</th><th>Role</th><th></th></tr></thead><tbody>';
+    let html = '<table class="grades-table"><thead><tr><th></th><th>Name</th><th>Title</th><th>Login</th><th>Contact</th><th>Homeroom</th><th>Role</th><th></th></tr></thead><tbody>';
     teachers.forEach(t => {
-      html += '<tr><td>' + escapeHtml(t.name) + '</td><td>' + escapeHtml(t.loginId) + '</td>' +
+      const initial = (t.name || '?').trim().charAt(0).toUpperCase();
+      const photo = t.photoPath
+        ? '<img class="sr-photo-xs" src="' + escapeHtml(t.photoPath) + '" alt="">'
+        : '<div class="sr-avatar-fallback sr-photo-xs">' + escapeHtml(initial) + '</div>';
+      const contact = [t.phone, t.email].filter(Boolean).map(escapeHtml).join('<br>') || '—';
+      html += '<tr><td>' + photo + '</td><td>' + escapeHtml(t.name) + '</td>' +
+        '<td>' + escapeHtml(t.title || '—') + '</td>' +
+        '<td>' + escapeHtml(t.loginId) + '</td>' +
+        '<td class="muted small">' + contact + '</td>' +
         '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td><td>' + escapeHtml(t.staffRole) + '</td>' +
         '<td><button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button></td></tr>';
     });
@@ -360,23 +425,145 @@
       '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
     ).join('');
     document.querySelectorAll('[data-edit]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const t = teachers.find(x => x.teacherId === btn.dataset.edit);
-        if (!t) return;
-        $('teacherId').value = t.teacherId;
-        $('teacherName').value = t.name;
-        $('teacherLoginId').value = t.loginId;
-        $('teacherPassword').value = '';
-        $('teacherHomeroom').value = t.homeroomClassId || '';
-        $('teacherRole').value = t.staffRole || 'Teacher';
-      });
+      btn.addEventListener('click', () => fillTeacherForm(teachers.find(x => x.teacherId === btn.dataset.edit)));
     });
   }
+
+  function teacherAvatar(name, photoPath) {
+    const img = $('teacherPhotoImg');
+    const fallback = $('teacherPhotoFallback');
+    const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    fallback.textContent = initial;
+    if (photoPath) {
+      img.src = photoPath + (photoPath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+      img.classList.remove('hidden');
+      fallback.classList.add('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+      fallback.classList.remove('hidden');
+    }
+  }
+
+  function setTeacherPhotoEnabled(enabled) {
+    $('teacherPhotoInput').disabled = !enabled;
+    $('teacherPhotoUploadLabel').classList.toggle('is-disabled', !enabled);
+    $('teacherPhotoHint').textContent = enabled
+      ? 'JPEG, PNG, or WebP · max 2MB'
+      : 'Save the teacher first, then upload a photo.';
+  }
+
+  function showTeacherSaveToast(message) {
+    const toast = $('teacherSaveToast');
+    if (!toast) return;
+    toast.textContent = message || 'Saved.';
+    toast.classList.remove('hidden');
+    clearTimeout(showTeacherSaveToast._timer);
+    showTeacherSaveToast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  function openTeacherEditor() {
+    const editor = $('teacherEditor');
+    if (editor) {
+      editor.classList.remove('hidden');
+      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function closeTeacherEditor() {
+    clearTeacherForm();
+    const editor = $('teacherEditor');
+    if (editor) editor.classList.add('hidden');
+  }
+
+  function clearTeacherForm() {
+    $('teacherId').value = '';
+    $('teacherForm').reset();
+    $('teacherIdDisplay').value = '';
+    $('teacherError').textContent = '';
+    $('teacherError').style.color = '';
+    $('teacherPhotoError').textContent = '';
+    $('teacherFormTitle').textContent = 'Add teacher';
+    teacherAvatar('', '');
+    setTeacherPhotoEnabled(false);
+  }
+
+  function fillTeacherForm(t) {
+    if (!t) return;
+    const p = t.profile || {};
+    $('teacherFormTitle').textContent = 'Edit teacher';
+    $('teacherId').value = t.teacherId;
+    $('teacherIdDisplay').value = t.teacherId;
+    $('teacherName').value = t.name || '';
+    $('teacherLoginId').value = t.loginId || '';
+    $('teacherPassword').value = '';
+    $('teacherHomeroom').value = t.homeroomClassId || '';
+    $('teacherRole').value = t.staffRole || 'Teacher';
+    $('teacherTitle').value = p.title || t.title || '';
+    $('teacherHireDate').value = p.hireDate || '';
+    $('teacherDob').value = p.dateOfBirth || '';
+    $('teacherGender').value = p.gender || '';
+    $('teacherNationality').value = p.nationality || '';
+    $('teacherPhone').value = p.phone || t.phone || '';
+    $('teacherEmail').value = p.email || t.email || '';
+    $('teacherAddress').value = p.address || '';
+    $('teacherEmergencyContact').value = p.emergencyContact || '';
+    $('teacherEmergencyPhone').value = p.emergencyPhone || '';
+    $('teacherEducation').value = p.education || '';
+    $('teacherNotes').value = p.notes || '';
+    $('teacherError').textContent = '';
+    $('teacherError').style.color = '';
+    $('teacherPhotoError').textContent = '';
+    teacherAvatar(t.name, t.photoPath || p.photoPath || '');
+    setTeacherPhotoEnabled(true);
+    openTeacherEditor();
+  }
+
+  $('teacherAddBtn').addEventListener('click', () => {
+    clearTeacherForm();
+    $('teacherFormTitle').textContent = 'Add teacher';
+    openTeacherEditor();
+    $('teacherName').focus();
+  });
+
+  $('teacherFormResetBtn').addEventListener('click', closeTeacherEditor);
+  $('teacherFormCloseBtn').addEventListener('click', closeTeacherEditor);
+
+  $('teacherName').addEventListener('input', () => {
+    if ($('teacherPhotoImg').classList.contains('hidden')) {
+      teacherAvatar($('teacherName').value, '');
+    }
+  });
+
+  $('teacherPhotoInput').addEventListener('change', async () => {
+    const teacherId = $('teacherId').value.trim();
+    const file = $('teacherPhotoInput').files && $('teacherPhotoInput').files[0];
+    $('teacherPhotoError').textContent = '';
+    if (!teacherId) {
+      $('teacherPhotoError').textContent = 'Save the teacher first.';
+      return;
+    }
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('photo', file);
+    try {
+      const res = await api('/api/admin/teachers/' + encodeURIComponent(teacherId) + '/photo', {
+        method: 'POST',
+        body: fd
+      }, role);
+      teacherAvatar($('teacherName').value, res.photoPath);
+      $('teacherPhotoInput').value = '';
+      loadTeachers();
+    } catch (err) {
+      $('teacherPhotoError').textContent = err.message;
+    }
+  });
 
   $('teacherForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     $('teacherError').textContent = '';
     try {
+      const wasNew = !$('teacherId').value.trim();
       await api('/api/admin/teachers', {
         method: 'POST',
         body: {
@@ -385,19 +572,31 @@
           loginId: $('teacherLoginId').value,
           password: $('teacherPassword').value,
           homeroomClassId: $('teacherHomeroom').value,
-          staffRole: $('teacherRole').value
+          staffRole: $('teacherRole').value,
+          title: $('teacherTitle').value,
+          hireDate: $('teacherHireDate').value,
+          dateOfBirth: $('teacherDob').value,
+          gender: $('teacherGender').value,
+          nationality: $('teacherNationality').value,
+          phone: $('teacherPhone').value,
+          email: $('teacherEmail').value,
+          address: $('teacherAddress').value,
+          emergencyContact: $('teacherEmergencyContact').value,
+          emergencyPhone: $('teacherEmergencyPhone').value,
+          education: $('teacherEducation').value,
+          notes: $('teacherNotes').value
         }
       }, role);
-      $('teacherId').value = '';
-      $('teacherForm').reset();
-      $('teacherError').style.color = '#16a34a';
-      $('teacherError').textContent = 'Saved.';
+      closeTeacherEditor();
+      showTeacherSaveToast(wasNew ? 'Teacher added.' : 'Teacher saved.');
       loadTeachers();
     } catch (err) {
       $('teacherError').style.color = '#dc2626';
       $('teacherError').textContent = err.message;
     }
   });
+
+  setTeacherPhotoEnabled(false);
 
   async function loadTerms() {
     const data = await api('/api/admin/terms', {}, role);
