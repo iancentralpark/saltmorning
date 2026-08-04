@@ -126,6 +126,7 @@ const {
 } = require('./services/homeworkService');
 const {
   getStudentVocabSummary,
+  isPlacementDone,
   buildPlacementItem,
   processPlacementNext,
   savePlacementResult,
@@ -133,9 +134,11 @@ const {
   recordReview,
   recordDailyTestResult,
   getClassVocabOverview,
-  overrideStudentVocab
-} = require('./services/vocabService');
-const { scorePlacement } = require('./services/vocabPlacementService');
+  overrideStudentVocab,
+  scorePlacement,
+  deepDiveWord,
+  getPlacementMeta
+} = require('./services/vocabShared');
 const { todayStr } = require('./dateUtils');
 
 const photoUpload = multer({
@@ -779,10 +782,8 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
 
 router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Same hot path as Mr. Park: build the item only (no summary / Sheets / placement gate).
+    // Already-placed clients are blocked in the UI; /placement/score still enforces the gate.
     const body = req.body || {};
     res.json(await buildPlacementItem({
       abilityGrade: body.abilityGrade,
@@ -797,21 +798,35 @@ router.post('/student/vocab/placement/item', requireRole('student'), async (req,
 
 router.post('/student/vocab/placement/next', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Pure CPU adapt step — same as Mr. Park (no DB / Sheets on the hot path).
     res.json(processPlacementNext(req.body || {}));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not adapt difficulty.' });
   }
 });
 
+router.get('/student/vocab/placement/meta', requireRole('student'), async (req, res) => {
+  try {
+    res.json(getPlacementMeta());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load placement meta.' });
+  }
+});
+
 router.post('/student/vocab/placement/score', requireRole('student'), async (req, res) => {
   try {
+    if (await isPlacementDone(req.session.studentId)) {
+      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
+    }
     const result = scorePlacement(req.body || {});
-    const saved = await savePlacementResult(req.session.studentId, req.session.classId, result);
-    res.json(saved);
+    try {
+      await savePlacementResult(req.session.studentId, req.session.classId, result);
+      result.persisted = true;
+    } catch (persistErr) {
+      console.error('savePlacementResult', persistErr.message || persistErr);
+      result.persisted = false;
+    }
+    res.json(result);
   } catch (e) {
     const status = e.code === 'PLACEMENT_ALREADY_DONE' ? 409 : 400;
     res.status(status).json({ error: e.message || 'Could not score placement.', code: e.code });
@@ -852,8 +867,14 @@ router.post('/student/vocab/daily-test/submit', requireRole('student'), async (r
 
 router.post('/student/vocab/deep-dive', requireRole('student'), async (req, res) => {
   try {
-    const { deepDiveWord } = require('./services/vocabPlacementService');
-    const result = await deepDiveWord(req.body || {});
+    const body = req.body || {};
+    const result = await deepDiveWord({
+      word: body.word,
+      partOfSpeech: body.partOfSpeech || body.part_of_speech,
+      focus: body.focus,
+      levelHint: body.levelHint,
+      studentLevel: body.studentLevel
+    });
     const text = typeof result === 'string'
       ? result
       : String((result && (result.text || result.answer || result.explanation)) || '');

@@ -644,10 +644,10 @@
       let html = '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
         '<th>Student</th><th>Tier</th><th>Lv</th><th>Quest</th><th>Streak</th><th></th></tr></thead><tbody>';
       students.forEach((s) => {
-        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tier || '—') +
+        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tierLabel || s.tier || s.tierName || '—') +
           '</td><td>' + (s.placementDone ? s.gradeLevel : '—') +
-          '</td><td>' + (s.questDone ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
-          '</td><td>' + (s.streak || 0) + '</td><td style="white-space:nowrap">' +
+          '</td><td>' + ((s.questDone || s.todayTestPassed) ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
+          '</td><td>' + (s.streak || s.streakDays || 0) + '</td><td style="white-space:nowrap">' +
           '<button type="button" class="btn btn-ghost vocab-reset" data-sid="' + escapeHtml(s.studentId) +
           '">Reset</button> ' +
           '<button type="button" class="btn btn-ghost vocab-up" data-sid="' + escapeHtml(s.studentId) +
