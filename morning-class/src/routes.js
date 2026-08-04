@@ -782,10 +782,8 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
 
 router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
-    // Mr. Park skips the heavy summary here — only a one-row placement_at check.
-    if (await isPlacementDone(req.session.studentId)) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Same hot path as Mr. Park: build the item only (no summary / Sheets / placement gate).
+    // Already-placed clients are blocked in the UI; /placement/score still enforces the gate.
     const body = req.body || {};
     res.json(await buildPlacementItem({
       abilityGrade: body.abilityGrade,
