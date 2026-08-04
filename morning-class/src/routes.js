@@ -75,7 +75,9 @@ const {
   listAdminClassAssignments,
   saveAdminClassAssignment,
   deleteAdminClassAssignment,
-  assertTeacherClassAccess
+  assertTeacherClassAccess,
+  getTeacherGradeAccess,
+  listClassGradeSubjects
 } = require('./services/subjectAssignmentService');
 const {
   listStudents,
@@ -126,6 +128,7 @@ const {
 } = require('./services/homeworkService');
 const {
   getStudentVocabSummary,
+  isPlacementDone,
   buildPlacementItem,
   processPlacementNext,
   savePlacementResult,
@@ -133,9 +136,15 @@ const {
   recordReview,
   recordDailyTestResult,
   getClassVocabOverview,
-  overrideStudentVocab
-} = require('./services/vocabService');
-const { scorePlacement } = require('./services/vocabPlacementService');
+  overrideStudentVocab,
+  scorePlacement,
+  deepDiveWord,
+  getPlacementMeta,
+  getPromotionTestStatus,
+  startPromotionTest,
+  submitPromotionTest,
+  ackPromotionTest
+} = require('./services/vocabShared');
 const { todayStr } = require('./dateUtils');
 
 const photoUpload = multer({
@@ -204,8 +213,14 @@ router.post('/auth/login', async (req, res) => {
 
 router.get('/teacher/classes', requireRole('teacher'), async (req, res) => {
   try {
-    const data = await getTeacherClasses(req.session.teacherId);
-    res.json(data);
+    const [data, subjectGroups] = await Promise.all([
+      getTeacherClasses(req.session.teacherId),
+      listTeacherSubjectGroups(req.session.teacherId)
+    ]);
+    return res.json({
+      ...data,
+      classes: subjectGroups.classes || []
+    });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load classes.' });
   }
@@ -345,11 +360,25 @@ router.get('/teacher/class/:classId/grades/active-term', requireRole('teacher'),
   }
 });
 
+router.get('/teacher/class/:classId/grades/subjects', requireRole('teacher'), async (req, res) => {
+  try {
+    const data = await listClassGradeSubjects(req.session.teacherId, req.params.classId);
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load subjects.' });
+  }
+});
+
 router.get('/teacher/class/:classId/grades/weights', requireRole('teacher'), async (req, res) => {
   try {
-    const weights = await listGradeWeights(req.params.classId, req.query.term, req.query.subject);
+    const subject = req.query.subject || '';
+    const access = await getTeacherGradeAccess(req.session.teacherId, req.params.classId, subject);
+    if (subject && !access.canView) {
+      return res.status(403).json({ error: 'You cannot view this subject.' });
+    }
+    const weights = await listGradeWeights(req.params.classId, req.query.term, subject);
     const totalPercent = weights.reduce((s, w) => s + w.weightPercent, 0);
-    res.json({ weights, totalPercent, presets: getCategoryPresets() });
+    res.json({ weights, totalPercent, presets: getCategoryPresets(), canEdit: access.canEdit });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load grade weights.' });
   }
@@ -358,6 +387,10 @@ router.get('/teacher/class/:classId/grades/weights', requireRole('teacher'), asy
 router.post('/teacher/class/:classId/grades/weights', requireRole('teacher'), async (req, res) => {
   try {
     const { term, subject, weights } = req.body || {};
+    const access = await getTeacherGradeAccess(req.session.teacherId, req.params.classId, subject);
+    if (!access.canEdit) {
+      return res.status(403).json({ error: 'Only the subject teacher can edit grade weights.' });
+    }
     const result = await saveGradeWeights(req.params.classId, term, subject, weights || []);
     res.json(result);
   } catch (e) {
@@ -371,9 +404,13 @@ router.get('/teacher/class/:classId/grades/gradebook', requireRole('teacher'), a
     const term = req.query.term || 'Term1';
     const subject = req.query.subject || '';
     if (!subject) return res.status(400).json({ error: 'subject is required.' });
+    const access = await getTeacherGradeAccess(req.session.teacherId, classId, subject);
+    if (!access.canView) {
+      return res.status(403).json({ error: 'You cannot view grades for this subject.' });
+    }
     const students = await getClassRoster(classId);
     const book = await getGradebook(classId, term, subject, students);
-    res.json(book);
+    res.json({ ...book, canEdit: access.canEdit, isHomeroom: access.isHomeroom });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load gradebook.' });
   }
@@ -382,6 +419,10 @@ router.get('/teacher/class/:classId/grades/gradebook', requireRole('teacher'), a
 router.post('/teacher/class/:classId/grades/gradebook/column', requireRole('teacher'), async (req, res) => {
   try {
     const { term, subject, categoryKey, title, date, maxScore } = req.body || {};
+    const access = await getTeacherGradeAccess(req.session.teacherId, req.params.classId, subject);
+    if (!access.canEdit) {
+      return res.status(403).json({ error: 'Only the subject teacher can add grade columns.' });
+    }
     const column = await createAssessment(
       req.params.classId,
       term,
@@ -397,6 +438,14 @@ router.post('/teacher/class/:classId/grades/gradebook/column', requireRole('teac
 
 router.delete('/teacher/class/:classId/grades/gradebook/column/:assessmentId', requireRole('teacher'), async (req, res) => {
   try {
+    const access = await getTeacherGradeAccess(
+      req.session.teacherId,
+      req.params.classId,
+      req.query.subject
+    );
+    if (!access.canEdit) {
+      return res.status(403).json({ error: 'Only the subject teacher can delete grade columns.' });
+    }
     const result = await deleteAssessment(
       req.params.assessmentId,
       req.params.classId,
@@ -412,6 +461,10 @@ router.delete('/teacher/class/:classId/grades/gradebook/column/:assessmentId', r
 router.post('/teacher/class/:classId/grades/gradebook/cell', requireRole('teacher'), async (req, res) => {
   try {
     const { assessmentId, studentId, score, subject, term } = req.body || {};
+    const access = await getTeacherGradeAccess(req.session.teacherId, req.params.classId, subject);
+    if (!access.canEdit) {
+      return res.status(403).json({ error: 'Only the subject teacher can edit scores. Homeroom teachers can view only.' });
+    }
     const result = await saveAssessmentCell(
       assessmentId,
       studentId,
@@ -777,12 +830,105 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
   }
 });
 
+/**
+ * Platform admin directory lookup (name / school / class) for this host tenant.
+ * Auth: X-Vocab-Platform-Key must match VOCAB_PLATFORM_SECRET (shared with central).
+ */
+router.get('/vocab/directory', async (req, res) => {
+  try {
+    const expected = String(process.env.VOCAB_PLATFORM_SECRET || '').trim();
+    const key = String(req.headers['x-vocab-platform-key'] || '').trim();
+    if (!expected || key !== expected) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 200);
+    if (!ids.length) return res.json({ students: [] });
+
+    const { getStudent } = require('./services/studentRegistryService');
+    const schoolName = String(process.env.VOCAB_SCHOOL_NAME || 'Salt Morning Class');
+
+    const students = [];
+    for (const studentId of ids) {
+      try {
+        const student = await getStudent(studentId);
+        if (!student) continue;
+        const classId = student.classId || null;
+        const className = student.className && student.className !== '—'
+          ? student.className
+          : classId;
+        const gradeRaw =
+          (student.profile && student.profile.gradeLevel) ||
+          student.gradeLevel ||
+          null;
+        const gradeNum = gradeRaw != null
+          ? Math.round(Number(String(gradeRaw).replace(/[^0-9.]/g, '')))
+          : null;
+        const previousSchool =
+          (student.profile && student.profile.previousSchool) || null;
+        students.push({
+          studentId,
+          name: student.name || null,
+          schoolName: previousSchool || schoolName,
+          classId,
+          className,
+          schoolGrade: Number.isFinite(gradeNum) ? gradeNum : null
+        });
+      } catch (e) {
+        /* skip missing */
+      }
+    }
+    res.json({ students });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Directory lookup failed' });
+  }
+});
+
+/** Mint a central Vocab Booster /v1 session JWT for embed hosts (optional). */
+router.post('/student/vocab/central-session', requireRole('student'), async (req, res) => {
+  try {
+    const base = String(process.env.VOCAB_CENTRAL_API_BASE || '').replace(/\/$/, '');
+    const secret = String(process.env.VOCAB_TENANT_API_SECRET || '').trim();
+    const tenantId = String(process.env.VOCAB_TENANT_ID || 'salt-morning').trim();
+    const publicKey = String(process.env.VOCAB_TENANT_PUBLIC_KEY || 'pk_salt_morning').trim();
+    if (!base || !secret) {
+      return res.status(503).json({
+        error: 'Central Vocab API not configured (VOCAB_CENTRAL_API_BASE + VOCAB_TENANT_API_SECRET).'
+      });
+    }
+    const r = await fetch(base + '/api/vocab/v1/session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + secret,
+        'X-Vocab-Tenant-Id': tenantId,
+        'X-Vocab-Public-Key': publicKey
+      },
+      body: JSON.stringify({
+        studentId: req.session.studentId,
+        classId: req.session.classId,
+        name: (req.body && req.body.name) || req.session.name || undefined,
+        tenantId,
+        publicKey
+      })
+    });
+    const payload = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      return res.status(r.status).json({ error: (payload && payload.error) || 'Central mint failed' });
+    }
+    res.json(payload);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'Central mint failed' });
+  }
+});
+
 router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Same hot path as Mr. Park: build the item only (no summary / Sheets / placement gate).
+    // Already-placed clients are blocked in the UI; /placement/score still enforces the gate.
     const body = req.body || {};
     res.json(await buildPlacementItem({
       abilityGrade: body.abilityGrade,
@@ -797,21 +943,35 @@ router.post('/student/vocab/placement/item', requireRole('student'), async (req,
 
 router.post('/student/vocab/placement/next', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Pure CPU adapt step — same as Mr. Park (no DB / Sheets on the hot path).
     res.json(processPlacementNext(req.body || {}));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not adapt difficulty.' });
   }
 });
 
+router.get('/student/vocab/placement/meta', requireRole('student'), async (req, res) => {
+  try {
+    res.json(getPlacementMeta());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load placement meta.' });
+  }
+});
+
 router.post('/student/vocab/placement/score', requireRole('student'), async (req, res) => {
   try {
+    if (await isPlacementDone(req.session.studentId)) {
+      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
+    }
     const result = scorePlacement(req.body || {});
-    const saved = await savePlacementResult(req.session.studentId, req.session.classId, result);
-    res.json(saved);
+    try {
+      await savePlacementResult(req.session.studentId, req.session.classId, result);
+      result.persisted = true;
+    } catch (persistErr) {
+      console.error('savePlacementResult', persistErr.message || persistErr);
+      result.persisted = false;
+    }
+    res.json(result);
   } catch (e) {
     const status = e.code === 'PLACEMENT_ALREADY_DONE' ? 409 : 400;
     res.status(status).json({ error: e.message || 'Could not score placement.', code: e.code });
@@ -850,10 +1010,51 @@ router.post('/student/vocab/daily-test/submit', requireRole('student'), async (r
   }
 });
 
+router.get('/student/vocab/promotion-test/status', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await getPromotionTestStatus(req.session.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load promotion test.' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/start', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await startPromotionTest(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({
+      error: e.message || 'Could not start promotion test.',
+      code: e.code
+    });
+  }
+});
+
+router.post('/student/vocab/promotion-test/submit', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await submitPromotionTest(req.session.studentId, req.body || {}));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit promotion test.' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/ack', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await ackPromotionTest(req.session.studentId, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not ack promotion test.' });
+  }
+});
+
 router.post('/student/vocab/deep-dive', requireRole('student'), async (req, res) => {
   try {
-    const { deepDiveWord } = require('./services/vocabPlacementService');
-    const result = await deepDiveWord(req.body || {});
+    const body = req.body || {};
+    const result = await deepDiveWord({
+      word: body.word,
+      partOfSpeech: body.partOfSpeech || body.part_of_speech,
+      focus: body.focus,
+      levelHint: body.levelHint,
+      studentLevel: body.studentLevel
+    });
     const text = typeof result === 'string'
       ? result
       : String((result && (result.text || result.answer || result.explanation)) || '');
@@ -1413,6 +1614,47 @@ router.get('/admin/timetable/solver-health', requireRole('admin'), async (req, r
     res.json({ ok: r.ok, solver: data });
   } catch (e) {
     res.json({ ok: false, error: e.message });
+  }
+});
+
+const {
+  generateJeopardyBoard,
+  createBlankJeopardyBoard
+} = require('./services/jeopardyService');
+
+router.post('/jeopardy/generate', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const board = await generateJeopardyBoard({
+      subject: body.subject || body.topic,
+      title: body.title,
+      difficulty: body.difficulty,
+      language: body.language,
+      teamCount: body.teamCount
+    });
+    res.json({ ok: true, game: board });
+  } catch (e) {
+    console.error('POST /jeopardy/generate', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate Jeopardy board.' });
+  }
+});
+
+router.post('/jeopardy/blank', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json({
+      ok: true,
+      game: createBlankJeopardyBoard({
+        subject: body.subject || body.topic || 'Jeopardy',
+        title: body.title,
+        difficulty: body.difficulty,
+        language: body.language,
+        teamCount: body.teamCount
+      })
+    });
+  } catch (e) {
+    console.error('POST /jeopardy/blank', e);
+    res.status(400).json({ error: e.message || 'Could not create blank board.' });
   }
 });
 
