@@ -1955,7 +1955,13 @@ router.post('/student/vocab/daily-test/submit', requireStudentAuth, async (req, 
         }
       }
     }
-    res.json(await recordDailyTestResult(studentId, classId, body.correctCount, body.totalCount));
+    res.json(await recordDailyTestResult(
+      studentId,
+      classId,
+      body.correctCount,
+      body.totalCount,
+      body.answers
+    ));
   } catch (e) {
     console.error('POST /student/vocab/daily-test/submit', e);
     res.status(400).json({ error: e.message || 'Could not submit daily test' });

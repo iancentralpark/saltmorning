@@ -37,7 +37,15 @@
     deckIndex: 0,
     deck: [],
     mastery: null,
-    summary: null
+    promotionScore: 0,
+    promotionScoreMax: 400,
+    promotionPercent: 0,
+    shieldCount: 0,
+    decayWarning: false,
+    summary: null,
+    sessionStudentId: '',
+    _bound: false,
+    _summaryReq: 0
   };
 
   function currentStudentId() {
@@ -48,7 +56,9 @@
       }
     } catch (e) { /* ignore */ }
     try {
-      var raw = localStorage.getItem('mrpark_student_profile') || sessionStorage.getItem('mrpark_student_profile') || '';
+      var raw = localStorage.getItem('salt_student_profile') ||
+        localStorage.getItem('mrpark_student_profile') ||
+        sessionStorage.getItem('mrpark_student_profile') || '';
       if (!raw) return '';
       var p = JSON.parse(raw);
       return String((p && (p.studentId || p.id)) || '').trim();
@@ -126,7 +136,10 @@
       return root.mrParkStudentApi(path, opts);
     }
     var token = '';
-    try { token = localStorage.getItem('mrpark_student_token') || ''; } catch (e) {}
+    try {
+      token = localStorage.getItem('salt_student_token') ||
+        localStorage.getItem('mrpark_student_token') || '';
+    } catch (e) {}
     var base = (root.NODE_API || location.origin || '').replace(/\/$/, '');
     var headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
     if (token) headers.Authorization = 'Bearer ' + token;
@@ -144,33 +157,104 @@
     });
   }
 
-  var quest = {
-    queue: [],
-    masterQueue: [],
-    targetCount: 10,
-    passThreshold: 100,
-    studyIndex: 0,
-    studyMaxIndex: 0,
-    phase: 'idle', // idle | study | test | done
-    testIndex: 0,
-    testWords: [],
-    testTypes: [],
-    testAnswers: [],
-    currentTestQ: null,
-    locked: false,
-    selectedChoice: null,
-    qStartedAt: 0,
-    timerEndsAt: 0,
-    timerId: null,
-    tickId: null,
-    pauseUsed: false,
-    paused: false,
-    pauseRemainingMs: 0,
-    sessionsCompleted: 0,
-    maxSessions: 3,
-    forceAnotherSet: false,
-    alreadyPassedToday: false
-  };
+  function blankQuest() {
+    return {
+      queue: [],
+      masterQueue: [],
+      targetCount: 10,
+      passThreshold: 100,
+      studyIndex: 0,
+      studyMaxIndex: 0,
+      phase: 'idle', // idle | study | test | done
+      testIndex: 0,
+      testWords: [],
+      testTypes: [],
+      testAnswers: [],
+      currentTestQ: null,
+      locked: false,
+      selectedChoice: null,
+      qStartedAt: 0,
+      timerEndsAt: 0,
+      timerId: null,
+      tickId: null,
+      pauseUsed: false,
+      paused: false,
+      pauseRemainingMs: 0,
+      sessionsCompleted: 0,
+      maxSessions: 3,
+      forceAnotherSet: false,
+      alreadyPassedToday: false,
+      isRetryAttempt: false,
+      retryWordIds: {}
+    };
+  }
+
+  var quest = blankQuest();
+
+  /**
+   * Wipe in-memory vocab UI when the logged-in student changes (logout / switch account).
+   */
+  function resetVocabSession(opts) {
+    opts = opts || {};
+    clearPlacementTimer();
+    clearQuestTestTimer();
+    state.view = 'home';
+    state.abilityGrade = 6;
+    state.abilityTrail = [];
+    state.avoidWordIds = [];
+    state.questionIndex = 0;
+    state.answers = [];
+    state.currentQ = null;
+    state.locked = false;
+    state.selectedChoice = null;
+    state.pauseUsed = false;
+    state.paused = false;
+    state.pauseRemainingMs = 0;
+    state.schoolGrade = null;
+    state.placementStartGrade = 4;
+    state.startAbility = 4;
+    state.placement = null;
+    state.placementDone = false;
+    state.deckIndex = 0;
+    state.deck = [];
+    state.mastery = null;
+    state.promotionScore = 0;
+    state.promotionScoreMax = 400;
+    state.promotionPercent = 0;
+    state.shieldCount = 0;
+    state.decayWarning = false;
+    state.summary = null;
+    if (!opts.keepSessionId) state.sessionStudentId = '';
+
+    var fresh = blankQuest();
+    Object.keys(fresh).forEach(function (k) { quest[k] = fresh[k]; });
+
+    var questBody = $('vocabQuestBody');
+    if (questBody) questBody.innerHTML = '';
+    var quizBody = $('vocabQuizBody');
+    if (quizBody) quizBody.innerHTML = '';
+    var resultBody = $('vocabResultBody');
+    if (resultBody) resultBody.innerHTML = '';
+
+    setView('home');
+    renderHomeStats();
+    syncPlacementVisibility();
+  }
+
+  function ensureStudentSession() {
+    var sid = currentStudentId();
+    if (!sid) {
+      if (state.sessionStudentId || state.placement || state.placementDone) {
+        resetVocabSession();
+      }
+      return false;
+    }
+    if (state.sessionStudentId && state.sessionStudentId !== sid) {
+      resetVocabSession({ keepSessionId: true });
+    }
+    state.sessionStudentId = sid;
+    return true;
+  }
 
   var TIER_BADGES = {
     Rookie: { icon: 'fa-seedling', className: 'tier-rookie' },
@@ -219,6 +303,11 @@
     if (!summary) return;
     state.summary = summary;
     state.mastery = summary.mastery || null;
+    state.promotionScore = Number(summary.promotionScore) || 0;
+    state.promotionScoreMax = Number(summary.promotionScoreMax) || 400;
+    state.promotionPercent = Number(summary.promotionPercent) || 0;
+    state.shieldCount = Math.max(0, Math.round(Number(summary.shieldCount) || 0));
+    state.decayWarning = !!(summary.decayWarning || summary.decay_warning);
     // Server is authoritative. Never keep a cached tier when placement is unfinished.
     state.placementDone = !!summary.placementDone;
     if (summary.schoolGrade != null) state.schoolGrade = summary.schoolGrade;
@@ -262,12 +351,16 @@
   }
 
   function refreshServerSummary() {
+    var reqId = ++state._summaryReq;
     return apiFetch('/api/student/vocab/summary?_=' + Date.now())
       .then(function (summary) {
+        // Ignore stale responses from a premature auto-init (no auth bridge yet).
+        if (reqId !== state._summaryReq) return summary;
         applyServerSummary(summary);
         return summary;
       })
       .catch(function () {
+        if (reqId !== state._summaryReq) return null;
         // Offline/cache only for THIS student, and only if it looks like a real placement.
         var saved = loadSaved();
         var sid = currentStudentId();
@@ -282,6 +375,7 @@
         renderHomeStats();
         syncPlacementVisibility();
         if (state.placementDone && quest.phase === 'idle') loadQuestInline();
+        return null;
       });
   }
 
@@ -301,11 +395,13 @@
         hero.className = 'vocab-tier-hero';
         hero.setAttribute('aria-disabled', 'true');
       }
-      renderMasteryBar(null);
+      renderPromotionBar(null);
       renderTierLadder(null);
       return;
     }
-    tierEl.textContent = tierName;
+    var division = (state.summary && state.summary.tierDivision) ||
+      (state.promotionScore >= (state.promotionScoreMax || 400) / 2 ? 2 : 1);
+    tierEl.textContent = tierName + ' ' + division;
     if (startEl) startEl.textContent = grade ? ('Grade ' + grade) : '';
     var badge = TIER_BADGES[tierName] || TIER_BADGES.Rookie;
     if (mark) mark.innerHTML = '<i class="fa-solid ' + badge.icon + '"></i>';
@@ -314,7 +410,14 @@
       hero.setAttribute('aria-disabled', 'false');
       hero.setAttribute('title', 'See all tiers');
     }
-    renderMasteryBar(state.mastery);
+    renderPromotionBar(state.summary || {
+      promotionScore: state.promotionScore,
+      promotionScoreMax: state.promotionScoreMax,
+      promotionPercent: state.promotionPercent,
+      shieldCount: state.shieldCount,
+      decayWarning: state.decayWarning,
+      mastery: state.mastery
+    });
     renderTierLadder(tierName);
   }
 
@@ -409,7 +512,7 @@
     setTierLadderOpen(!isTierLadderOpen());
   }
 
-  function renderMasteryBar(mastery) {
+  function renderPromotionBar(summary) {
     var wrap = $('vocabMasteryWrap');
     if (!wrap) {
       var hero = $('vocabTierHero');
@@ -419,24 +522,42 @@
       wrap.className = 'vocab-mastery-wrap';
       hero.insertAdjacentElement('afterend', wrap);
     }
-    if (!mastery || !mastery.tierWords) {
+    if (!summary || !state.placementDone) {
       wrap.innerHTML = '';
       wrap.classList.add('hidden');
       return;
     }
     wrap.classList.remove('hidden');
-    var pct = Math.min(100, Math.max(0, Number(mastery.percent) || 0));
-    var left = Math.max(0, Number(mastery.remaining) || 0);
+    var score = Math.max(0, Number(summary.promotionScore) || 0);
+    var max = Math.max(1, Number(summary.promotionScoreMax) || 400);
+    var pct = Math.min(100, Math.max(0, Number(summary.promotionPercent) || Math.round((score / max) * 1000) / 10));
+    var left = Math.max(0, Math.round((max - score) * 10) / 10);
+    var shield = Math.max(0, Math.round(Number(summary.shieldCount) || 0));
     wrap.innerHTML =
       '<div class="vocab-mastery-label">' +
-      'Tier progress · Mastered <strong>' + mastery.mastered + ' / ' + mastery.tierWords + '</strong> (' + pct + '%)' +
+      'Promotion score · <strong>' + score + ' / ' + max + '</strong> (' + pct + '%)' +
       (left > 0
-        ? ' · <strong>' + left + '</strong> more correct to promote'
-        : ' · Ready to promote on next passed test!') +
+        ? ' · <strong>' + left + '</strong> to next tier'
+        : ' · Ready to promote!') +
+      (shield > 0 ? ' · Shield: ' + shield + ' items' : '') +
       '</div>' +
-      '<div class="vocab-progress vocab-mastery-bar"><span style="width:' + Math.min(100, Math.round((mastery.mastered / Math.max(1, mastery.tierWords)) * 100)) + '%"></span></div>' +
-      '<p class="vocab-mastery-hint">Promote at ' + (mastery.promoteAt || 80) + '% of this grade\'s words answered correctly at least once.</p>';
+      '<div class="vocab-progress vocab-mastery-bar"><span style="width:' + Math.min(100, Math.round((score / max) * 100)) + '%"></span></div>' +
+      (summary.decayWarning || summary.decay_warning
+        ? '<p class="vocab-mastery-hint" style="color:#b45309;">Rank decay active — study today to stop losing promotion points.</p>'
+        : '<p class="vocab-mastery-hint">Reach ' + max + ' to promote. Score ≤ 0 without a shield demotes one tier (re-entry at 390).</p>');
   }
+
+  function renderMasteryBar(mastery) {
+    renderPromotionBar(mastery && mastery.promotionScore != null ? mastery : {
+      promotionScore: state.promotionScore,
+      promotionScoreMax: state.promotionScoreMax,
+      promotionPercent: state.promotionPercent,
+      shieldCount: state.shieldCount,
+      decayWarning: state.decayWarning,
+      mastery: mastery || state.mastery
+    });
+  }
+
 
   function shuffle(arr) {
     var a = arr.slice();
@@ -1774,6 +1895,7 @@
       console.warn('[vocab] MrParkVocabData missing');
     }
     try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch (e) { /* ignore */ }
+    ensureStudentSession();
     if (state._bound) {
       refreshServerSummary();
       return;
@@ -1784,19 +1906,38 @@
     refreshServerSummary();
   }
 
+  function onLogout() {
+    resetVocabSession();
+  }
+
+  function onLogin() {
+    ensureStudentSession();
+    setView('home');
+    return refreshServerSummary();
+  }
+
   root.MrParkVocabLearn = {
     init: init,
+    onLogout: onLogout,
+    onLogin: onLogin,
+    resetSession: resetVocabSession,
+    applyServerSummary: applyServerSummary,
     startPlacement: startPlacement,
     openQuest: openQuest,
     setView: setView,
     refreshServerSummary: refreshServerSummary
   };
 
+  // Morning Class sets mrParkStudentApi after this script loads — wait for the host
+  // portal to call init()/onLogin() so a no-auth summary failure cannot win a race.
+  function canAutoInit() {
+    return !!$('vocabShell') && typeof root.mrParkStudentApi === 'function';
+  }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
-      if ($('vocabShell')) init();
+      if (canAutoInit()) init();
     });
-  } else if ($('vocabShell')) {
+  } else if (canAutoInit()) {
     init();
   }
 })(typeof window !== 'undefined' ? window : globalThis);
