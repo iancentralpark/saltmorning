@@ -15,7 +15,7 @@ const { formatSheetDate } = require('../dateUtils');
 const { listAllGradeTerms, saveGradeTerm, ensureGradeSheets } = require('./gradeWeightService');
 const { TRANSACTIONS_SHEET } = require('./dollarService');
 const { getRecentBuddyActivity } = require('./englishBuddyService');
-const { getRecentVocabActivity } = require('./vocabService');
+const { getRecentVocabActivity } = require('./vocabShared');
 const crypto = require('crypto');
 
 function newId(prefix) {
