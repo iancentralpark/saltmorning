@@ -349,6 +349,7 @@ textarea { min-height: 100px; resize: vertical; }
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   padding: 0.95rem 1.05rem; cursor: pointer; background: var(--cream);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  position: relative;
 }
 .class-card:hover {
   border-color: var(--sage);
@@ -357,6 +358,81 @@ textarea { min-height: 100px; resize: vertical; }
   background: var(--sage-soft);
 }
 .class-card small { color: var(--muted); }
+.class-card-homeroom {
+  background: linear-gradient(135deg, #eef3ea 0%, #e4ecdf 100%);
+  border-color: var(--olive);
+  box-shadow: inset 0 0 0 1px rgba(59, 74, 52, 0.08);
+}
+.class-card-homeroom:hover {
+  background: linear-gradient(135deg, #e6eee0 0%, #dce7d5 100%);
+  border-color: var(--olive-deep);
+}
+.class-homeroom-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--olive);
+  padding: 0.18rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.45rem;
+}
+.class-card-meta { margin-top: 0.15rem; }
+.class-card-roles {
+  margin-top: 0.4rem;
+  font-size: 0.88rem;
+  color: var(--olive-deep);
+  font-weight: 600;
+}
+.grade-subject-picker { margin-bottom: 0.5rem; }
+.grade-subject-list {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+.grade-subj-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+  text-align: left;
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.grade-subj-card:hover {
+  border-color: var(--sage);
+  box-shadow: var(--shadow-sm);
+}
+.grade-subj-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+.grade-subj-edit { background: var(--sage-soft); color: var(--olive-deep); }
+.grade-subj-view { background: #f0ebe3; color: #6b6358; }
+.grade-ro-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #6b6358;
+  background: #f0ebe3;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
 .section-title {
   font-size: 0.78rem; text-transform: uppercase; letter-spacing: .06em;
   color: var(--muted); margin: 1rem 0 0.5rem; font-weight: 700;
