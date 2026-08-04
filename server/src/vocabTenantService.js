@@ -366,14 +366,19 @@ async function getPlatformAnalytics() {
 
 const PROMOTE_AT = 400;
 
-function learnerRowFromState(st, daily) {
+function learnerRowFromState(st, daily, profile) {
   const placed = !!(st && st.placement_at);
   const score = Math.max(0, Math.min(PROMOTE_AT, Number(st && st.promotion_score) || 0));
   const shield = Math.max(0, Math.round(Number(st && st.promotion_shield_count) || 0));
   const division = score >= PROMOTE_AT / 2 ? 2 : 1;
+  profile = profile || {};
   return {
     studentId: st.student_id,
-    classId: st.class_id || null,
+    name: profile.name || null,
+    schoolName: profile.schoolName || null,
+    schoolGrade: profile.schoolGrade != null ? profile.schoolGrade : null,
+    classId: profile.classId || st.class_id || null,
+    className: profile.className || null,
     placed,
     placementAt: st.placement_at || null,
     tierName: placed ? st.tier_name : null,
@@ -396,6 +401,202 @@ function learnerRowFromState(st, daily) {
   };
 }
 
+async function upsertLearnerProfile(tenantId, studentId, fields) {
+  const tid = String(tenantId || '').trim();
+  const sid = String(studentId || '').trim();
+  if (!tid || !sid || !isSupabaseEnabled()) return null;
+  fields = fields || {};
+  const row = {
+    tenant_id: tid,
+    student_id: sid,
+    updated_at: new Date().toISOString()
+  };
+  if (fields.name != null) row.name = String(fields.name).trim() || null;
+  if (fields.schoolName != null) row.school_name = String(fields.schoolName).trim() || null;
+  if (fields.classId != null) row.class_id = String(fields.classId).trim() || null;
+  if (fields.className != null) row.class_name = String(fields.className).trim() || null;
+  if (fields.schoolGrade != null) {
+    const g = Number(fields.schoolGrade);
+    row.school_grade = Number.isFinite(g) ? Math.round(g) : null;
+  }
+  const db = getSupabase();
+  const { error } = await db.from('vocab_learner_profiles').upsert(row, {
+    onConflict: 'tenant_id,student_id'
+  });
+  if (error) {
+    // Table may not exist yet on older deploys.
+    if (!/does not exist|relation/i.test(error.message)) {
+      console.warn('upsertLearnerProfile', error.message);
+    }
+    return null;
+  }
+  return row;
+}
+
+async function loadStoredProfiles(tenantId, studentIds) {
+  const map = new Map();
+  if (!isSupabaseEnabled() || !studentIds.length) return map;
+  try {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from('vocab_learner_profiles')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .in('student_id', studentIds);
+    if (error) throw error;
+    (data || []).forEach((row) => {
+      map.set(String(row.student_id), {
+        name: row.name || null,
+        schoolName: row.school_name || null,
+        classId: row.class_id || null,
+        className: row.class_name || null,
+        schoolGrade: row.school_grade != null ? Number(row.school_grade) : null
+      });
+    });
+  } catch (e) {
+    /* profiles table optional */
+  }
+  return map;
+}
+
+async function loadMrParkHostProfiles(studentIds) {
+  const map = new Map();
+  if (!isSupabaseEnabled() || !studentIds.length) return map;
+  const db = getSupabase();
+  const { data: students, error } = await db
+    .from('students')
+    .select('id,name,class_id,school_grade')
+    .in('id', studentIds);
+  if (error) {
+    console.warn('loadMrParkHostProfiles', error.message);
+    return map;
+  }
+  const classIds = Array.from(
+    new Set((students || []).map((s) => s.class_id).filter(Boolean).map(String))
+  );
+  let classNames = {};
+  if (classIds.length) {
+    const { data: classes } = await db.from('classes').select('id,name').in('id', classIds);
+    (classes || []).forEach((c) => {
+      classNames[String(c.id)] = String(c.name || c.id);
+    });
+  }
+  (students || []).forEach((s) => {
+    const classId = s.class_id ? String(s.class_id) : null;
+    map.set(String(s.id), {
+      name: s.name ? String(s.name) : null,
+      schoolName: 'Mr. Park App',
+      classId,
+      className: classId ? classNames[classId] || classId : null,
+      schoolGrade: s.school_grade != null ? Number(s.school_grade) : null
+    });
+  });
+  return map;
+}
+
+async function loadRemoteHostProfiles(tenant, studentIds) {
+  const map = new Map();
+  if (!tenant || !studentIds.length) return map;
+  const features = tenant.features || {};
+  const url =
+    features.directoryUrl ||
+    process.env['VOCAB_DIRECTORY_URL_' + String(tenant.id).replace(/-/g, '_')] ||
+    (tenant.id === 'salt-morning'
+      ? process.env.VOCAB_DIRECTORY_URL_salt_morning ||
+        'https://www.saltmorning.study/api/vocab/directory'
+      : null);
+  const platformKey = platformSecret();
+  if (!url || !platformKey || platformKey === 'vocab-platform-dev-secret') return map;
+  try {
+    const endpoint =
+      String(url).replace(/\/$/, '') +
+      '?ids=' +
+      encodeURIComponent(studentIds.join(','));
+    const res = await fetch(endpoint, {
+      headers: {
+        Accept: 'application/json',
+        'X-Vocab-Platform-Key': platformKey,
+        'X-Vocab-Tenant-Id': tenant.id
+      },
+      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+        ? AbortSignal.timeout(8000)
+        : undefined
+    });
+    if (!res.ok) {
+      console.warn('loadRemoteHostProfiles', tenant.id, res.status);
+      return map;
+    }
+    const payload = await res.json();
+    const list = (payload && payload.students) || [];
+    list.forEach((s) => {
+      if (!s || !s.studentId) return;
+      map.set(String(s.studentId), {
+        name: s.name || null,
+        schoolName: s.schoolName || tenant.name || null,
+        classId: s.classId || null,
+        className: s.className || null,
+        schoolGrade: s.schoolGrade != null ? Number(s.schoolGrade) : null
+      });
+    });
+  } catch (e) {
+    console.warn('loadRemoteHostProfiles', tenant.id, e.message || e);
+  }
+  return map;
+}
+
+function mergeProfileMaps() {
+  const out = new Map();
+  Array.from(arguments).forEach((m) => {
+    if (!m) return;
+    m.forEach((val, key) => {
+      const prev = out.get(key) || {};
+      out.set(key, {
+        name: val.name || prev.name || null,
+        schoolName: val.schoolName || prev.schoolName || null,
+        classId: val.classId || prev.classId || null,
+        className: val.className || prev.className || null,
+        schoolGrade:
+          val.schoolGrade != null
+            ? val.schoolGrade
+            : prev.schoolGrade != null
+              ? prev.schoolGrade
+              : null
+      });
+    });
+  });
+  return out;
+}
+
+async function enrichLearnerProfiles(tenant, studentIds) {
+  const tid = tenant && tenant.id;
+  const ids = (studentIds || []).map(String);
+  if (!tid || !ids.length) return new Map();
+  const stored = await loadStoredProfiles(tid, ids);
+  let host = new Map();
+  if (tid === 'mrpark') {
+    host = await loadMrParkHostProfiles(ids);
+  } else {
+    host = await loadRemoteHostProfiles(tenant, ids);
+  }
+  const merged = mergeProfileMaps(stored, host);
+  // Cache fresh host data into profiles for faster next open.
+  const writes = [];
+  merged.forEach((p, sid) => {
+    if (!p.name && !p.className) return;
+    writes.push(
+      upsertLearnerProfile(tid, sid, {
+        name: p.name,
+        schoolName: p.schoolName || tenant.name,
+        classId: p.classId,
+        className: p.className,
+        schoolGrade: p.schoolGrade
+      })
+    );
+  });
+  if (writes.length) Promise.all(writes).catch(() => {});
+  return merged;
+}
+
 /**
  * Platform admin: all learners for a tenant (from vocab_student_state, no host roster).
  */
@@ -405,6 +606,8 @@ async function listTenantLearners(tenantId, opts) {
   if (!tid) throw new Error('tenantId required');
   if (!isSupabaseEnabled()) throw new Error('Supabase is required');
   const db = getSupabase();
+  const tenant = await getTenantById(tid);
+  if (!tenant) throw new Error('Tenant not found');
   const limit = Math.min(500, Math.max(1, Number(opts.limit) || 200));
   const search = String(opts.search || '').trim();
 
@@ -414,25 +617,70 @@ async function listTenantLearners(tenantId, opts) {
     .eq('tenant_id', tid)
     .order('updated_at', { ascending: false })
     .limit(limit);
-  if (search) query = query.ilike('student_id', '%' + search + '%');
+  if (search) {
+    // Match student id; name filter applied after enrichment.
+    query = query.ilike('student_id', '%' + search + '%');
+  }
 
   const { data: states, error } = await query;
   if (error) throw new Error(error.message);
-  const rows = states || [];
+  let rows = states || [];
+
+  // If search looks like a name, also pull profiles and filter.
+  if (search && !/^s?\d+/i.test(search)) {
+    try {
+      const { data: named } = await db
+        .from('vocab_learner_profiles')
+        .select('student_id')
+        .eq('tenant_id', tid)
+        .ilike('name', '%' + search + '%')
+        .limit(limit);
+      const extraIds = (named || []).map((r) => r.student_id);
+      if (extraIds.length) {
+        const { data: extraStates } = await db
+          .from('vocab_student_state')
+          .select('*')
+          .eq('tenant_id', tid)
+          .in('student_id', extraIds);
+        const seen = new Set(rows.map((r) => r.student_id));
+        (extraStates || []).forEach((st) => {
+          if (!seen.has(st.student_id)) rows.push(st);
+        });
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
   if (!rows.length) return { learners: [], total: 0 };
 
   const today = new Date().toISOString().slice(0, 10);
   const ids = rows.map((r) => r.student_id);
-  const { data: dailies, error: dErr } = await db
-    .from('vocab_daily_progress')
-    .select('*')
-    .eq('tenant_id', tid)
-    .eq('quest_date', today)
-    .in('student_id', ids);
+  const [{ data: dailies, error: dErr }, profiles] = await Promise.all([
+    db
+      .from('vocab_daily_progress')
+      .select('*')
+      .eq('tenant_id', tid)
+      .eq('quest_date', today)
+      .in('student_id', ids),
+    enrichLearnerProfiles(tenant, ids)
+  ]);
   if (dErr) throw new Error(dErr.message);
   const dailyById = new Map((dailies || []).map((d) => [String(d.student_id), d]));
 
-  const learners = rows.map((st) => learnerRowFromState(st, dailyById.get(String(st.student_id))));
+  let learners = rows.map((st) =>
+    learnerRowFromState(st, dailyById.get(String(st.student_id)), profiles.get(String(st.student_id)))
+  );
+  if (search) {
+    const q = search.toLowerCase();
+    learners = learners.filter(
+      (L) =>
+        String(L.studentId).toLowerCase().includes(q) ||
+        String(L.name || '')
+          .toLowerCase()
+          .includes(q)
+    );
+  }
   return { learners, total: learners.length, questDate: today };
 }
 
@@ -442,6 +690,8 @@ async function getTenantLearnerDetail(tenantId, studentId) {
   if (!tid || !sid) throw new Error('tenantId and studentId required');
   if (!isSupabaseEnabled()) throw new Error('Supabase is required');
   const db = getSupabase();
+  const tenant = await getTenantById(tid);
+  if (!tenant) throw new Error('Tenant not found');
 
   const { data: state, error } = await db
     .from('vocab_student_state')
@@ -453,27 +703,29 @@ async function getTenantLearnerDetail(tenantId, studentId) {
   if (!state) return null;
 
   const today = new Date().toISOString().slice(0, 10);
-  const [{ data: daily }, { count: wordProgressCount }, { data: recentDaily }] = await Promise.all([
-    db
-      .from('vocab_daily_progress')
-      .select('*')
-      .eq('tenant_id', tid)
-      .eq('student_id', sid)
-      .eq('quest_date', today)
-      .maybeSingle(),
-    db
-      .from('vocab_student_progress')
-      .select('word_id', { count: 'exact', head: true })
-      .eq('tenant_id', tid)
-      .eq('student_id', sid),
-    db
-      .from('vocab_daily_progress')
-      .select('quest_date,studied_count,target_count,test_passed,test_score')
-      .eq('tenant_id', tid)
-      .eq('student_id', sid)
-      .order('quest_date', { ascending: false })
-      .limit(14)
-  ]);
+  const [{ data: daily }, { count: wordProgressCount }, { data: recentDaily }, profiles] =
+    await Promise.all([
+      db
+        .from('vocab_daily_progress')
+        .select('*')
+        .eq('tenant_id', tid)
+        .eq('student_id', sid)
+        .eq('quest_date', today)
+        .maybeSingle(),
+      db
+        .from('vocab_student_progress')
+        .select('word_id', { count: 'exact', head: true })
+        .eq('tenant_id', tid)
+        .eq('student_id', sid),
+      db
+        .from('vocab_daily_progress')
+        .select('quest_date,studied_count,target_count,test_passed,test_score')
+        .eq('tenant_id', tid)
+        .eq('student_id', sid)
+        .order('quest_date', { ascending: false })
+        .limit(14),
+      enrichLearnerProfiles(tenant, [sid])
+    ]);
 
   const { data: boxRows } = await db
     .from('vocab_student_progress')
@@ -488,7 +740,7 @@ async function getTenantLearnerDetail(tenantId, studentId) {
   });
 
   return {
-    learner: learnerRowFromState(state, daily || null),
+    learner: learnerRowFromState(state, daily || null, profiles.get(sid)),
     wordProgressCount: wordProgressCount || 0,
     leitnerByBox: byBox,
     recentDaily: recentDaily || []
@@ -513,6 +765,7 @@ module.exports = {
   getPlatformAnalytics,
   listTenantLearners,
   getTenantLearnerDetail,
+  upsertLearnerProfile,
   invalidateTenantCache,
   platformSecret
 };

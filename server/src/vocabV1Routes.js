@@ -26,14 +26,15 @@ const {
   getClassOverview,
   buildPlacementItem
 } = require('./vocabLearningService');
-const {
+  const {
   readBearerToken,
   getTenantById,
   getTenantByPublicKey,
   verifyTenantApiSecret,
   signStudentSession,
   verifyStudentSession,
-  skipLuckyDrawForTenant
+  skipLuckyDrawForTenant,
+  upsertLearnerProfile
 } = require('./vocabTenantService');
 
 const router = express.Router();
@@ -167,6 +168,18 @@ router.post('/session', asyncHandler(async (req, res) => {
     classId,
     name: body.name
   });
+
+  try {
+    await upsertLearnerProfile(tenant.id, studentId, {
+      name: body.name,
+      schoolName: body.schoolName || tenant.name,
+      classId,
+      className: body.className,
+      schoolGrade: body.schoolGrade
+    });
+  } catch (e) {
+    console.warn('v1 session profile', e.message || e);
+  }
 
   let summary = null;
   try {

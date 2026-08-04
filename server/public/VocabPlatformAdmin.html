@@ -202,9 +202,9 @@
           <select id="learnerTenant"></select>
         </div>
         <div>
-          <label for="learnerSearch">Student id search</label>
+          <label for="learnerSearch">Search name or student id</label>
           <div style="display:flex;gap:0.5rem">
-            <input id="learnerSearch" placeholder="S001">
+            <input id="learnerSearch" placeholder="Ethan or S001">
             <button type="button" id="learnerSearchBtn">Load</button>
           </div>
         </div>
@@ -213,29 +213,16 @@
         <thead>
           <tr>
             <th>Student</th>
+            <th>School</th>
             <th>Class</th>
             <th>Tier</th>
             <th>Promo</th>
-            <th>Streak</th>
             <th>Today</th>
-            <th></th>
           </tr>
         </thead>
         <tbody id="learnersBody"></tbody>
       </table>
       <p class="muted" id="learnersMeta"></p>
-      <div class="form-card" id="learnerDetailCard" style="display:none">
-        <h3 style="margin:0;font-family:Fraunces,Georgia,serif;">Learner detail — <span id="learnerDetailTitle"></span></h3>
-        <div class="stats" id="learnerDetailStats" style="margin-top:0.75rem"></div>
-        <h4 style="margin:1rem 0 0.35rem;font-size:0.95rem">Recent daily quests</h4>
-        <table>
-          <thead>
-            <tr><th>Date</th><th>Studied</th><th>Target</th><th>Test</th><th>Score</th></tr>
-          </thead>
-          <tbody id="learnerDailyBody"></tbody>
-        </table>
-        <p class="muted" id="learnerBoxMeta"></p>
-      </div>
     </section>
 
     <section class="panel" id="panel-tenants">
@@ -360,6 +347,92 @@
   </main>
 
   <div id="toast"></div>
+
+  <div id="learnerModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="learnerModalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="learnerModalTitle">Learner</h2>
+          <p class="muted" id="learnerModalSub" style="margin:0.2rem 0 0"></p>
+        </div>
+        <button type="button" class="ghost" data-close="1" aria-label="Close">Close</button>
+      </div>
+      <div class="modal-identity" id="learnerIdentity"></div>
+      <div class="stats" id="learnerDetailStats"></div>
+      <h3 style="margin:1rem 0 0.35rem;font-size:0.95rem;font-family:Fraunces,Georgia,serif">Recent daily quests</h3>
+      <div class="modal-scroll">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Studied</th><th>Target</th><th>Test</th><th>Score</th></tr>
+          </thead>
+          <tbody id="learnerDailyBody"></tbody>
+        </table>
+      </div>
+      <p class="muted" id="learnerBoxMeta"></p>
+    </div>
+  </div>
+
+  <style>
+    .modal[hidden] { display: none !important; }
+    .modal {
+      position: fixed; inset: 0; z-index: 80;
+      display: grid; place-items: center;
+      padding: 1rem;
+    }
+    .modal-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(18,32,46,0.45);
+      backdrop-filter: blur(2px);
+    }
+    .modal-card {
+      position: relative;
+      width: min(720px, 100%);
+      max-height: min(88vh, 900px);
+      overflow: auto;
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      padding: 1.1rem 1.15rem 1.25rem;
+      box-shadow: 0 24px 60px rgba(18,32,46,0.22);
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start;
+    }
+    .modal-head h2 {
+      margin: 0;
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+    .modal-identity {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.55rem;
+      margin: 0.85rem 0 0.75rem;
+    }
+    .modal-identity .id-cell {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.55rem 0.65rem;
+      background: rgba(247,250,250,0.9);
+    }
+    .modal-identity .id-cell span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .modal-identity .id-cell b {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 0.95rem;
+    }
+    #learnersBody tr { cursor: pointer; }
+    #learnersBody tr:hover { background: rgba(15,107,107,0.06); }
+  </style>
 
   <script>
     (function () {
@@ -545,22 +618,25 @@
             ? (r.todayStudied + '/' + (r.todayTarget != null ? r.todayTarget : '—') +
               (r.todayTestPassed ? ' ✓' : ''))
             : '—';
-          return '<tr>' +
-            '<td><strong>' + esc(r.studentId) + '</strong>' +
-              (r.placed ? '' : ' <span class="pill off">unplaced</span>') + '</td>' +
-            '<td>' + esc(r.classId || '—') + '</td>' +
+          var title = (r.name || r.studentId) + ' · open detail';
+          return '<tr data-sid="' + esc(r.studentId) + '" title="' + esc(title) + '">' +
+            '<td><strong>' + esc(r.name || '—') + '</strong>' +
+              '<div class="muted">' + esc(r.studentId) +
+              (r.placed ? '' : ' · unplaced') + '</div></td>' +
+            '<td>' + esc(r.schoolName || '—') +
+              (r.schoolGrade != null ? '<div class="muted">Grade ' + esc(r.schoolGrade) + '</div>' : '') +
+              '</td>' +
+            '<td>' + esc(r.className || r.classId || '—') + '</td>' +
             '<td>' + esc(r.tierLabel || '—') +
-              (r.gradeLevel != null ? '<div class="muted">G' + esc(r.gradeLevel) + '</div>' : '') + '</td>' +
-            '<td>' + (r.placed ? (esc(r.promotionScore) + '/' + esc(r.promotionScoreMax) +
-              ' <span class="muted">(' + esc(r.promotionPercent) + '%)</span>') : '—') +
+              (r.gradeLevel != null ? '<div class="muted">Vocab G' + esc(r.gradeLevel) + '</div>' : '') + '</td>' +
+            '<td>' + (r.placed ? (esc(r.promotionScore) + '/' + esc(r.promotionScoreMax)) : '—') +
               (r.shieldCount ? '<div class="muted">shield ' + esc(r.shieldCount) + '</div>' : '') + '</td>' +
-            '<td>' + esc(r.streakDays) + '</td>' +
             '<td>' + today + '</td>' +
-            '<td><button type="button" class="ghost" data-sid="' + esc(r.studentId) + '">Detail</button></td>' +
             '</tr>';
-        }).join('') || '<tr><td colspan="7" class="muted">No learners for this tenant</td></tr>';
+        }).join('') || '<tr><td colspan="6" class="muted">No learners for this tenant</td></tr>';
         document.getElementById('learnersMeta').textContent =
-          rows.length + ' learner(s)' + (payload.questDate ? ' · today ' + payload.questDate : '');
+          rows.length + ' learner(s)' + (payload.questDate ? ' · today ' + payload.questDate : '') +
+          ' · click a row for details';
       }
 
       async function loadLearners() {
@@ -570,22 +646,38 @@
         var path = '/tenants/' + encodeURIComponent(tid) + '/learners?limit=300';
         if (q) path += '&search=' + encodeURIComponent(q);
         renderLearners(await api(path));
-        document.getElementById('learnerDetailCard').style.display = 'none';
+      }
+
+      function closeLearnerModal() {
+        document.getElementById('learnerModal').hidden = true;
+      }
+
+      function openLearnerModal() {
+        document.getElementById('learnerModal').hidden = false;
       }
 
       async function showLearnerDetail(studentId) {
         var tid = document.getElementById('learnerTenant').value;
         var d = await api('/tenants/' + encodeURIComponent(tid) + '/learners/' + encodeURIComponent(studentId));
         var L = d.learner;
-        document.getElementById('learnerDetailCard').style.display = 'block';
-        document.getElementById('learnerDetailTitle').textContent = tid + ' / ' + studentId;
+        openLearnerModal();
+        document.getElementById('learnerModalTitle').textContent = L.name || L.studentId;
+        document.getElementById('learnerModalSub').textContent =
+          tid + ' · ' + L.studentId + (L.placed ? '' : ' · needs placement');
+        document.getElementById('learnerIdentity').innerHTML =
+          idCell('Name', L.name || '—') +
+          idCell('Student ID', L.studentId) +
+          idCell('School', L.schoolName || '—') +
+          idCell('Class', L.className || L.classId || '—') +
+          idCell('School grade', L.schoolGrade != null ? ('Grade ' + L.schoolGrade) : '—') +
+          idCell('Placement', L.placed ? (L.placementAt || 'done') : 'Not placed');
         document.getElementById('learnerDetailStats').innerHTML =
-          statHtml(L.placed ? (L.tierLabel || L.tierName) : '—', 'Tier') +
+          statHtml(L.placed ? (L.tierLabel || L.tierName) : '—', 'Vocab tier') +
           statHtml(L.placed ? (L.promotionScore + '/' + L.promotionScoreMax) : '—', 'Promotion') +
           statHtml(L.shieldCount || 0, 'Shield') +
           statHtml(L.streakDays || 0, 'Streak') +
           statHtml(d.wordProgressCount || 0, 'Words tracked') +
-          statHtml(L.todayTestPassed ? 'Pass' : (L.todayStudied || 0), 'Today');
+          statHtml(L.todayTestPassed ? 'Pass' : String(L.todayStudied || 0), 'Today');
         document.getElementById('learnerDailyBody').innerHTML = (d.recentDaily || []).map(function (row) {
           return '<tr><td>' + esc(row.quest_date) + '</td><td>' + esc(row.studied_count) +
             '</td><td>' + esc(row.target_count) + '</td><td>' + (row.test_passed ? 'pass' : '—') +
@@ -599,6 +691,10 @@
           boxTxt ? ('Leitner ' + boxTxt) : 'No SRS word progress yet';
       }
 
+      function idCell(label, value) {
+        return '<div class="id-cell"><span>' + esc(label) + '</span><b>' + esc(value) + '</b></div>';
+      }
+
       document.getElementById('learnerSearchBtn').addEventListener('click', function () {
         loadLearners().catch(function (e) { toast(e.message, true); });
       });
@@ -606,11 +702,17 @@
         loadLearners().catch(function (e) { toast(e.message, true); });
       });
       document.getElementById('learnersBody').addEventListener('click', function (e) {
-        var btn = e.target.closest('button[data-sid]');
-        if (!btn) return;
-        showLearnerDetail(btn.getAttribute('data-sid')).catch(function (err) {
+        var tr = e.target.closest('tr[data-sid]');
+        if (!tr) return;
+        showLearnerDetail(tr.getAttribute('data-sid')).catch(function (err) {
           toast(err.message || String(err), true);
         });
+      });
+      document.getElementById('learnerModal').addEventListener('click', function (e) {
+        if (e.target && e.target.getAttribute('data-close')) closeLearnerModal();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeLearnerModal();
       });
 
       // overview row click → learners

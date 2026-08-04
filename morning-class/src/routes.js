@@ -780,6 +780,63 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
   }
 });
 
+/**
+ * Platform admin directory lookup (name / school / class) for this host tenant.
+ * Auth: X-Vocab-Platform-Key must match VOCAB_PLATFORM_SECRET (shared with central).
+ */
+router.get('/vocab/directory', async (req, res) => {
+  try {
+    const expected = String(process.env.VOCAB_PLATFORM_SECRET || '').trim();
+    const key = String(req.headers['x-vocab-platform-key'] || '').trim();
+    if (!expected || key !== expected) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 200);
+    if (!ids.length) return res.json({ students: [] });
+
+    const { getStudent } = require('./services/studentRegistryService');
+    const schoolName = String(process.env.VOCAB_SCHOOL_NAME || 'Salt Morning Class');
+
+    const students = [];
+    for (const studentId of ids) {
+      try {
+        const student = await getStudent(studentId);
+        if (!student) continue;
+        const classId = student.classId || null;
+        const className = student.className && student.className !== '—'
+          ? student.className
+          : classId;
+        const gradeRaw =
+          (student.profile && student.profile.gradeLevel) ||
+          student.gradeLevel ||
+          null;
+        const gradeNum = gradeRaw != null
+          ? Math.round(Number(String(gradeRaw).replace(/[^0-9.]/g, '')))
+          : null;
+        const previousSchool =
+          (student.profile && student.profile.previousSchool) || null;
+        students.push({
+          studentId,
+          name: student.name || null,
+          schoolName: previousSchool || schoolName,
+          classId,
+          className,
+          schoolGrade: Number.isFinite(gradeNum) ? gradeNum : null
+        });
+      } catch (e) {
+        /* skip missing */
+      }
+    }
+    res.json({ students });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Directory lookup failed' });
+  }
+});
+
 /** Mint a central Vocab Booster /v1 session JWT for embed hosts (optional). */
 router.post('/student/vocab/central-session', requireRole('student'), async (req, res) => {
   try {
