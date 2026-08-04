@@ -192,10 +192,10 @@
 
     <div id="panelTimetables" class="card hidden">
       <h3>Timetables</h3>
-      <p class="muted small">Configure bell schedule (periods, recess, lunch), set subject hours per week, then auto-generate with OR-Tools.</p>
+      <p class="muted small">Bell schedule → subject hours → drag chips onto the period grid (or Auto-Solve). Lock cells so the solver keeps them. Toggle Class / Teacher / All-Classes Matrix below.</p>
       <div id="timetableSetupMount"></div>
       <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border-soft)">
-      <h4>Manual view / edit</h4>
+      <h4>Resource views</h4>
       <div id="timetableMount"></div>
     </div>
 
@@ -216,8 +216,8 @@
 <script src="/js/messenger.js?v=20260708libs"></script>
 <script src="/js/student-registry.js?v=20260804uxaudit"></script>
 <script src="/js/class-registry.js?v=20260709classes"></script>
-<script src="/js/timetable.js?v=20260709tt"></script>
-<script src="/js/timetable-setup.js?v=20260709ttsetup"></script>
+<script src="/js/timetable.js?v=20260804lms"></script>
+<script src="/js/timetable-setup.js?v=20260804lms"></script>
 <script>
 (function() {
   const role = 'admin';
@@ -277,7 +277,8 @@
     });
     await SaltTimetable.openAdmin($('timetableMount'), {
       students: sData.students || [],
-      teachers: teachers
+      teachers: teachers,
+      classes: classes
     });
   }
 
