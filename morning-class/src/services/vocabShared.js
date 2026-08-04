@@ -100,6 +100,12 @@ async function getStudentVocabSummary(studentId, classId) {
   return api().getStudentVocabSummary(toVocabId(studentId), toVocabId(classId));
 }
 
+/** Lightweight placement gate — one Supabase row read, no Sheets / mastery. */
+async function isPlacementDone(studentId) {
+  const state = await api().getStudentState(toVocabId(studentId));
+  return !!(state && state.placement_at);
+}
+
 async function getDailyQueue(studentId, classId) {
   return api().getDailyQueue(toVocabId(studentId), toVocabId(classId));
 }
@@ -264,6 +270,7 @@ module.exports = {
   fromVocabId,
   VOCAB_ID_PREFIX,
   getStudentVocabSummary,
+  isPlacementDone,
   getDailyQueue,
   recordReview,
   recordDailyTestResult,

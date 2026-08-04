@@ -126,6 +126,7 @@ const {
 } = require('./services/homeworkService');
 const {
   getStudentVocabSummary,
+  isPlacementDone,
   buildPlacementItem,
   processPlacementNext,
   savePlacementResult,
@@ -781,8 +782,8 @@ router.get('/student/vocab/summary', requireRole('student'), async (req, res) =>
 
 router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
+    // Mr. Park skips the heavy summary here — only a one-row placement_at check.
+    if (await isPlacementDone(req.session.studentId)) {
       return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
     }
     const body = req.body || {};
@@ -799,10 +800,7 @@ router.post('/student/vocab/placement/item', requireRole('student'), async (req,
 
 router.post('/student/vocab/placement/next', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
+    // Pure CPU adapt step — same as Mr. Park (no DB / Sheets on the hot path).
     res.json(processPlacementNext(req.body || {}));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not adapt difficulty.' });
@@ -819,8 +817,7 @@ router.get('/student/vocab/placement/meta', requireRole('student'), async (req, 
 
 router.post('/student/vocab/placement/score', requireRole('student'), async (req, res) => {
   try {
-    const summary = await getStudentVocabSummary(req.session.studentId, req.session.classId);
-    if (summary.placementDone) {
+    if (await isPlacementDone(req.session.studentId)) {
       return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
     }
     const result = scorePlacement(req.body || {});

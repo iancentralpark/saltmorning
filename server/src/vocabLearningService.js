@@ -477,30 +477,37 @@ async function pickWordsForGrade(gradeLevel, count, excludeIds) {
   const db = requireDb();
   const exclude = new Set((excludeIds || []).map(String));
   const grade = Math.max(GRADE_MIN, Math.min(GRADE_MAX, Math.round(Number(gradeLevel) || 6)));
+  const need = Math.max(1, Number(count) || 10);
+  // Placement/quest only need a small pool — avoid select('*') over an entire grade
+  // (600+ fat rows) and sequential neighbor round-trips to distant Supabase.
+  const PLACEMENT_WORD_COLS =
+    'word_id, word, grade_level, tier_name, part_of_speech, simple_definition, korean_meaning, levels, cloze_question, example_sentence, wrong_options';
 
-  async function fetchGrade(g) {
+  async function fetchGradeWindow(lo, hi, limit) {
     const { data, error } = await db.from('vocab_words')
-      .select('*')
+      .select(PLACEMENT_WORD_COLS)
       .eq('active', true)
-      .eq('grade_level', g);
+      .gte('grade_level', lo)
+      .lte('grade_level', hi)
+      .limit(limit);
     if (error) throw new Error(error.message);
     return (data || []).filter(w => !exclude.has(String(w.word_id)));
   }
 
-  // Prefer the exact grade, then widen to neighboring grades if the pool is thin.
-  let pool = await fetchGrade(grade);
-  for (let radius = 1; pool.length < count && radius <= GRADE_MAX - GRADE_MIN; radius++) {
-    if (grade - radius >= GRADE_MIN) {
-      const more = await fetchGrade(grade - radius);
-      more.forEach(function (w) { if (!pool.some(p => p.word_id === w.word_id)) pool.push(w); });
-    }
-    if (grade + radius <= GRADE_MAX) {
-      const more = await fetchGrade(grade + radius);
-      more.forEach(function (w) { if (!pool.some(p => p.word_id === w.word_id)) pool.push(w); });
-    }
+  // One query: exact grade ±1 first (usually enough). Widen only if still thin.
+  let pool = await fetchGradeWindow(
+    Math.max(GRADE_MIN, grade - 1),
+    Math.min(GRADE_MAX, grade + 1),
+    Math.max(need * 3, 60)
+  );
+  if (pool.length < need) {
+    const wider = await fetchGradeWindow(GRADE_MIN, GRADE_MAX, Math.max(need * 4, 80));
+    wider.forEach(function (w) {
+      if (!pool.some(p => p.word_id === w.word_id)) pool.push(w);
+    });
   }
   pool.sort((a, b) => Math.abs(a.grade_level - grade) - Math.abs(b.grade_level - grade));
-  return pool.slice(0, count);
+  return pool.slice(0, need);
 }
 
 /* ----------------------------- Placement persistence ----------------------------- */
