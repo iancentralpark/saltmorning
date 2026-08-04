@@ -112,7 +112,8 @@ const TOOL_PAGES = {
   dice: 'dice.html',
   roulette: 'roulette.html',
   luckydraw: 'luckydraw.html',
-  unluckydraw: 'unluckydraw.html'
+  unluckydraw: 'unluckydraw.html',
+  jeopardy: 'jeopardy.html'
 };
 
 app.get('/tools/:tool', requireTeacherPage, (req, res) => {

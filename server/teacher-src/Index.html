@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-30.01';
+            var APP_BUILD = '2026-08-04.06';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -1369,6 +1369,11 @@
             background: linear-gradient(135deg, #5a0a16, #ff1e38);
             color: #fff;
             box-shadow: 0 3px 0 #7a0d1c;
+        }
+        .sidebar-tools-action-row .btn-jeopardy {
+            background: linear-gradient(135deg, #060ce9, #d69f00);
+            color: #fff;
+            box-shadow: 0 3px 0 #0b0a5c;
         }
         .sidebar-tools-action-row .btn-pick-student {
             background: linear-gradient(135deg, #ff9f43, #f39c12);
@@ -3123,6 +3128,16 @@
             box-shadow: 0 4px 0 #7a0d1c, 0 0 12px rgba(255, 30, 56, 0.28);
         }
         .btn-unluckydraw:hover { color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
+
+        .btn-jeopardy {
+            font-weight: 700;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #060ce9, #d69f00);
+            color: #fff;
+            box-shadow: 0 4px 0 #0b0a5c, 0 0 12px rgba(214, 159, 0, 0.28);
+        }
+        .btn-jeopardy:hover { color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
 
         .btn-lucky-row {
             display: inline-flex;
@@ -6291,12 +6306,15 @@
                         <i class="fa-solid fa-hand-pointer"></i> Pick
                     </button>
                 </div>
-                <div class="sidebar-tools-action-row tools-row-2">
+                <div class="sidebar-tools-action-row tools-row-3">
                     <button type="button" class="btn btn-luckydraw" id="openLuckyDrawBtn">
                         <i class="fa-solid fa-ticket"></i> Lucky
                     </button>
                     <button type="button" class="btn btn-unluckydraw" id="openUnluckyDrawBtn" title="Unlucky Draw — homework penalty">
                         <i class="fa-solid fa-skull"></i> Unlucky
+                    </button>
+                    <button type="button" class="btn btn-jeopardy" id="openJeopardyBtn" title="AI Jeopardy for the smartboard">
+                        <i class="fa-solid fa-trophy"></i> Jeopardy
                     </button>
                 </div>
             </div>
@@ -8490,7 +8508,9 @@
         timer: 'Vocab Timer',
         roulette: 'Roulette',
         dice: 'Dice',
-        luckydraw: 'Lucky Draw'
+        luckydraw: 'Lucky Draw',
+        unluckydraw: 'Unlucky Draw',
+        jeopardy: 'Jeopardy'
     };
 
     function toolPopupTitleFromUrl(url) {
@@ -8739,6 +8759,16 @@
         openPopupWindow(url, 480, 760, 'classUnluckyDraw_');
     }
 
+    function openJeopardyWindow() {
+        const classId = selectedClass ? selectedClass.id : '';
+        const className = selectedClass ? selectedClass.name : 'Class';
+        const url = getToolPageUrl('jeopardy', {
+            classId: classId,
+            className: className
+        });
+        openPopupWindow(url, 1280, 820, 'classJeopardy_', { reuse: true });
+    }
+
     function isDarkTheme() {
         return document.documentElement.getAttribute('data-theme') === 'dark';
     }
@@ -8924,6 +8954,8 @@
         document.getElementById('openRouletteBtn').addEventListener('click', openRouletteWindow);
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
+        var openJeopardyBtn = document.getElementById('openJeopardyBtn');
+        if (openJeopardyBtn) openJeopardyBtn.addEventListener('click', openJeopardyWindow);
         document.getElementById('openUnluckyDrawBtn').addEventListener('click', openUnluckyDrawWindow);
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
