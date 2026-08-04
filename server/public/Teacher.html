@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-31.08';
+            var APP_BUILD = '2026-08-04.07';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -1515,6 +1515,11 @@
             background: linear-gradient(135deg, #5a0a16, #ff1e38);
             color: #fff;
             box-shadow: 0 3px 0 #7a0d1c;
+        }
+        .sidebar-tools-action-row .btn-jeopardy {
+            background: linear-gradient(135deg, #060ce9, #d69f00);
+            color: #fff;
+            box-shadow: 0 3px 0 #0b0a5c;
         }
         .sidebar-tools-action-row .btn-pick-student {
             background: linear-gradient(135deg, #ff9f43, #f39c12);
@@ -3269,6 +3274,16 @@
             box-shadow: 0 4px 0 #7a0d1c, 0 0 12px rgba(255, 30, 56, 0.28);
         }
         .btn-unluckydraw:hover { color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
+
+        .btn-jeopardy {
+            font-weight: 700;
+            border-radius: 999px;
+            border: none;
+            background: linear-gradient(135deg, #060ce9, #d69f00);
+            color: #fff;
+            box-shadow: 0 4px 0 #0b0a5c, 0 0 12px rgba(214, 159, 0, 0.28);
+        }
+        .btn-jeopardy:hover { color: #fff; transform: translateY(-2px); filter: brightness(1.08); }
 
         .btn-lucky-row {
             display: inline-flex;
@@ -5436,6 +5451,15 @@
             padding: 0.5rem 0.25rem;
             gap: 0.35rem;
             box-shadow: 0 2px 10px rgba(59, 158, 221, 0.08);
+            text-decoration: none;
+            color: inherit;
+            border: 1px solid rgba(59, 158, 221, 0.18);
+            background: #fff;
+        }
+        body.teacher-mobile a.teacher-more-btn:hover,
+        body.teacher-mobile a.teacher-more-btn:focus {
+            color: inherit;
+            text-decoration: none;
         }
         body.teacher-mobile .teacher-more-btn i { font-size: 1.25rem; margin: 0; }
 
@@ -6057,9 +6081,14 @@
     <section class="app-section mb-4" id="teacherClassSection" data-teacher-panel="shared">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
             <div class="step-label mb-0"><span class="step-num">1</span><i class="fa-solid fa-list-check"></i> Select Class</div>
-            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="manageClassesBtn" title="Add, rename, or delete classes">
-                <i class="fa-solid fa-pen-to-square"></i> Manage classes
-            </button>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a class="btn btn-sm btn-outline-dark rounded-pill px-3" id="vocabPlatformAdminTopBtn" href="/vocab-admin" target="_blank" rel="noopener" title="Central Vocab Platform admin">
+                    <i class="fa-solid fa-sitemap"></i> Vocab Platform
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="manageClassesBtn" title="Add, rename, or delete classes">
+                    <i class="fa-solid fa-pen-to-square"></i> Manage classes
+                </button>
+            </div>
         </div>
         <div class="d-flex flex-wrap justify-content-center teacher-mobile-class-scroll" id="classButtonGroup"></div>
     </section>
@@ -6126,6 +6155,9 @@
                 <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" id="vocabLmsBtn">
                     <i class="fa-solid fa-layer-group"></i> Vocab LMS
                 </button>
+                <a class="btn btn-sm btn-outline-dark rounded-pill px-3" id="vocabPlatformAdminBtn" href="/vocab-admin" target="_blank" rel="noopener">
+                    <i class="fa-solid fa-sitemap"></i> Vocab Platform
+                </a>
                 <button type="button" class="btn btn-sm btn-warning rounded-pill px-3" id="openClassPendingBtn">
                     <i class="fa-solid fa-hourglass-half"></i> Pending Homework
                 </button>
@@ -6344,6 +6376,8 @@
     <div id="teacherMobileMore" class="app-section mb-4" data-teacher-panel="more">
         <div class="tm-more-heading">Admin Tools</div>
         <div class="teacher-mobile-more-grid">
+            <a class="teacher-more-btn" id="teacherMobileVocabPlatformBtn" href="/vocab-admin" target="_blank" rel="noopener"><i class="fa-solid fa-sitemap"></i> Vocab Platform</a>
+            <button type="button" class="teacher-more-btn" data-trigger-click="vocabLmsBtn"><i class="fa-solid fa-layer-group"></i> Vocab LMS</button>
             <button type="button" class="teacher-more-btn" data-trigger-click="addStudentBtn"><i class="fa-solid fa-user-plus"></i> Add Student</button>
             <button type="button" class="teacher-more-btn" data-trigger-click="manageClassesBtn"><i class="fa-solid fa-school"></i> Manage Classes</button>
             <button type="button" class="teacher-more-btn" data-trigger-click="openCalendarBtn"><i class="fa-solid fa-calendar-days"></i> Calendar</button>
@@ -6437,12 +6471,15 @@
                         <i class="fa-solid fa-hand-pointer"></i> Pick
                     </button>
                 </div>
-                <div class="sidebar-tools-action-row tools-row-2">
+                <div class="sidebar-tools-action-row tools-row-3">
                     <button type="button" class="btn btn-luckydraw" id="openLuckyDrawBtn">
                         <i class="fa-solid fa-ticket"></i> Lucky
                     </button>
                     <button type="button" class="btn btn-unluckydraw" id="openUnluckyDrawBtn" title="Unlucky Draw — homework penalty">
                         <i class="fa-solid fa-skull"></i> Unlucky
+                    </button>
+                    <button type="button" class="btn btn-jeopardy" id="openJeopardyBtn" title="AI Jeopardy for the smartboard">
+                        <i class="fa-solid fa-trophy"></i> Jeopardy
                     </button>
                 </div>
             </div>
@@ -6914,6 +6951,9 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fa-solid fa-layer-group"></i> Vocab LMS — <span id="vocabLmsClassName">Class</span></h5>
+                <a class="btn btn-sm btn-outline-dark rounded-pill px-3 ms-auto me-2" href="/vocab-admin" target="_blank" rel="noopener" title="Central tenants, packs, analytics">
+                    <i class="fa-solid fa-sitemap"></i> Platform admin
+                </a>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -8630,7 +8670,9 @@
         timer: 'Vocab Timer',
         roulette: 'Roulette',
         dice: 'Dice',
-        luckydraw: 'Lucky Draw'
+        luckydraw: 'Lucky Draw',
+        unluckydraw: 'Unlucky Draw',
+        jeopardy: 'Jeopardy'
     };
 
     function toolPopupTitleFromUrl(url) {
@@ -8879,6 +8921,16 @@
         openPopupWindow(url, 480, 760, 'classUnluckyDraw_');
     }
 
+    function openJeopardyWindow() {
+        const classId = selectedClass ? selectedClass.id : '';
+        const className = selectedClass ? selectedClass.name : 'Class';
+        const url = getToolPageUrl('jeopardy', {
+            classId: classId,
+            className: className
+        });
+        openPopupWindow(url, 1280, 820, 'classJeopardy_', { reuse: true });
+    }
+
     function isDarkTheme() {
         return document.documentElement.getAttribute('data-theme') === 'dark';
     }
@@ -9064,6 +9116,8 @@
         document.getElementById('openRouletteBtn').addEventListener('click', openRouletteWindow);
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
+        var openJeopardyBtn = document.getElementById('openJeopardyBtn');
+        if (openJeopardyBtn) openJeopardyBtn.addEventListener('click', openJeopardyWindow);
         document.getElementById('openUnluckyDrawBtn').addEventListener('click', openUnluckyDrawWindow);
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
