@@ -21,6 +21,7 @@ const SHEETS = [
   { name: 'Bell_Schedule', headers: ['PeriodID', 'Label', 'PeriodType', 'StartTime', 'EndTime', 'SortOrder'] },
   { name: 'Timetable_Requirements', headers: ['ReqID', 'ClassID', 'Subject', 'TeacherID', 'TeacherName', 'PeriodsPerWeek', 'Room', 'Notes'] },
   { name: 'Teacher_List', headers: ['TeacherID', 'Name', 'LoginID', 'LoginPassword', 'HomeroomClassID', 'StaffRole'], seed: [['T001', 'Test Teacher', 'teacher', 'teacher123', 'C001', 'Teacher']] },
+  { name: 'Teacher_Profile', headers: ['TeacherID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality', 'Phone', 'Email', 'Address', 'EmergencyContact', 'EmergencyPhone', 'Title', 'HireDate', 'Education', 'Notes', 'UpdatedAt'] },
   { name: 'Class_Teachers', headers: ['ClassID', 'TeacherID', 'AssignmentType', 'Subject'], seed: [['C001', 'T001', 'Homeroom', '']] },
   { name: 'Parent_List', headers: ['ParentID', 'StudentID', 'Name', 'LoginID', 'LoginPassword', 'Phone', 'Email'], seed: [['P001', 'S001', 'Test Parent', 'parent', 'parent123', '', '']] },
   { name: 'Parent_Announcements', headers: ['AnnouncementID', 'Title', 'Body', 'PostedAt', 'PostedBy', 'Active'], seed: [['A001', 'Welcome Parents', 'Salt Academy Morning Class parent portal is now open.', new Date().toISOString(), 'Admin', 'true']] },

@@ -15,6 +15,7 @@ module.exports = {
   STUDENT_PROFILE_SHEET: 'Student_Profile',
   STUDENT_PROFILE_FIELDS_SHEET: 'Student_Profile_Fields',
   TEACHER_LIST_SHEET: 'Teacher_List',
+  TEACHER_PROFILE_SHEET: 'Teacher_Profile',
   CLASS_TEACHERS_SHEET: 'Class_Teachers',
   PARENT_LIST_SHEET: 'Parent_List',
   PARENT_ANNOUNCEMENTS_SHEET: 'Parent_Announcements',

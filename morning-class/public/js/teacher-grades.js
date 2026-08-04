@@ -6,6 +6,9 @@ window.SaltGrades = (function() {
   let categoryPresets = [];
   let syncTimer = null;
   let highlightColumnId = null;
+  let canEditGrades = true;
+  let showSubjectPicker = false;
+  let subjectCatalog = [];
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
@@ -41,18 +44,117 @@ window.SaltGrades = (function() {
     $('gradeAddColumnBtn').addEventListener('click', openColumnModal);
     $('gradeColumnClose').addEventListener('click', () => deps.hide($('gradeColumnModal')));
     $('gradeColumnForm').addEventListener('submit', submitColumn);
+    const backBtn = $('gradeBackToSubjectsBtn');
+    if (backBtn) backBtn.addEventListener('click', showPicker);
+  }
+
+  function setEditMode(editable) {
+    canEditGrades = !!editable;
+    const addBtn = $('gradeAddColumnBtn');
+    const weightsBtn = $('gradeWeightsBtn');
+    const badge = $('gradeReadOnlyBadge');
+    if (addBtn) {
+      addBtn.classList.toggle('hidden', !canEditGrades);
+      addBtn.disabled = !canEditGrades;
+    }
+    if (weightsBtn) {
+      weightsBtn.classList.toggle('hidden', !canEditGrades);
+      weightsBtn.disabled = !canEditGrades;
+    }
+    if (badge) badge.classList.toggle('hidden', canEditGrades);
+  }
+
+  function showPicker() {
+    const picker = $('gradeSubjectPicker');
+    const section = $('gradebookSection');
+    if (picker) deps.show(picker);
+    if (section) deps.hide(section);
+    destroyGrid();
+  }
+
+  function showGradebookUi() {
+    const picker = $('gradeSubjectPicker');
+    const section = $('gradebookSection');
+    if (picker) deps.hide(picker);
+    if (section) deps.show(section);
+    const backBtn = $('gradeBackToSubjectsBtn');
+    if (backBtn) backBtn.classList.toggle('hidden', !showSubjectPicker);
+  }
+
+  function renderSubjectPicker(subjects, isHomeroom) {
+    const list = $('gradeSubjectList');
+    const hint = $('gradeSubjectPickerHint');
+    if (!list) return;
+    if (hint) {
+      hint.textContent = isHomeroom
+        ? 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit.'
+        : 'Select a subject you teach in this class.';
+    }
+    if (!subjects.length) {
+      list.innerHTML = '<p class="muted">No subjects found for this class yet.</p>';
+      return;
+    }
+    list.innerHTML = subjects.map((s) => {
+      const teachers = (s.teacherNames && s.teacherNames.length)
+        ? s.teacherNames.join(', ')
+        : '';
+      const editTag = s.canEdit
+        ? '<span class="grade-subj-tag grade-subj-edit">Editable</span>'
+        : '<span class="grade-subj-tag grade-subj-view">View only</span>';
+      return '<button type="button" class="grade-subj-card" data-subject="' + escapeHtml(s.subject) +
+        '" data-edit="' + (s.canEdit ? '1' : '0') + '">' +
+        '<strong>' + escapeHtml(s.subject) + '</strong>' +
+        editTag +
+        (teachers ? '<span class="muted small">' + escapeHtml(teachers) + '</span>' : '') +
+        '</button>';
+    }).join('');
+    list.querySelectorAll('.grade-subj-card').forEach((btn) => {
+      btn.addEventListener('click', () => openSubject(btn.dataset.subject, btn.dataset.edit === '1'));
+    });
+  }
+
+  async function openSubject(subj, editable) {
+    $('gradeSubject').value = subj;
+    setEditMode(editable);
+    showGradebookUi();
+    await loadActiveTerm();
+    await loadGradebook();
+    await loadLessonWeights();
   }
 
   async function onClassOpen() {
     const cls = getClass();
-    if (cls && cls.subjects && cls.subjects !== 'All subjects') {
-      $('gradeSubject').value = cls.subjects.split(',')[0].trim();
-    } else {
-      $('gradeSubject').value = 'English';
+    if (!cls) return;
+    $('gradesError').textContent = '';
+    subjectCatalog = [];
+    showSubjectPicker = false;
+    setEditMode(true);
+
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects');
+      subjectCatalog = data.subjects || [];
+      const isHomeroom = !!data.isHomeroom;
+      showSubjectPicker = isHomeroom || subjectCatalog.length > 1;
+
+      if (showSubjectPicker) {
+        renderSubjectPicker(subjectCatalog, isHomeroom);
+        showPicker();
+        await loadActiveTerm();
+        return;
+      }
+
+      if (subjectCatalog.length === 1) {
+        await openSubject(subjectCatalog[0].subject, !!subjectCatalog[0].canEdit);
+        return;
+      }
+
+      const fallback = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
+      await openSubject(fallback, true);
+    } catch (e) {
+      $('gradesError').textContent = e.message || 'Could not load subjects.';
+      const fallback = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
+      await openSubject(fallback, true);
     }
-    await loadActiveTerm();
-    await loadGradebook();
-    await loadLessonWeights();
   }
 
   async function loadActiveTerm() {
@@ -68,8 +170,9 @@ window.SaltGrades = (function() {
       }
       $('gradeTerm').value = data.term.label;
       $('reportTerm').value = data.term.label;
+      const subj = subject();
       $('gradeContextLabel').textContent =
-        subject() + ' · ' + data.term.label + ' (' + data.term.startDate + ' – ' + data.term.endDate + ')';
+        (subj ? subj + ' · ' : '') + data.term.label + ' (' + data.term.startDate + ' – ' + data.term.endDate + ')';
     } catch (e) {
       $('gradeContextLabel').textContent = e.message || 'Could not load term.';
     }
@@ -150,6 +253,7 @@ window.SaltGrades = (function() {
     try {
       gradebook = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
         '/grades/gradebook?term=' + encodeURIComponent(t) + '&subject=' + encodeURIComponent(subj));
+      if (typeof gradebook.canEdit === 'boolean') setEditMode(gradebook.canEdit);
       renderWeightSummary();
       const focusColId = highlightColumnId;
       renderGradebook();
@@ -227,9 +331,12 @@ window.SaltGrades = (function() {
   function assessmentHeaderHtml(col) {
     const title = col.title || col.categoryLabel;
     const showCategory = col.categoryLabel && col.categoryLabel !== title;
+    const deleteBtn = canEditGrades
+      ? ('<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
+        '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>')
+      : '';
     return (
-      '<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
-      '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>' +
+      deleteBtn +
       '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
       '<div class="gb-col-meta">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
       (showCategory ? '<div class="gb-col-meta gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '')
@@ -320,7 +427,7 @@ window.SaltGrades = (function() {
         headerName: col.title || col.categoryLabel,
         width: COL_WIDTH,
         minWidth: COL_WIDTH,
-        editable: true,
+        editable: canEditGrades,
         cellEditor: 'agNumberCellEditor',
         cellEditorParams: { min: 0, max: col.maxScore, precision: 1 },
         cellRenderer: ScoreCellRenderer,
@@ -379,9 +486,11 @@ window.SaltGrades = (function() {
       return;
     }
 
-    const emptyHint = weights.length
-      ? 'No columns yet — click + Add column'
-      : 'Set up Grade weights, then click + Add column';
+    const emptyHint = !canEditGrades
+      ? 'No grade columns yet for this subject.'
+      : (weights.length
+        ? 'No columns yet — click + Add column'
+        : 'Set up Grade weights, then click + Add column');
 
     if (!cols.length) {
       destroyGrid();
@@ -422,6 +531,10 @@ window.SaltGrades = (function() {
   }
 
   async function onAgCellChanged(event) {
+    if (!canEditGrades) {
+      event.node.setDataValue(event.colDef.field, event.oldValue);
+      return;
+    }
     const field = event.colDef.field;
     if (!field || field === 'name' || field === 'finalGrade') return;
     const col = gridMeta.cols.find((c) => c.assessmentId === field);
@@ -478,9 +591,11 @@ window.SaltGrades = (function() {
       return;
     }
 
-    const emptyHint = weights.length
-      ? 'No columns yet — click + Add column'
-      : 'Set up Grade weights, then click + Add column';
+    const emptyHint = !canEditGrades
+      ? 'No grade columns yet for this subject.'
+      : (weights.length
+        ? 'No columns yet — click + Add column'
+        : 'Set up Grade weights, then click + Add column');
 
     let midHead = '';
     let colgroup = '';
@@ -498,8 +613,10 @@ window.SaltGrades = (function() {
           (showCategory ? ' · ' + col.categoryLabel : '') +
           ' · ' + formatColDate(col.date) + ' · /' + col.maxScore;
         midHead += '<th class="gb-col-head' + hl + '" title="' + escapeHtml(tooltip) + '">' +
-          '<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
-          '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>' +
+          (canEditGrades
+            ? ('<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
+              '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>')
+            : '') +
           '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
           '<div class="gb-col-meta muted small">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
           (showCategory ? '<div class="gb-col-meta muted small gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '') +
@@ -523,12 +640,19 @@ window.SaltGrades = (function() {
           const pct = cell && cell.percent != null ? cell.percent : null;
           const letter = letterGrade(pct);
           const hl = col.assessmentId === highlightColumnId ? ' gb-col-new' : '';
-          midCells += '<td class="gb-score-cell' + hl + '">' +
-            '<input type="number" class="gb-cell-input" min="0" max="' + col.maxScore + '" ' +
-            'data-aid="' + escapeHtml(col.assessmentId) + '" data-sid="' + escapeHtml(st.studentId) + '" ' +
-            'data-max="' + col.maxScore + '" value="' + val + '" placeholder="—">' +
-            (letter ? '<span class="gb-letter">' + letter + '</span>' : '') +
-          '</td>';
+          if (canEditGrades) {
+            midCells += '<td class="gb-score-cell' + hl + '">' +
+              '<input type="number" class="gb-cell-input" min="0" max="' + col.maxScore + '" ' +
+              'data-aid="' + escapeHtml(col.assessmentId) + '" data-sid="' + escapeHtml(st.studentId) + '" ' +
+              'data-max="' + col.maxScore + '" value="' + val + '" placeholder="—">' +
+              (letter ? '<span class="gb-letter">' + letter + '</span>' : '') +
+            '</td>';
+          } else {
+            midCells += '<td class="gb-score-cell' + hl + '">' +
+              '<span class="gb-ag-score">' + (val === '' ? '—' : escapeHtml(String(val))) + '</span>' +
+              (letter ? '<span class="gb-letter">' + letter + '</span>' : '') +
+            '</td>';
+          }
         });
       }
       midBody += '<tr>' + midCells + '</tr>';
@@ -723,6 +847,10 @@ window.SaltGrades = (function() {
   }
 
   function openColumnModal() {
+    if (!canEditGrades) {
+      $('gradesError').textContent = 'Only the subject teacher can add columns.';
+      return;
+    }
     const weights = (gradebook && gradebook.weights) || [];
     if (!weights.length) {
       $('gradesError').textContent = 'Set up grade weights first.';
@@ -769,6 +897,10 @@ window.SaltGrades = (function() {
   }
 
   async function openWeightsModal() {
+    if (!canEditGrades) {
+      $('gradesError').textContent = 'Only the subject teacher can edit grade weights.';
+      return;
+    }
     const cls = getClass();
     if (!term()) {
       $('gradeWeightsError').textContent = 'No active term. Contact admin.';
