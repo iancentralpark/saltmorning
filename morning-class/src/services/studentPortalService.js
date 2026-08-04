@@ -3,7 +3,7 @@ const { getBuddyStatus } = require('./englishBuddyService');
 const { getUnreadCount } = require('./messageService');
 const { getStudentDollars } = require('./dollarService');
 const { getStudentHomeworkStatus } = require('./homeworkService');
-const { getStudentVocabSummary } = require('./vocabService');
+const { getStudentVocabSummary } = require('./vocabShared');
 
 /**
  * Student home dashboard.
