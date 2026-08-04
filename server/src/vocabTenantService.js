@@ -232,6 +232,138 @@ async function rotateTenantApiSecret(tenantId) {
   return { tenant: normalizeTenant(data), secret };
 }
 
+function slugifyTenantId(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+
+async function createTenant(opts) {
+  opts = opts || {};
+  if (!isSupabaseEnabled()) throw new Error('Supabase is required');
+  const id = slugifyTenantId(opts.id || opts.name);
+  if (!id) throw new Error('Tenant id / name required');
+  const name = String(opts.name || id).trim();
+  const publicKey = String(opts.publicKey || ('pk_' + id.replace(/-/g, '_'))).trim();
+  const features =
+    opts.features && typeof opts.features === 'object'
+      ? opts.features
+      : { luckyDraw: false, dollarsMode: 'none' };
+  const secret = generateApiSecret();
+  const db = getSupabase();
+  const { data, error } = await db
+    .from('vocab_tenants')
+    .insert({
+      id,
+      name,
+      public_key: publicKey,
+      secret_hash: hashSecret(secret),
+      features,
+      active: opts.active !== false,
+      updated_at: new Date().toISOString()
+    })
+    .select('id,name,public_key,features,active,created_at,updated_at')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  invalidateTenantCache();
+  return { tenant: normalizeTenant(data), secret };
+}
+
+async function updateTenant(tenantId, opts) {
+  opts = opts || {};
+  const id = String(tenantId || '').trim();
+  if (!id) throw new Error('tenantId required');
+  if (!isSupabaseEnabled()) throw new Error('Supabase is required');
+  const patch = { updated_at: new Date().toISOString() };
+  if (opts.name != null) patch.name = String(opts.name).trim();
+  if (opts.publicKey != null) patch.public_key = String(opts.publicKey).trim();
+  if (opts.active != null) patch.active = !!opts.active;
+  if (opts.features && typeof opts.features === 'object') patch.features = opts.features;
+  const db = getSupabase();
+  const { data, error } = await db
+    .from('vocab_tenants')
+    .update(patch)
+    .eq('id', id)
+    .select('id,name,public_key,features,active,created_at,updated_at')
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Tenant not found: ' + id);
+  invalidateTenantCache();
+  return normalizeTenant(data);
+}
+
+async function getPlatformAnalytics() {
+  if (!isSupabaseEnabled()) throw new Error('Supabase is required');
+  const db = getSupabase();
+  const tenants = await listTenants();
+
+  const { count: wordCount, error: wErr } = await db
+    .from('vocab_words')
+    .select('word_id', { count: 'exact', head: true })
+    .eq('active', true);
+  if (wErr) throw new Error(wErr.message);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const perTenant = [];
+
+  for (const t of tenants) {
+    const [{ count: learners }, { count: placed }, { data: dailyRows }] = await Promise.all([
+      db
+        .from('vocab_student_state')
+        .select('student_id', { count: 'exact', head: true })
+        .eq('tenant_id', t.id),
+      db
+        .from('vocab_student_state')
+        .select('student_id', { count: 'exact', head: true })
+        .eq('tenant_id', t.id)
+        .not('placement_at', 'is', null),
+      db
+        .from('vocab_daily_progress')
+        .select('student_id,test_passed,studied_count')
+        .eq('tenant_id', t.id)
+        .eq('quest_date', today)
+    ]);
+    const daily = dailyRows || [];
+    perTenant.push({
+      tenantId: t.id,
+      name: t.name,
+      active: t.active,
+      learners: learners || 0,
+      placed: placed || 0,
+      activeToday: daily.length,
+      questPassedToday: daily.filter((d) => d.test_passed).length,
+      hasSecret: !!t.secretHash
+    });
+  }
+
+  let packCount = 0;
+  try {
+    const { count } = await db
+      .from('vocab_curriculum_packs')
+      .select('id', { count: 'exact', head: true })
+      .eq('active', true);
+    packCount = count || 0;
+  } catch (e) {
+    packCount = 0;
+  }
+
+  return {
+    wordBankActive: wordCount || 0,
+    packCount,
+    tenants: perTenant,
+    totals: {
+      tenants: tenants.length,
+      activeTenants: tenants.filter((t) => t.active).length,
+      learners: perTenant.reduce((s, t) => s + t.learners, 0),
+      placed: perTenant.reduce((s, t) => s + t.placed, 0),
+      activeToday: perTenant.reduce((s, t) => s + t.activeToday, 0)
+    }
+  };
+}
+
 module.exports = {
   SESSION_TTL_MS,
   hashSecret,
@@ -245,6 +377,9 @@ module.exports = {
   verifyStudentSession,
   skipLuckyDrawForTenant,
   rotateTenantApiSecret,
+  createTenant,
+  updateTenant,
+  getPlatformAnalytics,
   invalidateTenantCache,
   platformSecret
 };

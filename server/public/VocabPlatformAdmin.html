@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vocab Platform Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #12202e;
+      --muted: #5a6d7c;
+      --line: rgba(18,32,46,0.1);
+      --sea: #0f6b6b;
+      --sea-deep: #0a4f4f;
+      --panel: rgba(255,255,255,0.78);
+      --warn: #9a3412;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "DM Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(1100px 520px at -5% -10%, #b7dbd6 0%, transparent 55%),
+        radial-gradient(900px 480px at 105% 0%, #c5d6ea 0%, transparent 48%),
+        linear-gradient(180deg, #f3f7f7 0%, #e8f0ef 100%);
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 1.25rem 0.5rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(1.4rem, 3vw, 1.85rem);
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    .sub { color: var(--muted); font-size: 0.9rem; margin: 0.2rem 0 0; }
+    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    button, .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 0.55rem 0.85rem;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      background: linear-gradient(180deg, var(--sea), var(--sea-deep));
+      color: #fff;
+    }
+    button.ghost, .btn.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    button.danger { background: #9f1239; }
+    main { max-width: 1100px; margin: 0 auto; padding: 0.75rem 1.25rem 3rem; }
+    .tabs {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin: 0.85rem 0 1rem;
+    }
+    .tabs button {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+    }
+    .tabs button.active {
+      color: var(--ink);
+      border-color: var(--line);
+      background: var(--panel);
+    }
+    .panel {
+      display: none;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1rem 1.1rem 1.2rem;
+      backdrop-filter: blur(8px);
+    }
+    .panel.active { display: block; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .stat {
+      padding: 0.85rem 0.9rem;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.65);
+      border: 1px solid var(--line);
+    }
+    .stat b { display: block; font-size: 1.35rem; font-family: Fraunces, Georgia, serif; }
+    .stat span { color: var(--muted); font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.55rem 0.4rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .row-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .row-actions button { padding: 0.35rem 0.55rem; font-size: 0.8rem; }
+    label { display: block; font-size: 0.78rem; font-weight: 700; margin: 0.55rem 0 0.25rem; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0.55rem 0.7rem;
+      font: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+    .form-card {
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--line);
+    }
+    #toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      max-width: min(420px, calc(100vw - 2rem));
+      background: #12202e;
+      color: #fff;
+      padding: 0.75rem 0.95rem;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      display: none;
+      z-index: 50;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #toast.show { display: block; }
+    #toast.warn { background: var(--warn); }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    .pill {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(15,107,107,0.12);
+      color: var(--sea-deep);
+    }
+    .pill.off { background: rgba(154,52,18,0.12); color: var(--warn); }
+    .check-list { display: flex; flex-wrap: wrap; gap: 0.45rem 0.85rem; margin: 0.5rem 0; }
+    .check-list label { font-weight: 600; display: flex; gap: 0.35rem; align-items: center; margin: 0; }
+    .check-list input { width: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Vocab Platform</h1>
+      <p class="sub">Tenants · word bank · curriculum packs</p>
+    </div>
+    <div class="actions">
+      <a class="btn ghost" href="/vocab-embed-demo.html" target="_blank" rel="noopener">Embed demo</a>
+      <button type="button" class="ghost" id="logoutBtn">Sign out</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="tabs" role="tablist">
+      <button type="button" class="active" data-tab="overview">Overview</button>
+      <button type="button" data-tab="tenants">Tenants</button>
+      <button type="button" data-tab="packs">Packs</button>
+      <button type="button" data-tab="words">Word bank</button>
+    </div>
+
+    <section class="panel active" id="panel-overview">
+      <div class="stats" id="overviewStats"></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Tenant</th>
+            <th>Learners</th>
+            <th>Placed</th>
+            <th>Active today</th>
+            <th>Quest passed</th>
+          </tr>
+        </thead>
+        <tbody id="overviewBody"></tbody>
+      </table>
+    </section>
+
+    <section class="panel" id="panel-tenants">
+      <table>
+        <thead>
+          <tr>
+            <th>Tenant</th>
+            <th>Public key</th>
+            <th>Features</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tenantsBody"></tbody>
+      </table>
+
+      <div class="form-card">
+        <h3 style="margin:0;font-family:Fraunces,Georgia,serif;">Create tenant</h3>
+        <div class="grid2">
+          <div>
+            <label for="newTenantId">Id (slug)</label>
+            <input id="newTenantId" placeholder="school-b">
+          </div>
+          <div>
+            <label for="newTenantName">Name</label>
+            <input id="newTenantName" placeholder="School B">
+          </div>
+        </div>
+        <label><input type="checkbox" id="newLuckyDraw"> Enable Lucky Draw</label>
+        <div style="margin-top:0.75rem">
+          <button type="button" id="createTenantBtn">Create + mint secret</button>
+        </div>
+      </div>
+
+      <div class="form-card" id="tenantPacksCard" style="display:none">
+        <h3 style="margin:0;font-family:Fraunces,Georgia,serif;">Assign packs — <span id="assignTenantLabel"></span></h3>
+        <p class="muted">Empty = full global word bank. Assigned packs restrict placement &amp; daily quests to those words.</p>
+        <div class="check-list" id="assignPackChecks"></div>
+        <button type="button" id="saveTenantPacksBtn">Save pack assignment</button>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-packs">
+      <table>
+        <thead>
+          <tr>
+            <th>Pack</th>
+            <th>Words</th>
+            <th>Tenants</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="packsBody"></tbody>
+      </table>
+
+      <div class="form-card">
+        <h3 style="margin:0;font-family:Fraunces,Georgia,serif;">Create pack</h3>
+        <div class="grid2">
+          <div>
+            <label for="newPackId">Id (optional)</label>
+            <input id="newPackId" placeholder="g7-core">
+          </div>
+          <div>
+            <label for="newPackName">Name</label>
+            <input id="newPackName" placeholder="Grade 7 core">
+          </div>
+        </div>
+        <label for="newPackDesc">Description</label>
+        <input id="newPackDesc" placeholder="Optional">
+        <div class="grid2" style="margin-top:0.35rem">
+          <div>
+            <label for="seedGrade">Seed from grade</label>
+            <select id="seedGrade">
+              <option value="">— none —</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option>
+              <option>5</option><option>6</option><option selected>7</option>
+              <option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button type="button" id="createPackBtn">Create pack</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-words">
+      <div class="stats" id="wordStats"></div>
+      <div class="grid2">
+        <div>
+          <label for="wordSearch">Search</label>
+          <input id="wordSearch" placeholder="resilient">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:0.5rem">
+          <button type="button" id="wordSearchBtn">Search</button>
+          <button type="button" class="ghost" id="wordRefreshBtn">Refresh stats</button>
+        </div>
+      </div>
+      <table style="margin-top:0.75rem">
+        <thead>
+          <tr>
+            <th>Word</th>
+            <th>Grade</th>
+            <th>Tier</th>
+            <th>POS</th>
+          </tr>
+        </thead>
+        <tbody id="wordsBody"></tbody>
+      </table>
+      <p class="muted" id="wordsMeta"></p>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    (function () {
+      var token = '';
+      try { token = localStorage.getItem('vocab_platform_token') || ''; } catch (e) {}
+      var state = { tenants: [], packs: [], assignTenantId: null };
+
+      function toast(msg, isWarn) {
+        var el = document.getElementById('toast');
+        el.textContent = msg;
+        el.className = 'show' + (isWarn ? ' warn' : '');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function () { el.className = ''; }, 7000);
+      }
+
+      function api(path, opts) {
+        opts = opts || {};
+        var headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+        if (token) headers.Authorization = 'Bearer ' + token;
+        var body = opts.body;
+        if (body != null && typeof body !== 'string') body = JSON.stringify(body);
+        return fetch('/api/vocab/platform' + path, {
+          method: opts.method || 'GET',
+          credentials: 'same-origin',
+          headers: headers,
+          body: body
+        }).then(function (res) {
+          return res.json().then(function (payload) {
+            if (res.status === 401) {
+              location.replace('/vocab-admin-login?next=' + encodeURIComponent('/vocab-admin'));
+              throw new Error('Login required');
+            }
+            if (!res.ok) throw new Error((payload && payload.error) || 'Request failed');
+            return payload;
+          });
+        });
+      }
+
+      function setTab(name) {
+        document.querySelectorAll('.tabs button').forEach(function (b) {
+          b.classList.toggle('active', b.getAttribute('data-tab') === name);
+        });
+        document.querySelectorAll('.panel').forEach(function (p) {
+          p.classList.toggle('active', p.id === 'panel-' + name);
+        });
+      }
+
+      document.querySelectorAll('.tabs button').forEach(function (b) {
+        b.addEventListener('click', function () { setTab(b.getAttribute('data-tab')); });
+      });
+
+      document.getElementById('logoutBtn').addEventListener('click', function () {
+        api('/logout', { method: 'POST' }).finally(function () {
+          try { localStorage.removeItem('vocab_platform_token'); } catch (e) {}
+          location.replace('/vocab-admin-login');
+        });
+      });
+
+      function renderOverview(data) {
+        var t = data.totals || {};
+        document.getElementById('overviewStats').innerHTML =
+          statHtml(t.tenants || 0, 'Tenants') +
+          statHtml(t.learners || 0, 'Learners') +
+          statHtml(t.placed || 0, 'Placed') +
+          statHtml(t.activeToday || 0, 'Active today') +
+          statHtml(data.wordBankActive || 0, 'Active words') +
+          statHtml(data.packCount || 0, 'Packs');
+        document.getElementById('overviewBody').innerHTML = (data.tenants || []).map(function (row) {
+          return '<tr>' +
+            '<td><strong>' + esc(row.name) + '</strong><div class="muted">' + esc(row.tenantId) + '</div></td>' +
+            '<td>' + row.learners + '</td>' +
+            '<td>' + row.placed + '</td>' +
+            '<td>' + row.activeToday + '</td>' +
+            '<td>' + row.questPassedToday + '</td>' +
+            '</tr>';
+        }).join('') || '<tr><td colspan="5" class="muted">No tenants yet</td></tr>';
+      }
+
+      function statHtml(n, label) {
+        return '<div class="stat"><b>' + n + '</b><span>' + label + '</span></div>';
+      }
+
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderTenants(tenants) {
+        state.tenants = tenants || [];
+        document.getElementById('tenantsBody').innerHTML = state.tenants.map(function (t) {
+          var feats = [];
+          if (t.features && t.features.luckyDraw) feats.push('Lucky Draw');
+          if (t.features && t.features.dollarsMode) feats.push('$' + t.features.dollarsMode);
+          return '<tr>' +
+            '<td><strong>' + esc(t.name) + '</strong><div class="muted">' + esc(t.id) + '</div></td>' +
+            '<td><code>' + esc(t.publicKey) + '</code></td>' +
+            '<td>' + esc(feats.join(' · ') || '—') + '</td>' +
+            '<td><span class="pill' + (t.active ? '' : ' off') + '">' + (t.active ? 'active' : 'off') + '</span>' +
+              (t.hasSecret ? '' : ' <span class="pill off">no secret</span>') + '</td>' +
+            '<td><div class="row-actions">' +
+              '<button type="button" class="ghost" data-act="packs" data-id="' + esc(t.id) + '">Packs</button>' +
+              '<button type="button" class="ghost" data-act="toggle" data-id="' + esc(t.id) + '" data-active="' + (t.active ? '1' : '0') + '">' +
+                (t.active ? 'Disable' : 'Enable') + '</button>' +
+              '<button type="button" data-act="rotate" data-id="' + esc(t.id) + '">Rotate secret</button>' +
+            '</div></td></tr>';
+        }).join('') || '<tr><td colspan="5" class="muted">No tenants</td></tr>';
+      }
+
+      function renderPacks(packs) {
+        state.packs = packs || [];
+        document.getElementById('packsBody').innerHTML = state.packs.map(function (p) {
+          return '<tr>' +
+            '<td><strong>' + esc(p.name) + '</strong><div class="muted">' + esc(p.id) + '</div>' +
+              (p.description ? '<div class="muted">' + esc(p.description) + '</div>' : '') + '</td>' +
+            '<td>' + (p.wordCount || 0) + '</td>' +
+            '<td>' + esc((p.tenantIds || []).join(', ') || '—') + '</td>' +
+            '<td><span class="pill' + (p.active ? '' : ' off') + '">' + (p.active ? 'active' : 'off') + '</span></td>' +
+            '<td><div class="row-actions">' +
+              '<button type="button" class="ghost" data-pact="seed" data-id="' + esc(p.id) + '">+ Grade words</button>' +
+              '<button type="button" class="danger" data-pact="del" data-id="' + esc(p.id) + '">Delete</button>' +
+            '</div></td></tr>';
+        }).join('') || '<tr><td colspan="5" class="muted">No packs — tenants use the full word bank</td></tr>';
+      }
+
+      async function openAssignPacks(tenantId) {
+        state.assignTenantId = tenantId;
+        document.getElementById('tenantPacksCard').style.display = 'block';
+        document.getElementById('assignTenantLabel').textContent = tenantId;
+        var detail = await api('/tenants/' + encodeURIComponent(tenantId));
+        var assigned = {};
+        (detail.packs || []).forEach(function (p) { assigned[p.packId] = true; });
+        document.getElementById('assignPackChecks').innerHTML = (state.packs || []).map(function (p) {
+          return '<label><input type="checkbox" value="' + esc(p.id) + '"' +
+            (assigned[p.id] ? ' checked' : '') + '> ' + esc(p.name) + '</label>';
+        }).join('') || '<span class="muted">Create a pack first</span>';
+      }
+
+      document.getElementById('tenantsBody').addEventListener('click', async function (e) {
+        var btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        var id = btn.getAttribute('data-id');
+        var act = btn.getAttribute('data-act');
+        try {
+          if (act === 'packs') return openAssignPacks(id);
+          if (act === 'toggle') {
+            await api('/tenants/' + encodeURIComponent(id), {
+              method: 'PATCH',
+              body: { active: btn.getAttribute('data-active') !== '1' }
+            });
+            toast('Tenant updated');
+            return loadTenants();
+          }
+          if (act === 'rotate') {
+            if (!confirm('Rotate API secret for ' + id + '? Hosts must update VOCAB_TENANT_API_SECRET.')) return;
+            var out = await api('/tenants/' + encodeURIComponent(id) + '/rotate-secret', { method: 'POST' });
+            toast('New secret for ' + id + ':\n' + out.secret, true);
+          }
+        } catch (err) {
+          toast(err.message || String(err), true);
+        }
+      });
+
+      document.getElementById('packsBody').addEventListener('click', async function (e) {
+        var btn = e.target.closest('button[data-pact]');
+        if (!btn) return;
+        var id = btn.getAttribute('data-id');
+        var act = btn.getAttribute('data-pact');
+        try {
+          if (act === 'del') {
+            if (!confirm('Delete pack ' + id + '?')) return;
+            await api('/packs/' + encodeURIComponent(id), { method: 'DELETE' });
+            toast('Pack deleted');
+            return loadPacks();
+          }
+          if (act === 'seed') {
+            var g = prompt('Add all active words from grade (1–12):', '7');
+            if (!g) return;
+            var out = await api('/packs/' + encodeURIComponent(id) + '/words/by-grade', {
+              method: 'POST',
+              body: { gradeLevel: Number(g) }
+            });
+            toast('Added ' + (out.added || 0) + ' words to ' + id);
+            return loadPacks();
+          }
+        } catch (err) {
+          toast(err.message || String(err), true);
+        }
+      });
+
+      document.getElementById('createTenantBtn').addEventListener('click', async function () {
+        try {
+          var out = await api('/tenants', {
+            method: 'POST',
+            body: {
+              id: document.getElementById('newTenantId').value.trim(),
+              name: document.getElementById('newTenantName').value.trim(),
+              features: {
+                luckyDraw: document.getElementById('newLuckyDraw').checked,
+                dollarsMode: 'none'
+              }
+            }
+          });
+          document.getElementById('newTenantId').value = '';
+          document.getElementById('newTenantName').value = '';
+          toast('Created ' + out.tenant.id + '\nSecret:\n' + out.secret, true);
+          await Promise.all([loadTenants(), loadOverview()]);
+        } catch (err) {
+          toast(err.message || String(err), true);
+        }
+      });
+
+      document.getElementById('saveTenantPacksBtn').addEventListener('click', async function () {
+        if (!state.assignTenantId) return;
+        var ids = Array.prototype.map.call(
+          document.querySelectorAll('#assignPackChecks input:checked'),
+          function (el) { return el.value; }
+        );
+        try {
+          await api('/tenants/' + encodeURIComponent(state.assignTenantId) + '/packs', {
+            method: 'PUT',
+            body: { packIds: ids }
+          });
+          toast('Packs saved for ' + state.assignTenantId);
+          await loadPacks();
+        } catch (err) {
+          toast(err.message || String(err), true);
+        }
+      });
+
+      document.getElementById('createPackBtn').addEventListener('click', async function () {
+        try {
+          var pack = (await api('/packs', {
+            method: 'POST',
+            body: {
+              id: document.getElementById('newPackId').value.trim() || undefined,
+              name: document.getElementById('newPackName').value.trim(),
+              description: document.getElementById('newPackDesc').value.trim()
+            }
+          })).pack;
+          var grade = document.getElementById('seedGrade').value;
+          if (grade) {
+            await api('/packs/' + encodeURIComponent(pack.id) + '/words/by-grade', {
+              method: 'POST',
+              body: { gradeLevel: Number(grade) }
+            });
+          }
+          document.getElementById('newPackId').value = '';
+          document.getElementById('newPackName').value = '';
+          document.getElementById('newPackDesc').value = '';
+          toast('Pack created: ' + pack.id);
+          await loadPacks();
+        } catch (err) {
+          toast(err.message || String(err), true);
+        }
+      });
+
+      async function loadWords(search) {
+        var qs = search ? ('?search=' + encodeURIComponent(search) + '&limit=40') : '?limit=40';
+        var data = await api('/words' + qs);
+        document.getElementById('wordsBody').innerHTML = (data.words || []).map(function (w) {
+          return '<tr><td>' + esc(w.word) + '</td><td>' + esc(w.grade_level) + '</td><td>' +
+            esc(w.tier_name) + '</td><td>' + esc(w.part_of_speech || '') + '</td></tr>';
+        }).join('') || '<tr><td colspan="4" class="muted">No words</td></tr>';
+        document.getElementById('wordsMeta').textContent =
+          'Showing ' + (data.words || []).length + ' of ' + (data.total || 0);
+      }
+
+      async function loadWordStats() {
+        var s = await api('/words/stats');
+        document.getElementById('wordStats').innerHTML =
+          statHtml(s.activeCount || 0, 'Active') +
+          statHtml(s.withQuizTotal || 0, 'Quiz-ready') +
+          statHtml(s.missingQuizTotal || 0, 'Missing quiz');
+      }
+
+      document.getElementById('wordSearchBtn').addEventListener('click', function () {
+        loadWords(document.getElementById('wordSearch').value.trim()).catch(function (e) {
+          toast(e.message, true);
+        });
+      });
+      document.getElementById('wordRefreshBtn').addEventListener('click', function () {
+        Promise.all([loadWordStats(), loadWords(document.getElementById('wordSearch').value.trim())])
+          .catch(function (e) { toast(e.message, true); });
+      });
+
+      async function loadOverview() {
+        renderOverview(await api('/analytics'));
+      }
+      async function loadTenants() {
+        renderTenants((await api('/tenants')).tenants);
+      }
+      async function loadPacks() {
+        renderPacks((await api('/packs')).packs);
+      }
+
+      api('/session').then(function () {
+        return Promise.all([loadOverview(), loadTenants(), loadPacks(), loadWordStats(), loadWords('')]);
+      }).catch(function (e) {
+        toast(e.message || String(e), true);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -114,8 +114,23 @@ All routes require tenant context (JWT or `Authorization: Bearer <tenant-secret>
 | **1** | `vocab_tenants` + `tenant_id` on progress tables; Mr.Park + Morning Class wired | **done** |
 | **2** | Versioned `/api/vocab/v1` + tenant API secret + student session JWT | **this PR** |
 | **3** | Embeddable JS widget (`/js/vocab-embed.js` + demo page) | **this PR** |
-| **4** | Central admin UI (tenants, word bank, cross-tenant analytics) | later |
-| **5** | Optional per-tenant word overlays / curriculum packs | later |
+| **4** | Central admin UI (tenants, word bank, cross-tenant analytics) | **this PR** |
+| **5** | Optional per-tenant word overlays / curriculum packs | **this PR** |
+
+## Phase 4 — Central admin console
+
+- URL: `/vocab-admin` (login at `/vocab-admin-login`)
+- Password: `VOCAB_PLATFORM_ADMIN_PASSWORD` (falls back to `TEACHER_GATE_PASSWORD`)
+- API: `/api/vocab/platform/*` (session cookie or Bearer)
+- Capabilities: tenant create / disable / rotate secret, cross-tenant analytics, word-bank browse, curriculum packs
+
+## Phase 5 — Curriculum packs
+
+Tables: `vocab_curriculum_packs`, `vocab_pack_words`, `vocab_tenant_packs`.
+
+- No packs assigned → tenant uses the **full global** word bank (default).
+- One or more active packs assigned → placement & daily picks are limited to the **union** of those pack words.
+- Admin can seed a pack from a grade band (`POST …/packs/:id/words/by-grade`).
 
 ## Phase 2/3 — attach API (live on Mr. Park = central host)
 

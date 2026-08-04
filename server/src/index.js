@@ -8,6 +8,9 @@ const path = require('path');
 const { PORT } = require('./config');
 const apiRoutes = require('./routes');
 const { verifyTeacherToken, readTeacherTokenFromRequest } = require('./teacherAuth');
+const {
+  requirePlatformAdminPage
+} = require('./vocabPlatformAuth');
 
 const app = express();
 
@@ -109,6 +112,16 @@ function requireTeacherPage(req, res, next) {
 app.get('/teacher-login', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.sendFile(path.join(publicDir, 'TeacherLogin.html'));
+});
+
+app.get('/vocab-admin-login', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(publicDir, 'VocabPlatformAdminLogin.html'));
+});
+
+app.get('/vocab-admin', requirePlatformAdminPage, (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(publicDir, 'VocabPlatformAdmin.html'));
 });
 
 app.get('/class', requireTeacherPage, sendTeacherApp);

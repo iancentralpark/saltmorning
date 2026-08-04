@@ -523,15 +523,39 @@ async function pickWordsForGrade(gradeLevel, count, excludeIds) {
   const PLACEMENT_WORD_COLS =
     'word_id, word, grade_level, tier_name, part_of_speech, simple_definition, korean_meaning, cloze_question, example_sentence, wrong_options';
 
+  let allowedIds = null;
+  try {
+    const { getTenantAllowedWordIds } = require('./vocabCurriculumService');
+    allowedIds = await getTenantAllowedWordIds(tenantId());
+  } catch (e) {
+    // Packs table may not exist yet on older deploys — fall back to global bank.
+    if (!/does not exist|curriculum|relation/i.test(String(e.message || e))) {
+      console.warn('getTenantAllowedWordIds', e.message || e);
+    }
+    allowedIds = null;
+  }
+  if (Array.isArray(allowedIds) && allowedIds.length === 0) {
+    return [];
+  }
+  const allowedSet = allowedIds ? new Set(allowedIds.map(String)) : null;
+
   async function fetchGradeWindow(lo, hi, limit) {
-    const { data, error } = await db.from('vocab_words')
+    let query = db.from('vocab_words')
       .select(PLACEMENT_WORD_COLS)
       .eq('active', true)
       .gte('grade_level', lo)
       .lte('grade_level', hi)
       .limit(limit);
+    if (allowedSet && allowedIds.length <= 200) {
+      query = query.in('word_id', allowedIds);
+    }
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
-    return (data || []).filter(w => !exclude.has(String(w.word_id)));
+    return (data || []).filter(function (w) {
+      if (exclude.has(String(w.word_id))) return false;
+      if (allowedSet && !allowedSet.has(String(w.word_id))) return false;
+      return true;
+    });
   }
 
   // One query: exact grade ±1 first (usually enough). Widen only if still thin.
