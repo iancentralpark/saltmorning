@@ -15,7 +15,12 @@ const { formatSheetDate } = require('../dateUtils');
 const { listAllGradeTerms, saveGradeTerm, ensureGradeSheets } = require('./gradeWeightService');
 const { TRANSACTIONS_SHEET } = require('./dollarService');
 const { getRecentBuddyActivity } = require('./englishBuddyService');
-const { getRecentVocabActivity } = require('./vocabService');
+const { getRecentVocabActivity } = require('./vocabShared');
+const {
+  listTeachersWithProfiles,
+  upsertTeacherProfile,
+  getTeacherDetail
+} = require('./teacherRegistryService');
 const crypto = require('crypto');
 
 function newId(prefix) {
@@ -54,19 +59,11 @@ async function listClasses() {
 }
 
 async function listTeachers() {
-  const rows = await getSheetRows(TEACHER_LIST_SHEET);
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue;
-    out.push({
-      teacherId: String(rows[i][0]),
-      name: String(rows[i][1] || ''),
-      loginId: String(rows[i][2] || ''),
-      homeroomClassId: String(rows[i][4] || ''),
-      staffRole: String(rows[i][5] || 'Teacher')
-    });
-  }
-  return out;
+  return listTeachersWithProfiles();
+}
+
+async function getTeacher(teacherId) {
+  return getTeacherDetail(teacherId);
 }
 
 async function saveTeacher(payload) {
@@ -94,7 +91,31 @@ async function saveTeacher(payload) {
     if (!password) throw new Error('Password required for new teacher.');
     await appendRows(TEACHER_LIST_SHEET, [row]);
   }
-  return { teacherId, name, loginId, homeroomClassId, staffRole };
+
+  const profile = await upsertTeacherProfile(teacherId, {
+    dateOfBirth: payload.dateOfBirth,
+    gender: payload.gender,
+    nationality: payload.nationality,
+    phone: payload.phone,
+    email: payload.email,
+    address: payload.address,
+    emergencyContact: payload.emergencyContact,
+    emergencyPhone: payload.emergencyPhone,
+    title: payload.title,
+    hireDate: payload.hireDate,
+    education: payload.education,
+    notes: payload.notes
+  }, { keepPhoto: true });
+
+  return {
+    teacherId,
+    name,
+    loginId,
+    homeroomClassId,
+    staffRole,
+    photoPath: profile.photoPath || '',
+    profile
+  };
 }
 
 async function getMonitoringFeed(options) {
@@ -325,6 +346,7 @@ module.exports = {
   ensureAdminSheet,
   listClasses,
   listTeachers,
+  getTeacher,
   saveTeacher,
   listAllGradeTerms,
   saveGradeTerm,
