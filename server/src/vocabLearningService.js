@@ -481,7 +481,7 @@ async function pickWordsForGrade(gradeLevel, count, excludeIds) {
   // Placement/quest only need a small pool — avoid select('*') over an entire grade
   // (600+ fat rows) and sequential neighbor round-trips to distant Supabase.
   const PLACEMENT_WORD_COLS =
-    'word_id, word, grade_level, tier_name, part_of_speech, simple_definition, korean_meaning, levels, cloze_question, example_sentence, wrong_options';
+    'word_id, word, grade_level, tier_name, part_of_speech, simple_definition, korean_meaning, cloze_question, example_sentence, wrong_options';
 
   async function fetchGradeWindow(lo, hi, limit) {
     const { data, error } = await db.from('vocab_words')
