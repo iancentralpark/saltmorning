@@ -523,6 +523,13 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .grades-toolbar-minimal { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .admin-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .admin-form-grid { max-width: 420px; }
+.teacher-profile-form { max-width: 720px; }
+.teacher-profile-grid { margin-top: 0.75rem; }
+.teacher-photo-row { margin-bottom: 0.25rem; }
+.sr-photo-upload.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
 .admin-feed { font-size: 0.82rem; }
 .choice-admin { border-color: #94a3b8; }
 .grades-entry-toolbar, .grades-log-toolbar {

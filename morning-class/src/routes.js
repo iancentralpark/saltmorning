@@ -63,6 +63,7 @@ const {
 const {
   getAdminOverview,
   listTeachers,
+  getTeacher,
   saveTeacher,
   listAllGradeTerms,
   getMonitoringFeed,
@@ -88,6 +89,10 @@ const {
   saveStudentPhoto,
   ensureRegistrySheets
 } = require('./services/studentRegistryService');
+const {
+  saveTeacherPhoto,
+  ensureTeacherProfileSheet
+} = require('./services/teacherRegistryService');
 const {
   listClassesDetailed,
   getClassDetail,
@@ -1304,9 +1309,19 @@ router.get('/admin/monitoring', requireRole('admin'), async (req, res) => {
 
 router.get('/admin/teachers', requireRole('admin'), async (req, res) => {
   try {
+    await ensureTeacherProfileSheet();
     res.json({ teachers: await listTeachers() });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load teachers.' });
+  }
+});
+
+router.get('/admin/teachers/:teacherId', requireRole('admin'), async (req, res) => {
+  try {
+    const teacher = await getTeacher(req.params.teacherId);
+    res.json({ teacher });
+  } catch (e) {
+    res.status(e.message === 'Teacher not found.' ? 404 : 500).json({ error: e.message });
   }
 });
 
@@ -1317,6 +1332,20 @@ router.post('/admin/teachers', requireRole('admin'), async (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save teacher.' });
   }
+});
+
+router.post('/admin/teachers/:teacherId/photo', requireRole('admin'), (req, res) => {
+  photoUpload.single('photo')(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Invalid photo upload.' });
+    }
+    try {
+      const result = await saveTeacherPhoto(req.params.teacherId, req.file);
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not save photo.' });
+    }
+  });
 });
 
 router.get('/admin/classes', requireRole('admin'), async (req, res) => {
