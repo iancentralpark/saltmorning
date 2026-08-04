@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DEST="$ROOT/morning-class/src/vendor/mrpark-vocab"
 mkdir -p "$DEST"
-for f in vocabLearningService.js vocabPlacementService.js vocabClozeUtils.js vocabJunkFilter.js supabaseClient.js vocabCurriculumService.js; do
+for f in vocabLearningService.js vocabPlacementService.js vocabClozeUtils.js vocabJunkFilter.js supabaseClient.js vocabCurriculumService.js vocabPromotionTestService.js; do
   cp "$ROOT/server/src/$f" "$DEST/$f"
 done
 echo "Synced vocab core -> $DEST"

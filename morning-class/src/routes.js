@@ -137,7 +137,11 @@ const {
   overrideStudentVocab,
   scorePlacement,
   deepDiveWord,
-  getPlacementMeta
+  getPlacementMeta,
+  getPromotionTestStatus,
+  startPromotionTest,
+  submitPromotionTest,
+  ackPromotionTest
 } = require('./services/vocabShared');
 const { todayStr } = require('./dateUtils');
 
@@ -957,6 +961,41 @@ router.post('/student/vocab/daily-test/submit', requireRole('student'), async (r
     ));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not submit daily test.' });
+  }
+});
+
+router.get('/student/vocab/promotion-test/status', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await getPromotionTestStatus(req.session.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load promotion test.' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/start', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await startPromotionTest(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({
+      error: e.message || 'Could not start promotion test.',
+      code: e.code
+    });
+  }
+});
+
+router.post('/student/vocab/promotion-test/submit', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await submitPromotionTest(req.session.studentId, req.body || {}));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit promotion test.' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/ack', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await ackPromotionTest(req.session.studentId, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not ack promotion test.' });
   }
 });
 

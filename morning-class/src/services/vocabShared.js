@@ -215,6 +215,28 @@ function getPlacementMeta() {
   return placementApi().getPlacementMeta();
 }
 
+function promoApi() {
+  wire();
+  // eslint-disable-next-line import/no-dynamic-require
+  return require(path.join(VENDOR_SRC, 'vocabPromotionTestService.js'));
+}
+
+async function getPromotionTestStatus(studentId) {
+  return promoApi().getPromotionTestStatus(studentId);
+}
+
+async function startPromotionTest(studentId, classId) {
+  return promoApi().startPromotionTest(studentId, classId);
+}
+
+async function submitPromotionTest(studentId, payload) {
+  return promoApi().submitPromotionTest(studentId, payload);
+}
+
+async function ackPromotionTest(studentId, payload) {
+  return promoApi().ackPromotionTest(studentId, payload);
+}
+
 async function getRecentVocabActivity(limit) {
   try {
     wire();
@@ -258,6 +280,10 @@ module.exports = {
   deepDiveWord,
   getPlacementMeta,
   getRecentVocabActivity,
+  getPromotionTestStatus,
+  startPromotionTest,
+  submitPromotionTest,
+  ackPromotionTest,
   VENDOR_SRC,
   SERVER_SRC: VENDOR_SRC
 };

@@ -103,7 +103,8 @@ const RATING_START = 100;
 // Promotion ladder (shared by Mr. Park + Morning Class): 400 pts to climb a tier.
 const PROMOTE_AT = 400;
 const DEMOTE_REENTRY_SCORE = 390;
-const SHIELD_ITEMS_ON_PROMOTE = 30;
+const SHIELD_ITEMS_ON_PROMOTE = 3;
+const PROMO_TEST_FAIL_SCORE = 360;
 const SCORE_FIRST_CORRECT = 1.5;
 const SCORE_FIRST_WRONG = -1.5;
 const SCORE_RETRY_CORRECT = 1.5;
@@ -947,12 +948,15 @@ async function applyPromotionScoreUpdate(studentId, answers, consumeShieldItems)
 
   let promoted = null;
   let demoted = null;
+  let promotionTestUnlocked = false;
+  const prevStatus = String(state.promotion_test_status || 'LOCKED').toUpperCase();
 
-  while (score >= PROMOTE_AT && grade < GRADE_MAX) {
-    grade += 1;
-    score = 0;
-    shield = SHIELD_ITEMS_ON_PROMOTE;
-    promoted = 'up';
+  // Cap at 400 and unlock Promotion Test (BO3) — no instant promote.
+  if (score >= PROMOTE_AT && grade < GRADE_MAX) {
+    score = PROMOTE_AT;
+    if (prevStatus === 'LOCKED' || !state.promotion_test_status) {
+      promotionTestUnlocked = true;
+    }
   }
   if (grade >= GRADE_MAX && score > PROMOTE_AT) score = PROMOTE_AT;
 
@@ -968,10 +972,19 @@ async function applyPromotionScoreUpdate(studentId, answers, consumeShieldItems)
     }
   }
 
+  // Shield: one charge per completed set (caller passes 1), not per answer.
   const used = Math.max(0, Math.round(Number(consumeShieldItems) || 0));
   if (used > 0 && shield > 0) shield = Math.max(0, shield - used);
 
   const tier = tierForGrade(grade);
+  let promoStatus = prevStatus || 'LOCKED';
+  if (promotionTestUnlocked) promoStatus = 'AVAILABLE';
+  // Keep AVAILABLE/IN_PROGRESS while sitting at the gate.
+  if (score >= PROMOTE_AT && grade < GRADE_MAX && (promoStatus === 'LOCKED')) {
+    promoStatus = 'AVAILABLE';
+    promotionTestUnlocked = true;
+  }
+
   const row = {
     student_id: String(studentId),
     grade_level: grade,
@@ -982,7 +995,17 @@ async function applyPromotionScoreUpdate(studentId, answers, consumeShieldItems)
     placement_at: state.placement_at,
     placement_accuracy: state.placement_accuracy,
     last_active_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    promotion_test_status: promoStatus,
+    test_wins: Math.max(0, Math.round(Number(state.test_wins) || 0)),
+    test_losses: Math.max(0, Math.round(Number(state.test_losses) || 0)),
+    promotion_test_unlocked_at: promotionTestUnlocked
+      ? new Date().toISOString()
+      : (state.promotion_test_unlocked_at || null),
+    promotion_test_notify_unlock: promotionTestUnlocked
+      ? true
+      : !!state.promotion_test_notify_unlock,
+    promotion_test_notify_retry: !!state.promotion_test_notify_retry
   };
   const { error } = await db.from('vocab_student_state').upsert(withTenant(row), { onConflict: 'tenant_id,student_id' });
   if (error) throw new Error(error.message);
@@ -1006,7 +1029,9 @@ async function applyPromotionScoreUpdate(studentId, answers, consumeShieldItems)
     tierDivision: progress.tierDivision,
     scoreDelta: d,
     beforeScore: before,
-    afterScore: progress.promotionScore
+    afterScore: progress.promotionScore,
+    promotionTestUnlocked,
+    promotionTestStatus: promoStatus
   };
 }
 
@@ -1054,7 +1079,7 @@ async function recordDailyTestResult(studentId, classId, correctCount, totalCoun
     ratingUpdate = await applyPromotionScoreUpdate(
       studentId,
       scoredAnswers,
-      scoredAnswers.length
+      1
     );
   } catch (e) {
     console.error('applyPromotionScoreUpdate failed', e.message || e);
@@ -1160,6 +1185,13 @@ async function getStudentVocabSummary(studentId, classId) {
   const placementStartGrade = placementStartAbility(schoolGrade);
   const progress = promotionProgressFromState(state);
   const tierName = placed ? state.tier_name : null;
+  let promotionTest = null;
+  try {
+    const { publicStatus } = require('./vocabPromotionTestService');
+    promotionTest = publicStatus(state || {});
+  } catch (e) {
+    promotionTest = null;
+  }
   return {
     tierName,
     tierLabel: placed ? (tierName + ' ' + progress.tierDivision) : null,
@@ -1171,6 +1203,7 @@ async function getStudentVocabSummary(studentId, classId) {
     promotionPercent: placed ? progress.promotionPercent : 0,
     remainingToPromote: placed ? progress.remainingToPromote : PROMOTE_AT,
     shieldCount: placed ? progress.shieldCount : 0,
+    promotionTest,
     streakDays: (state && state.streak_days) || 0,
     longestStreak: (state && state.longest_streak) || 0,
     placementDone: placed,

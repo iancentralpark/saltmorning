@@ -1983,6 +1983,50 @@ router.post('/student/vocab/daily-test/submit', requireStudentAuth, async (req, 
   }
 });
 
+const {
+  getPromotionTestStatus,
+  startPromotionTest,
+  submitPromotionTest,
+  ackPromotionTest
+} = require('./vocabPromotionTestService');
+
+router.get('/student/vocab/promotion-test/status', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(await getPromotionTestStatus(req.studentSession.studentId));
+  } catch (e) {
+    console.error('GET /student/vocab/promotion-test/status', e);
+    res.status(400).json({ error: e.message || 'Could not load promotion test' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/start', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await startPromotionTest(studentId, classId));
+  } catch (e) {
+    console.error('POST /student/vocab/promotion-test/start', e);
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not start promotion test', code: e.code });
+  }
+});
+
+router.post('/student/vocab/promotion-test/submit', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(await submitPromotionTest(req.studentSession.studentId, req.body || {}));
+  } catch (e) {
+    console.error('POST /student/vocab/promotion-test/submit', e);
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit promotion test' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/ack', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(await ackPromotionTest(req.studentSession.studentId, req.body || {}));
+  } catch (e) {
+    console.error('POST /student/vocab/promotion-test/ack', e);
+    res.status(400).json({ error: e.message || 'Could not ack promotion test' });
+  }
+});
+
 router.post('/student/english-buddy', requireStudentAuth, async (req, res) => {
   try {
     const { studentId, classId } = req.studentSession;
