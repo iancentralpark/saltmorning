@@ -14,7 +14,12 @@
 
   function apiPath(ownerType, ownerId) {
     if (role === 'admin') {
-      return '/api/admin/timetable/' + ownerType + 's/' + encodeURIComponent(ownerId);
+      const segment = ownerType === 'class'
+        ? 'classes'
+        : (ownerType === 'student'
+          ? 'students'
+          : (ownerType === 'teacher' ? 'teachers' : (String(ownerType || '') + 's')));
+      return '/api/admin/timetable/' + segment + '/' + encodeURIComponent(ownerId);
     }
     if (ownerType === 'teacher') return '/api/teacher/timetable';
     return '/api/teacher/timetable/students/' + encodeURIComponent(ownerId);
