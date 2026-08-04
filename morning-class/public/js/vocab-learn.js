@@ -37,7 +37,10 @@
     deckIndex: 0,
     deck: [],
     mastery: null,
-    summary: null
+    summary: null,
+    sessionStudentId: '',
+    _bound: false,
+    _summaryReq: 0
   };
 
   function currentStudentId() {
@@ -48,7 +51,9 @@
       }
     } catch (e) { /* ignore */ }
     try {
-      var raw = localStorage.getItem('mrpark_student_profile') || sessionStorage.getItem('mrpark_student_profile') || '';
+      var raw = localStorage.getItem('salt_student_profile') ||
+        localStorage.getItem('mrpark_student_profile') ||
+        sessionStorage.getItem('mrpark_student_profile') || '';
       if (!raw) return '';
       var p = JSON.parse(raw);
       return String((p && (p.studentId || p.id)) || '').trim();
@@ -126,7 +131,10 @@
       return root.mrParkStudentApi(path, opts);
     }
     var token = '';
-    try { token = localStorage.getItem('mrpark_student_token') || ''; } catch (e) {}
+    try {
+      token = localStorage.getItem('salt_student_token') ||
+        localStorage.getItem('mrpark_student_token') || '';
+    } catch (e) {}
     var base = (root.NODE_API || location.origin || '').replace(/\/$/, '');
     var headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
     if (token) headers.Authorization = 'Bearer ' + token;
@@ -144,33 +152,99 @@
     });
   }
 
-  var quest = {
-    queue: [],
-    masterQueue: [],
-    targetCount: 10,
-    passThreshold: 100,
-    studyIndex: 0,
-    studyMaxIndex: 0,
-    phase: 'idle', // idle | study | test | done
-    testIndex: 0,
-    testWords: [],
-    testTypes: [],
-    testAnswers: [],
-    currentTestQ: null,
-    locked: false,
-    selectedChoice: null,
-    qStartedAt: 0,
-    timerEndsAt: 0,
-    timerId: null,
-    tickId: null,
-    pauseUsed: false,
-    paused: false,
-    pauseRemainingMs: 0,
-    sessionsCompleted: 0,
-    maxSessions: 3,
-    forceAnotherSet: false,
-    alreadyPassedToday: false
-  };
+  function blankQuest() {
+    return {
+      queue: [],
+      masterQueue: [],
+      targetCount: 10,
+      passThreshold: 100,
+      studyIndex: 0,
+      studyMaxIndex: 0,
+      phase: 'idle', // idle | study | test | done
+      testIndex: 0,
+      testWords: [],
+      testTypes: [],
+      testAnswers: [],
+      currentTestQ: null,
+      locked: false,
+      selectedChoice: null,
+      qStartedAt: 0,
+      timerEndsAt: 0,
+      timerId: null,
+      tickId: null,
+      pauseUsed: false,
+      paused: false,
+      pauseRemainingMs: 0,
+      sessionsCompleted: 0,
+      maxSessions: 3,
+      forceAnotherSet: false,
+      alreadyPassedToday: false,
+      isRetryAttempt: false,
+      retryWordIds: {}
+    };
+  }
+
+  var quest = blankQuest();
+
+  /**
+   * Wipe in-memory vocab UI when the logged-in student changes (logout / switch account).
+   */
+  function resetVocabSession(opts) {
+    opts = opts || {};
+    clearPlacementTimer();
+    clearQuestTestTimer();
+    state.view = 'home';
+    state.abilityGrade = 6;
+    state.abilityTrail = [];
+    state.avoidWordIds = [];
+    state.questionIndex = 0;
+    state.answers = [];
+    state.currentQ = null;
+    state.locked = false;
+    state.selectedChoice = null;
+    state.pauseUsed = false;
+    state.paused = false;
+    state.pauseRemainingMs = 0;
+    state.schoolGrade = null;
+    state.placementStartGrade = 4;
+    state.startAbility = 4;
+    state.placement = null;
+    state.placementDone = false;
+    state.deckIndex = 0;
+    state.deck = [];
+    state.mastery = null;
+    state.summary = null;
+    if (!opts.keepSessionId) state.sessionStudentId = '';
+
+    var fresh = blankQuest();
+    Object.keys(fresh).forEach(function (k) { quest[k] = fresh[k]; });
+
+    var questBody = $('vocabQuestBody');
+    if (questBody) questBody.innerHTML = '';
+    var quizBody = $('vocabQuizBody');
+    if (quizBody) quizBody.innerHTML = '';
+    var resultBody = $('vocabResultBody');
+    if (resultBody) resultBody.innerHTML = '';
+
+    setView('home');
+    renderHomeStats();
+    syncPlacementVisibility();
+  }
+
+  function ensureStudentSession() {
+    var sid = currentStudentId();
+    if (!sid) {
+      if (state.sessionStudentId || state.placement || state.placementDone) {
+        resetVocabSession();
+      }
+      return false;
+    }
+    if (state.sessionStudentId && state.sessionStudentId !== sid) {
+      resetVocabSession({ keepSessionId: true });
+    }
+    state.sessionStudentId = sid;
+    return true;
+  }
 
   var TIER_BADGES = {
     Rookie: { icon: 'fa-seedling', className: 'tier-rookie' },
@@ -262,12 +336,16 @@
   }
 
   function refreshServerSummary() {
+    var reqId = ++state._summaryReq;
     return apiFetch('/api/student/vocab/summary?_=' + Date.now())
       .then(function (summary) {
+        // Ignore stale responses from a premature auto-init (no auth bridge yet).
+        if (reqId !== state._summaryReq) return summary;
         applyServerSummary(summary);
         return summary;
       })
       .catch(function () {
+        if (reqId !== state._summaryReq) return null;
         // Offline/cache only for THIS student, and only if it looks like a real placement.
         var saved = loadSaved();
         var sid = currentStudentId();
@@ -282,6 +360,7 @@
         renderHomeStats();
         syncPlacementVisibility();
         if (state.placementDone && quest.phase === 'idle') loadQuestInline();
+        return null;
       });
   }
 
@@ -1774,6 +1853,7 @@
       console.warn('[vocab] MrParkVocabData missing');
     }
     try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch (e) { /* ignore */ }
+    ensureStudentSession();
     if (state._bound) {
       refreshServerSummary();
       return;
@@ -1784,19 +1864,38 @@
     refreshServerSummary();
   }
 
+  function onLogout() {
+    resetVocabSession();
+  }
+
+  function onLogin() {
+    ensureStudentSession();
+    setView('home');
+    return refreshServerSummary();
+  }
+
   root.MrParkVocabLearn = {
     init: init,
+    onLogout: onLogout,
+    onLogin: onLogin,
+    resetSession: resetVocabSession,
+    applyServerSummary: applyServerSummary,
     startPlacement: startPlacement,
     openQuest: openQuest,
     setView: setView,
     refreshServerSummary: refreshServerSummary
   };
 
+  // Morning Class sets mrParkStudentApi after this script loads — wait for the host
+  // portal to call init()/onLogin() so a no-auth summary failure cannot win a race.
+  function canAutoInit() {
+    return !!$('vocabShell') && typeof root.mrParkStudentApi === 'function';
+  }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
-      if ($('vocabShell')) init();
+      if (canAutoInit()) init();
     });
-  } else if ($('vocabShell')) {
+  } else if (canAutoInit()) {
     init();
   }
 })(typeof window !== 'undefined' ? window : globalThis);
