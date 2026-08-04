@@ -28,6 +28,8 @@ const SHEETS = [
   { name: 'Subjects', headers: ['SubjectID', 'Name', 'SortOrder'], seed: [['SUBJ01', 'English', '1'], ['SUBJ02', 'Math', '2'], ['SUBJ03', 'Science', '3']] },
   { name: 'Teacher_Class_Subjects', headers: ['TeacherID', 'ClassID', 'Subject', 'CreatedAt'] },
   { name: 'Teacher_Subject_Styles', headers: ['TeacherID', 'ClassID', 'Subject', 'Bg', 'Border', 'UpdatedAt'] },
+  { name: 'Item_Bank', headers: ['QuestionID', 'TeacherID', 'Subject', 'Chapter', 'Topic', 'Difficulty', 'Type', 'Passage', 'QuestionText', 'ImageUrl', 'OptionsJSON', 'CorrectAnswer', 'Explanation', 'HashtagsJSON', 'CreatedAt', 'UpdatedAt'] },
+  { name: 'Exam_Papers', headers: ['ExamID', 'TeacherID', 'Title', 'HeaderJSON', 'QuestionsJSON', 'CreatedAt', 'UpdatedAt'] },
   { name: 'Student_Withdrawn', headers: ['WithdrawalID', 'StudentID', 'Name', 'ClassID', 'LoginID', 'LoginPassword', 'PreviousStatus', 'WithdrawnAt'] },
   { name: 'Student_Leave', headers: ['LeaveID', 'StudentID', 'Name', 'ClassID', 'StartDate', 'EndDate', 'Reason', 'Status', 'CreatedAt', 'EndedAt'] },
   { name: 'Student_Planned_Attendance', headers: ['NoticeID', 'StudentID', 'Name', 'ClassID', 'Date', 'Type', 'Note', 'Status', 'CreatedAt'] },

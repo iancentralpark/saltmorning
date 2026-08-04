@@ -207,6 +207,8 @@
     <div class="class-tools-body" id="classToolsBody">
       <button type="button" class="btn btn-primary class-tools-btn" id="openJeopardyBtn">AI Jeopardy</button>
       <p class="muted small" style="margin:0.35rem 0 0">Smartboard quiz board</p>
+      <button type="button" class="btn btn-primary class-tools-btn" id="openItemBankBtn" style="margin-top:0.65rem">Item Bank</button>
+      <p class="muted small" style="margin:0.35rem 0 0">AI questions · exams · print</p>
     </div>
   </div>
   <button type="button" class="class-tools-chip hidden" id="classToolsChip" title="Open Class Tools">Tools</button>
@@ -852,6 +854,12 @@
   if (openJeopardyBtn) {
     openJeopardyBtn.addEventListener('click', () => {
       window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
+    });
+  }
+  const openItemBankBtn = $('openItemBankBtn');
+  if (openItemBankBtn) {
+    openItemBankBtn.addEventListener('click', () => {
+      window.open('/tools/item-bank', 'saltItemBank', 'noopener,width=1440,height=900');
     });
   }
   const classToolsToggleBtn = $('classToolsToggleBtn');

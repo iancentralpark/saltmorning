@@ -1687,4 +1687,120 @@ router.post('/jeopardy/blank', requireRole('teacher', 'admin'), async (req, res)
   }
 });
 
+const {
+  listItems,
+  saveItem,
+  deleteItem,
+  generateQuestions,
+  generateSimilarQuestion,
+  sortQuestions,
+  listExams,
+  getExam,
+  saveExam,
+  deleteExam,
+  ensureItemBankSheets
+} = require('./services/itemBankService');
+
+function itemBankTeacherId(req) {
+  return req.session.teacherId || req.session.adminId || req.session.userId || 'admin';
+}
+
+router.get('/item-bank', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await ensureItemBankSheets();
+    const items = await listItems(itemBankTeacherId(req), {
+      q: req.query.q,
+      subject: req.query.subject,
+      difficulty: req.query.difficulty,
+      tag: req.query.tag
+    });
+    res.json({ ok: true, items });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load item bank.' });
+  }
+});
+
+router.post('/item-bank', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const item = await saveItem(itemBankTeacherId(req), req.body || {});
+    res.json({ ok: true, item });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save question.' });
+  }
+});
+
+router.delete('/item-bank/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const result = await deleteItem(itemBankTeacherId(req), req.params.id);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete question.' });
+  }
+});
+
+router.post('/item-bank/generate', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const questions = await generateQuestions(itemBankTeacherId(req), req.body || {});
+    res.json({ ok: true, questions });
+  } catch (e) {
+    console.error('POST /item-bank/generate', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate questions.' });
+  }
+});
+
+router.post('/item-bank/generate-similar', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const question = await generateSimilarQuestion(itemBankTeacherId(req), req.body || {});
+    res.json({ ok: true, question });
+  } catch (e) {
+    console.error('POST /item-bank/generate-similar', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate similar question.' });
+  }
+});
+
+router.post('/item-bank/sort', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const questions = sortQuestions((req.body && req.body.questions) || [], req.body && req.body.rule);
+    res.json({ ok: true, questions });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not sort questions.' });
+  }
+});
+
+router.get('/item-bank/exams', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const exams = await listExams(itemBankTeacherId(req));
+    res.json({ ok: true, exams });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load exams.' });
+  }
+});
+
+router.get('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const exam = await getExam(itemBankTeacherId(req), req.params.id);
+    res.json({ ok: true, exam });
+  } catch (e) {
+    res.status(e.message === 'Exam not found.' ? 404 : 500).json({ error: e.message });
+  }
+});
+
+router.post('/item-bank/exams', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const exam = await saveExam(itemBankTeacherId(req), req.body || {});
+    res.json({ ok: true, exam });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save exam.' });
+  }
+});
+
+router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const result = await deleteExam(itemBankTeacherId(req), req.params.id);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete exam.' });
+  }
+});
+
 module.exports = router;

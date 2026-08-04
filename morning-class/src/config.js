@@ -33,6 +33,8 @@ module.exports = {
   SUBJECTS_SHEET: 'Subjects',
   TEACHER_CLASS_SUBJECTS_SHEET: 'Teacher_Class_Subjects',
   TEACHER_SUBJECT_STYLES_SHEET: 'Teacher_Subject_Styles',
+  ITEM_BANK_SHEET: 'Item_Bank',
+  EXAM_PAPERS_SHEET: 'Exam_Papers',
   TIMETABLE_ENTRIES_SHEET: 'Timetable_Entries',
   BELL_SCHEDULE_SHEET: 'Bell_Schedule',
   TIMETABLE_REQUIREMENTS_SHEET: 'Timetable_Requirements',

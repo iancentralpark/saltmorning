@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Item Bank — Salt Morning</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    :root {
+      --olive: #3B4A34;
+      --olive-deep: #2a3525;
+      --gold: #C5A059;
+      --cream: #FBF9F5;
+      --sage: #A3B18A;
+      --sage-soft: #eef3ea;
+      --ink: #1C251B;
+      --muted: #6b7466;
+      --border: #d9ddd2;
+      --card: #fff;
+      --danger: #c45d55;
+      --ok: #3d7a4a;
+      --shadow: 0 10px 28px rgba(28, 37, 27, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(197, 160, 89, 0.14), transparent 34%),
+        radial-gradient(circle at 88% 100%, rgba(163, 177, 138, 0.22), transparent 40%),
+        linear-gradient(165deg, #f7f4ee 0%, var(--cream) 45%, #f1eee6 100%);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+      padding: 0.75rem 1.1rem; background: rgba(251, 249, 245, 0.92); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px);
+    }
+    .brand {
+      font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.55rem; font-weight: 700; color: var(--olive);
+      line-height: 1.1;
+    }
+    .brand small { display: block; font-family: 'Source Sans 3', sans-serif; font-size: 0.72rem; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .tab {
+      border: 1px solid var(--border); background: #fff; color: var(--olive); border-radius: 999px;
+      padding: 0.4rem 0.85rem; font-weight: 700; cursor: pointer; font: inherit;
+    }
+    .tab.active { background: var(--olive); color: #fff; border-color: var(--olive); }
+    .btn {
+      border: none; border-radius: 10px; padding: 0.5rem 0.85rem; font-weight: 700; cursor: pointer;
+      font: inherit; display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, var(--olive), var(--olive-deep)); color: #fff; }
+    .btn-gold { background: linear-gradient(135deg, #d4b26e, var(--gold)); color: #2a220f; }
+    .btn-ghost { background: #fff; border: 1px solid var(--border); color: var(--olive); }
+    .btn-danger { background: #f8e9e7; color: var(--danger); border: 1px solid #efd2ce; }
+    .btn-ok { background: #e7f3ea; color: var(--ok); border: 1px solid #c9e3d0; }
+    .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.82rem; border-radius: 8px; }
+    .pane { flex: 1; padding: 1rem 1.1rem 2rem; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 1rem; align-items: start; }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+    .side, .main-card {
+      background: rgba(255,255,255,0.88); border: 1px solid var(--border); border-radius: 16px;
+      box-shadow: var(--shadow); padding: 1rem;
+    }
+    .side h2, .main-card h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif; margin: 0 0 0.75rem; font-size: 1.35rem; color: var(--olive);
+    }
+    .form-grid { display: grid; gap: 0.55rem; }
+    label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+    input, select, textarea {
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.65rem; font: inherit; color: var(--ink); background: #fff;
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
+    .error { color: var(--danger); font-size: 0.88rem; margin-top: 0.4rem; min-height: 1.1em; }
+    .toolbar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-bottom: 0.85rem; align-items: center; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.85rem; }
+    .q-card {
+      background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 0.95rem 1rem;
+      box-shadow: 0 6px 18px rgba(28,37,27,0.05); display: flex; flex-direction: column; gap: 0.55rem;
+      position: relative; overflow: hidden;
+    }
+    .q-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: linear-gradient(180deg, var(--gold), var(--olive));
+    }
+    .q-card.sandbox { background: linear-gradient(180deg, #fffdf8, #fff); }
+    .badges { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+    .badge {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+      padding: 0.18rem 0.45rem; border-radius: 999px; background: var(--sage-soft); color: var(--olive-deep);
+    }
+    .badge.diff-Easy { background: #e8f5ec; color: #2f6b3c; }
+    .badge.diff-Medium { background: #fff4df; color: #8a6418; }
+    .badge.diff-Hard { background: #fdeceb; color: #9b3d37; }
+    .badge.hash { background: #f3eee4; color: #6a5a3d; text-transform: none; letter-spacing: 0; }
+    .passage {
+      background: var(--sage-soft); border-radius: 8px; padding: 0.55rem 0.7rem; font-size: 0.9rem; color: #3d4738;
+      white-space: pre-wrap;
+    }
+    .q-text { font-size: 1rem; font-weight: 600; line-height: 1.45; white-space: pre-wrap; }
+    .options { display: grid; gap: 0.3rem; }
+    .opt {
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.55rem; font-size: 0.9rem; background: #fafaf7;
+    }
+    .opt b { color: var(--olive); margin-right: 0.35rem; }
+    .card-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: auto; padding-top: 0.35rem; }
+    .exam-list { display: grid; gap: 0.55rem; }
+    .exam-row {
+      display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+      border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 0.8rem; background: #fff;
+    }
+    .empty { color: var(--muted); padding: 1.5rem 0.5rem; text-align: center; }
+    .status-pill {
+      font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px;
+      background: var(--sage-soft); color: var(--olive);
+    }
+    .print-root { display: none; }
+    @media print {
+      body { background: #fff; }
+      .topbar, .side, .no-print, .card-actions, .tabs { display: none !important; }
+      .pane { padding: 0; }
+      .print-root { display: block !important; }
+      .main-card, .layout { box-shadow: none; border: none; background: transparent; padding: 0; display: block; }
+      .print-page {
+        column-count: 2; column-gap: 1.25rem; font-size: 11pt; line-height: 1.35;
+      }
+      .print-page.one-col { column-count: 1; }
+      .print-q { break-inside: avoid; margin-bottom: 0.9rem; }
+      .print-header { text-align: center; margin-bottom: 1rem; column-span: all; }
+      .print-header h1 { font-family: 'Cormorant Garamond', Georgia, serif; margin: 0; font-size: 1.6rem; }
+      @page { size: A4; margin: 14mm; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar no-print">
+    <div class="brand">Item Bank <small>AI questions · exam papers · answer keys</small></div>
+    <div class="tabs">
+      <button type="button" class="tab active" data-view="bank">Item Bank</button>
+      <button type="button" class="tab" data-view="generate">AI Generator</button>
+      <button type="button" class="tab" data-view="exam">Exam Builder</button>
+    </div>
+    <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+      <span class="status-pill" id="authStatus">Checking login…</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="btnReload">Refresh</button>
+    </div>
+  </div>
+
+  <div class="pane">
+    <!-- ITEM BANK -->
+    <div id="viewBank" class="layout">
+      <aside class="side no-print">
+        <h2>Search</h2>
+        <div class="form-grid">
+          <label>Keyword / hashtag <input id="bankQ" placeholder="#Algebra or photosynthesis"></label>
+          <label>Subject <input id="bankSubject" placeholder="Math"></label>
+          <label>Difficulty
+            <select id="bankDifficulty">
+              <option value="">Any</option>
+              <option>Easy</option><option>Medium</option><option>Hard</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-primary" id="btnBankSearch">Search bank</button>
+        </div>
+        <p class="hint" style="margin-top:0.85rem">Saved questions appear as visual cards with KaTeX math.</p>
+        <div class="error" id="bankError"></div>
+      </aside>
+      <section class="main-card">
+        <div class="toolbar no-print">
+          <h2 style="margin:0;flex:1">Tagged Item Bank</h2>
+          <span class="hint" id="bankCount" style="margin:0"></span>
+        </div>
+        <div id="bankCards" class="card-grid"><p class="empty">Loading…</p></div>
+      </section>
+    </div>
+
+    <!-- GENERATOR -->
+    <div id="viewGenerate" class="layout hidden">
+      <aside class="side no-print">
+        <h2>AI Generator</h2>
+        <div class="form-grid">
+          <label>Subject <input id="genSubject" value="Math" required></label>
+          <label>Chapter <input id="genChapter" value="Fractions"></label>
+          <label>Topic <input id="genTopic" value="Adding unlike denominators"></label>
+          <label>Type
+            <select id="genType">
+              <option>Multiple Choice</option>
+              <option>Short Answer</option>
+              <option>Essay</option>
+            </select>
+          </label>
+          <label>Difficulty
+            <select id="genDifficulty">
+              <option>Easy</option>
+              <option selected>Medium</option>
+              <option>Hard</option>
+            </select>
+          </label>
+          <label>Count
+            <select id="genCount">
+              <option>1</option><option selected>3</option><option>5</option><option>8</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-gold" id="btnGenerate">Generate with Gemini</button>
+        </div>
+        <p class="hint" style="margin-top:0.85rem">Sandbox: add to exam, save to bank, twin, or discard.</p>
+        <div class="error" id="genError"></div>
+      </aside>
+      <section class="main-card">
+        <div class="toolbar no-print">
+          <h2 style="margin:0;flex:1">Sandbox</h2>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnClearSandbox">Clear sandbox</button>
+        </div>
+        <div id="sandboxCards" class="card-grid"><p class="empty">Generate questions to preview them here.</p></div>
+      </section>
+    </div>
+
+    <!-- EXAM -->
+    <div id="viewExam" class="layout hidden">
+      <aside class="side no-print">
+        <h2>Exam header</h2>
+        <div class="form-grid">
+          <label>School <input id="exSchool" value="Salt Academy"></label>
+          <label>Academic year <input id="exYear" value="2026-2027"></label>
+          <label>Term
+            <select id="exTerm"><option>Fall</option><option>Spring</option><option>Summer</option></select>
+          </label>
+          <label>Exam type
+            <select id="exType">
+              <option>Midterm Exam</option>
+              <option selected>Final Exam</option>
+              <option>Custom</option>
+            </select>
+          </label>
+          <label>Custom title <input id="exCustom" placeholder="Only if Custom"></label>
+          <label>Sort rule
+            <select id="exSortRule">
+              <option value="easy-hard">Easy → Hard</option>
+              <option value="hard-easy">Hard → Easy</option>
+              <option value="chapter">Chapter order</option>
+              <option value="type">Question type groups</option>
+            </select>
+          </label>
+          <button type="button" class="btn btn-primary" id="btnSortAi">Sort by AI rules</button>
+          <button type="button" class="btn btn-ok" id="btnSaveExam">Save exam draft</button>
+          <button type="button" class="btn btn-ghost" id="btnPrintPaper">Print test paper</button>
+          <button type="button" class="btn btn-ghost" id="btnPrintKey">Print answer key</button>
+        </div>
+        <div class="error" id="examError"></div>
+        <h2 style="margin-top:1.1rem">Saved exams</h2>
+        <div id="examList" class="exam-list"><p class="empty">None yet</p></div>
+      </aside>
+      <section class="main-card">
+        <div class="toolbar no-print">
+          <h2 style="margin:0;flex:1" id="examTitlePreview">2026-2027 Fall Salt Academy Final Exam</h2>
+          <span class="hint" id="examCount" style="margin:0"></span>
+        </div>
+        <div id="examCards" class="card-grid"><p class="empty">Add questions from the bank or AI sandbox.</p></div>
+        <div id="printArea" class="print-root"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var bankItems = [];
+  var sandboxItems = [];
+  var examQuestions = [];
+  var currentExamId = '';
+  var printMode = 'paper';
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function token() {
+    return localStorage.getItem('salt_teacher_token')
+      || localStorage.getItem('salt_admin_token')
+      || localStorage.getItem('mrpark_teacher_token')
+      || '';
+  }
+  function toolFetch(path, opts) {
+    opts = opts || {};
+    var headers = Object.assign({}, opts.headers || {});
+    var t = token();
+    if (t) headers.Authorization = 'Bearer ' + t;
+    var body = opts.body;
+    if (body && typeof body === 'object' && !(body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(body);
+    }
+    return fetch(path, Object.assign({}, opts, { headers: headers, body: body }))
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) throw new Error((data && data.error) || res.statusText || 'Request failed');
+          return data;
+        });
+      });
+  }
+
+  function renderMath(root) {
+    if (!root || typeof renderMathInElement !== 'function') return;
+    try {
+      renderMathInElement(root, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true }
+        ],
+        throwOnError: false
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  function letters() { return 'ABCDEFGH'.split(''); }
+
+  function questionCardHtml(q, mode, index) {
+    var badges = [
+      '<span class="badge">' + esc(q.subject || '') + '</span>',
+      q.chapter ? '<span class="badge">' + esc(q.chapter) + '</span>' : '',
+      q.topic ? '<span class="badge">' + esc(q.topic) + '</span>' : '',
+      '<span class="badge diff-' + esc(q.difficulty || 'Medium') + '">' + esc(q.difficulty || 'Medium') + '</span>',
+      '<span class="badge">' + esc(q.type || '') + '</span>'
+    ].join('');
+    var tags = (q.hashtags || []).map(function (t) {
+      return '<span class="badge hash">' + esc(t) + '</span>';
+    }).join('');
+    var opts = '';
+    if (q.type === 'Multiple Choice' && q.options && q.options.length) {
+      opts = '<div class="options">' + q.options.map(function (o, i) {
+        return '<div class="opt"><b>' + letters()[i] + '.</b> ' + esc(o) + '</div>';
+      }).join('') + '</div>';
+    } else if (q.type === 'Short Answer') {
+      opts = '<div class="opt muted">Short answer: ________________________</div>';
+    } else if (q.type === 'Essay') {
+      opts = '<div class="opt muted">Essay response space</div>';
+    }
+    var num = (typeof index === 'number') ? ('<strong style="color:var(--olive)">Q' + (index + 1) + '.</strong> ') : '';
+    var actions = '';
+    if (mode === 'bank') {
+      actions =
+        '<button type="button" class="btn btn-ok btn-sm" data-act="add-exam" data-id="' + esc(q.id) + '">+ Exam</button>' +
+        '<button type="button" class="btn btn-danger btn-sm" data-act="delete-bank" data-id="' + esc(q.id) + '">Delete</button>';
+    } else if (mode === 'sandbox') {
+      actions =
+        '<button type="button" class="btn btn-ok btn-sm" data-act="sandbox-exam" data-id="' + esc(q.id) + '">+ Exam</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" data-act="sandbox-save" data-id="' + esc(q.id) + '">Save to bank</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="sandbox-similar" data-id="' + esc(q.id) + '">Similar</button>' +
+        '<button type="button" class="btn btn-danger btn-sm" data-act="sandbox-discard" data-id="' + esc(q.id) + '">Discard</button>';
+    } else if (mode === 'exam') {
+      actions =
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="exam-up" data-id="' + esc(q.id) + '">↑</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="exam-down" data-id="' + esc(q.id) + '">↓</button>' +
+        '<button type="button" class="btn btn-danger btn-sm" data-act="exam-remove" data-id="' + esc(q.id) + '">Remove</button>';
+    }
+    return '<article class="q-card' + (mode === 'sandbox' ? ' sandbox' : '') + '" data-qid="' + esc(q.id) + '">' +
+      '<div class="badges">' + badges + tags + '</div>' +
+      (q.passage ? '<div class="passage">' + esc(q.passage) + '</div>' : '') +
+      (q.imageUrl ? '<img src="' + esc(q.imageUrl) + '" alt="" style="max-width:100%;border-radius:8px">' : '') +
+      '<div class="q-text">' + num + esc(q.questionText) + '</div>' +
+      opts +
+      '<div class="card-actions no-print">' + actions + '</div>' +
+      '</article>';
+  }
+
+  function findById(list, id) {
+    return list.find(function (q) { return q.id === id; });
+  }
+
+  function setView(name) {
+    ['bank', 'generate', 'exam'].forEach(function (v) {
+      var el = $('view' + v.charAt(0).toUpperCase() + v.slice(1));
+      if (el) el.classList.toggle('hidden', v !== name);
+    });
+    document.querySelectorAll('.tab').forEach(function (t) {
+      t.classList.toggle('active', t.dataset.view === name);
+    });
+  }
+
+  function updateExamTitle() {
+    var type = $('exType').value;
+    var title = type === 'Custom' && $('exCustom').value.trim()
+      ? $('exCustom').value.trim()
+      : ($('exYear').value + ' ' + $('exTerm').value + ' ' + $('exSchool').value + ' ' + type);
+    $('examTitlePreview').textContent = title;
+    return title;
+  }
+
+  function renderBank() {
+    var mount = $('bankCards');
+    if (!bankItems.length) {
+      mount.innerHTML = '<p class="empty">No saved questions yet. Generate some in AI Generator.</p>';
+      $('bankCount').textContent = '';
+      return;
+    }
+    mount.innerHTML = bankItems.map(function (q) { return questionCardHtml(q, 'bank'); }).join('');
+    $('bankCount').textContent = bankItems.length + ' item' + (bankItems.length === 1 ? '' : 's');
+    renderMath(mount);
+  }
+
+  function renderSandbox() {
+    var mount = $('sandboxCards');
+    if (!sandboxItems.length) {
+      mount.innerHTML = '<p class="empty">Generate questions to preview them here.</p>';
+      return;
+    }
+    mount.innerHTML = sandboxItems.map(function (q) { return questionCardHtml(q, 'sandbox'); }).join('');
+    renderMath(mount);
+  }
+
+  function renderExam() {
+    var mount = $('examCards');
+    updateExamTitle();
+    if (!examQuestions.length) {
+      mount.innerHTML = '<p class="empty">Add questions from the bank or AI sandbox.</p>';
+      $('examCount').textContent = '';
+      return;
+    }
+    mount.innerHTML = examQuestions.map(function (q, i) { return questionCardHtml(q, 'exam', i); }).join('');
+    $('examCount').textContent = examQuestions.length + ' question' + (examQuestions.length === 1 ? '' : 's');
+    renderMath(mount);
+  }
+
+  function addToExam(q) {
+    if (!q) return;
+    if (examQuestions.some(function (x) { return x.id === q.id || x.id.indexOf(q.id + '_copy_') === 0; })) {
+      // Allow sandbox clones; block exact bank duplicates
+      if (!String(q.id).startsWith('sandbox') && examQuestions.some(function (x) { return x.id === q.id; })) {
+        alert('This question is already on the exam paper.');
+        return;
+      }
+    }
+    examQuestions.push(JSON.parse(JSON.stringify(q)));
+    renderExam();
+    setView('exam');
+  }
+
+  async function loadBank() {
+    $('bankError').textContent = '';
+    try {
+      var data = await toolFetch('/api/item-bank?' + new URLSearchParams({
+        q: $('bankQ').value.trim(),
+        subject: $('bankSubject').value.trim(),
+        difficulty: $('bankDifficulty').value
+      }).toString());
+      bankItems = data.items || [];
+      renderBank();
+    } catch (e) {
+      $('bankError').textContent = e.message;
+      $('bankCards').innerHTML = '<p class="empty">' + esc(e.message) + '</p>';
+    }
+  }
+
+  async function loadExams() {
+    try {
+      var data = await toolFetch('/api/item-bank/exams');
+      var exams = data.exams || [];
+      var box = $('examList');
+      if (!exams.length) {
+        box.innerHTML = '<p class="empty">None yet</p>';
+        return;
+      }
+      box.innerHTML = exams.map(function (ex) {
+        return '<div class="exam-row">' +
+          '<div><strong>' + esc(ex.title) + '</strong><div class="hint" style="margin:0">' +
+          esc((ex.questions || []).length + ' questions') + '</div></div>' +
+          '<div style="display:flex;gap:0.3rem">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-load-exam="' + esc(ex.id) + '">Open</button>' +
+          '<button type="button" class="btn btn-danger btn-sm" data-del-exam="' + esc(ex.id) + '">Delete</button>' +
+          '</div></div>';
+      }).join('');
+    } catch (e) {
+      $('examList').innerHTML = '<p class="empty">' + esc(e.message) + '</p>';
+    }
+  }
+
+  function headerPayload() {
+    return {
+      schoolName: $('exSchool').value.trim() || 'Salt Academy',
+      academicYear: $('exYear').value.trim() || '2026-2027',
+      term: $('exTerm').value,
+      examType: $('exType').value,
+      customTitle: $('exCustom').value.trim()
+    };
+  }
+
+  function buildPrintHtml(includeAnswers) {
+    var title = updateExamTitle();
+    var html = '<div class="print-page' + (includeAnswers ? ' one-col' : '') + '">' +
+      '<div class="print-header"><h1>' + esc(title) + '</h1>' +
+      '<div>' + esc($('exSchool').value) + ' · ' + esc($('exYear').value) + ' · ' + esc($('exTerm').value) + '</div>' +
+      '<div style="margin-top:0.35rem;font-size:0.9rem">' + (includeAnswers ? 'TEACHER ANSWER KEY' : 'Name: ______________  Class: ______  Score: ______') + '</div>' +
+      '</div>';
+    examQuestions.forEach(function (q, i) {
+      html += '<div class="print-q"><strong>' + (i + 1) + '.</strong> ' + esc(q.questionText);
+      if (q.passage) html += '<div style="margin:0.35rem 0;padding:0.35rem;border-left:3px solid #ccc">' + esc(q.passage) + '</div>';
+      if (q.type === 'Multiple Choice' && q.options) {
+        html += '<div style="margin-top:0.35rem">' + q.options.map(function (o, oi) {
+          return '<div>' + letters()[oi] + ') ' + esc(o) + '</div>';
+        }).join('') + '</div>';
+      } else if (!includeAnswers) {
+        html += '<div style="margin-top:0.5rem;border-bottom:1px solid #999;height:1.4rem"></div>';
+        if (q.type === 'Essay') html += '<div style="border-bottom:1px solid #999;height:1.4rem;margin-top:0.4rem"></div><div style="border-bottom:1px solid #999;height:1.4rem;margin-top:0.4rem"></div>';
+      }
+      if (includeAnswers) {
+        html += '<div style="margin-top:0.45rem"><em>Answer:</em> ' + esc(q.correctAnswer || '—') + '</div>';
+        if (q.explanation) html += '<div style="margin-top:0.25rem;font-size:0.92rem"><em>Solution:</em> ' + esc(q.explanation) + '</div>';
+        html += '<div style="margin-top:0.2rem;font-size:0.8rem;color:#555">' + esc(q.difficulty) + ' · ' + esc((q.hashtags || []).join(' ')) + '</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function printExam(asKey) {
+    printMode = asKey ? 'key' : 'paper';
+    var area = $('printArea');
+    area.innerHTML = buildPrintHtml(!!asKey);
+    renderMath(area);
+    setTimeout(function () { window.print(); }, 120);
+  }
+
+  document.querySelectorAll('.tab').forEach(function (btn) {
+    btn.addEventListener('click', function () { setView(btn.dataset.view); });
+  });
+
+  $('btnBankSearch').addEventListener('click', loadBank);
+  $('btnReload').addEventListener('click', function () {
+    loadBank(); loadExams();
+  });
+  ['exSchool', 'exYear', 'exTerm', 'exType', 'exCustom'].forEach(function (id) {
+    $(id).addEventListener('input', updateExamTitle);
+    $(id).addEventListener('change', updateExamTitle);
+  });
+
+  $('btnGenerate').addEventListener('click', async function () {
+    $('genError').textContent = '';
+    $('btnGenerate').disabled = true;
+    $('btnGenerate').textContent = 'Generating…';
+    try {
+      var data = await toolFetch('/api/item-bank/generate', {
+        method: 'POST',
+        body: {
+          subject: $('genSubject').value,
+          chapter: $('genChapter').value,
+          topic: $('genTopic').value,
+          type: $('genType').value,
+          difficulty: $('genDifficulty').value,
+          count: Number($('genCount').value) || 3
+        }
+      });
+      sandboxItems = (data.questions || []).concat(sandboxItems);
+      renderSandbox();
+    } catch (e) {
+      $('genError').textContent = e.message;
+    } finally {
+      $('btnGenerate').disabled = false;
+      $('btnGenerate').textContent = 'Generate with Gemini';
+    }
+  });
+
+  $('btnClearSandbox').addEventListener('click', function () {
+    sandboxItems = [];
+    renderSandbox();
+  });
+
+  $('btnSortAi').addEventListener('click', async function () {
+    $('examError').textContent = '';
+    try {
+      var data = await toolFetch('/api/item-bank/sort', {
+        method: 'POST',
+        body: { questions: examQuestions, rule: $('exSortRule').value }
+      });
+      examQuestions = data.questions || examQuestions;
+      renderExam();
+    } catch (e) {
+      $('examError').textContent = e.message;
+    }
+  });
+
+  $('btnSaveExam').addEventListener('click', async function () {
+    $('examError').textContent = '';
+    try {
+      var data = await toolFetch('/api/item-bank/exams', {
+        method: 'POST',
+        body: {
+          id: currentExamId || undefined,
+          title: updateExamTitle(),
+          header: headerPayload(),
+          questions: examQuestions
+        }
+      });
+      currentExamId = data.exam.id;
+      $('examError').style.color = 'var(--ok)';
+      $('examError').textContent = 'Exam saved.';
+      loadExams();
+    } catch (e) {
+      $('examError').style.color = 'var(--danger)';
+      $('examError').textContent = e.message;
+    }
+  });
+
+  $('btnPrintPaper').addEventListener('click', function () { printExam(false); });
+  $('btnPrintKey').addEventListener('click', function () { printExam(true); });
+
+  document.body.addEventListener('click', async function (e) {
+    var btn = e.target.closest('[data-act]');
+    if (btn) {
+      var id = btn.dataset.id;
+      var act = btn.dataset.act;
+      if (act === 'add-exam') addToExam(findById(bankItems, id));
+      if (act === 'delete-bank') {
+        if (!confirm('Delete this question from the bank?')) return;
+        try {
+          await toolFetch('/api/item-bank/' + encodeURIComponent(id), { method: 'DELETE' });
+          await loadBank();
+        } catch (err) { alert(err.message); }
+      }
+      if (act === 'sandbox-exam') addToExam(findById(sandboxItems, id));
+      if (act === 'sandbox-save') {
+        var q = findById(sandboxItems, id);
+        if (!q) return;
+        try {
+          var saved = await toolFetch('/api/item-bank', { method: 'POST', body: q });
+          sandboxItems = sandboxItems.filter(function (x) { return x.id !== id; });
+          renderSandbox();
+          await loadBank();
+          alert('Saved to item bank' + (saved.item && saved.item.hashtags ? ': ' + saved.item.hashtags.join(' ') : ''));
+        } catch (err) { alert(err.message); }
+      }
+      if (act === 'sandbox-similar') {
+        var src = findById(sandboxItems, id);
+        if (!src) return;
+        btn.disabled = true;
+        try {
+          var sim = await toolFetch('/api/item-bank/generate-similar', { method: 'POST', body: src });
+          if (sim.question) {
+            sandboxItems.unshift(sim.question);
+            renderSandbox();
+          }
+        } catch (err) { alert(err.message); }
+        btn.disabled = false;
+      }
+      if (act === 'sandbox-discard') {
+        sandboxItems = sandboxItems.filter(function (x) { return x.id !== id; });
+        renderSandbox();
+      }
+      if (act === 'exam-remove') {
+        examQuestions = examQuestions.filter(function (x) { return x.id !== id; });
+        renderExam();
+      }
+      if (act === 'exam-up' || act === 'exam-down') {
+        var idx = examQuestions.findIndex(function (x) { return x.id === id; });
+        if (idx < 0) return;
+        var swap = act === 'exam-up' ? idx - 1 : idx + 1;
+        if (swap < 0 || swap >= examQuestions.length) return;
+        var tmp = examQuestions[idx];
+        examQuestions[idx] = examQuestions[swap];
+        examQuestions[swap] = tmp;
+        renderExam();
+      }
+      return;
+    }
+
+    var loadBtn = e.target.closest('[data-load-exam]');
+    if (loadBtn) {
+      try {
+        var ex = await toolFetch('/api/item-bank/exams/' + encodeURIComponent(loadBtn.dataset.loadExam));
+        var exam = ex.exam;
+        currentExamId = exam.id;
+        examQuestions = exam.questions || [];
+        var h = exam.header || {};
+        $('exSchool').value = h.schoolName || 'Salt Academy';
+        $('exYear').value = h.academicYear || '2026-2027';
+        $('exTerm').value = h.term || 'Fall';
+        $('exType').value = h.examType || 'Final Exam';
+        $('exCustom').value = h.customTitle || '';
+        renderExam();
+        setView('exam');
+      } catch (err) { alert(err.message); }
+      return;
+    }
+
+    var delExam = e.target.closest('[data-del-exam]');
+    if (delExam) {
+      if (!confirm('Delete this saved exam?')) return;
+      try {
+        await toolFetch('/api/item-bank/exams/' + encodeURIComponent(delExam.dataset.delExam), { method: 'DELETE' });
+        if (currentExamId === delExam.dataset.delExam) currentExamId = '';
+        loadExams();
+      } catch (err) { alert(err.message); }
+    }
+  });
+
+  function boot() {
+    if (!token()) {
+      $('authStatus').textContent = 'Not logged in — open from Teacher page';
+      $('authStatus').style.background = '#fdeceb';
+      $('authStatus').style.color = 'var(--danger)';
+    } else {
+      $('authStatus').textContent = 'Signed in';
+    }
+    updateExamTitle();
+    loadBank();
+    loadExams();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
