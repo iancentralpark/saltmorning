@@ -160,7 +160,8 @@ const {
   getPromotionTestStatus,
   startPromotionTest,
   submitPromotionTest,
-  ackPromotionTest
+  ackPromotionTest,
+  getVocabEngineInfo
 } = require('./services/vocabShared');
 const { todayStr } = require('./dateUtils');
 
@@ -182,12 +183,27 @@ async function assertHomeroomOfClass(teacherId, classId) {
   }
 }
 
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
+  let vocab = null;
+  try {
+    vocab = await getVocabEngineInfo();
+  } catch (e) {
+    vocab = { ok: false, error: e.message || String(e) };
+  }
   res.json({
     ok: true,
     service: 'salt-morning-class',
-    gemini: isGeminiConfigured()
+    gemini: isGeminiConfigured(),
+    vocab
   });
+});
+
+router.get('/admin/vocab/engine', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await getVocabEngineInfo());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load vocab engine info.' });
+  }
 });
 
 router.post('/auth/student/login', async (req, res) => {

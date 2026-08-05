@@ -1,7 +1,17 @@
 /**
  * Salt Morning Class — Vocab Booster bridge to the shared multi-tenant engine.
- * Tenant: salt-morning (progress isolated from Mr. Park / future schools).
- * Lucky Draw disabled; dollars settle via Morning Class Sheets.
+ *
+ * Architecture:
+ * - Source of truth: Mr.Park Railway `server/src/vocab*` (sync via `npm run vocab:sync`)
+ * - Runtime core: `src/vendor/mrpark-vocab` + shared Supabase, scoped by VOCAB_TENANT_ID
+ * - Dollars: Salt Morning Sheets via dollarService adapter
+ * - Lucky Draw: disabled (VOCAB_SKIP_LUCKY_DRAW)
+ * - Sheets Vocab_* + auto-promote-at-400: RETIRED (see deprecated vocabService.js stub)
+ *
+ * Engine gaps for Mr.Park Vocab chat (not this repo path):
+ * - Dual-Process / stealth-review product surfaces (if still missing upstream)
+ * - Sunday dollar dungeon
+ * - Full /api/vocab/v1 thin-proxy including promotion-test/*
  */
 'use strict';
 
@@ -263,6 +273,51 @@ async function getRecentVocabActivity(limit) {
   }
 }
 
+/** Admin/ops diagnostics for Vocab engine wiring. */
+async function getVocabEngineInfo() {
+  wire();
+  let supabaseOk = false;
+  let errMsg = null;
+  try {
+    const { getSupabase, isSupabaseEnabled } = require(path.join(VENDOR_SRC, 'supabaseClient.js'));
+    if (!isSupabaseEnabled()) {
+      return {
+        ok: false,
+        tenantId: TENANT_ID,
+        engine: 'vendor/mrpark-vocab',
+        error: 'Supabase disabled'
+      };
+    }
+    const db = getSupabase();
+    const { error } = await db
+      .from('vocab_student_state')
+      .select('student_id')
+      .eq('tenant_id', TENANT_ID)
+      .limit(1);
+    if (error) throw new Error(error.message);
+    supabaseOk = true;
+  } catch (e) {
+    errMsg = e.message || String(e);
+  }
+  return {
+    ok: supabaseOk,
+    tenantId: TENANT_ID,
+    engine: 'vendor/mrpark-vocab',
+    vendorPath: VENDOR_SRC,
+    skipLuckyDraw: true,
+    sheetsVocabRetired: true,
+    autoPromoteAt400: false,
+    promotionTest: true,
+    centralApiBase: String(process.env.VOCAB_CENTRAL_API_BASE || '').trim() || null,
+    engineGaps: [
+      'Dual-Process / stealth-review surfaces (confirm in Mr.Park engine chat)',
+      'Sunday dollar dungeon (Mr.Park engine chat)',
+      'Complete /api/vocab/v1 proxy including promotion-test (Mr.Park engine chat)'
+    ],
+    error: errMsg
+  };
+}
+
 module.exports = {
   wire,
   TENANT_ID,
@@ -284,6 +339,7 @@ module.exports = {
   startPromotionTest,
   submitPromotionTest,
   ackPromotionTest,
+  getVocabEngineInfo,
   VENDOR_SRC,
   SERVER_SRC: VENDOR_SRC
 };
