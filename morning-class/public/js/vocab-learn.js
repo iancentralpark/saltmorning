@@ -240,7 +240,17 @@
     state.shieldCount = 0;
     state.decayWarning = false;
     state.summary = null;
+    state.promotionTest = null;
     if (!opts.keepSessionId) state.sessionStudentId = '';
+
+    clearPromoTimer();
+    promo.active = false;
+    promo.roundId = null;
+    promo.questions = [];
+    promo.answers = [];
+    promo.index = 0;
+    promo.status = null;
+    hidePromoModal();
 
     var fresh = blankQuest();
     Object.keys(fresh).forEach(function (k) { quest[k] = fresh[k]; });
