@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708ag2">
+  <link rel="stylesheet" href="/css/app.css?v=20260804restore2">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -23,15 +23,38 @@
       <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
     </div>
     <div class="card">
-      <div class="section-title">Homeroom</div>
-      <div class="class-list" id="homeroomList"></div>
       <div class="section-title">Assigned classes</div>
       <div class="class-list" id="assignedList"></div>
       <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.5rem">
         <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
         <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
+        <button type="button" class="btn btn-ghost" id="openGlobalLessonBtn">Lesson plan</button>
       </div>
-      <p class="muted small" style="margin-top:0.35rem">View student records and your weekly teaching schedule.</p>
+      <p class="muted small" style="margin-top:0.35rem">View student records, your weekly schedule, and lesson plans for all classes you teach.</p>
+    </div>
+  </div>
+
+  <div id="globalLessonView" class="hidden">
+    <div class="topbar">
+      <div>
+        <button class="btn btn-ghost" id="globalLessonBackBtn" type="button">← Classes</button>
+        <div class="brand">Lesson plan — all classes</div>
+      </div>
+      <button class="btn btn-ghost" id="globalLessonLogoutBtn" type="button">Log out</button>
+    </div>
+    <div class="card lp-cal-panel">
+      <div id="lpSubjectsGlobal" class="lp-subjects-panel"></div>
+      <div class="lp-cal-toolbar">
+        <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
+        <strong class="lp-month-label"></strong>
+        <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
+        <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
+      </div>
+      <div id="lpCalLayoutGlobal" class="lp-cal-layout">
+        <div class="lp-cal-main">
+          <div id="lpCalendarGlobal"><p class="muted">Loading calendar…</p></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -87,16 +110,24 @@
     </div>
 
     <div id="panelGrades" class="card hidden grades-panel">
-      <div class="grades-toolbar-minimal">
-        <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
-        <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
-        <span id="gradeContextLabel" class="muted small"></span>
+      <div id="gradeSubjectPicker" class="grade-subject-picker hidden">
+        <p class="muted small" id="gradeSubjectPickerHint">Select a subject to view the gradebook.</p>
+        <div id="gradeSubjectList" class="grade-subject-list"></div>
       </div>
-      <input type="hidden" id="gradeTerm">
-      <input type="hidden" id="gradeSubject">
-      <div id="gradeWeightSummary" class="grade-weight-summary"></div>
-      <div id="gradebookWrap" class="gb-wrap">
-        <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
+      <div id="gradebookSection" class="hidden">
+        <div class="grades-toolbar-minimal">
+          <button type="button" class="btn btn-ghost hidden" id="gradeBackToSubjectsBtn">← Subjects</button>
+          <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
+          <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
+          <span id="gradeContextLabel" class="muted small"></span>
+          <span id="gradeReadOnlyBadge" class="grade-ro-badge hidden">View only</span>
+        </div>
+        <input type="hidden" id="gradeTerm">
+        <input type="hidden" id="gradeSubject">
+        <div id="gradeWeightSummary" class="grade-weight-summary"></div>
+        <div id="gradebookWrap" class="gb-wrap">
+          <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
+        </div>
       </div>
       <div class="error" id="gradesError"></div>
     </div>
@@ -166,6 +197,22 @@
     </div>
   </div>
 </div>
+
+<aside id="classToolsSidebar" class="class-tools-sidebar hidden" aria-label="Class Tools">
+  <div class="class-tools-card">
+    <div class="class-tools-head">
+      <strong>Class Tools</strong>
+      <button type="button" class="btn btn-ghost class-tools-min-btn" id="classToolsToggleBtn" aria-label="Minimize Class Tools">−</button>
+    </div>
+    <div class="class-tools-body" id="classToolsBody">
+      <button type="button" class="btn btn-primary class-tools-btn" id="openJeopardyBtn">AI Jeopardy</button>
+      <p class="muted small" style="margin:0.35rem 0 0">Smartboard quiz board</p>
+      <button type="button" class="btn btn-primary class-tools-btn" id="openItemBankBtn" style="margin-top:0.65rem">Item Bank</button>
+      <p class="muted small" style="margin:0.35rem 0 0">AI questions · exams · print</p>
+    </div>
+  </div>
+  <button type="button" class="class-tools-chip hidden" id="classToolsChip" title="Open Class Tools">Tools</button>
+</aside>
 
 <div id="lpDrawerBackdrop" class="lp-lesson-backdrop hidden" aria-hidden="true"></div>
 <aside id="lpLessonDrawer" class="lp-lesson-drawer" role="dialog" aria-modal="true" aria-hidden="true">
@@ -280,18 +327,19 @@
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260708ag"></script>
-<script src="/js/teacher-attendance.js?v=20260708ag"></script>
-<script src="/js/teacher-grades.js?v=20260708quota"></script>
-<script src="/js/teacher-lesson.js?v=20260708ag"></script>
+<script src="/js/app.js?v=20260804restore"></script>
+<script src="/js/teacher-attendance.js?v=20260804hr"></script>
+<script src="/js/teacher-grades.js?v=20260804homeroom"></script>
+<script src="/js/teacher-lesson.js?v=20260804homeroom"></script>
 <script src="/js/messenger.js?v=20260708ag"></script>
-<script src="/js/student-registry.js?v=20260709registry"></script>
+<script src="/js/student-registry.js?v=20260804uxaudit"></script>
 <script src="/js/timetable.js?v=20260709tt"></script>
 <script>
 (function() {
   const role = 'teacher';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, todayISO, escapeHtml } = SaltApp;
   let currentClass = null;
+  let lessonScope = 'class';
 
   SaltAttendance.init({
     $, show, hide, escapeHtml, todayISO, api,
@@ -306,36 +354,61 @@
 
   SaltLesson.init({
     $, show, hide, escapeHtml, api, role,
-    getClass: () => currentClass,
+    getClass: () => (lessonScope === 'global' ? null : currentClass),
     onClassOpenExtra: async () => {
       await SaltGrades.loadActiveTerm();
       SaltGrades.loadLessonWeights();
     }
   });
 
-  function classCard(c, isHomeroom) {
-    const subj = (c.subjects && c.subjects.length) ? c.subjects.join(', ') : (isHomeroom ? 'All subjects' : '');
-    return '<div class="class-card" data-id="' + escapeHtml(c.classId) + '" data-name="' + escapeHtml(c.className) + '" data-subjects="' + escapeHtml(subj) + '">' +
-      '<strong>' + escapeHtml(c.className) + '</strong><br><small>' + escapeHtml(c.classId) + ' · ' + escapeHtml(subj) + '</small></div>';
+  function classCard(c) {
+    const isHomeroom = !!c.isHomeroom;
+    const roleLabel = c.roleLabel || (c.roles && c.roles.length ? c.roles.join(' / ') : (c.subjects || []).join(' / '));
+    const subjectsJson = JSON.stringify(c.subjects || []);
+    return '<div class="class-card' + (isHomeroom ? ' class-card-homeroom' : '') +
+      '" data-id="' + escapeHtml(c.classId) +
+      '" data-name="' + escapeHtml(c.className) +
+      '" data-homeroom="' + (isHomeroom ? '1' : '0') +
+      '" data-subjects="' + escapeHtml(subjectsJson) +
+      '" data-roles="' + escapeHtml(roleLabel) + '">' +
+      (isHomeroom ? '<span class="class-homeroom-badge">Homeroom</span>' : '') +
+      '<strong>' + escapeHtml(c.className) + '</strong>' +
+      '<div class="class-card-meta"><small>' + escapeHtml(c.classId) + '</small></div>' +
+      (roleLabel ? '<div class="class-card-roles">' + escapeHtml(roleLabel) + '</div>' : '') +
+      '</div>';
   }
 
   async function loadClasses() {
     const data = await api('/api/teacher/classes', {}, role);
-    $('homeroomList').innerHTML = (data.homeroom || []).map(c => classCard(c, true)).join('') ||
-      '<p style="color:var(--muted)">No homeroom assigned.</p>';
-    $('assignedList').innerHTML = (data.assigned || []).map(c => classCard(c, false)).join('') ||
-      '<p style="color:var(--muted)">No other classes assigned.</p>';
+    const classes = data.classes && data.classes.length
+      ? data.classes
+      : [].concat(
+          (data.homeroom || []).map((c) => Object.assign({}, c, { isHomeroom: true, subjects: [], roles: ['Homeroom'], roleLabel: 'Homeroom' })),
+          (data.assigned || []).map((c) => Object.assign({}, c, {
+            isHomeroom: false,
+            subjects: c.subjects || [],
+            roles: c.subjects || [],
+            roleLabel: (c.subjects || []).join(' / ')
+          }))
+        );
+    $('assignedList').innerHTML = classes.map(classCard).join('') ||
+      '<p style="color:var(--muted)">No classes assigned.</p>';
     document.querySelectorAll('.class-card').forEach(el => {
-      el.addEventListener('click', () => openClass({
-        classId: el.dataset.id,
-        className: el.dataset.name,
-        subjects: el.dataset.subjects
-      }));
+      el.addEventListener('click', () => {
+        let subjects = [];
+        try { subjects = JSON.parse(el.dataset.subjects || '[]'); } catch (e) { subjects = []; }
+        openClass({
+          classId: el.dataset.id,
+          className: el.dataset.name,
+          isHomeroom: el.dataset.homeroom === '1',
+          subjects: subjects,
+          roleLabel: el.dataset.roles || ''
+        });
+      });
     });
-    const teacherClasses = [].concat(data.homeroom || [], data.assigned || []);
     const seen = new Set();
     const classOpts = [];
-    teacherClasses.forEach((c) => {
+    classes.forEach((c) => {
       if (!c.classId || seen.has(c.classId)) return;
       seen.add(c.classId);
       classOpts.push({ classId: c.classId, name: c.className });
@@ -353,6 +426,24 @@
     hide($('classesView'));
     show($('timetableView'));
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', '', '');
+  });
+
+  $('openGlobalLessonBtn').addEventListener('click', () => {
+    lessonScope = 'global';
+    hide($('classesView'));
+    hide($('classView'));
+    show($('globalLessonView'));
+    SaltLesson.onGlobalOpen();
+  });
+
+  $('globalLessonBackBtn').addEventListener('click', () => {
+    hide($('globalLessonView'));
+    show($('classesView'));
+    lessonScope = 'class';
+  });
+
+  $('globalLessonLogoutBtn').addEventListener('click', () => {
+    setToken(role, ''); setProfile(role, null); location.reload();
   });
 
   $('timetableBackBtn').addEventListener('click', () => {
@@ -374,11 +465,15 @@
   });
 
   function openClass(cls) {
+    lessonScope = 'class';
     currentClass = cls;
-    hide($('classesView')); show($('classView'));
-    $('classTitle').textContent = cls.className;
+    hide($('classesView'));
+    hide($('globalLessonView'));
+    show($('classView'));
+    $('classTitle').textContent = cls.className + (cls.isHomeroom ? ' · Homeroom' : '');
     $('attDate').value = todayISO();
-    $('gradeSubject').value = (cls.subjects && cls.subjects !== 'All subjects') ? cls.subjects.split(',')[0].trim() : 'English';
+    const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
+    $('gradeSubject').value = firstSubject;
     $('reportTerm').value = $('gradeTerm').value || 'Term1';
     switchTab('attendance');
     SaltAttendance.onClassOpen();
@@ -644,10 +739,10 @@
       let html = '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
         '<th>Student</th><th>Tier</th><th>Lv</th><th>Quest</th><th>Streak</th><th></th></tr></thead><tbody>';
       students.forEach((s) => {
-        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tier || '—') +
+        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tierLabel || s.tier || s.tierName || '—') +
           '</td><td>' + (s.placementDone ? s.gradeLevel : '—') +
-          '</td><td>' + (s.questDone ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
-          '</td><td>' + (s.streak || 0) + '</td><td style="white-space:nowrap">' +
+          '</td><td>' + ((s.questDone || s.todayTestPassed) ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
+          '</td><td>' + (s.streak || s.streakDays || 0) + '</td><td style="white-space:nowrap">' +
           '<button type="button" class="btn btn-ghost vocab-reset" data-sid="' + escapeHtml(s.studentId) +
           '">Reset</button> ' +
           '<button type="button" class="btn btn-ghost vocab-up" data-sid="' + escapeHtml(s.studentId) +
@@ -738,6 +833,47 @@
     setToken(role, ''); setProfile(role, null); location.href = '/';
   });
 
+  function showClassToolsSidebar() {
+    const bar = $('classToolsSidebar');
+    if (bar) bar.classList.remove('hidden');
+  }
+
+  function setClassToolsMinimized(min) {
+    const bar = $('classToolsSidebar');
+    const body = $('classToolsBody');
+    const chip = $('classToolsChip');
+    const toggle = $('classToolsToggleBtn');
+    if (!bar) return;
+    bar.classList.toggle('is-minimized', !!min);
+    if (body) body.classList.toggle('hidden', !!min);
+    if (chip) chip.classList.toggle('hidden', !min);
+    if (toggle) toggle.textContent = min ? '+' : '−';
+  }
+
+  const openJeopardyBtn = $('openJeopardyBtn');
+  if (openJeopardyBtn) {
+    openJeopardyBtn.addEventListener('click', () => {
+      window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
+    });
+  }
+  const openItemBankBtn = $('openItemBankBtn');
+  if (openItemBankBtn) {
+    openItemBankBtn.addEventListener('click', () => {
+      window.open('/tools/item-bank', 'saltItemBank', 'noopener,width=1440,height=900');
+    });
+  }
+  const classToolsToggleBtn = $('classToolsToggleBtn');
+  if (classToolsToggleBtn) {
+    classToolsToggleBtn.addEventListener('click', () => {
+      const bar = $('classToolsSidebar');
+      setClassToolsMinimized(!(bar && bar.classList.contains('is-minimized')));
+    });
+  }
+  const classToolsChip = $('classToolsChip');
+  if (classToolsChip) {
+    classToolsChip.addEventListener('click', () => setClassToolsMinimized(false));
+  }
+
   function bootApp() {
     const p = getProfile(role);
     if (!p) return;
@@ -749,6 +885,8 @@
     });
     loadClasses();
     SaltMessenger.init(role);
+    showClassToolsSidebar();
+    setClassToolsMinimized(false);
   }
 
   if (getToken(role)) bootApp();

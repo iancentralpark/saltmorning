@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vocab Booster Embed Demo</title>
+  <style>
+    :root {
+      --ink: #1a2332;
+      --muted: #5c6b7a;
+      --wash: #e8f0f4;
+      --accent: #0d6e6e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #cfe8e4 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #d6e4f0 0%, transparent 50%),
+        linear-gradient(180deg, #f3f7f9 0%, var(--wash) 100%);
+      min-height: 100vh;
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+    h1 {
+      font-size: clamp(1.6rem, 4vw, 2.1rem);
+      letter-spacing: -0.02em;
+      margin: 0 0 0.35rem;
+    }
+    .lede { color: var(--muted); margin: 0 0 1.5rem; line-height: 1.45; }
+    .panel {
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(26,35,50,0.08);
+      border-radius: 16px;
+      padding: 1rem 1.1rem 1.25rem;
+      margin-bottom: 1.25rem;
+      backdrop-filter: blur(8px);
+    }
+    label { display: block; font-size: 0.8rem; font-weight: 600; margin: 0.65rem 0 0.25rem; }
+    input, textarea, select, button {
+      font: inherit;
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(26,35,50,0.15);
+      padding: 0.55rem 0.7rem;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      margin-top: 0.9rem;
+    }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+    #status { font-size: 0.85rem; color: var(--muted); min-height: 1.2em; margin-top: 0.5rem; }
+    #status.err { color: #b42318; }
+    #vocab-booster-root { min-height: 280px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Vocab Booster embed</h1>
+    <p class="lede">Mint a tenant session on your server, then mount the learner against the central <code>/api/vocab/v1</code> API.</p>
+
+    <div class="panel">
+      <label for="apiBase">Central API base</label>
+      <input id="apiBase" value="" placeholder="https://mrpark-class-api-production.up.railway.app">
+
+      <div class="row">
+        <div>
+          <label for="tenantId">Tenant id</label>
+          <input id="tenantId" value="mrpark">
+        </div>
+        <div>
+          <label for="publicKey">Public key</label>
+          <input id="publicKey" value="pk_mrpark">
+        </div>
+      </div>
+
+      <label for="apiSecret">Tenant API secret (server-side only — demo form)</label>
+      <input id="apiSecret" type="password" autocomplete="off" placeholder="vbsec_…">
+
+      <div class="row">
+        <div>
+          <label for="studentId">Student id</label>
+          <input id="studentId" value="S001">
+        </div>
+        <div>
+          <label for="classId">Class id</label>
+          <input id="classId" value="DEMO">
+        </div>
+      </div>
+
+      <label for="studentName">Name (optional)</label>
+      <input id="studentName" value="Demo Student">
+
+      <button type="button" id="mintBtn">Mint session &amp; mount</button>
+      <div id="status"></div>
+    </div>
+
+    <div class="panel">
+      <div id="vocab-booster-root"></div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var apiBaseInput = document.getElementById('apiBase');
+      apiBaseInput.value = location.origin;
+
+      function setStatus(msg, isErr) {
+        var el = document.getElementById('status');
+        el.textContent = msg || '';
+        el.className = isErr ? 'err' : '';
+      }
+
+      document.getElementById('mintBtn').addEventListener('click', async function () {
+        var btn = this;
+        btn.disabled = true;
+        setStatus('Minting session…');
+        try {
+          var apiBase = apiBaseInput.value.replace(/\/$/, '');
+          var secret = document.getElementById('apiSecret').value.trim();
+          var tenantId = document.getElementById('tenantId').value.trim();
+          var publicKey = document.getElementById('publicKey').value.trim();
+          if (!secret) throw new Error('API secret required');
+
+          var res = await fetch(apiBase + '/api/vocab/v1/session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + secret,
+              'X-Vocab-Tenant-Id': tenantId,
+              'X-Vocab-Public-Key': publicKey
+            },
+            body: JSON.stringify({
+              studentId: document.getElementById('studentId').value.trim(),
+              classId: document.getElementById('classId').value.trim(),
+              name: document.getElementById('studentName').value.trim(),
+              tenantId: tenantId,
+              publicKey: publicKey
+            })
+          });
+          var payload = await res.json();
+          if (!res.ok) throw new Error(payload.error || 'Mint failed');
+
+          if (!window.VocabBooster) {
+            await new Promise(function (resolve, reject) {
+              var s = document.createElement('script');
+              s.src = apiBase + '/js/vocab-embed.js';
+              s.onload = resolve;
+              s.onerror = function () { reject(new Error('Could not load embed.js')); };
+              document.head.appendChild(s);
+            });
+          }
+
+          await VocabBooster.mount({
+            apiBase: apiBase,
+            session: payload.token,
+            root: '#vocab-booster-root'
+          });
+          setStatus('Mounted for ' + payload.session.studentId + ' @ ' + payload.tenant.id);
+        } catch (e) {
+          setStatus(e.message || String(e), true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

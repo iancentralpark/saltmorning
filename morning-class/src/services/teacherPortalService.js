@@ -45,7 +45,8 @@ async function getTeacherClasses(teacherId) {
       classId: teacher.homeroomClassId,
       className: names[teacher.homeroomClassId] || teacher.homeroomClassId,
       assignmentType: 'Homeroom',
-      subjects: ['All']
+      subjects: ['All'],
+      isHomeroom: true
     });
     seen.add(teacher.homeroomClassId + ':Homeroom');
   }
@@ -64,7 +65,8 @@ async function getTeacherClasses(teacherId) {
       classId,
       className: names[classId] || classId,
       assignmentType,
-      subjects: subject ? [subject] : []
+      subjects: subject ? [subject] : [],
+      isHomeroom: false
     };
 
     if (assignmentType === 'Homeroom' && teacher.homeroomClassId === classId) continue;
@@ -72,6 +74,12 @@ async function getTeacherClasses(teacherId) {
   }
 
   return { teacher, homeroom, assigned };
+}
+
+async function isHomeroomOfClass(teacherId, classId) {
+  const teacher = await getTeacherProfile(teacherId);
+  return !!(teacher && teacher.homeroomClassId &&
+    String(teacher.homeroomClassId) === String(classId));
 }
 
 async function getClassRoster(classId) {
@@ -89,4 +97,10 @@ async function getClassRoster(classId) {
   return students;
 }
 
-module.exports = { getTeacherClasses, getClassRoster, getClassNameMap, getTeacherProfile };
+module.exports = {
+  getTeacherClasses,
+  getClassRoster,
+  getClassNameMap,
+  getTeacherProfile,
+  isHomeroomOfClass
+};

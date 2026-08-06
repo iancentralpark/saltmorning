@@ -2,21 +2,24 @@ const crypto = require('crypto');
 const {
   TIMETABLE_ENTRIES_SHEET,
   SUBJECTS_SHEET,
-  STUDENT_LIST_SHEET
+  STUDENT_LIST_SHEET,
+  TEACHER_LIST_SHEET
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { getTeacherStudentIds } = require('./studentRegistryService');
 const { getBellSchedule } = require('./bellScheduleService');
+const { getClassRoster } = require('./teacherPortalService');
 
 const HEADERS = [
   'EntryID', 'OwnerType', 'OwnerID', 'ClassID', 'DayOfWeek',
-  'StartTime', 'EndTime', 'Subject', 'TeacherID', 'Room', 'Notes', 'SortOrder', 'UpdatedAt'
+  'StartTime', 'EndTime', 'Subject', 'TeacherID', 'Room', 'Notes',
+  'SortOrder', 'UpdatedAt', 'Locked', 'PeriodID'
 ];
 
 const COL = {
   entryId: 0, ownerType: 1, ownerId: 2, classId: 3, dayOfWeek: 4,
   startTime: 5, endTime: 6, subject: 7, teacherId: 8, room: 9, notes: 10,
-  sortOrder: 11, updatedAt: 12
+  sortOrder: 11, updatedAt: 12, locked: 13, periodId: 14
 };
 
 const DAY_LABELS = {
@@ -48,6 +51,11 @@ function normalizeDay(value) {
   return d;
 }
 
+function truthyLocked(value) {
+  const s = String(value == null ? '' : value).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'locked' || value === true;
+}
+
 function rowToEntry(row) {
   if (!row || !row[COL.entryId]) return null;
   let teacherId = '';
@@ -55,7 +63,18 @@ function rowToEntry(row) {
   let notes = '';
   let sortOrder = 0;
   let updatedAt = '';
-  if (row.length >= 13) {
+  let locked = false;
+  let periodId = '';
+
+  if (row.length >= 15) {
+    teacherId = String(row[COL.teacherId] || '');
+    room = String(row[COL.room] || '');
+    notes = String(row[COL.notes] || '');
+    sortOrder = Number(row[COL.sortOrder]) || 0;
+    updatedAt = String(row[COL.updatedAt] || '');
+    locked = truthyLocked(row[COL.locked]);
+    periodId = String(row[COL.periodId] || '').trim();
+  } else if (row.length >= 13) {
     teacherId = String(row[COL.teacherId] || '');
     room = String(row[COL.room] || '');
     notes = String(row[COL.notes] || '');
@@ -67,6 +86,7 @@ function rowToEntry(row) {
     sortOrder = Number(row[10]) || 0;
     updatedAt = String(row[11] || '');
   }
+
   return {
     entryId: String(row[COL.entryId]),
     ownerType: String(row[COL.ownerType] || ''),
@@ -81,7 +101,9 @@ function rowToEntry(row) {
     room,
     notes,
     sortOrder,
-    updatedAt
+    updatedAt,
+    locked,
+    periodId
   };
 }
 
@@ -99,6 +121,12 @@ function groupByDay(entries) {
     if (grouped[e.dayOfWeek]) grouped[e.dayOfWeek].push(e);
   });
   return grouped;
+}
+
+function slotKey(dayOfWeek, periodId, startTime, sortOrder) {
+  if (periodId) return String(dayOfWeek) + '|' + periodId;
+  if (Number.isInteger(sortOrder)) return String(dayOfWeek) + '|idx:' + sortOrder;
+  return String(dayOfWeek) + '|' + String(startTime || '');
 }
 
 function enrichWithBellBreaks(entries, bell) {
@@ -124,7 +152,9 @@ function enrichWithBellBreaks(entries, bell) {
         notes: br.periodType,
         sortOrder: br.sortOrder - 0.5,
         isBreak: true,
-        periodType: br.periodType
+        periodType: br.periodType,
+        periodId: br.periodId,
+        locked: false
       });
     });
     Object.keys(byDay).forEach((day) => {
@@ -143,6 +173,17 @@ function enrichWithBellBreaks(entries, bell) {
 
 async function ensureTimetableSheet() {
   await ensureSheet(TIMETABLE_ENTRIES_SHEET, HEADERS);
+  // Migrate legacy header row to include Locked + PeriodID when needed
+  try {
+    const rows = await getSheetRows(TIMETABLE_ENTRIES_SHEET, { skipCache: true });
+    const header = rows[0] || [];
+    if (header.length < HEADERS.length || String(header[13] || '') !== 'Locked') {
+      await updateRange(TIMETABLE_ENTRIES_SHEET, 'A1:O1', [HEADERS]);
+      invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
+    }
+  } catch (e) {
+    // non-fatal — writes still pad columns
+  }
 }
 
 async function getStudentClassId(studentId) {
@@ -164,6 +205,15 @@ async function listSubjects() {
   }
   if (!out.length) return ['English', 'Math', 'Science', 'Reading', 'Writing', 'Grammar'];
   return out;
+}
+
+async function teacherNameMap() {
+  const rows = await getSheetRows(TEACHER_LIST_SHEET);
+  const map = {};
+  for (let i = 1; i < rows.length; i++) {
+    map[String(rows[i][0])] = String(rows[i][1] || '');
+  }
+  return map;
 }
 
 async function loadAllEntries() {
@@ -201,8 +251,17 @@ async function getTimetable(ownerType, ownerId) {
   if (!ownerType || !ownerId) throw new Error('Owner is required.');
 
   const entries = await resolveTimetableEntries(ownerType, ownerId);
-  const bell = await getBellSchedule().catch(() => ({ periods: [] }));
+  const bell = await getBellSchedule().catch(() => ({ periods: [], lessonPeriods: [] }));
   const enriched = enrichWithBellBreaks(entries, bell);
+  const names = await teacherNameMap().catch(() => ({}));
+  enriched.entries.forEach((e) => {
+    e.teacherName = names[e.teacherId] || '';
+  });
+  Object.keys(enriched.byDay).forEach((d) => {
+    enriched.byDay[d].forEach((e) => {
+      e.teacherName = names[e.teacherId] || '';
+    });
+  });
 
   return {
     ownerType,
@@ -210,29 +269,76 @@ async function getTimetable(ownerType, ownerId) {
     entries: enriched.entries,
     byDay: enriched.byDay,
     breaks: enriched.breaks,
-    bellSchedule: bell.periods || []
+    bellSchedule: bell.periods || [],
+    lessonPeriods: bell.lessonPeriods || []
   };
 }
 
-function validateEntryPayload(entry, ownerType, ownerId) {
-  const startTime = normalizeTime(entry.startTime);
-  const endTime = normalizeTime(entry.endTime);
-  if (endTime <= startTime) throw new Error('End time must be after start time.');
+function findLessonPeriod(bell, entry) {
+  const lessons = (bell && bell.lessonPeriods) || [];
+  if (!lessons.length) return null;
+  if (entry.periodId) {
+    const hit = lessons.find((p) => p.periodId === entry.periodId);
+    if (hit) return hit;
+  }
+  if (Number.isInteger(entry.sortOrder) || entry.sortOrder === 0) {
+    // Prefer index into lessonPeriods when auto-generated
+    const byLessonIdx = lessons[Number(entry.sortOrder)];
+    if (byLessonIdx && (!entry.startTime || byLessonIdx.startTime === entry.startTime)) {
+      return byLessonIdx;
+    }
+  }
+  if (entry.startTime) {
+    const byTime = lessons.find((p) => p.startTime === entry.startTime);
+    if (byTime) return byTime;
+  }
+  return null;
+}
+
+async function alignEntryToBell(entry, bell) {
+  const period = findLessonPeriod(bell, entry);
+  if (!period) {
+    // Allow raw times only if no bell schedule configured
+    if (!(bell && bell.lessonPeriods && bell.lessonPeriods.length)) {
+      return {
+        startTime: normalizeTime(entry.startTime),
+        endTime: normalizeTime(entry.endTime),
+        periodId: String(entry.periodId || '').trim(),
+        sortOrder: Number(entry.sortOrder) || 0
+      };
+    }
+    throw new Error('Each slot must use a bell schedule lesson period.');
+  }
+  const lessonIdx = bell.lessonPeriods.findIndex((p) => p.periodId === period.periodId);
   return {
-    entryId: String(entry.entryId || '').trim() || newId('tte'),
-    ownerType,
-    ownerId,
-    classId: String(entry.classId || '').trim(),
-    dayOfWeek: normalizeDay(entry.dayOfWeek),
-    startTime,
-    endTime,
-    subject: String(entry.subject || '').trim(),
-    teacherId: String(entry.teacherId || '').trim(),
-    room: String(entry.room || '').trim(),
-    notes: String(entry.notes || '').trim(),
-    sortOrder: Number(entry.sortOrder) || 0,
-    updatedAt: entry.updatedAt || isoNow()
+    startTime: period.startTime,
+    endTime: period.endTime,
+    periodId: period.periodId,
+    sortOrder: lessonIdx >= 0 ? lessonIdx : Number(entry.sortOrder) || 0
   };
+}
+
+function validateEntryPayload(entry, ownerType, ownerId, bell) {
+  return alignEntryToBell(entry, bell).then((aligned) => {
+    if (aligned.endTime <= aligned.startTime) throw new Error('End time must be after start time.');
+    return {
+      entryId: String(entry.entryId || '').trim() || newId('tte'),
+      ownerType,
+      ownerId,
+      classId: String(entry.classId || '').trim(),
+      dayOfWeek: normalizeDay(entry.dayOfWeek),
+      startTime: aligned.startTime,
+      endTime: aligned.endTime,
+      subject: String(entry.subject || '').trim(),
+      teacherId: String(entry.teacherId || '').trim(),
+      room: String(entry.room || '').trim(),
+      notes: String(entry.notes || '').trim(),
+      sortOrder: aligned.sortOrder,
+      updatedAt: entry.updatedAt || isoNow(),
+      locked: truthyLocked(entry.locked),
+      periodId: aligned.periodId
+    };
+  });
 }
 
 function entryToRow(entry) {
@@ -240,22 +346,57 @@ function entryToRow(entry) {
     entry.entryId, entry.ownerType, entry.ownerId, entry.classId,
     String(entry.dayOfWeek), entry.startTime, entry.endTime,
     entry.subject, entry.teacherId, entry.room, entry.notes,
-    String(entry.sortOrder), entry.updatedAt
+    String(entry.sortOrder), entry.updatedAt,
+    entry.locked ? 'true' : 'false',
+    entry.periodId || ''
   ];
 }
 
-async function saveTimetable(ownerType, ownerId, entries) {
-  ownerType = String(ownerType || '').trim();
-  ownerId = String(ownerId || '').trim();
-  if (!ownerType || !ownerId) throw new Error('Owner is required.');
-  if (!Array.isArray(entries)) throw new Error('Entries array is required.');
+function assertNoInternalConflicts(entries) {
+  const classSlots = new Set();
+  const teacherSlots = new Map();
+  entries.forEach((e) => {
+    const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
+    if (classSlots.has(key)) {
+      throw new Error('This class already has a subject in that period.');
+    }
+    classSlots.add(key);
+    if (!e.teacherId) return;
+    if (!teacherSlots.has(e.teacherId)) teacherSlots.set(e.teacherId, new Set());
+    const set = teacherSlots.get(e.teacherId);
+    if (set.has(key)) {
+      throw new Error('Teacher is double-booked within this timetable (' + e.subject + ').');
+    }
+    set.add(key);
+  });
+}
 
-  const normalized = entries.map((e, idx) => {
-    const row = validateEntryPayload(Object.assign({}, e, { sortOrder: e.sortOrder ?? idx }), ownerType, ownerId);
-    if (!row.subject) throw new Error('Subject is required for each slot.');
-    return row;
+async function assertNoExternalTeacherConflicts(entries, excludeClassId) {
+  const all = await loadAllEntries();
+  const busy = new Map(); // teacherId -> Set(slotKey)
+
+  all.forEach((e) => {
+    if (e.ownerType !== 'class') return;
+    if (excludeClassId && e.ownerId === String(excludeClassId)) return;
+    if (!e.teacherId) return;
+    const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
+    if (!busy.has(e.teacherId)) busy.set(e.teacherId, new Set());
+    busy.get(e.teacherId).add(key);
   });
 
+  entries.forEach((e) => {
+    if (!e.teacherId) return;
+    const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
+    const set = busy.get(e.teacherId);
+    if (set && set.has(key)) {
+      throw new Error(
+        'Teacher conflict: already scheduled in another class at that period (' + e.subject + ').'
+      );
+    }
+  });
+}
+
+async function writeOwnerRows(ownerType, ownerId, normalized) {
   await ensureTimetableSheet();
   const allRows = await getSheetRows(TIMETABLE_ENTRIES_SHEET, { skipCache: true });
   const kept = [];
@@ -263,16 +404,17 @@ async function saveTimetable(ownerType, ownerId, entries) {
     const type = String(allRows[i][COL.ownerType] || '');
     const id = String(allRows[i][COL.ownerId] || '');
     if (type === ownerType && id === ownerId) continue;
-    kept.push(allRows[i]);
+    // Pad legacy rows to new width when rewriting
+    const row = allRows[i].slice();
+    while (row.length < HEADERS.length) row.push('');
+    kept.push(row.slice(0, HEADERS.length));
   }
 
   const combined = kept.concat(normalized.map(entryToRow));
   const oldCount = Math.max(0, allRows.length - 1);
   const rowWidth = HEADERS.length;
 
-  if (!combined.length && !oldCount) {
-    return getTimetable(ownerType, ownerId);
-  }
+  if (!combined.length && !oldCount) return;
 
   if (!oldCount && combined.length) {
     await appendRows(TIMETABLE_ENTRIES_SHEET, combined);
@@ -282,10 +424,188 @@ async function saveTimetable(ownerType, ownerId, entries) {
     for (let i = 0; i < maxRows; i++) {
       toWrite.push(i < combined.length ? combined[i] : new Array(rowWidth).fill(''));
     }
-    await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:M${maxRows + 1}`, toWrite);
+    await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:O${maxRows + 1}`, toWrite);
   }
   invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
+}
+
+async function saveTimetable(ownerType, ownerId, entries, options) {
+  options = options || {};
+  ownerType = String(ownerType || '').trim();
+  ownerId = String(ownerId || '').trim();
+  if (!ownerType || !ownerId) throw new Error('Owner is required.');
+  if (!Array.isArray(entries)) throw new Error('Entries array is required.');
+
+  const bell = await getBellSchedule().catch(() => ({ periods: [], lessonPeriods: [] }));
+  const filtered = entries.filter((e) => e && !e.isBreak && e.ownerType !== 'bell');
+
+  const normalized = [];
+  for (let idx = 0; idx < filtered.length; idx++) {
+    const e = filtered[idx];
+    const row = await validateEntryPayload(
+      Object.assign({}, e, { sortOrder: e.sortOrder != null ? e.sortOrder : idx }),
+      ownerType,
+      ownerId,
+      bell
+    );
+    if (!row.subject) throw new Error('Subject is required for each slot.');
+    normalized.push(row);
+  }
+
+  assertNoInternalConflicts(normalized);
+
+  if (!options.skipConflictCheck && (ownerType === 'class' || options.checkTeacherConflicts)) {
+    const excludeClassId = ownerType === 'class' ? ownerId : (options.excludeClassId || '');
+    await assertNoExternalTeacherConflicts(normalized, excludeClassId);
+  }
+
+  await writeOwnerRows(ownerType, ownerId, normalized);
   return getTimetable(ownerType, ownerId);
+}
+
+async function saveClassTimetable(classId, entries, options) {
+  options = options || {};
+  classId = String(classId || '').trim();
+  if (!classId) throw new Error('Class ID is required.');
+
+  const previous = await loadAllEntries();
+  const previousTeacherIds = previous
+    .filter((e) => e.ownerType === 'class' && e.ownerId === classId && e.teacherId)
+    .map((e) => e.teacherId);
+
+  const result = await saveTimetable('class', classId, entries.map((e) => ({
+    ...e,
+    classId: e.classId || classId
+  })), {
+    checkTeacherConflicts: true,
+    skipConflictCheck: !!options.skipConflictCheck
+  });
+
+  const classOnly = (result.entries || []).filter((e) => !e.isBreak);
+  let sync = { studentsUpdated: 0, teachersUpdated: 0 };
+  if (options.syncDependents !== false) {
+    const teacherIds = [...new Set(
+      previousTeacherIds.concat(classOnly.map((e) => e.teacherId).filter(Boolean))
+    )];
+    sync = await syncClassDependents(classId, classOnly, teacherIds);
+  }
+  return Object.assign({}, result, sync);
+}
+
+function teacherEntriesFromClassRows(allClassEntries, teacherId, now) {
+  return sortEntries(
+    allClassEntries
+      .filter((e) => e.teacherId === teacherId)
+      .map((e) => ({
+        entryId: newId('tte'),
+        ownerType: 'teacher',
+        ownerId: teacherId,
+        classId: e.classId || e.ownerId,
+        dayOfWeek: e.dayOfWeek,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        subject: e.subject,
+        teacherId,
+        room: e.room,
+        notes: e.notes,
+        sortOrder: e.sortOrder,
+        updatedAt: now,
+        locked: !!e.locked,
+        periodId: e.periodId || ''
+      }))
+  );
+}
+
+async function rebuildTeacherTimetable(teacherId) {
+  const all = await loadAllEntries();
+  const classEntries = all.filter((e) => e.ownerType === 'class');
+  const entries = teacherEntriesFromClassRows(classEntries, teacherId, isoNow());
+  await writeOwnerRows('teacher', teacherId, entries);
+}
+
+/**
+ * Sync teachers + clear stale per-student copies in ONE sheet rewrite.
+ * Students inherit the class timetable via getTimetable() fallback when they
+ * have no personal rows — avoids N full-sheet writes that timed out Save & sync.
+ */
+async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
+  classId = String(classId);
+  const roster = await getClassRoster(classId);
+  const rosterIds = new Set(roster.map((s) => String(s.studentId)));
+  const teacherIds = [...new Set(
+    (teacherIdsOverride || classEntries.map((e) => e.teacherId).filter(Boolean))
+      .map(String)
+  )];
+  const teacherIdSet = new Set(teacherIds);
+  const now = isoNow();
+
+  await ensureTimetableSheet();
+  const allRows = await getSheetRows(TIMETABLE_ENTRIES_SHEET, { skipCache: true });
+  const kept = [];
+  const classEntriesAll = [];
+
+  for (let i = 1; i < allRows.length; i++) {
+    const row = allRows[i].slice();
+    while (row.length < HEADERS.length) row.push('');
+    const type = String(row[COL.ownerType] || '');
+    const id = String(row[COL.ownerId] || '');
+
+    if (type === 'student' && rosterIds.has(id)) continue; // clear materializations
+    if (type === 'teacher' && teacherIdSet.has(id)) continue; // rebuild below
+
+    if (type === 'class') {
+      const parsed = rowToEntry(row);
+      if (parsed) classEntriesAll.push(parsed);
+    }
+    kept.push(row.slice(0, HEADERS.length));
+  }
+
+  const teacherRows = [];
+  teacherIds.forEach((teacherId) => {
+    teacherEntriesFromClassRows(classEntriesAll, teacherId, now).forEach((e) => {
+      teacherRows.push(entryToRow(e));
+    });
+  });
+
+  const combined = kept.concat(teacherRows);
+  const oldCount = Math.max(0, allRows.length - 1);
+  const rowWidth = HEADERS.length;
+
+  if (!oldCount && !combined.length) {
+    return { studentsUpdated: roster.length, teachersUpdated: teacherIds.length };
+  }
+
+  const maxRows = Math.max(oldCount, combined.length);
+  const toWrite = [];
+  for (let i = 0; i < maxRows; i++) {
+    toWrite.push(i < combined.length ? combined[i] : new Array(rowWidth).fill(''));
+  }
+  await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:O${maxRows + 1}`, toWrite);
+  invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
+
+  return {
+    studentsUpdated: roster.length,
+    teachersUpdated: teacherIds.length
+  };
+}
+
+async function getTeacherBusyMap(excludeClassId) {
+  const all = await loadAllEntries();
+  const names = await teacherNameMap();
+  const busy = {};
+  all.forEach((e) => {
+    if (e.ownerType !== 'class') return;
+    if (excludeClassId && e.ownerId === String(excludeClassId)) return;
+    if (!e.teacherId) return;
+    const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
+    if (!busy[e.teacherId]) busy[e.teacherId] = {};
+    busy[e.teacherId][key] = {
+      classId: e.classId || e.ownerId,
+      subject: e.subject,
+      teacherName: names[e.teacherId] || e.teacherId
+    };
+  });
+  return { busy, teacherNames: names };
 }
 
 async function getStudentTimetableForTeacher(teacherId, studentId) {
@@ -296,16 +616,45 @@ async function getStudentTimetableForTeacher(teacherId, studentId) {
   return getTimetable('student', studentId);
 }
 
+async function getAllClassesMatrix() {
+  const all = await loadAllEntries();
+  const bell = await getBellSchedule();
+  const names = await teacherNameMap();
+  const byClass = {};
+  all.filter((e) => e.ownerType === 'class').forEach((e) => {
+    const id = e.ownerId;
+    if (!byClass[id]) byClass[id] = [];
+    e.teacherName = names[e.teacherId] || '';
+    byClass[id].push(e);
+  });
+  Object.keys(byClass).forEach((id) => {
+    byClass[id] = sortEntries(byClass[id]);
+  });
+  return {
+    byClass,
+    lessonPeriods: bell.lessonPeriods || [],
+    bellSchedule: bell.periods || [],
+    teacherNames: names
+  };
+}
+
 module.exports = {
   DAY_LABELS,
   ensureTimetableSheet,
   listSubjects,
   getTimetable,
   saveTimetable,
+  saveClassTimetable,
+  syncClassDependents,
+  rebuildTeacherTimetable,
+  getTeacherBusyMap,
+  getAllClassesMatrix,
   getStudentTimetableForTeacher,
   groupByDay,
   sortEntries,
   loadAllEntries,
+  slotKey,
+  findLessonPeriod,
   newId,
   isoNow
 };
