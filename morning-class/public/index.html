@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Salt Academy Morning Class</title>
   <meta name="description" content="Salt Academy Morning Class — nurturing wisdom and character.">
-  <link rel="stylesheet" href="/css/app.css?v=20260804olive">
+  <link rel="stylesheet" href="/css/app.css?v=20260806login">
 </head>
 <body>
   <header class="site-header">
@@ -39,31 +39,47 @@
       <p class="hero-headline">Nurturing Wisdom &amp; Character</p>
       <p class="hero-support">A calm morning portal for students, families, and teachers — rooted in growth, like the olive tree.</p>
 
-      <form id="unifiedLogin" class="card login-card form-grid">
+      <form id="unifiedLogin" class="card login-card form-grid" autocomplete="on">
         <h2>Sign in</h2>
         <p class="muted small" style="margin:0">One login for students, parents, teachers, and admin.</p>
-        <input id="loginId" placeholder="Login ID" autocomplete="username" required>
-        <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+        <input id="loginId" name="username" placeholder="Login ID" autocomplete="username" required>
+        <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+        <div class="login-options">
+          <label class="login-check">
+            <input type="checkbox" id="staySignedIn" checked>
+            <span>Stay signed in</span>
+          </label>
+          <label class="login-check">
+            <input type="checkbox" id="savePassword">
+            <span>Save password</span>
+          </label>
+        </div>
         <div class="error" id="loginError"></div>
         <button class="btn btn-primary btn-block" type="submit">Enter Morning Class</button>
       </form>
     </div>
   </main>
 
-<script src="/js/app.js"></script>
+<script src="/js/app.js?v=20260806login"></script>
 <script>
 (function() {
-  const { api, setToken, setProfile, $ } = SaltApp;
+  const {
+    api, setToken, setProfile, getToken, $,
+    authPersistEnabled, setAuthPersist, getSavedLogin, setSavedLogin
+  } = SaltApp;
   const DEST = { student: '/student', parent: '/parent', teacher: '/teacher', admin: '/admin' };
 
   ['admin', 'teacher', 'parent', 'student'].forEach((role) => {
-    if (localStorage.getItem('salt_' + role + '_token')) {
+    if (getToken(role)) {
       location.replace(DEST[role]);
     }
   });
 
   const loginForm = $('unifiedLogin');
   const navBtn = $('navSignInBtn');
+  const stayEl = $('staySignedIn');
+  const saveEl = $('savePassword');
+
   if (navBtn && loginForm) {
     navBtn.addEventListener('click', function () {
       loginForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -72,13 +88,35 @@
     });
   }
 
+  // Restore saved credentials / persist preference
+  const saved = getSavedLogin();
+  if (saved && saved.savePassword) {
+    $('loginId').value = saved.loginId || '';
+    $('password').value = saved.password || '';
+    saveEl.checked = true;
+  }
+  stayEl.checked = authPersistEnabled();
+
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     $('loginError').textContent = '';
+    const loginId = $('loginId').value.trim();
+    const password = $('password').value;
+    const stay = stayEl.checked;
+    const savePw = saveEl.checked;
+
+    setAuthPersist(stay);
+    setSavedLogin({
+      savePassword: savePw,
+      loginId: loginId,
+      password: password,
+      staySignedIn: stay
+    });
+
     try {
       const data = await api('/api/auth/login', {
         method: 'POST',
-        body: { loginId: $('loginId').value, password: $('password').value }
+        body: { loginId: loginId, password: password }
       });
       const role = data.role;
       if (!role || !DEST[role]) throw new Error('Unknown account type.');

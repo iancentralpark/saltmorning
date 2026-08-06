@@ -277,6 +277,32 @@ a:hover { color: var(--gold); }
   transform: translateY(-2px);
   box-shadow: 0 10px 22px rgba(59, 74, 52, 0.28);
 }
+.login-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0.1rem 0 0.15rem;
+}
+.login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.login-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--olive);
+  cursor: pointer;
+}
+.login-check span {
+  line-height: 1.2;
+}
 
 .landing { text-align: center; padding: 2.5rem 1rem 2rem; }
 .landing h1 {
