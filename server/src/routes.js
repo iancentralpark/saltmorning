@@ -65,6 +65,7 @@ const {
   shouldStopPlacement
 } = require('./vocabPlacementService');
 const {
+  configureVocabLearning,
   bulkUpsertWords,
   listWords: listVocabWords,
   getWordBankStats,
@@ -83,6 +84,13 @@ const {
   listActiveGenerationJobs: listActiveVocabGenerationJobs,
   buildPlacementItem
 } = require('./vocabLearningService');
+
+configureVocabLearning({
+  tenantId: process.env.VOCAB_TENANT_ID || 'mrpark',
+  skipLuckyDraw: process.env.VOCAB_SKIP_LUCKY_DRAW === 'true'
+});
+const vocabV1Routes = require('./vocabV1Routes');
+const vocabPlatformRoutes = require('./vocabPlatformRoutes');
 const { startGenerationJob: startVocabGenerationJob, cancelGenerationJob: cancelVocabGenerationJob } = require('./vocabWordGenService');
 const {
   getThread,
@@ -186,6 +194,10 @@ function isPublicApiRoute(req) {
   const key = req.method + ' ' + req.path;
   if (PUBLIC_API_ROUTES.has(key)) return true;
   if (req.path.startsWith('/student/')) return true;
+  // Multi-tenant Vocab Booster API has its own session / tenant-secret auth.
+  if (req.path === '/vocab/v1' || req.path.startsWith('/vocab/v1/')) return true;
+  // Platform admin has its own login + session (not teacher gate).
+  if (req.path === '/vocab/platform' || req.path.startsWith('/vocab/platform/')) return true;
   return false;
 }
 
@@ -201,6 +213,9 @@ function issueTeacherLogin(req, res) {
   setTeacherAuthCookie(res, req, token);
   res.json({ ok: true, token });
 }
+
+router.use('/vocab/v1', vocabV1Routes);
+router.use('/vocab/platform', vocabPlatformRoutes);
 
 router.use((req, res, next) => {
   if (isPublicApiRoute(req)) return next();
@@ -289,6 +304,47 @@ router.post('/gemini/ask-stream', async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: e.message || 'Server error' });
     }
+  }
+});
+
+const {
+  generateJeopardyBoard,
+  createBlankJeopardyBoard
+} = require('./jeopardyService');
+
+router.post('/jeopardy/generate', requireTeacherAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const board = await generateJeopardyBoard({
+      subject: body.subject || body.topic,
+      title: body.title,
+      difficulty: body.difficulty,
+      language: body.language,
+      teamCount: body.teamCount
+    });
+    res.json({ ok: true, game: board });
+  } catch (e) {
+    console.error('POST /jeopardy/generate', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate Jeopardy board.' });
+  }
+});
+
+router.post('/jeopardy/blank', requireTeacherAuth, async (req, res) => {
+  try {
+    const body = req.body || {};
+    res.json({
+      ok: true,
+      game: createBlankJeopardyBoard({
+        subject: body.subject || body.topic || 'Jeopardy',
+        title: body.title,
+        difficulty: body.difficulty,
+        language: body.language,
+        teamCount: body.teamCount
+      })
+    });
+  } catch (e) {
+    console.error('POST /jeopardy/blank', e);
+    res.status(400).json({ error: e.message || 'Could not create blank board.' });
   }
 });
 
@@ -1955,10 +2011,60 @@ router.post('/student/vocab/daily-test/submit', requireStudentAuth, async (req, 
         }
       }
     }
-    res.json(await recordDailyTestResult(studentId, classId, body.correctCount, body.totalCount));
+    res.json(await recordDailyTestResult(
+      studentId,
+      classId,
+      body.correctCount,
+      body.totalCount,
+      body.answers
+    ));
   } catch (e) {
     console.error('POST /student/vocab/daily-test/submit', e);
     res.status(400).json({ error: e.message || 'Could not submit daily test' });
+  }
+});
+
+const {
+  getPromotionTestStatus,
+  startPromotionTest,
+  submitPromotionTest,
+  ackPromotionTest
+} = require('./vocabPromotionTestService');
+
+router.get('/student/vocab/promotion-test/status', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(await getPromotionTestStatus(req.studentSession.studentId));
+  } catch (e) {
+    console.error('GET /student/vocab/promotion-test/status', e);
+    res.status(400).json({ error: e.message || 'Could not load promotion test' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/start', requireStudentAuth, async (req, res) => {
+  try {
+    const { studentId, classId } = req.studentSession;
+    res.json(await startPromotionTest(studentId, classId));
+  } catch (e) {
+    console.error('POST /student/vocab/promotion-test/start', e);
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not start promotion test', code: e.code });
+  }
+});
+
+router.post('/student/vocab/promotion-test/submit', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(await submitPromotionTest(req.studentSession.studentId, req.body || {}));
+  } catch (e) {
+    console.error('POST /student/vocab/promotion-test/submit', e);
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit promotion test' });
+  }
+});
+
+router.post('/student/vocab/promotion-test/ack', requireStudentAuth, async (req, res) => {
+  try {
+    res.json(await ackPromotionTest(req.studentSession.studentId, req.body || {}));
+  } catch (e) {
+    console.error('POST /student/vocab/promotion-test/ack', e);
+    res.status(400).json({ error: e.message || 'Could not ack promotion test' });
   }
 });
 
