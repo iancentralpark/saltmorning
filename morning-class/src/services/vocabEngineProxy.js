@@ -3,14 +3,12 @@
 /**
  * Thin proxy client → Mr.Park Vocab Booster `/api/vocab/v1`.
  *
- * Preferred auth (engine contract):
+ * Salt Morning must NOT run a local Vocab fork. One engine update = both apps.
+ *
+ * Auth:
  *   Authorization: Bearer <VOCAB_ENGINE_TOKEN>
  *   X-Vocab-Tenant: salt-morning
  *   X-Vocab-Student-Id / X-Vocab-Class-Id
- *
- * Fallbacks (until engine token routes are live):
- *   1) Mint student JWT via POST /session (tenant API secret) and call v1
- *   2) Caller falls back to local vocabShared vendor
  */
 
 const TENANT_ID = String(process.env.VOCAB_TENANT_ID || 'salt-morning').trim() || 'salt-morning';
@@ -50,9 +48,27 @@ async function parseJson(res) {
   return data;
 }
 
+function studentHeaders(studentId, classId, opts) {
+  opts = opts || {};
+  const token = engineToken();
+  const headers = {
+    Accept: opts.accept || 'application/json',
+    'X-Vocab-Tenant': TENANT_ID,
+    'X-Vocab-Tenant-Id': TENANT_ID,
+    'X-Vocab-Student-Id': String(studentId || ''),
+    'X-Vocab-Class-Id': String(classId || '')
+  };
+  if (token) {
+    headers.Authorization = 'Bearer ' + token;
+    headers['X-Vocab-Engine-Token'] = token;
+  }
+  if (opts.jsonBody) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+
 /**
  * @param {string} enginePath e.g. '/summary' or '/placement/item'
- * @param {{ method?: string, body?: object, query?: string, studentId: string, classId: string }} opts
+ * @param {{ method?: string, body?: object, query?: string, studentId: string, classId: string, name?: string }} opts
  */
 async function engineFetch(enginePath, opts) {
   const origin = engineOrigin();
@@ -71,16 +87,7 @@ async function engineFetch(enginePath, opts) {
 
   const token = engineToken();
   if (token) {
-    const headers = {
-      Accept: 'application/json',
-      Authorization: 'Bearer ' + token,
-      'X-Vocab-Engine-Token': token,
-      'X-Vocab-Tenant': TENANT_ID,
-      'X-Vocab-Tenant-Id': TENANT_ID,
-      'X-Vocab-Student-Id': studentId,
-      'X-Vocab-Class-Id': classId
-    };
-    if (opts.body != null) headers['Content-Type'] = 'application/json';
+    const headers = studentHeaders(studentId, classId, { jsonBody: opts.body != null });
     const res = await fetch(url, {
       method,
       headers,
@@ -90,16 +97,16 @@ async function engineFetch(enginePath, opts) {
     if (res.ok) {
       return { ok: true, status: res.status, data, mode: 'engine-token' };
     }
-    // 401/404/501 → try session JWT fallback for older v1 surface
-    if (![401, 403, 404, 501, 502, 503].includes(res.status)) {
+    // Only fall through to JWT mint when token auth is rejected / route missing.
+    if (![401, 403, 404, 501].includes(res.status)) {
       const err = new Error(data.error || data.message || ('Vocab engine HTTP ' + res.status));
       err.statusCode = res.status;
       err.engine = data;
+      err.code = 'ENGINE_ERROR';
       throw err;
     }
   }
 
-  // Session JWT fallback (legacy multi-tenant v1)
   const secret = tenantApiSecret();
   if (!secret) {
     const err = new Error(
@@ -115,7 +122,10 @@ async function engineFetch(enginePath, opts) {
   const session = await mintStudentSession(studentId, classId, opts.name);
   const headers = {
     Accept: 'application/json',
-    Authorization: 'Bearer ' + session.token
+    Authorization: 'Bearer ' + session.token,
+    'X-Vocab-Tenant': TENANT_ID,
+    'X-Vocab-Student-Id': studentId,
+    'X-Vocab-Class-Id': classId
   };
   if (opts.body != null) headers['Content-Type'] = 'application/json';
   const res = await fetch(url, {
@@ -132,6 +142,38 @@ async function engineFetch(enginePath, opts) {
     throw err;
   }
   return { ok: true, status: res.status, data, mode: 'session-jwt' };
+}
+
+/** Binary proxy (pronounce MP3). */
+async function engineFetchBinary(enginePath, opts) {
+  const origin = engineOrigin();
+  if (!origin || !engineToken()) {
+    const err = new Error('Vocab engine binary proxy requires VOCAB_ENGINE_URL + VOCAB_ENGINE_TOKEN.');
+    err.statusCode = 503;
+    err.code = 'ENGINE_NOT_CONFIGURED';
+    throw err;
+  }
+  const studentId = String(opts.studentId || '').trim();
+  const classId = String(opts.classId || '').trim();
+  const q = opts.query ? (opts.query.startsWith('?') ? opts.query : '?' + opts.query) : '';
+  const url = origin + '/api/vocab/v1' + enginePath + q;
+  const headers = studentHeaders(studentId, classId, { accept: '*/*' });
+  const res = await fetch(url, { method: 'GET', headers });
+  if (!res.ok) {
+    const data = await parseJson(res);
+    const err = new Error(data.error || ('Vocab engine HTTP ' + res.status));
+    err.statusCode = res.status;
+    err.code = 'ENGINE_ERROR';
+    throw err;
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  return {
+    buf,
+    contentType: res.headers.get('content-type') || 'audio/mpeg',
+    cacheControl: res.headers.get('cache-control') || 'public, max-age=86400',
+    word: res.headers.get('x-vocab-pronounce-word') || '',
+    cached: res.headers.get('x-vocab-pronounce-cache') || ''
+  };
 }
 
 async function mintStudentSession(studentId, classId, name) {
@@ -201,23 +243,10 @@ async function probeHealth() {
     out.error = e.message || String(e);
   }
 
-  try {
-    const mRes = await fetch(
-      origin + '/api/vocab/v1/meta?publicKey=' + encodeURIComponent(publicKey()),
-      { headers: { Accept: 'application/json' } }
-    );
-    if (mRes.ok) out.meta = await parseJson(mRes);
-  } catch (e) {
-    /* ignore */
-  }
-
   return out;
 }
 
-/**
- * Proxy helper: try engine, on missing-route / unavailable return null so caller
- * can use local vocabShared.
- */
+/** Soft try (legacy). Prefer requireEngine for student routes. */
 async function tryEngine(enginePath, opts) {
   if (!isConfigured()) return null;
   try {
@@ -232,11 +261,25 @@ async function tryEngine(enginePath, opts) {
       e.statusCode === 501 ||
       e.statusCode === 503
     ) {
-      console.warn('[vocab-engine] fallback local:', enginePath, e.message);
+      console.warn('[vocab-engine] soft-fail:', enginePath, e.message);
       return null;
     }
     throw e;
   }
+}
+
+/** Hard require — no local vendor fallback. */
+async function requireEngine(enginePath, opts) {
+  if (!isConfigured()) {
+    const err = new Error(
+      'Vocab Booster engine is not configured. Set VOCAB_ENGINE_URL + VOCAB_ENGINE_TOKEN.'
+    );
+    err.statusCode = 503;
+    err.code = 'ENGINE_NOT_CONFIGURED';
+    throw err;
+  }
+  const result = await engineFetch(enginePath, opts);
+  return result.data;
 }
 
 module.exports = {
@@ -245,7 +288,9 @@ module.exports = {
   engineToken,
   isConfigured,
   engineFetch,
+  engineFetchBinary,
   tryEngine,
+  requireEngine,
   probeHealth,
   mintStudentSession
 };
