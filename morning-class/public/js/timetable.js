@@ -47,7 +47,7 @@
     }
     const time = escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime);
     const subj = escapeHtml(slot.subject || '—');
-    const room = slot.room ? ' · ' + escapeHtml(slot.room) : '';
+    const meta = [slot.teacherName, slot.room].filter(Boolean).map(escapeHtml).join(' · ');
     const notes = slot.notes ? '<div class="tt-slot-notes">' + escapeHtml(slot.notes) + '</div>' : '';
     const lock = slot.locked ? ' <span class="tt-lock-badge" title="Locked">🔒</span>' : '';
     const actions = canEdit
@@ -59,13 +59,28 @@
     return (
       '<div class="tt-slot' + (slot.locked ? ' tt-slot-locked' : '') + '" data-id="' + escapeHtml(slot.entryId) + '">' +
       '<div class="tt-slot-time">' + time + lock + '</div>' +
-      '<div class="tt-slot-subject"><strong>' + subj + '</strong>' + room + '</div>' +
+      '<div class="tt-slot-subject"><strong>' + subj + '</strong>' + (meta ? ' · ' + meta : '') + '</div>' +
       notes + actions +
       '</div>'
     );
   }
 
-  function renderWeekGrid(byDay) {
+  function findEntryForPeriod(slots, period, lessonPeriods) {
+    const list = (slots || []).filter((s) => !s.isBreak);
+    if (!list.length || !period) return null;
+    let hit = list.find((s) => s.periodId && String(s.periodId) === String(period.periodId));
+    if (hit) return hit;
+    hit = list.find((s) => s.startTime && s.startTime === period.startTime);
+    if (hit) return hit;
+    const lessonIdx = (lessonPeriods || []).findIndex((p) => String(p.periodId) === String(period.periodId));
+    if (lessonIdx >= 0) {
+      hit = list.find((s) => !s.periodId && Number(s.sortOrder) === lessonIdx);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  function renderStackedWeekGrid(byDay) {
     let html = '<div class="tt-week-grid">';
     DAYS.forEach((d) => {
       const slots = (byDay && byDay[d.value]) || [];
@@ -78,6 +93,61 @@
       html += '</div></div>';
     });
     html += '</div>';
+    return html;
+  }
+
+  /**
+   * Week grid aligned to bell-schedule time slots.
+   * Empty periods keep their row so e.g. period 5 Library stays on row 5 every day.
+   */
+  function renderWeekGrid(byDay, options) {
+    const opts = options || {};
+    const bellSchedule = opts.bellSchedule || [];
+    const lessonPeriods = opts.lessonPeriods || bellSchedule.filter((p) => p.periodType === 'lesson');
+    const periods = bellSchedule.length
+      ? bellSchedule
+      : lessonPeriods;
+
+    if (!periods.length) {
+      return renderStackedWeekGrid(byDay);
+    }
+
+    let html = '<div class="tt-period-grid-wrap tt-week-period-wrap">' +
+      '<table class="tt-period-grid tt-week-period-grid">' +
+      '<thead><tr><th class="tt-period-label">Period</th>';
+    DAYS.forEach((d) => {
+      html += '<th>' + d.label + '</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    periods.forEach((period) => {
+      const isBreak = period.periodType && period.periodType !== 'lesson';
+      html += '<tr' + (isBreak ? ' class="tt-period-break-row"' : '') + '>';
+      html +=
+        '<th class="tt-period-label">' +
+        '<div>' + escapeHtml(period.label || period.periodId) + '</div>' +
+        '<div class="muted small">' + escapeHtml(period.startTime) + '–' + escapeHtml(period.endTime) + '</div>' +
+        '</th>';
+
+      DAYS.forEach((d) => {
+        if (isBreak) {
+          html +=
+            '<td class="tt-cell-break">' +
+            '<div class="tt-slot tt-slot-break">' +
+            '<div class="tt-slot-subject"><em>' + escapeHtml(period.label || 'Break') + '</em></div>' +
+            '</div></td>';
+          return;
+        }
+        const entry = findEntryForPeriod((byDay && byDay[d.value]) || [], period, lessonPeriods);
+        html += '<td class="tt-cell-slot">';
+        if (entry) html += slotCard(entry, false);
+        else html += '<div class="tt-day-empty muted small">—</div>';
+        html += '</td>';
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
     return html;
   }
 
@@ -561,7 +631,8 @@
     const ownerName = opts.ownerName || '';
     const readonly = Boolean(opts.readonly || role !== 'admin');
     const classId = opts.classId || '';
-    const lessonPeriods = (opts.timetable && opts.timetable.lessonPeriods) || [];
+    let lessonPeriods = (opts.timetable && opts.timetable.lessonPeriods) || [];
+    let bellSchedule = (opts.timetable && opts.timetable.bellSchedule) || [];
     let entries = (opts.timetable && opts.timetable.entries) ? opts.timetable.entries.filter((e) => !e.isBreak) : [];
     let byDay = {};
     let editingId = null;
@@ -630,7 +701,7 @@
       mountEl.innerHTML =
         '<div class="tt-editor">' +
         (ownerName ? '<p class="muted small">Timetable for <strong>' + escapeHtml(ownerName) + '</strong></p>' : '') +
-        renderWeekGrid(byDay) +
+        renderWeekGrid(byDay, { lessonPeriods: lessonPeriods, bellSchedule: bellSchedule }) +
         formHtml +
         listHtml +
         '<div class="tt-save-status error"></div>' +
@@ -647,6 +718,8 @@
         body: { entries }
       }, role);
       entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
+      if (data.timetable.lessonPeriods) lessonPeriods = data.timetable.lessonPeriods;
+      if (data.timetable.bellSchedule) bellSchedule = data.timetable.bellSchedule;
       rebuildByDay();
       if (status) {
         status.style.color = '#16a34a';
@@ -740,6 +813,8 @@
       reload: async () => {
         const data = await api(apiPath(ownerType, ownerId), {}, role);
         entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
+        if (data.timetable.lessonPeriods) lessonPeriods = data.timetable.lessonPeriods;
+        if (data.timetable.bellSchedule) bellSchedule = data.timetable.bellSchedule;
         rebuildByDay();
         render();
       }
@@ -883,10 +958,14 @@
     mountEl.innerHTML = '<p class="muted">Loading timetable…</p>';
     try {
       const data = await api(apiPath(ownerType, ownerId), {}, role);
+      const tt = data.timetable || {};
       mountEl.innerHTML =
         '<div class="tt-readonly">' +
         (ownerName ? '<p class="muted small"><strong>' + escapeHtml(ownerName) + '</strong> — weekly schedule</p>' : '') +
-        renderWeekGrid(data.timetable.byDay) +
+        renderWeekGrid(tt.byDay, {
+          lessonPeriods: tt.lessonPeriods || [],
+          bellSchedule: tt.bellSchedule || []
+        }) +
         '</div>';
     } catch (e) {
       mountEl.innerHTML = '<p class="muted">' + escapeHtml(e.message) + '</p>';

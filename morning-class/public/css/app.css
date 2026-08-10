@@ -1689,6 +1689,34 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
+.tt-week-period-wrap {
+  margin-bottom: 1rem;
+}
+.tt-week-period-grid .tt-cell-slot,
+.tt-week-period-grid .tt-cell-break {
+  vertical-align: top;
+  min-width: 7.5rem;
+  min-height: 3.6rem;
+}
+.tt-week-period-grid .tt-slot {
+  height: 100%;
+  min-height: 3.1rem;
+}
+.tt-week-period-grid .tt-day-empty {
+  min-height: 3.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0;
+}
+.tt-week-period-grid .tt-period-break-row td,
+.tt-week-period-grid .tt-period-break-row th {
+  background: rgba(168, 162, 196, 0.12);
+}
+.tt-week-period-grid .tt-period-label {
+  white-space: nowrap;
+  min-width: 5.5rem;
+}
 .tt-day-col {
   border: 1px solid var(--border-soft);
   border-radius: 0.65rem;
