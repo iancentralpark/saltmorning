@@ -222,8 +222,13 @@
       autoInput.addEventListener('change', () => {
         setAutoTranslate(activeThread.threadId, autoInput.checked);
         showOriginalIds.clear();
+        if (autoInput.checked) {
+          messages.forEach((m) => {
+            const c = translationCache[m.messageId];
+            if (c && c.error) delete translationCache[m.messageId];
+          });
+        }
         renderChat();
-        if (autoInput.checked) ensureTranslationsForThread();
       });
     }
 
