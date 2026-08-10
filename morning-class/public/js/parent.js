@@ -217,13 +217,17 @@ window.SaltParent = (function() {
         html += '<section class="pp-tt-day"><h4>' + DAY_NAMES[d] + '</h4>';
         if (!slots.length) html += '<p class="muted small">No classes</p>';
         else {
-          html += slots.map((s) =>
-            '<div class="pp-tt-slot">' +
+          html += slots.map((s) => {
+            const color = (window.SaltSubjectColors && SaltSubjectColors.forSubject)
+              ? SaltSubjectColors.forSubject(s.subject || '', { isBreak: !!s.isBreak })
+              : { bg: '#eef3ea', border: '#a3b18a' };
+            return '<div class="pp-tt-slot pp-tt-slot-colored" style="background:' + color.bg +
+              ';border-left-color:' + color.border + ';">' +
               '<strong>' + escapeHtml(s.subject || '') + '</strong>' +
               '<span>' + escapeHtml((s.startTime || '') + '–' + (s.endTime || '')) + '</span>' +
               '<span class="muted">' + escapeHtml(s.teacherName || s.room || '') + '</span>' +
-            '</div>'
-          ).join('');
+            '</div>';
+          }).join('');
         }
         html += '</section>';
       }

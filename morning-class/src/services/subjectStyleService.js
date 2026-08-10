@@ -8,12 +8,80 @@ const SUBJECT_PALETTE = [
   { bg: '#faf0e8', border: '#e8b89a', label: 'Amber' },
   { bg: '#f0ebfa', border: '#a99bd4', label: 'Purple' },
   { bg: '#edf6fc', border: '#9ecae8', label: 'Cyan' },
-  { bg: '#fceeed', border: '#e8a8a0', label: 'Red' },
-  { bg: '#f4efe9', border: '#b8b0a8', label: 'Gray' }
+  { bg: '#fceeed', border: '#e8a8a0', label: 'Coral' },
+  { bg: '#f4efe9', border: '#b8b0a8', label: 'Sand' }
 ];
+
+/** Soft pastels keyed by normalized subject name (shared with client subject-colors.js). */
+const NAMED_SUBJECT_COLORS = {
+  english: { bg: '#e3f0f9', border: '#9bbfd8' },
+  ela: { bg: '#e3f0f9', border: '#9bbfd8' },
+  reading: { bg: '#e3f0f9', border: '#9bbfd8' },
+  math: { bg: '#fce8e0', border: '#e0b09a' },
+  mathematics: { bg: '#fce8e0', border: '#e0b09a' },
+  science: { bg: '#e3f5ec', border: '#9dc9b0' },
+  'korean history': { bg: '#ede8f7', border: '#b8a8d4' },
+  history: { bg: '#ede8f7', border: '#b8a8d4' },
+  korean: { bg: '#f0e9f5', border: '#c4b0d8' },
+  library: { bg: '#f5f0e6', border: '#c8bba8' },
+  recess: { bg: '#fbf3d9', border: '#d4c48a' },
+  lunch: { bg: '#f8e8ec', border: '#d4a8b4' },
+  break: { bg: '#f0eef5', border: '#b8b0c8' },
+  snack: { bg: '#fbf3d9', border: '#d4c48a' },
+  art: { bg: '#f5e8f2', border: '#d4a8c4' },
+  music: { bg: '#e8f6f5', border: '#9ec9c4' },
+  pe: { bg: '#eaf6e4', border: '#a8c894' },
+  'physical education': { bg: '#eaf6e4', border: '#a8c894' },
+  sports: { bg: '#eaf6e4', border: '#a8c894' },
+  homeroom: { bg: '#eef3ea', border: '#a3b18a' },
+  advisory: { bg: '#eef3ea', border: '#a3b18a' },
+  'social studies': { bg: '#edf6fc', border: '#9ecae8' },
+  geography: { bg: '#edf6fc', border: '#9ecae8' },
+  writing: { bg: '#e8f2fa', border: '#8eb8dc' },
+  vocab: { bg: '#e8f2fa', border: '#8eb8dc' },
+  vocabulary: { bg: '#e8f2fa', border: '#8eb8dc' }
+};
 
 function styleKey(classId, subject) {
   return String(classId) + '|' + String(subject);
+}
+
+function normalizeSubjectKey(subject) {
+  return String(subject || '')
+    .toLowerCase()
+    .replace(/[_/\\|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function hashSubject(subject) {
+  const str = normalizeSubjectKey(subject);
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function lookupNamedSubject(key) {
+  if (!key) return null;
+  if (NAMED_SUBJECT_COLORS[key]) return NAMED_SUBJECT_COLORS[key];
+  const aliases = Object.keys(NAMED_SUBJECT_COLORS);
+  for (let i = 0; i < aliases.length; i++) {
+    const a = aliases[i];
+    if (key === a || key.indexOf(a) !== -1 || a.indexOf(key) !== -1) {
+      return NAMED_SUBJECT_COLORS[a];
+    }
+  }
+  return null;
+}
+
+function defaultStyleForSubject(subject) {
+  const key = normalizeSubjectKey(subject);
+  const named = lookupNamedSubject(key);
+  if (named) return { bg: named.bg, border: named.border };
+  return defaultStyleForIndex(hashSubject(subject));
 }
 
 function normalizeStyle(raw) {
@@ -72,8 +140,8 @@ function resolveStyle(classId, subject, customMap, defaultIndexMap) {
   if (customMap && customMap[key]) {
     return { subject, ...customMap[key] };
   }
-  const idx = defaultIndexMap && defaultIndexMap[key] != null ? defaultIndexMap[key] : 0;
-  return { subject, ...defaultStyleForIndex(idx) };
+  // Prefer subject-name pastel so English/Math/etc. match across timetable UIs.
+  return { subject, ...defaultStyleForSubject(subject) };
 }
 
 function buildStyleLookup(classSlots, customMap) {
@@ -122,10 +190,12 @@ async function saveTeacherSubjectStyle(teacherId, classId, subject, bg, border) 
 
 module.exports = {
   SUBJECT_PALETTE,
+  NAMED_SUBJECT_COLORS,
   styleKey,
   listTeacherSubjectStyles,
   buildStyleLookup,
   resolveStyle,
   saveTeacherSubjectStyle,
-  defaultStyleForIndex
+  defaultStyleForIndex,
+  defaultStyleForSubject
 };

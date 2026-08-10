@@ -36,10 +36,25 @@
     return t ? t.name : slot.teacherId;
   }
 
+  function subjectColor(subject, isBreak) {
+    if (global.SaltSubjectColors && typeof global.SaltSubjectColors.forSubject === 'function') {
+      return global.SaltSubjectColors.forSubject(subject, { isBreak: !!isBreak });
+    }
+    return isBreak
+      ? { bg: '#f0eef5', border: '#b8b0c8' }
+      : { bg: '#eef3ea', border: '#a3b18a' };
+  }
+
+  function subjectInlineStyle(subject, isBreak) {
+    const c = subjectColor(subject, isBreak);
+    return 'background:' + c.bg + ';border-left-color:' + c.border + ';';
+  }
+
   function slotCard(slot, canEdit) {
     if (slot.isBreak) {
       return (
-        '<div class="tt-slot tt-slot-break">' +
+        '<div class="tt-slot tt-slot-break tt-slot-colored" style="' +
+        subjectInlineStyle(slot.subject || 'Break', true) + '">' +
         '<div class="tt-slot-time">' + escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime) + '</div>' +
         '<div class="tt-slot-subject"><em>' + escapeHtml(slot.subject) + '</em></div>' +
         '</div>'
@@ -60,7 +75,8 @@
         '</div>'
       : '';
     return (
-      '<div class="tt-slot' + (slot.locked ? ' tt-slot-locked' : '') + '" data-id="' + escapeHtml(slot.entryId) + '">' +
+      '<div class="tt-slot tt-slot-colored' + (slot.locked ? ' tt-slot-locked' : '') +
+      '" data-id="' + escapeHtml(slot.entryId) + '" style="' + subjectInlineStyle(slot.subject, false) + '">' +
       '<div class="tt-slot-time">' + time + lock + '</div>' +
       '<div class="tt-slot-subject"><strong>' + subj + '</strong>' + (meta ? ' · ' + meta : '') + '</div>' +
       notes + actions +
@@ -134,10 +150,12 @@
 
       DAYS.forEach((d) => {
         if (isBreak) {
+          const breakLabel = period.label || 'Break';
           html +=
             '<td class="tt-cell-break">' +
-            '<div class="tt-slot tt-slot-break">' +
-            '<div class="tt-slot-subject"><em>' + escapeHtml(period.label || 'Break') + '</em></div>' +
+            '<div class="tt-slot tt-slot-break tt-slot-colored" style="' +
+            subjectInlineStyle(breakLabel, true) + '">' +
+            '<div class="tt-slot-subject"><em>' + escapeHtml(breakLabel) + '</em></div>' +
             '</div></td>';
           return;
         }
@@ -260,13 +278,15 @@
         palette.forEach((chip) => {
           const doneClass = chip.remaining <= 0 ? ' tt-chip-done' : '';
           const draggable = !readonly && chip.remaining > 0;
+          const chipColor = subjectColor(chip.subject, false);
           paletteHtml +=
-            '<div class="tt-chip' + doneClass + '"' +
+            '<div class="tt-chip tt-chip-colored' + doneClass + '"' +
             (draggable ? ' draggable="true"' : '') +
             ' data-subject="' + escapeHtml(chip.subject) + '"' +
             ' data-teacher-id="' + escapeHtml(chip.teacherId) + '"' +
             ' data-teacher-name="' + escapeHtml(chip.teacherName) + '"' +
-            ' data-room="' + escapeHtml(chip.room) + '">' +
+            ' data-room="' + escapeHtml(chip.room) + '"' +
+            ' style="background:' + chipColor.bg + ';border-left-color:' + chipColor.border + ';">' +
             '<strong>' + escapeHtml(chip.subject) + '</strong>' +
             '<span class="tt-chip-meta">' + escapeHtml(chip.teacherName || '—') +
             ' · ' + chip.done + '/' + chip.need + ' hrs</span>' +
@@ -295,10 +315,12 @@
             const slot = entryAt(d.value, period.periodId);
             const key = slotKey(d.value, period.periodId);
             if (slot) {
+              const cellColor = subjectColor(slot.subject, false);
               gridHtml +=
-                '<td class="tt-grid-cell tt-cell-filled' + (slot.locked ? ' tt-cell-locked' : '') + '"' +
+                '<td class="tt-grid-cell tt-cell-filled tt-cell-colored' + (slot.locked ? ' tt-cell-locked' : '') + '"' +
                 ' data-day="' + d.value + '" data-period-id="' + escapeHtml(period.periodId) + '"' +
-                ' data-key="' + escapeHtml(key) + '">' +
+                ' data-key="' + escapeHtml(key) + '"' +
+                ' style="background:' + cellColor.bg + ';box-shadow:inset 3px 0 0 ' + cellColor.border + ';">' +
                 '<button type="button" class="tt-lock-btn" title="' +
                 (slot.locked ? 'Unlock slot' : 'Lock slot (preserved by Auto-Solve)') +
                 '" data-id="' + escapeHtml(slot.entryId) + '"' +
@@ -603,7 +625,9 @@
           DAYS.forEach((d) => {
             const slot = findSlot(cls.classId, d.value, period.periodId, idx);
             if (slot) {
-              html += '<td class="tt-matrix-cell' + (slot.locked ? ' tt-cell-locked' : '') + '">' +
+              const mc = subjectColor(slot.subject, false);
+              html += '<td class="tt-matrix-cell tt-cell-colored' + (slot.locked ? ' tt-cell-locked' : '') +
+                '" style="background:' + mc.bg + ';box-shadow:inset 3px 0 0 ' + mc.border + ';">' +
                 '<div class="tt-cell-subject">' + escapeHtml(slot.subject) + (slot.locked ? ' 🔒' : '') + '</div>' +
                 '<div class="tt-cell-teacher">' + escapeHtml(slot.teacherName || '') + '</div></td>';
             } else {

@@ -148,7 +148,10 @@ window.SaltLesson = (function() {
     if (calendar && calendar.subjectStyles && calendar.subjectStyles[key]) {
       return calendar.subjectStyles[key];
     }
-    return { bg: '#f3f4f6', border: '#6b7280' };
+    if (window.SaltSubjectColors && typeof window.SaltSubjectColors.forSubject === 'function') {
+      return window.SaltSubjectColors.forSubject(subject);
+    }
+    return { bg: '#eef3ea', border: '#a3b18a' };
   }
 
   function renderColorPicker(classId, subject) {

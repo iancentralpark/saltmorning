@@ -2787,6 +2787,22 @@ body.buddy-resize-active {
   border-top: 1px solid var(--border-soft);
   font-size: 0.82rem;
 }
+.pp-tt-slot-colored {
+  margin: 0.25rem 0 0;
+  padding: 0.4rem 0.5rem;
+  border-top: none;
+  border-left: 3px solid var(--sage);
+  border-radius: 0.45rem;
+}
+.tt-slot-colored {
+  border-left-width: 3px;
+}
+.tt-chip-colored {
+  border-left-width: 3px;
+}
+.tt-cell-colored {
+  border-color: transparent;
+}
 .pp-hw-item {
   padding: 0.65rem 0;
   border-bottom: 1px solid var(--border-soft);
