@@ -836,23 +836,23 @@ router.post('/teacher/class/:classId/report-card/share', requireRole('teacher'),
 
 router.get('/teacher/class/:classId/analytics', requireRole('teacher'), async (req, res) => {
   try {
-    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     const data = await getClassAnalyticsDashboard(req.params.classId, {
       status: req.query.status || ''
     });
     res.json(data);
   } catch (e) {
-    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    const status = /homeroom|not assigned|access/i.test(e.message || '') ? 403 : 500;
     res.status(status).json({ error: e.message || 'Could not load analytics.' });
   }
 });
 
 router.get('/teacher/class/:classId/analytics/students/:studentId', requireRole('teacher'), async (req, res) => {
   try {
-    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await getStudentAnalytics(req.params.classId, req.params.studentId));
   } catch (e) {
-    const status = /not assigned|access|not found/i.test(e.message || '') ? 404 : 500;
+    const status = /homeroom|not assigned|access|not found/i.test(e.message || '') ? 403 : 500;
     res.status(status).json({ error: e.message || 'Could not load student analytics.' });
   }
 });
@@ -868,7 +868,7 @@ router.post(
   },
   async (req, res) => {
     try {
-      await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+      await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
       if (!req.file) {
         return res.status(400).json({
           error: 'Upload a Star Reading or MAP PDF / scan image. CSV and JSON paste are no longer supported.'
@@ -884,26 +884,29 @@ router.post(
       });
       res.json(result);
     } catch (e) {
-      res.status(400).json({ error: e.message || 'Import failed.' });
+      const status = /homeroom/i.test(e.message || '') ? 403 : 400;
+      res.status(status).json({ error: e.message || 'Import failed.' });
     }
   }
 );
 
 router.post('/teacher/class/:classId/analytics/seed-mock', requireRole('teacher'), async (req, res) => {
   try {
-    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await seedLearningAnalyticsMock(req.params.classId));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not seed mock analytics.' });
+    const status = /homeroom/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not seed mock analytics.' });
   }
 });
 
 router.post('/teacher/class/:classId/analytics/students/:studentId/diagnose', requireRole('teacher'), async (req, res) => {
   try {
-    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await generateAiDiagnostic(req.params.classId, req.params.studentId));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not generate diagnostic.' });
+    const status = /homeroom/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not generate diagnostic.' });
   }
 });
 
@@ -1565,17 +1568,21 @@ router.get('/student/vocab/pronounce', requireRole('student'), async (req, res) 
 
 router.get('/teacher/class/:classId/vocab', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await getClassVocabOverview(req.params.classId));
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Could not load vocab overview.' });
+    const status = /homeroom|not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load vocab overview.' });
   }
 });
 
 router.post('/teacher/class/:classId/vocab/:studentId', requireRole('teacher'), async (req, res) => {
   try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await overrideStudentVocab(req.params.studentId, req.params.classId, req.body || {}));
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not update vocab state.' });
+    const status = /homeroom/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not update vocab state.' });
   }
 });
 

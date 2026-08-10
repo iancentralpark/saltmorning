@@ -36,7 +36,7 @@
     </div>
     <div class="card" id="homeClassesSection">
       <div class="section-title">My classes</div>
-      <p class="muted small" style="margin:0 0 0.75rem">Open a class for attendance, grades, homework, and more.</p>
+      <p class="muted small" style="margin:0 0 0.75rem">Homeroom classes include attendance and analytics. Subject classes focus on grades, homework, and dollars.</p>
       <div class="class-list" id="assignedList"></div>
     </div>
     <div class="card" id="homeAnnouncementsSection">
@@ -95,15 +95,15 @@
       </div>
       <button class="btn btn-ghost" id="classLogoutBtn" type="button">Log out</button>
     </div>
-    <div class="tabs">
-      <button class="tab active" data-tab="attendance" type="button">Attendance</button>
+    <div class="tabs" id="classTabs">
+      <button class="tab active" data-tab="attendance" data-homeroom-only="1" type="button">Attendance</button>
       <button class="tab" data-tab="grades" type="button">Grades</button>
       <button class="tab" data-tab="dollars" type="button">Dollars</button>
       <button class="tab" data-tab="homework" type="button">Homework</button>
-      <button class="tab" data-tab="vocab" type="button">Vocab Booster</button>
+      <button class="tab" data-tab="vocab" data-homeroom-only="1" type="button">Vocab Booster</button>
       <button class="tab" data-tab="report" type="button">Report card</button>
-      <button class="tab" data-tab="analytics" type="button">Learning Analytics</button>
-      <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
+      <button class="tab" data-tab="analytics" data-homeroom-only="1" type="button">Learning Analytics</button>
+      <button class="tab" data-tab="lesson" data-homeroom-only="1" type="button">Lesson plan</button>
     </div>
 
     <div id="panelAttendance" class="card att-panel">
@@ -613,6 +613,22 @@
 
   $('studentsLogoutBtn').addEventListener('click', doLogout);
 
+  function isHomeroomClass(cls) {
+    return !!(cls && cls.isHomeroom);
+  }
+
+  function syncClassTabs() {
+    const hr = isHomeroomClass(currentClass);
+    document.querySelectorAll('#classTabs .tab').forEach((btn) => {
+      const homeroomOnly = btn.getAttribute('data-homeroom-only') === '1';
+      btn.classList.toggle('hidden', homeroomOnly && !hr);
+    });
+  }
+
+  function defaultClassTab() {
+    return isHomeroomClass(currentClass) ? 'attendance' : 'grades';
+  }
+
   function openClass(cls) {
     lessonScope = 'class';
     currentClass = cls;
@@ -623,11 +639,16 @@
     const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
     $('gradeSubject').value = firstSubject;
     $('reportTerm').value = $('gradeTerm').value || 'Term1';
-    switchTab('attendance');
-    SaltAttendance.onClassOpen();
+    syncClassTabs();
+    switchTab(defaultClassTab());
+    if (isHomeroomClass(cls)) SaltAttendance.onClassOpen();
   }
 
   function switchTab(name) {
+    const homeroomOnly = { attendance: 1, vocab: 1, analytics: 1, lesson: 1 };
+    if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
+      name = defaultClassTab();
+    }
     document.querySelectorAll('#classView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
     ['panelAttendance','panelGrades','panelDollars','panelHomework','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => hide($(id)));
     const map = {
