@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810autotr">
+  <link rel="stylesheet" href="/css/app.css?v=20260810teacherhome">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -17,28 +17,35 @@
     <p><a href="/">Go to login</a></p>
   </div>
 
-  <div id="classesView" class="hidden">
-    <div class="topbar">
-      <div class="brand" id="welcomeText">My Classes</div>
-      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+  <div id="homeView" class="hidden">
+    <div class="topbar teacher-topbar">
+      <div>
+        <div class="brand" id="welcomeText">Teacher</div>
+        <p class="muted small" style="margin:0.15rem 0 0">Your weekly teaching schedule</p>
+      </div>
+      <div class="teacher-home-actions">
+        <a class="btn btn-ghost" href="#homeClassesSection" id="homeClassesLink">My classes</a>
+        <button type="button" class="btn btn-ghost" id="openStudentsBtn">Student directory</button>
+        <button type="button" class="btn btn-ghost" id="openGlobalLessonBtn">My Lesson Plan</button>
+        <button type="button" class="btn btn-ghost" id="logoutBtn">Log out</button>
+      </div>
     </div>
     <div class="card">
-      <div class="section-title">Assigned classes</div>
+      <div class="section-title">My timetable</div>
+      <div id="teacherTimetableMount"></div>
+    </div>
+    <div class="card" id="homeClassesSection">
+      <div class="section-title">My classes</div>
+      <p class="muted small" style="margin:0 0 0.75rem">Open a class for attendance, grades, homework, and more.</p>
       <div class="class-list" id="assignedList"></div>
-      <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.5rem">
-        <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
-        <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
-        <button type="button" class="btn btn-ghost" id="openGlobalLessonBtn">Lesson plan</button>
-      </div>
-      <p class="muted small" style="margin-top:0.35rem">Open a class for attendance, grades, and homework. Your personal timetable opens first after login.</p>
     </div>
   </div>
 
   <div id="globalLessonView" class="hidden">
-    <div class="topbar">
+    <div class="topbar teacher-topbar">
       <div>
-        <button class="btn btn-ghost" id="globalLessonBackBtn" type="button">← Classes</button>
-        <div class="brand">Lesson plan — all classes</div>
+        <button class="btn btn-ghost" id="globalLessonBackBtn" type="button">← Home</button>
+        <div class="brand">My Lesson Plan</div>
       </div>
       <button class="btn btn-ghost" id="globalLessonLogoutBtn" type="button">Log out</button>
     </div>
@@ -59,9 +66,9 @@
   </div>
 
   <div id="studentsView" class="hidden">
-    <div class="topbar">
+    <div class="topbar teacher-topbar">
       <div>
-        <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Classes</button>
+        <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Home</button>
         <div class="brand">Student directory</div>
       </div>
       <button class="btn btn-ghost" id="studentsLogoutBtn" type="button">Log out</button>
@@ -71,26 +78,13 @@
     </div>
   </div>
 
-  <div id="timetableView" class="hidden">
-    <div class="topbar">
-      <div>
-        <div class="brand" id="timetableWelcome">My timetable</div>
-        <p class="muted small" style="margin:0.15rem 0 0">Your weekly teaching schedule</p>
-      </div>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-        <button class="btn btn-primary" id="timetableBackBtn" type="button">My classes</button>
-        <button class="btn btn-ghost" id="timetableLogoutBtn" type="button">Log out</button>
-      </div>
-    </div>
-    <div class="card" id="teacherTimetableMount"></div>
-  </div>
-
   <div id="classView" class="hidden">
-    <div class="topbar">
+    <div class="topbar teacher-topbar">
       <div>
-        <button class="btn btn-ghost" id="backBtn" type="button">← Classes</button>
+        <button class="btn btn-ghost" id="backBtn" type="button">← Home</button>
         <div class="brand" id="classTitle"></div>
       </div>
+      <button class="btn btn-ghost" id="classLogoutBtn" type="button">Log out</button>
     </div>
     <div class="tabs">
       <button class="tab active" data-tab="attendance" type="button">Attendance</button>
@@ -516,66 +510,59 @@
     SaltStudentRegistry.setClasses(classOpts);
   }
 
+  function doLogout() {
+    setToken(role, '');
+    setProfile(role, null);
+    location.href = '/';
+  }
+
+  function hideAllAppViews() {
+    ['homeView', 'classView', 'studentsView', 'globalLessonView', 'loginView'].forEach((id) => {
+      const node = $(id);
+      if (node) hide(node);
+    });
+  }
+
+  function openHome() {
+    hideAllAppViews();
+    show($('homeView'));
+    const p = getProfile(role);
+    if ($('welcomeText') && p) {
+      $('welcomeText').textContent = (p.name || 'Teacher') + ' · My timetable';
+    }
+    SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
+  }
+
   $('openStudentsBtn').addEventListener('click', () => {
-    hide($('classesView'));
+    hideAllAppViews();
     show($('studentsView'));
     SaltStudentRegistry.open();
   });
 
-  function openMyTimetable() {
-    hide($('classesView'));
-    hide($('classView'));
-    hide($('studentsView'));
-    hide($('globalLessonView'));
-    show($('timetableView'));
-    const p = getProfile(role);
-    if ($('timetableWelcome') && p) $('timetableWelcome').textContent = (p.name || 'Teacher') + ' · My timetable';
-    SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
-  }
-
-  $('openTimetableBtn').addEventListener('click', openMyTimetable);
-
   $('openGlobalLessonBtn').addEventListener('click', () => {
     lessonScope = 'global';
-    hide($('classesView'));
-    hide($('classView'));
+    hideAllAppViews();
     show($('globalLessonView'));
     SaltLesson.onGlobalOpen();
   });
 
   $('globalLessonBackBtn').addEventListener('click', () => {
-    hide($('globalLessonView'));
-    show($('classesView'));
     lessonScope = 'class';
+    openHome();
   });
 
-  $('globalLessonLogoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
-  });
-
-  $('timetableBackBtn').addEventListener('click', () => {
-    hide($('timetableView'));
-    show($('classesView'));
-  });
-
-  $('timetableLogoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
-  });
+  $('globalLessonLogoutBtn').addEventListener('click', doLogout);
 
   $('studentsBackBtn').addEventListener('click', () => {
-    hide($('studentsView'));
-    show($('classesView'));
+    openHome();
   });
 
-  $('studentsLogoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
-  });
+  $('studentsLogoutBtn').addEventListener('click', doLogout);
 
   function openClass(cls) {
     lessonScope = 'class';
     currentClass = cls;
-    hide($('classesView'));
-    hide($('globalLessonView'));
+    hideAllAppViews();
     show($('classView'));
     $('classTitle').textContent = cls.className + (cls.isHomeroom ? ' · Homeroom' : '');
     $('attDate').value = todayISO();
@@ -893,13 +880,12 @@
 
   $('backBtn').addEventListener('click', () => {
     SaltLesson.closeDrawer();
-    hide($('classView')); show($('classesView'));
     currentClass = null;
+    openHome();
   });
 
-  $('logoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.href = '/';
-  });
+  $('logoutBtn').addEventListener('click', doLogout);
+  if ($('classLogoutBtn')) $('classLogoutBtn').addEventListener('click', doLogout);
 
   function showClassToolsSidebar() {
     const bar = $('classToolsSidebar');
@@ -946,7 +932,6 @@
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name;
     SaltTimetable.init({ api, escapeHtml, role });
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
@@ -955,8 +940,7 @@
     SaltMessenger.init(role);
     showClassToolsSidebar();
     setClassToolsMinimized(false);
-    // Land on personal timetable first
-    openMyTimetable();
+    openHome();
   }
 
   if (getToken(role)) bootApp();
