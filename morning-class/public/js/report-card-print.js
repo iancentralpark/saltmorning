@@ -11,15 +11,20 @@
   }
 
   function sigBlock(label, path, at) {
+    const dateText = at ? String(at).slice(0, 10) : '';
     return (
       '<div class="rc-sig-box">' +
-      '<div class="rc-sig-label">' + esc(label) + '</div>' +
+      '<div class="rc-sig-area">' +
       (path
         ? '<img class="rc-sig-img" src="' + esc(path) + '" alt="' + esc(label) + '">'
-        : '<div class="rc-sig-blank"></div>') +
+        : '') +
+      '<div class="rc-sig-line" aria-hidden="true"></div>' +
+      '</div>' +
+      '<div class="rc-sig-caption">' +
+      '<div class="rc-sig-label">' + esc(label) + '</div>' +
       '<div class="rc-sig-meta muted small">' +
-      (at ? esc(String(at).slice(0, 10)) : '________________') +
-      '</div></div>'
+      (dateText ? ('Date: ' + esc(dateText)) : 'Date ______________') +
+      '</div></div></div>'
     );
   }
 
@@ -113,9 +118,7 @@
     html += '<section class="rc-sig-row rc-sig-row-bottom">' +
       sigBlock('Homeroom Teacher Signature', wf.homeroomSigPath, wf.homeroomSignedAt) +
       sigBlock('Director / Principal Signature', wf.principalSigPath, wf.principalSignedAt) +
-      '<div class="rc-sig-box"><div class="rc-sig-label">Parent / Guardian Signature</div>' +
-      '<div class="rc-sig-blank"></div>' +
-      '<div class="rc-sig-meta muted small">Date ______________</div></div>' +
+      sigBlock('Parent / Guardian Signature', '', '') +
       '</section>';
 
     html += '<footer class="rc-print-footer muted small">Generated ' +

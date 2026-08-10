@@ -2529,23 +2529,65 @@ body.buddy-resize-active {
 .rc-sig-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 1rem 0;
+  gap: 1.1rem 1.35rem;
+  margin: 1.35rem 0 0.75rem;
   text-align: left;
 }
 .rc-sig-box {
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  padding: 0.55rem 0.65rem;
-  min-height: 5.5rem;
-  background: #fff;
+  border: none;
+  border-radius: 0;
+  padding: 0.15rem 0.2rem 0.35rem;
+  min-height: 0;
+  background: transparent;
 }
-.rc-sig-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.35rem; }
-.rc-sig-img { max-height: 2.8rem; max-width: 100%; display: block; }
-.rc-sig-blank {
-  height: 2.6rem;
-  border-bottom: 1px solid #cbd5e1;
-  margin: 0.35rem 0;
+.rc-sig-area {
+  position: relative;
+  height: 5.75rem;
+  margin-bottom: 0.2rem;
+}
+.rc-sig-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.35rem;
+  border-bottom: 1.5px solid #334155;
+}
+.rc-sig-img {
+  position: absolute;
+  left: 0.15rem;
+  right: 0.15rem;
+  bottom: 0.55rem;
+  width: calc(100% - 0.3rem);
+  max-width: none;
+  height: 5.1rem;
+  max-height: none;
+  object-fit: contain;
+  object-position: left bottom;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
+}
+.rc-sig-blank { display: none; }
+.rc-sig-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.15rem;
+}
+.rc-sig-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+.rc-sig-meta {
+  font-size: 0.72rem;
+  margin: 0;
+}
+@media print {
+  .rc-sig-area { height: 6.25rem; }
+  .rc-sig-img { height: 5.6rem; bottom: 0.45rem; }
 }
 .rc-print-school {
   letter-spacing: 0.08em;
