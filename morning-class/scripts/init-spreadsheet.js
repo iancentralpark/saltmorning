@@ -14,7 +14,7 @@ const withSeed = args.includes('--seed');
 
 const SHEETS = [
   { name: 'Class_List', headers: ['ClassID', 'Name', 'ScheduleType', 'AllowedDays'], seed: [['C001', 'Morning Class A', 'Mon-Fri', '1,2,3,4,5']] },
-  { name: 'Student_List', headers: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword'], seed: [['S001', 'Test Student', 'C001', 'Enrolled', 'student', 'student123']] },
+  { name: 'Student_List', headers: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword'], seed: [['S001', 'Test Students', 'C001', 'Enrolled', 'student', 'student123']] },
   { name: 'Student_Profile', headers: ['StudentID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality', 'Address', 'Phone', 'Email', 'ParentName', 'ParentPhone', 'ParentEmail', 'EmergencyContact', 'EmergencyPhone', 'PreviousSchool', 'GradeLevel', 'EnrolledDate', 'Notes', 'UpdatedAt'] },
   { name: 'Student_Profile_Fields', headers: ['FieldID', 'StudentID', 'Section', 'Label', 'Value', 'SortOrder'] },
   { name: 'Timetable_Entries', headers: ['EntryID', 'OwnerType', 'OwnerID', 'ClassID', 'DayOfWeek', 'StartTime', 'EndTime', 'Subject', 'TeacherID', 'Room', 'Notes', 'SortOrder', 'UpdatedAt', 'Locked', 'PeriodID'] },
@@ -23,7 +23,7 @@ const SHEETS = [
   { name: 'Teacher_List', headers: ['TeacherID', 'Name', 'LoginID', 'LoginPassword', 'HomeroomClassID', 'StaffRole'], seed: [['T001', 'Test Teacher', 'teacher', 'teacher123', 'C001', 'Teacher']] },
   { name: 'Teacher_Profile', headers: ['TeacherID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality', 'Phone', 'Email', 'Address', 'EmergencyContact', 'EmergencyPhone', 'Title', 'HireDate', 'Education', 'Notes', 'UpdatedAt'] },
   { name: 'Class_Teachers', headers: ['ClassID', 'TeacherID', 'AssignmentType', 'Subject'], seed: [['C001', 'T001', 'Homeroom', '']] },
-  { name: 'Parent_List', headers: ['ParentID', 'StudentID', 'Name', 'LoginID', 'LoginPassword', 'Phone', 'Email'], seed: [['P001', 'S001', 'Test Parent', 'parent', 'parent123', '', '']] },
+  { name: 'Parent_List', headers: ['ParentID', 'StudentID', 'Name', 'LoginID', 'LoginPassword', 'Phone', 'Email'], seed: [['P001', 'S001', 'Test Parents', 'parent', 'parent', '', '']] },
   { name: 'Parent_Announcements', headers: ['AnnouncementID', 'Title', 'Body', 'PostedAt', 'PostedBy', 'Active'], seed: [['A001', 'Welcome Parents', 'Salt Academy Morning Class parent portal is now open.', new Date().toISOString(), 'Admin', 'true']] },
   { name: 'Subjects', headers: ['SubjectID', 'Name', 'SortOrder'], seed: [['SUBJ01', 'English', '1'], ['SUBJ02', 'Math', '2'], ['SUBJ03', 'Science', '3']] },
   { name: 'Teacher_Class_Subjects', headers: ['TeacherID', 'ClassID', 'Subject', 'CreatedAt'] },

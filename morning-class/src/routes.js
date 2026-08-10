@@ -47,6 +47,16 @@ const {
 } = require('./services/messageService');
 const { listParentAnnouncements } = require('./services/parentAnnouncementService');
 const {
+  getParentOverview,
+  getParentAttendance,
+  getParentTimetable,
+  getParentHomework,
+  getParentStudentProfile,
+  updateParentStudentProfile,
+  translateToKorean,
+  ensureParentDemoData
+} = require('./services/parentPortalService');
+const {
   listDailyGrades,
   saveDailyGrades,
   listGradeEntries,
@@ -1507,6 +1517,87 @@ router.get('/parent/announcements', requireRole('parent'), async (req, res) => {
     res.json({ announcements });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load announcements.' });
+  }
+});
+
+router.get('/parent/overview', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await getParentOverview(req.session));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load parent overview.' });
+  }
+});
+
+router.get('/parent/attendance', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await getParentAttendance(req.session, req.query.start, req.query.end));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load attendance.' });
+  }
+});
+
+router.get('/parent/timetable', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await getParentTimetable(req.session));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load timetable.' });
+  }
+});
+
+router.get('/parent/homework', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await getParentHomework(req.session));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load homework.' });
+  }
+});
+
+router.get('/parent/student-profile', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await getParentStudentProfile(req.session));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load profile.' });
+  }
+});
+
+router.post('/parent/student-profile', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await updateParentStudentProfile(req.session, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update profile.' });
+  }
+});
+
+router.post('/parent/translate', requireRole('parent'), async (req, res) => {
+  try {
+    const text = (req.body && req.body.text) || '';
+    res.json(await translateToKorean(text));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Translate failed.' });
+  }
+});
+
+router.post('/admin/seed-parent-demo', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await ensureParentDemoData());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not seed parent demo.' });
+  }
+});
+
+// Also allow a one-shot seed without auth in non-production? Prefer admin-only + script.
+router.post('/dev/seed-parent-demo', async (req, res) => {
+  try {
+    if (process.env.ALLOW_DEMO_SEED !== '1' && process.env.NODE_ENV === 'production') {
+      // Still allow when explicitly keyed
+      const key = String((req.body && req.body.key) || req.query.key || '');
+      if (key !== String(process.env.DEMO_SEED_KEY || 'salt-demo-seed')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
+    res.json(await ensureParentDemoData());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not seed parent demo.' });
   }
 });
 

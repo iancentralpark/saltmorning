@@ -37,6 +37,16 @@ function adminThreadId(teacherId) {
   return 'adm_' + String(teacherId);
 }
 
+function parentTeacherThreadId(studentId, teacherId) {
+  return 'pt_' + String(studentId) + '__' + String(teacherId);
+}
+
+function parseParentTeacherThread(threadId) {
+  const m = String(threadId || '').match(/^pt_(.+)__(.+)$/);
+  if (!m) return null;
+  return { studentId: m[1], teacherId: m[2] };
+}
+
 function targetAudienceFor(senderRole, threadType) {
   if (threadType === 'admin') {
     return senderRole === 'admin' ? 'teacher' : 'admin';
@@ -262,19 +272,43 @@ async function listThreadsForSession(session) {
       unread: msgs.filter((m) => isIncomingForRole(m, role)).length
     }));
   } else if (role === 'parent') {
-    const tid = studentThreadId(session.studentId);
-    const msgs = all.filter((m) => m.threadId === tid);
     const sname = await lookupStudentName(session.studentId);
-    threads.push(summarizeThread(msgs, {
-      threadId: tid,
-      threadType: 'student',
-      title: "Child's teacher",
-      subtitle: sname + ' · ' + await getClassLabel(session.classId),
-      classId: session.classId,
-      studentId: session.studentId,
-      studentName: sname,
-      unread: msgs.filter((m) => isIncomingForRole(m, role)).length
-    }));
+    const classLabel = await getClassLabel(session.classId);
+    const { listChildTeachers } = require('./parentPortalService');
+    const teachers = await listChildTeachers(session.classId).catch(() => []);
+
+    // Legacy shared family thread
+    const legacyTid = studentThreadId(session.studentId);
+    const legacyMsgs = all.filter((m) => m.threadId === legacyTid);
+    if (legacyMsgs.length) {
+      threads.push(summarizeThread(legacyMsgs, {
+        threadId: legacyTid,
+        threadType: 'student',
+        title: "Child's teachers (shared)",
+        subtitle: sname + ' · ' + classLabel,
+        classId: session.classId,
+        studentId: session.studentId,
+        studentName: sname,
+        unread: legacyMsgs.filter((m) => isIncomingForRole(m, role)).length
+      }));
+    }
+
+    for (const t of teachers) {
+      const tid = parentTeacherThreadId(session.studentId, t.teacherId);
+      const msgs = all.filter((m) => m.threadId === tid);
+      const roleLabel = t.isHomeroom ? 'Homeroom' : ((t.subjects || []).join(', ') || 'Teacher');
+      threads.push(summarizeThread(msgs, {
+        threadId: tid,
+        threadType: 'parent_teacher',
+        title: t.name,
+        subtitle: roleLabel + ' · ' + sname,
+        classId: session.classId,
+        studentId: session.studentId,
+        studentName: sname,
+        teacherId: t.teacherId,
+        unread: msgs.filter((m) => isIncomingForRole(m, role)).length
+      }));
+    }
   } else if (role === 'teacher') {
     const { homeroom, assigned } = await getTeacherClasses(session.teacherId);
     const classIds = new Set();
@@ -300,6 +334,23 @@ async function listThreadsForSession(session) {
           studentName: st.name,
           unread: msgs.filter((m) => isIncomingForRole(m, role)).length
         }));
+
+        // Parent↔teacher direct threads (show when conversation exists)
+        const ptTid = parentTeacherThreadId(st.studentId, session.teacherId);
+        const mine = all.filter((m) => m.threadId === ptTid);
+        if (mine.length) {
+          threads.push(summarizeThread(mine, {
+            threadId: ptTid,
+            threadType: 'parent_teacher',
+            title: st.name + ' (parent)',
+            subtitle: className + ' · Parent chat',
+            classId,
+            studentId: st.studentId,
+            studentName: st.name,
+            teacherId: session.teacherId,
+            unread: mine.filter((m) => isIncomingForRole(m, role)).length
+          }));
+        }
       }
     }
 
@@ -392,8 +443,10 @@ async function assertThreadAccess(threadId, session) {
     return;
   }
   if (role === 'parent') {
-    if (threadId !== studentThreadId(session.studentId)) throw new Error('Access denied.');
-    return;
+    if (threadId === studentThreadId(session.studentId)) return;
+    const pt = parseParentTeacherThread(threadId);
+    if (pt && pt.studentId === String(session.studentId)) return;
+    throw new Error('Access denied.');
   }
   if (role === 'teacher') {
     if (threadId === adminThreadId(session.teacherId)) return;
@@ -403,6 +456,13 @@ async function assertThreadAccess(threadId, session) {
       const sample = all.find((m) => m.threadId === threadId);
       const classId = sample ? sample.classId : '';
       const ok = await teacherCanAccessStudent(session.teacherId, studentId, classId);
+      if (!ok) throw new Error('Access denied.');
+      return;
+    }
+    const pt = parseParentTeacherThread(threadId);
+    if (pt) {
+      if (pt.teacherId !== String(session.teacherId)) throw new Error('Access denied.');
+      const ok = await teacherCanAccessStudent(session.teacherId, pt.studentId, session.classId || '');
       if (!ok) throw new Error('Access denied.');
       return;
     }
@@ -429,7 +489,10 @@ async function sendThreadMessage(threadId, session, body) {
     });
   }
 
-  const studentId = threadId.startsWith('stu_') ? threadId.slice(4) : session.studentId;
+  const pt = parseParentTeacherThread(threadId);
+  const studentId = pt
+    ? pt.studentId
+    : (threadId.startsWith('stu_') ? threadId.slice(4) : session.studentId);
   let classId = session.classId || '';
   let studentName = session.name || '';
 
@@ -456,10 +519,10 @@ async function sendThreadMessage(threadId, session, body) {
 
   return appendMessage({
     threadId,
-    threadType: 'student',
+    threadType: pt ? 'parent_teacher' : 'student',
     classId,
     studentId,
-    studentName: role === 'parent' ? studentName : studentName,
+    studentName,
     senderRole: role,
     senderId: session[role + 'Id'] || session.studentId || session.teacherId || session.adminId || '',
     senderName: role === 'parent' ? (session.name + ' (parent)') : session.name,
@@ -504,6 +567,8 @@ module.exports = {
   HEADERS,
   studentThreadId,
   adminThreadId,
+  parentTeacherThreadId,
+  parseParentTeacherThread,
   ensureMessageSchema,
   listThreadsForSession,
   getThreadMessages,

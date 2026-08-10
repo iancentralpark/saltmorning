@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810reportcard">
+  <link rel="stylesheet" href="/css/app.css?v=20260810parent">
 </head>
 <body>
 <div class="shell">
@@ -14,148 +14,114 @@
     <p><a href="/">Go to login</a></p>
   </div>
 
-  <div id="appView" class="hidden">
+  <div id="appView" class="hidden pp-app">
     <div class="topbar">
       <div class="brand" id="welcomeText">Parent</div>
       <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
     </div>
+
+    <div id="ppHero" class="pp-hero card"></div>
+
     <div class="tabs" style="margin-bottom:0.75rem">
-      <button class="tab active" data-tab="announcements" type="button">Announcements</button>
-      <button class="tab" data-tab="reportcards" type="button">Report Cards</button>
+      <button class="tab active" data-tab="feed" type="button">Newsfeed</button>
+      <button class="tab" data-tab="attendance" type="button">Attendance</button>
+      <button class="tab" data-tab="timetable" type="button">Timetable</button>
+      <button class="tab" data-tab="homework" type="button">Homework</button>
+      <button class="tab" data-tab="reportcards" type="button">Report cards</button>
+      <button class="tab" data-tab="profile" type="button">Profile</button>
+      <button class="tab" data-tab="messages" type="button">Messages</button>
     </div>
-    <div id="tabAnnouncements" class="card">
-      <div id="announceList"></div>
+
+    <div id="tabFeed" class="card">
+      <h3 style="margin-top:0">Updates</h3>
+      <div id="ppFeed"></div>
     </div>
-    <div id="tabReportCards" class="card hidden">
+
+    <div id="tabAttendance" class="card hidden">
+      <div class="ya-top">
+        <div class="ya-meta" id="ppAttMeta"></div>
+        <div class="ya-pie-wrap">
+          <div class="ya-pie" id="ppAttPie" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="ya-month-nav">
+        <button type="button" class="btn btn-ghost" id="yearAttPrev">‹</button>
+        <strong id="ppAttMonthLabel"></strong>
+        <button type="button" class="btn btn-ghost" id="yearAttNext">›</button>
+      </div>
+      <div id="ppAttCal"></div>
+    </div>
+
+    <div id="tabTimetable" class="card hidden">
+      <div id="ppTimetable"></div>
+    </div>
+
+    <div id="tabHomework" class="card hidden">
+      <div id="ppHomework"></div>
+    </div>
+
+    <div id="tabReportcards" class="card hidden">
       <div id="parentReportList" class="rc-parent-list"></div>
       <div id="parentReportBody"></div>
       <div class="error" id="parentReportError"></div>
+    </div>
+
+    <div id="tabProfile" class="card hidden">
+      <h3 style="margin-top:0">Student information</h3>
+      <p class="muted small">Update contact and medical details for <strong id="ppName"></strong>
+        (<span id="ppClass" class="muted"></span></p>
+      <form id="ppProfileForm" class="form-grid admin-form-grid">
+        <label>Parent / guardian name <input id="pp_parentName"></label>
+        <label>Parent phone <input id="pp_parentPhone"></label>
+        <label>Parent email <input id="pp_parentEmail"></label>
+        <label>Student phone <input id="pp_phone"></label>
+        <label>Student email <input id="pp_email"></label>
+        <label>Nationality <input id="pp_nationality"></label>
+        <label class="pp-span-2">Address <input id="pp_address"></label>
+        <label>Emergency contact <input id="pp_emergencyContact"></label>
+        <label>Emergency phone <input id="pp_emergencyPhone"></label>
+        <label class="pp-span-2">Notes <input id="pp_notes"></label>
+        <div class="pp-span-2">
+          <h4>Medical</h4>
+          <div id="ppMedical" class="form-grid admin-form-grid"></div>
+        </div>
+        <div class="pp-span-2" style="display:flex;gap:0.5rem;align-items:center">
+          <button type="submit" class="btn btn-primary">Save profile</button>
+          <span class="ok" id="ppProfileOk"></span>
+          <span class="error" id="ppProfileError"></span>
+        </div>
+      </form>
+    </div>
+
+    <div id="tabMessages" class="card hidden">
+      <div id="ppMessagesHint"></div>
+      <h4>Teachers</h4>
+      <div id="ppTeacherList" class="pp-teacher-list"></div>
+      <p class="muted small">Or use the chat bubble — Translate turns English teacher replies into Korean.</p>
     </div>
   </div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260806login2"></script>
-<script src="/js/messenger.js?v=20260708libs"></script>
-<script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
+<script src="/js/messenger.js?v=20260810parent"></script>
+<script src="/js/parent.js?v=20260810parent"></script>
 <script>
 (function() {
   const role = 'parent';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
 
-  async function loadAnnouncements() {
-    const data = await api('/api/parent/announcements', {}, role);
-    $('announceList').innerHTML = (data.announcements || []).map(a =>
-      '<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">' +
-      '<strong>' + escapeHtml(a.title) + '</strong>' +
-      '<div style="color:var(--muted);font-size:.8rem;margin:.25rem 0">' + escapeHtml(a.postedAt) + '</div>' +
-      '<div>' + escapeHtml(a.body) + '</div></div>'
-    ).join('') || '<p style="color:var(--muted)">No announcements yet.</p>';
-  }
-
-  function renderParentCard(card) {
-    // Reuse teacher printable renderer helpers by cloning markup structure
-    let html = '<div class="rc-full-toolbar no-print">' +
-      '<button type="button" class="btn btn-primary" id="parentPrintBtn">Print</button>' +
-      '</div>';
-    html += '<article class="rc-print-sheet" id="rcPrintSheet">' +
-      '<header class="rc-print-header">' +
-      '<div class="rc-print-school">' + escapeHtml(card.schoolName || 'Salt Academy Morning Class') + '</div>' +
-      '<h2>Student Report Card</h2>' +
-      '<div class="rc-print-meta">' +
-      '<div><span>Student</span><strong>' + escapeHtml(card.student.name) + '</strong></div>' +
-      '<div><span>Grade Level</span><strong>' + escapeHtml(card.student.gradeLevel || '—') + '</strong></div>' +
-      '<div><span>Class</span><strong>' + escapeHtml(card.className || '') + '</strong></div>' +
-      '<div><span>Term</span><strong>' + escapeHtml(card.term) + '</strong></div>' +
-      '<div><span>Homeroom Teacher</span><strong>' + escapeHtml(card.homeroomTeacherName || '—') + '</strong></div>' +
-      '</div></header>';
-    (card.subjects || []).forEach((subj) => {
-      html += '<section class="rc-print-subject">' +
-        '<div class="rc-print-subject-head">' +
-        '<h3>' + escapeHtml(subj.subject) + '</h3>' +
-        '<div class="muted small">Teacher: ' +
-        escapeHtml((subj.teacherNames || []).join(', ') || '—') + '</div></div>' +
-        '<div class="rc-print-grades">' +
-        '<div><span>Letter Grade</span><strong>' + escapeHtml(subj.letterGrade || '—') + '</strong></div>' +
-        '<div><span>Percentage</span><strong>' +
-        (subj.percentageGrade != null ? escapeHtml(String(subj.percentageGrade)) + '%' : '—') +
-        '</strong></div></div>' +
-        '<table class="rc-print-habits"><thead><tr><th>Work Habits / SEL</th><th>Rating</th></tr></thead><tbody>';
-      (subj.workHabits || []).forEach((h) => {
-        html += '<tr><td>' + escapeHtml(h.label) + '</td><td>' + escapeHtml(h.rating || '—') + '</td></tr>';
-      });
-      html += '</tbody></table>' +
-        '<div class="rc-print-comment"><span>Teacher Comment</span><p>' +
-        escapeHtml(subj.subjectComment || '—') + '</p></div></section>';
-    });
-    html += '<footer class="rc-print-footer muted small">Shared with parents' +
-      (card.sharedAt ? ' · ' + escapeHtml(String(card.sharedAt).slice(0, 10)) : '') +
-      '</footer></article>';
-    return html;
-  }
-
-  async function loadReportCards() {
-    const list = $('parentReportList');
-    const body = $('parentReportBody');
-    const err = $('parentReportError');
-    err.textContent = '';
-    list.innerHTML = '<p class="muted">Loading…</p>';
-    body.innerHTML = '';
-    try {
-      const data = await api('/api/parent/report-cards', {}, role);
-      const reports = data.reports || [];
-      if (!reports.length) {
-        list.innerHTML = '<p class="muted">' + escapeHtml(data.message || 'No report card has been shared yet.') + '</p>';
-        return;
-      }
-      list.innerHTML = reports.map((r, idx) =>
-        '<button type="button" class="btn btn-primary parent-rc-open" data-idx="' + idx + '">' +
-        'View ' + escapeHtml(r.term) + ' report card — ' + escapeHtml(r.student.name) +
-        '</button>'
-      ).join('');
-      list.querySelectorAll('.parent-rc-open').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const card = reports[Number(btn.dataset.idx)];
-          body.innerHTML = renderParentCard(card);
-          const printBtn = $('parentPrintBtn');
-          if (printBtn) printBtn.addEventListener('click', () => window.print());
-        });
-      });
-      // Auto-open latest
-      list.querySelector('.parent-rc-open').click();
-    } catch (e) {
-      list.innerHTML = '';
-      err.textContent = e.message;
-    }
-  }
-
-  function switchTab(name) {
-    document.querySelectorAll('.tabs .tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-    hide($('tabAnnouncements'));
-    hide($('tabReportCards'));
-    if (name === 'announcements') {
-      show($('tabAnnouncements'));
-    } else {
-      show($('tabReportCards'));
-      loadReportCards();
-    }
-  }
-
-  document.querySelectorAll('.tabs .tab').forEach((btn) => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-  });
+  SaltParent.init({ api, $, show, hide, escapeHtml });
 
   $('logoutBtn').addEventListener('click', () => {
     setToken(role, ''); setProfile(role, null); location.href = '/';
   });
 
-  function bootApp() {
+  async function bootApp() {
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView')); show($('appView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name +
-      (p.studentName ? ' · ' + p.studentName : '');
-    loadAnnouncements();
     SaltMessenger.init(role);
+    await SaltParent.boot();
   }
 
   if (getToken(role)) bootApp();

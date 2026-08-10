@@ -650,6 +650,44 @@ async function shareReportCardWithParents(teacherId, classId, studentId, term) {
   return { shared: true, sharedAt: now, studentId, term };
 }
 
+/**
+ * Seed complete SEL + comments for demo/testing (bypasses teacher access checks).
+ */
+async function seedDemoSubjectReports(classId, studentId, teacherId, term, subjects) {
+  await ensureReportCardSheets();
+  classId = String(classId);
+  studentId = String(studentId);
+  teacherId = String(teacherId);
+  term = String(term || 'Term1');
+  const subjectList = (subjects && subjects.length) ? subjects : ['English', 'Math', 'Science'];
+  const ratings = ['Outstanding', 'Satisfactory', 'Outstanding', 'Satisfactory'];
+  const comments = {
+    English: 'Test Students participates thoughtfully in discussions and is building stronger writing stamina.',
+    Math: 'Solid progress with multi-digit operations. Encourage checking work carefully on word problems.',
+    Science: 'Curious and engaged during labs. Lab notes are improving — great effort this term.'
+  };
+  const seeded = [];
+  for (const subject of subjectList) {
+    const entries = WORK_HABITS.map((h, idx) => ({
+      studentId,
+      fieldKey: h.fieldKey,
+      score: RATING_SCORE[ratings[idx % ratings.length]],
+      comment: ratings[idx % ratings.length]
+    }));
+    entries.push({
+      studentId,
+      fieldKey: SUBJECT_COMMENT_KEY,
+      score: null,
+      comment: comments[subject] ||
+        (subject + ': Test Students is making steady progress this term. (Demo comment)')
+    });
+    await saveReportCardEntries(classId, term, subject, teacherId, entries);
+    await upsertStatus(classId, studentId, term, subject, teacherId, { status: 'Complete' });
+    seeded.push(subject);
+  }
+  return { seeded, term, studentId, classId };
+}
+
 async function listParentReportCards(parentSession) {
   const studentId = String(parentSession.studentId || '');
   const classId = String(parentSession.classId || '');
@@ -729,5 +767,7 @@ module.exports = {
   getFullStudentReportCard,
   shareReportCardWithParents,
   listParentReportCards,
-  ensureReportCardSheets
+  listAllSubjectsForClass,
+  ensureReportCardSheets,
+  seedDemoSubjectReports
 };
