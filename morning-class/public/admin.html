@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810autotr">
+  <link rel="stylesheet" href="/css/app.css?v=20260810ann">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -30,6 +30,7 @@
       <button class="tab" data-tab="timetables" type="button">Timetables</button>
       <button class="tab" data-tab="schoolCal" type="button">School calendar</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
+      <button class="tab" data-tab="announcements" type="button">Announcements</button>
       <button class="tab" data-tab="vocabPlatform" type="button">Vocab Booster</button>
     </div>
 
@@ -255,6 +256,17 @@
       <div id="timetableMount"></div>
     </div>
 
+    <div id="panelAnnouncements" class="card hidden">
+      <h3 style="margin-top:0">Announcements</h3>
+      <p class="muted small">Post school-wide or class announcements to parents, students, or both. Add a link, photo, or file if needed.</p>
+      <div id="adminAnnCompose"></div>
+      <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border-soft)">
+      <div class="admin-toolbar" style="margin-bottom:0.75rem">
+        <button type="button" class="btn btn-ghost" id="adminAnnRefresh">Refresh</button>
+      </div>
+      <div id="adminAnnList"><p class="muted">Loading…</p></div>
+    </div>
+
     <div id="panelVocabPlatform" class="card hidden">
       <h3>Vocab Booster</h3>
       <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
@@ -275,6 +287,7 @@
 <script src="/js/class-registry.js?v=20260709classes"></script>
 <script src="/js/timetable.js?v=20260810ttpastel"></script>
 <script src="/js/timetable-setup.js?v=20260810ttpastel"></script>
+<script src="/js/announcements.js?v=20260810ann"></script>
 <script src="/js/admin-school-calendar.js?v=20260810attendance"></script>
 <script>
 (function() {
@@ -317,11 +330,12 @@
 
   function switchTab(name) {
     document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelSchoolCal','panelTerms','panelVocabPlatform'].forEach(id => hide($(id)));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelSchoolCal','panelTerms','panelAnnouncements','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
       classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
-      schoolCal: 'panelSchoolCal', terms: 'panelTerms', vocabPlatform: 'panelVocabPlatform'
+      schoolCal: 'panelSchoolCal', terms: 'panelTerms', announcements: 'panelAnnouncements',
+      vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
     if (name === 'monitor') loadMonitor();
@@ -332,6 +346,40 @@
     if (name === 'timetables') loadTimetables();
     if (name === 'schoolCal') SaltSchoolCalendar.open();
     if (name === 'terms') loadTerms();
+    if (name === 'announcements') loadAdminAnnouncements();
+  }
+
+  async function loadAdminAnnouncements() {
+    const classesForAnn = (classes || []).map((c) => ({ classId: c.classId, className: c.name || c.className }));
+    SaltAnnouncements.bindComposer($('adminAnnCompose'), {
+      mode: 'admin',
+      formId: 'adminAnnComposeForm',
+      classes: classesForAnn,
+      onSubmit: async (fd) => {
+        await api('/api/admin/announcements', { method: 'POST', body: fd }, role);
+      },
+      onPosted: () => refreshAdminAnnList()
+    });
+    await refreshAdminAnnList();
+  }
+
+  async function refreshAdminAnnList() {
+    const box = $('adminAnnList');
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/admin/announcements', {}, role);
+      SaltAnnouncements.renderList(box, data.announcements || [], {
+        canRemove: true,
+        emptyText: 'No announcements posted yet.',
+        onRemove: async (id) => {
+          if (!confirm('Remove this announcement?')) return;
+          await api('/api/admin/announcements/' + encodeURIComponent(id) + '/deactivate', { method: 'POST' }, role);
+          refreshAdminAnnList();
+        }
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
   }
 
   async function loadTimetables() {

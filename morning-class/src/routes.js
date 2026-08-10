@@ -45,7 +45,13 @@ const {
   markThreadRead,
   getUnreadCount
 } = require('./services/messageService');
-const { listParentAnnouncements } = require('./services/parentAnnouncementService');
+const {
+  listParentAnnouncements,
+  listAnnouncementsForViewer,
+  listManagedAnnouncements,
+  createAnnouncement,
+  deactivateAnnouncement
+} = require('./services/announcementService');
 const {
   getParentOverview,
   getParentAttendance,
@@ -216,6 +222,24 @@ const photoUpload = multer({
   fileFilter: (req, file, cb) => {
     const ok = ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype);
     cb(ok ? null : new Error('Photo must be JPEG, PNG, or WebP.'), ok);
+  }
+});
+
+const announcementUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'application/zip'
+    ].includes(file.mimetype);
+    cb(ok ? null : new Error('File type not allowed for announcements.'), ok);
   }
 });
 
@@ -1587,10 +1611,136 @@ router.post('/teacher/class/:classId/english-buddy/:studentId/refill', requireRo
 
 router.get('/parent/announcements', requireRole('parent'), async (req, res) => {
   try {
-    const announcements = await listParentAnnouncements();
+    const scope = req.query.scope || '';
+    const classId = req.session.classId || req.query.classId || '';
+    const announcements = await listAnnouncementsForViewer({
+      role: 'parent',
+      classId,
+      scope
+    });
+    res.json({ announcements, scope: scope || 'all' });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load announcements.' });
+  }
+});
+
+router.get('/student/announcements', requireRole('student'), async (req, res) => {
+  try {
+    const scope = req.query.scope || '';
+    const classId = req.session.classId || '';
+    const announcements = await listAnnouncementsForViewer({
+      role: 'student',
+      classId,
+      scope
+    });
+    res.json({ announcements, scope: scope || 'all' });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load announcements.' });
+  }
+});
+
+function parseAnnouncementFiles(req) {
+  const files = req.files || {};
+  return {
+    image: files.image && files.image[0] ? files.image[0] : null,
+    attachment: files.attachment && files.attachment[0] ? files.attachment[0] : null
+  };
+}
+
+router.get('/admin/announcements', requireRole('admin'), async (req, res) => {
+  try {
+    const announcements = await listManagedAnnouncements({
+      role: 'admin',
+      classId: req.query.classId || ''
+    });
     res.json({ announcements });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load announcements.' });
+  }
+});
+
+router.post('/admin/announcements', requireRole('admin'), (req, res) => {
+  announcementUpload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'attachment', maxCount: 1 }
+  ])(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const body = req.body || {};
+      const announcement = await createAnnouncement(body, parseAnnouncementFiles(req), {
+        role: 'admin',
+        name: (req.session && req.session.name) || 'Admin',
+        id: (req.session && req.session.adminId) || 'admin'
+      });
+      res.json({ announcement });
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not create announcement.' });
+    }
+  });
+});
+
+router.post('/admin/announcements/:id/deactivate', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await deactivateAnnouncement(req.params.id));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not remove announcement.' });
+  }
+});
+
+router.get('/teacher/announcements', requireRole('teacher'), async (req, res) => {
+  try {
+    const classes = await getTeacherClasses(req.session.teacherId);
+    const classIds = [];
+    (classes.homeroom || []).forEach((c) => classIds.push(c.classId));
+    (classes.assigned || []).forEach((c) => {
+      if (c.classId && !classIds.includes(c.classId)) classIds.push(c.classId);
+    });
+    // Also flatten if API returns combined classes array
+    if (Array.isArray(classes.classes)) {
+      classes.classes.forEach((c) => {
+        if (c.classId && !classIds.includes(c.classId)) classIds.push(c.classId);
+      });
+    }
+    const announcements = await listManagedAnnouncements({
+      role: 'teacher',
+      teacherId: req.session.teacherId,
+      classId: classIds
+    });
+    res.json({ announcements, classes: classIds });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load announcements.' });
+  }
+});
+
+router.post('/teacher/announcements', requireRole('teacher'), (req, res) => {
+  announcementUpload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'attachment', maxCount: 1 }
+  ])(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const body = Object.assign({}, req.body || {}, { scope: 'class' });
+      const classId = String(body.classId || '').trim();
+      if (!classId) return res.status(400).json({ error: 'Class is required.' });
+      await assertTeacherClassAccess(req.session.teacherId, classId);
+      const announcement = await createAnnouncement(body, parseAnnouncementFiles(req), {
+        role: 'teacher',
+        name: (req.session && req.session.name) || 'Teacher',
+        id: req.session.teacherId
+      });
+      res.json({ announcement });
+    } catch (e) {
+      const status = /not assigned|access/i.test(e.message || '') ? 403 : 400;
+      res.status(status).json({ error: e.message || 'Could not create announcement.' });
+    }
+  });
+});
+
+router.post('/teacher/announcements/:id/deactivate', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await deactivateAnnouncement(req.params.id, { teacherId: req.session.teacherId }));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not remove announcement.' });
   }
 });
 

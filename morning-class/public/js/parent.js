@@ -36,12 +36,14 @@ window.SaltParent = (function() {
   function switchTab(name) {
     document.querySelectorAll('#appView .tab').forEach((t) =>
       t.classList.toggle('active', t.dataset.tab === name));
-    ['feed', 'attendance', 'timetable', 'homework', 'reportcards', 'profile', 'messages'].forEach((k) => {
+    ['feed', 'schoolAnn', 'classAnn', 'attendance', 'timetable', 'homework', 'reportcards', 'profile', 'messages'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       if (el) deps.hide(el);
     });
     const map = {
       feed: 'tabFeed',
+      schoolAnn: 'tabSchoolAnn',
+      classAnn: 'tabClassAnn',
       attendance: 'tabAttendance',
       timetable: 'tabTimetable',
       homework: 'tabHomework',
@@ -50,12 +52,34 @@ window.SaltParent = (function() {
       messages: 'tabMessages'
     };
     deps.show($(map[name]));
+    if (name === 'schoolAnn') loadAnnouncements('school');
+    if (name === 'classAnn') loadAnnouncements('class');
     if (name === 'attendance') loadAttendance();
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
     if (name === 'reportcards') loadReportCards();
     if (name === 'profile') loadProfile();
     if (name === 'messages') loadMessagesTab();
+  }
+
+  async function loadAnnouncements(scope) {
+    const mount = scope === 'class' ? $('ppClassAnnList') : $('ppSchoolAnnList');
+    if (!mount) return;
+    mount.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/parent/announcements?scope=' + encodeURIComponent(scope));
+      if (window.SaltAnnouncements) {
+        SaltAnnouncements.renderList(mount, data.announcements || [], {
+          emptyText: scope === 'class'
+            ? 'No class announcements yet.'
+            : 'No school announcements yet.'
+        });
+      } else {
+        mount.innerHTML = '<p class="muted">Could not load announcement UI.</p>';
+      }
+    } catch (e) {
+      mount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
   }
 
   async function boot() {
@@ -103,18 +127,36 @@ window.SaltParent = (function() {
       report: 'Report card',
       attendance: 'Attendance'
     };
-    box.innerHTML = items.map((it) =>
-      '<article class="pp-feed-item pp-feed-' + escapeHtml(it.type) + '">' +
-        '<div class="pp-feed-type">' + escapeHtml(typeLabel[it.type] || it.type) + '</div>' +
+    box.innerHTML = items.map((it) => {
+      let extra = '';
+      if (it.type === 'announcement' && it.meta) {
+        if (it.meta.imagePath) {
+          extra += '<a href="' + escapeHtml(it.meta.imagePath) + '" target="_blank" rel="noopener">' +
+            '<img class="ann-image" src="' + escapeHtml(it.meta.imagePath) + '" alt=""></a>';
+        }
+        if (it.meta.linkUrl) {
+          extra += '<p class="ann-link"><a href="' + escapeHtml(it.meta.linkUrl) + '" target="_blank" rel="noopener">' +
+            escapeHtml(it.meta.linkLabel || it.meta.linkUrl) + '</a></p>';
+        }
+        if (it.meta.attachmentPath) {
+          extra += '<p class="ann-attach"><a href="' + escapeHtml(it.meta.attachmentPath) + '" target="_blank" rel="noopener">' +
+            '📎 ' + escapeHtml(it.meta.attachmentName || 'Attachment') + '</a></p>';
+        }
+      }
+      return '<article class="pp-feed-item pp-feed-' + escapeHtml(it.type) + '">' +
+        '<div class="pp-feed-type">' + escapeHtml(typeLabel[it.type] || it.type) +
+          (it.meta && it.meta.source ? ' · ' + escapeHtml(it.meta.source) : '') +
+        '</div>' +
         '<h3>' + escapeHtml(it.title || '') + '</h3>' +
         '<p>' + escapeHtml(it.body || '') + '</p>' +
+        extra +
         '<div class="pp-feed-meta muted small">' +
           escapeHtml(String(it.at || '').slice(0, 16).replace('T', ' ')) +
           (it.meta && it.meta.subject ? ' · ' + escapeHtml(it.meta.subject) : '') +
           (it.meta && it.meta.letterGrade ? ' · ' + escapeHtml(it.meta.letterGrade) : '') +
         '</div>' +
-      '</article>'
-    ).join('');
+      '</article>';
+    }).join('');
   }
 
   function renderTeachers(teachers) {

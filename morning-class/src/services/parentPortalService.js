@@ -87,7 +87,7 @@ async function getParentOverview(session) {
   const [student, teachers, announcements, homework, reports] = await Promise.all([
     getStudent(studentId),
     listChildTeachers(classId),
-    listParentAnnouncements().catch(() => []),
+    listParentAnnouncements(classId).catch(() => []),
     getStudentHomeworkStatus(studentId, classId).catch(() => ({ pending: [], today: [], completed: [] })),
     listParentReportCards(session).catch(() => ({ reports: [] }))
   ]);
@@ -136,7 +136,14 @@ async function buildNewsfeed({ studentId, classId, studentName, announcements, h
       title: a.title || 'Announcement',
       body: a.body || '',
       at: a.postedAt || '',
-      meta: { source: 'School' }
+      meta: {
+        source: a.sourceLabel || (a.scope === 'class' ? 'Class' : 'School'),
+        imagePath: a.imagePath || '',
+        linkUrl: a.linkUrl || '',
+        linkLabel: a.linkLabel || '',
+        attachmentPath: a.attachmentPath || '',
+        attachmentName: a.attachmentName || ''
+      }
     });
   });
 
