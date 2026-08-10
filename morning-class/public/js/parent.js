@@ -36,7 +36,7 @@ window.SaltParent = (function() {
   function switchTab(name) {
     document.querySelectorAll('#appView .tab').forEach((t) =>
       t.classList.toggle('active', t.dataset.tab === name));
-    ['feed', 'announcements', 'attendance', 'timetable', 'homework', 'reportcards', 'profile', 'messages'].forEach((k) => {
+    ['feed', 'announcements', 'attendance', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       if (el) deps.hide(el);
     });
@@ -47,8 +47,7 @@ window.SaltParent = (function() {
       timetable: 'tabTimetable',
       homework: 'tabHomework',
       reportcards: 'tabReportcards',
-      profile: 'tabProfile',
-      messages: 'tabMessages'
+      profile: 'tabProfile'
     };
     deps.show($(map[name]));
     if (name === 'announcements') loadAnnouncements();
@@ -57,7 +56,6 @@ window.SaltParent = (function() {
     if (name === 'homework') loadHomework();
     if (name === 'reportcards') loadReportCards();
     if (name === 'profile') loadProfile();
-    if (name === 'messages') loadMessagesTab();
   }
 
   async function loadAnnouncements() {
@@ -158,22 +156,33 @@ window.SaltParent = (function() {
   function renderTeachers(teachers) {
     const box = $('ppTeacherList');
     if (!box) return;
-    if (!teachers.length) {
-      box.innerHTML = '<p class="muted small">No teachers linked yet.</p>';
-      return;
-    }
-    box.innerHTML = teachers.map((t) =>
-      '<button type="button" class="pp-teacher-chip" data-tid="' + escapeHtml(t.teacherId) + '">' +
-        '<strong>' + escapeHtml(t.name) + '</strong>' +
-        '<span>' + escapeHtml(t.isHomeroom ? 'Homeroom' : ((t.subjects || []).join(', ') || 'Teacher')) + '</span>' +
+    const chips = [];
+    chips.push(
+      '<button type="button" class="pp-teacher-chip pp-admin-chip" data-admin="1">' +
+        '<strong>Salt Admin</strong>' +
+        '<span>School office</span>' +
       '</button>'
-    ).join('');
+    );
+    (teachers || []).forEach((t) => {
+      chips.push(
+        '<button type="button" class="pp-teacher-chip" data-tid="' + escapeHtml(t.teacherId) + '">' +
+          '<strong>' + escapeHtml(t.name) + '</strong>' +
+          '<span>' + escapeHtml(t.isHomeroom ? 'Homeroom' : ((t.subjects || []).join(', ') || 'Teacher')) + '</span>' +
+        '</button>'
+      );
+    });
+    box.innerHTML = chips.join('');
     box.querySelectorAll('.pp-teacher-chip').forEach((btn) => {
       btn.addEventListener('click', () => {
-        switchTab('messages');
-        if (window.SaltMessenger && SaltMessenger.openThreadForTeacher) {
+        if (!window.SaltMessenger) return;
+        if (btn.dataset.admin === '1') {
+          if (SaltMessenger.openThreadForAdmin) SaltMessenger.openThreadForAdmin();
+          else SaltMessenger.open();
+          return;
+        }
+        if (SaltMessenger.openThreadForTeacher) {
           SaltMessenger.openThreadForTeacher(btn.dataset.tid);
-        } else if (window.SaltMessenger && SaltMessenger.open) {
+        } else {
           SaltMessenger.open();
         }
       });
@@ -426,13 +435,6 @@ window.SaltParent = (function() {
     } catch (err) {
       $('ppProfileError').textContent = err.message;
     }
-  }
-
-  function loadMessagesTab() {
-    $('ppMessagesHint').innerHTML =
-      '<p class="muted">Message your child’s Homeroom and subject teachers. Turn on Auto Translate in the chat to read teacher messages in Korean.</p>';
-    renderTeachers(overview && overview.teachers ? overview.teachers : []);
-    if (window.SaltMessenger && SaltMessenger.open) SaltMessenger.open();
   }
 
   return { init, boot, switchTab };

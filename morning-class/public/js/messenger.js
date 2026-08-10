@@ -11,6 +11,10 @@
   let socket = null;
   let joinedThread = null;
   let socketReady = false;
+  let directoryTimer = null;
+  let directoryResults = [];
+  let directoryQuery = '';
+  let directorySearching = false;
 
   /** messageId → { original, translated, targetLang, error? } */
   const translationCache = Object.create(null);
@@ -130,6 +134,10 @@
     return document.getElementById('saltMessenger');
   }
 
+  function isAdminRole() {
+    return role === 'admin';
+  }
+
   function renderFab(unread) {
     const fab = root().querySelector('.msg-fab');
     const badge = root().querySelector('.msg-fab-badge');
@@ -138,11 +146,100 @@
     badge.classList.toggle('hidden', !unread);
   }
 
+  function renderDirectoryResults() {
+    const box = root() && root().querySelector('.msg-directory-results');
+    if (!box || !isAdminRole()) return;
+    if (!directoryQuery) {
+      box.innerHTML = '';
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    if (directorySearching) {
+      box.innerHTML = '<p class="msg-empty small">Searching…</p>';
+      return;
+    }
+    if (!directoryResults.length) {
+      box.innerHTML = '<p class="msg-empty small">No people found.</p>';
+      return;
+    }
+    const typeLabel = { teacher: 'Teacher', parent: 'Parent', student: 'Student' };
+    box.innerHTML = directoryResults.map((hit) =>
+      '<button type="button" class="msg-directory-item" data-tid="' + escapeHtml(hit.threadId) + '">' +
+      '<div class="msg-thread-top">' +
+      '<strong>' + escapeHtml(hit.name) + '</strong>' +
+      '<span class="msg-person-type">' + escapeHtml(typeLabel[hit.personType] || hit.personType) + '</span>' +
+      '</div>' +
+      '<div class="msg-thread-sub">' + escapeHtml(hit.subtitle || '') + '</div>' +
+      '</button>'
+    ).join('');
+    box.querySelectorAll('.msg-directory-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const hit = directoryResults.find((h) => h.threadId === btn.dataset.tid);
+        if (!hit) return;
+        openThreadWithMeta({
+          threadId: hit.threadId,
+          threadType: hit.threadType,
+          title: hit.name,
+          subtitle: hit.subtitle || '',
+          classId: hit.classId || '',
+          studentId: hit.studentId || '',
+          studentName: hit.studentName || '',
+          teacherId: hit.personType === 'teacher' ? hit.id : '',
+          parentId: hit.personType === 'parent' ? hit.id : '',
+          personType: hit.personType,
+          unread: 0
+        });
+        clearDirectorySearch();
+      });
+    });
+  }
+
+  function clearDirectorySearch() {
+    directoryQuery = '';
+    directoryResults = [];
+    directorySearching = false;
+    const input = root() && root().querySelector('.msg-directory-input');
+    if (input) input.value = '';
+    renderDirectoryResults();
+  }
+
+  function scheduleDirectorySearch(q) {
+    directoryQuery = String(q || '').trim();
+    if (directoryTimer) clearTimeout(directoryTimer);
+    if (!directoryQuery) {
+      directoryResults = [];
+      directorySearching = false;
+      renderDirectoryResults();
+      return;
+    }
+    directorySearching = true;
+    renderDirectoryResults();
+    directoryTimer = setTimeout(async () => {
+      const qNow = directoryQuery;
+      try {
+        const data = await api(
+          '/api/messenger/directory?q=' + encodeURIComponent(qNow),
+          {},
+          role
+        );
+        if (directoryQuery !== qNow) return;
+        directoryResults = data.results || [];
+      } catch (e) {
+        if (directoryQuery !== qNow) return;
+        directoryResults = [];
+      }
+      directorySearching = false;
+      renderDirectoryResults();
+    }, 220);
+  }
+
   function renderThreads() {
     const list = root().querySelector('.msg-thread-list');
     if (!list) return;
     if (!threads.length) {
-      list.innerHTML = '<p class="msg-empty">No conversations yet.</p>';
+      list.innerHTML = '<p class="msg-empty">No conversations yet.' +
+        (isAdminRole() ? ' Search above to message someone.' : '') + '</p>';
       return;
     }
     list.innerHTML = threads.map((t) => {
@@ -244,7 +341,15 @@
     }
 
     if (!messages.length) {
-      body.innerHTML = '<p class="msg-empty">Say hello — your message goes to the teacher.</p>';
+      let emptyHint = 'Say hello — send your first message.';
+      if (activeThread.threadType === 'admin' || activeThread.threadType === 'parent_admin') {
+        emptyHint = 'Say hello — message the school office.';
+      } else if (role === 'admin') {
+        emptyHint = 'Say hello — start the conversation.';
+      } else if (role === 'student' || role === 'parent') {
+        emptyHint = 'Say hello — your message goes to the teacher.';
+      }
+      body.innerHTML = '<p class="msg-empty">' + emptyHint + '</p>';
     } else {
       body.innerHTML = messages.map((m) => {
         const cls = isMine(m) ? 'msg-bubble mine' : 'msg-bubble theirs';
@@ -473,11 +578,35 @@
       renderFab(data.unreadTotal || 0);
       if (view === 'threads') {
         renderThreads();
-        if (open && threads.length === 1 && (role === 'student' || role === 'parent')) {
+        if (open && threads.length === 1 && role === 'student') {
           openThread(threads[0].threadId);
         }
       }
     } catch (e) { /* ignore poll errors */ }
+  }
+
+  async function openThreadWithMeta(meta) {
+    if (!meta || !meta.threadId) return;
+    let t = threads.find((x) => x.threadId === meta.threadId);
+    if (!t) {
+      t = Object.assign({
+        unread: 0,
+        lastMessage: '',
+        lastAt: ''
+      }, meta);
+      threads.unshift(t);
+    } else {
+      if (meta.title) t.title = meta.title;
+      if (meta.subtitle) t.subtitle = meta.subtitle;
+      if (meta.threadType) t.threadType = meta.threadType;
+      if (meta.personType) t.personType = meta.personType;
+      if (meta.parentId) t.parentId = meta.parentId;
+      if (meta.teacherId) t.teacherId = meta.teacherId;
+      if (meta.studentId) t.studentId = meta.studentId;
+      if (meta.studentName) t.studentName = meta.studentName;
+      if (meta.classId) t.classId = meta.classId;
+    }
+    return openThread(meta.threadId);
   }
 
   async function openThread(threadId) {
@@ -485,7 +614,7 @@
     if (!t) {
       t = {
         threadId,
-        title: 'Teacher',
+        title: isAdminRole() ? 'Conversation' : 'Teacher',
         subtitle: '',
         unread: 0
       };
@@ -555,6 +684,12 @@
       '</div>' +
       '<div class="msg-panel-body">' +
       '<div class="msg-view-threads">' +
+      (isAdminRole()
+        ? '<div class="msg-directory">' +
+          '<input type="search" class="msg-directory-input" placeholder="Search teachers, parents, students…" autocomplete="off">' +
+          '<div class="msg-directory-results hidden"></div>' +
+          '</div>'
+        : '') +
       '<div class="msg-thread-list"></div>' +
       '</div>' +
       '<div class="msg-view-chat hidden">' +
@@ -611,6 +746,17 @@
         if (e.isComposing || e.keyCode === 229) return; // IME composition (Korean etc.)
         e.preventDefault();
         sendMessage();
+      });
+    }
+
+    const dirInput = wrap.querySelector('.msg-directory-input');
+    if (dirInput) {
+      dirInput.addEventListener('input', () => scheduleDirectorySearch(dirInput.value));
+      dirInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          clearDirectorySearch();
+          dirInput.blur();
+        }
       });
     }
   }
@@ -679,11 +825,34 @@
     openThread(tid);
   }
 
+  function openThreadForAdmin() {
+    const profile = global.SaltApp.getProfile(role) || {};
+    const parentId = profile.parentId;
+    if (!parentId) {
+      openMessenger();
+      return;
+    }
+    open = true;
+    const wrap = root();
+    if (wrap) wrap.querySelector('.msg-backdrop').classList.remove('hidden');
+    openThreadWithMeta({
+      threadId: 'padm_' + parentId,
+      threadType: 'parent_admin',
+      title: 'Salt Admin',
+      subtitle: 'School office',
+      parentId,
+      studentId: profile.studentId || '',
+      classId: profile.classId || '',
+      unread: 0
+    });
+  }
+
   global.SaltMessenger = {
     init,
     destroy,
     refresh: refreshThreads,
     open: openMessenger,
-    openThreadForTeacher
+    openThreadForTeacher,
+    openThreadForAdmin
   };
 })(window);

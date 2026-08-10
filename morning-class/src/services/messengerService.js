@@ -3,7 +3,8 @@ const {
   MESSAGES_SHEET,
   STUDENT_LIST_SHEET,
   CLASS_LIST_SHEET,
-  TEACHER_LIST_SHEET
+  TEACHER_LIST_SHEET,
+  PARENT_LIST_SHEET
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, batchUpdateRanges } = require('../sheets');
 const { getTeacherClasses } = require('./teacherPortalService');
@@ -37,6 +38,16 @@ function adminThreadId(teacherId) {
   return 'adm_' + String(teacherId);
 }
 
+function parentAdminThreadId(parentId) {
+  return 'padm_' + String(parentId);
+}
+
+function parseParentAdminThread(threadId) {
+  const m = String(threadId || '').match(/^padm_(.+)$/);
+  if (!m) return null;
+  return { parentId: m[1] };
+}
+
 function parentTeacherThreadId(studentId, teacherId) {
   return 'pt_' + String(studentId) + '__' + String(teacherId);
 }
@@ -50,6 +61,9 @@ function parseParentTeacherThread(threadId) {
 function targetAudienceFor(senderRole, threadType) {
   if (threadType === 'admin') {
     return senderRole === 'admin' ? 'teacher' : 'admin';
+  }
+  if (threadType === 'parent_admin') {
+    return senderRole === 'admin' ? 'family' : 'admin';
   }
   if (senderRole === 'teacher' || senderRole === 'admin') return 'family';
   return 'teacher';
@@ -309,6 +323,26 @@ async function listThreadsForSession(session) {
         unread: msgs.filter((m) => isIncomingForRole(m, role)).length
       }));
     }
+
+    // Parent ↔ school office
+    const padmTid = parentAdminThreadId(session.parentId);
+    const padmMsgs = all.filter((m) => m.threadId === padmTid);
+    threads.push(summarizeThread(padmMsgs, {
+      threadId: padmTid,
+      threadType: 'parent_admin',
+      title: 'Salt Admin',
+      subtitle: 'School office',
+      classId: session.classId,
+      studentId: session.studentId,
+      studentName: sname,
+      parentId: session.parentId,
+      unread: padmMsgs.filter((m) => isIncomingForRole(m, role)).length
+    }));
+
+    threads.sort((a, b) => {
+      if (b.unread !== a.unread) return b.unread - a.unread;
+      return String(b.lastAt).localeCompare(String(a.lastAt));
+    });
   } else if (role === 'teacher') {
     const { homeroom, assigned } = await getTeacherClasses(session.teacherId);
     const classIds = new Set();
@@ -406,11 +440,45 @@ async function listThreadsForSession(session) {
         threadId: tid,
         threadType: 'admin',
         title: teacherName || teacherId,
-        subtitle: 'Staff',
+        subtitle: 'Teacher',
         classId: '',
         studentId: '',
         studentName: '',
         teacherId,
+        personType: 'teacher',
+        unread: msgs.filter((m) => isIncomingForRole(m, role)).length
+      }));
+    }
+
+    // Parent ↔ admin threads that already have messages
+    const parentThreads = new Map();
+    all.forEach((m) => {
+      if (m.threadType !== 'parent_admin' && !String(m.threadId || '').startsWith('padm_')) return;
+      if (!parentThreads.has(m.threadId)) parentThreads.set(m.threadId, []);
+      parentThreads.get(m.threadId).push(m);
+    });
+    const parentRows = await getSheetRows(PARENT_LIST_SHEET);
+    const parentNameById = {};
+    for (let i = 1; i < parentRows.length; i++) {
+      const pid = String(parentRows[i][0] || '');
+      if (pid) parentNameById[pid] = String(parentRows[i][2] || pid);
+    }
+    for (const [tid, msgs] of parentThreads.entries()) {
+      const parsed = parseParentAdminThread(tid);
+      const parentId = parsed ? parsed.parentId : '';
+      const sample = msgs[0];
+      threads.push(summarizeThread(msgs, {
+        threadId: tid,
+        threadType: 'parent_admin',
+        title: parentNameById[parentId] || sample.senderName || parentId || 'Parent',
+        subtitle: sample.studentName
+          ? ('Parent · ' + sample.studentName)
+          : 'Parent',
+        classId: sample.classId || '',
+        studentId: sample.studentId || '',
+        studentName: sample.studentName || '',
+        parentId,
+        personType: 'parent',
         unread: msgs.filter((m) => isIncomingForRole(m, role)).length
       }));
     }
@@ -446,6 +514,8 @@ async function assertThreadAccess(threadId, session) {
     if (threadId === studentThreadId(session.studentId)) return;
     const pt = parseParentTeacherThread(threadId);
     if (pt && pt.studentId === String(session.studentId)) return;
+    const padm = parseParentAdminThread(threadId);
+    if (padm && padm.parentId === String(session.parentId)) return;
     throw new Error('Access denied.');
   }
   if (role === 'teacher') {
@@ -485,6 +555,46 @@ async function sendThreadMessage(threadId, session, body) {
       senderRole: role === 'admin' ? 'admin' : 'teacher',
       senderId: role === 'admin' ? session.adminId : session.teacherId,
       senderName: session.name,
+      body
+    });
+  }
+
+  const padm = parseParentAdminThread(threadId);
+  if (padm) {
+    let studentId = '';
+    let studentName = '';
+    let classId = '';
+    if (role === 'parent') {
+      studentId = session.studentId || '';
+      classId = session.classId || '';
+      studentName = await lookupStudentName(studentId);
+    } else if (role === 'admin') {
+      const parentRows = await getSheetRows(PARENT_LIST_SHEET);
+      for (let i = 1; i < parentRows.length; i++) {
+        if (String(parentRows[i][0]) !== String(padm.parentId)) continue;
+        studentId = String(parentRows[i][1] || '');
+        break;
+      }
+      if (studentId) {
+        studentName = await lookupStudentName(studentId);
+        const rows = await getSheetRows(STUDENT_LIST_SHEET);
+        for (let i = 1; i < rows.length; i++) {
+          if (String(rows[i][0]) === String(studentId)) {
+            classId = String(rows[i][2] || '');
+            break;
+          }
+        }
+      }
+    }
+    return appendMessage({
+      threadId,
+      threadType: 'parent_admin',
+      classId,
+      studentId,
+      studentName,
+      senderRole: role === 'admin' ? 'admin' : 'parent',
+      senderId: role === 'admin' ? session.adminId : session.parentId,
+      senderName: role === 'parent' ? ((session.name || 'Parent') + ' (parent)') : session.name,
       body
     });
   }
@@ -535,6 +645,128 @@ async function getUnreadCount(session) {
   return unreadTotal;
 }
 
+function matchesQuery(haystack, q) {
+  return String(haystack || '').toLowerCase().includes(q);
+}
+
+/**
+ * Admin people picker: teachers, parents, students.
+ */
+async function searchMessengerDirectory(query, opts) {
+  opts = opts || {};
+  const q = String(query || '').trim().toLowerCase();
+  if (q.length < 1) return { results: [] };
+  const types = String(opts.types || 'teacher,parent,student')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const limit = Math.min(40, Number(opts.limit) || 25);
+  const results = [];
+
+  if (types.includes('teacher')) {
+    const rows = await getSheetRows(TEACHER_LIST_SHEET);
+    for (let i = 1; i < rows.length; i++) {
+      const teacherId = String(rows[i][0] || '');
+      const name = String(rows[i][1] || '');
+      const loginId = String(rows[i][2] || '');
+      if (!teacherId) continue;
+      if (!matchesQuery(name + ' ' + teacherId + ' ' + loginId, q)) continue;
+      results.push({
+        personType: 'teacher',
+        id: teacherId,
+        name: name || teacherId,
+        subtitle: 'Teacher',
+        threadId: adminThreadId(teacherId),
+        threadType: 'admin'
+      });
+    }
+  }
+
+  if (types.includes('parent')) {
+    const rows = await getSheetRows(PARENT_LIST_SHEET);
+    const students = await getSheetRows(STUDENT_LIST_SHEET);
+    const studentMap = {};
+    for (let i = 1; i < students.length; i++) {
+      studentMap[String(students[i][0])] = {
+        name: String(students[i][1] || ''),
+        classId: String(students[i][2] || '')
+      };
+    }
+    for (let i = 1; i < rows.length; i++) {
+      const parentId = String(rows[i][0] || '');
+      const studentId = String(rows[i][1] || '');
+      const name = String(rows[i][2] || '');
+      const loginId = String(rows[i][3] || '');
+      if (!parentId) continue;
+      const child = studentMap[studentId] || {};
+      const blob = [name, parentId, loginId, child.name, studentId].join(' ');
+      if (!matchesQuery(blob, q)) continue;
+      results.push({
+        personType: 'parent',
+        id: parentId,
+        name: name || parentId,
+        subtitle: child.name ? ('Parent of ' + child.name) : 'Parent',
+        threadId: parentAdminThreadId(parentId),
+        threadType: 'parent_admin',
+        studentId,
+        studentName: child.name || '',
+        classId: child.classId || ''
+      });
+    }
+  }
+
+  if (types.includes('student')) {
+    const rows = await getSheetRows(STUDENT_LIST_SHEET);
+    const classLabelCache = {};
+    for (let i = 1; i < rows.length; i++) {
+      const studentId = String(rows[i][0] || '');
+      const name = String(rows[i][1] || '');
+      const classId = String(rows[i][2] || '');
+      const status = String(rows[i][3] || '');
+      const loginId = String(rows[i][4] || '');
+      if (!studentId) continue;
+      if (status && status !== 'Enrolled') continue;
+      if (!matchesQuery(name + ' ' + studentId + ' ' + loginId + ' ' + classId, q)) continue;
+      if (!Object.prototype.hasOwnProperty.call(classLabelCache, classId)) {
+        classLabelCache[classId] = classId ? await getClassLabel(classId) : '';
+      }
+      results.push({
+        personType: 'student',
+        id: studentId,
+        name: name || studentId,
+        subtitle: classLabelCache[classId] || classId || 'Student',
+        threadId: studentThreadId(studentId),
+        threadType: 'student',
+        studentId,
+        studentName: name || studentId,
+        classId
+      });
+    }
+  }
+
+  results.sort((a, b) => a.name.localeCompare(b.name));
+  return { results: results.slice(0, limit) };
+}
+
+function threadMetaFromDirectoryHit(hit) {
+  if (!hit || !hit.threadId) return null;
+  return {
+    threadId: hit.threadId,
+    threadType: hit.threadType,
+    title: hit.name,
+    subtitle: hit.subtitle || '',
+    classId: hit.classId || '',
+    studentId: hit.studentId || '',
+    studentName: hit.studentName || '',
+    teacherId: hit.personType === 'teacher' ? hit.id : '',
+    parentId: hit.personType === 'parent' ? hit.id : '',
+    personType: hit.personType,
+    unread: 0,
+    lastMessage: '',
+    lastAt: ''
+  };
+}
+
 // Legacy adapters
 async function loadMessagesForStudent(studentId) {
   const all = await loadAllMessages();
@@ -567,14 +799,18 @@ module.exports = {
   HEADERS,
   studentThreadId,
   adminThreadId,
+  parentAdminThreadId,
   parentTeacherThreadId,
   parseParentTeacherThread,
+  parseParentAdminThread,
   ensureMessageSchema,
   listThreadsForSession,
   getThreadMessages,
   sendThreadMessage,
   markThreadRead,
   getUnreadCount,
+  searchMessengerDirectory,
+  threadMetaFromDirectoryHit,
   loadMessagesForStudent,
   sendMessage,
   markMessagesRead,

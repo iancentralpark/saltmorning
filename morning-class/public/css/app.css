@@ -1210,6 +1210,47 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   padding: 0.35rem;
   max-height: min(28rem, calc(100vh - 10rem));
 }
+.msg-directory {
+  padding: 0.5rem 0.55rem 0.25rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.msg-directory-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  background: #fff;
+}
+.msg-directory-input:focus {
+  outline: none;
+  border-color: var(--olive);
+  box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.15);
+}
+.msg-directory-results {
+  max-height: 11rem;
+  overflow: auto;
+  margin-top: 0.35rem;
+}
+.msg-directory-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+}
+.msg-directory-item:hover { background: var(--sage-soft); border-color: var(--border-soft); }
+.msg-person-type {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 .msg-thread-item {
   width: 100%;
   text-align: left;
@@ -2847,6 +2888,14 @@ body.buddy-resize-active {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin: 0.75rem 0;
+}
+.pp-contacts {
+  margin-bottom: 0.75rem;
+}
+.pp-contacts h3 { margin-bottom: 0.25rem; }
+.pp-admin-chip {
+  border-color: var(--olive);
+  background: var(--sage-soft);
 }
 .pp-teacher-chip {
   display: flex;

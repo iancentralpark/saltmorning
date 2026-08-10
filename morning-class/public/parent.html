@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810ann2">
+  <link rel="stylesheet" href="/css/app.css?v=20260810admdir">
 </head>
 <body>
 <div class="shell">
@@ -21,6 +21,11 @@
     </div>
 
     <div id="ppHero" class="pp-hero card"></div>
+    <div id="ppContacts" class="pp-contacts card">
+      <h3 style="margin-top:0">Message</h3>
+      <p class="muted small">Chat with teachers or the school office. Use Auto Translate in the bubble for Korean.</p>
+      <div id="ppTeacherList" class="pp-teacher-list"></div>
+    </div>
 
     <div class="tabs" style="margin-bottom:0.75rem">
       <button class="tab active" data-tab="feed" type="button">Newsfeed</button>
@@ -30,7 +35,6 @@
       <button class="tab" data-tab="homework" type="button">Homework</button>
       <button class="tab" data-tab="reportcards" type="button">Report cards</button>
       <button class="tab" data-tab="profile" type="button">Profile</button>
-      <button class="tab" data-tab="messages" type="button">Messages</button>
     </div>
 
     <div id="tabFeed" class="card">
@@ -99,21 +103,14 @@
         </div>
       </form>
     </div>
-
-    <div id="tabMessages" class="card hidden">
-      <div id="ppMessagesHint"></div>
-      <h4>Teachers</h4>
-      <div id="ppTeacherList" class="pp-teacher-list"></div>
-      <p class="muted small">Or use the chat bubble — Translate turns English teacher replies into Korean.</p>
-    </div>
   </div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260806login2"></script>
 <script src="/js/subject-colors.js?v=20260810ttpastel"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
-<script src="/js/messenger.js?v=20260810trbusy"></script>
-<script src="/js/parent.js?v=20260810ann2"></script>
+<script src="/js/messenger.js?v=20260810admdir"></script>
+<script src="/js/parent.js?v=20260810admdir"></script>
 <script>
 (function() {
   const role = 'parent';

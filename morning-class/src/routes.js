@@ -43,7 +43,8 @@ const {
   getThreadMessages,
   sendThreadMessage,
   markThreadRead,
-  getUnreadCount
+  getUnreadCount,
+  searchMessengerDirectory
 } = require('./services/messageService');
 const {
   listParentAnnouncements,
@@ -1875,6 +1876,19 @@ router.get('/messenger/threads', requireRole('student', 'parent', 'teacher', 'ad
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load conversations.' });
+  }
+});
+
+/** Admin people directory — search teachers, parents, students to start a chat. */
+router.get('/messenger/directory', requireRole('admin'), async (req, res) => {
+  try {
+    const data = await searchMessengerDirectory(req.query.q, {
+      types: req.query.types,
+      limit: req.query.limit
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not search directory.' });
   }
 });
 
