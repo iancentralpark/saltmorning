@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810teacherux">
+  <link rel="stylesheet" href="/css/app.css?v=20260810attendance">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -28,6 +28,7 @@
       <button class="tab" data-tab="classes" type="button">Classes</button>
       <button class="tab" data-tab="students" type="button">Students</button>
       <button class="tab" data-tab="timetables" type="button">Timetables</button>
+      <button class="tab" data-tab="schoolCal" type="button">School calendar</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
       <button class="tab" data-tab="vocabPlatform" type="button">Vocab Booster</button>
     </div>
@@ -169,6 +170,61 @@
       <div id="classRegistryMount"></div>
     </div>
 
+    <div id="panelSchoolCal" class="card hidden sc-panel">
+      <div class="sc-panel-head">
+        <div>
+          <h3 style="margin:0">Annual school calendar</h3>
+          <p class="muted small" style="margin:0.35rem 0 0">
+            Korean public holidays sync automatically (no class). Add school holidays, breaks, events, or force a holiday into a school day.
+          </p>
+        </div>
+        <div class="sc-toolbar-actions">
+          <select id="scClassFilter"></select>
+          <button type="button" class="btn btn-ghost" id="scViewMonth">Monthly</button>
+          <button type="button" class="btn btn-ghost" id="scViewYear">Yearly</button>
+          <button type="button" class="btn btn-primary" id="scPrint">Print plan</button>
+        </div>
+      </div>
+      <div class="sc-nav">
+        <button type="button" class="btn btn-ghost" id="scPrev" aria-label="Previous">‹</button>
+        <strong id="scLabel"></strong>
+        <button type="button" class="btn btn-ghost" id="scNext" aria-label="Next">›</button>
+        <button type="button" class="btn btn-ghost" id="scToday">Today</button>
+      </div>
+      <div id="scMount" class="sc-mount"><p class="muted">Loading…</p></div>
+      <div class="sc-editor">
+        <h4 id="scFormTitle">Add to annual plan</h4>
+        <form id="scEntryForm" class="form-grid admin-form-grid sc-form">
+          <input type="hidden" id="scEntryId">
+          <label>Start <input type="date" id="scDate" required></label>
+          <label>End <input type="date" id="scEndDate"></label>
+          <label>Type
+            <select id="scDayType" required>
+              <option value="holiday">School holiday</option>
+              <option value="break">Break / 방학</option>
+              <option value="event">School event</option>
+              <option value="school_day">Force school day (override holiday)</option>
+            </select>
+          </label>
+          <label>Title <input id="scTitle" required placeholder="e.g. Sports Day, Summer break"></label>
+          <label>Class
+            <select id="scEntryClass">
+              <option value="*">All classes</option>
+            </select>
+          </label>
+          <label class="sc-check"><input type="checkbox" id="scBlocksAttendance" checked> No class / block attendance</label>
+          <label class="sc-notes">Notes <input id="scNotes" placeholder="Optional"></label>
+          <div class="sc-form-actions">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" class="btn btn-ghost" id="scEntryCancel">Clear</button>
+          </div>
+          <div class="error" id="scFormError"></div>
+        </form>
+        <h4>Entries in view</h4>
+        <div id="scEntryList" class="table-wrap"></div>
+      </div>
+    </div>
+
     <div id="panelTerms" class="card hidden">
       <h3>Term dates by class</h3>
       <p class="muted small">Teachers use the active term automatically. Set date ranges here.</p>
@@ -218,10 +274,13 @@
 <script src="/js/class-registry.js?v=20260709classes"></script>
 <script src="/js/timetable.js?v=20260810teacherux"></script>
 <script src="/js/timetable-setup.js?v=20260810teacherux"></script>
+<script src="/js/admin-school-calendar.js?v=20260810attendance"></script>
 <script>
 (function() {
   const role = 'admin';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+
+  SaltSchoolCalendar.init({ $, api, escapeHtml, show, hide });
   let classes = [];
   let teachers = [];
 
@@ -246,15 +305,22 @@
     if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.setClasses) {
       SaltStudentRegistry.setClasses(classes);
     }
+    if (typeof SaltSchoolCalendar !== 'undefined' && SaltSchoolCalendar.setClasses) {
+      SaltSchoolCalendar.setClasses(classes);
+    }
+    $('scEntryClass').innerHTML = '<option value="*">All classes</option>' +
+      classes.map(c =>
+        '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>'
+      ).join('');
   }
 
   function switchTab(name) {
     document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms','panelVocabPlatform'].forEach(id => hide($(id)));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelSchoolCal','panelTerms','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
       classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
-      terms: 'panelTerms', vocabPlatform: 'panelVocabPlatform'
+      schoolCal: 'panelSchoolCal', terms: 'panelTerms', vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
     if (name === 'monitor') loadMonitor();
@@ -263,6 +329,7 @@
     if (name === 'classes') SaltClassRegistry.open();
     if (name === 'students') SaltStudentRegistry.open();
     if (name === 'timetables') loadTimetables();
+    if (name === 'schoolCal') SaltSchoolCalendar.open();
     if (name === 'terms') loadTerms();
   }
 

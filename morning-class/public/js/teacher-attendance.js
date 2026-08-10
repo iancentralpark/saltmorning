@@ -9,10 +9,18 @@ window.SaltAttendance = (function() {
     '결석': { sym: 'X', cls: 'sym-absent' }
   };
 
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
   let deps = {};
   let workData = null;
   let boardExtras = {};
   let saving = {};
+  let yearAtt = null;
+  let yearAttMonthIdx = 0;
+  let yearStudent = null;
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
@@ -39,6 +47,17 @@ window.SaltAttendance = (function() {
     $('plannedForm').addEventListener('submit', submitPlanned);
     $('plannedModalClose').addEventListener('click', () => deps.hide($('plannedModal')));
     $('monthlyReportRun').addEventListener('click', runMonthlyReport);
+    $('yearAttClose').addEventListener('click', () => deps.hide($('yearAttModal')));
+    $('yearAttPrev').addEventListener('click', () => {
+      if (!yearAtt || !yearAtt.months.length) return;
+      yearAttMonthIdx = Math.max(0, yearAttMonthIdx - 1);
+      renderYearAttMonth();
+    });
+    $('yearAttNext').addEventListener('click', () => {
+      if (!yearAtt || !yearAtt.months.length) return;
+      yearAttMonthIdx = Math.min(yearAtt.months.length - 1, yearAttMonthIdx + 1);
+      renderYearAttMonth();
+    });
   }
 
   function onClassOpen() {
@@ -70,24 +89,41 @@ window.SaltAttendance = (function() {
   function renderScheduleAlert() {
     const el = $('attScheduleAlert');
     if (!workData) return;
-    if (workData.holidayName) {
+    const events = (workData.events || []).map((e) => e.title).filter(Boolean);
+    const eventNote = events.length ? ' · Event: ' + events.join(', ') : '';
+    if (workData.dayType === 'kr_holiday' || workData.holidayName) {
       el.className = 'att-alert att-alert-error';
-      el.textContent = workData.holidayName + ' — Public holiday (no class)';
+      el.textContent = (workData.holidayName || workData.dayTitle || 'Public holiday') +
+        ' — No class (attendance locked)' + eventNote;
+      return;
+    }
+    if (workData.dayType === 'holiday' || workData.dayType === 'break') {
+      el.className = 'att-alert att-alert-error';
+      el.textContent = (workData.dayTitle || 'School holiday') +
+        ' — No class (attendance locked)' + eventNote;
+      return;
+    }
+    if (workData.dayType === 'event' && !workData.scheduledDay) {
+      el.className = 'att-alert att-alert-error';
+      el.textContent = (workData.dayTitle || 'School event') +
+        ' — No class (attendance locked)' + eventNote;
       return;
     }
     if (!workData.scheduledDay) {
       el.className = 'att-alert att-alert-error';
-      el.textContent = 'Not a scheduled class day for this class.';
+      el.textContent = 'Not a scheduled class day for this class.' + eventNote;
       return;
     }
     el.className = 'att-alert att-alert-ok';
-    el.textContent = 'Scheduled class day';
+    el.textContent = (workData.dayType === 'school_day'
+      ? 'School day (admin override)'
+      : 'Scheduled class day') + eventNote;
   }
 
   function renderStudentList() {
     const box = $('attStudentList');
-    if (!workData || !workData.scheduledDay) {
-      box.innerHTML = '<p class="muted">Select a class day to take attendance.</p>';
+    if (!workData) {
+      box.innerHTML = '<p class="muted">Loading…</p>';
       return;
     }
     const students = workData.students || [];
@@ -95,7 +131,12 @@ window.SaltAttendance = (function() {
       box.innerHTML = '<p class="muted">No enrolled students.</p>';
       return;
     }
-    box.innerHTML = students.map(renderStudentCard).join('');
+    if (!workData.scheduledDay) {
+      box.innerHTML = '<p class="muted small" style="margin-bottom:0.75rem">Attendance is locked today. Open a student for Year-Long Attendance.</p>' +
+        students.map(renderStudentCard).join('');
+    } else {
+      box.innerHTML = students.map(renderStudentCard).join('');
+    }
     box.querySelectorAll('[data-att]').forEach((btn) => {
       btn.addEventListener('click', () => onStatusClick(btn));
     });
@@ -104,6 +145,9 @@ window.SaltAttendance = (function() {
     });
     box.querySelectorAll('[data-plan]').forEach((btn) => {
       btn.addEventListener('click', () => openPlannedModal(btn.dataset.studentId, btn.dataset.studentName));
+    });
+    box.querySelectorAll('[data-year-att]').forEach((btn) => {
+      btn.addEventListener('click', () => openYearAttendance(btn.dataset.studentId, btn.dataset.studentName));
     });
     box.querySelectorAll('.att-excuse-input').forEach((inp) => {
       inp.addEventListener('blur', () => onExcuseBlur(inp));
@@ -121,8 +165,9 @@ window.SaltAttendance = (function() {
 
   function renderStudentCard(std) {
     const key = std.studentId;
-    const att = std.attendance || ATT.present;
-    const attKey = ATT_REV[att] || 'present';
+    const editable = !!(workData && workData.scheduledDay);
+    const att = std.attendance || (editable ? ATT.present : '');
+    const attKey = ATT_REV[att] || (editable ? 'present' : '');
     const showExcuse = att === ATT.tardy || att === ATT.absent;
     const hasExcuse = !!(std.excuse && std.excuse.trim());
     const planned = std.plannedNotice
@@ -135,7 +180,9 @@ window.SaltAttendance = (function() {
     const hr = isHomeroom();
 
     let attBlock;
-    if (hr) {
+    if (!editable) {
+      attBlock = '<div class="att-readonly"><span class="muted small">No class today — attendance locked</span></div>';
+    } else if (hr) {
       attBlock =
         '<div class="att-btn-row">' +
           ['present', 'tardy', 'absent'].map((k) =>
@@ -200,6 +247,7 @@ window.SaltAttendance = (function() {
             (hr ? planned + excusedBadge : '') +
             '<span class="att-save-status" data-status></span>' +
           '</div>' +
+          '<button type="button" class="btn btn-ghost att-year-btn" data-year-att data-student-id="' + escapeHtml(key) + '" data-student-name="' + escapeHtml(std.name) + '">Year attendance</button>' +
           (hr
             ? '<button type="button" class="btn btn-ghost att-plan-btn" data-plan data-student-id="' + escapeHtml(key) + '" data-student-name="' + escapeHtml(std.name) + '">Plan absence</button>'
             : '') +
@@ -208,6 +256,110 @@ window.SaltAttendance = (function() {
       attBlock +
       tools +
     '</article>';
+  }
+
+  async function openYearAttendance(studentId, studentName) {
+    const cls = getClass();
+    if (!cls) return;
+    yearStudent = { studentId, studentName };
+    $('yearAttTitle').textContent = studentName + ' — Year-Long Attendance';
+    $('yearAttMeta').innerHTML = '<p class="muted">Loading…</p>';
+    $('yearAttLegend').innerHTML = '';
+    $('yearAttPie').style.background = 'conic-gradient(#e5e7eb 0 100%)';
+    $('yearAttCal').innerHTML = '';
+    $('yearAttMonthLabel').textContent = '';
+    deps.show($('yearAttModal'));
+    try {
+      yearAtt = await api(
+        '/api/teacher/class/' + encodeURIComponent(cls.classId) +
+        '/students/' + encodeURIComponent(studentId) + '/year-attendance'
+      );
+      const now = new Date();
+      const idx = yearAtt.months.findIndex((m) => m.year === now.getFullYear() && m.month === (now.getMonth() + 1));
+      yearAttMonthIdx = idx >= 0 ? idx : 0;
+      renderYearAttOverview();
+      renderYearAttMonth();
+    } catch (e) {
+      $('yearAttMeta').innerHTML = '<p class="error">' + escapeHtml(e.message || 'Failed') + '</p>';
+    }
+  }
+
+  function pieGradient(summary) {
+    const parts = [
+      { key: 'present', color: '#3b82f6', n: summary.present },
+      { key: 'absent', color: '#f9a8d4', n: summary.absent },
+      { key: 'tardy', color: '#86efac', n: summary.tardy },
+      { key: 'absentExcused', color: '#fdba74', n: summary.absentExcused },
+      { key: 'tardyExcused', color: '#fde047', n: summary.tardyExcused }
+    ].filter((p) => p.n > 0);
+    const total = parts.reduce((s, p) => s + p.n, 0) || 1;
+    if (!parts.length) return 'conic-gradient(#e5e7eb 0 100%)';
+    let acc = 0;
+    const stops = parts.map((p) => {
+      const start = (acc / total) * 100;
+      acc += p.n;
+      const end = (acc / total) * 100;
+      return p.color + ' ' + start + '% ' + end + '%';
+    });
+    return 'conic-gradient(' + stops.join(', ') + ')';
+  }
+
+  function renderYearAttOverview() {
+    if (!yearAtt) return;
+    const s = yearAtt.summary;
+    const pct = s.percentages || {};
+    $('yearAttMeta').innerHTML =
+      '<div><strong>Year</strong> ' + escapeHtml(yearAtt.yearLabel) + '</div>' +
+      '<div><strong>Start</strong> ' + escapeHtml(yearAtt.startDate) + '</div>' +
+      '<div><strong>End</strong> ' + escapeHtml(yearAtt.endDate) + '</div>' +
+      '<div><strong>School days</strong> ' + yearAtt.schoolDays + '</div>';
+    $('yearAttPie').style.background = pieGradient(s);
+    $('yearAttLegend').innerHTML = [
+      ['Present', s.present, pct.present, '#3b82f6'],
+      ['Absent', s.absent, pct.absent, '#f9a8d4'],
+      ['Tardy', s.tardy, pct.tardy, '#86efac'],
+      ['Absent With Excuse', s.absentExcused, pct.absentExcused, '#fdba74'],
+      ['Tardy With Excuse', s.tardyExcused, pct.tardyExcused, '#fde047']
+    ].map((row) =>
+      '<div class="ya-legend-row"><i class="ya-swatch" style="background:' + row[3] + '"></i>' +
+        '<span>' + row[0] + '</span><strong>' + row[1] + ' days — ' + row[2] + '%</strong></div>'
+    ).join('');
+  }
+
+  function renderYearAttMonth() {
+    if (!yearAtt || !yearAtt.months.length) return;
+    const mo = yearAtt.months[yearAttMonthIdx];
+    $('yearAttMonthLabel').textContent = MONTH_NAMES[mo.month - 1] + ' ' + mo.year;
+    const firstDow = new Date(mo.year, mo.month - 1, 1).getDay();
+    let html = '<div class="ya-cal-grid">';
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((d) => {
+      html += '<div class="ya-cal-dow">' + d + '</div>';
+    });
+    for (let i = 0; i < firstDow; i++) html += '<div class="ya-cal-pad"></div>';
+    mo.days.forEach((day) => {
+      const cls = ['ya-cal-day'];
+      if (day.greyOut || day.outOfRange) cls.push('ya-cal-grey');
+      if (day.category === 'present') cls.push('ya-cal-present');
+      if (day.category === 'absent') cls.push('ya-cal-absent');
+      if (day.category === 'tardy') cls.push('ya-cal-tardy');
+      if (day.category === 'absentExcused') cls.push('ya-cal-absent-ex');
+      if (day.category === 'tardyExcused') cls.push('ya-cal-tardy-ex');
+      if (day.isClassDay && !day.status) cls.push('ya-cal-unmarked');
+      const tip = [
+        day.title,
+        ...(day.events || []).map((e) => e.title),
+        day.status ? (ATT_LABEL[ATT_REV[day.status]] || day.status) : '',
+        day.excuse ? 'Excuse: ' + day.excuse : ''
+      ].filter(Boolean).join(' · ');
+      html += '<div class="' + cls.join(' ') + '" title="' + escapeHtml(tip || day.date) + '">' +
+        '<span class="ya-cal-num">' + day.day + '</span>' +
+        (day.title || (day.events && day.events[0])
+          ? '<span class="ya-cal-ev">' + escapeHtml(day.title || day.events[0].title) + '</span>'
+          : '') +
+        '</div>';
+    });
+    html += '</div>';
+    $('yearAttCal').innerHTML = html;
   }
 
   async function onDollarSave(btn) {
@@ -296,6 +448,7 @@ window.SaltAttendance = (function() {
 
   async function persistStudent(studentId, patch) {
     if (!isHomeroom()) return;
+    if (!workData || !workData.scheduledDay) return;
     const cls = getClass();
     if (!cls) return;
     const card = cardEl(studentId);
@@ -347,6 +500,7 @@ window.SaltAttendance = (function() {
 
   function onStatusClick(btn) {
     if (!isHomeroom()) return;
+    if (!workData || !workData.scheduledDay) return;
     const card = btn.closest('.att-student-card');
     const studentId = card.dataset.studentId;
     const key = btn.dataset.att;

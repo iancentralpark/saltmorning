@@ -20,6 +20,7 @@ module.exports = {
   PARENT_LIST_SHEET: 'Parent_List',
   PARENT_ANNOUNCEMENTS_SHEET: 'Parent_Announcements',
   ATTENDANCE_SHEET: 'Attendance_Data',
+  SCHOOL_CALENDAR_SHEET: 'School_Calendar',
   STUDENT_PLANNED_ATTENDANCE_SHEET: 'Student_Planned_Attendance',
   MESSAGES_SHEET: 'Student_Messages',
   GRADES_DAILY_SHEET: 'Grades_Daily',

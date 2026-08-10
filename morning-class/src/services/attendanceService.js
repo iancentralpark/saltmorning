@@ -1,13 +1,18 @@
 const { formatSheetDate, todayStr } = require('../dateUtils');
 const {
   ATTENDANCE_SHEET,
-  CLASS_LIST_SHEET,
   STUDENT_LIST_SHEET
 } = require('../config');
 const { getSheetRows, updateRange, appendRows } = require('../sheets');
 const { getClassRoster } = require('./teacherPortalService');
-const { getHolidayName } = require('../holiday');
 const { getPlannedByClassAndDate } = require('./plannedAttendanceService');
+const {
+  resolveDay,
+  defaultAcademicYearRange,
+  listEntries,
+  getClassMeta
+} = require('./schoolCalendarService');
+const { getHolidaysForRange } = require('../holiday');
 
 const VALID_STATUS = ['출석', '지각', '결석'];
 
@@ -55,20 +60,23 @@ function normalizeAllowedDays(raw) {
 }
 
 async function getClassScheduleInfo(classId, dateStr) {
-  const holidayName = await getHolidayName(dateStr);
-  let allowedDays = [1, 2, 3, 4, 5];
-  let className = classId;
-  const classRows = await getSheetRows(CLASS_LIST_SHEET);
-  for (let i = 1; i < classRows.length; i++) {
-    if (String(classRows[i][0]) === String(classId)) {
-      allowedDays = normalizeAllowedDays(classRows[i][3]);
-      className = String(classRows[i][1] || classId);
-      break;
-    }
-  }
-  const dow = new Date(dateStr + 'T12:00:00').getDay();
-  const scheduledDay = !holidayName && allowedDays.includes(dow);
-  return { holidayName, allowedDays, scheduledDay, className, dayOfWeek: dow };
+  const day = await resolveDay(classId, dateStr);
+  const holidayName = day.krHoliday ||
+    ((day.dayType === 'holiday' || day.dayType === 'break' || day.dayType === 'kr_holiday')
+      ? day.title
+      : '');
+  return {
+    holidayName,
+    allowedDays: day.allowedDays,
+    scheduledDay: day.isClassDay,
+    className: day.className,
+    dayOfWeek: day.dayOfWeek,
+    dayType: day.dayType,
+    dayTitle: day.title,
+    events: day.events || [],
+    reason: day.reason,
+    blocksAttendance: !day.isClassDay
+  };
 }
 
 async function getClassWorkData(classId, dateStr) {
@@ -77,15 +85,6 @@ async function getClassWorkData(classId, dateStr) {
   dateStr = dateStr || todayStr();
 
   const schedule = await getClassScheduleInfo(classId, dateStr);
-  if (!schedule.scheduledDay) {
-    return {
-      date: dateStr,
-      classId,
-      ...schedule,
-      students: []
-    };
-  }
-
   const roster = await getClassRoster(classId);
   const rows = await getSheetRows(ATTENDANCE_SHEET);
   const existing = {};
@@ -95,12 +94,14 @@ async function getClassWorkData(classId, dateStr) {
     existing[String(rows[i][2])] = parseAttendanceRow(rows[i]);
   }
 
-  const plannedMap = await getPlannedByClassAndDate(classId, dateStr);
+  const plannedMap = schedule.scheduledDay
+    ? await getPlannedByClassAndDate(classId, dateStr)
+    : {};
 
   const students = roster.map((s) => {
     const rec = existing[s.studentId] || {};
     const planned = plannedMap[s.studentId];
-    let attendance = rec.attendance || '출석';
+    let attendance = rec.attendance || (schedule.scheduledDay ? '출석' : '');
     let excuse = rec.excuse || '';
     if (!rec.attendance && planned) {
       attendance = planned.type;
@@ -111,7 +112,8 @@ async function getClassWorkData(classId, dateStr) {
       attendance,
       excuse,
       plannedNotice: planned || null,
-      countsAsPresent: countsAsPresent(attendance, excuse)
+      countsAsPresent: attendance ? countsAsPresent(attendance, excuse) : false,
+      attendanceEditable: !!schedule.scheduledDay
     };
   });
 
@@ -135,6 +137,13 @@ async function upsertStudentRecord(classId, studentId, dateStr, attendance, note
   if (!VALID_STATUS.includes(attendance)) {
     throw new Error('Invalid attendance status.');
   }
+
+  const schedule = await getClassScheduleInfo(classId, dateStr);
+  if (!schedule.scheduledDay) {
+    const label = schedule.dayTitle || schedule.holidayName || 'This day';
+    throw new Error(label + ' — no class. Attendance cannot be recorded (unless Admin marks it as a school day).');
+  }
+
   const data = await getSheetRows(ATTENDANCE_SHEET);
   let foundRow = -1;
   for (let i = 1; i < data.length; i++) {
@@ -192,13 +201,174 @@ async function saveAttendance(classId, dateStr, records) {
   return { saved: records.length };
 }
 
+function categorizeAttendance(attendance, excuse) {
+  const excused = !!(excuse && String(excuse).trim());
+  if (attendance === '출석') return 'present';
+  if (attendance === '지각') return excused ? 'tardyExcused' : 'tardy';
+  if (attendance === '결석') return excused ? 'absentExcused' : 'absent';
+  return null;
+}
+
+async function getStudentYearAttendance(classId, studentId, startDate, endDate) {
+  await ensureAttendanceColumns();
+  classId = String(classId);
+  studentId = String(studentId);
+  const range = (startDate && endDate)
+    ? {
+      startDate: String(startDate).slice(0, 10),
+      endDate: String(endDate).slice(0, 10),
+      label: String(startDate).slice(0, 4) + '-' + String(endDate).slice(0, 4)
+    }
+    : defaultAcademicYearRange();
+
+  const from = range.startDate;
+  const to = range.endDate;
+  const classMeta = await getClassMeta(classId);
+
+  let studentName = studentId;
+  const roster = await getClassRoster(classId);
+  const found = roster.find((s) => String(s.studentId) === studentId);
+  if (found) studentName = found.name;
+  else {
+    const list = await getSheetRows(STUDENT_LIST_SHEET);
+    for (let i = 1; i < list.length; i++) {
+      if (String(list[i][0]) === studentId) {
+        studentName = String(list[i][1] || studentId);
+        break;
+      }
+    }
+  }
+
+  const [entries, krHolidayMap, attendRows] = await Promise.all([
+    listEntries({ from, to, classId, includeInactive: false }),
+    getHolidaysForRange(from, to),
+    getSheetRows(ATTENDANCE_SHEET)
+  ]);
+
+  const recordByDate = {};
+  for (let i = 1; i < attendRows.length; i++) {
+    if (String(attendRows[i][1]) !== classId) continue;
+    if (String(attendRows[i][2]) !== studentId) continue;
+    const ds = formatSheetDate(attendRows[i][0]);
+    if (ds < from || ds > to) continue;
+    recordByDate[ds] = parseAttendanceRow(attendRows[i]);
+  }
+
+  const summary = {
+    present: 0,
+    absent: 0,
+    tardy: 0,
+    absentExcused: 0,
+    tardyExcused: 0,
+    unmarked: 0,
+    schoolDays: 0
+  };
+
+  const months = [];
+  let y = Number(from.slice(0, 4));
+  let m = Number(from.slice(5, 7));
+  const endY = Number(to.slice(0, 4));
+  const endM = Number(to.slice(5, 7));
+
+  while (y < endY || (y === endY && m <= endM)) {
+    const last = new Date(y, m, 0).getDate();
+    const days = [];
+    for (let d = 1; d <= last; d++) {
+      const dateStr = y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      if (dateStr < from || dateStr > to) {
+        days.push({
+          date: dateStr,
+          day: d,
+          outOfRange: true,
+          isClassDay: false,
+          greyOut: true,
+          status: null,
+          dayType: 'out',
+          title: '',
+          events: []
+        });
+        continue;
+      }
+      const resolved = await resolveDay(classId, dateStr, {
+        classMeta,
+        entries,
+        krHolidayMap
+      });
+      const rec = recordByDate[dateStr];
+      let status = null;
+      let category = null;
+      if (resolved.isClassDay) {
+        summary.schoolDays += 1;
+        if (rec && rec.attendance) {
+          category = categorizeAttendance(rec.attendance, rec.excuse);
+          status = rec.attendance;
+          if (category && summary[category] != null) summary[category] += 1;
+        } else {
+          summary.unmarked += 1;
+        }
+      }
+      days.push({
+        date: dateStr,
+        day: d,
+        outOfRange: false,
+        isClassDay: resolved.isClassDay,
+        greyOut: !resolved.isClassDay,
+        dayType: resolved.dayType,
+        title: resolved.title,
+        krHoliday: resolved.krHoliday,
+        events: resolved.events,
+        status,
+        category,
+        excuse: rec ? rec.excuse : '',
+        note: rec ? rec.note : ''
+      });
+    }
+    months.push({ year: y, month: m, days });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+
+  const marked = summary.present + summary.absent + summary.tardy +
+    summary.absentExcused + summary.tardyExcused;
+  const pct = (n) => (marked ? Math.round((n / marked) * 100) : 0);
+
+  return {
+    classId,
+    className: classMeta.className,
+    studentId,
+    studentName,
+    startDate: from,
+    endDate: to,
+    yearLabel: range.label,
+    schoolDays: summary.schoolDays,
+    summary: {
+      ...summary,
+      marked,
+      percentages: {
+        present: pct(summary.present),
+        absent: pct(summary.absent),
+        tardy: pct(summary.tardy),
+        absentExcused: pct(summary.absentExcused),
+        tardyExcused: pct(summary.tardyExcused)
+      }
+    },
+    months
+  };
+}
+
 module.exports = {
   VALID_STATUS,
   countsAsPresent,
   parseAttendanceRow,
   ensureAttendanceColumns,
+  getClassScheduleInfo,
   getClassWorkData,
   upsertStudentRecord,
   getAttendanceForDate,
-  saveAttendance
+  saveAttendance,
+  getStudentYearAttendance,
+  normalizeAllowedDays
 };

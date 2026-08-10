@@ -10,7 +10,13 @@ const {
   isHomeroomOfClass
 } = require('./services/teacherPortalService');
 const { getAttendanceBoardExtras } = require('./services/attendanceBoardService');
-const { getAttendanceForDate, saveAttendance, getClassWorkData, upsertStudentRecord } = require('./services/attendanceService');
+const {
+  getAttendanceForDate,
+  saveAttendance,
+  getClassWorkData,
+  upsertStudentRecord,
+  getStudentYearAttendance
+} = require('./services/attendanceService');
 const {
   listPlannedAttendance,
   getPlannedAttendanceCalendar,
@@ -18,6 +24,15 @@ const {
   cancelPlannedAttendance
 } = require('./services/plannedAttendanceService');
 const { getMonthlyReport } = require('./services/reportService');
+const {
+  listEntries,
+  getMonthCalendar,
+  getYearCalendar,
+  upsertEntry,
+  deleteEntry,
+  resolveDay,
+  defaultAcademicYearRange
+} = require('./services/schoolCalendarService');
 const {
   loadMessagesForStudent,
   sendMessage,
@@ -412,6 +427,48 @@ router.get('/teacher/class/:classId/monthly-report', requireRole('teacher'), asy
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not build report.' });
+  }
+});
+
+router.get('/teacher/class/:classId/students/:studentId/year-attendance', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const data = await getStudentYearAttendance(
+      req.params.classId,
+      req.params.studentId,
+      req.query.start || req.query.startDate,
+      req.query.end || req.query.endDate
+    );
+    res.json(data);
+  } catch (e) {
+    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load year attendance.' });
+  }
+});
+
+router.get('/school-calendar/day', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const date = req.query.date;
+    const classId = req.query.classId || '*';
+    if (!date) return res.status(400).json({ error: 'date is required.' });
+    res.json(await resolveDay(classId, date));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not resolve day.' });
+  }
+});
+
+router.get('/school-calendar/range', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const classId = req.query.classId || '*';
+    if (req.query.view === 'year' || (req.query.start && req.query.end && !req.query.month)) {
+      const data = await getYearCalendar(classId, req.query.start || req.query.startDate, req.query.end || req.query.endDate);
+      return res.json(data);
+    }
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const month = Number(req.query.month) || (new Date().getMonth() + 1);
+    res.json(await getMonthCalendar(classId, year, month));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load calendar.' });
   }
 });
 
@@ -1706,6 +1763,59 @@ router.post('/admin/classes/:classId/remove-student', requireRole('admin'), asyn
     res.json({ class: cls });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not remove student.' });
+  }
+});
+
+router.get('/admin/school-calendar', requireRole('admin'), async (req, res) => {
+  try {
+    const items = await listEntries({
+      from: req.query.from || req.query.start,
+      to: req.query.to || req.query.end,
+      classId: req.query.classId,
+      includeInactive: String(req.query.includeInactive || '') === '1'
+    });
+    res.json({ entries: items, academicYear: defaultAcademicYearRange() });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load school calendar.' });
+  }
+});
+
+router.get('/admin/school-calendar/month', requireRole('admin'), async (req, res) => {
+  try {
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const month = Number(req.query.month) || (new Date().getMonth() + 1);
+    res.json(await getMonthCalendar(req.query.classId || '*', year, month));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load month calendar.' });
+  }
+});
+
+router.get('/admin/school-calendar/year', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await getYearCalendar(
+      req.query.classId || '*',
+      req.query.start || req.query.startDate,
+      req.query.end || req.query.endDate
+    ));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load year calendar.' });
+  }
+});
+
+router.post('/admin/school-calendar', requireRole('admin'), async (req, res) => {
+  try {
+    const entry = await upsertEntry(req.body || {});
+    res.json({ entry });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save calendar entry.' });
+  }
+});
+
+router.delete('/admin/school-calendar/:entryId', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await deleteEntry(req.params.entryId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete calendar entry.' });
   }
 });
 

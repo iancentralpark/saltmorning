@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810gwcustom">
+  <link rel="stylesheet" href="/css/app.css?v=20260810attendance">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -340,11 +340,35 @@
   </div>
 </div>
 
+<div id="yearAttModal" class="modal hidden" role="dialog">
+  <div class="modal-card modal-wide ya-modal">
+    <div class="ya-modal-head">
+      <h3 id="yearAttTitle" style="margin:0">Year-Long Attendance</h3>
+      <button type="button" class="btn btn-ghost" id="yearAttClose">Close</button>
+    </div>
+    <div id="yearAttBody">
+      <div class="ya-top">
+        <div class="ya-meta" id="yearAttMeta"></div>
+        <div class="ya-pie-wrap">
+          <div class="ya-pie" id="yearAttPie" aria-hidden="true"></div>
+          <div class="ya-legend" id="yearAttLegend"></div>
+        </div>
+      </div>
+      <div class="ya-month-nav">
+        <button type="button" class="btn btn-ghost" id="yearAttPrev" aria-label="Previous month">‹</button>
+        <strong id="yearAttMonthLabel"></strong>
+        <button type="button" class="btn btn-ghost" id="yearAttNext" aria-label="Next month">›</button>
+      </div>
+      <div id="yearAttCal"></div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260804restore"></script>
-<script src="/js/teacher-attendance.js?v=20260804hr"></script>
+<script src="/js/teacher-attendance.js?v=20260810attendance"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
 <script src="/js/teacher-lesson.js?v=20260804homeroom"></script>

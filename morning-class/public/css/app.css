@@ -2448,9 +2448,223 @@ body.buddy-resize-active {
 .rc-print-footer { margin-top: 1.25rem; text-align: center; }
 .rc-parent-list { display: grid; gap: 0.75rem; margin-bottom: 1rem; }
 
+/* —— School calendar (admin annual plan) —— */
+.sc-panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.sc-toolbar-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+.sc-toolbar-actions .btn.active { background: var(--primary); color: #fff; }
+.sc-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+.sc-mount { margin-bottom: 1.25rem; }
+.sc-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.sc-dow {
+  background: var(--sage-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.45rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+.sc-day, .sc-day-pad {
+  min-height: 5.2rem;
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.35rem;
+  text-align: left;
+  background: #fff;
+  vertical-align: top;
+}
+.sc-day:nth-child(7n) { border-right: none; }
+.sc-day {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.sc-day:hover { background: var(--cream-deep); }
+.sc-day-num { display: block; font-weight: 700; font-size: 0.85rem; text-align: right; }
+.sc-day-cap { display: block; font-size: 0.62rem; line-height: 1.25; color: var(--muted); margin-top: 0.2rem; }
+.sc-day-off { background: repeating-linear-gradient(-45deg, #f3f4f6, #f3f4f6 4px, #e5e7eb 4px, #e5e7eb 8px); }
+.sc-day-holiday { background: #fce7f3; }
+.sc-day-break { background: #e0e7ff; }
+.sc-day-event { background: #fef3c7; }
+.sc-day-force { background: #dbeafe; }
+.sc-day-class { background: #eff6ff; }
+.sc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.65rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.sc-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 3px;
+  margin-right: 0.3rem;
+  vertical-align: -2px;
+  border: 1px solid var(--border);
+}
+.sc-swatch-class { background: #eff6ff; }
+.sc-swatch-holiday { background: #fce7f3; }
+.sc-swatch-break { background: #e0e7ff; }
+.sc-swatch-event { background: #fef3c7; }
+.sc-swatch-force { background: #dbeafe; }
+.sc-year-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.sc-year-month h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+.sc-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.65rem;
+}
+.sc-mini-dow { background: var(--sage-soft); text-align: center; padding: 0.2rem 0; font-weight: 700; }
+.sc-mini, .sc-mini-pad {
+  background: #fff;
+  min-height: 1.5rem;
+  text-align: center;
+  padding: 0.15rem 0;
+}
+.sc-mini-off, .sc-mini-out {
+  background: repeating-linear-gradient(-45deg, #f3f4f6, #f3f4f6 3px, #e5e7eb 3px, #e5e7eb 6px);
+  color: #9ca3af;
+}
+.sc-mini-holiday { background: #fce7f3; }
+.sc-mini-break { background: #e0e7ff; }
+.sc-mini-event { background: #fef3c7; }
+.sc-mini-force, .sc-mini-class { background: #dbeafe; }
+.sc-editor { margin-top: 1.25rem; border-top: 1px solid var(--border-soft); padding-top: 1rem; }
+.sc-form .sc-check { display: flex; align-items: center; gap: 0.4rem; }
+.sc-form-actions { display: flex; gap: 0.5rem; align-items: center; }
+.sc-entry-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.sc-entry-table th, .sc-entry-table td { border-bottom: 1px solid var(--border-soft); padding: 0.4rem; text-align: left; }
+.sc-print-head { grid-column: 1 / -1; margin-bottom: 0.5rem; }
+.sc-print-head h2 { margin: 0; font-family: 'Cormorant Garamond', Georgia, serif; }
+
+/* —— Year-long student attendance —— */
+.ya-modal { max-width: 920px; }
+.ya-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.ya-top {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+.ya-meta {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+.ya-pie-wrap {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ya-pie {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  box-shadow: inset 0 0 0 1px var(--border);
+  flex-shrink: 0;
+}
+.ya-legend { display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.ya-legend-row { display: grid; grid-template-columns: 0.85rem 1fr auto; gap: 0.45rem; align-items: center; }
+.ya-swatch { width: 0.85rem; height: 0.85rem; border-radius: 3px; display: inline-block; }
+.ya-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+.ya-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.ya-cal-dow {
+  background: #f3f4f6;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.ya-cal-day, .ya-cal-pad {
+  min-height: 4.4rem;
+  border-right: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.3rem;
+  position: relative;
+}
+.ya-cal-day:nth-child(7n) { border-right: none; }
+.ya-cal-num { position: absolute; top: 0.25rem; right: 0.35rem; font-size: 0.78rem; font-weight: 700; }
+.ya-cal-ev {
+  display: block;
+  margin-top: 1.2rem;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  color: var(--muted);
+}
+.ya-cal-grey {
+  background: repeating-linear-gradient(-45deg, #f3f4f6, #f3f4f6 4px, #e5e7eb 4px, #e5e7eb 8px);
+  color: #9ca3af;
+}
+.ya-cal-present { background: #93c5fd; }
+.ya-cal-absent { background: #f9a8d4; }
+.ya-cal-tardy { background: #86efac; }
+.ya-cal-absent-ex { background: #fdba74; }
+.ya-cal-tardy-ex { background: #fde047; }
+.ya-cal-unmarked { background: #fff; }
+.att-year-btn { font-size: 0.78rem; }
+
+@media (max-width: 720px) {
+  .ya-top { grid-template-columns: 1fr; }
+  .sc-day, .ya-cal-day { min-height: 3.4rem; }
+}
+
 @media print {
   body * { visibility: hidden !important; }
-  #rcPrintSheet, #rcPrintSheet * { visibility: visible !important; }
+  #rcPrintSheet, #rcPrintSheet *,
+  .sc-print-root, .sc-print-root * { visibility: visible !important; }
   #rcPrintSheet {
     position: absolute;
     left: 0; top: 0;
@@ -2459,5 +2673,12 @@ body.buddy-resize-active {
     box-shadow: none;
     padding: 0;
   }
+  .sc-print-root {
+    position: absolute;
+    left: 0; top: 0;
+    width: 100%;
+    background: #fff;
+  }
+  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar-actions, .topbar, .tabs, .no-print { display: none !important; }
   .no-print { display: none !important; }
 }
