@@ -1,6 +1,6 @@
 /**
- * Parse Renaissance Star Reading & NWEA MAP reports from JSON / CSV text.
- * PDF: accept pre-extracted text lines or structured JSON from upstream OCR.
+ * Parse Renaissance Star Reading & NWEA MAP reports from structured JSON
+ * (e.g. AI extraction) or legacy CSV text for internal/seed tools.
  */
 
 function clean(s) {
@@ -112,16 +112,26 @@ function rowToReport(row, defaults) {
     defaults.source ||
     'other'
   );
+  const existingDomains = Array.isArray(row.domainScores)
+    ? row.domainScores
+    : (Array.isArray(row.domains) ? row.domains : null);
   return {
-    studentId: clean(pick(row, ['studentid', 'student_id', 'student id', 'sid']) || defaults.studentId),
-    classId: clean(pick(row, ['classid', 'class_id', 'class']) || defaults.classId),
+    studentId: clean(pick(row, ['studentid', 'student_id', 'student id', 'sid']) || row.studentId || defaults.studentId),
+    classId: clean(pick(row, ['classid', 'class_id', 'class']) || row.classId || defaults.classId),
     source,
-    testDate: parseDate(pick(row, ['testdate', 'test_date', 'date', 'assessment_date'])),
-    score: num(pick(row, ['score', 'scaled_score', 'ss', 'ge'])),
-    percentile: num(pick(row, ['percentile', 'pr', 'pct', 'percentile_rank'])),
-    lexile: clean(pick(row, ['lexile', 'lexile_measure', 'zpd'])) || null,
-    ritScore: num(pick(row, ['rit', 'rit_score', 'ritscore'])),
-    domainScores: domainsFromRow(row, source),
+    testDate: parseDate(pick(row, ['testdate', 'test_date', 'date', 'assessment_date']) || row.testDate),
+    score: num(pick(row, ['score', 'scaled_score', 'ss', 'ge']) || row.score),
+    percentile: num(pick(row, ['percentile', 'pr', 'pct', 'percentile_rank']) || row.percentile),
+    lexile: clean(pick(row, ['lexile', 'lexile_measure', 'zpd']) || row.lexile) || null,
+    ritScore: num(pick(row, ['rit', 'rit_score', 'ritscore']) || row.ritScore),
+    domainScores: existingDomains && existingDomains.length
+      ? existingDomains.map((d) => ({
+        domain: clean(d.domain || d.label || '').toLowerCase().replace(/\s+/g, '_') || 'domain',
+        label: clean(d.label || d.domain || 'Domain'),
+        score: num(d.score),
+        percentile: num(d.percentile)
+      }))
+      : domainsFromRow(row, source),
     rawMeta: row
   };
 }

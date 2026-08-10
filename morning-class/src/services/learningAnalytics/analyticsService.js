@@ -208,6 +208,35 @@ async function importAssessments(payload) {
   const classId = String(payload.classId || '');
   const sourceHint = payload.source || '';
   const defaults = { classId, source: sourceHint };
+
+  // PDF / scan path (AI extraction)
+  if (payload.buffer || payload.file) {
+    const file = payload.file || {};
+    const buffer = payload.buffer || file.buffer;
+    const mimeType = payload.mimeType || file.mimetype || '';
+    const filename = payload.filename || file.originalname || '';
+    const { getClassRoster } = require('../teacherPortalService');
+    const { extractAssessmentsFromDocument } = require('./assessmentDocumentImport');
+    const roster = await getClassRoster(classId);
+    const extracted = await extractAssessmentsFromDocument({
+      buffer,
+      mimeType,
+      filename,
+      classId,
+      source: sourceHint || 'star_reading',
+      roster
+    });
+    const saved = await saveTestReports(extracted.reports);
+    return Object.assign({}, saved, {
+      matched: extracted.matched,
+      extracted: extracted.extracted,
+      unmatched: extracted.unmatched,
+      warnings: extracted.warnings,
+      model: extracted.model
+    });
+  }
+
+  // Legacy structured JSON (used by seed / internal tools) — not exposed in teacher UI.
   const parsed = parseAssessmentInput(payload.data != null ? payload.data : payload, defaults)
     .map((r) => Object.assign({}, r, {
       classId: r.classId || classId,
@@ -246,21 +275,26 @@ async function saveIntervention(record) {
 
 function defaultActions(status) {
   const map = {
-    on_track: ['Maintain current routine', 'Celebrate growth with student/parent'],
+    on_track: [
+      'Extend challenge texts in the student’s strength domain while keeping success rate ~80%.',
+      'Use the student briefly as a peer model for a strategy already mastered, then rotate roles.',
+      'Celebrate specific strategy growth with student and family (not only scores).'
+    ],
     attention: [
-      'Check 2+ pending homework items this week',
-      'Add short formative check-in on weak domain'
+      'Run a 10-minute targeted clinic on the weakest domain 3× this week (model → guided → brief independent).',
+      'Reduce homework breadth; require completion of one high-leverage task tied to the weak skill.',
+      'Collect one formative check (exit ticket or oral retell) before the next progress monitoring window.'
     ],
     warning: [
-      'Schedule 1:1 reading conference',
-      'Assign targeted practice on declining domain',
-      'Notify parent of downward trend'
+      'Schedule a 1:1 reading/strategy conference this week; diagnose accuracy vs. meaning-making vs. stamina.',
+      'Assign daily 8–12 minute practice on the declining domain with immediate corrective feedback.',
+      'Align homeroom and subject teachers on one shared skill target; notify family with a concrete home routine.'
     ],
     intervention: [
-      'Assign 10-min daily vocab clinic (Mon–Fri)',
-      'Reduce homework load temporarily; prioritize completion',
-      'Homeroom + subject teacher intervention meeting',
-      'Share parent-friendly action plan this week'
+      'Begin a 2-week intensive: 10-min daily vocabulary/decoding or comprehension clinic (Mon–Fri).',
+      'Temporarily prioritize completion over volume; strip non-essential homework until success rate stabilizes.',
+      'Hold a brief MTSS-style huddle (homeroom + literacy/subject teacher) to set one measurable goal.',
+      'Send a parent-friendly action plan with exact minutes, materials, and what “done well” looks like.'
     ]
   };
   return map[status] || map.attention;

@@ -149,6 +149,46 @@ window.SaltAnalytics = (function() {
     }
   }
 
+  function proseHtml(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return '<p class="muted">No report yet.</p>';
+    return raw.split(/\n{2,}/).map((block) => {
+      const lines = block.split('\n').map((l) => escapeHtml(l)).join('<br>');
+      return '<p class="la-essay-p">' + lines + '</p>';
+    }).join('');
+  }
+
+  function renderDiagnostic(d, heading) {
+    const source = d.source || (d.updatedAt ? 'saved' : '');
+    const actions = (d.recommendedActions || []).map(String);
+    const urgentList = (d.urgentInterventions && d.urgentInterventions.length)
+      ? d.urgentInterventions.map(String)
+      : actions.filter((a) => /^\[Urgent\]/i.test(a)).map((a) => a.replace(/^\[Urgent\]\s*/i, ''));
+    const otherList = actions
+      .filter((a) => !/^\[Urgent\]/i.test(a))
+      .filter((a) => !urgentList.includes(a));
+
+    return (
+      (heading || '') +
+      (d.learnerProfile
+        ? '<p class="la-learner-profile"><strong>Learner profile.</strong> ' +
+          escapeHtml(d.learnerProfile) + '</p>'
+        : '') +
+      '<h4>Teacher analysis <span class="muted small">(' + escapeHtml(source) + ')</span></h4>' +
+      '<div class="la-essay">' + proseHtml(d.teacherReport) + '</div>' +
+      '<h4>Parent / family summary</h4>' +
+      '<div class="la-essay">' + proseHtml(d.parentReport) + '</div>' +
+      (urgentList.length
+        ? '<h4>Urgent interventions (next 1–2 weeks)</h4><ol class="la-interventions la-interventions-urgent">' +
+          urgentList.map((a) => '<li>' + escapeHtml(a) + '</li>').join('') + '</ol>'
+        : '') +
+      (otherList.length
+        ? '<h4>Instructional plan</h4><ul class="la-interventions">' +
+          otherList.map((a) => '<li>' + escapeHtml(a) + '</li>').join('') + '</ul>'
+        : '')
+    );
+  }
+
   function renderDetail(s) {
     $('laDetailTitle').textContent = s.name + ' — Learning Analytics';
     const domains = (s.domainProfile || []).map((d) =>
@@ -174,11 +214,13 @@ window.SaltAnalytics = (function() {
       '<div id="laDiagOut" class="la-diag"></div>';
 
     if (s.latestIntervention) {
-      $('laDiagOut').innerHTML =
-        '<h4>Latest diagnostic</h4>' +
-        '<pre class="la-pre">' + escapeHtml(s.latestIntervention.teacherReport || '') + '</pre>' +
-        '<h4>Parent summary</h4>' +
-        '<pre class="la-pre">' + escapeHtml(s.latestIntervention.parentReport || '') + '</pre>';
+      $('laDiagOut').innerHTML = renderDiagnostic({
+        teacherReport: s.latestIntervention.teacherReport,
+        parentReport: s.latestIntervention.parentReport,
+        recommendedActions: s.latestIntervention.recommendedActions || [],
+        source: 'saved',
+        learnerProfile: ''
+      }, '<h4>Latest AI profile</h4>');
     }
   }
 
@@ -186,6 +228,7 @@ window.SaltAnalytics = (function() {
     if (!selectedId) return;
     const cls = getClass();
     $('laDiagnoseBtn').disabled = true;
+    $('laDiagOut').innerHTML = '<p class="muted">Generating pedagogical profile… this can take a moment.</p>';
     try {
       const data = await api(
         '/api/teacher/class/' + encodeURIComponent(cls.classId) +
@@ -193,14 +236,7 @@ window.SaltAnalytics = (function() {
         { method: 'POST', body: {} }
       );
       const d = data.diagnostic || {};
-      $('laDiagOut').innerHTML =
-        '<h4>Teacher report <span class="muted small">(' + escapeHtml(d.source || '') + ')</span></h4>' +
-        '<pre class="la-pre">' + escapeHtml(d.teacherReport || '') + '</pre>' +
-        '<h4>Parent / student summary</h4>' +
-        '<pre class="la-pre">' + escapeHtml(d.parentReport || '') + '</pre>' +
-        '<h4>Actions</h4><ul>' +
-        (d.recommendedActions || []).map((a) => '<li>' + escapeHtml(a) + '</li>').join('') +
-        '</ul>';
+      $('laDiagOut').innerHTML = renderDiagnostic(d);
       loadDashboard();
     } catch (e) {
       $('laDiagOut').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
@@ -228,23 +264,36 @@ window.SaltAnalytics = (function() {
 
   async function importData() {
     const cls = getClass();
-    const raw = $('laImportArea').value.trim();
-    if (!raw) return;
+    const input = $('laImportFile');
+    const file = input && input.files && input.files[0];
+    if (!file) {
+      $('laImportMsg').textContent = 'Choose a PDF or scan image first.';
+      return;
+    }
+    $('laImportBtn').disabled = true;
+    $('laImportMsg').textContent = 'AI is reading the report…';
     try {
-      const body = {
-        classId: cls.classId,
-        source: $('laImportSource').value,
-        data: raw
-      };
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('source', $('laImportSource').value);
       const res = await api(
         '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics/import',
-        { method: 'POST', body }
+        { method: 'POST', body: fd }
       );
-      $('laImportMsg').textContent = 'Imported ' + (res.saved || 0) + ' row(s).';
+      let msg = 'Imported ' + (res.saved || res.matched || 0) + ' student score(s).';
+      if (res.unmatched && res.unmatched.length) {
+        msg += ' Unmatched: ' + res.unmatched.join(', ') + '.';
+      }
+      if (res.warnings && res.warnings.length) {
+        msg += ' ' + res.warnings.join(' ');
+      }
+      $('laImportMsg').textContent = msg;
+      if (input) input.value = '';
       await loadDashboard();
     } catch (e) {
       $('laImportMsg').textContent = e.message;
     }
+    $('laImportBtn').disabled = false;
   }
 
   return { init, onClassOpen, loadDashboard };

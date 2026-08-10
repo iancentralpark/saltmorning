@@ -3009,8 +3009,8 @@ body.buddy-resize-active {
 .la-badge-warning { background: #ffedd5; color: #9a3412; }
 .la-badge-intervention { background: #fee2e2; color: #991b1b; }
 .la-import { margin-top: 1rem; border-top: 1px solid var(--border-soft); padding-top: 0.75rem; }
-.la-import-row { display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; }
-.la-import textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 0.78rem; }
+.la-import-row { display: flex; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap; align-items: center; }
+.la-import input[type="file"] { font-size: 0.85rem; max-width: 100%; }
 .la-detail {
   margin-top: 1rem;
   border: 1px solid var(--border);
@@ -3067,6 +3067,38 @@ body.buddy-resize-active {
   border-radius: 10px;
   padding: 0.65rem 0.75rem;
   font-size: 0.85rem;
+}
+.la-learner-profile {
+  background: #eef3ea;
+  border-left: 3px solid var(--olive);
+  padding: 0.65rem 0.8rem;
+  border-radius: 0 10px 10px 0;
+  margin: 0.5rem 0 0.85rem;
+  line-height: 1.45;
+}
+.la-essay {
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.85rem;
+}
+.la-essay-p {
+  margin: 0 0 0.75rem;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+.la-essay-p:last-child { margin-bottom: 0; }
+.la-interventions {
+  margin: 0.35rem 0 0.9rem;
+  padding-left: 1.2rem;
+  line-height: 1.45;
+}
+.la-interventions-urgent {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  padding: 0.65rem 0.65rem 0.65rem 1.6rem;
 }
 @media (max-width: 720px) {
   .la-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }

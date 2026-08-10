@@ -226,6 +226,23 @@ const photoUpload = multer({
   }
 });
 
+const analyticsUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/heic',
+      'image/heif'
+    ].includes(file.mimetype);
+    cb(ok ? null : new Error('Upload a PDF or image scan (JPG/PNG/WebP).'), ok);
+  }
+});
+
 const announcementUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
@@ -840,17 +857,37 @@ router.get('/teacher/class/:classId/analytics/students/:studentId', requireRole(
   }
 });
 
-router.post('/teacher/class/:classId/analytics/import', requireRole('teacher'), async (req, res) => {
-  try {
-    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
-    const result = await importAssessments(Object.assign({}, req.body || {}, {
-      classId: req.params.classId
-    }));
-    res.json(result);
-  } catch (e) {
-    res.status(400).json({ error: e.message || 'Import failed.' });
+router.post(
+  '/teacher/class/:classId/analytics/import',
+  requireRole('teacher'),
+  (req, res, next) => {
+    analyticsUpload.single('file')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'Invalid upload.' });
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'Upload a Star Reading or MAP PDF / scan image. CSV and JSON paste are no longer supported.'
+        });
+      }
+      const result = await importAssessments({
+        classId: req.params.classId,
+        source: (req.body && req.body.source) || 'star_reading',
+        file: req.file,
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        filename: req.file.originalname
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Import failed.' });
+    }
   }
-});
+);
 
 router.post('/teacher/class/:classId/analytics/seed-mock', requireRole('teacher'), async (req, res) => {
   try {

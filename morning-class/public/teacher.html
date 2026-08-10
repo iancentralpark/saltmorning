@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810ttname">
+  <link rel="stylesheet" href="/css/app.css?v=20260810laai">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -175,7 +175,7 @@
       <div class="la-toolbar">
         <div>
           <h3 style="margin:0">Learning Analytics</h3>
-          <p class="muted small" style="margin:0.25rem 0 0">SR/MAP trends, engagement, early-warning badges, and AI diagnostics.</p>
+          <p class="muted small" style="margin:0.25rem 0 0">SR/MAP trends, engagement, early-warning badges, and essay-style AI learning profiles.</p>
         </div>
         <div class="la-toolbar-actions">
           <select id="laStatusFilter">
@@ -193,15 +193,16 @@
       <div id="laRoster"></div>
 
       <details class="la-import">
-        <summary>Import Star Reading / MAP (CSV or JSON)</summary>
+        <summary>Import Star Reading / MAP (PDF or scan)</summary>
+        <p class="muted small">Upload the official report PDF or a clear photo/scan. AI reads the scores and matches students in this class.</p>
         <div class="la-import-row">
           <select id="laImportSource">
             <option value="star_reading">Star Reading</option>
             <option value="map">NWEA MAP</option>
           </select>
-          <button type="button" class="btn btn-primary" id="laImportBtn">Import</button>
+          <input type="file" id="laImportFile" accept="application/pdf,image/*">
+          <button type="button" class="btn btn-primary" id="laImportBtn">Analyze &amp; import</button>
         </div>
-        <textarea id="laImportArea" rows="5" placeholder="Paste CSV headers like student_id,test_date,percentile,lexile,vocabulary… or JSON array"></textarea>
         <p class="muted small" id="laImportMsg"></p>
       </details>
 
@@ -209,7 +210,7 @@
         <div class="la-detail-head">
           <h3 id="laDetailTitle" style="margin:0">Student analysis</h3>
           <div>
-            <button type="button" class="btn btn-primary" id="laDiagnoseBtn">Generate AI diagnostic</button>
+            <button type="button" class="btn btn-primary" id="laDiagnoseBtn">Generate AI learning profile</button>
             <button type="button" class="btn btn-ghost" id="laDetailClose">Close</button>
           </div>
         </div>
@@ -421,7 +422,7 @@
 <script src="/js/teacher-attendance.js?v=20260810attendance"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
-<script src="/js/teacher-analytics.js?v=20260810analytics"></script>
+<script src="/js/teacher-analytics.js?v=20260810laai"></script>
 <script src="/js/subject-colors.js?v=20260810ttpastel"></script>
 <script src="/js/teacher-lesson.js?v=20260810ttpastel"></script>
 <script src="/js/messenger.js?v=20260810admdir"></script>

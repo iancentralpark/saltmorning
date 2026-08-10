@@ -51,18 +51,27 @@ function fallbackModels(preferred) {
   return out;
 }
 
-async function askGeminiOnce(prompt, options, model, apiKey) {
+async function askGeminiOnce(promptOrParts, options, model, apiKey) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  let parts;
+  if (Array.isArray(promptOrParts)) {
+    parts = promptOrParts;
+  } else if (options.parts && Array.isArray(options.parts)) {
+    parts = options.parts.concat([{ text: String(promptOrParts || '') }]);
+  } else {
+    parts = [{ text: String(promptOrParts || '') }];
+  }
   const body = {
-    contents: [{ role: 'user', parts: [{ text: String(prompt || '') }] }]
+    contents: [{ role: 'user', parts }]
   };
   if (options.systemInstruction) {
     body.systemInstruction = { parts: [{ text: String(options.systemInstruction) }] };
   }
-  if (options.temperature != null || options.maxOutputTokens != null) {
+  if (options.temperature != null || options.maxOutputTokens != null || options.responseMimeType) {
     body.generationConfig = {};
     if (options.temperature != null) body.generationConfig.temperature = options.temperature;
     if (options.maxOutputTokens != null) body.generationConfig.maxOutputTokens = options.maxOutputTokens;
+    if (options.responseMimeType) body.generationConfig.responseMimeType = options.responseMimeType;
   }
   const res = await fetch(url, {
     method: 'POST',
@@ -77,8 +86,8 @@ async function askGeminiOnce(prompt, options, model, apiKey) {
     err.capacity = isCapacityError(errMsg, res.status);
     throw err;
   }
-  const parts = (((data.candidates || [])[0] || {}).content || {}).parts;
-  const reply = Array.isArray(parts) ? parts.map((p) => p.text || '').join('') : '';
+  const outParts = (((data.candidates || [])[0] || {}).content || {}).parts;
+  const reply = Array.isArray(outParts) ? outParts.map((p) => p.text || '').join('') : '';
   if (!reply.trim()) throw new Error('Empty response from Gemini.');
   return {
     ok: true,
@@ -92,6 +101,7 @@ async function askGeminiOnce(prompt, options, model, apiKey) {
 /**
  * askGemini(prompt, options)
  * askGemini(prompt, history, options) — history unused but accepted for Mr.Park compat
+ * askGemini(partsArray, options) — multimodal: [{text}|{inlineData:{mimeType,data}}]
  * Retries on capacity errors and falls back across models.
  */
 async function askGemini(prompt, historyOrOptions, maybeOptions) {
