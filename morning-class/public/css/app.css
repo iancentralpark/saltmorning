@@ -3038,6 +3038,99 @@ body.buddy-resize-active {
 }
 .pp-hw-item.done { opacity: 0.75; }
 .pp-span-2 { grid-column: 1 / -1; }
+.pp-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.pp-profile-photo-wrap {
+  flex-shrink: 0;
+  width: 5.75rem;
+  height: 5.75rem;
+}
+.pp-profile-photo,
+.pp-profile-photo-fallback {
+  width: 5.75rem;
+  height: 5.75rem;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+}
+.pp-profile-photo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lavender-soft, #eef1e6);
+  color: var(--ink, #1f1f1f);
+  font-weight: 700;
+  font-size: 1.45rem;
+}
+.pp-profile-head-text h3 { font-size: 1.2rem; }
+.pp-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  max-width: none;
+  margin: 0;
+}
+.pp-profile-section {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.pp-profile-section h4 {
+  margin: 0 0 0.65rem;
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
+  color: var(--olive-deep, #3b4a34);
+}
+.pp-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 1rem;
+  max-width: none;
+  margin: 0;
+}
+.pp-profile-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.86rem;
+  color: var(--muted);
+  margin: 0;
+}
+.pp-profile-grid input,
+.pp-profile-grid textarea {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.pp-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  padding-top: 0.15rem;
+}
+@media (min-width: 900px) {
+  .pp-profile-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .pp-profile-grid .pp-span-2 {
+    grid-column: span 2;
+  }
+}
+@media (max-width: 640px) {
+  .pp-profile-head { align-items: flex-start; }
+  .pp-profile-grid { grid-template-columns: 1fr; }
+  .pp-profile-grid .pp-span-2 { grid-column: 1; }
+}
+
 .msg-bubble-text { white-space: pre-wrap; word-break: break-word; }
 
 @media (max-width: 640px) {

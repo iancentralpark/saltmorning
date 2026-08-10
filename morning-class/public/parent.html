@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810rcsig2">
+  <link rel="stylesheet" href="/css/app.css?v=20260810ppprof">
 </head>
 <body>
 <div class="shell">
@@ -78,25 +78,56 @@
     </div>
 
     <div id="tabProfile" class="card hidden">
-      <h3 style="margin-top:0">Student information</h3>
-      <p class="muted small">Update contact and medical details for <strong id="ppName"></strong>
-        (<span id="ppClass" class="muted"></span></p>
-      <form id="ppProfileForm" class="form-grid admin-form-grid">
-        <label>Parent / guardian name <input id="pp_parentName"></label>
-        <label>Parent phone <input id="pp_parentPhone"></label>
-        <label>Parent email <input id="pp_parentEmail"></label>
-        <label>Student phone <input id="pp_phone"></label>
-        <label>Student email <input id="pp_email"></label>
-        <label>Nationality <input id="pp_nationality"></label>
-        <label class="pp-span-2">Address <input id="pp_address"></label>
-        <label>Emergency contact <input id="pp_emergencyContact"></label>
-        <label>Emergency phone <input id="pp_emergencyPhone"></label>
-        <label class="pp-span-2">Notes <input id="pp_notes"></label>
-        <div class="pp-span-2">
-          <h4>Medical</h4>
-          <div id="ppMedical" class="form-grid admin-form-grid"></div>
+      <div class="pp-profile-head">
+        <div class="pp-profile-photo-wrap" id="ppPhotoWrap">
+          <div class="pp-profile-photo-fallback" id="ppPhotoFallback">?</div>
+          <img class="pp-profile-photo hidden" id="ppPhotoImg" alt="Student photo">
         </div>
-        <div class="pp-span-2" style="display:flex;gap:0.5rem;align-items:center">
+        <div class="pp-profile-head-text">
+          <h3 style="margin:0">Student information</h3>
+          <p class="muted small" style="margin:0.25rem 0 0">
+            Update contact and medical details for <strong id="ppName"></strong>
+            <span id="ppClass" class="muted"></span>
+          </p>
+          <p class="muted small" style="margin:0.35rem 0 0">Photo is managed by the school office (Admin).</p>
+        </div>
+      </div>
+
+      <form id="ppProfileForm" class="pp-profile-form">
+        <section class="pp-profile-section">
+          <h4>Parent / guardian</h4>
+          <div class="pp-profile-grid">
+            <label>Name <input id="pp_parentName" autocomplete="name"></label>
+            <label>Phone <input id="pp_parentPhone" autocomplete="tel"></label>
+            <label class="pp-span-2">Email <input id="pp_parentEmail" type="email" autocomplete="email"></label>
+          </div>
+        </section>
+
+        <section class="pp-profile-section">
+          <h4>Student contact</h4>
+          <div class="pp-profile-grid">
+            <label>Phone <input id="pp_phone" autocomplete="tel"></label>
+            <label>Email <input id="pp_email" type="email"></label>
+            <label>Nationality <input id="pp_nationality"></label>
+            <label class="pp-span-2">Address <input id="pp_address" autocomplete="street-address"></label>
+          </div>
+        </section>
+
+        <section class="pp-profile-section">
+          <h4>Emergency</h4>
+          <div class="pp-profile-grid">
+            <label>Emergency contact <input id="pp_emergencyContact"></label>
+            <label>Emergency phone <input id="pp_emergencyPhone"></label>
+            <label class="pp-span-2">Notes <textarea id="pp_notes" rows="2"></textarea></label>
+          </div>
+        </section>
+
+        <section class="pp-profile-section">
+          <h4>Medical</h4>
+          <div id="ppMedical" class="pp-profile-grid"></div>
+        </section>
+
+        <div class="pp-profile-actions">
           <button type="submit" class="btn btn-primary">Save profile</button>
           <span class="ok" id="ppProfileOk"></span>
           <span class="error" id="ppProfileError"></span>
@@ -111,7 +142,7 @@
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/messenger.js?v=20260810admdir"></script>
-<script src="/js/parent.js?v=20260810rcwf"></script>
+<script src="/js/parent.js?v=20260810ppprof"></script>
 <script>
 (function() {
   const role = 'parent';

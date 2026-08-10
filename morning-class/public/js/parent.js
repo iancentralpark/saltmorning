@@ -371,7 +371,32 @@ window.SaltParent = (function() {
       const data = await api('/api/parent/student-profile');
       const p = data.profile || {};
       $('ppName').textContent = data.name || '';
-      $('ppClass').textContent = data.className || data.classId || '';
+      $('ppClass').textContent = data.className
+        ? (' · ' + data.className)
+        : (data.classId ? (' · ' + data.classId) : '');
+
+      const photoPath = data.photoPath || (p && p.photoPath) || '';
+      const img = $('ppPhotoImg');
+      const fallback = $('ppPhotoFallback');
+      if (fallback) {
+        fallback.textContent = String(data.name || '?').trim().charAt(0).toUpperCase() || '?';
+      }
+      if (img) {
+        if (photoPath) {
+          img.src = photoPath + (photoPath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+          img.classList.remove('hidden');
+          if (fallback) fallback.classList.add('hidden');
+          img.onerror = () => {
+            img.classList.add('hidden');
+            if (fallback) fallback.classList.remove('hidden');
+          };
+        } else {
+          img.removeAttribute('src');
+          img.classList.add('hidden');
+          if (fallback) fallback.classList.remove('hidden');
+        }
+      }
+
       ['address', 'phone', 'email', 'parentName', 'parentPhone', 'parentEmail',
         'emergencyContact', 'emergencyPhone', 'nationality', 'notes'].forEach((k) => {
         const el = $('pp_' + k);
@@ -385,7 +410,7 @@ window.SaltParent = (function() {
           '" data-med-id="' + escapeHtml(f.fieldId || '') +
           '" value="' + escapeHtml(f.value || '') + '"></label>'
         ).join('')
-        : '<p class="muted small">No medical fields yet.</p>';
+        : '<p class="muted small pp-span-2">No medical fields yet.</p>';
     } catch (e) {
       $('ppProfileError').textContent = e.message;
     }
