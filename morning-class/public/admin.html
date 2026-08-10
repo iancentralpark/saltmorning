@@ -284,6 +284,7 @@
         </label>
         <button type="button" class="btn btn-primary" id="adminRcBatchSign">Sign all awaiting</button>
         <button type="button" class="btn btn-ghost" id="adminRcEnsureLeaders">Ensure Principal / Head accounts</button>
+        <button type="button" class="btn btn-ghost" id="adminRcSeedDemo">Seed Test Students report card</button>
         <label class="muted small" style="display:inline-flex;align-items:center;gap:0.35rem">
           Schedule share at
           <input type="datetime-local" id="adminRcScheduleAt">
@@ -951,6 +952,23 @@
         const lines = (res.accounts || []).map((a) => a.role + ': ' + a.loginId + ' / ' + a.password);
         $('adminRcError').style.color = '#16a34a';
         $('adminRcError').textContent = 'Accounts ready. ' + lines.join(' · ');
+      } catch (e) {
+        $('adminRcError').style.color = '#dc2626';
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
+  if ($('adminRcSeedDemo')) {
+    $('adminRcSeedDemo').addEventListener('click', async () => {
+      $('adminRcError').textContent = 'Seeding Test Students mock report card…';
+      try {
+        const res = await api('/api/admin/seed-parent-demo', { method: 'POST' }, role);
+        $('adminRcError').style.color = '#16a34a';
+        $('adminRcError').textContent =
+          'Seeded ' + (res.student && res.student.name) +
+          ' · terms ' + ((res.termsSeeded || [res.term]).join(', ')) +
+          ' · subjects ' + ((res.subjects || []).join(', ')) +
+          (res.attendanceSeeded != null ? (' · attendance rows ' + res.attendanceSeeded) : '');
       } catch (e) {
         $('adminRcError').style.color = '#dc2626';
         $('adminRcError').textContent = e.message;

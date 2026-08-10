@@ -388,7 +388,8 @@ async function translateToKorean(text) {
 async function ensureParentDemoData() {
   const { seedDemoSubjectReports, listAllSubjectsForClass } = require('./reportCardService');
   const { saveGradeEntries } = require('./gradeService');
-  const { getActiveTerm, listGradeTerms, saveGradeWeights } = require('./gradeWeightService');
+  const { getActiveTerm, listGradeTerms, saveGradeWeights, saveGradeTerm } = require('./gradeWeightService');
+  const { upsertStudentRecord } = require('./attendanceService');
 
   // 1) Student name
   const studentRows = await getSheetRows(STUDENT_LIST_SHEET, { skipCache: true });
@@ -478,16 +479,27 @@ async function ensureParentDemoData() {
     invalidateSheetRowsCache(CLASS_TEACHERS_SHEET);
   }
 
-  let term = 'Term1';
+  // Always seed Term1 (teacher Report card UI default) + active term if different.
+  let activeTerm = 'Term1';
   try {
     const active = await getActiveTerm(classId);
-    if (active && active.label) term = active.label;
+    if (active && active.label) activeTerm = active.label;
     else {
       const terms = await listGradeTerms(classId);
-      if (terms && terms[0]) term = terms[0].label;
+      if (terms && terms[0]) activeTerm = terms[0].label;
     }
   } catch (e) { /* default */ }
 
+  try {
+    await saveGradeTerm(classId, 'Term1', '2026-03-01', '2026-08-31');
+  } catch (e) { /* may already exist */ }
+  if (activeTerm && activeTerm !== 'Term1') {
+    try {
+      await saveGradeTerm(classId, activeTerm, '2026-03-01', '2026-12-31');
+    } catch (e) { /* ignore */ }
+  }
+
+  const termsToSeed = Array.from(new Set(['Term1', activeTerm].filter(Boolean)));
   const today = todayStr();
   let subjectList = subjectsNeeded;
   try {
@@ -495,37 +507,81 @@ async function ensureParentDemoData() {
     if (listed && listed.length) subjectList = listed.map((s) => s.subject);
   } catch (e) { /* use defaults */ }
 
-  for (const subject of subjectList) {
-    try {
-      await saveGradeWeights(classId, term, subject, [
-        { categoryKey: 'quiz', label: 'Quiz', weightPercent: 40, aggregation: 'average' },
-        { categoryKey: 'test', label: 'Test', weightPercent: 60, aggregation: 'average' }
-      ]);
-    } catch (e) { /* may already exist */ }
-
-    try {
-      await saveGradeEntries(classId, term, subject, teacherId, today, 'quiz', 100, [
-        { studentId, score: 86 + (subject.length % 10), maxScore: 100, note: 'Demo quiz' }
-      ]);
-    } catch (e) {
+  const seededByTerm = {};
+  for (const term of termsToSeed) {
+    for (const subject of subjectList) {
       try {
-        await saveGradeEntries(classId, null, subject, teacherId, today, 'quiz', 100, [
-          { studentId, score: 88, maxScore: 100, note: 'Demo quiz' }
+        await saveGradeWeights(classId, term, subject, [
+          { categoryKey: 'quiz', label: 'Quiz', weightPercent: 40, aggregation: 'average' },
+          { categoryKey: 'test', label: 'Test', weightPercent: 60, aggregation: 'average' }
         ]);
-      } catch (e2) { /* ignore */ }
+      } catch (e) { /* may already exist */ }
+
+      const base = 82 + (subject.length % 8);
+      try {
+        await saveGradeEntries(classId, term, subject, teacherId, today, 'quiz', 100, [
+          { studentId, score: base + 4, maxScore: 100, note: 'Demo quiz' }
+        ]);
+        await saveGradeEntries(classId, term, subject, teacherId, today, 'test', 100, [
+          { studentId, score: base + 8, maxScore: 100, note: 'Demo test' }
+        ]);
+      } catch (e) {
+        try {
+          await saveGradeEntries(classId, null, subject, teacherId, today, 'quiz', 100, [
+            { studentId, score: 88, maxScore: 100, note: 'Demo quiz' }
+          ]);
+        } catch (e2) { /* ignore */ }
+      }
     }
+    seededByTerm[term] = await seedDemoSubjectReports(
+      classId, studentId, teacherId, term, subjectList
+    );
   }
 
-  const seeded = await seedDemoSubjectReports(classId, studentId, teacherId, term, subjectList);
+  // Mock attendance so report card Attendance Record is non-empty.
+  const attendancePlan = [
+    { offset: 1, status: '출석', excuse: '' },
+    { offset: 2, status: '출석', excuse: '' },
+    { offset: 3, status: '지각', excuse: '' },
+    { offset: 4, status: '출석', excuse: '' },
+    { offset: 5, status: '결석', excuse: 'Illness' },
+    { offset: 8, status: '출석', excuse: '' },
+    { offset: 9, status: '결석', excuse: '' },
+    { offset: 10, status: '지각', excuse: 'Bus delay' },
+    { offset: 11, status: '출석', excuse: '' },
+    { offset: 12, status: '출석', excuse: '' },
+    { offset: 15, status: '출석', excuse: '' },
+    { offset: 16, status: '출석', excuse: '' },
+    { offset: 17, status: '결석', excuse: 'Family event' },
+    { offset: 18, status: '출석', excuse: '' },
+    { offset: 19, status: '출석', excuse: '' }
+  ];
+  let attendanceSeeded = 0;
+  for (const item of attendancePlan) {
+    const d = new Date();
+    d.setDate(d.getDate() - item.offset);
+    // skip weekends
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    const dateStr = formatSheetDate(d);
+    try {
+      await upsertStudentRecord(classId, studentId, dateStr, item.status, 'Demo seed', item.excuse);
+      attendanceSeeded += 1;
+    } catch (e) { /* ignore calendar blocks */ }
+  }
 
   return {
     ok: true,
     parentLogin: { loginId: 'parent', password: 'parent', name: 'Test Parents' },
     student: { studentId, name: 'Test Students', classId },
     teacherId,
-    term,
-    subjects: seeded.seeded || subjectList,
-    message: 'Parent demo ready. Homeroom can open Report card → generate/print → Share with parents.'
+    term: 'Term1',
+    activeTerm,
+    termsSeeded: termsToSeed,
+    subjects: (seededByTerm.Term1 && seededByTerm.Term1.seeded) || subjectList,
+    attendanceSeeded,
+    message: 'Parent demo ready. Open Report card with term Term1 (or ' + activeTerm +
+      ') → generate/print. Homeroom signs, then Head → Principal before parent share.'
   };
 }
 
