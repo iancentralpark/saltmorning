@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810reportcard">
+  <link rel="stylesheet" href="/css/app.css?v=20260810gwcustom">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -265,6 +265,11 @@
     <div id="gradeWeightRows" class="gw-editor"></div>
     <div class="gw-add-row">
       <select id="gradeWeightPresetSelect"></select>
+      <input id="gradeWeightCustomLabel" class="hidden" type="text" maxlength="60" placeholder="Custom category name">
+      <select id="gradeWeightCustomAgg" class="hidden" title="How scores combine">
+        <option value="average">Average of entries</option>
+        <option value="single">Single score</option>
+      </select>
       <button type="button" class="btn btn-ghost" id="gradeWeightAdd">Add category</button>
       <strong id="gradeWeightTotal"></strong>
     </div>
@@ -340,7 +345,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260804restore"></script>
 <script src="/js/teacher-attendance.js?v=20260804hr"></script>
-<script src="/js/teacher-grades.js?v=20260810teacherux"></script>
+<script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
 <script src="/js/teacher-lesson.js?v=20260804homeroom"></script>
 <script src="/js/messenger.js?v=20260708ag"></script>

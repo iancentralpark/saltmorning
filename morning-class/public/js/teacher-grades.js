@@ -41,6 +41,9 @@ window.SaltGrades = (function() {
     $('gradeWeightsClose').addEventListener('click', () => deps.hide($('gradeWeightsModal')));
     $('gradeWeightsSave').addEventListener('click', saveWeights);
     $('gradeWeightAdd').addEventListener('click', addWeightRow);
+    if ($('gradeWeightPresetSelect')) {
+      $('gradeWeightPresetSelect').addEventListener('change', syncCustomAddFields);
+    }
     $('gradeAddColumnBtn').addEventListener('click', openColumnModal);
     $('gradeColumnClose').addEventListener('click', () => deps.hide($('gradeColumnModal')));
     $('gradeColumnForm').addEventListener('submit', submitColumn);
@@ -933,42 +936,100 @@ window.SaltGrades = (function() {
     return weightDraft.reduce((s, w) => s + (Number(w.weightPercent) || 0), 0);
   }
 
+  function isCustomCategory(w) {
+    if (!w) return false;
+    if (w.custom) return true;
+    return !categoryPresets.some((p) => p.categoryKey === w.categoryKey);
+  }
+
+  function syncCustomAddFields() {
+    const sel = $('gradeWeightPresetSelect');
+    const custom = sel && sel.value === '__custom__';
+    if ($('gradeWeightCustomLabel')) {
+      $('gradeWeightCustomLabel').classList.toggle('hidden', !custom);
+      if (custom) $('gradeWeightCustomLabel').focus();
+    }
+    if ($('gradeWeightCustomAgg')) {
+      $('gradeWeightCustomAgg').classList.toggle('hidden', !custom);
+    }
+  }
+
   function renderWeightEditor() {
     const presets = categoryPresets;
-    $('gradeWeightPresetSelect').innerHTML = presets.map((p) =>
-      '<option value="' + escapeHtml(p.categoryKey) + '">' + escapeHtml(p.label) + '</option>'
-    ).join('');
+    $('gradeWeightPresetSelect').innerHTML =
+      presets.map((p) =>
+        '<option value="' + escapeHtml(p.categoryKey) + '">' + escapeHtml(p.label) + '</option>'
+      ).join('') +
+      '<option value="__custom__">Custom…</option>';
+    syncCustomAddFields();
+
     $('gradeWeightRows').innerHTML = weightDraft.map((w, i) => {
+      const custom = isCustomCategory(w);
       const opts = presets.map((p) =>
-        '<option value="' + escapeHtml(p.categoryKey) + '"' + (p.categoryKey === w.categoryKey ? ' selected' : '') + '>' +
+        '<option value="' + escapeHtml(p.categoryKey) + '"' +
+        (!custom && p.categoryKey === w.categoryKey ? ' selected' : '') + '>' +
         escapeHtml(p.label) + '</option>'
-      ).join('');
+      ).join('') +
+        '<option value="__custom__"' + (custom ? ' selected' : '') + '>Custom…</option>';
       return '<div class="gw-row" data-idx="' + i + '">' +
         '<select class="gw-key">' + opts + '</select>' +
+        '<input type="text" class="gw-label' + (custom ? '' : ' hidden') +
+        '" maxlength="60" placeholder="Category name" value="' +
+        escapeHtml(w.label || '') + '">' +
+        '<select class="gw-agg-sel' + (custom ? '' : ' hidden') + '">' +
+        '<option value="average"' + (w.aggregation !== 'single' ? ' selected' : '') + '>Average</option>' +
+        '<option value="single"' + (w.aggregation === 'single' ? ' selected' : '') + '>Single score</option>' +
+        '</select>' +
+        '<span class="muted small gw-agg' + (custom ? ' hidden' : '') + '">' +
+        (w.aggregation === 'single' ? 'one score' : 'average') + '</span>' +
         '<input type="number" class="gw-pct" min="1" max="100" value="' + w.weightPercent + '" style="width:4.5rem"> %' +
-        '<span class="muted small gw-agg">' + (w.aggregation === 'single' ? 'one score' : 'average') + '</span>' +
         '<button type="button" class="btn btn-ghost gw-remove">×</button></div>';
     }).join('');
     $('gradeWeightTotal').textContent = 'Total: ' + Math.round(weightTotal() * 10) / 10 + '%';
+
     $('gradeWeightRows').querySelectorAll('.gw-pct').forEach((inp, i) => {
       inp.addEventListener('input', () => {
         weightDraft[i].weightPercent = Number(inp.value);
         $('gradeWeightTotal').textContent = 'Total: ' + Math.round(weightTotal() * 10) / 10 + '%';
       });
     });
+    $('gradeWeightRows').querySelectorAll('.gw-label').forEach((inp, i) => {
+      inp.addEventListener('input', () => {
+        weightDraft[i].label = inp.value;
+        weightDraft[i].custom = true;
+      });
+    });
+    $('gradeWeightRows').querySelectorAll('.gw-agg-sel').forEach((sel, i) => {
+      sel.addEventListener('change', () => {
+        weightDraft[i].aggregation = sel.value;
+      });
+    });
     $('gradeWeightRows').querySelectorAll('.gw-key').forEach((sel, i) => {
       sel.addEventListener('change', () => {
-        const p = presets.find((x) => x.categoryKey === sel.value);
-        if (p) {
+        const row = sel.closest('.gw-row');
+        if (sel.value === '__custom__') {
           weightDraft[i] = Object.assign({}, weightDraft[i], {
-            categoryKey: p.categoryKey,
-            label: p.label,
-            aggregation: p.aggregation,
-            defaultMaxScore: p.defaultMaxScore
+            categoryKey: weightDraft[i].categoryKey && isCustomCategory(weightDraft[i])
+              ? weightDraft[i].categoryKey
+              : ('custom_tmp_' + i),
+            label: weightDraft[i].label || '',
+            aggregation: weightDraft[i].aggregation || 'average',
+            defaultMaxScore: 100,
+            custom: true
           });
-          sel.closest('.gw-row').querySelector('.gw-agg').textContent =
-            p.aggregation === 'single' ? 'one score' : 'average';
+        } else {
+          const p = presets.find((x) => x.categoryKey === sel.value);
+          if (p) {
+            weightDraft[i] = Object.assign({}, weightDraft[i], {
+              categoryKey: p.categoryKey,
+              label: p.label,
+              aggregation: p.aggregation,
+              defaultMaxScore: p.defaultMaxScore,
+              custom: false
+            });
+          }
         }
+        renderWeightEditor();
       });
     });
     $('gradeWeightRows').querySelectorAll('.gw-remove').forEach((btn) => {
@@ -980,14 +1041,44 @@ window.SaltGrades = (function() {
   }
 
   function addWeightRow() {
-    const p = categoryPresets.find((x) => x.categoryKey === $('gradeWeightPresetSelect').value);
-    if (!p || weightDraft.some((w) => w.categoryKey === p.categoryKey)) return;
+    const key = $('gradeWeightPresetSelect').value;
+    $('gradeWeightsError').textContent = '';
+    if (key === '__custom__') {
+      const label = ($('gradeWeightCustomLabel').value || '').trim();
+      if (!label) {
+        $('gradeWeightsError').textContent = 'Enter a custom category name.';
+        $('gradeWeightCustomLabel').focus();
+        return;
+      }
+      const agg = ($('gradeWeightCustomAgg') && $('gradeWeightCustomAgg').value) || 'average';
+      if (weightDraft.some((w) => String(w.label || '').toLowerCase() === label.toLowerCase())) {
+        $('gradeWeightsError').textContent = 'That category is already added.';
+        return;
+      }
+      weightDraft.push({
+        categoryKey: 'custom_tmp_' + Date.now(),
+        label,
+        weightPercent: 10,
+        aggregation: agg,
+        defaultMaxScore: 100,
+        custom: true
+      });
+      $('gradeWeightCustomLabel').value = '';
+      renderWeightEditor();
+      return;
+    }
+    const p = categoryPresets.find((x) => x.categoryKey === key);
+    if (!p || weightDraft.some((w) => w.categoryKey === p.categoryKey)) {
+      if (p) $('gradeWeightsError').textContent = 'That category is already added.';
+      return;
+    }
     weightDraft.push({
       categoryKey: p.categoryKey,
       label: p.label,
       weightPercent: 10,
       aggregation: p.aggregation,
-      defaultMaxScore: p.defaultMaxScore
+      defaultMaxScore: p.defaultMaxScore,
+      custom: false
     });
     renderWeightEditor();
   }
@@ -997,19 +1088,42 @@ window.SaltGrades = (function() {
     $('gradeWeightsError').textContent = '';
     const rows = $('gradeWeightRows').querySelectorAll('.gw-row');
     const weights = [];
-    rows.forEach((row, i) => {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       const key = row.querySelector('.gw-key').value;
       const draft = weightDraft[i] || {};
-      const preset = categoryPresets.find((p) => p.categoryKey === key);
-      weights.push({
-        categoryKey: key,
-        label: preset ? preset.label : draft.label || key,
-        weightPercent: Number(row.querySelector('.gw-pct').value),
-        aggregation: draft.aggregation || (preset && preset.aggregation) || 'average',
-        defaultMaxScore: draft.defaultMaxScore || (preset && preset.defaultMaxScore) || 100,
-        sortOrder: i + 1
-      });
-    });
+      const custom = key === '__custom__' || draft.custom;
+      const labelInp = row.querySelector('.gw-label');
+      const aggSel = row.querySelector('.gw-agg-sel');
+      if (custom) {
+        const label = (labelInp && labelInp.value.trim()) || String(draft.label || '').trim();
+        if (!label) {
+          $('gradeWeightsError').textContent = 'Custom categories need a name.';
+          if (labelInp) labelInp.focus();
+          return;
+        }
+        weights.push({
+          categoryKey: draft.categoryKey && String(draft.categoryKey).indexOf('custom_tmp_') !== 0
+            ? draft.categoryKey
+            : '__custom__',
+          label,
+          weightPercent: Number(row.querySelector('.gw-pct').value),
+          aggregation: (aggSel && aggSel.value) || draft.aggregation || 'average',
+          defaultMaxScore: draft.defaultMaxScore || 100,
+          sortOrder: i + 1
+        });
+      } else {
+        const preset = categoryPresets.find((p) => p.categoryKey === key);
+        weights.push({
+          categoryKey: key,
+          label: preset ? preset.label : draft.label || key,
+          weightPercent: Number(row.querySelector('.gw-pct').value),
+          aggregation: draft.aggregation || (preset && preset.aggregation) || 'average',
+          defaultMaxScore: draft.defaultMaxScore || (preset && preset.defaultMaxScore) || 100,
+          sortOrder: i + 1
+        });
+      }
+    }
     try {
       const saved = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/weights', {
         method: 'POST',

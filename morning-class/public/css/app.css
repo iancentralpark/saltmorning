@@ -654,6 +654,12 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .gw-editor { display: grid; gap: 0.5rem; margin: 0.75rem 0; }
 .gw-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .gw-add-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.gw-add-row #gradeWeightCustomLabel,
+.gw-row .gw-label {
+  min-width: 10rem;
+  flex: 1 1 10rem;
+}
+.gw-row .gw-agg-sel { min-width: 7.5rem; }
 .gw-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .ok { color: #16a34a; font-size: 0.9rem; }
 
