@@ -392,7 +392,7 @@ window.SaltParent = (function() {
 
   function loadMessagesTab() {
     $('ppMessagesHint').innerHTML =
-      '<p class="muted">Message your child’s Homeroom and subject teachers. English replies can be translated to Korean with the Translate button.</p>';
+      '<p class="muted">Message your child’s Homeroom and subject teachers. Turn on Auto Translate in the chat to read teacher messages in Korean.</p>';
     renderTeachers(overview && overview.teachers ? overview.teachers : []);
     if (window.SaltMessenger && SaltMessenger.open) SaltMessenger.open();
   }

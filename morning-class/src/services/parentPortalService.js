@@ -276,22 +276,45 @@ async function updateParentStudentProfile(session, payload) {
   return getParentStudentProfile(session);
 }
 
-async function translateToKorean(text) {
+/**
+ * Translate a chat message for parent↔teacher messenger.
+ * targetLang: 'ko' | 'en'
+ */
+async function translateChatMessage(text, targetLang) {
   text = String(text || '').trim();
   if (!text) throw new Error('Nothing to translate.');
   if (!isGeminiConfigured()) {
     throw new Error('Translate is not configured (missing GEMINI_API_KEY).');
   }
+  const lang = String(targetLang || 'ko').toLowerCase() === 'en' ? 'en' : 'ko';
+  const langName = lang === 'en' ? 'English' : 'Korean';
+  const audience = lang === 'en'
+    ? 'a teacher reading a parent message'
+    : 'a parent reading a teacher message';
   const result = await askGemini(
-    'Translate the following message into natural Korean for a parent. ' +
-    'Return ONLY the Korean translation, no quotes or commentary.\n\n' + text,
-    { temperature: 0.2, maxOutputTokens: 800 }
+    'You are a careful school-messenger translator.\n' +
+    'Translate the FULL message below into natural ' + langName + ' for ' + audience + '.\n' +
+    'Rules:\n' +
+    '- Return ONLY the complete translation — every sentence, joke, and detail.\n' +
+    '- Do not summarize, cut off, or add commentary/quotes/labels.\n' +
+    '- Keep names and numbers as-is when natural.\n\n' +
+    'MESSAGE:\n' + text,
+    { temperature: 0.15, maxOutputTokens: 4096 }
   );
+  const translated = String(result.text || result.answer || '').trim()
+    .replace(/^["'「『]|["'」』]$/g, '')
+    .trim();
+  if (!translated) throw new Error('Empty translation.');
   return {
     original: text,
-    translated: String(result.text || result.answer || '').trim(),
+    translated,
+    targetLang: lang,
     model: result.model || ''
   };
+}
+
+async function translateToKorean(text) {
+  return translateChatMessage(text, 'ko');
 }
 
 /**
@@ -451,6 +474,7 @@ module.exports = {
   updateParentStudentProfile,
   listChildTeachers,
   translateToKorean,
+  translateChatMessage,
   ensureParentDemoData,
   PARENT_EDITABLE_PROFILE
 };

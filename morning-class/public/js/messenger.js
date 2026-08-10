@@ -12,6 +12,17 @@
   let joinedThread = null;
   let socketReady = false;
 
+  /** messageId → { original, translated, targetLang, error? } */
+  const translationCache = Object.create(null);
+  /** messageIds currently showing original while auto-translate is on */
+  const showOriginalIds = new Set();
+  /** in-flight translate promises by messageId */
+  const translateInFlight = Object.create(null);
+  /** threadId → bool auto-translate preference */
+  const autoTranslateByThread = Object.create(null);
+  /** Prevent overlapping ensureTranslationsForThread loops */
+  let translatingThreadId = null;
+
   function el(tag, cls, html) {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -42,6 +53,72 @@
 
   function isMine(m) {
     return m.senderRole === role;
+  }
+
+  function isParentRole() {
+    return role === 'parent';
+  }
+
+  function targetLangForRole() {
+    return isParentRole() ? 'ko' : 'en';
+  }
+
+  function labels() {
+    if (isParentRole()) {
+      return {
+        auto: 'Auto Translate',
+        showOriginal: '원본보기',
+        showTranslation: '번역보기',
+        translating: '번역 중…',
+        failed: '번역 실패'
+      };
+    }
+    return {
+      auto: 'Auto Translate',
+      showOriginal: 'Show original',
+      showTranslation: 'Show translation',
+      translating: 'Translating…',
+      failed: 'Translate failed'
+    };
+  }
+
+  function storageKey(threadId) {
+    return 'salt-msg-auto-tr:' + role + ':' + threadId;
+  }
+
+  function getAutoTranslate(threadId) {
+    if (!threadId) return false;
+    if (Object.prototype.hasOwnProperty.call(autoTranslateByThread, threadId)) {
+      return !!autoTranslateByThread[threadId];
+    }
+    try {
+      const raw = localStorage.getItem(storageKey(threadId));
+      autoTranslateByThread[threadId] = raw === '1';
+    } catch (e) {
+      autoTranslateByThread[threadId] = false;
+    }
+    return !!autoTranslateByThread[threadId];
+  }
+
+  function setAutoTranslate(threadId, on) {
+    autoTranslateByThread[threadId] = !!on;
+    try {
+      localStorage.setItem(storageKey(threadId), on ? '1' : '0');
+    } catch (e) { /* ignore */ }
+  }
+
+  function canAutoTranslateRole() {
+    return role === 'parent' || role === 'teacher' || role === 'admin';
+  }
+
+  function isTranslatableMessage(m) {
+    if (!m || isMine(m)) return false;
+    if (!canAutoTranslateRole()) return false;
+    if (role === 'parent') return m.senderRole === 'teacher' || m.senderRole === 'admin';
+    if (role === 'teacher' || role === 'admin') {
+      return m.senderRole === 'parent' || m.senderRole === 'student';
+    }
+    return false;
   }
 
   function root() {
@@ -83,72 +160,174 @@
     });
   }
 
+  function displayBodyForMessage(m, autoOn) {
+    const original = String(m.body || '');
+    if (!autoOn || !isTranslatableMessage(m)) {
+      return { text: original, mode: 'original', toggle: null };
+    }
+    const cached = translationCache[m.messageId];
+    const showOrig = showOriginalIds.has(m.messageId);
+    const L = labels();
+
+    if (showOrig) {
+      return { text: original, mode: 'original', toggle: 'translation' };
+    }
+    if (cached && cached.translated) {
+      return { text: cached.translated, mode: 'translated', toggle: 'original' };
+    }
+    if (cached && cached.error) {
+      return { text: original, mode: 'original', toggle: null, error: cached.error };
+    }
+    if (translateInFlight[m.messageId]) {
+      return { text: L.translating, mode: 'pending', toggle: null };
+    }
+    return { text: L.translating, mode: 'pending', toggle: null };
+  }
+
   function renderChat() {
     const head = root().querySelector('.msg-chat-head');
     const body = root().querySelector('.msg-chat-body');
     if (!head || !body || !activeThread) return;
+
+    const L = labels();
+    const autoOn = canAutoTranslateRole() && getAutoTranslate(activeThread.threadId);
+    const showToggle = canAutoTranslateRole();
 
     head.innerHTML =
       '<button type="button" class="btn btn-ghost msg-back-btn" aria-label="Back">‹</button>' +
       '<div class="msg-chat-title">' +
       '<strong>' + escapeHtml(activeThread.title) + '</strong>' +
       '<span>' + escapeHtml(activeThread.subtitle || '') + '</span>' +
-      '</div>';
+      '</div>' +
+      (showToggle
+        ? '<label class="msg-auto-tr" title="' + escapeHtml(L.auto) + '">' +
+          '<span class="msg-auto-tr-label">' + escapeHtml(L.auto) + '</span>' +
+          '<input type="checkbox" class="msg-auto-tr-input" ' + (autoOn ? 'checked' : '') + '>' +
+          '<span class="msg-auto-tr-switch" aria-hidden="true"></span>' +
+          '</label>'
+        : '');
 
     head.querySelector('.msg-back-btn').addEventListener('click', () => {
       leaveThreadRoom();
       view = 'threads';
       activeThread = null;
       messages = [];
+      showOriginalIds.clear();
       updatePanel();
       refreshThreads();
     });
+
+    const autoInput = head.querySelector('.msg-auto-tr-input');
+    if (autoInput) {
+      autoInput.addEventListener('change', () => {
+        setAutoTranslate(activeThread.threadId, autoInput.checked);
+        showOriginalIds.clear();
+        renderChat();
+        if (autoInput.checked) ensureTranslationsForThread();
+      });
+    }
 
     if (!messages.length) {
       body.innerHTML = '<p class="msg-empty">Say hello — your message goes to the teacher.</p>';
     } else {
       body.innerHTML = messages.map((m) => {
         const cls = isMine(m) ? 'msg-bubble mine' : 'msg-bubble theirs';
-        const canTranslate = role === 'parent' && !isMine(m) && (m.senderRole === 'teacher' || m.senderRole === 'admin');
-        const translateBtn = canTranslate
-          ? '<button type="button" class="btn btn-ghost msg-translate-btn" data-mid="' +
-            escapeHtml(m.messageId) + '">Translate</button>' +
-            '<div class="msg-translated muted small hidden" data-tr="' + escapeHtml(m.messageId) + '"></div>'
-          : '';
+        const disp = displayBodyForMessage(m, autoOn);
+        let footer = '';
+        if (disp.toggle === 'original') {
+          footer = '<button type="button" class="msg-orig-toggle" data-mid="' +
+            escapeHtml(m.messageId) + '" data-action="original">' + escapeHtml(L.showOriginal) + '</button>';
+        } else if (disp.toggle === 'translation') {
+          footer = '<button type="button" class="msg-orig-toggle" data-mid="' +
+            escapeHtml(m.messageId) + '" data-action="translation">' + escapeHtml(L.showTranslation) + '</button>';
+        } else if (disp.error) {
+          footer = '<div class="msg-tr-error muted small">' + escapeHtml(disp.error) + '</div>';
+        }
+        const modeCls = disp.mode === 'translated' ? ' msg-showing-tr' :
+          (disp.mode === 'pending' ? ' msg-showing-pending' : '');
         return (
-          '<div class="' + cls + '" data-body="' + escapeHtml(m.body) + '">' +
+          '<div class="' + cls + modeCls + '" data-mid="' + escapeHtml(m.messageId) + '">' +
           '<div class="msg-bubble-meta">' + escapeHtml(senderLabel(m)) + ' · ' + escapeHtml(formatTime(m.createdAt)) + '</div>' +
-          '<div class="msg-bubble-text">' + escapeHtml(m.body) + '</div>' +
-          translateBtn +
+          '<div class="msg-bubble-text">' + escapeHtml(disp.text) + '</div>' +
+          footer +
           '</div>'
         );
       }).join('');
-      body.querySelectorAll('.msg-translate-btn').forEach((btn) => {
-        btn.addEventListener('click', () => translateMessage(btn));
+
+      body.querySelectorAll('.msg-orig-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const mid = btn.dataset.mid;
+          if (btn.dataset.action === 'original') showOriginalIds.add(mid);
+          else showOriginalIds.delete(mid);
+          renderChat();
+        });
       });
     }
     body.scrollTop = body.scrollHeight;
+
+    if (autoOn) ensureTranslationsForThread();
   }
 
-  async function translateMessage(btn) {
-    const bubble = btn.closest('.msg-bubble');
-    const mid = btn.dataset.mid;
-    const out = root().querySelector('[data-tr="' + mid + '"]');
-    const text = bubble ? (bubble.dataset.body || bubble.querySelector('.msg-bubble-text').textContent) : '';
-    if (!out || !text) return;
-    btn.disabled = true;
-    btn.textContent = '…';
+  async function translateOne(message) {
+    const mid = message.messageId;
+    const text = String(message.body || '').trim();
+    if (!mid || !text) return null;
+    if (translationCache[mid] && translationCache[mid].translated) return translationCache[mid];
+    if (translateInFlight[mid]) return translateInFlight[mid];
+
+    const targetLang = targetLangForRole();
+    translateInFlight[mid] = (async () => {
+      try {
+        const data = await api('/api/messenger/translate', {
+          method: 'POST',
+          body: { text, targetLang }
+        }, role);
+        const entry = {
+          original: text,
+          translated: String(data.translated || '').trim(),
+          targetLang: data.targetLang || targetLang
+        };
+        if (!entry.translated) throw new Error(labels().failed);
+        translationCache[mid] = entry;
+        return entry;
+      } catch (e) {
+        translationCache[mid] = {
+          original: text,
+          translated: '',
+          error: e.message || labels().failed
+        };
+        return translationCache[mid];
+      } finally {
+        delete translateInFlight[mid];
+      }
+    })();
+
+    return translateInFlight[mid];
+  }
+
+  async function ensureTranslationsForThread() {
+    if (!activeThread || !getAutoTranslate(activeThread.threadId)) return;
+    const tid = activeThread.threadId;
+    if (translatingThreadId === tid) return;
+    translatingThreadId = tid;
     try {
-      const data = await api('/api/parent/translate', { method: 'POST', body: { text } }, role);
-      out.textContent = data.translated || '';
-      out.classList.remove('hidden');
-      btn.textContent = '한국어';
-    } catch (e) {
-      out.textContent = e.message || 'Translate failed';
-      out.classList.remove('hidden');
-      btn.textContent = 'Translate';
+      const pending = messages.filter((m) =>
+        isTranslatableMessage(m) &&
+        !(translationCache[m.messageId] && translationCache[m.messageId].translated) &&
+        !(translationCache[m.messageId] && translationCache[m.messageId].error) &&
+        !translateInFlight[m.messageId]
+      );
+      if (!pending.length) return;
+
+      // Sequential to avoid Gemini rate spikes; re-render as each completes.
+      for (const m of pending) {
+        if (!activeThread || activeThread.threadId !== tid || !getAutoTranslate(tid)) break;
+        await translateOne(m);
+        if (view === 'chat' && activeThread && activeThread.threadId === tid) renderChat();
+      }
+    } finally {
+      if (translatingThreadId === tid) translatingThreadId = null;
     }
-    btn.disabled = false;
   }
 
   function updatePanel() {
@@ -188,7 +367,14 @@
     if (messages.some((m) => m.messageId === message.messageId)) return;
     messages.push(message);
     messages.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
-    if (view === 'chat' && activeThread) renderChat();
+    if (view === 'chat' && activeThread) {
+      renderChat();
+      if (getAutoTranslate(activeThread.threadId) && isTranslatableMessage(message)) {
+        translateOne(message).then(() => {
+          if (view === 'chat' && activeThread) renderChat();
+        });
+      }
+    }
   }
 
   function connectSocket() {
@@ -244,6 +430,7 @@
     }
     activeThread = t;
     view = 'chat';
+    showOriginalIds.clear();
     updatePanel();
     joinThreadRoom(threadId);
     try {

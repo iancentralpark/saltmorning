@@ -54,6 +54,7 @@ const {
   getParentStudentProfile,
   updateParentStudentProfile,
   translateToKorean,
+  translateChatMessage,
   ensureParentDemoData
 } = require('./services/parentPortalService');
 const {
@@ -1644,7 +1645,21 @@ router.post('/parent/student-profile', requireRole('parent'), async (req, res) =
 router.post('/parent/translate', requireRole('parent'), async (req, res) => {
   try {
     const text = (req.body && req.body.text) || '';
-    res.json(await translateToKorean(text));
+    const targetLang = (req.body && req.body.targetLang) || 'ko';
+    res.json(await translateChatMessage(text, targetLang));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Translate failed.' });
+  }
+});
+
+/** Parent + teacher messenger auto-translate (role picks default target language). */
+router.post('/messenger/translate', requireRole('parent', 'teacher', 'admin'), async (req, res) => {
+  try {
+    const text = (req.body && req.body.text) || '';
+    const role = req.session && req.session.role;
+    const defaultLang = role === 'teacher' || role === 'admin' ? 'en' : 'ko';
+    const targetLang = (req.body && req.body.targetLang) || defaultLang;
+    res.json(await translateChatMessage(text, targetLang));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Translate failed.' });
   }
