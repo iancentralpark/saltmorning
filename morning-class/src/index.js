@@ -60,6 +60,36 @@ server.listen(PORT, () => {
     ensureBellScheduleSheet(),
     ensureRequirementsSheet()
   ]).catch((e) => console.warn('Timetable sheet init:', e.message));
+
+  // Seed Principal + Head Teacher accounts when Sheets credentials are available.
+  try {
+    const { ensureLeadershipAccounts } = require('./services/adminService');
+    const {
+      processDueScheduledShares
+    } = require('./services/reportCardWorkflowService');
+    const { shareReportCardWithParents } = require('./services/reportCardService');
+
+    ensureLeadershipAccounts()
+      .then((r) => console.log('Leadership accounts ready:', r.principalId, r.headId))
+      .catch((e) => console.warn('Leadership account seed:', e.message));
+
+    const runDueShares = async () => {
+      try {
+        await processDueScheduledShares(async (w) => {
+          await shareReportCardWithParents('system', w.classId, w.studentId, w.term, {
+            bypassAccess: true,
+            scheduledShareAt: ''
+          });
+        });
+      } catch (e) {
+        console.warn('Scheduled report-card share tick:', e.message);
+      }
+    };
+    setInterval(runDueShares, 5 * 60 * 1000);
+    setTimeout(runDueShares, 15000);
+  } catch (e) {
+    console.warn('Report-card workflow boot:', e.message);
+  }
 });
 
 module.exports = app;

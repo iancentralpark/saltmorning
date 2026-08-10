@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810laai">
+  <link rel="stylesheet" href="/css/app.css?v=20260810rcwf">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -38,6 +38,20 @@
       <div class="section-title">My classes</div>
       <p class="muted small" style="margin:0 0 0.75rem">Homeroom classes include attendance and analytics. Subject classes focus on grades, homework, and dollars.</p>
       <div class="class-list" id="assignedList"></div>
+    </div>
+    <div class="card hidden" id="homeHeadReportSection">
+      <div class="section-title">Report cards — Head Teacher</div>
+      <p class="muted small">Review cards submitted by your teachers, sign, then submit to the Principal.</p>
+      <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+        <label class="btn btn-ghost">Upload Head Teacher signature
+          <input type="file" id="headRcSigFile" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <button type="button" class="btn btn-ghost" id="headRcRefresh">Refresh</button>
+      </div>
+      <div id="headTeamBox" style="margin-bottom:1rem"></div>
+      <div id="headRcQueue"><p class="muted">Loading…</p></div>
+      <div id="headRcPreview" class="hidden" style="margin-top:1rem"></div>
+      <div class="error" id="headRcError"></div>
     </div>
     <div class="card" id="homeAnnouncementsSection">
       <div class="section-title">Class announcements</div>
@@ -421,7 +435,8 @@
 <script src="/js/app.js?v=20260804restore"></script>
 <script src="/js/teacher-attendance.js?v=20260810attendance"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
-<script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
+<script src="/js/report-card-print.js?v=20260810rcwf"></script>
+<script src="/js/teacher-reportcard.js?v=20260810rcwf"></script>
 <script src="/js/teacher-analytics.js?v=20260810laai"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260810ttclass"></script>
@@ -585,6 +600,139 @@
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
     if (teacherClasses.length) setupTeacherAnnouncements();
     else refreshTeacherAnnList();
+    loadHeadReportQueue();
+  }
+
+  async function loadHeadReportQueue() {
+    const section = $('homeHeadReportSection');
+    const box = $('headRcQueue');
+    const preview = $('headRcPreview');
+    const err = $('headRcError');
+    const teamBox = $('headTeamBox');
+    if (!section || !box) return;
+    const p = getProfile(role) || {};
+    const isHead = /head\s*teacher/i.test(String(p.staffRole || ''));
+    section.classList.toggle('hidden', !isHead);
+    if (!isHead) return;
+    if (err) err.textContent = '';
+    if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    if (teamBox) {
+      teamBox.innerHTML = '<p class="muted small">Loading team…</p>';
+      try {
+        const team = await api('/api/teacher/head/team', {}, role);
+        const teachers = team.teachers || [];
+        if (!teachers.length) {
+          teamBox.innerHTML = '<p class="muted small">No teachers assigned to you yet. Ask Admin to set Head Teacher ID on teacher accounts.</p>';
+        } else {
+          teamBox.innerHTML = '<div class="section-title" style="font-size:1rem;margin-bottom:0.35rem">My teachers</div>' +
+            '<table class="grades-table"><thead><tr><th>Teacher</th><th>Homeroom</th><th>Classes / subjects</th></tr></thead><tbody>' +
+            teachers.map((t) =>
+              '<tr><td>' + escapeHtml(t.name || t.teacherId) + '</td>' +
+              '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td>' +
+              '<td class="small">' + escapeHtml(
+                (t.classes || []).map((c) =>
+                  (c.className || c.classId) + (c.roleLabel ? ' (' + c.roleLabel + ')' : '')
+                ).join('; ') || '—'
+              ) + '</td></tr>'
+            ).join('') + '</tbody></table>';
+        }
+      } catch (e) {
+        teamBox.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      }
+    }
+    try {
+      const data = await api('/api/teacher/head/report-cards', {}, role);
+      const rows = data.workflows || [];
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No submitted report cards yet.</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table"><thead><tr><th>Class</th><th>Student</th><th>Term</th><th>State</th><th></th></tr></thead><tbody>' +
+        rows.map((w) =>
+          '<tr><td>' + escapeHtml(w.classId) + '</td><td>' + escapeHtml(w.studentId) +
+          '</td><td>' + escapeHtml(w.term) + '</td><td>' + escapeHtml(w.state) + '</td><td>' +
+          '<button type="button" class="btn btn-ghost head-rc-view" data-cid="' + escapeHtml(w.classId) +
+          '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">View</button> ' +
+          (w.state === 'submitted_head'
+            ? '<button type="button" class="btn btn-primary head-rc-sign" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Sign</button> '
+            : '') +
+          (w.state === 'signed_head'
+            ? '<button type="button" class="btn btn-primary head-rc-submit" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Submit to Principal</button>'
+            : '') +
+          '</td></tr>'
+        ).join('') + '</tbody></table>';
+      box.querySelectorAll('.head-rc-view').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          preview.classList.remove('hidden');
+          preview.innerHTML = '<p class="muted">Loading…</p>';
+          try {
+            const res = await api(
+              '/api/teacher/head/report-cards/' + encodeURIComponent(btn.dataset.cid) + '/' +
+              encodeURIComponent(btn.dataset.sid) + '?term=' + encodeURIComponent(btn.dataset.term),
+              {},
+              role
+            );
+            preview.innerHTML = SaltReportCardPrint
+              ? SaltReportCardPrint.renderPrintableCard(res.card)
+              : '<p class="error">Renderer missing.</p>';
+          } catch (e) {
+            preview.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+          }
+        });
+      });
+      async function headAction(action, btn) {
+        try {
+          await api('/api/teacher/head/report-cards/workflow', {
+            method: 'POST',
+            body: {
+              action,
+              classId: btn.dataset.cid,
+              studentId: btn.dataset.sid,
+              term: btn.dataset.term
+            }
+          }, role);
+          loadHeadReportQueue();
+        } catch (e) {
+          if (err) err.textContent = e.message;
+        }
+      }
+      box.querySelectorAll('.head-rc-sign').forEach((btn) => {
+        btn.addEventListener('click', () => headAction('sign', btn));
+      });
+      box.querySelectorAll('.head-rc-submit').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (!confirm('Submit to Principal?')) return;
+          headAction('submit', btn);
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  if ($('headRcRefresh')) $('headRcRefresh').addEventListener('click', loadHeadReportQueue);
+  if ($('headRcSigFile')) {
+    $('headRcSigFile').addEventListener('change', async () => {
+      const file = $('headRcSigFile').files && $('headRcSigFile').files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('signature', file);
+      try {
+        await api('/api/teacher/signature', { method: 'POST', body: fd }, role);
+        if ($('headRcError')) {
+          $('headRcError').style.color = '#16a34a';
+          $('headRcError').textContent = 'Head Teacher signature saved.';
+        }
+      } catch (e) {
+        if ($('headRcError')) {
+          $('headRcError').style.color = '#dc2626';
+          $('headRcError').textContent = e.message;
+        }
+      }
+    });
   }
 
   $('openStudentsBtn').addEventListener('click', () => {

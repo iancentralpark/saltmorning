@@ -35,7 +35,13 @@ function readBearerToken(req) {
 function requireRole(...roles) {
   return function authMiddleware(req, res, next) {
     const session = verifyToken(readBearerToken(req));
-    if (!session || !roles.includes(session.role)) {
+    if (!session || !session.role) {
+      return res.status(401).json({ error: 'Login required.' });
+    }
+    // Principal inherits every Admin-gated capability.
+    const ok = roles.includes(session.role) ||
+      (session.role === 'principal' && roles.includes('admin'));
+    if (!ok) {
       return res.status(401).json({ error: 'Login required.' });
     }
     req.session = session;

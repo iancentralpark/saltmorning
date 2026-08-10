@@ -325,37 +325,11 @@ window.SaltParent = (function() {
   function renderParentCard(card) {
     let html = '<div class="rc-full-toolbar no-print">' +
       '<button type="button" class="btn btn-primary" id="parentPrintBtn">Print</button></div>';
-    html += '<article class="rc-print-sheet" id="rcPrintSheet">' +
-      '<header class="rc-print-header">' +
-      '<div class="rc-print-school">' + escapeHtml(card.schoolName || 'Salt Academy Morning Class') + '</div>' +
-      '<h2>Student Report Card</h2>' +
-      '<div class="rc-print-meta">' +
-      '<div><span>Student</span><strong>' + escapeHtml(card.student.name) + '</strong></div>' +
-      '<div><span>Grade Level</span><strong>' + escapeHtml(card.student.gradeLevel || '—') + '</strong></div>' +
-      '<div><span>Class</span><strong>' + escapeHtml(card.className || '') + '</strong></div>' +
-      '<div><span>Term</span><strong>' + escapeHtml(card.term) + '</strong></div>' +
-      '<div><span>Homeroom Teacher</span><strong>' + escapeHtml(card.homeroomTeacherName || '—') + '</strong></div>' +
-      '</div></header>';
-    (card.subjects || []).forEach((subj) => {
-      html += '<section class="rc-print-subject">' +
-        '<div class="rc-print-subject-head"><h3>' + escapeHtml(subj.subject) + '</h3>' +
-        '<div class="muted small">Teacher: ' + escapeHtml((subj.teacherNames || []).join(', ') || '—') + '</div></div>' +
-        '<div class="rc-print-grades">' +
-        '<div><span>Letter Grade</span><strong>' + escapeHtml(subj.letterGrade || '—') + '</strong></div>' +
-        '<div><span>Percentage</span><strong>' +
-        (subj.percentageGrade != null ? escapeHtml(String(subj.percentageGrade)) + '%' : '—') +
-        '</strong></div></div>' +
-        '<table class="rc-print-habits"><thead><tr><th>Work Habits / SEL</th><th>Rating</th></tr></thead><tbody>';
-      (subj.workHabits || []).forEach((h) => {
-        html += '<tr><td>' + escapeHtml(h.label) + '</td><td>' + escapeHtml(h.rating || '—') + '</td></tr>';
-      });
-      html += '</tbody></table>' +
-        '<div class="rc-print-comment"><span>Teacher Comment</span><p>' +
-        escapeHtml(subj.subjectComment || '—') + '</p></div></section>';
-    });
-    html += '<footer class="rc-print-footer muted small">Shared with parents' +
-      (card.sharedAt ? ' · ' + escapeHtml(String(card.sharedAt).slice(0, 10)) : '') +
-      '</footer></article>';
+    if (window.SaltReportCardPrint && SaltReportCardPrint.renderPrintableCard) {
+      html += SaltReportCardPrint.renderPrintableCard(card);
+    } else {
+      html += '<p class="error">Could not render report card.</p>';
+    }
     return html;
   }
 

@@ -67,9 +67,15 @@
     api, setToken, setProfile, getToken, $,
     authPersistEnabled, setAuthPersist, getSavedLogin, setSavedLogin
   } = SaltApp;
-  const DEST = { student: '/student', parent: '/parent', teacher: '/teacher', admin: '/admin' };
+  const DEST = {
+    student: '/student',
+    parent: '/parent',
+    teacher: '/teacher',
+    admin: '/admin',
+    principal: '/admin'
+  };
 
-  ['admin', 'teacher', 'parent', 'student'].forEach((role) => {
+  ['admin', 'principal', 'teacher', 'parent', 'student'].forEach((role) => {
     if (getToken(role)) {
       location.replace(DEST[role]);
     }
@@ -120,7 +126,7 @@
       });
       const role = data.role;
       if (!role || !DEST[role]) throw new Error('Unknown account type.');
-      ['admin', 'teacher', 'parent', 'student'].forEach((r) => {
+      ['admin', 'principal', 'teacher', 'parent', 'student'].forEach((r) => {
         setToken(r, '');
         setProfile(r, null);
       });

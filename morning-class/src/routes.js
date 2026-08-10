@@ -91,6 +91,22 @@ const {
   listParentReportCards
 } = require('./services/reportCardService');
 const {
+  ensureWorkflowSheet,
+  getOrCreateWorkflow,
+  listWorkflows,
+  listTeachersForHead,
+  saveSignaturePng,
+  readSignaturePath,
+  signAsHomeroom,
+  submitToHead,
+  signAsHead,
+  submitToPrincipal,
+  signAsPrincipal,
+  stateLabel,
+  processDueScheduledShares,
+  STATES: RC_WF_STATES
+} = require('./services/reportCardWorkflowService');
+const {
   getActiveTerm,
   saveGradeTerm,
   listGradeWeights,
@@ -112,7 +128,8 @@ const {
   deleteTeacher,
   listAllGradeTerms,
   getMonitoringFeed,
-  listClasses
+  listClasses,
+  ensureLeadershipAccounts
 } = require('./services/adminService');
 const {
   listTeacherSubjectGroups,
@@ -240,6 +257,15 @@ const analyticsUpload = multer({
       'image/heif'
     ].includes(file.mimetype);
     cb(ok ? null : new Error('Upload a PDF or image scan (JPG/PNG/WebP).'), ok);
+  }
+});
+
+const signatureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/png', 'image/jpeg', 'image/webp'].includes(file.mimetype);
+    cb(ok ? null : new Error('Signature must be PNG, JPEG, or WebP.'), ok);
   }
 });
 
@@ -822,15 +848,238 @@ router.post('/teacher/class/:classId/report-card', requireRole('teacher'), async
 
 router.post('/teacher/class/:classId/report-card/share', requireRole('teacher'), async (req, res) => {
   try {
-    const result = await shareReportCardWithParents(
-      req.session.teacherId,
-      req.params.classId,
-      req.body.studentId,
-      req.body.term || 'Term1'
-    );
-    res.json(result);
+    return res.status(403).json({
+      error: 'Homeroom teachers submit report cards to the Head Teacher. Only the Principal can share with parents.'
+    });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not share report card.' });
+  }
+});
+
+router.post('/teacher/signature', requireRole('teacher', 'principal'), async (req, res) => {
+  signatureUpload.single('signature')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Invalid signature.' });
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Upload a PNG signature image.' });
+      const personId = req.session.teacherId || req.session.principalId;
+      const sigPath = await saveSignaturePng(personId, req.file.buffer);
+      res.json({ signaturePath: sigPath });
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not save signature.' });
+    }
+  });
+});
+
+router.get('/teacher/signature', requireRole('teacher', 'principal'), async (req, res) => {
+  try {
+    const personId = req.session.teacherId || req.session.principalId;
+    res.json({ signaturePath: readSignaturePath(personId) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load signature.' });
+  }
+});
+
+router.post('/teacher/class/:classId/report-card/workflow', requireRole('teacher'), async (req, res) => {
+  try {
+    const classId = req.params.classId;
+    const { studentId, term, action } = req.body || {};
+    if (!studentId) throw new Error('studentId is required.');
+    const t = term || 'Term1';
+    await assertHomeroomOfClass(req.session.teacherId, classId);
+    const card = await getFullStudentReportCard(req.session.teacherId, classId, studentId, t);
+    if (!card.reportReady) throw new Error('All subjects must be complete before signing.');
+    let wf = await getOrCreateWorkflow(classId, studentId, t, {
+      homeroomTeacherId: req.session.teacherId,
+      headTeacherId: req.session.headTeacherId || ''
+    });
+    if (action === 'sign') wf = await signAsHomeroom(wf, req.session.teacherId);
+    else if (action === 'submit') wf = await submitToHead(wf, req.session.teacherId);
+    else throw new Error('action must be sign or submit.');
+    res.json({ workflow: wf, stateLabel: stateLabel(wf.state) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Workflow action failed.' });
+  }
+});
+
+router.get('/teacher/head/report-cards', requireRole('teacher'), async (req, res) => {
+  try {
+    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
+      return res.status(403).json({ error: 'Head Teacher access only.' });
+    }
+    await ensureWorkflowSheet();
+    const assigned = await listTeachersForHead(req.session.teacherId);
+    const assignedIds = new Set(assigned.map((t) => t.teacherId));
+    const items = await listWorkflows({
+      states: [
+        RC_WF_STATES.submitted_head,
+        RC_WF_STATES.signed_head,
+        RC_WF_STATES.submitted_principal,
+        RC_WF_STATES.signed_principal,
+        RC_WF_STATES.shared_parent
+      ]
+    });
+    const filtered = items.filter((w) =>
+      String(w.headTeacherId) === String(req.session.teacherId) ||
+      assignedIds.has(w.homeroomTeacherId)
+    );
+    res.json({ teachers: assigned, workflows: filtered });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load Head Teacher queue.' });
+  }
+});
+
+router.get('/teacher/head/report-cards/:classId/:studentId', requireRole('teacher'), async (req, res) => {
+  try {
+    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
+      return res.status(403).json({ error: 'Head Teacher access only.' });
+    }
+    const term = req.query.term || 'Term1';
+    const card = await getFullStudentReportCard(
+      req.session.teacherId, req.params.classId, req.params.studentId, term, { bypassAccess: true }
+    );
+    res.json({ card });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load report card.' });
+  }
+});
+
+router.post('/teacher/head/report-cards/workflow', requireRole('teacher'), async (req, res) => {
+  try {
+    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
+      return res.status(403).json({ error: 'Head Teacher access only.' });
+    }
+    const { classId, studentId, term, action } = req.body || {};
+    if (!classId || !studentId) throw new Error('classId and studentId are required.');
+    const t = term || 'Term1';
+    let wf = await getOrCreateWorkflow(classId, studentId, t, {
+      headTeacherId: req.session.teacherId
+    });
+    if (action === 'sign') wf = await signAsHead(wf, req.session.teacherId);
+    else if (action === 'submit') wf = await submitToPrincipal(wf, req.session.teacherId);
+    else throw new Error('action must be sign or submit.');
+    res.json({ workflow: wf, stateLabel: stateLabel(wf.state) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Head Teacher workflow failed.' });
+  }
+});
+
+router.get('/admin/report-cards', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    await ensureWorkflowSheet();
+    const workflows = await listWorkflows({
+      states: [
+        RC_WF_STATES.submitted_principal,
+        RC_WF_STATES.signed_principal,
+        RC_WF_STATES.shared_parent
+      ]
+    });
+    res.json({ workflows });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load Principal queue.' });
+  }
+});
+
+router.get('/admin/report-cards/:classId/:studentId', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const term = req.query.term || 'Term1';
+    const viewerId = req.session.principalId || req.session.teacherId || req.session.adminId;
+    const card = await getFullStudentReportCard(
+      viewerId, req.params.classId, req.params.studentId, term, { bypassAccess: true }
+    );
+    res.json({ card });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load report card.' });
+  }
+});
+
+router.post('/admin/report-cards/workflow', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const { classId, studentId, term, action, scheduledShareAt } = req.body || {};
+    if (!classId || !studentId) throw new Error('classId and studentId are required.');
+    const t = term || 'Term1';
+    const principalId = req.session.principalId || req.session.teacherId || req.session.adminId;
+    let wf = await getOrCreateWorkflow(classId, studentId, t, {});
+    if (action === 'sign') {
+      wf = await signAsPrincipal(wf, principalId);
+      return res.json({ workflow: wf, stateLabel: stateLabel(wf.state) });
+    }
+    if (action === 'share' || action === 'schedule') {
+      const result = await shareReportCardWithParents(principalId, classId, studentId, t, {
+        bypassAccess: true,
+        scheduledShareAt: action === 'schedule' ? scheduledShareAt : ''
+      });
+      return res.json(result);
+    }
+    if (action === 'batch-sign') {
+      const list = Array.isArray(req.body.items) ? req.body.items : [{ classId, studentId, term: t }];
+      const signed = [];
+      for (const it of list) {
+        let w = await getOrCreateWorkflow(it.classId, it.studentId, it.term || t, {});
+        w = await signAsPrincipal(w, principalId);
+        signed.push(w);
+      }
+      return res.json({ signed: signed.length, workflows: signed });
+    }
+    throw new Error('action must be sign, share, schedule, or batch-sign.');
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Principal workflow failed.' });
+  }
+});
+
+router.post('/admin/signature', requireRole('admin', 'principal'), async (req, res) => {
+  signatureUpload.single('signature')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Invalid signature.' });
+    try {
+      if (!req.file) return res.status(400).json({ error: 'Upload a PNG signature image.' });
+      const personId = req.session.principalId || req.session.teacherId || req.session.adminId;
+      const sigPath = await saveSignaturePng(personId, req.file.buffer);
+      res.json({ signaturePath: sigPath });
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not save signature.' });
+    }
+  });
+});
+
+router.post('/admin/ensure-leadership', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const result = await ensureLeadershipAccounts();
+    res.json({
+      ok: true,
+      ...result,
+      accounts: [
+        { role: 'Principal', loginId: 'principal', password: 'principal123' },
+        { role: 'Head Teacher', loginId: 'head', password: 'head123' }
+      ]
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not ensure leadership accounts.' });
+  }
+});
+
+router.get('/teacher/head/team', requireRole('teacher'), async (req, res) => {
+  try {
+    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
+      return res.status(403).json({ error: 'Head Teacher access only.' });
+    }
+    const teachers = await listTeachersForHead(req.session.teacherId);
+    const enriched = [];
+    for (const t of teachers) {
+      let classes = [];
+      try {
+        const groups = await listTeacherSubjectGroups(t.teacherId);
+        classes = (groups.classes || []).map((c) => ({
+          classId: c.classId,
+          className: c.className,
+          isHomeroom: !!c.isHomeroom,
+          subjects: c.subjects || [],
+          roleLabel: c.roleLabel || ''
+        }));
+      } catch (e) { /* ignore */ }
+      enriched.push(Object.assign({}, t, { classes }));
+    }
+    res.json({ teachers: enriched });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load team.' });
   }
 });
 

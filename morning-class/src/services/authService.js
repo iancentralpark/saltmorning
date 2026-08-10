@@ -87,18 +87,36 @@ async function loginTeacher(loginId, password) {
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][2] || '').trim() !== loginId) continue;
     if (String(rows[i][3] || '').trim() !== password) continue;
+    const staffRole = String(rows[i][5] || 'Teacher').trim();
     const profile = {
       teacherId: String(rows[i][0]),
       name: String(rows[i][1] || ''),
       homeroomClassId: String(rows[i][4] || '').trim(),
-      staffRole: String(rows[i][5] || 'Teacher').trim()
+      staffRole,
+      headTeacherId: String(rows[i][6] || '').trim()
     };
+
+    // Principal accounts live on Teacher_List but use the admin portal.
+    if (/^principal$/i.test(staffRole)) {
+      return {
+        token: signToken({
+          role: 'principal',
+          principalId: profile.teacherId,
+          teacherId: profile.teacherId,
+          name: profile.name,
+          staffRole: 'Principal'
+        }),
+        profile: Object.assign({}, profile, { principalId: profile.teacherId })
+      };
+    }
+
     return {
       token: signToken({
         role: 'teacher',
         teacherId: profile.teacherId,
         name: profile.name,
-        staffRole: profile.staffRole
+        staffRole: profile.staffRole,
+        headTeacherId: profile.headTeacherId
       }),
       profile
     };
@@ -144,7 +162,9 @@ async function loginUnified(loginId, password) {
   for (const a of attempts) {
     try {
       const result = await a.fn(loginId, password);
-      return { ...result, role: a.role };
+      // loginTeacher may return principal
+      const role = (result.token && require('../auth/tokenAuth').verifyToken(result.token).role) || a.role;
+      return { ...result, role };
     } catch (e) {
       lastError = e.message || lastError;
       // Only continue when credentials simply don't match this role sheet

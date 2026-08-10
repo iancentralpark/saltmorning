@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810laai">
+  <link rel="stylesheet" href="/css/app.css?v=20260810rcwf">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -31,6 +31,7 @@
       <button class="tab" data-tab="schoolCal" type="button">School calendar</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
       <button class="tab" data-tab="announcements" type="button">Announcements</button>
+      <button class="tab" data-tab="reportCards" type="button">Report cards</button>
       <button class="tab" data-tab="vocabPlatform" type="button">Vocab Booster</button>
     </div>
 
@@ -123,8 +124,14 @@
             <label>Staff role
               <select id="teacherRole">
                 <option value="Teacher">Teacher</option>
+                <option value="Head Teacher">Head Teacher</option>
+                <option value="Principal">Principal</option>
                 <option value="Director">Director</option>
               </select>
+            </label>
+            <label>Head Teacher ID
+              <input id="teacherHeadId" list="headTeacherOptions" placeholder="TeacherID of their Head Teacher">
+              <datalist id="headTeacherOptions"></datalist>
             </label>
             <label>Title / position <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
             <label>Hire date <input id="teacherHireDate" type="date"></label>
@@ -267,6 +274,26 @@
       <div id="adminAnnList"><p class="muted">Loading…</p></div>
     </div>
 
+    <div id="panelReportCards" class="card hidden">
+      <h3 style="margin-top:0">Report card approvals</h3>
+      <p class="muted small">Principal queue — sign submitted cards, then share (or schedule share) with parents.</p>
+      <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;align-items:center">
+        <button type="button" class="btn btn-ghost" id="adminRcRefresh">Refresh</button>
+        <label class="btn btn-ghost">Upload Principal signature
+          <input type="file" id="adminRcSigFile" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <button type="button" class="btn btn-primary" id="adminRcBatchSign">Sign all awaiting</button>
+        <button type="button" class="btn btn-ghost" id="adminRcEnsureLeaders">Ensure Principal / Head accounts</button>
+        <label class="muted small" style="display:inline-flex;align-items:center;gap:0.35rem">
+          Schedule share at
+          <input type="datetime-local" id="adminRcScheduleAt">
+        </label>
+      </div>
+      <div id="adminRcQueue"><p class="muted">Loading…</p></div>
+      <div id="adminRcPreview" class="hidden" style="margin-top:1rem"></div>
+      <div class="error" id="adminRcError"></div>
+    </div>
+
     <div id="panelVocabPlatform" class="card hidden">
       <h3>Vocab Booster</h3>
       <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
@@ -287,11 +314,12 @@
 <script src="/js/class-registry.js?v=20260709classes"></script>
 <script src="/js/timetable.js?v=20260810ttclass"></script>
 <script src="/js/timetable-setup.js?v=20260810ttpastel"></script>
+<script src="/js/report-card-print.js?v=20260810rcwf"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/admin-school-calendar.js?v=20260810attendance"></script>
 <script>
 (function() {
-  const role = 'admin';
+  const role = SaltApp.getToken('principal') ? 'principal' : 'admin';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
 
   SaltSchoolCalendar.init({ $, api, escapeHtml, show, hide });
@@ -330,11 +358,12 @@
 
   function switchTab(name) {
     document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelSchoolCal','panelTerms','panelAnnouncements','panelVocabPlatform'].forEach(id => hide($(id)));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelSchoolCal','panelTerms','panelAnnouncements','panelReportCards','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
       classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
       schoolCal: 'panelSchoolCal', terms: 'panelTerms', announcements: 'panelAnnouncements',
+      reportCards: 'panelReportCards',
       vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
@@ -347,6 +376,7 @@
     if (name === 'schoolCal') SaltSchoolCalendar.open();
     if (name === 'terms') loadTerms();
     if (name === 'announcements') loadAdminAnnouncements();
+    if (name === 'reportCards') loadAdminReportCards();
   }
 
   async function loadAdminAnnouncements() {
@@ -545,6 +575,14 @@
     $('assignTeacher').innerHTML = teachers.map(t =>
       '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
     ).join('');
+    if ($('headTeacherOptions')) {
+      $('headTeacherOptions').innerHTML = teachers
+        .filter((t) => /head\s*teacher/i.test(String(t.staffRole || '')))
+        .map((t) =>
+          '<option value="' + escapeHtml(t.teacherId) + '">' +
+          escapeHtml(t.name + ' (' + t.teacherId + ')') + '</option>'
+        ).join('');
+    }
     document.querySelectorAll('[data-edit]').forEach(btn => {
       btn.addEventListener('click', () => fillTeacherForm(teachers.find(x => x.teacherId === btn.dataset.edit)));
     });
@@ -637,6 +675,7 @@
     $('teacherPassword').value = '';
     $('teacherHomeroom').value = t.homeroomClassId || '';
     $('teacherRole').value = t.staffRole || 'Teacher';
+    if ($('teacherHeadId')) $('teacherHeadId').value = t.headTeacherId || '';
     $('teacherTitle').value = p.title || t.title || '';
     $('teacherHireDate').value = p.hireDate || '';
     $('teacherDob').value = p.dateOfBirth || '';
@@ -711,6 +750,7 @@
           password: $('teacherPassword').value,
           homeroomClassId: $('teacherHomeroom').value,
           staffRole: $('teacherRole').value,
+          headTeacherId: $('teacherHeadId') ? $('teacherHeadId').value : '',
           title: $('teacherTitle').value,
           hireDate: $('teacherHireDate').value,
           dateOfBirth: $('teacherDob').value,
@@ -773,6 +813,187 @@
       $('termError').textContent = err.message;
     }
   });
+
+  async function loadAdminReportCards() {
+    const box = $('adminRcQueue');
+    const err = $('adminRcError');
+    const preview = $('adminRcPreview');
+    if (err) err.textContent = '';
+    if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/admin/report-cards', {}, role);
+      const rows = data.workflows || [];
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No report cards awaiting Principal action.</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table"><thead><tr>' +
+        '<th>Class</th><th>Student</th><th>Term</th><th>State</th><th></th></tr></thead><tbody>' +
+        rows.map((w) =>
+          '<tr>' +
+          '<td>' + escapeHtml(w.classId) + '</td>' +
+          '<td>' + escapeHtml(w.studentId) + '</td>' +
+          '<td>' + escapeHtml(w.term) + '</td>' +
+          '<td>' + escapeHtml(w.state) + '</td>' +
+          '<td style="white-space:nowrap">' +
+          '<button type="button" class="btn btn-ghost admin-rc-view" data-cid="' + escapeHtml(w.classId) +
+          '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">View</button> ' +
+          (w.state === 'submitted_principal'
+            ? '<button type="button" class="btn btn-primary admin-rc-sign" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Sign</button> '
+            : '') +
+          (w.state === 'signed_principal'
+            ? '<button type="button" class="btn btn-primary admin-rc-share" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Share now</button> ' +
+              '<button type="button" class="btn btn-ghost admin-rc-schedule" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Schedule</button>'
+            : '') +
+          (w.scheduledShareAt
+            ? ' <span class="muted small">Scheduled ' + escapeHtml(String(w.scheduledShareAt).slice(0, 16)) + '</span>'
+            : '') +
+          '</td></tr>'
+        ).join('') + '</tbody></table>';
+
+      box.querySelectorAll('.admin-rc-view').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          preview.classList.remove('hidden');
+          preview.innerHTML = '<p class="muted">Loading card…</p>';
+          try {
+            const res = await api(
+              '/api/admin/report-cards/' + encodeURIComponent(btn.dataset.cid) + '/' +
+              encodeURIComponent(btn.dataset.sid) + '?term=' + encodeURIComponent(btn.dataset.term),
+              {},
+              role
+            );
+            preview.innerHTML = (window.SaltReportCardPrint
+              ? SaltReportCardPrint.renderPrintableCard(res.card)
+              : '<p class="error">Print renderer missing.</p>');
+          } catch (e) {
+            preview.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-sign').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'sign',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term
+              }
+            }, role);
+            loadAdminReportCards();
+          } catch (e) {
+            err.textContent = e.message;
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-share').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Share this report card with parents now?')) return;
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'share',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term
+              }
+            }, role);
+            loadAdminReportCards();
+          } catch (e) {
+            err.textContent = e.message;
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-schedule').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const at = $('adminRcScheduleAt') && $('adminRcScheduleAt').value;
+          if (!at) {
+            err.textContent = 'Pick a date/time for scheduled share.';
+            return;
+          }
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'schedule',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term,
+                scheduledShareAt: new Date(at).toISOString()
+              }
+            }, role);
+            err.style.color = '#16a34a';
+            err.textContent = 'Share scheduled.';
+            loadAdminReportCards();
+          } catch (e) {
+            err.style.color = '#dc2626';
+            err.textContent = e.message;
+          }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  if ($('adminRcRefresh')) $('adminRcRefresh').addEventListener('click', loadAdminReportCards);
+  if ($('adminRcEnsureLeaders')) {
+    $('adminRcEnsureLeaders').addEventListener('click', async () => {
+      try {
+        const res = await api('/api/admin/ensure-leadership', { method: 'POST' }, role);
+        const lines = (res.accounts || []).map((a) => a.role + ': ' + a.loginId + ' / ' + a.password);
+        $('adminRcError').style.color = '#16a34a';
+        $('adminRcError').textContent = 'Accounts ready. ' + lines.join(' · ');
+      } catch (e) {
+        $('adminRcError').style.color = '#dc2626';
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
+  if ($('adminRcSigFile')) {
+    $('adminRcSigFile').addEventListener('change', async () => {
+      const file = $('adminRcSigFile').files && $('adminRcSigFile').files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('signature', file);
+      try {
+        await api('/api/admin/signature', { method: 'POST', body: fd }, role);
+        $('adminRcError').style.color = '#16a34a';
+        $('adminRcError').textContent = 'Principal signature saved.';
+      } catch (e) {
+        $('adminRcError').style.color = '#dc2626';
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
+  if ($('adminRcBatchSign')) {
+    $('adminRcBatchSign').addEventListener('click', async () => {
+      try {
+        const data = await api('/api/admin/report-cards', {}, role);
+        const items = (data.workflows || [])
+          .filter((w) => w.state === 'submitted_principal')
+          .map((w) => ({ classId: w.classId, studentId: w.studentId, term: w.term }));
+        if (!items.length) {
+          $('adminRcError').textContent = 'Nothing awaiting signature.';
+          return;
+        }
+        await api('/api/admin/report-cards/workflow', {
+          method: 'POST',
+          body: { action: 'batch-sign', items }
+        }, role);
+        loadAdminReportCards();
+      } catch (e) {
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
 
   $('logoutBtn').addEventListener('click', () => {
     setToken(role, ''); setProfile(role, null); location.href = '/';

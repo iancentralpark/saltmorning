@@ -78,6 +78,7 @@ async function saveTeacher(payload) {
   const password = String(payload.password || '').trim();
   const homeroomClassId = String(payload.homeroomClassId || '').trim();
   const staffRole = String(payload.staffRole || 'Teacher').trim();
+  const headTeacherId = String(payload.headTeacherId || '').trim();
   if (!name || !loginId) throw new Error('Name and login ID are required.');
 
   const data = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
@@ -89,9 +90,14 @@ async function saveTeacher(payload) {
     }
   }
   const existingPwd = found > 0 ? String(data[found - 1][3] || '') : '';
-  const row = [teacherId, name, loginId, password || existingPwd || 'changeme123', homeroomClassId, staffRole];
+  const existingHead = found > 0 ? String(data[found - 1][6] || '') : '';
+  const row = [
+    teacherId, name, loginId, password || existingPwd || 'changeme123',
+    homeroomClassId, staffRole,
+    headTeacherId || existingHead || ''
+  ];
   if (found > 0) {
-    await updateRange(TEACHER_LIST_SHEET, `A${found}:F${found}`, [row]);
+    await updateRange(TEACHER_LIST_SHEET, `A${found}:G${found}`, [row]);
   } else {
     if (!password) throw new Error('Password required for new teacher.');
     await appendRows(TEACHER_LIST_SHEET, [row]);
@@ -118,8 +124,9 @@ async function saveTeacher(payload) {
     loginId,
     homeroomClassId,
     staffRole,
-    photoPath: profile.photoPath || '',
-    profile
+    headTeacherId: headTeacherId || existingHead || '',
+    profile,
+    photoPath: profile.photoPath || ''
   };
 }
 
@@ -347,8 +354,108 @@ async function getAdminOverview() {
   return { classes, teachers, terms, feed };
 }
 
+/**
+ * Ensure demo Principal + Head Teacher accounts exist on Teacher_List.
+ * Also backfills HeadTeacherID on regular teachers that have none assigned.
+ */
+async function ensureLeadershipAccounts() {
+  await ensureAdminSheet();
+  const { invalidateSheetRowsCache } = require('../sheets');
+  const rows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  if (!rows.length) {
+    await appendRows(TEACHER_LIST_SHEET, [[
+      'TeacherID', 'Name', 'LoginID', 'LoginPassword', 'HomeroomClassID', 'StaffRole', 'HeadTeacherID'
+    ]]);
+  } else if (rows[0] && String(rows[0][5] || '') !== 'StaffRole') {
+    // Expand legacy headers when missing StaffRole / HeadTeacherID columns
+    const headers = rows[0].slice();
+    while (headers.length < 7) headers.push('');
+    headers[5] = headers[5] || 'StaffRole';
+    headers[6] = headers[6] || 'HeadTeacherID';
+    await updateRange(TEACHER_LIST_SHEET, 'A1:G1', [headers.slice(0, 7)]);
+  }
+
+  const data = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  const byLogin = {};
+  const byRole = {};
+  for (let i = 1; i < data.length; i++) {
+    const login = String(data[i][2] || '').trim().toLowerCase();
+    const role = String(data[i][5] || 'Teacher').trim();
+    if (login) byLogin[login] = { rowIndex: i + 1, row: data[i] };
+    const rk = role.toLowerCase();
+    if (!byRole[rk]) byRole[rk] = [];
+    byRole[rk].push({ rowIndex: i + 1, row: data[i] });
+  }
+
+  async function upsertAccount(spec) {
+    const existing = byLogin[spec.loginId.toLowerCase()] ||
+      (byRole[spec.staffRole.toLowerCase()] && byRole[spec.staffRole.toLowerCase()][0]);
+    if (existing) {
+      const r = existing.row;
+      const teacherId = String(r[0]);
+      const row = [
+        teacherId,
+        String(r[1] || spec.name),
+        String(r[2] || spec.loginId),
+        String(r[3] || spec.password),
+        String(r[4] || ''),
+        spec.staffRole,
+        String(r[6] || '')
+      ];
+      await updateRange(TEACHER_LIST_SHEET, `A${existing.rowIndex}:G${existing.rowIndex}`, [row]);
+      return teacherId;
+    }
+    const teacherId = spec.teacherId;
+    await appendRows(TEACHER_LIST_SHEET, [[
+      teacherId, spec.name, spec.loginId, spec.password, '', spec.staffRole, ''
+    ]]);
+    return teacherId;
+  }
+
+  const principalId = await upsertAccount({
+    teacherId: 'T_PRINCIPAL',
+    name: 'Salt Principal',
+    loginId: 'principal',
+    password: 'principal123',
+    staffRole: 'Principal'
+  });
+
+  const headId = await upsertAccount({
+    teacherId: 'T_HEAD',
+    name: 'Salt Head Teacher',
+    loginId: 'head',
+    password: 'head123',
+    staffRole: 'Head Teacher'
+  });
+
+  // Assign Head Teacher to teachers that have none (skip Principal / Head themselves).
+  invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+  const fresh = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  for (let i = 1; i < fresh.length; i++) {
+    const tid = String(fresh[i][0] || '');
+    const role = String(fresh[i][5] || 'Teacher').trim();
+    if (!tid || tid === headId || tid === principalId) continue;
+    if (/^principal$/i.test(role) || /head\s*teacher/i.test(role)) continue;
+    const currentHead = String(fresh[i][6] || '').trim();
+    if (currentHead) continue;
+    const row = [
+      tid,
+      String(fresh[i][1] || ''),
+      String(fresh[i][2] || ''),
+      String(fresh[i][3] || ''),
+      String(fresh[i][4] || ''),
+      role || 'Teacher',
+      headId
+    ];
+    await updateRange(TEACHER_LIST_SHEET, `A${i + 1}:G${i + 1}`, [row]);
+  }
+  invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+  return { principalId, headId };
+}
+
 module.exports = {
   ensureAdminSheet,
+  ensureLeadershipAccounts,
   listClasses,
   listTeachers,
   getTeacher,

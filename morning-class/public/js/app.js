@@ -47,7 +47,7 @@
   }
 
   function clearAllAuth() {
-    ['admin', 'teacher', 'parent', 'student'].forEach((role) => {
+    ['admin', 'principal', 'teacher', 'parent', 'student'].forEach((role) => {
       setToken(role, '');
       setProfile(role, null);
     });

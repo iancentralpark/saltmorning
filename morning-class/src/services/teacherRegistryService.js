@@ -204,6 +204,7 @@ async function getTeacherDetail(teacherId) {
       loginId: String(rows[i][2] || ''),
       homeroomClassId: String(rows[i][4] || ''),
       staffRole: String(rows[i][5] || 'Teacher'),
+      headTeacherId: String(rows[i][6] || '').trim(),
       hasPassword: Boolean(String(rows[i][3] || '').trim())
     };
     break;
@@ -229,6 +230,7 @@ async function listTeachersWithProfiles() {
       loginId: String(listRows[i][2] || ''),
       homeroomClassId: String(listRows[i][4] || ''),
       staffRole: String(listRows[i][5] || 'Teacher'),
+      headTeacherId: String(listRows[i][6] || '').trim(),
       photoPath: profile.photoPath || '',
       title: profile.title || '',
       phone: profile.phone || '',

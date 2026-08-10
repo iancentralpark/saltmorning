@@ -302,6 +302,7 @@
     const card = state.card;
     const box = mount();
     if (!card) return;
+    const wfLabel = (card.workflow && card.workflow.stateLabel) || 'Draft';
 
     let html = '<div class="rc-full">' +
       '<div class="rc-full-toolbar no-print">' +
@@ -309,12 +310,18 @@
       (card.reportReady
         ? '<span class="rc-ready-badge">Report Ready</span>'
         : '<span class="muted small">Not ready — missing subject sections</span>') +
+      '<span class="muted small">Status: ' + escapeHtml(wfLabel) + '</span>' +
       '<button type="button" class="btn btn-primary" id="rcPrintBtn"' +
       (card.canGenerate ? '' : ' disabled') + '>Print report card</button>' +
-      (card.canShare
-        ? '<button type="button" class="btn btn-primary" id="rcShareBtn">' +
-          (card.sharedWithParents ? 'Shared ✓ / Share again' : 'Share with parents') + '</button>'
+      (card.canHomeroomSign
+        ? '<button type="button" class="btn btn-primary" id="rcSignBtn">Sign</button>'
         : '') +
+      (card.canSubmitHead
+        ? '<button type="button" class="btn btn-primary" id="rcSubmitHeadBtn">Submit to Head Teacher</button>'
+        : '') +
+      '<label class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:0.35rem">' +
+      'Upload signature <input type="file" id="rcSigFile" accept="image/png,image/jpeg,image/webp" hidden>' +
+      '</label>' +
       '</div>' +
       renderPrintableCard(card) +
       '<div class="error no-print" id="rcCardError"></div>' +
@@ -329,67 +336,62 @@
     if ($('rcPrintBtn')) {
       $('rcPrintBtn').addEventListener('click', () => window.print());
     }
-    if ($('rcShareBtn')) {
-      $('rcShareBtn').addEventListener('click', shareCard);
+    if ($('rcSignBtn')) $('rcSignBtn').addEventListener('click', () => workflowAction('sign'));
+    if ($('rcSubmitHeadBtn')) {
+      $('rcSubmitHeadBtn').addEventListener('click', () => workflowAction('submit'));
+    }
+    if ($('rcSigFile')) {
+      $('rcSigFile').addEventListener('change', uploadSignature);
     }
   }
 
   function renderPrintableCard(card) {
-    let html = '<article class="rc-print-sheet" id="rcPrintSheet">' +
-      '<header class="rc-print-header">' +
-      '<div class="rc-print-school">' + escapeHtml(card.schoolName || 'Salt Academy Morning Class') + '</div>' +
-      '<h2>Student Report Card</h2>' +
-      '<div class="rc-print-meta">' +
-      '<div><span>Student</span><strong>' + escapeHtml(card.student.name) + '</strong></div>' +
-      '<div><span>Grade Level</span><strong>' + escapeHtml(card.student.gradeLevel || '—') + '</strong></div>' +
-      '<div><span>Class</span><strong>' + escapeHtml(card.className || '') + '</strong></div>' +
-      '<div><span>Term</span><strong>' + escapeHtml(card.term) + '</strong></div>' +
-      '<div><span>Homeroom Teacher</span><strong>' + escapeHtml(card.homeroomTeacherName || '—') + '</strong></div>' +
-      '</div></header>';
-
-    (card.subjects || []).forEach((subj) => {
-      html += '<section class="rc-print-subject">' +
-        '<div class="rc-print-subject-head">' +
-        '<h3>' + escapeHtml(subj.subject) + '</h3>' +
-        '<div class="muted small">Teacher: ' +
-        escapeHtml((subj.teacherNames || []).join(', ') || '—') + '</div></div>' +
-        '<div class="rc-print-grades">' +
-        '<div><span>Letter Grade</span><strong>' + escapeHtml(subj.letterGrade || '—') + '</strong></div>' +
-        '<div><span>Percentage</span><strong>' +
-        (subj.percentageGrade != null ? escapeHtml(String(subj.percentageGrade)) + '%' : '—') +
-        '</strong></div></div>' +
-        '<table class="rc-print-habits"><thead><tr><th>Work Habits / SEL</th><th>Rating</th></tr></thead><tbody>';
-      (subj.workHabits || []).forEach((h) => {
-        html += '<tr><td>' + escapeHtml(h.label) + '</td><td>' +
-          escapeHtml(h.rating || '—') + '</td></tr>';
-      });
-      html += '</tbody></table>' +
-        '<div class="rc-print-comment"><span>Teacher Comment</span><p>' +
-        escapeHtml(subj.subjectComment || '—') + '</p></div>' +
-        '</section>';
-    });
-
-    html += '<footer class="rc-print-footer muted small">Generated ' +
-      escapeHtml((card.generatedAt || '').slice(0, 10)) +
-      (card.sharedWithParents ? ' · Shared with parents' : '') +
-      '</footer></article>';
-    return html;
+    if (global.SaltReportCardPrint && SaltReportCardPrint.renderPrintableCard) {
+      return SaltReportCardPrint.renderPrintableCard(card);
+    }
+    return '<p class="error">Print renderer missing.</p>';
   }
 
-  async function shareCard() {
+  async function uploadSignature() {
+    const input = $('rcSigFile');
+    const err = $('rcCardError') || errBox();
+    if (!input || !input.files || !input.files[0]) return;
+    err.textContent = '';
+    try {
+      const fd = new FormData();
+      fd.append('signature', input.files[0]);
+      await api('/api/teacher/signature', { method: 'POST', body: fd }, role);
+      err.style.color = '#16a34a';
+      err.textContent = 'Signature saved. You can Sign the report card now.';
+    } catch (e) {
+      err.style.color = '#dc2626';
+      err.textContent = e.message;
+    }
+  }
+
+  async function workflowAction(action) {
     const cls = getClass();
     const card = state.card;
     const err = $('rcCardError') || errBox();
     if (!card) return;
-    if (!confirm('Share this report card with the student\'s parents? They will see it in the Parent portal.')) return;
+    if (action === 'submit' &&
+      !confirm('Submit this signed report card to your Head Teacher? Parents will not see it yet.')) {
+      return;
+    }
     err.textContent = '';
     try {
-      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/report-card/share', {
-        method: 'POST',
-        body: { studentId: card.student.studentId, term: card.term }
-      }, role);
+      const res = await api(
+        '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/report-card/workflow',
+        {
+          method: 'POST',
+          body: { studentId: card.student.studentId, term: card.term, action }
+        },
+        role
+      );
       err.style.color = '#16a34a';
-      err.textContent = 'Shared with parents.';
+      err.textContent = action === 'sign'
+        ? 'Signed.'
+        : ('Submitted to Head Teacher (' + (res.stateLabel || '') + ').');
       await openFullCard(card.student.studentId);
       await loadOverview();
     } catch (e) {

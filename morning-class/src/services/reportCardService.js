@@ -16,6 +16,26 @@ const { getClassRoster, getTeacherProfile, getClassNameMap } = require('./teache
 const { listClassGradeSubjects, getTeacherGradeAccess } = require('./subjectAssignmentService');
 const { buildReportCardFromGrades } = require('./gradeService');
 const { getActiveTerm } = require('./gradeWeightService');
+const {
+  SCHOOL_NAME,
+  SCHOOL_ADDRESS
+} = require('../config');
+const {
+  GRADE_LEGEND,
+  SEL_LEGEND,
+  computeTermSummary,
+  academicYearLabel,
+  termDisplayLabel
+} = require('./reportCardPrint');
+const {
+  getOrCreateWorkflow,
+  findWorkflow,
+  STATES: WF_STATES,
+  stateLabel,
+  getTeacherHeadId
+} = require('./reportCardWorkflowService');
+const { getStudentYearAttendance } = require('./attendanceService');
+const { defaultAcademicYearRange } = require('./schoolCalendarService');
 
 const STATUS_HEADERS = [
   'StatusID', 'ClassID', 'StudentID', 'Term', 'Subject',
@@ -566,30 +586,45 @@ async function saveStudentSubjectReport(teacherId, classId, payload) {
 
 /**
  * Full printable report card for one student (all subjects).
+ * @param {string} viewerId teacher/principal id used for access
+ * @param {object} [opts] { bypassAccess }
  */
-async function getFullStudentReportCard(teacherId, classId, studentId, term) {
+async function getFullStudentReportCard(viewerId, classId, studentId, term, opts) {
   await ensureReportCardSheets();
+  opts = opts || {};
   classId = String(classId);
   studentId = String(studentId);
   term = String(term || '').trim() || 'Term1';
 
-  const overview = await getClassReportOverview(teacherId, classId, term);
+  const homeroomIdEarly = await getHomeroomTeacherId(classId);
+  const overviewTeacherId = opts.bypassAccess
+    ? (homeroomIdEarly || viewerId)
+    : viewerId;
+  const overview = await getClassReportOverview(overviewTeacherId, classId, term);
   const studentRow = overview.students.find((s) => s.studentId === studentId);
   if (!studentRow) throw new Error('Student not found.');
 
   const meta = await getStudentMeta(studentId);
   const classNames = await getClassNameMap();
   const names = await teacherNameMap();
-  const homeroomId = await getHomeroomTeacherId(classId);
-  const access = await getTeacherGradeAccess(teacherId, classId, '');
-  // Homeroom or any assigned teacher can view the assembled card once ready
-  if (!access.isHomeroom && !overview.subjects.some((s) => s.canEdit)) {
-    throw new Error('You do not have access to this report card.');
+  const homeroomId = homeroomIdEarly;
+  let access = { isHomeroom: false };
+  if (!opts.bypassAccess) {
+    access = await getTeacherGradeAccess(viewerId, classId, '');
+    const canEditSome = overview.subjects.some((s) => s.canEdit);
+    if (!access.isHomeroom && !canEditSome) {
+      const headOf = await getTeacherHeadId(homeroomId).catch(() => '');
+      if (String(headOf) !== String(viewerId)) {
+        throw new Error('You do not have access to this report card.');
+      }
+    }
   }
 
   const subjectBlocks = [];
   for (const subj of overview.subjects) {
-    const block = await getStudentSubjectReport(teacherId, classId, studentId, term, subj.subject);
+    const block = await getStudentSubjectReport(
+      overviewTeacherId, classId, studentId, term, subj.subject
+    );
     subjectBlocks.push({
       subject: subj.subject,
       teacherNames: subj.teacherNames && subj.teacherNames.length
@@ -608,9 +643,51 @@ async function getFullStudentReportCard(teacherId, classId, studentId, term) {
   const reportReady = !!(studentRow && studentRow.reportReady);
   const shared = !!(studentRow && studentRow.sharedWithParents);
 
+  let attendance = null;
+  try {
+    const range = defaultAcademicYearRange();
+    const yearAtt = await getStudentYearAttendance(classId, studentId, range.start, range.end);
+    const s = (yearAtt && yearAtt.summary) || {};
+    attendance = {
+      daysPresent: s.present || 0,
+      daysAbsent: (s.absent || 0) + (s.absentExcused || 0),
+      daysAbsentExcused: s.absentExcused || 0,
+      daysAbsentUnexcused: s.absent || 0,
+      daysTardy: (s.tardy || 0) + (s.tardyExcused || 0),
+      daysTardyExcused: s.tardyExcused || 0,
+      schoolDays: yearAtt.schoolDays || s.schoolDays || 0,
+      yearLabel: yearAtt.yearLabel || academicYearLabel()
+    };
+  } catch (e) {
+    attendance = null;
+  }
+
+  const termSummary = computeTermSummary(subjectBlocks);
+  const headTeacherId = await getTeacherHeadId(homeroomId).catch(() => '');
+  let workflow = null;
+  try {
+    workflow = await getOrCreateWorkflow(classId, studentId, term, {
+      homeroomTeacherId: homeroomId,
+      headTeacherId
+    });
+  } catch (e) {
+    const hit = await findWorkflow(classId, studentId, term);
+    workflow = hit ? hit.workflow : null;
+  }
+
+  const wfState = workflow ? workflow.state : WF_STATES.draft;
+  const canHomeroomSign = !!(access.isHomeroom && reportReady &&
+    (wfState === WF_STATES.draft || wfState === WF_STATES.signed_homeroom));
+  const canSubmitHead = !!(access.isHomeroom && wfState === WF_STATES.signed_homeroom);
+  // Parents receive cards only after Principal signs + shares
+  const canShare = false;
+
   return {
-    schoolName: 'Salt Academy Morning Class',
+    schoolName: SCHOOL_NAME,
+    schoolAddress: SCHOOL_ADDRESS,
     term,
+    termLabel: termDisplayLabel(term),
+    academicYear: academicYearLabel(),
     classId,
     className: classNames[classId] || classId,
     student: {
@@ -619,29 +696,60 @@ async function getFullStudentReportCard(teacherId, classId, studentId, term) {
       gradeLevel: meta.gradeLevel || ''
     },
     homeroomTeacherName: names[homeroomId] || overview.homeroomTeacherName || '',
+    homeroomTeacherId: homeroomId || '',
     subjects: subjectBlocks,
     workHabitFields: WORK_HABITS,
     ratingOptions: RATING_OPTIONS,
+    attendance,
+    termSummary,
+    gradeLegend: GRADE_LEGEND,
+    selLegend: SEL_LEGEND,
+    workflow: workflow
+      ? {
+        state: workflow.state,
+        stateLabel: stateLabel(workflow.state),
+        homeroomSigPath: workflow.homeroomSigPath,
+        headSigPath: workflow.headSigPath,
+        principalSigPath: workflow.principalSigPath,
+        homeroomSignedAt: workflow.homeroomSignedAt,
+        headSignedAt: workflow.headSignedAt,
+        principalSignedAt: workflow.principalSignedAt,
+        sharedAt: workflow.sharedAt,
+        scheduledShareAt: workflow.scheduledShareAt
+      }
+      : null,
     reportReady,
-    sharedWithParents: shared,
-    canShare: !!(access.isHomeroom && reportReady),
+    sharedWithParents: shared || wfState === WF_STATES.shared_parent,
+    canShare,
+    canHomeroomSign,
+    canSubmitHead,
     canGenerate: reportReady,
     generatedAt: new Date().toISOString()
   };
 }
 
-async function shareReportCardWithParents(teacherId, classId, studentId, term) {
-  const access = await getTeacherGradeAccess(teacherId, classId, '');
-  if (!access.isHomeroom) {
-    throw new Error('Only the Homeroom teacher can share the report card with parents.');
-  }
-  const card = await getFullStudentReportCard(teacherId, classId, studentId, term);
+async function shareReportCardWithParents(actorId, classId, studentId, term, opts) {
+  opts = opts || {};
+  const card = await getFullStudentReportCard(actorId, classId, studentId, term, {
+    bypassAccess: !!opts.bypassAccess
+  });
   if (!card.reportReady) {
     throw new Error('Report is not ready yet. All subject teachers must complete their sections first.');
   }
+  const wf = await getOrCreateWorkflow(classId, studentId, term, {
+    homeroomTeacherId: card.homeroomTeacherId
+  });
+  if (wf.state !== WF_STATES.signed_principal && wf.state !== WF_STATES.shared_parent) {
+    throw new Error('Principal must sign the report card before sharing with parents.');
+  }
+  const { markShared } = require('./reportCardWorkflowService');
+  await markShared(wf, opts.scheduledShareAt || '');
+  if (opts.scheduledShareAt && new Date(opts.scheduledShareAt).getTime() > Date.now()) {
+    return { shared: false, scheduled: true, scheduledShareAt: opts.scheduledShareAt, studentId, term };
+  }
   const now = new Date().toISOString();
   for (const subj of card.subjects) {
-    await upsertStatus(classId, studentId, term, subj.subject, teacherId, {
+    await upsertStatus(classId, studentId, term, subj.subject, actorId, {
       status: 'Complete',
       sharedWithParents: true,
       sharedAt: now
@@ -732,10 +840,30 @@ async function listParentReportCards(parentSession) {
     });
   }
 
+  let attendance = null;
+  try {
+    const range = defaultAcademicYearRange();
+    const yearAtt = await getStudentYearAttendance(classId, studentId, range.start, range.end);
+    const s = (yearAtt && yearAtt.summary) || {};
+    attendance = {
+      daysPresent: s.present || 0,
+      daysAbsent: (s.absent || 0) + (s.absentExcused || 0),
+      daysAbsentExcused: s.absentExcused || 0,
+      daysAbsentUnexcused: s.absent || 0,
+      daysTardy: (s.tardy || 0) + (s.tardyExcused || 0),
+      schoolDays: yearAtt.schoolDays || s.schoolDays || 0
+    };
+  } catch (e) { /* ignore */ }
+
+  const wfHit = await findWorkflow(classId, studentId, term);
+
   return {
     reports: [{
-      schoolName: 'Salt Academy Morning Class',
+      schoolName: SCHOOL_NAME,
+      schoolAddress: SCHOOL_ADDRESS,
       term,
+      termLabel: termDisplayLabel(term),
+      academicYear: academicYearLabel(),
       classId,
       className: classNames[classId] || classId,
       student: {
@@ -746,6 +874,24 @@ async function listParentReportCards(parentSession) {
       homeroomTeacherName: names[homeroomId] || '',
       subjects: subjectBlocks,
       workHabitFields: WORK_HABITS,
+      termSummary: computeTermSummary(subjectBlocks),
+      gradeLegend: GRADE_LEGEND,
+      selLegend: SEL_LEGEND,
+      attendance,
+      workflow: wfHit && wfHit.workflow
+        ? {
+          state: wfHit.workflow.state,
+          stateLabel: stateLabel(wfHit.workflow.state),
+          homeroomSigPath: wfHit.workflow.homeroomSigPath,
+          headSigPath: wfHit.workflow.headSigPath,
+          principalSigPath: wfHit.workflow.principalSigPath,
+          homeroomSignedAt: wfHit.workflow.homeroomSignedAt,
+          headSignedAt: wfHit.workflow.headSignedAt,
+          principalSignedAt: wfHit.workflow.principalSignedAt,
+          sharedAt: wfHit.workflow.sharedAt,
+          scheduledShareAt: wfHit.workflow.scheduledShareAt
+        }
+        : null,
       sharedWithParents: true,
       sharedAt: sharedSubjects[0].sharedAt || '',
       generatedAt: new Date().toISOString()
