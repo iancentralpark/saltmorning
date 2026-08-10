@@ -279,7 +279,7 @@ async function updateParentStudentProfile(session, payload) {
 
 /**
  * Translate a chat message for parent↔teacher messenger.
- * Fast path: single flash model, short prompt, server cache, no multi-model fallback.
+ * Fast path with a short model fallback list (avoids hard-fail when one model is busy).
  * targetLang: 'ko' | 'en'
  */
 const translateResultCache = new Map();
@@ -325,20 +325,37 @@ async function translateChatMessage(text, targetLang) {
   const langName = lang === 'en' ? 'English' : 'Korean';
   // Chat bodies are capped at 500 chars — keep output budget tight for speed.
   const maxOutputTokens = Math.min(768, Math.max(160, Math.ceil(text.length * 2.2) + 40));
-  const model = process.env.MESSENGER_TRANSLATE_MODEL
+  const primary = process.env.MESSENGER_TRANSLATE_MODEL
     || process.env.GEMINI_FAST_MODEL
-    || 'gemini-2.0-flash';
+    || 'gemini-2.5-flash-lite';
+  // Short curated list: stay fast, but recover when one model is overloaded.
+  const models = Array.from(new Set([
+    primary,
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-flash-latest',
+    'gemini-2.5-flash'
+  ].filter(Boolean)));
 
-  const result = await askGemini(
-    'Translate into natural ' + langName + '. Return ONLY the full translation, no quotes.\n\n' + text,
-    {
-      temperature: 0.1,
-      maxOutputTokens,
-      model,
-      retries: 1,
-      noFallback: true
+  let result;
+  try {
+    result = await askGemini(
+      'Translate into natural ' + langName + '. Return ONLY the full translation, no quotes.\n\n' + text,
+      {
+        temperature: 0.1,
+        maxOutputTokens,
+        model: primary,
+        models,
+        retries: 2
+      }
+    );
+  } catch (e) {
+    const msg = String((e && e.message) || e || '');
+    if (/busy|high demand|unavailable|overloaded|quota|rate/i.test(msg)) {
+      throw new Error('Translate is busy right now. Tap Translate again in a moment.');
     }
-  );
+    throw e;
+  }
   const translated = String(result.text || result.answer || '').trim()
     .replace(/^["'「『]|["'」』]$/g, '')
     .trim();
@@ -347,7 +364,7 @@ async function translateChatMessage(text, targetLang) {
     original: text,
     translated,
     targetLang: lang,
-    model: result.model || model
+    model: result.model || primary
   };
   setCachedTranslation(text, lang, payload);
   return payload;

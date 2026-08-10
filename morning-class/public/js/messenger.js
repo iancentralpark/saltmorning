@@ -24,7 +24,7 @@
   const autoTranslateByThread = Object.create(null);
   /** Prevent overlapping ensureTranslationsForThread loops */
   let translatingThreadId = null;
-  const TRANSLATE_CONCURRENCY = 3;
+  const TRANSLATE_CONCURRENCY = 2;
 
   function el(tag, cls, html) {
     const n = document.createElement(tag);
@@ -313,6 +313,12 @@
     const text = String(message.body || '').trim();
     if (!mid || !text) return null;
     if (translationCache[mid] && translationCache[mid].translated) return translationCache[mid];
+    if (translationCache[mid] && translationCache[mid].error) {
+      const until = translationCache[mid].retryAfter || 0;
+      if (until && Date.now() < until) return translationCache[mid];
+      if (!until) return translationCache[mid];
+      delete translationCache[mid];
+    }
     if (translateInFlight[mid]) return translateInFlight[mid];
 
     const targetLang = targetLangForRole();
@@ -331,10 +337,13 @@
         translationCache[mid] = entry;
         return entry;
       } catch (e) {
+        const msg = e.message || labels().failed;
+        const retryable = /busy|moment|quota|rate|unavailable|overloaded/i.test(msg);
         translationCache[mid] = {
           original: text,
           translated: '',
-          error: e.message || labels().failed
+          error: msg,
+          retryAfter: retryable ? Date.now() + 3000 : 0
         };
         return translationCache[mid];
       } finally {
@@ -351,12 +360,18 @@
     if (translatingThreadId === tid) return;
     translatingThreadId = tid;
     try {
-      const pending = messages.filter((m) =>
-        isTranslatableMessage(m) &&
-        !(translationCache[m.messageId] && translationCache[m.messageId].translated) &&
-        !(translationCache[m.messageId] && translationCache[m.messageId].error) &&
-        !translateInFlight[m.messageId]
-      );
+      const pending = messages.filter((m) => {
+        if (!isTranslatableMessage(m)) return false;
+        if (translateInFlight[m.messageId]) return false;
+        const c = translationCache[m.messageId];
+        if (!c) return true;
+        if (c.translated) return false;
+        if (c.error) {
+          if (c.retryAfter && Date.now() >= c.retryAfter) return true;
+          return false;
+        }
+        return true;
+      });
       if (!pending.length) return;
 
       let cursor = 0;
