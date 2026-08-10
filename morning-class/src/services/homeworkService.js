@@ -10,6 +10,10 @@ const LOG_HEADERS = ['HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Descript
 const ITEM_HEADERS = ['ItemID', 'HomeworkID', 'SortOrder', 'Title', 'Description', 'TargetStudentIDs', 'DueDate'];
 const COMP_HEADERS = ['ItemID', 'StudentID', 'Completed', 'CompletedAt', 'FixNote'];
 
+/** One-time DueDate header migration; skipCache thrash was slowing every homework read. */
+let homeworkHeaderMigrationDone = false;
+let homeworkHeaderMigrationInFlight = null;
+
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
 }
@@ -18,38 +22,49 @@ function todaySeoul() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
+async function migrateHomeworkDueDateHeaders() {
+  if (homeworkHeaderMigrationDone) return;
+  if (homeworkHeaderMigrationInFlight) return homeworkHeaderMigrationInFlight;
+  homeworkHeaderMigrationInFlight = (async () => {
+    try {
+      const logs = await getSheetRows(LOG_SHEET, { skipCache: true });
+      const header = logs[0] || [];
+      if (String(header[7] || '') !== 'DueDate') {
+        const next = header.slice();
+        while (next.length < LOG_HEADERS.length) next.push('');
+        for (let i = 0; i < LOG_HEADERS.length; i++) {
+          if (!String(next[i] || '').trim()) next[i] = LOG_HEADERS[i];
+        }
+        next[7] = 'DueDate';
+        await updateRange(LOG_SHEET, 'A1:H1', [next.slice(0, LOG_HEADERS.length)]);
+        invalidateSheetRowsCache(LOG_SHEET);
+      }
+    } catch (e) { /* non-fatal */ }
+    try {
+      const items = await getSheetRows(ITEMS_SHEET, { skipCache: true });
+      const header = items[0] || [];
+      if (String(header[6] || '') !== 'DueDate') {
+        const next = header.slice();
+        while (next.length < ITEM_HEADERS.length) next.push('');
+        for (let i = 0; i < ITEM_HEADERS.length; i++) {
+          if (!String(next[i] || '').trim()) next[i] = ITEM_HEADERS[i];
+        }
+        next[6] = 'DueDate';
+        await updateRange(ITEMS_SHEET, 'A1:G1', [next.slice(0, ITEM_HEADERS.length)]);
+        invalidateSheetRowsCache(ITEMS_SHEET);
+      }
+    } catch (e) { /* non-fatal */ }
+    homeworkHeaderMigrationDone = true;
+    homeworkHeaderMigrationInFlight = null;
+  })();
+  return homeworkHeaderMigrationInFlight;
+}
+
 async function ensureHomeworkSheets() {
   await ensureSheet(LOG_SHEET, LOG_HEADERS);
   await ensureSheet(ITEMS_SHEET, ITEM_HEADERS);
   await ensureSheet(COMPLETION_SHEET, COMP_HEADERS);
-  try {
-    const logs = await getSheetRows(LOG_SHEET, { skipCache: true });
-    const header = logs[0] || [];
-    if (String(header[7] || '') !== 'DueDate') {
-      const next = header.slice();
-      while (next.length < LOG_HEADERS.length) next.push('');
-      for (let i = 0; i < LOG_HEADERS.length; i++) {
-        if (!String(next[i] || '').trim()) next[i] = LOG_HEADERS[i];
-      }
-      next[7] = 'DueDate';
-      await updateRange(LOG_SHEET, 'A1:H1', [next.slice(0, LOG_HEADERS.length)]);
-      invalidateSheetRowsCache(LOG_SHEET);
-    }
-  } catch (e) { /* non-fatal */ }
-  try {
-    const items = await getSheetRows(ITEMS_SHEET, { skipCache: true });
-    const header = items[0] || [];
-    if (String(header[6] || '') !== 'DueDate') {
-      const next = header.slice();
-      while (next.length < ITEM_HEADERS.length) next.push('');
-      for (let i = 0; i < ITEM_HEADERS.length; i++) {
-        if (!String(next[i] || '').trim()) next[i] = ITEM_HEADERS[i];
-      }
-      next[6] = 'DueDate';
-      await updateRange(ITEMS_SHEET, 'A1:G1', [next.slice(0, ITEM_HEADERS.length)]);
-      invalidateSheetRowsCache(ITEMS_SHEET);
-    }
-  } catch (e) { /* non-fatal */ }
+  await migrateHomeworkDueDateHeaders();
 }
 
 function parseTargets(raw) {
@@ -248,6 +263,43 @@ async function getStudentHomeworkStatus(studentId, classId) {
   };
 }
 
+/** One sheet read for the whole class — avoids N× homework bundle loads in analytics. */
+async function getPendingHomeworkCounts(classId, opts) {
+  classId = String(classId || '');
+  opts = opts || {};
+  const bundlePromise = loadHomeworkBundle();
+  const roster = Array.isArray(opts.roster) ? opts.roster : await getClassRoster(classId);
+  const { logs, items, comps } = await bundlePromise;
+  const done = completionMap(comps);
+  const counts = Object.create(null);
+  roster.forEach((s) => { counts[s.studentId] = 0; });
+
+  const classHomeworkIds = new Set();
+  for (let i = 1; i < logs.length; i++) {
+    if (classId && String(logs[i][1]) !== classId) continue;
+    classHomeworkIds.add(String(logs[i][0]));
+  }
+
+  for (let j = 1; j < items.length; j++) {
+    const homeworkId = String(items[j][1] || '');
+    if (!classHomeworkIds.has(homeworkId)) continue;
+    const itemId = String(items[j][0] || '');
+    if (!itemId) continue;
+    const targets = parseTargets(items[j][5]);
+    const students = targets.length
+      ? targets
+      : roster.map((s) => s.studentId);
+    students.forEach((studentId) => {
+      if (!(studentId in counts)) counts[studentId] = 0;
+      const c = done[itemId + ':' + studentId];
+      if (c && c.completed) return;
+      counts[studentId] += 1;
+    });
+  }
+
+  return counts;
+}
+
 async function setHomeworkCompletion(itemId, studentId, completed, fixNote) {
   await ensureHomeworkSheets();
   itemId = String(itemId || '').trim();
@@ -286,6 +338,7 @@ module.exports = {
   postHomework,
   getClassHomework,
   getStudentHomeworkStatus,
+  getPendingHomeworkCounts,
   setHomeworkCompletion,
   todaySeoul
 };

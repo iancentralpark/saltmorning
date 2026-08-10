@@ -9,7 +9,7 @@ const {
 } = require('../../sheets');
 const { formatSheetDate, todayStr } = require('../../dateUtils');
 const { getClassRoster } = require('../teacherPortalService');
-const { getStudentHomeworkStatus } = require('../homeworkService');
+const { getPendingHomeworkCounts } = require('../homeworkService');
 const {
   calculateStudentStatus,
   summarizeEngagement,
@@ -50,10 +50,20 @@ function safeJson(v, fallback) {
   }
 }
 
+let analyticsSheetsReady = false;
+let analyticsSheetsInFlight = null;
+
 async function ensureAnalyticsSheets() {
-  await ensureSheet(ANALYTICS_TEST_REPORTS_SHEET, TEST_HEADERS);
-  await ensureSheet(ANALYTICS_DAILY_LOGS_SHEET, LOG_HEADERS);
-  await ensureSheet(ANALYTICS_INTERVENTIONS_SHEET, INT_HEADERS);
+  if (analyticsSheetsReady) return;
+  if (analyticsSheetsInFlight) return analyticsSheetsInFlight;
+  analyticsSheetsInFlight = (async () => {
+    await ensureSheet(ANALYTICS_TEST_REPORTS_SHEET, TEST_HEADERS);
+    await ensureSheet(ANALYTICS_DAILY_LOGS_SHEET, LOG_HEADERS);
+    await ensureSheet(ANALYTICS_INTERVENTIONS_SHEET, INT_HEADERS);
+    analyticsSheetsReady = true;
+    analyticsSheetsInFlight = null;
+  })();
+  return analyticsSheetsInFlight;
 }
 
 function parseTestRow(row) {
@@ -256,7 +266,7 @@ function defaultActions(status) {
   return map[status] || map.attention;
 }
 
-async function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendingHomework) {
+function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendingHomework) {
   const studentId = student.studentId;
   const testReports = allTests.filter((t) => t.studentId === studentId);
   const dailyLogs = allLogs.filter((l) => l.studentId === studentId);
@@ -277,26 +287,42 @@ async function buildStudentBundle(classId, student, allTests, allLogs, allInts, 
   };
 }
 
+function filterParsed(rows, parseFn, classId, studentId) {
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = parseFn(rows[i]);
+    if (!r) continue;
+    if (classId && r.classId !== String(classId)) continue;
+    if (studentId && r.studentId !== String(studentId)) continue;
+    out.push(r);
+  }
+  return out;
+}
+
 async function getClassAnalyticsDashboard(classId, opts) {
   opts = opts || {};
   classId = String(classId);
   await ensureAnalyticsSheets();
+
+  // Single parallel fan-out: roster + 3 analytics sheets + 1 homework bundle (not N× homework).
   const roster = await getClassRoster(classId);
-  const [tests, logs, ints] = await Promise.all([
-    listTestReports(classId),
-    listDailyLogs(classId),
-    listInterventions(classId)
+  const [testRows, logRows, intRows, pendingByStudent] = await Promise.all([
+    getSheetRows(ANALYTICS_TEST_REPORTS_SHEET),
+    getSheetRows(ANALYTICS_DAILY_LOGS_SHEET),
+    getSheetRows(ANALYTICS_INTERVENTIONS_SHEET),
+    getPendingHomeworkCounts(classId, { roster }).catch(() => ({}))
   ]);
 
-  const students = [];
-  for (const st of roster) {
-    let pending = 0;
-    try {
-      const hw = await getStudentHomeworkStatus(st.studentId, classId);
-      pending = (hw.pending || []).length;
-    } catch (e) { /* optional */ }
-    students.push(await buildStudentBundle(classId, st, tests, logs, ints, pending));
-  }
+  const tests = filterParsed(testRows, parseTestRow, classId)
+    .sort((a, b) => a.testDate.localeCompare(b.testDate));
+  const logs = filterParsed(logRows, parseLogRow, classId)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const ints = filterParsed(intRows, parseInterventionRow, classId)
+    .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+
+  const students = roster.map((st) =>
+    buildStudentBundle(classId, st, tests, logs, ints, pendingByStudent[st.studentId] || 0)
+  );
 
   const statusFilter = opts.status ? String(opts.status) : '';
   let filtered = students;
