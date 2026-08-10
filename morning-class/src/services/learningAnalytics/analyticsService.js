@@ -1,0 +1,346 @@
+const crypto = require('crypto');
+const {
+  ANALYTICS_TEST_REPORTS_SHEET,
+  ANALYTICS_DAILY_LOGS_SHEET,
+  ANALYTICS_INTERVENTIONS_SHEET
+} = require('../../config');
+const {
+  getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache
+} = require('../../sheets');
+const { formatSheetDate, todayStr } = require('../../dateUtils');
+const { getClassRoster } = require('../teacherPortalService');
+const { getStudentHomeworkStatus } = require('../homeworkService');
+const {
+  calculateStudentStatus,
+  summarizeEngagement,
+  buildDomainProfile,
+  buildProgressSeries,
+  STATUS_META
+} = require('./statusEngine');
+const { parseAssessmentInput } = require('./assessmentParser');
+
+const TEST_HEADERS = [
+  'ReportID', 'StudentID', 'ClassID', 'Source', 'TestDate',
+  'Score', 'Percentile', 'Lexile', 'RitScore', 'DomainScoresJSON', 'RawMetaJSON', 'CreatedAt'
+];
+const LOG_HEADERS = [
+  'LogID', 'StudentID', 'ClassID', 'Date', 'VocabScore', 'FormativeScore',
+  'HomeworkSubmitted', 'HomeworkAssigned', 'Participation', 'Notes', 'CreatedAt'
+];
+const INT_HEADERS = [
+  'InterventionID', 'StudentID', 'ClassID', 'Status', 'RootCausesJSON',
+  'TeacherReport', 'ParentReport', 'RecommendedActionsJSON', 'CreatedAt', 'UpdatedAt'
+];
+
+function newId(prefix) {
+  return prefix + '_' + crypto.randomBytes(5).toString('hex');
+}
+
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function safeJson(v, fallback) {
+  try {
+    if (v == null || v === '') return fallback;
+    if (typeof v === 'object') return v;
+    return JSON.parse(String(v));
+  } catch (e) {
+    return fallback;
+  }
+}
+
+async function ensureAnalyticsSheets() {
+  await ensureSheet(ANALYTICS_TEST_REPORTS_SHEET, TEST_HEADERS);
+  await ensureSheet(ANALYTICS_DAILY_LOGS_SHEET, LOG_HEADERS);
+  await ensureSheet(ANALYTICS_INTERVENTIONS_SHEET, INT_HEADERS);
+}
+
+function parseTestRow(row) {
+  if (!row || !row[0]) return null;
+  return {
+    reportId: String(row[0]),
+    studentId: String(row[1] || ''),
+    classId: String(row[2] || ''),
+    source: String(row[3] || 'other'),
+    testDate: formatSheetDate(row[4]),
+    score: row[5] === '' || row[5] == null ? null : Number(row[5]),
+    percentile: row[6] === '' || row[6] == null ? null : Number(row[6]),
+    lexile: String(row[7] || '') || null,
+    ritScore: row[8] === '' || row[8] == null ? null : Number(row[8]),
+    domainScores: safeJson(row[9], []),
+    rawMeta: safeJson(row[10], {}),
+    createdAt: String(row[11] || '')
+  };
+}
+
+function parseLogRow(row) {
+  if (!row || !row[0]) return null;
+  return {
+    logId: String(row[0]),
+    studentId: String(row[1] || ''),
+    classId: String(row[2] || ''),
+    date: formatSheetDate(row[3]),
+    vocabScore: row[4] === '' || row[4] == null ? null : Number(row[4]),
+    formativeScore: row[5] === '' || row[5] == null ? null : Number(row[5]),
+    homeworkSubmitted: Number(row[6]) || 0,
+    homeworkAssigned: Number(row[7]) || 0,
+    participation: row[8] === '' || row[8] == null ? null : Number(row[8]),
+    notes: String(row[9] || ''),
+    createdAt: String(row[10] || '')
+  };
+}
+
+function parseInterventionRow(row) {
+  if (!row || !row[0]) return null;
+  return {
+    interventionId: String(row[0]),
+    studentId: String(row[1] || ''),
+    classId: String(row[2] || ''),
+    status: String(row[3] || ''),
+    rootCauses: safeJson(row[4], []),
+    teacherReport: String(row[5] || ''),
+    parentReport: String(row[6] || ''),
+    recommendedActions: safeJson(row[7], []),
+    createdAt: String(row[8] || ''),
+    updatedAt: String(row[9] || '')
+  };
+}
+
+async function listTestReports(classId, studentId) {
+  await ensureAnalyticsSheets();
+  const rows = await getSheetRows(ANALYTICS_TEST_REPORTS_SHEET);
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = parseTestRow(rows[i]);
+    if (!r) continue;
+    if (classId && r.classId !== String(classId)) continue;
+    if (studentId && r.studentId !== String(studentId)) continue;
+    out.push(r);
+  }
+  return out.sort((a, b) => a.testDate.localeCompare(b.testDate));
+}
+
+async function listDailyLogs(classId, studentId) {
+  await ensureAnalyticsSheets();
+  const rows = await getSheetRows(ANALYTICS_DAILY_LOGS_SHEET);
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = parseLogRow(rows[i]);
+    if (!r) continue;
+    if (classId && r.classId !== String(classId)) continue;
+    if (studentId && r.studentId !== String(studentId)) continue;
+    out.push(r);
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+async function listInterventions(classId, studentId) {
+  await ensureAnalyticsSheets();
+  const rows = await getSheetRows(ANALYTICS_INTERVENTIONS_SHEET);
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = parseInterventionRow(rows[i]);
+    if (!r) continue;
+    if (classId && r.classId !== String(classId)) continue;
+    if (studentId && r.studentId !== String(studentId)) continue;
+    out.push(r);
+  }
+  return out.sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+}
+
+async function saveTestReports(reports) {
+  await ensureAnalyticsSheets();
+  if (!Array.isArray(reports) || !reports.length) throw new Error('No reports to save.');
+  const now = isoNow();
+  const rows = reports.map((r) => [
+    r.reportId || newId('atr'),
+    String(r.studentId),
+    String(r.classId || ''),
+    String(r.source || 'other'),
+    formatSheetDate(r.testDate),
+    r.score == null ? '' : r.score,
+    r.percentile == null ? '' : r.percentile,
+    r.lexile || '',
+    r.ritScore == null ? '' : r.ritScore,
+    JSON.stringify(r.domainScores || []),
+    JSON.stringify(r.rawMeta || {}),
+    now
+  ]);
+  await appendRows(ANALYTICS_TEST_REPORTS_SHEET, rows);
+  invalidateSheetRowsCache(ANALYTICS_TEST_REPORTS_SHEET);
+  return { saved: rows.length };
+}
+
+async function saveDailyLogs(logs) {
+  await ensureAnalyticsSheets();
+  if (!Array.isArray(logs) || !logs.length) throw new Error('No logs to save.');
+  const now = isoNow();
+  const rows = logs.map((l) => [
+    l.logId || newId('adl'),
+    String(l.studentId),
+    String(l.classId || ''),
+    formatSheetDate(l.date),
+    l.vocabScore == null ? '' : l.vocabScore,
+    l.formativeScore == null ? '' : l.formativeScore,
+    Number(l.homeworkSubmitted) || 0,
+    Number(l.homeworkAssigned) || 0,
+    l.participation == null ? '' : l.participation,
+    String(l.notes || ''),
+    now
+  ]);
+  await appendRows(ANALYTICS_DAILY_LOGS_SHEET, rows);
+  invalidateSheetRowsCache(ANALYTICS_DAILY_LOGS_SHEET);
+  return { saved: rows.length };
+}
+
+async function importAssessments(payload) {
+  const classId = String(payload.classId || '');
+  const sourceHint = payload.source || '';
+  const defaults = { classId, source: sourceHint };
+  const parsed = parseAssessmentInput(payload.data != null ? payload.data : payload, defaults)
+    .map((r) => Object.assign({}, r, {
+      classId: r.classId || classId,
+      source: sourceHint ? (sourceHint === 'sr' ? 'star_reading' : sourceHint) : r.source
+    }));
+  if (!parsed.length) throw new Error('Could not parse any assessment rows.');
+  return saveTestReports(parsed);
+}
+
+async function saveIntervention(record) {
+  await ensureAnalyticsSheets();
+  const now = isoNow();
+  const id = record.interventionId || newId('ain');
+  const data = await getSheetRows(ANALYTICS_INTERVENTIONS_SHEET, { skipCache: true });
+  let found = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === id) { found = i + 1; break; }
+  }
+  const row = [
+    id,
+    String(record.studentId),
+    String(record.classId || ''),
+    String(record.status || ''),
+    JSON.stringify(record.rootCauses || []),
+    String(record.teacherReport || ''),
+    String(record.parentReport || ''),
+    JSON.stringify(record.recommendedActions || []),
+    found > 0 ? String(data[found - 1][8] || now) : now,
+    now
+  ];
+  if (found > 0) await updateRange(ANALYTICS_INTERVENTIONS_SHEET, `A${found}:J${found}`, [row]);
+  else await appendRows(ANALYTICS_INTERVENTIONS_SHEET, [row]);
+  invalidateSheetRowsCache(ANALYTICS_INTERVENTIONS_SHEET);
+  return parseInterventionRow(row);
+}
+
+function defaultActions(status) {
+  const map = {
+    on_track: ['Maintain current routine', 'Celebrate growth with student/parent'],
+    attention: [
+      'Check 2+ pending homework items this week',
+      'Add short formative check-in on weak domain'
+    ],
+    warning: [
+      'Schedule 1:1 reading conference',
+      'Assign targeted practice on declining domain',
+      'Notify parent of downward trend'
+    ],
+    intervention: [
+      'Assign 10-min daily vocab clinic (Mon–Fri)',
+      'Reduce homework load temporarily; prioritize completion',
+      'Homeroom + subject teacher intervention meeting',
+      'Share parent-friendly action plan this week'
+    ]
+  };
+  return map[status] || map.attention;
+}
+
+async function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendingHomework) {
+  const studentId = student.studentId;
+  const testReports = allTests.filter((t) => t.studentId === studentId);
+  const dailyLogs = allLogs.filter((l) => l.studentId === studentId);
+  const engagement = summarizeEngagement(dailyLogs, pendingHomework);
+  const status = calculateStudentStatus({ testReports, dailyLogs, engagement, pendingHomework });
+  const ints = allInts.filter((i) => i.studentId === studentId);
+  return {
+    studentId,
+    name: student.name,
+    classId,
+    testReports,
+    dailyLogs,
+    engagement,
+    progressSeries: buildProgressSeries(testReports, dailyLogs),
+    domainProfile: buildDomainProfile(testReports),
+    status,
+    latestIntervention: ints[0] || null
+  };
+}
+
+async function getClassAnalyticsDashboard(classId, opts) {
+  opts = opts || {};
+  classId = String(classId);
+  await ensureAnalyticsSheets();
+  const roster = await getClassRoster(classId);
+  const [tests, logs, ints] = await Promise.all([
+    listTestReports(classId),
+    listDailyLogs(classId),
+    listInterventions(classId)
+  ]);
+
+  const students = [];
+  for (const st of roster) {
+    let pending = 0;
+    try {
+      const hw = await getStudentHomeworkStatus(st.studentId, classId);
+      pending = (hw.pending || []).length;
+    } catch (e) { /* optional */ }
+    students.push(await buildStudentBundle(classId, st, tests, logs, ints, pending));
+  }
+
+  const statusFilter = opts.status ? String(opts.status) : '';
+  let filtered = students;
+  if (statusFilter) filtered = students.filter((s) => s.status.status === statusFilter);
+
+  const counts = { on_track: 0, attention: 0, warning: 0, intervention: 0 };
+  students.forEach((s) => { counts[s.status.status] = (counts[s.status.status] || 0) + 1; });
+
+  filtered.sort((a, b) => {
+    const ra = STATUS_META[a.status.status]?.rank ?? 0;
+    const rb = STATUS_META[b.status.status]?.rank ?? 0;
+    if (rb !== ra) return rb - ra;
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    classId,
+    generatedAt: isoNow(),
+    counts,
+    statusMeta: STATUS_META,
+    students: filtered,
+    totalStudents: students.length
+  };
+}
+
+async function getStudentAnalytics(classId, studentId) {
+  const dash = await getClassAnalyticsDashboard(classId);
+  const hit = (dash.students || []).find((s) => s.studentId === String(studentId));
+  if (!hit) throw new Error('Student not found in class analytics.');
+  return hit;
+}
+
+module.exports = {
+  ensureAnalyticsSheets,
+  listTestReports,
+  listDailyLogs,
+  listInterventions,
+  saveTestReports,
+  saveDailyLogs,
+  importAssessments,
+  saveIntervention,
+  getClassAnalyticsDashboard,
+  getStudentAnalytics,
+  defaultActions,
+  STATUS_META,
+  todayStr
+};

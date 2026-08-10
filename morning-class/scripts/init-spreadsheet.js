@@ -52,6 +52,10 @@ const SHEETS = [
     ['RCF03', 'C001', 'Term1', 'English', 'comment', 'Teacher Comment', '3', '0']
   ] },
   { name: 'ReportCard_Entries', headers: ['EntryID', 'ClassID', 'StudentID', 'Term', 'Subject', 'FieldKey', 'Score', 'Comment', 'TeacherID', 'UpdatedAt'] },
+  { name: 'ReportCard_Status', headers: ['StatusID', 'ClassID', 'StudentID', 'Term', 'Subject', 'TeacherID', 'Status', 'SharedWithParents', 'SharedAt', 'UpdatedAt'] },
+  { name: 'Analytics_TestReports', headers: ['ReportID', 'StudentID', 'ClassID', 'Source', 'TestDate', 'Score', 'Percentile', 'Lexile', 'RitScore', 'DomainScoresJSON', 'RawMetaJSON', 'CreatedAt'] },
+  { name: 'Analytics_DailyLogs', headers: ['LogID', 'StudentID', 'ClassID', 'Date', 'VocabScore', 'FormativeScore', 'HomeworkSubmitted', 'HomeworkAssigned', 'Participation', 'Notes', 'CreatedAt'] },
+  { name: 'Analytics_Interventions', headers: ['InterventionID', 'StudentID', 'ClassID', 'Status', 'RootCausesJSON', 'TeacherReport', 'ParentReport', 'RecommendedActionsJSON', 'CreatedAt', 'UpdatedAt'] },
   { name: 'Lesson_Plans', headers: ['PlanID', 'TeacherID', 'ClassID', 'Subject', 'WeekStart', 'Title', 'Objectives', 'Materials', 'Procedure', 'Homework', 'Status', 'SubmittedAt', 'CreatedAt', 'UpdatedAt', 'LessonDate', 'Etc'] },
   { name: 'Dollar_Balances', headers: ['StudentID', 'Balance'] },
   { name: 'Dollar_Transactions', headers: ['Timestamp', 'ClassID', 'StudentID', 'Amount', 'NewBalance', 'Reason'] },

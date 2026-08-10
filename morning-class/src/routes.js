@@ -118,6 +118,13 @@ const {
   listClassGradeSubjects
 } = require('./services/subjectAssignmentService');
 const {
+  getClassAnalyticsDashboard,
+  getStudentAnalytics,
+  importAssessments,
+  seedLearningAnalyticsMock,
+  generateAiDiagnostic
+} = require('./services/learningAnalytics');
+const {
   listStudents,
   getStudent,
   saveStudent,
@@ -781,6 +788,72 @@ router.post('/teacher/class/:classId/report-card/share', requireRole('teacher'),
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not share report card.' });
+  }
+});
+
+router.get('/teacher/class/:classId/analytics', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const data = await getClassAnalyticsDashboard(req.params.classId, {
+      status: req.query.status || ''
+    });
+    res.json(data);
+  } catch (e) {
+    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load analytics.' });
+  }
+});
+
+router.get('/teacher/class/:classId/analytics/students/:studentId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    res.json(await getStudentAnalytics(req.params.classId, req.params.studentId));
+  } catch (e) {
+    const status = /not assigned|access|not found/i.test(e.message || '') ? 404 : 500;
+    res.status(status).json({ error: e.message || 'Could not load student analytics.' });
+  }
+});
+
+router.post('/teacher/class/:classId/analytics/import', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const result = await importAssessments(Object.assign({}, req.body || {}, {
+      classId: req.params.classId
+    }));
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Import failed.' });
+  }
+});
+
+router.post('/teacher/class/:classId/analytics/seed-mock', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    res.json(await seedLearningAnalyticsMock(req.params.classId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not seed mock analytics.' });
+  }
+});
+
+router.post('/teacher/class/:classId/analytics/students/:studentId/diagnose', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    res.json(await generateAiDiagnostic(req.params.classId, req.params.studentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not generate diagnostic.' });
+  }
+});
+
+router.post('/dev/seed-learning-analytics', async (req, res) => {
+  try {
+    const key = String((req.body && req.body.key) || req.query.key || '');
+    if (key !== String(process.env.DEMO_SEED_KEY || 'salt-demo-seed')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const classId = (req.body && req.body.classId) || 'C001';
+    res.json(await seedLearningAnalyticsMock(classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Seed failed.' });
   }
 });
 
