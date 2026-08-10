@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708libs">
+  <link rel="stylesheet" href="/css/app.css?v=20260810parent">
 </head>
 <body>
 <div class="shell">
@@ -14,45 +14,114 @@
     <p><a href="/">Go to login</a></p>
   </div>
 
-  <div id="appView" class="hidden">
+  <div id="appView" class="hidden pp-app">
     <div class="topbar">
       <div class="brand" id="welcomeText">Parent</div>
       <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
     </div>
-    <div id="tabAnnouncements" class="card">
-      <div id="announceList"></div>
+
+    <div id="ppHero" class="pp-hero card"></div>
+
+    <div class="tabs" style="margin-bottom:0.75rem">
+      <button class="tab active" data-tab="feed" type="button">Newsfeed</button>
+      <button class="tab" data-tab="attendance" type="button">Attendance</button>
+      <button class="tab" data-tab="timetable" type="button">Timetable</button>
+      <button class="tab" data-tab="homework" type="button">Homework</button>
+      <button class="tab" data-tab="reportcards" type="button">Report cards</button>
+      <button class="tab" data-tab="profile" type="button">Profile</button>
+      <button class="tab" data-tab="messages" type="button">Messages</button>
+    </div>
+
+    <div id="tabFeed" class="card">
+      <h3 style="margin-top:0">Updates</h3>
+      <div id="ppFeed"></div>
+    </div>
+
+    <div id="tabAttendance" class="card hidden">
+      <div class="ya-top">
+        <div class="ya-meta" id="ppAttMeta"></div>
+        <div class="ya-pie-wrap">
+          <div class="ya-pie" id="ppAttPie" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="ya-month-nav">
+        <button type="button" class="btn btn-ghost" id="yearAttPrev">‹</button>
+        <strong id="ppAttMonthLabel"></strong>
+        <button type="button" class="btn btn-ghost" id="yearAttNext">›</button>
+      </div>
+      <div id="ppAttCal"></div>
+    </div>
+
+    <div id="tabTimetable" class="card hidden">
+      <div id="ppTimetable"></div>
+    </div>
+
+    <div id="tabHomework" class="card hidden">
+      <div id="ppHomework"></div>
+    </div>
+
+    <div id="tabReportcards" class="card hidden">
+      <div id="parentReportList" class="rc-parent-list"></div>
+      <div id="parentReportBody"></div>
+      <div class="error" id="parentReportError"></div>
+    </div>
+
+    <div id="tabProfile" class="card hidden">
+      <h3 style="margin-top:0">Student information</h3>
+      <p class="muted small">Update contact and medical details for <strong id="ppName"></strong>
+        (<span id="ppClass" class="muted"></span></p>
+      <form id="ppProfileForm" class="form-grid admin-form-grid">
+        <label>Parent / guardian name <input id="pp_parentName"></label>
+        <label>Parent phone <input id="pp_parentPhone"></label>
+        <label>Parent email <input id="pp_parentEmail"></label>
+        <label>Student phone <input id="pp_phone"></label>
+        <label>Student email <input id="pp_email"></label>
+        <label>Nationality <input id="pp_nationality"></label>
+        <label class="pp-span-2">Address <input id="pp_address"></label>
+        <label>Emergency contact <input id="pp_emergencyContact"></label>
+        <label>Emergency phone <input id="pp_emergencyPhone"></label>
+        <label class="pp-span-2">Notes <input id="pp_notes"></label>
+        <div class="pp-span-2">
+          <h4>Medical</h4>
+          <div id="ppMedical" class="form-grid admin-form-grid"></div>
+        </div>
+        <div class="pp-span-2" style="display:flex;gap:0.5rem;align-items:center">
+          <button type="submit" class="btn btn-primary">Save profile</button>
+          <span class="ok" id="ppProfileOk"></span>
+          <span class="error" id="ppProfileError"></span>
+        </div>
+      </form>
+    </div>
+
+    <div id="tabMessages" class="card hidden">
+      <div id="ppMessagesHint"></div>
+      <h4>Teachers</h4>
+      <div id="ppTeacherList" class="pp-teacher-list"></div>
+      <p class="muted small">Or use the chat bubble — Translate turns English teacher replies into Korean.</p>
     </div>
   </div>
 </div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/messenger.js?v=20260708libs"></script>
+<script src="/js/app.js?v=20260806login2"></script>
+<script src="/js/messenger.js?v=20260810parent"></script>
+<script src="/js/parent.js?v=20260810parent"></script>
 <script>
 (function() {
   const role = 'parent';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
 
-  async function loadAnnouncements() {
-    const data = await api('/api/parent/announcements', {}, role);
-    $('announceList').innerHTML = (data.announcements || []).map(a =>
-      '<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">' +
-      '<strong>' + escapeHtml(a.title) + '</strong>' +
-      '<div style="color:var(--muted);font-size:.8rem;margin:.25rem 0">' + escapeHtml(a.postedAt) + '</div>' +
-      '<div>' + escapeHtml(a.body) + '</div></div>'
-    ).join('') || '<p style="color:var(--muted)">No announcements yet.</p>';
-  }
+  SaltParent.init({ api, $, show, hide, escapeHtml });
 
   $('logoutBtn').addEventListener('click', () => {
     setToken(role, ''); setProfile(role, null); location.href = '/';
   });
 
-  function bootApp() {
+  async function bootApp() {
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView')); show($('appView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name;
-    loadAnnouncements();
     SaltMessenger.init(role);
+    await SaltParent.boot();
   }
 
   if (getToken(role)) bootApp();

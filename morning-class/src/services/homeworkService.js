@@ -6,8 +6,8 @@ const LOG_SHEET = 'Homework_Log';
 const ITEMS_SHEET = 'Homework_Items';
 const COMPLETION_SHEET = 'Homework_Completion';
 
-const LOG_HEADERS = ['HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt'];
-const ITEM_HEADERS = ['ItemID', 'HomeworkID', 'SortOrder', 'Title', 'Description', 'TargetStudentIDs'];
+const LOG_HEADERS = ['HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt', 'DueDate'];
+const ITEM_HEADERS = ['ItemID', 'HomeworkID', 'SortOrder', 'Title', 'Description', 'TargetStudentIDs', 'DueDate'];
 const COMP_HEADERS = ['ItemID', 'StudentID', 'Completed', 'CompletedAt', 'FixNote'];
 
 function newId(prefix) {
@@ -22,6 +22,34 @@ async function ensureHomeworkSheets() {
   await ensureSheet(LOG_SHEET, LOG_HEADERS);
   await ensureSheet(ITEMS_SHEET, ITEM_HEADERS);
   await ensureSheet(COMPLETION_SHEET, COMP_HEADERS);
+  try {
+    const logs = await getSheetRows(LOG_SHEET, { skipCache: true });
+    const header = logs[0] || [];
+    if (String(header[7] || '') !== 'DueDate') {
+      const next = header.slice();
+      while (next.length < LOG_HEADERS.length) next.push('');
+      for (let i = 0; i < LOG_HEADERS.length; i++) {
+        if (!String(next[i] || '').trim()) next[i] = LOG_HEADERS[i];
+      }
+      next[7] = 'DueDate';
+      await updateRange(LOG_SHEET, 'A1:H1', [next.slice(0, LOG_HEADERS.length)]);
+      invalidateSheetRowsCache(LOG_SHEET);
+    }
+  } catch (e) { /* non-fatal */ }
+  try {
+    const items = await getSheetRows(ITEMS_SHEET, { skipCache: true });
+    const header = items[0] || [];
+    if (String(header[6] || '') !== 'DueDate') {
+      const next = header.slice();
+      while (next.length < ITEM_HEADERS.length) next.push('');
+      for (let i = 0; i < ITEM_HEADERS.length; i++) {
+        if (!String(next[i] || '').trim()) next[i] = ITEM_HEADERS[i];
+      }
+      next[6] = 'DueDate';
+      await updateRange(ITEMS_SHEET, 'A1:G1', [next.slice(0, ITEM_HEADERS.length)]);
+      invalidateSheetRowsCache(ITEMS_SHEET);
+    }
+  } catch (e) { /* non-fatal */ }
 }
 
 function parseTargets(raw) {
@@ -39,14 +67,15 @@ async function postHomework(classId, payload) {
   const title = String(payload.title || '').trim() || 'Homework';
   const description = String(payload.description || '').trim();
   const assignedDate = String(payload.assignedDate || todaySeoul()).trim();
+  const dueDate = String(payload.dueDate || '').trim();
   const itemsIn = Array.isArray(payload.items) && payload.items.length
     ? payload.items
-    : [{ title, description }];
+    : [{ title, description, dueDate }];
 
   const homeworkId = newId('hw');
   const postedAt = new Date().toISOString();
   await appendRows(LOG_SHEET, [[
-    homeworkId, classId, assignedDate, title, description, '', postedAt
+    homeworkId, classId, assignedDate, title, description, '', postedAt, dueDate
   ]]);
 
   const itemRows = itemsIn.map((it, idx) => {
@@ -60,7 +89,8 @@ async function postHomework(classId, payload) {
       String(idx),
       itemTitle,
       String(it.description || description || '').trim(),
-      targets
+      targets,
+      String(it.dueDate || dueDate || '').trim()
     ];
   });
   await appendRows(ITEMS_SHEET, itemRows);
@@ -108,6 +138,7 @@ async function getClassHomework(classId) {
   for (let i = 1; i < logs.length; i++) {
     if (String(logs[i][1]) !== classId) continue;
     const homeworkId = String(logs[i][0]);
+    const hwDue = String(logs[i][7] || '');
     const hwItems = [];
     for (let j = 1; j < items.length; j++) {
       if (String(items[j][1]) !== homeworkId) continue;
@@ -129,6 +160,7 @@ async function getClassHomework(classId) {
         itemId,
         title: String(items[j][3] || ''),
         description: String(items[j][4] || ''),
+        dueDate: String(items[j][6] || hwDue || ''),
         targetStudentIds: targets,
         sortOrder: Number(items[j][2]) || 0,
         completions,
@@ -141,6 +173,7 @@ async function getClassHomework(classId) {
       homeworkId,
       classId,
       assignedDate: String(logs[i][2] || ''),
+      dueDate: hwDue,
       title: String(logs[i][3] || ''),
       description: String(logs[i][4] || ''),
       postedAt: String(logs[i][6] || ''),
@@ -150,7 +183,16 @@ async function getClassHomework(classId) {
 
   homeworks.sort((a, b) => String(b.assignedDate).localeCompare(String(a.assignedDate)) ||
     String(b.postedAt).localeCompare(String(a.postedAt)));
-  return { homeworks, students: roster };
+
+  const byDate = {};
+  homeworks.forEach((hw) => {
+    const d = hw.assignedDate || 'undated';
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(hw);
+  });
+  const dates = Object.keys(byDate).sort((a, b) => String(b).localeCompare(String(a)));
+
+  return { homeworks, byDate, dates, students: roster };
 }
 
 async function getStudentHomeworkStatus(studentId, classId) {
@@ -168,6 +210,7 @@ async function getStudentHomeworkStatus(studentId, classId) {
     if (classId && String(logs[i][1]) !== classId) continue;
     const homeworkId = String(logs[i][0]);
     const assignedDate = String(logs[i][2] || '');
+    const hwDue = String(logs[i][7] || '');
     const hwTitle = String(logs[i][3] || 'Homework');
 
     for (let j = 1; j < items.length; j++) {
@@ -176,10 +219,12 @@ async function getStudentHomeworkStatus(studentId, classId) {
       if (targets.length && !targets.includes(studentId)) continue;
 
       const itemId = String(items[j][0]);
+      const dueDate = String(items[j][6] || hwDue || '');
       const entry = {
         homeworkId,
         itemId,
         assignedDate,
+        dueDate,
         title: String(items[j][3] || hwTitle),
         description: String(items[j][4] || logs[i][4] || ''),
         homeworkTitle: hwTitle
@@ -189,7 +234,7 @@ async function getStudentHomeworkStatus(studentId, classId) {
         completed.push({ ...entry, completedAt: c.completedAt, fixNote: c.fixNote });
       } else {
         pending.push(entry);
-        if (assignedDate === today) todayList.push(entry);
+        if (assignedDate === today || dueDate === today) todayList.push(entry);
       }
     }
   }

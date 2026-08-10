@@ -711,5 +711,6 @@ module.exports = {
   aggregateCategoryPercent,
   pctScore,
   ensureGradesColumns,
-  ensureAssessmentSheet
+  ensureAssessmentSheet,
+  clearGradebookCache
 };

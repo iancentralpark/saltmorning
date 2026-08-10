@@ -10,6 +10,7 @@
   let escapeHtml = null;
   let classes = [];
   let teachers = [];
+  let boardHandle = null;
 
   function renderBellEditor(mountEl, schedule) {
     const periods = (schedule && schedule.periods) || [];
@@ -30,7 +31,7 @@
     mountEl.innerHTML =
       '<div class="tt-setup-section">' +
       '<h4>Bell schedule (school day structure)</h4>' +
-      '<p class="muted small">Set each period, recess, and lunch. Only <strong>Lesson</strong> rows are used for auto-scheduling.</p>' +
+      '<p class="muted small">Set each period, recess, and lunch. Only <strong>Lesson</strong> rows are used for scheduling and Auto-Solve.</p>' +
       '<table class="grades-table tt-bell-table"><thead><tr><th>Label</th><th>Type</th><th>Start</th><th>End</th><th></th></tr></thead>' +
       '<tbody>' + (rows || '<tr><td colspan="5" class="muted">No periods</td></tr>') + '</tbody></table>' +
       '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">' +
@@ -71,7 +72,7 @@
       try {
         await api('/api/admin/timetable/bell-schedule', { method: 'POST', body: { periods: payload } }, 'admin');
         errEl.style.color = '#16a34a';
-        errEl.textContent = 'Bell schedule saved.';
+        errEl.textContent = 'Bell schedule saved. Reload the class board to pick up new periods.';
       } catch (e) {
         errEl.style.color = '#dc2626';
         errEl.textContent = e.message;
@@ -93,6 +94,49 @@
     }
   }
 
+  async function openClassBoard(boardMount, classId, requirements) {
+    if (!boardMount || !classId || !global.SaltTimetable || !global.SaltTimetable.renderClassBoard) {
+      if (boardMount) boardMount.innerHTML = '<p class="muted">Class board unavailable.</p>';
+      return;
+    }
+    const cls = classes.find((c) => c.classId === classId);
+    boardMount.innerHTML = '<p class="muted">Loading class board…</p>';
+    try {
+      const tt = await api('/api/admin/timetable/classes/' + encodeURIComponent(classId), {}, 'admin');
+      boardHandle = global.SaltTimetable.renderClassBoard(boardMount, {
+        classId,
+        className: cls ? cls.name : classId,
+        teachers,
+        requirements: requirements || [],
+        timetable: tt.timetable
+      });
+    } catch (e) {
+      boardMount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function linkedClassPickerHtml(currentClassId, selectedIds) {
+    const selected = new Set((selectedIds || []).map(String));
+    const others = (classes || []).filter((c) => String(c.classId) !== String(currentClassId));
+    if (!others.length) {
+      return '<span class="muted small">No other classes</span>';
+    }
+    return (
+      '<div class="tt-req-linked">' +
+      others.map((c) =>
+        '<label class="tt-req-linked-item">' +
+        '<input type="checkbox" class="tt-req-linked-cb" value="' + escapeHtml(c.classId) + '"' +
+        (selected.has(String(c.classId)) ? ' checked' : '') + '>' +
+        '<span>' + escapeHtml(c.name) + '</span></label>'
+      ).join('') +
+      '</div>'
+    );
+  }
+
+  function readLinkedClassIds(tr) {
+    return Array.from(tr.querySelectorAll('.tt-req-linked-cb:checked')).map((el) => el.value);
+  }
+
   function renderRequirements(mountEl, classId, requirements) {
     const teacherOpts = teachers.map((t) =>
       '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
@@ -103,21 +147,25 @@
         '<option value="' + escapeHtml(t.teacherId) + '"' +
         (t.teacherId === r.teacherId ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>'
       ).join('');
+      const linked = (r.classIds || [r.classId].concat(r.linkedClassIds || []))
+        .map(String)
+        .filter((id) => id && id !== String(classId));
       return (
-      '<tr data-idx="' + i + '">' +
-      '<td><input class="tt-req-subject" value="' + escapeHtml(r.subject) + '" list="ttSubjectList"></td>' +
-      '<td><select class="tt-req-teacher">' + tOpts + '</select></td>' +
-      '<td><input type="number" class="tt-req-ppw" min="1" max="20" value="' + (r.periodsPerWeek || 5) + '" style="width:4rem"></td>' +
-      '<td><input class="tt-req-room" value="' + escapeHtml(r.room || '') + '" placeholder="Room"></td>' +
-      '<td><button type="button" class="btn btn-ghost tt-req-del">✕</button></td>' +
-      '</tr>'
+        '<tr data-idx="' + i + '" data-req-id="' + escapeHtml(r.reqId || '') + '">' +
+        '<td><input class="tt-req-subject" value="' + escapeHtml(r.subject) + '" list="ttSubjectList"></td>' +
+        '<td><select class="tt-req-teacher">' + tOpts + '</select></td>' +
+        '<td><input type="number" class="tt-req-ppw" min="1" max="20" value="' + (r.periodsPerWeek || 5) + '" style="width:4rem"></td>' +
+        '<td><input class="tt-req-room" value="' + escapeHtml(r.room || '') + '" placeholder="Room"></td>' +
+        '<td>' + linkedClassPickerHtml(classId, linked) + '</td>' +
+        '<td><button type="button" class="btn btn-ghost tt-req-del">✕</button></td>' +
+        '</tr>'
       );
     }).join('');
 
     mountEl.innerHTML =
       '<div class="tt-setup-section">' +
       '<h4>Subject requirements</h4>' +
-      '<p class="muted small">Periods per week per subject. Import from teacher assignments or edit manually.</p>' +
+      '<p class="muted small">Hours per week drive the unassigned palette and Auto-Solve. Use <strong>Also teach with</strong> when one teacher covers multiple classes in the same period — those classes will share that subject timeslot.</p>' +
       '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">' +
       '<select class="tt-req-class">' +
       classes.map((c) =>
@@ -128,15 +176,19 @@
       '<button type="button" class="btn btn-ghost tt-req-import">Import from assignments</button>' +
       '<button type="button" class="btn btn-ghost tt-req-add">+ Add subject</button>' +
       '</div>' +
-      '<table class="grades-table"><thead><tr><th>Subject</th><th>Teacher</th><th>Periods/wk</th><th>Room</th><th></th></tr></thead>' +
-      '<tbody>' + (rows || '<tr><td colspan="5" class="muted">No requirements yet</td></tr>') + '</tbody></table>' +
+      '<table class="grades-table"><thead><tr><th>Subject</th><th>Teacher</th><th>Periods/wk</th><th>Room</th><th>Also teach with</th><th></th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="6" class="muted">No requirements yet</td></tr>') + '</tbody></table>' +
       '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">' +
       '<button type="button" class="btn btn-primary tt-req-save">Save requirements</button>' +
-      '<button type="button" class="btn btn-primary tt-req-generate">Auto-generate timetable</button>' +
+      '<button type="button" class="btn btn-primary tt-req-generate">Auto-Solve (fill unlocked)</button>' +
       '</div>' +
       '<div class="tt-req-error error"></div>' +
       '<div class="tt-req-result muted small"></div>' +
-      '<div class="tt-preview-mount" style="margin-top:1rem"></div>' +
+      '</div>' +
+      '<div class="tt-setup-section">' +
+      '<h4>Class timetable board</h4>' +
+      '<p class="muted small">Drag remaining subject chips into the Mon–Fri × period grid. Green = free for that teacher; red = conflict.</p>' +
+      '<div class="tt-setup-board-mount"></div>' +
       '</div>';
 
     const classSelect = mountEl.querySelector('.tt-req-class');
@@ -168,6 +220,7 @@
         '<td><select class="tt-req-teacher">' + teacherOpts + '</select></td>' +
         '<td><input type="number" class="tt-req-ppw" min="1" max="20" value="5" style="width:4rem"></td>' +
         '<td><input class="tt-req-room" placeholder="Room"></td>' +
+        '<td>' + linkedClassPickerHtml(classSelect.value, []) + '</td>' +
         '<td><button type="button" class="btn btn-ghost tt-req-del">✕</button></td>';
       tbody.appendChild(tr);
       tr.querySelector('.tt-req-del').addEventListener('click', () => tr.remove());
@@ -179,6 +232,8 @@
 
     mountEl.querySelector('.tt-req-save').addEventListener('click', () => saveRequirements(mountEl, classSelect.value));
     mountEl.querySelector('.tt-req-generate').addEventListener('click', () => generateTimetable(mountEl, classSelect.value));
+
+    openClassBoard(mountEl.querySelector('.tt-setup-board-mount'), classId, requirements);
   }
 
   async function saveRequirements(mountEl, classId) {
@@ -190,19 +245,29 @@
       const subject = tr.querySelector('.tt-req-subject').value.trim();
       if (!subject) return;
       requirements.push({
+        reqId: tr.dataset.reqId || '',
         subject,
         teacherId: tr.querySelector('.tt-req-teacher').value,
         periodsPerWeek: Number(tr.querySelector('.tt-req-ppw').value) || 5,
-        room: tr.querySelector('.tt-req-room').value.trim()
+        room: tr.querySelector('.tt-req-room').value.trim(),
+        linkedClassIds: readLinkedClassIds(tr)
       });
     });
     try {
-      await api('/api/admin/timetable/requirements', {
+      const data = await api('/api/admin/timetable/requirements', {
         method: 'POST',
         body: { classId, requirements }
       }, 'admin');
       errEl.style.color = '#16a34a';
-      errEl.textContent = 'Requirements saved.';
+      const linkedCount = (data.requirements || []).filter((r) => (r.linkedClassIds || []).length).length;
+      errEl.textContent = linkedCount
+        ? 'Requirements saved. Combined-class subjects will share the same period when you Save or Auto-Solve.'
+        : 'Requirements saved.';
+      if (boardHandle && boardHandle.setRequirements) {
+        boardHandle.setRequirements(data.requirements || requirements);
+      } else {
+        await openClassBoard(mountEl.querySelector('.tt-setup-board-mount'), classId, data.requirements || requirements);
+      }
     } catch (e) {
       errEl.style.color = '#dc2626';
       errEl.textContent = e.message;
@@ -213,20 +278,23 @@
     const errEl = mountEl.querySelector('.tt-req-error');
     const resEl = mountEl.querySelector('.tt-req-result');
     errEl.textContent = '';
-    resEl.textContent = 'Generating… (OR-Tools solver)';
+    resEl.textContent = 'Generating… locked slots stay; OR-Tools fills the rest.';
     try {
       const data = await api('/api/admin/timetable/generate', {
         method: 'POST',
         body: { classId }
       }, 'admin');
-      resEl.textContent = data.result.message + ' — ' +
-        data.result.assignmentCount + ' slots, ' +
-        data.result.studentsUpdated + ' students, ' +
-        data.result.teachersUpdated + ' teachers updated.';
-      const preview = mountEl.querySelector('.tt-preview-mount');
-      if (preview && global.SaltTimetable) {
-        preview.innerHTML = global.SaltTimetable.renderWeekGrid(data.timetable.byDay);
-      }
+      const r = data.result || {};
+      resEl.textContent =
+        (r.message || 'Done') + ' — kept ' + (r.lockedKept != null ? r.lockedKept : 0) +
+        ' locked, added ' + (r.generated != null ? r.generated : r.assignmentCount) +
+        ', synced ' + (r.studentsUpdated || 0) + ' students / ' + (r.teachersUpdated || 0) + ' teachers.';
+      const reqData = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, 'admin');
+      await openClassBoard(
+        mountEl.querySelector('.tt-setup-board-mount'),
+        classId,
+        reqData.requirements || []
+      );
     } catch (e) {
       resEl.textContent = '';
       errEl.style.color = '#dc2626';
@@ -244,6 +312,7 @@
     escapeHtml = opts.escapeHtml;
     classes = opts.classes || [];
     teachers = opts.teachers || [];
+    boardHandle = null;
 
     mountEl.innerHTML = '<p class="muted">Loading timetable setup…</p>';
 
@@ -258,8 +327,8 @@
 
     mountEl.innerHTML =
       (solverOk
-        ? '<p class="tt-solver-ok muted small">✓ OR-Tools solver connected</p>'
-        : '<p class="tt-solver-warn error">Solver offline — run: <code>cd morning-class/solver && pip install -r requirements.txt && python main.py</code></p>') +
+        ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
+        : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
       '<div id="ttBellMount"></div><div id="ttReqMount"></div>';
 
     renderBellEditor(mountEl.querySelector('#ttBellMount'), bellData);

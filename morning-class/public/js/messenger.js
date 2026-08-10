@@ -109,15 +109,46 @@
     } else {
       body.innerHTML = messages.map((m) => {
         const cls = isMine(m) ? 'msg-bubble mine' : 'msg-bubble theirs';
+        const canTranslate = role === 'parent' && !isMine(m) && (m.senderRole === 'teacher' || m.senderRole === 'admin');
+        const translateBtn = canTranslate
+          ? '<button type="button" class="btn btn-ghost msg-translate-btn" data-mid="' +
+            escapeHtml(m.messageId) + '">Translate</button>' +
+            '<div class="msg-translated muted small hidden" data-tr="' + escapeHtml(m.messageId) + '"></div>'
+          : '';
         return (
-          '<div class="' + cls + '">' +
+          '<div class="' + cls + '" data-body="' + escapeHtml(m.body) + '">' +
           '<div class="msg-bubble-meta">' + escapeHtml(senderLabel(m)) + ' · ' + escapeHtml(formatTime(m.createdAt)) + '</div>' +
-          escapeHtml(m.body) +
+          '<div class="msg-bubble-text">' + escapeHtml(m.body) + '</div>' +
+          translateBtn +
           '</div>'
         );
       }).join('');
+      body.querySelectorAll('.msg-translate-btn').forEach((btn) => {
+        btn.addEventListener('click', () => translateMessage(btn));
+      });
     }
     body.scrollTop = body.scrollHeight;
+  }
+
+  async function translateMessage(btn) {
+    const bubble = btn.closest('.msg-bubble');
+    const mid = btn.dataset.mid;
+    const out = root().querySelector('[data-tr="' + mid + '"]');
+    const text = bubble ? (bubble.dataset.body || bubble.querySelector('.msg-bubble-text').textContent) : '';
+    if (!out || !text) return;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      const data = await api('/api/parent/translate', { method: 'POST', body: { text } }, role);
+      out.textContent = data.translated || '';
+      out.classList.remove('hidden');
+      btn.textContent = '한국어';
+    } catch (e) {
+      out.textContent = e.message || 'Translate failed';
+      out.classList.remove('hidden');
+      btn.textContent = 'Translate';
+    }
+    btn.disabled = false;
   }
 
   function updatePanel() {
@@ -201,8 +232,16 @@
   }
 
   async function openThread(threadId) {
-    const t = threads.find((x) => x.threadId === threadId);
-    if (!t) return;
+    let t = threads.find((x) => x.threadId === threadId);
+    if (!t) {
+      t = {
+        threadId,
+        title: 'Teacher',
+        subtitle: '',
+        unread: 0
+      };
+      threads.unshift(t);
+    }
     activeThread = t;
     view = 'chat';
     updatePanel();
@@ -356,5 +395,33 @@
     open = false;
   }
 
-  global.SaltMessenger = { init, destroy, refresh: refreshThreads };
+  function openMessenger() {
+    open = true;
+    const wrap = root();
+    if (wrap) wrap.querySelector('.msg-backdrop').classList.remove('hidden');
+    updatePanel();
+    refreshThreads();
+  }
+
+  function openThreadForTeacher(teacherId) {
+    const profile = global.SaltApp.getProfile(role) || {};
+    const studentId = profile.studentId;
+    if (!studentId || !teacherId) {
+      openMessenger();
+      return;
+    }
+    const tid = 'pt_' + studentId + '__' + teacherId;
+    open = true;
+    const wrap = root();
+    if (wrap) wrap.querySelector('.msg-backdrop').classList.remove('hidden');
+    openThread(tid);
+  }
+
+  global.SaltMessenger = {
+    init,
+    destroy,
+    refresh: refreshThreads,
+    open: openMessenger,
+    openThreadForTeacher
+  };
 })(window);

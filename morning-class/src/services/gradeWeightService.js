@@ -9,8 +9,6 @@ const GRADE_CATEGORY_PRESETS = [
   { categoryKey: 'homework', label: 'Homework', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'midterm', label: 'Midterm Exam', aggregation: 'single', defaultMaxScore: 100 },
   { categoryKey: 'final', label: 'Final Exam', aggregation: 'single', defaultMaxScore: 100 },
-  { categoryKey: 'performance', label: '수행평가', aggregation: 'average', defaultMaxScore: 100 },
-  { categoryKey: 'notebook', label: '노트체크', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'participation', label: 'Participation', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'project', label: 'Project', aggregation: 'single', defaultMaxScore: 100 },
   { categoryKey: 'unit_test', label: 'Unit Test', aggregation: 'average', defaultMaxScore: 100 },
@@ -19,6 +17,15 @@ const GRADE_CATEGORY_PRESETS = [
   { categoryKey: 'vocabulary', label: 'Vocabulary Test', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'writing', label: 'Writing', aggregation: 'average', defaultMaxScore: 100 }
 ];
+
+function slugCategoryKey(label) {
+  const base = String(label || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return 'custom_' + (base || crypto.randomBytes(3).toString('hex'));
+}
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -177,19 +184,34 @@ async function saveGradeWeights(classId, term, subject, weights) {
   }
 
   const normalized = weights.map((w, idx) => {
-    const preset = GRADE_CATEGORY_PRESETS.find((p) => p.categoryKey === w.categoryKey);
-    const label = String(w.label || (preset && preset.label) || w.categoryKey).trim();
-    const categoryKey = String(w.categoryKey || '').trim();
+    const label = String(w.label || w.categoryKey || '').trim();
+    if (!label) throw new Error('Each category needs a name.');
+    let categoryKey = String(w.categoryKey || '').trim();
+    const preset = GRADE_CATEGORY_PRESETS.find((p) => p.categoryKey === categoryKey);
+    // Custom categories: accept any key, or generate one from the label
+    if (!preset) {
+      if (!categoryKey || categoryKey === '__custom__' || categoryKey === 'custom') {
+        categoryKey = slugCategoryKey(label);
+      }
+    } else {
+      // Keep preset label unless teacher renamed it intentionally via custom flow
+      // Prefer teacher-provided label when present
+    }
     const weightPercent = Number(w.weightPercent);
-    if (!categoryKey || !label) throw new Error('Each category needs a key and label.');
     if (!Number.isFinite(weightPercent) || weightPercent <= 0 || weightPercent > 100) {
       throw new Error('Weight for ' + label + ' must be between 1 and 100.');
     }
+    const aggregation = String(
+      w.aggregation || (preset && preset.aggregation) || 'average'
+    );
+    if (aggregation !== 'average' && aggregation !== 'single') {
+      throw new Error('Aggregation for ' + label + ' must be average or single.');
+    }
     return {
-      categoryKey,
-      label,
+      categoryKey: preset ? preset.categoryKey : categoryKey,
+      label: preset && !String(w.label || '').trim() ? preset.label : label,
       weightPercent,
-      aggregation: String(w.aggregation || (preset && preset.aggregation) || 'average'),
+      aggregation,
       sortOrder: Number(w.sortOrder) || idx + 1,
       defaultMaxScore: Number(w.defaultMaxScore) || (preset && preset.defaultMaxScore) || 100
     };
@@ -244,6 +266,13 @@ async function saveGradeWeights(classId, term, subject, weights) {
     }
   }
   if (appends.length) await appendRows(GRADE_WEIGHTS_SHEET, appends);
+
+  try {
+    const { clearGradebookCache } = require('./gradeService');
+    clearGradebookCache(classId, term, subject);
+  } catch (e) {
+    // ignore cache clear failures
+  }
 
   return { saved: normalized.length, weights: await listGradeWeights(classId, term, subject), totalPercent: total };
 }

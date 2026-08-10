@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PORTAL_BUILD = '2026-07-31.08';
+const PORTAL_BUILD = '2026-08-04.07';
 
 const serverDir = path.join(__dirname, '..');
 const repoRoot = path.join(serverDir, '..');
@@ -42,7 +42,7 @@ function syncTeacherSourceFiles() {
   }
   // Tool HTML sources live at repo root locally; keep copies under teacher-src
   // so Railway (server-only upload) can rebuild /tools/*.html on start.
-  const toolNames = ['Timer', 'Dice', 'Roulette', 'LuckyDraw', 'UnluckyDraw', 'Student'];
+  const toolNames = ['Timer', 'Dice', 'Roulette', 'LuckyDraw', 'UnluckyDraw', 'Jeopardy', 'Student'];
   for (const name of toolNames) {
     const src = path.join(repoRoot, name + '.html');
     if (!fs.existsSync(src)) continue;
@@ -378,6 +378,8 @@ function buildTools() {
         var NODE_API = location.origin.replace(/\\/$/, '');`
     );
   });
+
+  buildTool('Jeopardy');
 }
 
 fs.mkdirSync(publicDir, { recursive: true });

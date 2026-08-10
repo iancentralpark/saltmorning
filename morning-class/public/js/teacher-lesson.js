@@ -10,6 +10,7 @@ window.SaltLesson = (function() {
   let mountId = 'lpCalendarMount';
   let readOnly = false;
   let subjectGroups = null;
+  let globalMode = false;
 
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -106,14 +107,24 @@ window.SaltLesson = (function() {
 
   async function onClassOpen() {
     setMount('lpCalendarMount');
+    globalMode = false;
     readOnly = false;
     await loadSubjectGroups();
     await loadCalendar();
     if (deps.onClassOpenExtra) deps.onClassOpenExtra();
   }
 
+  async function onGlobalOpen() {
+    setMount('lpCalendarGlobal');
+    globalMode = true;
+    readOnly = false;
+    await loadSubjectGroups();
+    await loadCalendar();
+  }
+
   async function onAdminOpen() {
     setMount('lpAdminCalendar');
+    globalMode = false;
     readOnly = true;
     await loadAdminCalendar();
   }
@@ -227,6 +238,12 @@ window.SaltLesson = (function() {
   }
 
   function renderSubjectsPanels() {
+    if (globalMode) {
+      renderSubjectsPanel('lpSubjectsGlobal', null);
+      const classPanel = $('lpSubjectsClass');
+      if (classPanel) classPanel.innerHTML = '';
+      return;
+    }
     const cls = getClass();
     renderSubjectsPanel('lpSubjectsClass', cls ? cls.classId : null);
   }
@@ -320,7 +337,7 @@ window.SaltLesson = (function() {
 
     const cls = getClass();
     const q = '?year=' + year + '&month=' + month +
-      (cls && mountId === 'lpCalendarMount' ? '&classId=' + encodeURIComponent(cls.classId) : '');
+      (!globalMode && cls ? '&classId=' + encodeURIComponent(cls.classId) : '');
 
     try {
       calendar = await api('/api/teacher/lesson-plans/calendar' + q);
@@ -725,6 +742,7 @@ window.SaltLesson = (function() {
   return {
     init,
     onClassOpen,
+    onGlobalOpen,
     onAdminOpen,
     loadCalendar,
     loadAdminCalendar,
