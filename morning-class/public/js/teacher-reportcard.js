@@ -36,10 +36,42 @@
     state.selectedSubject = '';
     state.editor = null;
     state.card = null;
-    const termInput = $('reportTerm');
-    if (termInput && !termInput.value) termInput.value = 'Term1';
-    state.term = (termInput && termInput.value.trim()) || 'Term1';
+    await loadTermOptions();
+    state.term = ($('reportTerm') && $('reportTerm').value.trim()) || 'Fall 2025';
     await loadOverview();
+  }
+
+  async function loadTermOptions() {
+    const cls = getClass();
+    const sel = $('reportTerm');
+    if (!cls || !sel) return;
+    try {
+      const data = await api(
+        '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/terms',
+        {},
+        role
+      );
+      const terms = data.terms || [];
+      const prefer = 'Fall 2025';
+      const currentVal = sel.value;
+      if (!terms.length) {
+        sel.innerHTML = '<option value="Term1">Term1</option>';
+        return;
+      }
+      sel.innerHTML = terms.map((t) =>
+        '<option value="' + escapeHtml(t.label) + '">' +
+        escapeHtml(t.label) + ' (' + escapeHtml(t.startDate) + ' – ' + escapeHtml(t.endDate) + ')' +
+        '</option>'
+      ).join('');
+      if (terms.some((t) => t.label === currentVal)) sel.value = currentVal;
+      else if (terms.some((t) => t.label === prefer)) sel.value = prefer;
+      else if (data.active && data.active.label) sel.value = data.active.label;
+      else sel.value = terms[terms.length - 1].label;
+    } catch (e) {
+      if (!sel.options.length) {
+        sel.innerHTML = '<option value="Fall 2025">Fall 2025</option><option value="Term1">Term1</option>';
+      }
+    }
   }
 
   async function loadOverview() {

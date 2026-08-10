@@ -652,22 +652,29 @@ async function shareReportCardWithParents(teacherId, classId, studentId, term) {
 
 /**
  * Seed complete SEL + comments for demo/testing (bypasses teacher access checks).
+ * opts.comments: { [subject]: string }
+ * opts.ratingsBySubject: { [subject]: string[4] }
  */
-async function seedDemoSubjectReports(classId, studentId, teacherId, term, subjects) {
+async function seedDemoSubjectReports(classId, studentId, teacherId, term, subjects, opts) {
   await ensureReportCardSheets();
   classId = String(classId);
   studentId = String(studentId);
   teacherId = String(teacherId);
   term = String(term || 'Term1');
+  opts = opts || {};
   const subjectList = (subjects && subjects.length) ? subjects : ['English', 'Math', 'Science'];
-  const ratings = ['Outstanding', 'Satisfactory', 'Outstanding', 'Satisfactory'];
-  const comments = {
+  const defaultRatings = ['Outstanding', 'Satisfactory', 'Outstanding', 'Satisfactory'];
+  const defaultComments = {
     English: 'Test Students participates thoughtfully in discussions and is building stronger writing stamina.',
     Math: 'Solid progress with multi-digit operations. Encourage checking work carefully on word problems.',
     Science: 'Curious and engaged during labs. Lab notes are improving — great effort this term.'
   };
   const seeded = [];
   for (const subject of subjectList) {
+    const ratings = (opts.ratingsBySubject && opts.ratingsBySubject[subject]) || defaultRatings;
+    const comment = (opts.comments && opts.comments[subject]) ||
+      defaultComments[subject] ||
+      (subject + ': Test Students is making steady progress this term. (Demo comment)');
     const entries = WORK_HABITS.map((h, idx) => ({
       studentId,
       fieldKey: h.fieldKey,
@@ -678,8 +685,7 @@ async function seedDemoSubjectReports(classId, studentId, teacherId, term, subje
       studentId,
       fieldKey: SUBJECT_COMMENT_KEY,
       score: null,
-      comment: comments[subject] ||
-        (subject + ': Test Students is making steady progress this term. (Demo comment)')
+      comment
     });
     await saveReportCardEntries(classId, term, subject, teacherId, entries);
     await upsertStatus(classId, studentId, term, subject, teacherId, { status: 'Complete' });

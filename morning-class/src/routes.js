@@ -56,6 +56,7 @@ const {
   translateToKorean,
   ensureParentDemoData
 } = require('./services/parentPortalService');
+const { seedLastSemesterReportCard } = require('./services/reportCardDemoSeed');
 const {
   listDailyGrades,
   saveDailyGrades,
@@ -85,6 +86,7 @@ const {
 const {
   getActiveTerm,
   saveGradeTerm,
+  listGradeTerms,
   listGradeWeights,
   saveGradeWeights,
   getCategoryPresets
@@ -515,6 +517,18 @@ router.get('/teacher/class/:classId/grades/active-term', requireRole('teacher'),
     res.json({ term });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load active term.' });
+  }
+});
+
+router.get('/teacher/class/:classId/grades/terms', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const terms = await listGradeTerms(req.params.classId);
+    const active = await getActiveTerm(req.params.classId);
+    res.json({ terms, active });
+  } catch (e) {
+    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load terms.' });
   }
 });
 
@@ -1579,7 +1593,9 @@ router.post('/parent/translate', requireRole('parent'), async (req, res) => {
 
 router.post('/admin/seed-parent-demo', requireRole('admin'), async (req, res) => {
   try {
-    res.json(await ensureParentDemoData());
+    const parent = await ensureParentDemoData();
+    const report = await seedLastSemesterReportCard();
+    res.json({ ...parent, lastSemester: report });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not seed parent demo.' });
   }
@@ -1595,9 +1611,23 @@ router.post('/dev/seed-parent-demo', async (req, res) => {
         return res.status(403).json({ error: 'Forbidden' });
       }
     }
-    res.json(await ensureParentDemoData());
+    const parent = await ensureParentDemoData();
+    const report = await seedLastSemesterReportCard();
+    res.json({ ...parent, lastSemester: report });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not seed parent demo.' });
+  }
+});
+
+router.post('/dev/seed-last-semester-report', async (req, res) => {
+  try {
+    const key = String((req.body && req.body.key) || req.query.key || '');
+    if (key !== String(process.env.DEMO_SEED_KEY || 'salt-demo-seed')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    res.json(await seedLastSemesterReportCard());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not seed last-semester report card.' });
   }
 });
 

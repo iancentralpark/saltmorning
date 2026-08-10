@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Seed Test Parents (parent/parent) + mock report-card data for Test Students.
+ * Seed Test Parents + full Fall 2025 report-card mock data for Test Students.
  * Usage: node scripts/seed-parent-demo.js
  */
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -10,10 +10,11 @@ try {
 } catch (e) { /* optional */ }
 
 const { ensureParentDemoData } = require('../src/services/parentPortalService');
+const { seedLastSemesterReportCard } = require('../src/services/reportCardDemoSeed');
 
-ensureParentDemoData()
-  .then((r) => {
-    console.log(JSON.stringify(r, null, 2));
+Promise.all([ensureParentDemoData(), seedLastSemesterReportCard()])
+  .then(([parent, report]) => {
+    console.log(JSON.stringify({ parent, lastSemester: report }, null, 2));
     process.exit(0);
   })
   .catch((e) => {

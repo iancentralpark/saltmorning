@@ -158,9 +158,9 @@
 
     <div id="panelReport" class="card hidden">
       <div class="rc-panel-toolbar">
-        <label class="muted small">Term
-          <input id="reportTerm" value="Term1" placeholder="Term1">
-        </label>
+          <label class="muted small">Term
+            <select id="reportTerm"></select>
+          </label>
         <button class="btn btn-ghost" id="loadReportBtn" type="button">Refresh</button>
       </div>
       <div id="reportBody"><p class="muted">Loading report card…</p></div>
@@ -370,7 +370,7 @@
 <script src="/js/app.js?v=20260804restore"></script>
 <script src="/js/teacher-attendance.js?v=20260810attendance"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
-<script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
+<script src="/js/teacher-reportcard.js?v=20260810lastterm"></script>
 <script src="/js/teacher-lesson.js?v=20260804homeroom"></script>
 <script src="/js/messenger.js?v=20260708ag"></script>
 <script src="/js/student-registry.js?v=20260804uxaudit"></script>
@@ -527,7 +527,6 @@
     $('attDate').value = todayISO();
     const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
     $('gradeSubject').value = firstSubject;
-    $('reportTerm').value = $('gradeTerm').value || 'Term1';
     switchTab('attendance');
     SaltAttendance.onClassOpen();
   }
