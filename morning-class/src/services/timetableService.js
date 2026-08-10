@@ -8,7 +8,7 @@ const {
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { getTeacherStudentIds } = require('./studentRegistryService');
 const { getBellSchedule } = require('./bellScheduleService');
-const { getClassRoster } = require('./teacherPortalService');
+const { getClassRoster, getClassNameMap } = require('./teacherPortalService');
 
 const HEADERS = [
   'EntryID', 'OwnerType', 'OwnerID', 'ClassID', 'DayOfWeek',
@@ -254,13 +254,21 @@ async function getTimetable(ownerType, ownerId) {
   const bell = await getBellSchedule().catch(() => ({ periods: [], lessonPeriods: [] }));
   const enriched = enrichWithBellBreaks(entries, bell);
   const names = await teacherNameMap().catch(() => ({}));
-  enriched.entries.forEach((e) => {
-    e.teacherName = names[e.teacherId] || '';
-  });
+  const classNames = await getClassNameMap().catch(() => ({}));
+
+  function decorate(e) {
+    if (!e || e.isBreak) return;
+    e.teacherName = names[e.teacherId] || e.teacherName || '';
+    const cid = String(e.classId || (e.ownerType === 'class' ? e.ownerId : '') || '').trim();
+    if (cid) {
+      e.classId = cid;
+      e.className = classNames[cid] || e.className || '';
+    }
+  }
+
+  enriched.entries.forEach(decorate);
   Object.keys(enriched.byDay).forEach((d) => {
-    enriched.byDay[d].forEach((e) => {
-      e.teacherName = names[e.teacherId] || '';
-    });
+    enriched.byDay[d].forEach(decorate);
   });
 
   return {
@@ -711,11 +719,14 @@ async function getAllClassesMatrix() {
   const all = await loadAllEntries();
   const bell = await getBellSchedule();
   const names = await teacherNameMap();
+  const classNames = await getClassNameMap().catch(() => ({}));
   const byClass = {};
   all.filter((e) => e.ownerType === 'class').forEach((e) => {
     const id = e.ownerId;
     if (!byClass[id]) byClass[id] = [];
     e.teacherName = names[e.teacherId] || '';
+    e.classId = e.classId || id;
+    e.className = classNames[e.classId] || classNames[id] || '';
     byClass[id].push(e);
   });
   Object.keys(byClass).forEach((id) => {
@@ -725,7 +736,8 @@ async function getAllClassesMatrix() {
     byClass,
     lessonPeriods: bell.lessonPeriods || [],
     bellSchedule: bell.periods || [],
-    teacherNames: names
+    teacherNames: names,
+    classNames
   };
 }
 

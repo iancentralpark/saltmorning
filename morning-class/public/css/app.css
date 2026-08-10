@@ -1936,6 +1936,7 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .tt-slot-time { color: var(--muted); font-size: 0.72rem; font-weight: 600; }
 .tt-slot-subject { line-height: 1.3; }
+.tt-slot-teacher { font-size: 0.8rem; color: var(--text); margin-top: 0.12rem; line-height: 1.25; }
 .tt-slot-notes { color: var(--muted); font-size: 0.72rem; margin-top: 0.15rem; }
 .tt-slot-actions { display: flex; gap: 0.25rem; margin-top: 0.25rem; }
 .tt-slot-break {

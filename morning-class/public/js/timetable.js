@@ -61,12 +61,23 @@
       );
     }
     const time = escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime);
-    const subj = escapeHtml(slot.subject || '—');
-    const meta = [slot.teacherName, slot.className || slot.classId, slot.room]
-      .filter(Boolean)
-      .map(escapeHtml)
-      .join(' · ');
-    const notes = slot.notes ? '<div class="tt-slot-notes">' + escapeHtml(slot.notes) + '</div>' : '';
+    const classLabel = String(slot.className || '').trim();
+    const subject = String(slot.subject || '').trim() || '—';
+    const teacher = String(slot.teacherName || '').trim();
+    const room = String(slot.room || '').trim();
+    // Prefer "Class – Subject" on line 1; never fall back to raw class codes like C001.
+    const titleLine = classLabel
+      ? (escapeHtml(classLabel) + ' – ' + escapeHtml(subject))
+      : escapeHtml(subject);
+    const teacherLine = teacher
+      ? '<div class="tt-slot-teacher">' + escapeHtml(teacher) + '</div>'
+      : '';
+    const roomLine = room
+      ? '<div class="tt-slot-notes">' + escapeHtml(room) + '</div>'
+      : '';
+    const notes = slot.notes && !/^combined-with:/i.test(String(slot.notes))
+      ? '<div class="tt-slot-notes">' + escapeHtml(slot.notes) + '</div>'
+      : '';
     const lock = slot.locked ? ' <span class="tt-lock-badge" title="Locked">🔒</span>' : '';
     const actions = canEdit
       ? '<div class="tt-slot-actions">' +
@@ -78,8 +89,11 @@
       '<div class="tt-slot tt-slot-colored' + (slot.locked ? ' tt-slot-locked' : '') +
       '" data-id="' + escapeHtml(slot.entryId) + '" style="' + subjectInlineStyle(slot.subject, false) + '">' +
       '<div class="tt-slot-time">' + time + lock + '</div>' +
-      '<div class="tt-slot-subject"><strong>' + subj + '</strong>' + (meta ? ' · ' + meta : '') + '</div>' +
-      notes + actions +
+      '<div class="tt-slot-subject"><strong>' + titleLine + '</strong></div>' +
+      teacherLine +
+      roomLine +
+      notes +
+      actions +
       '</div>'
     );
   }
