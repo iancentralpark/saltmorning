@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260804restore2">
+  <link rel="stylesheet" href="/css/app.css?v=20260810teacherux">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -29,7 +29,7 @@
       <button class="tab" data-tab="students" type="button">Students</button>
       <button class="tab" data-tab="timetables" type="button">Timetables</button>
       <button class="tab" data-tab="terms" type="button">Term dates</button>
-      <button class="tab" data-tab="vocabPlatform" type="button">Vocab Platform</button>
+      <button class="tab" data-tab="vocabPlatform" type="button">Vocab Booster</button>
     </div>
 
     <div id="panelMonitor" class="card">
@@ -45,7 +45,7 @@
           <option value="dollar">Dollars</option>
           <option value="homework">Homework</option>
           <option value="english_buddy">English Buddy</option>
-          <option value="vocab">Vocab</option>
+          <option value="vocab">Vocab Booster</option>
         </select>
         <button type="button" class="btn btn-primary" id="monitorRefresh">Refresh</button>
       </div>
@@ -200,10 +200,10 @@
     </div>
 
     <div id="panelVocabPlatform" class="card hidden">
-      <h3>Vocab Platform</h3>
+      <h3>Vocab Booster</h3>
       <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
       <p style="margin:1rem 0 0">
-        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Open Vocab Platform</a>
+        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Open Vocab Booster</a>
       </p>
     </div>
   </div>
@@ -216,8 +216,8 @@
 <script src="/js/messenger.js?v=20260708libs"></script>
 <script src="/js/student-registry.js?v=20260804uxaudit"></script>
 <script src="/js/class-registry.js?v=20260709classes"></script>
-<script src="/js/timetable.js?v=20260810periodgrid"></script>
-<script src="/js/timetable-setup.js?v=20260804clear"></script>
+<script src="/js/timetable.js?v=20260810teacherux"></script>
+<script src="/js/timetable-setup.js?v=20260810teacherux"></script>
 <script>
 (function() {
   const role = 'admin';
@@ -373,7 +373,7 @@
     dollar: 'Dollar',
     homework: 'Homework',
     english_buddy: 'English Buddy',
-    vocab: 'Vocab'
+    vocab: 'Vocab Booster'
   };
 
   async function loadMonitor() {

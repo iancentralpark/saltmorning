@@ -1692,6 +1692,56 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .tt-week-period-wrap {
   margin-bottom: 1rem;
 }
+.tt-req-linked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 11rem;
+}
+.tt-req-linked-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tt-req-linked-item input {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: var(--olive);
+}
+.hw-date-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+.hw-date-chip {
+  border: 1px solid var(--border-soft);
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.hw-date-chip.active {
+  background: var(--sage);
+  color: #fff;
+  border-color: var(--sage);
+}
+.hw-item-row {
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+  margin-bottom: 0.5rem;
+  background: #fff;
+}
+.hw-modal .form-grid { max-width: none; }
 .tt-week-period-grid .tt-cell-slot,
 .tt-week-period-grid .tt-cell-break {
   vertical-align: top;

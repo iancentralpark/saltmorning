@@ -59,9 +59,10 @@ function lessonIndexForEntry(entry, lessonPeriods) {
 /**
  * Teacher busy slots from OTHER classes (and optionally this class's locked cells).
  */
-function collectForbiddenSlots(allEntries, excludeClassId, lessonPeriods, extraOccupied) {
+function collectForbiddenSlots(allEntries, excludeClassId, lessonPeriods, extraOccupied, linkedByTeacher) {
   const forbidden = [];
   const seen = new Set();
+  linkedByTeacher = linkedByTeacher || {};
 
   function push(teacherId, day, lessonSlotIndex) {
     if (!teacherId || lessonSlotIndex < 0) return;
@@ -75,6 +76,8 @@ function collectForbiddenSlots(allEntries, excludeClassId, lessonPeriods, extraO
     if (e.ownerType !== 'class') return;
     if (excludeClassId && String(e.ownerId) === String(excludeClassId)) return;
     if (!e.teacherId) return;
+    const linked = linkedByTeacher[e.teacherId];
+    if (linked && linked.has(String(e.ownerId))) return;
     push(e.teacherId, e.dayOfWeek, lessonIndexForEntry(e, lessonPeriods));
   });
 
@@ -186,7 +189,16 @@ async function generateClassTimetable(classId) {
     pins
   } = buildPinsAndAdjustedRequirements(classId, requirements, existing, lessonPeriods);
 
-  const forbidden = collectForbiddenSlots(allEntries, classId, lessonPeriods, pinExtras);
+  // Combined-class partners may share the same teacher period — do not forbid them.
+  const linkedByTeacher = {};
+  (requirements || []).forEach((r) => {
+    const partners = (r.classIds || []).map(String).filter((id) => id && id !== String(classId));
+    if (!partners.length || !r.teacherId) return;
+    if (!linkedByTeacher[r.teacherId]) linkedByTeacher[r.teacherId] = new Set();
+    partners.forEach((id) => linkedByTeacher[r.teacherId].add(id));
+  });
+
+  const forbidden = collectForbiddenSlots(allEntries, classId, lessonPeriods, pinExtras, linkedByTeacher);
 
   const now = isoNow();
   const lockedOut = lockedEntries.map((e) => ({

@@ -1011,12 +1011,13 @@ window.SaltGrades = (function() {
       });
     });
     try {
-      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/weights', {
+      const saved = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/weights', {
         method: 'POST',
         body: { term: term(), subject: subject(), weights }
       });
+      if (gradebook) gradebook.weights = saved.weights || weights;
       deps.hide($('gradeWeightsModal'));
-      loadGradebook();
+      await loadGradebook(true);
     } catch (e) {
       $('gradeWeightsError').textContent = e.message;
     }

@@ -115,6 +115,28 @@
     }
   }
 
+  function linkedClassPickerHtml(currentClassId, selectedIds) {
+    const selected = new Set((selectedIds || []).map(String));
+    const others = (classes || []).filter((c) => String(c.classId) !== String(currentClassId));
+    if (!others.length) {
+      return '<span class="muted small">No other classes</span>';
+    }
+    return (
+      '<div class="tt-req-linked">' +
+      others.map((c) =>
+        '<label class="tt-req-linked-item">' +
+        '<input type="checkbox" class="tt-req-linked-cb" value="' + escapeHtml(c.classId) + '"' +
+        (selected.has(String(c.classId)) ? ' checked' : '') + '>' +
+        '<span>' + escapeHtml(c.name) + '</span></label>'
+      ).join('') +
+      '</div>'
+    );
+  }
+
+  function readLinkedClassIds(tr) {
+    return Array.from(tr.querySelectorAll('.tt-req-linked-cb:checked')).map((el) => el.value);
+  }
+
   function renderRequirements(mountEl, classId, requirements) {
     const teacherOpts = teachers.map((t) =>
       '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
@@ -125,12 +147,16 @@
         '<option value="' + escapeHtml(t.teacherId) + '"' +
         (t.teacherId === r.teacherId ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>'
       ).join('');
+      const linked = (r.classIds || [r.classId].concat(r.linkedClassIds || []))
+        .map(String)
+        .filter((id) => id && id !== String(classId));
       return (
-        '<tr data-idx="' + i + '">' +
+        '<tr data-idx="' + i + '" data-req-id="' + escapeHtml(r.reqId || '') + '">' +
         '<td><input class="tt-req-subject" value="' + escapeHtml(r.subject) + '" list="ttSubjectList"></td>' +
         '<td><select class="tt-req-teacher">' + tOpts + '</select></td>' +
         '<td><input type="number" class="tt-req-ppw" min="1" max="20" value="' + (r.periodsPerWeek || 5) + '" style="width:4rem"></td>' +
         '<td><input class="tt-req-room" value="' + escapeHtml(r.room || '') + '" placeholder="Room"></td>' +
+        '<td>' + linkedClassPickerHtml(classId, linked) + '</td>' +
         '<td><button type="button" class="btn btn-ghost tt-req-del">✕</button></td>' +
         '</tr>'
       );
@@ -139,7 +165,7 @@
     mountEl.innerHTML =
       '<div class="tt-setup-section">' +
       '<h4>Subject requirements</h4>' +
-      '<p class="muted small">Hours per week drive the unassigned palette and Auto-Solve. Lock cells on the board so the solver will not move them.</p>' +
+      '<p class="muted small">Hours per week drive the unassigned palette and Auto-Solve. Use <strong>Also teach with</strong> when one teacher covers multiple classes in the same period — those classes will share that subject timeslot.</p>' +
       '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">' +
       '<select class="tt-req-class">' +
       classes.map((c) =>
@@ -150,8 +176,8 @@
       '<button type="button" class="btn btn-ghost tt-req-import">Import from assignments</button>' +
       '<button type="button" class="btn btn-ghost tt-req-add">+ Add subject</button>' +
       '</div>' +
-      '<table class="grades-table"><thead><tr><th>Subject</th><th>Teacher</th><th>Periods/wk</th><th>Room</th><th></th></tr></thead>' +
-      '<tbody>' + (rows || '<tr><td colspan="5" class="muted">No requirements yet</td></tr>') + '</tbody></table>' +
+      '<table class="grades-table"><thead><tr><th>Subject</th><th>Teacher</th><th>Periods/wk</th><th>Room</th><th>Also teach with</th><th></th></tr></thead>' +
+      '<tbody>' + (rows || '<tr><td colspan="6" class="muted">No requirements yet</td></tr>') + '</tbody></table>' +
       '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">' +
       '<button type="button" class="btn btn-primary tt-req-save">Save requirements</button>' +
       '<button type="button" class="btn btn-primary tt-req-generate">Auto-Solve (fill unlocked)</button>' +
@@ -194,6 +220,7 @@
         '<td><select class="tt-req-teacher">' + teacherOpts + '</select></td>' +
         '<td><input type="number" class="tt-req-ppw" min="1" max="20" value="5" style="width:4rem"></td>' +
         '<td><input class="tt-req-room" placeholder="Room"></td>' +
+        '<td>' + linkedClassPickerHtml(classSelect.value, []) + '</td>' +
         '<td><button type="button" class="btn btn-ghost tt-req-del">✕</button></td>';
       tbody.appendChild(tr);
       tr.querySelector('.tt-req-del').addEventListener('click', () => tr.remove());
@@ -218,10 +245,12 @@
       const subject = tr.querySelector('.tt-req-subject').value.trim();
       if (!subject) return;
       requirements.push({
+        reqId: tr.dataset.reqId || '',
         subject,
         teacherId: tr.querySelector('.tt-req-teacher').value,
         periodsPerWeek: Number(tr.querySelector('.tt-req-ppw').value) || 5,
-        room: tr.querySelector('.tt-req-room').value.trim()
+        room: tr.querySelector('.tt-req-room').value.trim(),
+        linkedClassIds: readLinkedClassIds(tr)
       });
     });
     try {
@@ -230,7 +259,10 @@
         body: { classId, requirements }
       }, 'admin');
       errEl.style.color = '#16a34a';
-      errEl.textContent = 'Requirements saved.';
+      const linkedCount = (data.requirements || []).filter((r) => (r.linkedClassIds || []).length).length;
+      errEl.textContent = linkedCount
+        ? 'Requirements saved. Combined-class subjects will share the same period when you Save or Auto-Solve.'
+        : 'Requirements saved.';
       if (boardHandle && boardHandle.setRequirements) {
         boardHandle.setRequirements(data.requirements || requirements);
       } else {

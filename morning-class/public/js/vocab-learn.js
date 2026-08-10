@@ -461,7 +461,7 @@
     el.className = 'vocab-tier-ladder hidden';
     el.setAttribute('hidden', '');
     el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-label', 'Vocab tier ladder');
+    el.setAttribute('aria-label', 'Vocab Booster tier ladder');
     hero.insertAdjacentElement('afterend', el);
     return el;
   }
@@ -2114,7 +2114,7 @@
       var effects = root.MrParkLuckyEffects;
       if (effects && typeof effects.revealSpin === 'function') {
         Promise.resolve(effects.revealSpin(tier, prize, {
-          title: 'Vocab reward!',
+          title: 'Vocab Booster reward!',
           sub: 'Feeling lucky?',
           resultSub: 'Ticket added to your Lucky Draw.',
           doneLabel: 'Collect!'

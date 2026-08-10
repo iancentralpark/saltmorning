@@ -373,22 +373,40 @@ function assertNoInternalConflicts(entries) {
 
 async function assertNoExternalTeacherConflicts(entries, excludeClassId) {
   const all = await loadAllEntries();
-  const busy = new Map(); // teacherId -> Set(slotKey)
+  const { listAllRequirements, linkedClassesFor } = require('./timetableRequirementsService');
+  const requirements = await listAllRequirements().catch(() => []);
+  // teacherId|slotKey -> [{ classId, subject }]
+  const busy = new Map();
 
   all.forEach((e) => {
     if (e.ownerType !== 'class') return;
     if (excludeClassId && e.ownerId === String(excludeClassId)) return;
     if (!e.teacherId) return;
-    const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
-    if (!busy.has(e.teacherId)) busy.set(e.teacherId, new Set());
-    busy.get(e.teacherId).add(key);
+    const key = e.teacherId + '||' + slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
+    if (!busy.has(key)) busy.set(key, []);
+    busy.get(key).push({
+      classId: String(e.classId || e.ownerId),
+      subject: String(e.subject || '')
+    });
   });
 
   entries.forEach((e) => {
     if (!e.teacherId) return;
-    const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
-    const set = busy.get(e.teacherId);
-    if (set && set.has(key)) {
+    const key = e.teacherId + '||' + slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
+    const hits = busy.get(key) || [];
+    const linked = linkedClassesFor(requirements, excludeClassId, e.teacherId, e.subject);
+    const conflict = hits.find((h) => {
+      if (linked.has(String(h.classId))) return false;
+      // Same combined subject already mirrored onto another class — OK
+      if (
+        String(h.subject || '').toLowerCase() === String(e.subject || '').toLowerCase() &&
+        linkedClassesFor(requirements, h.classId, e.teacherId, e.subject).has(String(excludeClassId))
+      ) {
+        return false;
+      }
+      return true;
+    });
+    if (conflict) {
       throw new Error(
         'Teacher conflict: already scheduled in another class at that period (' + e.subject + ').'
       );
@@ -463,6 +481,63 @@ async function saveTimetable(ownerType, ownerId, entries, options) {
   return getTimetable(ownerType, ownerId);
 }
 
+/**
+ * Mirror combined-class subject slots onto linked class timetables
+ * so the same teacher/subject lands in the same period across grades.
+ */
+async function propagateCombinedSlots(sourceClassId, sourceEntries, options) {
+  options = options || {};
+  if (options.skipCombinedPropagate) return { linkedClassesUpdated: 0 };
+  const { listRequirements } = require('./timetableRequirementsService');
+  const reqs = await listRequirements(sourceClassId).catch(() => []);
+  const combined = (reqs || []).filter((r) => (r.classIds || []).length > 1);
+  if (!combined.length) return { linkedClassesUpdated: 0 };
+
+  let linkedClassesUpdated = 0;
+  const source = (sourceEntries || []).filter((e) => e && !e.isBreak);
+
+  for (const req of combined) {
+    const targets = (req.classIds || [])
+      .map(String)
+      .filter((id) => id && id !== String(sourceClassId));
+    if (!targets.length) continue;
+
+    const slots = source.filter((e) =>
+      String(e.teacherId || '') === String(req.teacherId || '') &&
+      String(e.subject || '').toLowerCase() === String(req.subject || '').toLowerCase()
+    );
+
+    for (const targetClassId of targets) {
+      const tt = await getTimetable('class', targetClassId);
+      const other = (tt.entries || []).filter((e) => !e.isBreak && !(
+        String(e.teacherId || '') === String(req.teacherId || '') &&
+        String(e.subject || '').toLowerCase() === String(req.subject || '').toLowerCase()
+      ));
+      const mirrored = slots.map((e) => ({
+        dayOfWeek: e.dayOfWeek,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        subject: e.subject,
+        teacherId: e.teacherId,
+        room: e.room || req.room || '',
+        notes: 'combined-with:' + sourceClassId,
+        sortOrder: e.sortOrder,
+        locked: !!e.locked,
+        periodId: e.periodId || '',
+        classId: targetClassId
+      }));
+      await saveClassTimetable(targetClassId, other.concat(mirrored), {
+        skipConflictCheck: true,
+        skipCombinedPropagate: true,
+        syncDependents: true
+      });
+      linkedClassesUpdated += 1;
+    }
+  }
+
+  return { linkedClassesUpdated };
+}
+
 async function saveClassTimetable(classId, entries, options) {
   options = options || {};
   classId = String(classId || '').trim();
@@ -482,12 +557,16 @@ async function saveClassTimetable(classId, entries, options) {
   });
 
   const classOnly = (result.entries || []).filter((e) => !e.isBreak);
-  let sync = { studentsUpdated: 0, teachersUpdated: 0 };
+  let sync = { studentsUpdated: 0, teachersUpdated: 0, linkedClassesUpdated: 0 };
   if (options.syncDependents !== false) {
     const teacherIds = [...new Set(
       previousTeacherIds.concat(classOnly.map((e) => e.teacherId).filter(Boolean))
     )];
     sync = await syncClassDependents(classId, classOnly, teacherIds);
+  }
+  if (!options.skipCombinedPropagate) {
+    const prop = await propagateCombinedSlots(classId, classOnly, options);
+    sync.linkedClassesUpdated = prop.linkedClassesUpdated || 0;
   }
   return Object.assign({}, result, sync);
 }
@@ -592,11 +671,23 @@ async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
 async function getTeacherBusyMap(excludeClassId) {
   const all = await loadAllEntries();
   const names = await teacherNameMap();
+  const { listAllRequirements, linkedClassesFor } = require('./timetableRequirementsService');
+  const requirements = await listAllRequirements().catch(() => []);
   const busy = {};
   all.forEach((e) => {
     if (e.ownerType !== 'class') return;
     if (excludeClassId && e.ownerId === String(excludeClassId)) return;
     if (!e.teacherId) return;
+    // Combined classes sharing this subject may occupy the same period.
+    if (excludeClassId) {
+      const linked = linkedClassesFor(
+        requirements,
+        excludeClassId,
+        e.teacherId,
+        e.subject
+      );
+      if (linked.has(String(e.classId || e.ownerId))) return;
+    }
     const key = slotKey(e.dayOfWeek, e.periodId, e.startTime, e.sortOrder);
     if (!busy[e.teacherId]) busy[e.teacherId] = {};
     busy[e.teacherId][key] = {
@@ -646,6 +737,7 @@ module.exports = {
   saveTimetable,
   saveClassTimetable,
   syncClassDependents,
+  propagateCombinedSlots,
   rebuildTeacherTimetable,
   getTeacherBusyMap,
   getAllClassesMatrix,

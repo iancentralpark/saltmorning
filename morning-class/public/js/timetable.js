@@ -47,7 +47,10 @@
     }
     const time = escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime);
     const subj = escapeHtml(slot.subject || '—');
-    const meta = [slot.teacherName, slot.room].filter(Boolean).map(escapeHtml).join(' · ');
+    const meta = [slot.teacherName, slot.className || slot.classId, slot.room]
+      .filter(Boolean)
+      .map(escapeHtml)
+      .join(' · ');
     const notes = slot.notes ? '<div class="tt-slot-notes">' + escapeHtml(slot.notes) + '</div>' : '';
     const lock = slot.locked ? ' <span class="tt-lock-badge" title="Locked">🔒</span>' : '';
     const actions = canEdit
@@ -954,14 +957,21 @@
   }
 
   async function renderReadOnly(mountEl, ownerType, ownerId, ownerName) {
-    if (!mountEl || !ownerId) return;
+    if (!mountEl) return;
+    // Teachers load their own timetable from session; ownerId may be empty/'self'.
+    if (!ownerId && !(role === 'teacher' && ownerType === 'teacher')) return;
+    const resolvedId = ownerId || (role === 'teacher' ? 'self' : '');
     mountEl.innerHTML = '<p class="muted">Loading timetable…</p>';
     try {
-      const data = await api(apiPath(ownerType, ownerId), {}, role);
+      const data = await api(apiPath(ownerType, resolvedId), {}, role);
       const tt = data.timetable || {};
+      const entries = (tt.entries || []).filter((e) => !e.isBreak);
       mountEl.innerHTML =
         '<div class="tt-readonly">' +
         (ownerName ? '<p class="muted small"><strong>' + escapeHtml(ownerName) + '</strong> — weekly schedule</p>' : '') +
+        (entries.length
+          ? ''
+          : '<p class="muted small">No class periods found yet. After admin saves a class timetable that includes you, it will appear here.</p>') +
         renderWeekGrid(tt.byDay, {
           lessonPeriods: tt.lessonPeriods || [],
           bellSchedule: tt.bellSchedule || []

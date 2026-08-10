@@ -245,6 +245,13 @@ async function saveGradeWeights(classId, term, subject, weights) {
   }
   if (appends.length) await appendRows(GRADE_WEIGHTS_SHEET, appends);
 
+  try {
+    const { clearGradebookCache } = require('./gradeService');
+    clearGradebookCache(classId, term, subject);
+  } catch (e) {
+    // ignore cache clear failures
+  }
+
   return { saved: normalized.length, weights: await listGradeWeights(classId, term, subject), totalPercent: total };
 }
 
