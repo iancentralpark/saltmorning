@@ -1,5 +1,7 @@
 /**
  * Shared pastel subject colors for every timetable surface.
+ * When classId is provided, colors key off class + subject so the same
+ * subject in different classes gets distinct colors.
  * Matches server SUBJECT_PALETTE / named defaults in subjectStyleService.
  */
 (function (global) {
@@ -11,10 +13,14 @@
     { bg: '#f0ebfa', border: '#a99bd4', label: 'Purple' },
     { bg: '#edf6fc', border: '#9ecae8', label: 'Cyan' },
     { bg: '#fceeed', border: '#e8a8a0', label: 'Coral' },
-    { bg: '#f4efe9', border: '#b8b0a8', label: 'Sand' }
+    { bg: '#f4efe9', border: '#b8b0a8', label: 'Sand' },
+    { bg: '#e8f6f5', border: '#9ec9c4', label: 'Teal' },
+    { bg: '#fbf3d9', border: '#d4c48a', label: 'Lemon' },
+    { bg: '#eaf6e4', border: '#a8c894', label: 'Moss' },
+    { bg: '#f8e8ec', border: '#d4a8b4', label: 'Rose' }
   ];
 
-  /** Stable pastels for common subjects (and break-like periods). */
+  /** Stable pastels for common subjects (and break-like periods) when no classId. */
   const NAMED = {
     english: { bg: '#e3f0f9', border: '#9bbfd8' },
     ela: { bg: '#e3f0f9', border: '#9bbfd8' },
@@ -52,11 +58,11 @@
       .trim();
   }
 
-  function hashSubject(subject) {
-    const str = normalizeKey(subject);
+  function hashKey(str) {
+    const s = String(str || '');
     let h = 0;
-    for (let i = 0; i < str.length; i++) {
-      h = ((h << 5) - h) + str.charCodeAt(i);
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
       h |= 0;
     }
     return Math.abs(h);
@@ -73,15 +79,31 @@
     return null;
   }
 
+  function paletteAt(index) {
+    return PALETTE[Math.abs(index) % PALETTE.length];
+  }
+
+  /**
+   * @param {string} subject
+   * @param {{ isBreak?: boolean, break?: boolean, classId?: string }} [opts]
+   */
   function forSubject(subject, opts) {
     opts = opts || {};
     const key = normalizeKey(subject);
     if (opts.isBreak || opts.break) {
       return Object.assign({ subject: subject || 'Break' }, NAMED.break);
     }
+
+    const classId = String(opts.classId || '').trim();
+    // Class-aware: same subject in different classes → different pastel.
+    if (classId) {
+      const preset = paletteAt(hashKey(classId + '|' + key));
+      return { subject: subject || '', classId: classId, bg: preset.bg, border: preset.border };
+    }
+
     const named = lookupNamed(key);
     if (named) return Object.assign({ subject: subject || '' }, named);
-    const preset = PALETTE[hashSubject(subject) % PALETTE.length];
+    const preset = paletteAt(hashKey(key));
     return { subject: subject || '', bg: preset.bg, border: preset.border };
   }
 

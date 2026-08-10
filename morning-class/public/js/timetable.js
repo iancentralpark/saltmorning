@@ -36,17 +36,20 @@
     return t ? t.name : slot.teacherId;
   }
 
-  function subjectColor(subject, isBreak) {
+  function subjectColor(subject, isBreak, classId) {
     if (global.SaltSubjectColors && typeof global.SaltSubjectColors.forSubject === 'function') {
-      return global.SaltSubjectColors.forSubject(subject, { isBreak: !!isBreak });
+      return global.SaltSubjectColors.forSubject(subject, {
+        isBreak: !!isBreak,
+        classId: classId || ''
+      });
     }
     return isBreak
       ? { bg: '#f0eef5', border: '#b8b0c8' }
       : { bg: '#eef3ea', border: '#a3b18a' };
   }
 
-  function subjectInlineStyle(subject, isBreak) {
-    const c = subjectColor(subject, isBreak);
+  function subjectInlineStyle(subject, isBreak, classId) {
+    const c = subjectColor(subject, isBreak, classId);
     return 'background:' + c.bg + ';border-left-color:' + c.border + ';';
   }
 
@@ -85,9 +88,11 @@
         '<button type="button" class="btn btn-ghost tt-del-slot" data-id="' + escapeHtml(slot.entryId) + '">Delete</button>' +
         '</div>'
       : '';
+    const classId = slot.classId || (slot.ownerType === 'class' ? slot.ownerId : '') || '';
     return (
       '<div class="tt-slot tt-slot-colored' + (slot.locked ? ' tt-slot-locked' : '') +
-      '" data-id="' + escapeHtml(slot.entryId) + '" style="' + subjectInlineStyle(slot.subject, false) + '">' +
+      '" data-id="' + escapeHtml(slot.entryId) + '" style="' +
+      subjectInlineStyle(slot.subject, false, classId) + '">' +
       '<div class="tt-slot-time">' + time + lock + '</div>' +
       '<div class="tt-slot-subject"><strong>' + titleLine + '</strong></div>' +
       teacherLine +
@@ -292,7 +297,7 @@
         palette.forEach((chip) => {
           const doneClass = chip.remaining <= 0 ? ' tt-chip-done' : '';
           const draggable = !readonly && chip.remaining > 0;
-          const chipColor = subjectColor(chip.subject, false);
+          const chipColor = subjectColor(chip.subject, false, classId);
           paletteHtml +=
             '<div class="tt-chip tt-chip-colored' + doneClass + '"' +
             (draggable ? ' draggable="true"' : '') +
@@ -329,7 +334,7 @@
             const slot = entryAt(d.value, period.periodId);
             const key = slotKey(d.value, period.periodId);
             if (slot) {
-              const cellColor = subjectColor(slot.subject, false);
+              const cellColor = subjectColor(slot.subject, false, slot.classId || classId);
               gridHtml +=
                 '<td class="tt-grid-cell tt-cell-filled tt-cell-colored' + (slot.locked ? ' tt-cell-locked' : '') + '"' +
                 ' data-day="' + d.value + '" data-period-id="' + escapeHtml(period.periodId) + '"' +
@@ -639,7 +644,7 @@
           DAYS.forEach((d) => {
             const slot = findSlot(cls.classId, d.value, period.periodId, idx);
             if (slot) {
-              const mc = subjectColor(slot.subject, false);
+              const mc = subjectColor(slot.subject, false, slot.classId || cls.classId);
               html += '<td class="tt-matrix-cell tt-cell-colored' + (slot.locked ? ' tt-cell-locked' : '') +
                 '" style="background:' + mc.bg + ';box-shadow:inset 3px 0 0 ' + mc.border + ';">' +
                 '<div class="tt-cell-subject">' + escapeHtml(slot.subject) + (slot.locked ? ' 🔒' : '') + '</div>' +

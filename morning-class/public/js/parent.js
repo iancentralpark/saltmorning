@@ -266,7 +266,10 @@ window.SaltParent = (function() {
         else {
           html += slots.map((s) => {
             const color = (window.SaltSubjectColors && SaltSubjectColors.forSubject)
-              ? SaltSubjectColors.forSubject(s.subject || '', { isBreak: !!s.isBreak })
+              ? SaltSubjectColors.forSubject(s.subject || '', {
+                isBreak: !!s.isBreak,
+                classId: s.classId || (overview && overview.student && overview.student.classId) || ''
+              })
               : { bg: '#eef3ea', border: '#a3b18a' };
             return '<div class="pp-tt-slot pp-tt-slot-colored" style="background:' + color.bg +
               ';border-left-color:' + color.border + ';">' +

@@ -149,7 +149,7 @@ window.SaltLesson = (function() {
       return calendar.subjectStyles[key];
     }
     if (window.SaltSubjectColors && typeof window.SaltSubjectColors.forSubject === 'function') {
-      return window.SaltSubjectColors.forSubject(subject);
+      return window.SaltSubjectColors.forSubject(subject, { classId: classId || '' });
     }
     return { bg: '#eef3ea', border: '#a3b18a' };
   }

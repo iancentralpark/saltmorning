@@ -9,7 +9,11 @@ const SUBJECT_PALETTE = [
   { bg: '#f0ebfa', border: '#a99bd4', label: 'Purple' },
   { bg: '#edf6fc', border: '#9ecae8', label: 'Cyan' },
   { bg: '#fceeed', border: '#e8a8a0', label: 'Coral' },
-  { bg: '#f4efe9', border: '#b8b0a8', label: 'Sand' }
+  { bg: '#f4efe9', border: '#b8b0a8', label: 'Sand' },
+  { bg: '#e8f6f5', border: '#9ec9c4', label: 'Teal' },
+  { bg: '#fbf3d9', border: '#d4c48a', label: 'Lemon' },
+  { bg: '#eaf6e4', border: '#a8c894', label: 'Moss' },
+  { bg: '#f8e8ec', border: '#d4a8b4', label: 'Rose' }
 ];
 
 /** Soft pastels keyed by normalized subject name (shared with client subject-colors.js). */
@@ -64,6 +68,16 @@ function hashSubject(subject) {
   return Math.abs(h);
 }
 
+function hashStyleKey(classId, subject) {
+  const str = String(classId || '').trim() + '|' + normalizeSubjectKey(subject);
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h) + str.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
 function lookupNamedSubject(key) {
   if (!key) return null;
   if (NAMED_SUBJECT_COLORS[key]) return NAMED_SUBJECT_COLORS[key];
@@ -77,8 +91,13 @@ function lookupNamedSubject(key) {
   return null;
 }
 
-function defaultStyleForSubject(subject) {
+function defaultStyleForSubject(subject, classId) {
   const key = normalizeSubjectKey(subject);
+  const cid = String(classId || '').trim();
+  // Class-aware defaults so the same subject differs across classes.
+  if (cid) {
+    return defaultStyleForIndex(hashStyleKey(cid, key));
+  }
   const named = lookupNamedSubject(key);
   if (named) return { bg: named.bg, border: named.border };
   return defaultStyleForIndex(hashSubject(subject));
@@ -140,8 +159,8 @@ function resolveStyle(classId, subject, customMap, defaultIndexMap) {
   if (customMap && customMap[key]) {
     return { subject, ...customMap[key] };
   }
-  // Prefer subject-name pastel so English/Math/etc. match across timetable UIs.
-  return { subject, ...defaultStyleForSubject(subject) };
+  // Class + subject pastel so the same subject differs across classes.
+  return { subject, ...defaultStyleForSubject(subject, classId) };
 }
 
 function buildStyleLookup(classSlots, customMap) {
