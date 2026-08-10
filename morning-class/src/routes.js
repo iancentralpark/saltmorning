@@ -49,7 +49,13 @@ const {
   listReportCardFields,
   listReportCardEntries,
   saveReportCardEntries,
-  buildReportCardSummary
+  buildReportCardSummary,
+  getClassReportOverview,
+  getStudentSubjectReport,
+  saveStudentSubjectReport,
+  getFullStudentReportCard,
+  shareReportCardWithParents,
+  listParentReportCards
 } = require('./services/reportCardService');
 const {
   getActiveTerm,
@@ -647,26 +653,29 @@ router.post('/teacher/class/:classId/grades/daily', requireRole('teacher'), asyn
 router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async (req, res) => {
   try {
     const classId = req.params.classId;
-    const term = req.query.term || 'Term1';
+    const term = req.query.term || '';
     const subject = req.query.subject || '';
-    const students = await getClassRoster(classId);
-    const computed = subject
-      ? await buildReportCardFromGrades(classId, term, subject, students)
-      : [];
-    const fields = await listReportCardFields(classId, term);
-    const filteredFields = subject ? fields.filter((f) => f.subject === subject) : fields;
-    const entries = await listReportCardEntries(classId, term, null, subject || null);
-    const summary = buildReportCardSummary(students, filteredFields, entries);
-    const weights = subject ? await listGradeWeights(classId, term, subject) : [];
-    res.json({
-      term,
-      subject: subject || null,
-      fields: filteredFields,
-      summary,
-      computed,
-      weights,
-      weightTotal: weights.reduce((s, w) => s + w.weightPercent, 0)
-    });
+    const studentId = req.query.studentId || '';
+
+    // Full printable card
+    if (studentId && req.query.full === '1') {
+      const card = await getFullStudentReportCard(
+        req.session.teacherId, classId, studentId, term || 'Term1'
+      );
+      return res.json({ card });
+    }
+
+    // Student × subject editor
+    if (studentId && subject) {
+      const data = await getStudentSubjectReport(
+        req.session.teacherId, classId, studentId, term || 'Term1', subject
+      );
+      return res.json(data);
+    }
+
+    // Class overview (student list + readiness)
+    const overview = await getClassReportOverview(req.session.teacherId, classId, term);
+    res.json(overview);
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load report card.' });
   }
@@ -674,16 +683,46 @@ router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async 
 
 router.post('/teacher/class/:classId/report-card', requireRole('teacher'), async (req, res) => {
   try {
+    const body = req.body || {};
+    // New student-subject save (work habits + comment)
+    if (body.studentId && body.subject && (body.workHabits || body.subjectComment != null || body.markComplete != null)) {
+      const result = await saveStudentSubjectReport(req.session.teacherId, req.params.classId, body);
+      return res.json(result);
+    }
+    // Legacy bulk entries save
     const result = await saveReportCardEntries(
       req.params.classId,
-      req.body.term,
-      req.body.subject,
+      body.term,
+      body.subject,
       req.session.teacherId,
-      req.body.entries || []
+      body.entries || []
     );
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save report card.' });
+  }
+});
+
+router.post('/teacher/class/:classId/report-card/share', requireRole('teacher'), async (req, res) => {
+  try {
+    const result = await shareReportCardWithParents(
+      req.session.teacherId,
+      req.params.classId,
+      req.body.studentId,
+      req.body.term || 'Term1'
+    );
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not share report card.' });
+  }
+});
+
+router.get('/parent/report-cards', requireRole('parent'), async (req, res) => {
+  try {
+    const data = await listParentReportCards(req.session);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load report cards.' });
   }
 });
 

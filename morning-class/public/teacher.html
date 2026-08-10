@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810teacherux">
+  <link rel="stylesheet" href="/css/app.css?v=20260810reportcard">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -157,12 +157,13 @@
     </div>
 
     <div id="panelReport" class="card hidden">
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-        <input id="reportTerm" value="Term1" placeholder="Term">
-        <input id="reportSubject" placeholder="Subject filter">
-        <button class="btn btn-primary" id="loadReportBtn" type="button">Load</button>
+      <div class="rc-panel-toolbar">
+        <label class="muted small">Term
+          <input id="reportTerm" value="Term1" placeholder="Term1">
+        </label>
+        <button class="btn btn-ghost" id="loadReportBtn" type="button">Refresh</button>
       </div>
-      <div id="reportBody"></div>
+      <div id="reportBody"><p class="muted">Loading report card…</p></div>
       <div class="error" id="reportError"></div>
     </div>
 
@@ -340,6 +341,7 @@
 <script src="/js/app.js?v=20260804restore"></script>
 <script src="/js/teacher-attendance.js?v=20260804hr"></script>
 <script src="/js/teacher-grades.js?v=20260810teacherux"></script>
+<script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
 <script src="/js/teacher-lesson.js?v=20260804homeroom"></script>
 <script src="/js/messenger.js?v=20260708ag"></script>
 <script src="/js/student-registry.js?v=20260804uxaudit"></script>
@@ -360,6 +362,11 @@
     $, show, hide, escapeHtml, todayISO, api,
     getClass: () => currentClass,
     switchTab
+  });
+
+  SaltReportCard.init({
+    $, show, hide, escapeHtml, api, role,
+    getClass: () => currentClass
   });
 
   SaltLesson.init({
@@ -513,7 +520,7 @@
     if (name === 'dollars') loadDollars();
     if (name === 'homework') loadHomework();
     if (name === 'vocab') loadVocabOverview();
-    if (name === 'report') loadReport();
+    if (name === 'report') SaltReportCard.onClassOpen();
     if (name === 'lesson') SaltLesson.onClassOpen();
     if (name === 'attendance') SaltAttendance.loadWork();
   }
@@ -794,44 +801,10 @@
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  async function loadReport() {
-    const term = $('reportTerm').value.trim();
-    const subject = $('reportSubject').value.trim();
-    const q = '?term=' + encodeURIComponent(term) + (subject ? '&subject=' + encodeURIComponent(subject) : '');
-    const data = await api('/api/teacher/class/' + currentClass.classId + '/report-card' + q, {}, role);
-    let html = '';
-
-    if (data.computed && data.computed.length && subject) {
-      html += '<h3>Calculated grades (' + escapeHtml(subject) + ')</h3>';
-      html += '<p class="muted small">From grade weights + entries. Use Sync on Grades tab to push to stored report card.</p>';
-      html += '<table class="grades-table"><thead><tr><th>Student</th><th>Term grade</th>';
-      (data.weights || []).forEach((w) => { html += '<th>' + escapeHtml(w.label) + '</th>'; });
-      html += '</tr></thead><tbody>';
-      data.computed.forEach((st) => {
-        html += '<tr><td>' + escapeHtml(st.name) + '</td><td><strong>' + (st.weightedTotal != null ? st.weightedTotal : '—') + '</strong></td>';
-        (st.categories || []).forEach((c) => {
-          html += '<td>' + (c.categoryPercent != null ? c.categoryPercent + '%' : '—') + '</td>';
-        });
-        html += '</tr>';
-      });
-      html += '</tbody></table>';
-    }
-
-    (data.summary || []).forEach(st => {
-      html += '<h3>' + escapeHtml(st.name) + '</h3><table><thead><tr><th>Field</th><th>Score</th><th>Comment</th></tr></thead><tbody>';
-      Object.keys(st.subjects || {}).forEach(sub => {
-        (st.subjects[sub] || []).forEach(f => {
-          html += '<tr><td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
-            '<td>' + (f.score != null ? f.score : '—') + '</td>' +
-            '<td>' + escapeHtml(f.comment || '') + '</td></tr>';
-        });
-      });
-      html += '</tbody></table>';
-    });
-    $('reportBody').innerHTML = html || '<p style="color:var(--muted)">Select a subject and load. Set grade weights on the Grades tab first.</p>';
+  $('loadReportBtn').addEventListener('click', () => SaltReportCard.loadOverview());
+  if ($('reportTerm')) {
+    $('reportTerm').addEventListener('change', () => SaltReportCard.loadOverview());
   }
-
-  $('loadReportBtn').addEventListener('click', loadReport);
 
   $('backBtn').addEventListener('click', () => {
     SaltLesson.closeDrawer();

@@ -28,6 +28,7 @@ module.exports = {
   GRADE_TERMS_SHEET: 'Grade_Terms',
   REPORT_CARD_FIELDS_SHEET: 'ReportCard_Fields',
   REPORT_CARD_ENTRIES_SHEET: 'ReportCard_Entries',
+  REPORT_CARD_STATUS_SHEET: 'ReportCard_Status',
   LESSON_PLANS_SHEET: 'Lesson_Plans',
   ADMIN_LIST_SHEET: 'Admin_List',
   SUBJECTS_SHEET: 'Subjects',
