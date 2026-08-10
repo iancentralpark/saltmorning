@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810rcsig">
+  <link rel="stylesheet" href="/css/app.css?v=20260810rcsig2">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -307,7 +307,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260804restore2"></script>
+<script src="/js/app.js?v=20260810rcsig2"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260810ttclass"></script>
 <script src="/js/messenger.js?v=20260810admdir"></script>
@@ -315,7 +315,7 @@
 <script src="/js/class-registry.js?v=20260709classes"></script>
 <script src="/js/timetable.js?v=20260810ttclass"></script>
 <script src="/js/timetable-setup.js?v=20260810ttpastel"></script>
-<script src="/js/report-card-print.js?v=20260810rcsig"></script>
+<script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/admin-school-calendar.js?v=20260810attendance"></script>
 <script>
@@ -980,11 +980,14 @@
       const file = $('adminRcSigFile').files && $('adminRcSigFile').files[0];
       if (!file) return;
       const fd = new FormData();
-      fd.append('signature', file);
       try {
+        const prepared = (SaltApp.prepareSignatureFile
+          ? await SaltApp.prepareSignatureFile(file)
+          : file);
+        fd.append('signature', prepared);
         await api('/api/admin/signature', { method: 'POST', body: fd }, role);
         $('adminRcError').style.color = '#16a34a';
-        $('adminRcError').textContent = 'Principal signature saved.';
+        $('adminRcError').textContent = 'Principal signature saved permanently. Sign again on awaiting cards if needed.';
       } catch (e) {
         $('adminRcError').style.color = '#dc2626';
         $('adminRcError').textContent = e.message;

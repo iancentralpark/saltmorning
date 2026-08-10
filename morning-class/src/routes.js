@@ -97,6 +97,8 @@ const {
   listTeachersForHead,
   saveSignaturePng,
   readSignaturePath,
+  resolveSignaturePath,
+  loadSignatureAsset,
   signAsHomeroom,
   submitToHead,
   signAsHead,
@@ -862,7 +864,7 @@ router.post('/teacher/signature', requireRole('teacher', 'principal'), async (re
     try {
       if (!req.file) return res.status(400).json({ error: 'Upload a PNG signature image.' });
       const personId = req.session.teacherId || req.session.principalId;
-      const sigPath = await saveSignaturePng(personId, req.file.buffer);
+      const sigPath = await saveSignaturePng(personId, req.file.buffer, req.file.mimetype);
       res.json({ signaturePath: sigPath });
     } catch (e) {
       res.status(400).json({ error: e.message || 'Could not save signature.' });
@@ -873,7 +875,22 @@ router.post('/teacher/signature', requireRole('teacher', 'principal'), async (re
 router.get('/teacher/signature', requireRole('teacher', 'principal'), async (req, res) => {
   try {
     const personId = req.session.teacherId || req.session.principalId;
-    res.json({ signaturePath: readSignaturePath(personId) });
+    res.json({ signaturePath: await resolveSignaturePath(personId) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load signature.' });
+  }
+});
+
+/** Durable signature image (Sheets-backed). Used by report-card <img src>. */
+router.get('/signatures/:personId', async (req, res) => {
+  try {
+    const personId = decodeURIComponent(String(req.params.personId || '').trim());
+    if (!personId || personId.length > 80) return res.status(404).end();
+    const asset = await loadSignatureAsset(personId);
+    if (!asset) return res.status(404).json({ error: 'Signature not found.' });
+    res.setHeader('Content-Type', asset.mime || 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(asset.buffer);
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load signature.' });
   }
@@ -1032,7 +1049,7 @@ router.post('/admin/signature', requireRole('admin', 'principal'), async (req, r
     try {
       if (!req.file) return res.status(400).json({ error: 'Upload a PNG signature image.' });
       const personId = req.session.principalId || req.session.teacherId || req.session.adminId;
-      const sigPath = await saveSignaturePng(personId, req.file.buffer);
+      const sigPath = await saveSignaturePng(personId, req.file.buffer, req.file.mimetype);
       res.json({ signaturePath: sigPath });
     } catch (e) {
       res.status(400).json({ error: e.message || 'Could not save signature.' });

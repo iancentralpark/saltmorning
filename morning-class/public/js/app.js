@@ -118,6 +118,48 @@
     });
   }
 
+  /**
+   * Shrink signature images before upload so they fit durable Sheets storage
+   * and still look sharp on the report card.
+   */
+  function prepareSignatureFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject(new Error('No signature file selected.'));
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxW = 720;
+          const maxH = 260;
+          let w = img.naturalWidth || img.width;
+          let h = img.naturalHeight || img.height;
+          const scale = Math.min(1, maxW / w, maxH / h);
+          w = Math.max(1, Math.round(w * scale));
+          h = Math.max(1, Math.round(h * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob) return reject(new Error('Could not process signature image.'));
+            resolve(new File([blob], 'signature.png', { type: 'image/png' }));
+          }, 'image/png');
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          reject(e);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Could not read signature image.'));
+      };
+      img.src = url;
+    });
+  }
+
   global.SaltApp = {
     API,
     getToken,
@@ -134,6 +176,7 @@
     show,
     hide,
     todayISO,
-    escapeHtml
+    escapeHtml,
+    prepareSignatureFile
   };
 })(window);

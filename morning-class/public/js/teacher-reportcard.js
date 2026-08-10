@@ -358,11 +358,14 @@
     if (!input || !input.files || !input.files[0]) return;
     err.textContent = '';
     try {
+      const prepared = (SaltApp.prepareSignatureFile
+        ? await SaltApp.prepareSignatureFile(input.files[0])
+        : input.files[0]);
       const fd = new FormData();
-      fd.append('signature', input.files[0]);
+      fd.append('signature', prepared);
       await api('/api/teacher/signature', { method: 'POST', body: fd }, role);
       err.style.color = '#16a34a';
-      err.textContent = 'Signature saved. You can Sign the report card now.';
+      err.textContent = 'Signature saved permanently. You can Sign the report card now.';
     } catch (e) {
       err.style.color = '#dc2626';
       err.textContent = e.message;

@@ -16,6 +16,15 @@ const { ensureTimetableSheet } = require('./services/timetableService');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+
+// Legacy signature URLs → durable API (old cards pointed at ephemeral /uploads/)
+app.get('/uploads/signatures/:file', (req, res) => {
+  const file = String(req.params.file || '');
+  const id = file.replace(/\.[^.]+$/, '');
+  if (!id) return res.status(404).end();
+  res.redirect(302, '/api/signatures/' + encodeURIComponent(id));
+});
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use('/api', apiRoutes);

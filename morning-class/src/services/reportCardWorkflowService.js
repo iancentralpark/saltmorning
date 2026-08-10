@@ -5,6 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const {
   REPORT_CARD_WORKFLOW_SHEET,
+  REPORT_CARD_SIGNATURES_SHEET,
   TEACHER_LIST_SHEET
 } = require('../config');
 const {
@@ -30,7 +31,11 @@ const WORKFLOW_HEADERS = [
   'ScheduledShareAt', 'UpdatedAt'
 ];
 
+const SIG_HEADERS = ['PersonID', 'MimeType', 'Base64', 'UpdatedAt'];
+
+/** Local cache only — Railway disk is ephemeral; durable copy lives in Sheets. */
 const SIG_DIR = path.join(__dirname, '../../public/uploads/signatures');
+const MAX_SIG_BASE64 = 48000;
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -42,7 +47,145 @@ function isoNow() {
 
 async function ensureWorkflowSheet() {
   await ensureSheet(REPORT_CARD_WORKFLOW_SHEET, WORKFLOW_HEADERS);
+  await ensureSheet(REPORT_CARD_SIGNATURES_SHEET, SIG_HEADERS);
   if (!fs.existsSync(SIG_DIR)) fs.mkdirSync(SIG_DIR, { recursive: true });
+}
+
+function personIdFromSigPath(pathOrId) {
+  const raw = String(pathOrId || '').trim();
+  if (!raw) return '';
+  const m = raw.match(/\/(?:api\/)?signatures\/([^/?#]+)/i) ||
+    raw.match(/\/uploads\/signatures\/([^/?#]+?)(?:\.[a-z0-9]+)?$/i);
+  if (m) return decodeURIComponent(m[1]);
+  if (!raw.includes('/')) return raw.replace(/\.(png|jpe?g|webp)$/i, '');
+  return '';
+}
+
+function signaturePathFor(personId) {
+  return '/api/signatures/' + encodeURIComponent(String(personId));
+}
+
+function normalizeSigPath(pathOrId) {
+  const id = personIdFromSigPath(pathOrId) || String(pathOrId || '').trim();
+  if (!id) return '';
+  return signaturePathFor(id);
+}
+
+function absoluteSignaturePath(personId, ext) {
+  return path.join(SIG_DIR, String(personId) + (ext || '.bin'));
+}
+
+function extForMime(mime) {
+  if (mime === 'image/jpeg') return '.jpg';
+  if (mime === 'image/webp') return '.webp';
+  return '.png';
+}
+
+function mimeFromExt(filePath) {
+  if (/\.jpe?g$/i.test(filePath)) return 'image/jpeg';
+  if (/\.webp$/i.test(filePath)) return 'image/webp';
+  return 'image/png';
+}
+
+async function upsertSignatureRow(personId, mime, base64) {
+  await ensureWorkflowSheet();
+  const rows = await getSheetRows(REPORT_CARD_SIGNATURES_SHEET, { skipCache: true });
+  const row = [String(personId), mime || 'image/png', base64, isoNow()];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== String(personId)) continue;
+    await updateRange(REPORT_CARD_SIGNATURES_SHEET, `A${i + 1}:D${i + 1}`, [row]);
+    invalidateSheetRowsCache(REPORT_CARD_SIGNATURES_SHEET);
+    return;
+  }
+  await appendRows(REPORT_CARD_SIGNATURES_SHEET, [row]);
+  invalidateSheetRowsCache(REPORT_CARD_SIGNATURES_SHEET);
+}
+
+async function readSignatureRow(personId) {
+  await ensureWorkflowSheet();
+  const rows = await getSheetRows(REPORT_CARD_SIGNATURES_SHEET);
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== String(personId)) continue;
+    const base64 = String(rows[i][2] || '').trim();
+    if (!base64) return null;
+    return {
+      personId: String(personId),
+      mime: String(rows[i][1] || 'image/png'),
+      base64
+    };
+  }
+  return null;
+}
+
+function writeLocalSignatureCache(personId, buffer, mime) {
+  if (!fs.existsSync(SIG_DIR)) fs.mkdirSync(SIG_DIR, { recursive: true });
+  const ext = extForMime(mime);
+  ['.png', '.jpg', '.jpeg', '.webp', '.bin'].forEach((e) => {
+    const p = absoluteSignaturePath(personId, e);
+    if (fs.existsSync(p)) {
+      try { fs.unlinkSync(p); } catch (err) { /* ignore */ }
+    }
+  });
+  fs.writeFileSync(absoluteSignaturePath(personId, ext), buffer);
+  return absoluteSignaturePath(personId, ext);
+}
+
+function readLocalSignatureCache(personId) {
+  for (const ext of ['.png', '.jpg', '.jpeg', '.webp', '.bin']) {
+    const p = absoluteSignaturePath(personId, ext);
+    if (fs.existsSync(p)) {
+      return { buffer: fs.readFileSync(p), mime: mimeFromExt(p), path: p };
+    }
+  }
+  return null;
+}
+
+async function saveSignaturePng(personId, buffer, mimeType) {
+  await ensureWorkflowSheet();
+  personId = String(personId || '').trim();
+  if (!personId) throw new Error('Signer id required.');
+  if (!buffer || !buffer.length) throw new Error('Signature image required.');
+  const mime = mimeType || 'image/png';
+  const base64 = Buffer.from(buffer).toString('base64');
+  if (base64.length > MAX_SIG_BASE64) {
+    throw new Error(
+      'Signature image is too large to store. Use a smaller signature PNG (about 700×250 px).'
+    );
+  }
+  writeLocalSignatureCache(personId, buffer, mime);
+  await upsertSignatureRow(personId, mime, base64);
+  return signaturePathFor(personId);
+}
+
+/**
+ * Load signature bytes from local cache or durable Sheets store.
+ */
+async function loadSignatureAsset(personId) {
+  personId = String(personId || '').trim();
+  if (!personId) return null;
+  const local = readLocalSignatureCache(personId);
+  if (local) return { buffer: local.buffer, mime: local.mime, personId };
+  const row = await readSignatureRow(personId);
+  if (!row) return null;
+  const buffer = Buffer.from(row.base64, 'base64');
+  try { writeLocalSignatureCache(personId, buffer, row.mime); } catch (e) { /* ignore */ }
+  return { buffer, mime: row.mime, personId };
+}
+
+async function hasSignature(personId) {
+  const asset = await loadSignatureAsset(personId);
+  return !!asset;
+}
+
+/** Sync helper — local cache only. Use resolveSignaturePath for durable checks. */
+function readSignaturePath(personId) {
+  if (readLocalSignatureCache(personId)) return signaturePathFor(personId);
+  return '';
+}
+
+async function resolveSignaturePath(personId) {
+  if (await hasSignature(personId)) return signaturePathFor(personId);
+  return '';
 }
 
 function parseWorkflowRow(row) {
@@ -58,9 +201,9 @@ function parseWorkflowRow(row) {
     homeroomSignedAt: String(row[7] || ''),
     headSignedAt: String(row[8] || ''),
     principalSignedAt: String(row[9] || ''),
-    homeroomSigPath: String(row[10] || ''),
-    headSigPath: String(row[11] || ''),
-    principalSigPath: String(row[12] || ''),
+    homeroomSigPath: normalizeSigPath(row[10] || ''),
+    headSigPath: normalizeSigPath(row[11] || ''),
+    principalSigPath: normalizeSigPath(row[12] || ''),
     submittedToHeadAt: String(row[13] || ''),
     submittedToPrincipalAt: String(row[14] || ''),
     sharedAt: String(row[15] || ''),
@@ -180,34 +323,12 @@ async function listTeachersForHead(headTeacherId) {
   return out;
 }
 
-function signaturePathFor(personId) {
-  return '/uploads/signatures/' + String(personId) + '.png';
-}
-
-function absoluteSignaturePath(personId) {
-  return path.join(SIG_DIR, String(personId) + '.png');
-}
-
-async function saveSignaturePng(personId, buffer) {
-  await ensureWorkflowSheet();
-  if (!buffer || !buffer.length) throw new Error('Signature image required.');
-  const dest = absoluteSignaturePath(personId);
-  fs.writeFileSync(dest, buffer);
-  return signaturePathFor(personId);
-}
-
-function readSignaturePath(personId) {
-  const abs = absoluteSignaturePath(personId);
-  if (fs.existsSync(abs)) return signaturePathFor(personId);
-  return '';
-}
-
 async function signAsHomeroom(workflow, teacherId) {
   if (workflow.state !== STATES.draft && workflow.state !== STATES.signed_homeroom) {
     throw new Error('Homeroom can only sign before submitting to the Head Teacher.');
   }
-  const sig = readSignaturePath(teacherId);
-  if (!sig) throw new Error('Upload your signature PNG first (Profile → Signature).');
+  const sig = await resolveSignaturePath(teacherId);
+  if (!sig) throw new Error('Upload your signature PNG first (Report card → Upload signature).');
   workflow.state = STATES.signed_homeroom;
   workflow.homeroomTeacherId = String(teacherId);
   workflow.homeroomSignedAt = isoNow();
@@ -243,7 +364,7 @@ async function signAsHead(workflow, headTeacherId) {
   if (workflow.headTeacherId && String(workflow.headTeacherId) !== String(headTeacherId)) {
     throw new Error('This report card is assigned to another Head Teacher.');
   }
-  const sig = readSignaturePath(headTeacherId);
+  const sig = await resolveSignaturePath(headTeacherId);
   if (!sig) throw new Error('Upload your signature PNG first.');
   workflow.state = STATES.signed_head;
   workflow.headTeacherId = String(headTeacherId);
@@ -268,7 +389,7 @@ async function signAsPrincipal(workflow, principalId) {
   if (workflow.state !== STATES.submitted_principal && workflow.state !== STATES.signed_principal) {
     throw new Error('Waiting for Head Teacher submission before Principal can sign.');
   }
-  const sig = readSignaturePath(principalId);
+  const sig = await resolveSignaturePath(principalId);
   if (!sig) throw new Error('Upload your signature PNG first.');
   workflow.state = STATES.signed_principal;
   workflow.principalSignedAt = isoNow();
@@ -344,6 +465,10 @@ module.exports = {
   listTeachersForHead,
   saveSignaturePng,
   readSignaturePath,
+  resolveSignaturePath,
+  loadSignatureAsset,
+  hasSignature,
+  normalizeSigPath,
   signAsHomeroom,
   submitToHead,
   signAsHead,
