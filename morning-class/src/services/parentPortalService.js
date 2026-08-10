@@ -16,6 +16,7 @@ const { getStudentHomeworkStatus } = require('./homeworkService');
 const { listParentAnnouncements } = require('./parentAnnouncementService');
 const { listParentReportCards } = require('./reportCardService');
 const { askGemini, isGeminiConfigured } = require('./geminiService');
+const crypto = require('crypto');
 
 const PARENT_EDITABLE_PROFILE = [
   'address', 'phone', 'email',
@@ -278,8 +279,39 @@ async function updateParentStudentProfile(session, payload) {
 
 /**
  * Translate a chat message for parent↔teacher messenger.
+ * Fast path: single flash model, short prompt, server cache, no multi-model fallback.
  * targetLang: 'ko' | 'en'
  */
+const translateResultCache = new Map();
+const TRANSLATE_CACHE_TTL_MS = 60 * 60 * 1000;
+
+function translateCacheKey(text, lang) {
+  return lang + ':' + crypto.createHash('sha1').update(String(text)).digest('hex');
+}
+
+function getCachedTranslation(text, lang) {
+  const key = translateCacheKey(text, lang);
+  const hit = translateResultCache.get(key);
+  if (!hit) return null;
+  if (Date.now() > hit.expires) {
+    translateResultCache.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function setCachedTranslation(text, lang, value) {
+  translateResultCache.set(translateCacheKey(text, lang), {
+    value,
+    expires: Date.now() + TRANSLATE_CACHE_TTL_MS
+  });
+  // Soft cap to avoid unbounded growth in long-lived processes
+  if (translateResultCache.size > 500) {
+    const first = translateResultCache.keys().next().value;
+    if (first) translateResultCache.delete(first);
+  }
+}
+
 async function translateChatMessage(text, targetLang) {
   text = String(text || '').trim();
   if (!text) throw new Error('Nothing to translate.');
@@ -287,30 +319,38 @@ async function translateChatMessage(text, targetLang) {
     throw new Error('Translate is not configured (missing GEMINI_API_KEY).');
   }
   const lang = String(targetLang || 'ko').toLowerCase() === 'en' ? 'en' : 'ko';
+  const cached = getCachedTranslation(text, lang);
+  if (cached) return Object.assign({ cached: true }, cached);
+
   const langName = lang === 'en' ? 'English' : 'Korean';
-  const audience = lang === 'en'
-    ? 'a teacher reading a parent message'
-    : 'a parent reading a teacher message';
+  // Chat bodies are capped at 500 chars — keep output budget tight for speed.
+  const maxOutputTokens = Math.min(768, Math.max(160, Math.ceil(text.length * 2.2) + 40));
+  const model = process.env.MESSENGER_TRANSLATE_MODEL
+    || process.env.GEMINI_FAST_MODEL
+    || 'gemini-2.0-flash';
+
   const result = await askGemini(
-    'You are a careful school-messenger translator.\n' +
-    'Translate the FULL message below into natural ' + langName + ' for ' + audience + '.\n' +
-    'Rules:\n' +
-    '- Return ONLY the complete translation — every sentence, joke, and detail.\n' +
-    '- Do not summarize, cut off, or add commentary/quotes/labels.\n' +
-    '- Keep names and numbers as-is when natural.\n\n' +
-    'MESSAGE:\n' + text,
-    { temperature: 0.15, maxOutputTokens: 4096 }
+    'Translate into natural ' + langName + '. Return ONLY the full translation, no quotes.\n\n' + text,
+    {
+      temperature: 0.1,
+      maxOutputTokens,
+      model,
+      retries: 1,
+      noFallback: true
+    }
   );
   const translated = String(result.text || result.answer || '').trim()
     .replace(/^["'「『]|["'」』]$/g, '')
     .trim();
   if (!translated) throw new Error('Empty translation.');
-  return {
+  const payload = {
     original: text,
     translated,
     targetLang: lang,
-    model: result.model || ''
+    model: result.model || model
   };
+  setCachedTranslation(text, lang, payload);
+  return payload;
 }
 
 async function translateToKorean(text) {

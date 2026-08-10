@@ -101,8 +101,10 @@ async function askGemini(prompt, historyOrOptions, maybeOptions) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
 
-  const models = fallbackModels(options.model);
-  const maxAttemptsPerModel = Math.max(1, Number(options.retries) || 2);
+  const models = options.noFallback
+    ? [String(options.model || defaultModel()).trim()].filter(Boolean)
+    : fallbackModels(options.model);
+  const maxAttemptsPerModel = Math.max(1, Number(options.retries) || (options.noFallback ? 1 : 2));
   let lastError = null;
 
   for (let mi = 0; mi < models.length; mi++) {

@@ -16,12 +16,15 @@
   const translationCache = Object.create(null);
   /** messageIds currently showing original while auto-translate is on */
   const showOriginalIds = new Set();
+  /** messageIds manually requested for translation while Auto Translate is off */
+  const manualShowTranslated = new Set();
   /** in-flight translate promises by messageId */
   const translateInFlight = Object.create(null);
   /** threadId → bool auto-translate preference */
   const autoTranslateByThread = Object.create(null);
   /** Prevent overlapping ensureTranslationsForThread loops */
   let translatingThreadId = null;
+  const TRANSLATE_CONCURRENCY = 3;
 
   function el(tag, cls, html) {
     const n = document.createElement(tag);
@@ -67,6 +70,7 @@
     if (isParentRole()) {
       return {
         auto: 'Auto Translate',
+        translate: '번역',
         showOriginal: '원본보기',
         showTranslation: '번역보기',
         translating: '번역 중…',
@@ -75,6 +79,7 @@
     }
     return {
       auto: 'Auto Translate',
+      translate: 'Translate',
       showOriginal: 'Show original',
       showTranslation: 'Show translation',
       translating: 'Translating…',
@@ -162,13 +167,18 @@
 
   function displayBodyForMessage(m, autoOn) {
     const original = String(m.body || '');
-    if (!autoOn || !isTranslatableMessage(m)) {
+    if (!isTranslatableMessage(m)) {
       return { text: original, mode: 'original', toggle: null };
     }
+
+    const wantTranslated = autoOn || manualShowTranslated.has(m.messageId);
     const cached = translationCache[m.messageId];
     const showOrig = showOriginalIds.has(m.messageId);
     const L = labels();
 
+    if (!wantTranslated) {
+      return { text: original, mode: 'original', toggle: 'translate' };
+    }
     if (showOrig) {
       return { text: original, mode: 'original', toggle: 'translation' };
     }
@@ -176,7 +186,7 @@
       return { text: cached.translated, mode: 'translated', toggle: 'original' };
     }
     if (cached && cached.error) {
-      return { text: original, mode: 'original', toggle: null, error: cached.error };
+      return { text: original, mode: 'original', toggle: 'translate', error: cached.error };
     }
     if (translateInFlight[m.messageId]) {
       return { text: L.translating, mode: 'pending', toggle: null };
@@ -213,6 +223,7 @@
       activeThread = null;
       messages = [];
       showOriginalIds.clear();
+      manualShowTranslated.clear();
       updatePanel();
       refreshThreads();
     });
@@ -239,14 +250,18 @@
         const cls = isMine(m) ? 'msg-bubble mine' : 'msg-bubble theirs';
         const disp = displayBodyForMessage(m, autoOn);
         let footer = '';
-        if (disp.toggle === 'original') {
+        if (disp.toggle === 'translate') {
+          footer = '<button type="button" class="msg-orig-toggle msg-translate-btn" data-mid="' +
+            escapeHtml(m.messageId) + '" data-action="translate">' + escapeHtml(L.translate) + '</button>';
+        } else if (disp.toggle === 'original') {
           footer = '<button type="button" class="msg-orig-toggle" data-mid="' +
             escapeHtml(m.messageId) + '" data-action="original">' + escapeHtml(L.showOriginal) + '</button>';
         } else if (disp.toggle === 'translation') {
           footer = '<button type="button" class="msg-orig-toggle" data-mid="' +
             escapeHtml(m.messageId) + '" data-action="translation">' + escapeHtml(L.showTranslation) + '</button>';
-        } else if (disp.error) {
-          footer = '<div class="msg-tr-error muted small">' + escapeHtml(disp.error) + '</div>';
+        }
+        if (disp.error) {
+          footer += '<div class="msg-tr-error muted small">' + escapeHtml(disp.error) + '</div>';
         }
         const modeCls = disp.mode === 'translated' ? ' msg-showing-tr' :
           (disp.mode === 'pending' ? ' msg-showing-pending' : '');
@@ -262,9 +277,29 @@
       body.querySelectorAll('.msg-orig-toggle').forEach((btn) => {
         btn.addEventListener('click', () => {
           const mid = btn.dataset.mid;
-          if (btn.dataset.action === 'original') showOriginalIds.add(mid);
-          else showOriginalIds.delete(mid);
-          renderChat();
+          const action = btn.dataset.action;
+          if (action === 'original') {
+            showOriginalIds.add(mid);
+            renderChat();
+            return;
+          }
+          if (action === 'translation') {
+            showOriginalIds.delete(mid);
+            renderChat();
+            return;
+          }
+          if (action === 'translate') {
+            const msg = messages.find((x) => x.messageId === mid);
+            if (!msg) return;
+            manualShowTranslated.add(mid);
+            showOriginalIds.delete(mid);
+            const prev = translationCache[mid];
+            if (prev && prev.error) delete translationCache[mid];
+            renderChat();
+            translateOne(msg).then(() => {
+              if (view === 'chat' && activeThread) renderChat();
+            });
+          }
         });
       });
     }
@@ -324,12 +359,20 @@
       );
       if (!pending.length) return;
 
-      // Sequential to avoid Gemini rate spikes; re-render as each completes.
-      for (const m of pending) {
-        if (!activeThread || activeThread.threadId !== tid || !getAutoTranslate(tid)) break;
-        await translateOne(m);
-        if (view === 'chat' && activeThread && activeThread.threadId === tid) renderChat();
-      }
+      let cursor = 0;
+      const workers = Array.from(
+        { length: Math.min(TRANSLATE_CONCURRENCY, pending.length) },
+        async () => {
+          while (cursor < pending.length) {
+            if (!activeThread || activeThread.threadId !== tid || !getAutoTranslate(tid)) return;
+            const idx = cursor++;
+            const m = pending[idx];
+            await translateOne(m);
+            if (view === 'chat' && activeThread && activeThread.threadId === tid) renderChat();
+          }
+        }
+      );
+      await Promise.all(workers);
     } finally {
       if (translatingThreadId === tid) translatingThreadId = null;
     }
@@ -436,6 +479,7 @@
     activeThread = t;
     view = 'chat';
     showOriginalIds.clear();
+    manualShowTranslated.clear();
     updatePanel();
     joinThreadRoom(threadId);
     try {
