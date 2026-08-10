@@ -502,7 +502,7 @@
       '<div class="msg-chat-head"></div>' +
       '<div class="msg-chat-body"></div>' +
       '<form class="msg-compose">' +
-      '<textarea class="msg-compose-input" rows="2" maxlength="500" placeholder="Type a message…"></textarea>' +
+      '<textarea class="msg-compose-input" rows="2" maxlength="500" placeholder="Type a message… (Enter to send)"></textarea>' +
       '<button type="submit" class="btn btn-primary msg-send-btn">Send</button>' +
       '<div class="msg-compose-error error"></div>' +
       '</form>' +
@@ -543,6 +543,17 @@
       e.preventDefault();
       sendMessage();
     });
+
+    const composeInput = wrap.querySelector('.msg-compose-input');
+    if (composeInput) {
+      composeInput.addEventListener('keydown', (e) => {
+        // Enter sends; Shift+Enter inserts a newline.
+        if (e.key !== 'Enter' || e.shiftKey) return;
+        if (e.isComposing || e.keyCode === 229) return; // IME composition (Korean etc.)
+        e.preventDefault();
+        sendMessage();
+      });
+    }
   }
 
   function setLiveIndicator(on) {
