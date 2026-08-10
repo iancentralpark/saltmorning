@@ -36,14 +36,13 @@ window.SaltParent = (function() {
   function switchTab(name) {
     document.querySelectorAll('#appView .tab').forEach((t) =>
       t.classList.toggle('active', t.dataset.tab === name));
-    ['feed', 'schoolAnn', 'classAnn', 'attendance', 'timetable', 'homework', 'reportcards', 'profile', 'messages'].forEach((k) => {
+    ['feed', 'announcements', 'attendance', 'timetable', 'homework', 'reportcards', 'profile', 'messages'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       if (el) deps.hide(el);
     });
     const map = {
       feed: 'tabFeed',
-      schoolAnn: 'tabSchoolAnn',
-      classAnn: 'tabClassAnn',
+      announcements: 'tabAnnouncements',
       attendance: 'tabAttendance',
       timetable: 'tabTimetable',
       homework: 'tabHomework',
@@ -52,8 +51,7 @@ window.SaltParent = (function() {
       messages: 'tabMessages'
     };
     deps.show($(map[name]));
-    if (name === 'schoolAnn') loadAnnouncements('school');
-    if (name === 'classAnn') loadAnnouncements('class');
+    if (name === 'announcements') loadAnnouncements();
     if (name === 'attendance') loadAttendance();
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
@@ -62,17 +60,15 @@ window.SaltParent = (function() {
     if (name === 'messages') loadMessagesTab();
   }
 
-  async function loadAnnouncements(scope) {
-    const mount = scope === 'class' ? $('ppClassAnnList') : $('ppSchoolAnnList');
+  async function loadAnnouncements() {
+    const mount = $('ppAnnList');
     if (!mount) return;
     mount.innerHTML = '<p class="muted">Loading…</p>';
     try {
-      const data = await api('/api/parent/announcements?scope=' + encodeURIComponent(scope));
+      const data = await api('/api/parent/announcements');
       if (window.SaltAnnouncements) {
-        SaltAnnouncements.renderList(mount, data.announcements || [], {
-          emptyText: scope === 'class'
-            ? 'No class announcements yet.'
-            : 'No school announcements yet.'
+        SaltAnnouncements.renderGroupedList(mount, data.announcements || [], {
+          emptyText: 'No announcements yet.'
         });
       } else {
         mount.innerHTML = '<p class="muted">Could not load announcement UI.</p>';

@@ -3106,6 +3106,14 @@ body.buddy-resize-active {
   margin: 0.35rem 0 0.85rem;
 }
 .ann-subtabs .tab { font-size: 0.82rem; padding: 0.35rem 0.7rem; }
+.ann-group { margin-bottom: 1.25rem; }
+.ann-group-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  color: var(--olive-deep);
+  letter-spacing: 0.01em;
+}
+.ann-group .ann-card-top:empty { display: none; }
 @media (max-width: 720px) {
   .ann-compose-grid { grid-template-columns: 1fr; }
 }

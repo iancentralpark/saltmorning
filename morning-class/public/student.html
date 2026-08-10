@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20260810ann">
+  <link rel="stylesheet" href="/css/app.css?v=20260810ann2">
   <link rel="stylesheet" href="/css/vocab-learn.css?v=20260805v1proxy">
 </head>
 <body class="student-body">
@@ -23,10 +23,6 @@
 
     <div class="card stu-card" id="announcementsShell">
       <div class="card-title"><i class="fa-solid fa-bullhorn"></i> Announcements</div>
-      <div class="ann-subtabs">
-        <button type="button" class="tab active" data-ann-scope="school">School Announcements</button>
-        <button type="button" class="tab" data-ann-scope="class">Class Announcements</button>
-      </div>
       <div id="stuAnnList"><p class="muted">Loading…</p></div>
     </div>
 
@@ -124,7 +120,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
-<script src="/js/announcements.js?v=20260810ann"></script>
+<script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/messenger.js?v=20260810trbusy"></script>
 <script src="/js/vocab-learn.js?v=20260810teacherux"></script>
 <script>
@@ -133,7 +129,6 @@
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
   let buddyHistory = [];
   let dashboard = null;
-  let stuAnnScope = 'school';
   let buddyOpen = false;
 
   async function loadStudentAnnouncements() {
@@ -141,27 +136,16 @@
     if (!box) return;
     box.innerHTML = '<p class="muted">Loading…</p>';
     try {
-      const data = await api('/api/student/announcements?scope=' + encodeURIComponent(stuAnnScope), {}, role);
+      const data = await api('/api/student/announcements', {}, role);
       if (window.SaltAnnouncements) {
-        SaltAnnouncements.renderList(box, data.announcements || [], {
-          emptyText: stuAnnScope === 'class'
-            ? 'No class announcements yet.'
-            : 'No school announcements yet.'
+        SaltAnnouncements.renderGroupedList(box, data.announcements || [], {
+          emptyText: 'No announcements yet.'
         });
       }
     } catch (e) {
       box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
     }
   }
-
-  document.querySelectorAll('#announcementsShell [data-ann-scope]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      stuAnnScope = btn.dataset.annScope;
-      document.querySelectorAll('#announcementsShell [data-ann-scope]').forEach((b) =>
-        b.classList.toggle('active', b === btn));
-      loadStudentAnnouncements();
-    });
-  });
 
   if (!getToken(role)) {
     location.replace('/');

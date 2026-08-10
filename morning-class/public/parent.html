@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810ann">
+  <link rel="stylesheet" href="/css/app.css?v=20260810ann2">
 </head>
 <body>
 <div class="shell">
@@ -24,8 +24,7 @@
 
     <div class="tabs" style="margin-bottom:0.75rem">
       <button class="tab active" data-tab="feed" type="button">Newsfeed</button>
-      <button class="tab" data-tab="schoolAnn" type="button">School Announcements</button>
-      <button class="tab" data-tab="classAnn" type="button">Class Announcements</button>
+      <button class="tab" data-tab="announcements" type="button">Announcements</button>
       <button class="tab" data-tab="attendance" type="button">Attendance</button>
       <button class="tab" data-tab="timetable" type="button">Timetable</button>
       <button class="tab" data-tab="homework" type="button">Homework</button>
@@ -39,16 +38,10 @@
       <div id="ppFeed"></div>
     </div>
 
-    <div id="tabSchoolAnn" class="card hidden">
-      <h3 style="margin-top:0">School Announcements</h3>
-      <p class="muted small">Messages from the school office for all families.</p>
-      <div id="ppSchoolAnnList"><p class="muted">Loading…</p></div>
-    </div>
-
-    <div id="tabClassAnn" class="card hidden">
-      <h3 style="margin-top:0">Class Announcements</h3>
-      <p class="muted small">Messages from your child’s teachers.</p>
-      <div id="ppClassAnnList"><p class="muted">Loading…</p></div>
+    <div id="tabAnnouncements" class="card hidden">
+      <h3 style="margin-top:0">Announcements</h3>
+      <p class="muted small">School office and class teacher messages in one place.</p>
+      <div id="ppAnnList"><p class="muted">Loading…</p></div>
     </div>
 
     <div id="tabAttendance" class="card hidden">
@@ -118,9 +111,9 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260806login2"></script>
 <script src="/js/subject-colors.js?v=20260810ttpastel"></script>
-<script src="/js/announcements.js?v=20260810ann"></script>
+<script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/messenger.js?v=20260810trbusy"></script>
-<script src="/js/parent.js?v=20260810ann"></script>
+<script src="/js/parent.js?v=20260810ann2"></script>
 <script>
 (function() {
   const role = 'parent';

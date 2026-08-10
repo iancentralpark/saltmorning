@@ -30,7 +30,10 @@ window.SaltAnnouncements = (function() {
 
   function cardHtml(a, opts) {
     opts = opts || {};
-    const source = a.sourceLabel || (a.scope === 'class' ? 'Class' : 'School');
+    const hideSourceBadge = !!opts.hideSourceBadge;
+    const source = a.scope === 'class'
+      ? ('From Class' + (a.className ? ' · ' + a.className : ''))
+      : 'From School';
     const audience = a.audience === 'parent' ? 'Parents'
       : (a.audience === 'student' ? 'Students' : 'Parents & Students');
     let media = '';
@@ -53,9 +56,13 @@ window.SaltAnnouncements = (function() {
     return (
       '<article class="ann-card ann-scope-' + escapeHtml(a.scope || 'school') + '">' +
       '<div class="ann-card-top">' +
-        '<span class="ann-badge">' + escapeHtml(source) + '</span>' +
-        (a.className ? '<span class="ann-class muted small">' + escapeHtml(a.className) + '</span>' : '') +
-        '<span class="ann-audience muted small">' + escapeHtml(audience) + '</span>' +
+        (hideSourceBadge ? '' : '<span class="ann-badge">' + escapeHtml(source) + '</span>') +
+        (!hideSourceBadge && a.className && a.scope === 'class'
+          ? ''
+          : '') +
+        (opts.showAudience !== false
+          ? '<span class="ann-audience muted small">' + escapeHtml(audience) + '</span>'
+          : '') +
       '</div>' +
       '<h3 class="ann-title">' + escapeHtml(a.title || '') + '</h3>' +
       '<div class="ann-body">' + formatBody(a.body) + '</div>' +
@@ -79,6 +86,43 @@ window.SaltAnnouncements = (function() {
       return;
     }
     mountEl.innerHTML = list.map((a) => cardHtml(a, opts)).join('');
+    if (opts.onRemove) {
+      mountEl.querySelectorAll('.ann-remove').forEach((btn) => {
+        btn.addEventListener('click', () => opts.onRemove(btn.dataset.id));
+      });
+    }
+  }
+
+  /** One list, grouped under From School / From Class headings. */
+  function renderGroupedList(mountEl, items, opts) {
+    if (!mountEl) return;
+    opts = opts || {};
+    const list = items || [];
+    const school = list.filter((a) => (a.scope || 'school') !== 'class');
+    const classItems = list.filter((a) => a.scope === 'class');
+
+    if (!school.length && !classItems.length) {
+      mountEl.innerHTML = '<p class="muted ann-empty">' +
+        escapeHtml(opts.emptyText || 'No announcements yet.') + '</p>';
+      return;
+    }
+
+    const sectionOpts = Object.assign({}, opts, { hideSourceBadge: true, showAudience: false });
+    let html = '';
+    html += '<section class="ann-group">' +
+      '<h4 class="ann-group-title">From School</h4>' +
+      (school.length
+        ? school.map((a) => cardHtml(a, sectionOpts)).join('')
+        : '<p class="muted small ann-empty">No school announcements yet.</p>') +
+      '</section>';
+    html += '<section class="ann-group">' +
+      '<h4 class="ann-group-title">From Class</h4>' +
+      (classItems.length
+        ? classItems.map((a) => cardHtml(a, sectionOpts)).join('')
+        : '<p class="muted small ann-empty">No class announcements yet.</p>') +
+      '</section>';
+    mountEl.innerHTML = html;
+
     if (opts.onRemove) {
       mountEl.querySelectorAll('.ann-remove').forEach((btn) => {
         btn.addEventListener('click', () => opts.onRemove(btn.dataset.id));
@@ -165,5 +209,5 @@ window.SaltAnnouncements = (function() {
     });
   }
 
-  return { renderList, bindComposer, formatBody, formatWhen, escapeHtml, cardHtml };
+  return { renderList, renderGroupedList, bindComposer, formatBody, formatWhen, escapeHtml, cardHtml };
 })();
