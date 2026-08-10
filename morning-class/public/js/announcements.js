@@ -56,10 +56,11 @@ window.SaltAnnouncements = (function() {
     return (
       '<article class="ann-card ann-scope-' + escapeHtml(a.scope || 'school') + '">' +
       '<div class="ann-card-top">' +
-        (hideSourceBadge ? '' : '<span class="ann-badge">' + escapeHtml(source) + '</span>') +
-        (!hideSourceBadge && a.className && a.scope === 'class'
-          ? ''
-          : '') +
+        (hideSourceBadge
+          ? (a.scope === 'class' && a.className
+            ? '<span class="ann-class muted small">' + escapeHtml(a.className) + '</span>'
+            : '')
+          : '<span class="ann-badge">' + escapeHtml(source) + '</span>') +
         (opts.showAudience !== false
           ? '<span class="ann-audience muted small">' + escapeHtml(audience) + '</span>'
           : '') +
