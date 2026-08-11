@@ -27,12 +27,16 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
     setError(null);
     setMaterial(null);
     fetch(`/api/nodes/${encodeURIComponent(nodeId)}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Failed to load skill");
+        return data;
+      })
       .then((data) => {
         if (!cancelled) setNode(data.node);
       })
-      .catch(() => {
-        if (!cancelled) setError("Failed to load skill");
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load skill");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -41,6 +45,15 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
       cancelled = true;
     };
   }, [nodeId]);
+
+  useEffect(() => {
+    if (!nodeId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nodeId, onClose]);
 
   if (!nodeId) return null;
 
@@ -68,17 +81,42 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
       <button
         type="button"
         aria-label="Close drawer overlay"
-        className="fixed inset-0 z-40 bg-ink-950/25 backdrop-blur-[1px]"
         onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 80,
+          border: "none",
+          background: "rgba(15, 28, 23, 0.28)",
+          backdropFilter: "blur(1px)",
+        }}
       />
-      <aside className="animate-drawer fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-ink-900/10 bg-sand-50 shadow-panel">
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Skill details"
+        className="animate-drawer"
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 90,
+          width: "min(100vw, 28rem)",
+          display: "flex",
+          flexDirection: "column",
+          background: "#faf8f4",
+          borderLeft: "1px solid rgba(15, 28, 23, 0.12)",
+          boxShadow: "0 18px 50px -24px rgba(15, 28, 23, 0.45)",
+        }}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-ink-900/10 px-5 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-moss-700">
               Skill node
             </p>
             <h2 className="font-display text-xl font-semibold text-ink-900">
-              {node?.titleKo || node?.title || "Loading…"}
+              {node?.titleKo || node?.title || (loading ? "Loading…" : "Skill")}
             </h2>
             {node?.code && (
               <p className="mt-1 font-mono text-sm text-coral-600">{node.code}</p>
@@ -145,7 +183,10 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
                     <li key={r.id} className="text-sm">
                       <span className="mr-2 text-xs uppercase text-moss-700">{r.type}</span>
                       {r.url ? (
-                        <a href={r.url} className="font-medium text-ink-900 underline-offset-2 hover:underline">
+                        <a
+                          href={r.url}
+                          className="font-medium text-ink-900 underline-offset-2 hover:underline"
+                        >
                           {r.title}
                         </a>
                       ) : (

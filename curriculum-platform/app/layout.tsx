@@ -38,7 +38,10 @@ export default function RootLayout({
                   K–12 curriculum · AI plans
                 </span>
               </Link>
-              <nav className="flex items-center gap-1 text-sm font-medium text-ink-800">
+              <nav
+                className="flex items-center text-sm font-medium text-ink-800"
+                style={{ gap: "0.5rem" }}
+              >
                 <Link
                   href="/map"
                   className="rounded-md px-3 py-1.5 transition hover:bg-moss-100 hover:text-moss-700"

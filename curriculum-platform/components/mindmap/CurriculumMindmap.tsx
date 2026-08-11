@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -22,6 +22,7 @@ import {
   type LayoutOrientation,
   type MapNodeData,
 } from "@/lib/curriculum/layout-tree";
+import { subscribeSkillOpen } from "@/lib/curriculum/selection-bus";
 import { CurriculumNodeView } from "./CurriculumNodeView";
 import { SkillDrawer } from "./SkillDrawer";
 
@@ -45,6 +46,14 @@ function MindmapCanvas({ initialFramework }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<MapNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [error, setError] = useState<string | null>(null);
+  const skipFitRef = useRef(false);
+
+  useEffect(() => {
+    return subscribeSkillOpen((nodeId) => {
+      setFocusId(nodeId);
+      setDrawerId(nodeId);
+    });
+  }, []);
 
   useEffect(() => {
     fetch("/api/frameworks")
@@ -66,22 +75,24 @@ function MindmapCanvas({ initialFramework }: Props) {
         return r.json();
       })
       .then((data) => {
-        setRoot(data.tree);
         const grades: string[] = data.framework.gradeLevels || [];
-        const nextGrade = grades.includes(gradeLevel)
-          ? gradeLevel
+        const nextGrade = grades.includes("4")
+          ? "4"
           : grades[0] || "4";
+        setRoot(data.tree);
         setGradeLevel(nextGrade);
         setExpanded(defaultExpanded(data.tree, nextGrade));
         setFocusId(null);
         setDrawerId(null);
       })
       .catch((e) => setError(e.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset grade only when framework changes
   }, [code]);
 
+  const prevGrade = useRef(gradeLevel);
   useEffect(() => {
     if (!root) return;
+    if (prevGrade.current === gradeLevel) return;
+    prevGrade.current = gradeLevel;
     setExpanded(defaultExpanded(root, gradeLevel));
     setFocusId(null);
     setDrawerId(null);
@@ -92,6 +103,10 @@ function MindmapCanvas({ initialFramework }: Props) {
     const g = buildVisibleGraph(root, expanded, focusId, orientation);
     setNodes(g.nodes);
     setEdges(g.edges);
+    if (skipFitRef.current) {
+      skipFitRef.current = false;
+      return;
+    }
     requestAnimationFrame(() => {
       fitView({ padding: 0.2, duration: 220 });
     });
@@ -99,12 +114,14 @@ function MindmapCanvas({ initialFramework }: Props) {
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<MapNodeData>) => {
-      setFocusId(node.id);
       const raw = node.data.raw;
       if (raw.nodeType === "SKILL") {
+        skipFitRef.current = true;
+        setFocusId(node.id);
         setDrawerId(node.id);
         return;
       }
+      setFocusId(node.id);
       if (raw.children.length > 0) {
         setExpanded((prev) => {
           const next = new Set(prev);
@@ -216,6 +233,8 @@ function MindmapCanvas({ initialFramework }: Props) {
           proOptions={{ hideAttribution: true }}
           minZoom={0.3}
           maxZoom={1.6}
+          nodesDraggable={false}
+          elementsSelectable
         >
           <Background gap={22} color="#c5dccb" />
           <Controls />

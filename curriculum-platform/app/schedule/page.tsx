@@ -79,7 +79,16 @@ export default function SchedulePage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed");
-      setPlans(json.lessonPlans);
+      const nextPlans = (json.lessonPlans || []) as LessonPlan[];
+      if (nextPlans.length === 0) {
+        throw new Error("No lesson plans returned for this day");
+      }
+      setPlans(nextPlans);
+      requestAnimationFrame(() => {
+        document
+          .getElementById("generated-plans")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -221,8 +230,10 @@ export default function SchedulePage() {
             </ul>
 
             {plans.length > 0 && (
-              <div className="mt-8 space-y-4">
-                <h3 className="font-display text-lg font-semibold">Generated plans</h3>
+              <div id="generated-plans" className="mt-8 space-y-4">
+                <h3 className="font-display text-lg font-semibold">
+                  Generated plans ({plans.length})
+                </h3>
                 {plans.map((p) => (
                   <article
                     key={p.id}
