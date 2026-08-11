@@ -42,16 +42,17 @@ Recursive object:
 
 ## Files in this folder
 
-| File | Pack |
-|------|------|
-| `ccss-math-grade-4.json` | Common Core Math · **K–8 + Algebra I** |
-| `kr2022-korean-grade-4.json` | 2022 개정 국어 · 초3–6 sample (+ CUSTOM school node) |
-| `ngss-science-grade-4.json` | NGSS Science · Grades 4–8 |
-| `kr2022-history-grade-4.json` | 2022 개정 한국사 · 초4–6 sample (+ CUSTOM) |
-| `ccss-ela-grade-4.json` | Common Core ELA · Grades 3–8 (RL/RI/W) |
-| `custom-acme-sel.json` | Acme Academy private SEL pack (`organizationCode: acme-academy`) |
+| File | Pack | Grade span | ~Skills |
+|------|------|------------|---------|
+| `ccss-math-grade-4.json` | Common Core Math · K–8 + HS Algebra/Geometry/Stats | K–8, HS | ~106 |
+| `ccss-ela-grade-4.json` | Common Core ELA · RL/RI/RF/W/SL/L | K–8, 9–10, 11–12 | ~144 |
+| `ngss-science-grade-4.json` | NGSS Science · Physical/Life/Earth/ETS | K–8, HS | ~95 |
+| `kr2022-korean-grade-4.json` | 2022 개정 국어 · 듣기·말하기/읽기/쓰기/문법/문학 | 1–9 | ~111 |
+| `kr2022-history-grade-4.json` | 2022 개정 한국사/사회 · 지리·역사·일반사회 | 3–9 | ~72 |
+| `custom-acme-sel.json` | Acme Academy private SEL pack (`organizationCode: acme-academy`) | 4–5 | 5 |
 
-See also `OFFICIAL_IMPORT.md` for importing denser official catalogs.
+**Total public sample coverage:** ~528 skills across 5 frameworks (plus 5 private SEL).  
+Expand further with `scripts/expand-full-curriculum.ts`. See `OFFICIAL_IMPORT.md` for denser official catalog imports.
 
 ## Content language
 

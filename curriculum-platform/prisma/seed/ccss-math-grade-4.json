@@ -1,17 +1,18 @@
 {
   "framework": {
     "code": "ccss-math",
-    "name": "Common Core State Standards — Mathematics (K–8 + Algebra I)",
-    "nameKo": "공통핵심기준 — 수학 (K–8 + 대수 I)",
+    "name": "Common Core State Standards — Mathematics (K–8 + HS)",
+    "nameKo": "공통핵심기준 — 수학 (K–8 + 고등)",
     "subject": "MATH",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS Mathematics sample spanning Kindergarten–Grade 8 plus High School Algebra I. Sample depth — not a full standards dump.",
+    "description": "CCSS Mathematics coverage pack: Kindergarten–Grade 8 plus High School Algebra, Geometry, and Statistics samples.",
     "metadata": {
       "source": "http://www.corestandards.org/Math/",
       "license": "public-reference",
-      "gradeSpan": "K-8,HS-Algebra-I",
-      "note": "Merged former ccss-math-g5 into this pack as GRADE G5."
+      "gradeSpan": "K-8,HS",
+      "note": "Merged former ccss-math-g5 into this pack as GRADE G5.",
+      "coverage": "full-band-sample"
     }
   },
   "tree": {
@@ -76,6 +77,154 @@
                         "statement": "Students count a set and state how many without recounting.",
                         "masteryCriteria": "Correct cardinality for 4 of 5 sets ≤10.",
                         "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.CC.A.2",
+                    "title": "Count forward from a given number",
+                    "titleKo": "주어진 수부터 이어 세기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Count forward beginning from a given number.",
+                    "objectives": [
+                      {
+                        "statement": "Students continue a count from a given start.",
+                        "masteryCriteria": "Correct continuation for 4 of 5 starts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.CC.C.6",
+                    "title": "Identify whether a group has more/fewer/equal",
+                    "titleKo": "더 많음·적음·같음 비교하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 4,
+                    "summary": "Identify whether the number of objects in one group is greater than, less than, or equal to another.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare two groups using matching or counting.",
+                        "masteryCriteria": "Correct comparison for 4 of 5 pairs.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "K.OA",
+            "title": "Operations & Algebraic Thinking",
+            "titleKo": "연산과 대수적 사고",
+            "gradeLevel": "K",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "K.OA.Core",
+                "title": "Operations & Algebraic Thinking",
+                "titleKo": "연산과 대수적 사고",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.OA.A.1",
+                    "title": "Represent addition and subtraction with objects",
+                    "titleKo": "구체물로 덧셈·뺄셈 나타내기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Represent addition and subtraction with objects, fingers, drawings.",
+                    "objectives": [
+                      {
+                        "statement": "Students model +/− within 10 with objects.",
+                        "masteryCriteria": "Correct models for 4 of 5 stories.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.OA.A.2",
+                    "title": "Solve addition and subtraction word problems within 10",
+                    "titleKo": "10 이내 덧셈·뺄셈 문장제 해결하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Solve addition and subtraction word problems within 10.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a within-10 word problem.",
+                        "masteryCriteria": "Correct answer for 4 of 5 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "K.G",
+            "title": "Geometry",
+            "titleKo": "도형",
+            "gradeLevel": "K",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "K.G.Core",
+                "title": "Geometry",
+                "titleKo": "도형",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.G.A.1",
+                    "title": "Describe objects using shape names and position",
+                    "titleKo": "도형 이름과 위치로 사물 설명하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Describe objects using names of shapes and relative positions.",
+                    "objectives": [
+                      {
+                        "statement": "Students name a shape and its position.",
+                        "masteryCriteria": "Correct shape + position for 3 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.G.B.4",
+                    "title": "Analyze and compare 2D and 3D shapes",
+                    "titleKo": "평면·입체 도형 비교하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Analyze and compare two- and three-dimensional shapes.",
+                    "objectives": [
+                      {
+                        "statement": "Students sort shapes by attributes.",
+                        "masteryCriteria": "Correct sort for 2 attribute rules.",
+                        "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }
                     ],
@@ -146,6 +295,116 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.OA.B.3",
+                    "title": "Apply properties of operations",
+                    "titleKo": "연산의 성질 적용하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Apply properties of operations as strategies to add and subtract.",
+                    "objectives": [
+                      {
+                        "statement": "Students use commutative/associative ideas informally.",
+                        "masteryCriteria": "Explains a property-based strategy once.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.OA.D.8",
+                    "title": "Determine the unknown in an equation",
+                    "titleKo": "식에서 미지수 구하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 4,
+                    "summary": "Determine the unknown whole number in an addition or subtraction equation.",
+                    "objectives": [
+                      {
+                        "statement": "Students find the missing number in □ equations.",
+                        "masteryCriteria": "Correct unknown for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1.NBT",
+            "title": "Number & Operations in Base Ten",
+            "titleKo": "수와 십진 연산",
+            "gradeLevel": "1",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1.NBT.Core",
+                "title": "Number & Operations in Base Ten",
+                "titleKo": "수와 십진 연산",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.NBT.A.1",
+                    "title": "Count to 120 and represent numerals",
+                    "titleKo": "120까지 세고 수로 나타내기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Count to 120 starting at any number less than 120.",
+                    "objectives": [
+                      {
+                        "statement": "Students count on and write numerals to 120.",
+                        "masteryCriteria": "Correct count/write for 3 of 3 starts.",
+                        "bloomLevel": "Remember",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.NBT.B.2",
+                    "title": "Understand tens and ones",
+                    "titleKo": "십과 일의 자릿값 이해하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Understand that the two digits of a two-digit number represent tens and ones.",
+                    "objectives": [
+                      {
+                        "statement": "Students decompose a teen/two-digit number into tens and ones.",
+                        "masteryCriteria": "Correct decomposition for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.NBT.C.4",
+                    "title": "Add within 100 using place value",
+                    "titleKo": "자릿값으로 100 이내 덧셈하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 3,
+                    "summary": "Add within 100 using concrete models or drawings and strategies based on place value.",
+                    "objectives": [
+                      {
+                        "statement": "Students add two-digit + one-digit or multiple of 10.",
+                        "masteryCriteria": "Correct sum + strategy for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -207,6 +466,172 @@
                       {
                         "statement": "Students add/subtract within 100 with a place-value strategy.",
                         "masteryCriteria": "≥85% on 10 mixed items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.NBT.A.4",
+                    "title": "Compare three-digit numbers",
+                    "titleKo": "세 자리 수 비교하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Compare two three-digit numbers based on meanings of the hundreds, tens, and ones digits.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare with >, =, < and place-value reason.",
+                        "masteryCriteria": "≥85% on 8 comparisons.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.NBT.B.7",
+                    "title": "Add and subtract within 1000",
+                    "titleKo": "1000 이내 덧셈·뺄셈하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 4,
+                    "summary": "Add and subtract within 1000 using concrete models or drawings and strategies.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute a within-1000 problem with a model/strategy.",
+                        "masteryCriteria": "Correct result + explanation for 3 of 4.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2.OA",
+            "title": "Operations & Algebraic Thinking",
+            "titleKo": "연산과 대수적 사고",
+            "gradeLevel": "2",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2.OA.Core",
+                "title": "Operations & Algebraic Thinking",
+                "titleKo": "연산과 대수적 사고",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.OA.A.1",
+                    "title": "Solve one- and two-step word problems within 100",
+                    "titleKo": "100 이내 1·2단계 문장제 해결하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Use addition and subtraction within 100 to solve one- and two-step word problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a two-step within-100 problem.",
+                        "masteryCriteria": "Correct work for 3 of 4 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.OA.B.2",
+                    "title": "Fluently add and subtract within 20",
+                    "titleKo": "20 이내 덧셈·뺄셈을 능숙하게 하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Fluently add and subtract within 20 using mental strategies.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute within 20 fluently.",
+                        "masteryCriteria": "≥90% on timed within-20 set.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.OA.C.4",
+                    "title": "Use addition to find total of equal groups",
+                    "titleKo": "같은 묶음의 합 구하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 3,
+                    "summary": "Use addition to find the total number of objects in rectangular arrays.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an addition equation for an array.",
+                        "masteryCriteria": "Correct equation for 3 of 3 arrays.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2.MD",
+            "title": "Measurement & Data",
+            "titleKo": "측정과 자료",
+            "gradeLevel": "2",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2.MD.Core",
+                "title": "Measurement & Data",
+                "titleKo": "측정과 자료",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.MD.A.1",
+                    "title": "Measure length with appropriate tools",
+                    "titleKo": "알맞은 도구로 길이 재기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Measure the length of an object by selecting and using appropriate tools.",
+                    "objectives": [
+                      {
+                        "statement": "Students measure with ruler/meter stick appropriately.",
+                        "masteryCriteria": "Correct tool + measure for 3 objects.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.MD.D.10",
+                    "title": "Draw a picture/bar graph and solve problems",
+                    "titleKo": "그림·막대그래프 그리고 문제 해결하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Draw a picture graph and a bar graph to represent data; solve problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students build a bar graph and answer 2 questions.",
+                        "masteryCriteria": "Graph + 2 correct answers.",
                         "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
@@ -281,17 +706,165 @@
                   },
                   {
                     "nodeType": "SKILL",
+                    "code": "3.NF.A.2",
+                    "title": "Represent fractions on a number line",
+                    "titleKo": "수직선에 분수 나타내기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Understand a fraction as a number on the number line.",
+                    "objectives": [
+                      {
+                        "statement": "Students locate a/b on a number line.",
+                        "masteryCriteria": "Correct placement for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3.OA",
+            "title": "Operations & Algebraic Thinking",
+            "titleKo": "연산과 대수적 사고",
+            "gradeLevel": "3",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3.OA.Core",
+                "title": "Operations & Algebraic Thinking",
+                "titleKo": "연산과 대수적 사고",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
                     "code": "3.OA.A.1",
                     "title": "Interpret products of whole numbers",
-                    "titleKo": "자연수 곱의 의미 해석하기",
+                    "titleKo": "곱의 의미 해석하기",
                     "gradeLevel": "3",
-                    "sortOrder": 3,
+                    "sortOrder": 1,
                     "summary": "Interpret products of whole numbers as equal groups.",
                     "objectives": [
                       {
-                        "statement": "Students relate a×b to equal groups and write an equation.",
-                        "masteryCriteria": "Correct model + equation for 4 of 5 items.",
+                        "statement": "Students relate a×b to equal groups.",
+                        "masteryCriteria": "Model + equation for 4 of 5.",
                         "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.OA.A.3",
+                    "title": "Solve multiplication/division word problems within 100",
+                    "titleKo": "100 이내 곱·나눗셈 문장제 해결하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Use multiplication and division within 100 to solve word problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a ×/÷ word problem within 100.",
+                        "masteryCriteria": "Correct equation + answer for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.OA.C.7",
+                    "title": "Fluently multiply and divide within 100",
+                    "titleKo": "100 이내 곱·나눗셈을 능숙하게 하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "Fluently multiply and divide within 100.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute ×/÷ within 100 fluently.",
+                        "masteryCriteria": "≥80% on mixed fact set.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.OA.D.8",
+                    "title": "Solve two-step word problems using four operations",
+                    "titleKo": "네 연산을 쓰는 2단계 문장제 해결하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 4,
+                    "summary": "Solve two-step word problems using the four operations.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a two-step mixed-operation problem.",
+                        "masteryCriteria": "Correct work for 3 of 4.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3.MD",
+            "title": "Measurement & Data",
+            "titleKo": "측정과 자료",
+            "gradeLevel": "3",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3.MD.Core",
+                "title": "Measurement & Data",
+                "titleKo": "측정과 자료",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.MD.A.1",
+                    "title": "Tell and write time to the nearest minute",
+                    "titleKo": "1분 단위로 시각 읽고 쓰기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Tell and write time to the nearest minute and measure time intervals.",
+                    "objectives": [
+                      {
+                        "statement": "Students read/write time and solve an elapsed-time problem.",
+                        "masteryCriteria": "Correct for 4 of 5 prompts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.MD.C.7",
+                    "title": "Relate area to multiplication and addition",
+                    "titleKo": "넓이를 곱셈·덧셈과 연결하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Relate area to the operations of multiplication and addition.",
+                    "objectives": [
+                      {
+                        "statement": "Students find area of a rectangle using tiling or a×b.",
+                        "masteryCriteria": "Correct area for 4 of 5.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],
@@ -591,6 +1164,136 @@
                 ]
               }
             ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4.MD",
+            "title": "Measurement & Data",
+            "titleKo": "측정과 자료",
+            "gradeLevel": "4",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.MD.Core",
+                "title": "Measurement & Data",
+                "titleKo": "측정과 자료",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.MD.A.1",
+                    "title": "Know relative sizes of measurement units",
+                    "titleKo": "측정 단위의 상대적 크기 알기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Know relative sizes of measurement units within one system.",
+                    "objectives": [
+                      {
+                        "statement": "Students convert between related units within a system.",
+                        "masteryCriteria": "Correct conversions for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.MD.A.3",
+                    "title": "Apply area and perimeter formulas for rectangles",
+                    "titleKo": "직사각형 넓이·둘레 공식 적용하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Apply the area and perimeter formulas for rectangles in real-world problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve an area/perimeter application.",
+                        "masteryCriteria": "Correct formula use for 3 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.MD.C.5",
+                    "title": "Recognize angles as geometric shapes",
+                    "titleKo": "각을 도형으로 인식하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Recognize angles as geometric shapes formed when two rays share an endpoint.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify and sketch angles.",
+                        "masteryCriteria": "Correct identification for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4.G",
+            "title": "Geometry",
+            "titleKo": "도형",
+            "gradeLevel": "4",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.G.Core",
+                "title": "Geometry",
+                "titleKo": "도형",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.G.A.1",
+                    "title": "Draw points, lines, rays, and angles",
+                    "titleKo": "점·선·반직선·각 그리기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Draw points, lines, line segments, rays, angles, and perpendicular/parallel lines.",
+                    "objectives": [
+                      {
+                        "statement": "Students draw and label geometric figures.",
+                        "masteryCriteria": "Correct drawings for 4 of 5 prompts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.G.A.2",
+                    "title": "Classify figures by properties of lines and angles",
+                    "titleKo": "선과 각의 성질로 도형 분류하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Classify two-dimensional figures based on presence of parallel/perpendicular lines or angles.",
+                    "objectives": [
+                      {
+                        "statement": "Students classify shapes by line/angle properties.",
+                        "masteryCriteria": "Correct classification for 4 of 5.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -731,6 +1434,174 @@
                 ]
               }
             ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5.OA",
+            "title": "Operations & Algebraic Thinking",
+            "titleKo": "연산과 대수적 사고",
+            "gradeLevel": "5",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5.OA.Core",
+                "title": "Operations & Algebraic Thinking",
+                "titleKo": "연산과 대수적 사고",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.OA.A.1",
+                    "title": "Use parentheses/brackets in numerical expressions",
+                    "titleKo": "괄호를 쓴 수식 계산하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Use parentheses, brackets, or braces in numerical expressions and evaluate.",
+                    "objectives": [
+                      {
+                        "statement": "Students evaluate expressions with grouping symbols.",
+                        "masteryCriteria": "Correct for 4 of 5 expressions.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.OA.A.2",
+                    "title": "Write and interpret simple expressions",
+                    "titleKo": "간단한 식 쓰고 해석하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Write simple expressions that record calculations and interpret without evaluating.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an expression from a verbal phrase.",
+                        "masteryCriteria": "Correct expression for 4 of 5 phrases.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5.MD",
+            "title": "Measurement & Data",
+            "titleKo": "측정과 자료",
+            "gradeLevel": "5",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5.MD.Core",
+                "title": "Measurement & Data",
+                "titleKo": "측정과 자료",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.MD.A.1",
+                    "title": "Convert among different-sized measurement units",
+                    "titleKo": "서로 다른 측정 단위 환산하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Convert among different-sized standard measurement units within a system.",
+                    "objectives": [
+                      {
+                        "statement": "Students convert and use conversions in multi-step problems.",
+                        "masteryCriteria": "Correct for 4 of 5 conversions.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.MD.C.5",
+                    "title": "Relate volume to multiplication and addition",
+                    "titleKo": "부피를 곱셈·덧셈과 연결하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Relate volume to the operations of multiplication and addition; solve real-world problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students find volume of a rectangular prism.",
+                        "masteryCriteria": "Correct volume for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5.G",
+            "title": "Geometry",
+            "titleKo": "도형",
+            "gradeLevel": "5",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5.G.Core",
+                "title": "Geometry",
+                "titleKo": "도형",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.G.A.1",
+                    "title": "Use a coordinate plane in the first quadrant",
+                    "titleKo": "제1사분면 좌표평면 사용하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Use a pair of perpendicular number lines to define a coordinate system.",
+                    "objectives": [
+                      {
+                        "statement": "Students plot and name points in quadrant I.",
+                        "masteryCriteria": "Correct plots for 4 of 5 points.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.G.B.3",
+                    "title": "Understand categories of 2D figures",
+                    "titleKo": "평면 도형의 범주 이해하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Understand that attributes belonging to a category of two-dimensional figures also belong to all subcategories.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain a hierarchy (e.g., rectangles/squares).",
+                        "masteryCriteria": "Correct hierarchy statement with example.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -807,6 +1678,192 @@
                         "statement": "Students place integers on a number line and interpret a real-world signed quantity.",
                         "masteryCriteria": "Correct placements for 4 of 5 prompts.",
                         "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6.EE",
+            "title": "Expressions & Equations",
+            "titleKo": "식과 방정식",
+            "gradeLevel": "6",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6.EE.Core",
+                "title": "Expressions & Equations",
+                "titleKo": "식과 방정식",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.EE.A.2",
+                    "title": "Write, read, and evaluate expressions",
+                    "titleKo": "식 쓰고 읽고 계산하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Write, read, and evaluate expressions in which letters stand for numbers.",
+                    "objectives": [
+                      {
+                        "statement": "Students evaluate an algebraic expression for given values.",
+                        "masteryCriteria": "Correct for 4 of 5 evaluations.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.EE.B.5",
+                    "title": "Understand solving equations as a process",
+                    "titleKo": "방정식 풀이를 과정으로 이해하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Understand solving an equation or inequality as a process of answering which values make it true.",
+                    "objectives": [
+                      {
+                        "statement": "Students test values and solve a one-step equation.",
+                        "masteryCriteria": "Correct solution for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.EE.B.7",
+                    "title": "Solve real-world equations of form x+p=q and px=q",
+                    "titleKo": "x+p=q, px=q 형태 실생활 방정식 풀기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Solve real-world and mathematical problems by writing and solving equations of the form x+p=q and px=q.",
+                    "objectives": [
+                      {
+                        "statement": "Students write and solve a one-step equation from context.",
+                        "masteryCriteria": "Equation + solution for 3 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6.G",
+            "title": "Geometry",
+            "titleKo": "도형",
+            "gradeLevel": "6",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6.G.Core",
+                "title": "Geometry",
+                "titleKo": "도형",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.G.A.1",
+                    "title": "Find area of triangles and special quadrilaterals",
+                    "titleKo": "삼각형·특수 사각형 넓이 구하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Find the area of right triangles, other triangles, special quadrilaterals, and polygons.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute area by composing/decomposing shapes.",
+                        "masteryCriteria": "Correct area for 4 of 5 figures.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.G.A.2",
+                    "title": "Find volume of a right rectangular prism with fractional edges",
+                    "titleKo": "분수 모서리 직육면체 부피 구하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Find the volume of a right rectangular prism with fractional edge lengths.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute V=lwh with fractional edges.",
+                        "masteryCriteria": "Correct volume for 3 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6.SP",
+            "title": "Statistics & Probability",
+            "titleKo": "통계와 확률",
+            "gradeLevel": "6",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6.SP.Core",
+                "title": "Statistics & Probability",
+                "titleKo": "통계와 확률",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.SP.A.1",
+                    "title": "Recognize a statistical question",
+                    "titleKo": "통계적 질문 인식하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Recognize a statistical question as one that anticipates variability.",
+                    "objectives": [
+                      {
+                        "statement": "Students distinguish statistical vs non-statistical questions.",
+                        "masteryCriteria": "Correct sort for 4 of 5 questions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.SP.B.5",
+                    "title": "Summarize numerical data sets",
+                    "titleKo": "수치 자료 요약하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Summarize numerical data sets in relation to their context.",
+                    "objectives": [
+                      {
+                        "statement": "Students report center/spread for a data set.",
+                        "masteryCriteria": "Median/mean + range stated correctly.",
+                        "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }
                     ],
@@ -899,6 +1956,192 @@
                 ]
               }
             ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7.NS",
+            "title": "The Number System",
+            "titleKo": "수 체계",
+            "gradeLevel": "7",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7.NS.Core",
+                "title": "The Number System",
+                "titleKo": "수 체계",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.NS.A.1",
+                    "title": "Apply and extend addition/subtraction to rational numbers",
+                    "titleKo": "유리수 덧셈·뺄셈 확장하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Apply and extend previous understandings of addition and subtraction to add and subtract rational numbers.",
+                    "objectives": [
+                      {
+                        "statement": "Students add/subtract signed rationals on a number line or with rules.",
+                        "masteryCriteria": "≥80% on mixed signed set.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.NS.A.2",
+                    "title": "Multiply and divide rational numbers",
+                    "titleKo": "유리수 곱셈·나눗셈하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Apply and extend previous understandings of multiplication and division of fractions to multiply and divide rational numbers.",
+                    "objectives": [
+                      {
+                        "statement": "Students multiply/divide signed rationals.",
+                        "masteryCriteria": "≥80% on mixed set.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7.G",
+            "title": "Geometry",
+            "titleKo": "도형",
+            "gradeLevel": "7",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7.G.Core",
+                "title": "Geometry",
+                "titleKo": "도형",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.G.A.1",
+                    "title": "Solve problems involving scale drawings",
+                    "titleKo": "축척 도면 문제 해결하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Solve problems involving scale drawings of geometric figures.",
+                    "objectives": [
+                      {
+                        "statement": "Students use a scale factor to find a missing length.",
+                        "masteryCriteria": "Correct for 3 of 3 scale problems.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.G.B.4",
+                    "title": "Know formulas for area/circumference of a circle",
+                    "titleKo": "원의 넓이·둘레 공식 알기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Know the formulas for the area and circumference of a circle and use them to solve problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute circumference or area given r or d.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.G.B.6",
+                    "title": "Solve real-world problems involving area, volume, surface area",
+                    "titleKo": "넓이·부피·겉넓이 실생활 문제 해결하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "Solve real-world and mathematical problems involving area, volume, and surface area of 2D/3D objects.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a composite area or prism volume problem.",
+                        "masteryCriteria": "Correct for 3 of 4.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7.SP",
+            "title": "Statistics & Probability",
+            "titleKo": "통계와 확률",
+            "gradeLevel": "7",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7.SP.Core",
+                "title": "Statistics & Probability",
+                "titleKo": "통계와 확률",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.SP.A.1",
+                    "title": "Understand statistics from random sampling",
+                    "titleKo": "임의표본 통계 이해하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Understand that statistics can be used to gain information about a population by examining a sample.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain why a sample may/may not represent a population.",
+                        "masteryCriteria": "Valid reasoning on 2 of 2 scenarios.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.SP.C.5",
+                    "title": "Understand probability of a chance event",
+                    "titleKo": "우연 사건의 확률 이해하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Understand that the probability of a chance event is a number between 0 and 1.",
+                    "objectives": [
+                      {
+                        "statement": "Students assign approximate probabilities and justify.",
+                        "masteryCriteria": "Correct range + justification for 3 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -983,6 +2226,192 @@
                 ]
               }
             ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8.NS",
+            "title": "The Number System",
+            "titleKo": "수 체계",
+            "gradeLevel": "8",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8.NS.Core",
+                "title": "The Number System",
+                "titleKo": "수 체계",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.NS.A.1",
+                    "title": "Know that there are irrational numbers",
+                    "titleKo": "무리수가 있음을 알기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Know that numbers that are not rational are called irrational.",
+                    "objectives": [
+                      {
+                        "statement": "Students classify numbers as rational/irrational with reason.",
+                        "masteryCriteria": "Correct classification for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.NS.A.2",
+                    "title": "Approximate irrational numbers",
+                    "titleKo": "무리수 근사하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Use rational approximations of irrational numbers to compare size and locate on a number line.",
+                    "objectives": [
+                      {
+                        "statement": "Students approximate √n between integers.",
+                        "masteryCriteria": "Correct bounds for 3 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8.EE",
+            "title": "Expressions & Equations",
+            "titleKo": "식과 방정식",
+            "gradeLevel": "8",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8.EE.Core",
+                "title": "Expressions & Equations",
+                "titleKo": "식과 방정식",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.EE.A.1",
+                    "title": "Know and apply properties of integer exponents",
+                    "titleKo": "정수 지수의 성질 알고 적용하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Know and apply the properties of integer exponents to generate equivalent expressions.",
+                    "objectives": [
+                      {
+                        "statement": "Students simplify expressions with integer exponents.",
+                        "masteryCriteria": "≥80% on 8 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.EE.C.7",
+                    "title": "Solve linear equations in one variable",
+                    "titleKo": "일차방정식 풀기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Solve linear equations in one variable.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve multi-step linear equations.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.EE.C.8",
+                    "title": "Analyze and solve pairs of simultaneous linear equations",
+                    "titleKo": "연립일차방정식 분석·풀기",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "Analyze and solve pairs of simultaneous linear equations.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a 2×2 system algebraically or graphically.",
+                        "masteryCriteria": "Correct solution for 3 of 3.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8.SP",
+            "title": "Statistics & Probability",
+            "titleKo": "통계와 확률",
+            "gradeLevel": "8",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8.SP.Core",
+                "title": "Statistics & Probability",
+                "titleKo": "통계와 확률",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.SP.A.1",
+                    "title": "Construct and interpret scatter plots",
+                    "titleKo": "산점도 만들고 해석하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Construct and interpret scatter plots for bivariate measurement data to investigate patterns of association.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe association in a scatter plot.",
+                        "masteryCriteria": "Correct association description for 2 of 2 plots.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.SP.A.2",
+                    "title": "Informally fit a straight line to scatter data",
+                    "titleKo": "산점 자료에 직선 근사하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Know that straight lines are used to model relationships between two quantitative variables.",
+                    "objectives": [
+                      {
+                        "statement": "Students sketch a line of best fit and interpret slope informally.",
+                        "masteryCriteria": "Reasonable fit + slope meaning stated.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -1048,16 +2477,54 @@
                   },
                   {
                     "nodeType": "SKILL",
-                    "code": "A-SSE.A.1",
-                    "title": "Interpret expressions that represent a quantity in context",
-                    "titleKo": "맥락에서 식을 해석하기",
+                    "code": "A-REI.D.10",
+                    "title": "Understand graph of an equation as solution set",
+                    "titleKo": "방정식의 그래프를 해집합으로 이해하기",
                     "gradeLevel": "HS",
                     "sortOrder": 3,
+                    "summary": "Understand that the graph of an equation in two variables is the set of all its solutions plotted.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain why a point is/isn't on a graph.",
+                        "masteryCriteria": "Correct justification for 3 of 3 points.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "A-SSE",
+            "title": "Seeing Structure in Expressions",
+            "titleKo": "식의 구조 보기",
+            "gradeLevel": "HS",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "A-SSE.Core",
+                "title": "Seeing Structure in Expressions",
+                "titleKo": "식의 구조 보기",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "A-SSE.A.1",
+                    "title": "Interpret expressions in context",
+                    "titleKo": "맥락에서 식 해석하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
                     "summary": "Interpret expressions that represent a quantity in terms of its context.",
                     "objectives": [
                       {
-                        "statement": "Students interpret parts of an expression in a real-world model.",
-                        "masteryCriteria": "Correct interpretation for 3 of 3 expressions.",
+                        "statement": "Students interpret parts of an expression in a model.",
+                        "masteryCriteria": "Correct interpretation for 3 of 3.",
                         "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
@@ -1066,16 +2533,312 @@
                   },
                   {
                     "nodeType": "SKILL",
-                    "code": "F-IF.A.1",
-                    "title": "Understand the concept of a function and function notation",
-                    "titleKo": "함수 개념과 함수 기호 이해하기",
+                    "code": "A-SSE.A.2",
+                    "title": "Use structure to rewrite expressions",
+                    "titleKo": "구조를 이용해 식 다시 쓰기",
                     "gradeLevel": "HS",
-                    "sortOrder": 4,
-                    "summary": "Understand that a function from one set to another assigns each element exactly one output; use function notation.",
+                    "sortOrder": 2,
+                    "summary": "Use the structure of an expression to identify ways to rewrite it.",
                     "objectives": [
                       {
-                        "statement": "Students evaluate f(x) and explain domain/range in context.",
-                        "masteryCriteria": "Correct evaluations for 4 of 5 items.",
+                        "statement": "Students factor or rewrite using structure.",
+                        "masteryCriteria": "Correct rewrite for 3 of 4.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "F-IF",
+            "title": "Interpreting Functions",
+            "titleKo": "함수 해석",
+            "gradeLevel": "HS",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "F-IF.Core",
+                "title": "Interpreting Functions",
+                "titleKo": "함수 해석",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "F-IF.A.1",
+                    "title": "Understand function concept and notation",
+                    "titleKo": "함수 개념과 기호 이해하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Understand that a function assigns each element of the domain exactly one output.",
+                    "objectives": [
+                      {
+                        "statement": "Students evaluate f(x) and explain domain/range.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "F-IF.B.4",
+                    "title": "Interpret key features of graphs and tables",
+                    "titleKo": "그래프·표의 핵심 특징 해석하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "For a function, interpret key features of graphs and tables in terms of quantities.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify intercepts, intervals of increase, maxima.",
+                        "masteryCriteria": "≥3 correct features named.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "F-IF.C.7",
+                    "title": "Graph functions and show key features",
+                    "titleKo": "함수 그래프 그리고 핵심 특징 보이기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Graph functions expressed symbolically and show key features of the graph.",
+                    "objectives": [
+                      {
+                        "statement": "Students graph a linear/quadratic and label key features.",
+                        "masteryCriteria": "Correct graph + labels for 2 of 2.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "G-CO",
+            "title": "Congruence",
+            "titleKo": "합동",
+            "gradeLevel": "HS",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "G-CO.Core",
+                "title": "Congruence",
+                "titleKo": "합동",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "G-CO.A.1",
+                    "title": "Know precise definitions of angle, circle, etc.",
+                    "titleKo": "각·원 등의 정확한 정의 알기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Know precise definitions of angle, circle, perpendicular line, parallel line, and line segment.",
+                    "objectives": [
+                      {
+                        "statement": "Students state precise definitions.",
+                        "masteryCriteria": "Correct for 4 of 5 terms.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "G-CO.B.6",
+                    "title": "Use rigid motions to transform figures",
+                    "titleKo": "강체 운동으로 도형 변환하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Use geometric descriptions of rigid motions to transform figures and predict effect.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a rigid motion taking one figure onto another.",
+                        "masteryCriteria": "Correct motion for 3 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "G-CO.C.9",
+                    "title": "Prove theorems about lines and angles",
+                    "titleKo": "선과 각에 관한 정리 증명하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Prove theorems about lines and angles.",
+                    "objectives": [
+                      {
+                        "statement": "Students complete a proof about vertical/corresponding angles.",
+                        "masteryCriteria": "Valid proof steps for 1 theorem.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "G-SRT",
+            "title": "Similarity, Right Triangles, Trigonometry",
+            "titleKo": "닮음·직각삼각형·삼각비",
+            "gradeLevel": "HS",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "G-SRT.Core",
+                "title": "Similarity, Right Triangles, Trigonometry",
+                "titleKo": "닮음·직각삼각형·삼각비",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "G-SRT.A.2",
+                    "title": "Given two figures, use definition of similarity",
+                    "titleKo": "닮음의 정의 사용하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Given two figures, use the definition of similarity in terms of similarity transformations.",
+                    "objectives": [
+                      {
+                        "statement": "Students decide similarity and cite correspondence.",
+                        "masteryCriteria": "Correct decision + mapping for 3 of 3.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "G-SRT.C.6",
+                    "title": "Understand trigonometric ratios for acute angles",
+                    "titleKo": "예각의 삼각비 이해하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Understand that by similarity, side ratios in right triangles are properties of the angles.",
+                    "objectives": [
+                      {
+                        "statement": "Students define sin/cos/tan for an acute angle.",
+                        "masteryCriteria": "Correct ratio definitions for 3 ratios.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "G-SRT.C.8",
+                    "title": "Use trigonometric ratios to solve right triangles",
+                    "titleKo": "삼각비로 직각삼각형 풀기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Use trigonometric ratios and the Pythagorean Theorem to solve right triangles in applied problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve for a missing side/angle in context.",
+                        "masteryCriteria": "Correct for 3 of 4 applications.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "S-ID",
+            "title": "Interpreting Categorical & Quantitative Data",
+            "titleKo": "자료 해석",
+            "gradeLevel": "HS",
+            "sortOrder": 6,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "S-ID.Core",
+                "title": "Interpreting Categorical & Quantitative Data",
+                "titleKo": "자료 해석",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "S-ID.A.1",
+                    "title": "Represent data with plots on the real number line",
+                    "titleKo": "수직선에 자료 나타내기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Represent data with plots on the real number line (dot plots, histograms, box plots).",
+                    "objectives": [
+                      {
+                        "statement": "Students create an appropriate plot for a data set.",
+                        "masteryCriteria": "Correct plot type + labels.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "S-ID.B.6",
+                    "title": "Represent bivariate data on a scatter plot",
+                    "titleKo": "이변량 자료를 산점도로 나타내기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Represent data on two quantitative variables on a scatter plot and describe how variables are related.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe form, direction, strength.",
+                        "masteryCriteria": "Correct description for 2 of 2 plots.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "S-ID.C.7",
+                    "title": "Interpret slope and intercept of a linear model",
+                    "titleKo": "선형 모형의 기울기·절편 해석하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Interpret the slope and the intercept of a linear model in the context of the data.",
+                    "objectives": [
+                      {
+                        "statement": "Students interpret slope/intercept in context.",
+                        "masteryCriteria": "Both interpretations correct for 1 model.",
                         "bloomLevel": "Understand",
                         "sortOrder": 1
                       }

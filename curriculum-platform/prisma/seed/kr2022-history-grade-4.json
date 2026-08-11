@@ -1,16 +1,18 @@
 {
   "framework": {
     "code": "kr2022-history",
-    "name": "2022 Revised National Curriculum — Korean History (elementary social studies slice)",
-    "nameKo": "2022 개정 교육과정 — 한국사(초등 사회 연계 샘플)",
+    "name": "2022 Revised National Curriculum — Korean History / Social Studies (3–9 sample)",
+    "nameKo": "2022 개정 교육과정 — 한국사/사회 (3–9학년 샘플)",
     "subject": "KOREAN_HISTORY",
     "regionStandard": "KR-2022",
     "version": "2022",
-    "description": "초등 4–6학년 사회·역사 연계 한국사 프레임워크 샘플. 중·고등 한국사 고시 문언으로 확장 시 코드·진술을 검수하세요.",
+    "description": "초등 사회·중등 역사 밴드 샘플 커버리지 (지리·역사·일반사회).",
     "metadata": {
       "source": "교육부 2022 개정 교육과정 사회과/역사 관련",
       "gradeBand": "3-4",
-      "note": "Demo codes use a conventional pattern for mapping; replace with official achievement codes when importing the full pack."
+      "note": "Demo codes use a conventional pattern for mapping; replace with official achievement codes when importing the full pack.",
+      "gradeSpan": "3-9",
+      "coverage": "full-band-sample"
     }
   },
   "tree": {
@@ -20,6 +22,202 @@
     "titleKo": "2022 개정 한국사(초등 샘플)",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G3",
+        "title": "3학년",
+        "titleKo": "3학년",
+        "gradeLevel": "3",
+        "sortOrder": 3,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "3사-고장",
+            "title": "우리 고장",
+            "titleKo": "우리 고장",
+            "gradeLevel": "3",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3사-고장.Core",
+                "title": "우리 고장",
+                "titleKo": "우리 고장",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사01-01",
+                    "title": "우리 고장의 모습 살펴보기",
+                    "titleKo": "우리 고장의 모습 살펴보기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "우리 고장의 모습과 생활을 살펴본다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 고장 모습을 관찰·기록한다.",
+                        "masteryCriteria": "관찰 기록 3항목.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사01-02",
+                    "title": "고장의 중심지와 생활",
+                    "titleKo": "고장의 중심지와 생활",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "고장의 중심지와 사람들의 생활을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 중심지 역할을 설명한다.",
+                        "masteryCriteria": "역할 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사01-03",
+                    "title": "고장의 옛이야기와 문화",
+                    "titleKo": "고장의 옛이야기와 문화",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "고장의 옛이야기와 문화를 알아본다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 고장 문화 사례를 소개한다.",
+                        "masteryCriteria": "사례 1건+의미.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3사-지도",
+            "title": "지도와 생활",
+            "titleKo": "지도와 생활",
+            "gradeLevel": "3",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3사-지도.Core",
+                "title": "지도와 생활",
+                "titleKo": "지도와 생활",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사02-01",
+                    "title": "지도의 기본 요소 알기",
+                    "titleKo": "지도의 기본 요소 알기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "지도의 기본 요소를 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 방위·기호·범례를 읽는다.",
+                        "masteryCriteria": "요소 3가지 정확.",
+                        "bloomLevel": "Remember",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사02-02",
+                    "title": "우리 고장을 지도로 나타내기",
+                    "titleKo": "우리 고장을 지도로 나타내기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "우리 고장을 간단한 지도로 나타낸다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 고장 약도를 그린다.",
+                        "masteryCriteria": "주요 장소 4곳 이상.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3사-환경",
+            "title": "환경과 생활",
+            "titleKo": "환경과 생활",
+            "gradeLevel": "3",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3사-환경.Core",
+                "title": "환경과 생활",
+                "titleKo": "환경과 생활",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사03-01",
+                    "title": "자연환경과 사람들의 생활",
+                    "titleKo": "자연환경과 사람들의 생활",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "자연환경과 생활의 관계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 환경-생활 연결을 설명한다.",
+                        "masteryCriteria": "연결 사례 2개.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3사03-02",
+                    "title": "환경 보호의 중요성",
+                    "titleKo": "환경 보호의 중요성",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "환경 보호의 중요성을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 보호 행동을 제안한다.",
+                        "masteryCriteria": "행동 제안 2개.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G4",
@@ -111,6 +309,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사-지역-01",
+                    "title": "우리 지역 탐구하기",
+                    "titleKo": "우리 지역 탐구하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "우리 지역의 특성과 변화를 탐구한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 지역 특성을 조사한다.",
+                        "masteryCriteria": "조사 항목 3개.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               },
@@ -197,6 +413,24 @@
                         "masteryCriteria": "Student connects one commemorative practice to a civic or community value.",
                         "masteryCriteriaKo": "기념 실천 1가지와 공동체 가치를 연결해 설명한다.",
                         "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사-역사-01",
+                    "title": "역사 이야기 이해하기",
+                    "titleKo": "역사 이야기 이해하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "역사 이야기를 통해 과거 생활을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 이야기 속 시대 배경을 말한다.",
+                        "masteryCriteria": "배경 1가지+사건.",
+                        "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
                     ],
@@ -322,6 +556,228 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사-탐구-01",
+                    "title": "사회 현상 탐구하기",
+                    "titleKo": "사회 현상 탐구하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "생활 속 사회 현상을 탐구한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 탐구 질문을 세워 조사한다.",
+                        "masteryCriteria": "질문+조사 결과.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4사-지리",
+            "title": "지리",
+            "titleKo": "지리",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-지리.Core",
+                "title": "지리",
+                "titleKo": "지리",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사01-01",
+                    "title": "우리나라의 위치와 영역",
+                    "titleKo": "우리나라의 위치와 영역",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "우리나라의 위치와 영역을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 위치·영역을 지도로 설명한다.",
+                        "masteryCriteria": "위치+영역 정확.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사01-02",
+                    "title": "지형과 기후",
+                    "titleKo": "지형과 기후",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "지형과 기후의 특징을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 지형·기후 특징을 말한다.",
+                        "masteryCriteria": "특징 각 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사01-03",
+                    "title": "인구와 도시",
+                    "titleKo": "인구와 도시",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "인구 분포와 도시 생활을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 도시 생활 특징을 설명한다.",
+                        "masteryCriteria": "특징 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4사-역사",
+            "title": "역사",
+            "titleKo": "역사",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-역사.Core",
+                "title": "역사",
+                "titleKo": "역사",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사02-01",
+                    "title": "선사 시대의 생활",
+                    "titleKo": "선사 시대의 생활",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "선사 시대 사람들의 생활을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 선사 생활 모습을 설명한다.",
+                        "masteryCriteria": "도구·생활 각 1.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사02-02",
+                    "title": "고조선과 여러 나라의 성장",
+                    "titleKo": "고조선과 여러 나라의 성장",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "고조선과 여러 나라의 성장을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 고조선의 의의를 말한다.",
+                        "masteryCriteria": "의의 1가지+근거.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사02-03",
+                    "title": "삼국의 성립과 발전",
+                    "titleKo": "삼국의 성립과 발전",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "삼국의 성립과 발전을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 삼국의 특징을 비교한다.",
+                        "masteryCriteria": "비교 포인트 2개.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4사-일반사회",
+            "title": "일반사회",
+            "titleKo": "일반사회",
+            "gradeLevel": "4",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-일반사회.Core",
+                "title": "일반사회",
+                "titleKo": "일반사회",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사03-01",
+                    "title": "가족과 이웃의 생활",
+                    "titleKo": "가족과 이웃의 생활",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "가족과 이웃의 역할을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 역할 사례를 든다.",
+                        "masteryCriteria": "역할 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4사03-02",
+                    "title": "공공기관과 주민 참여",
+                    "titleKo": "공공기관과 주민 참여",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "공공기관과 주민 참여의 중요성을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주민 참여 방법을 제안한다.",
+                        "masteryCriteria": "방법 2가지.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -412,6 +868,246 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사-나라-01",
+                    "title": "우리나라의 발전 과정",
+                    "titleKo": "우리나라의 발전 과정",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "우리나라의 발전 과정을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 발전 시기의 특징을 말한다.",
+                        "masteryCriteria": "시기+특징.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5사-지리",
+            "title": "지리",
+            "titleKo": "지리",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5사-지리.Core",
+                "title": "지리",
+                "titleKo": "지리",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사01-01",
+                    "title": "국토의 이용과 변화",
+                    "titleKo": "국토의 이용과 변화",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "국토 이용과 변화를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 국토 이용 사례를 설명한다.",
+                        "masteryCriteria": "사례+변화.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사01-02",
+                    "title": "산업과 자원",
+                    "titleKo": "산업과 자원",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "산업과 자원의 관계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 산업-자원 연결을 말한다.",
+                        "masteryCriteria": "연결 2개.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사01-03",
+                    "title": "교통과 통신의 발달",
+                    "titleKo": "교통과 통신의 발달",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "교통과 통신의 발달이 생활에 미친 영향을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 영향 사례를 든다.",
+                        "masteryCriteria": "영향 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5사-역사",
+            "title": "역사",
+            "titleKo": "역사",
+            "gradeLevel": "5",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5사-역사.Core",
+                "title": "역사",
+                "titleKo": "역사",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사02-01",
+                    "title": "통일 신라와 발해",
+                    "titleKo": "통일 신라와 발해",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "통일 신라와 발해의 발전을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 두 나라의 특징을 비교한다.",
+                        "masteryCriteria": "비교 2항목.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사02-02",
+                    "title": "고려의 성립과 발전",
+                    "titleKo": "고려의 성립과 발전",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "고려의 성립과 발전을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 고려의 주요 정책을 말한다.",
+                        "masteryCriteria": "정책 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사02-03",
+                    "title": "조선의 건국과 통치 체제",
+                    "titleKo": "조선의 건국과 통치 체제",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "조선의 건국과 통치 체제를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 통치 체제 특징을 설명한다.",
+                        "masteryCriteria": "특징 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사02-04",
+                    "title": "조선 후기의 변화",
+                    "titleKo": "조선 후기의 변화",
+                    "gradeLevel": "5",
+                    "sortOrder": 4,
+                    "summary": "조선 후기 사회 변화를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 변화 양상을 정리한다.",
+                        "masteryCriteria": "변화 2가지.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5사-일반사회",
+            "title": "일반사회",
+            "titleKo": "일반사회",
+            "gradeLevel": "5",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5사-일반사회.Core",
+                "title": "일반사회",
+                "titleKo": "일반사회",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사03-01",
+                    "title": "민주주의와 시민의 권리",
+                    "titleKo": "민주주의와 시민의 권리",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "민주주의와 시민의 권리를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 시민 권리 사례를 든다.",
+                        "masteryCriteria": "권리 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5사03-02",
+                    "title": "경제생활과 시장",
+                    "titleKo": "경제생활과 시장",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "경제생활과 시장의 기본 원리를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 수요·공급 사례를 설명한다.",
+                        "masteryCriteria": "사례 설명.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -478,6 +1174,738 @@
                         "masteryCriteria": "Practice + value + one-sentence rationale.",
                         "masteryCriteriaKo": "실천·가치·이유 한 문장 포함.",
                         "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사-근현대-01",
+                    "title": "근현대사 주요 흐름",
+                    "titleKo": "근현대사 주요 흐름",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "근현대사의 주요 흐름을 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 시대 흐름을 연표로 정리한다.",
+                        "masteryCriteria": "연표 5사건.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6사-지리",
+            "title": "지리",
+            "titleKo": "지리",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6사-지리.Core",
+                "title": "지리",
+                "titleKo": "지리",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사01-01",
+                    "title": "세계 여러 나라의 자연과 문화",
+                    "titleKo": "세계 여러 나라의 자연과 문화",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "세계 여러 나라의 자연과 문화를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 나라별 자연·문화를 비교한다.",
+                        "masteryCriteria": "비교 2개국.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사01-02",
+                    "title": "우리나라와 가까운 나라들",
+                    "titleKo": "우리나라와 가까운 나라들",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "이웃 나라와의 관계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 교류 사례를 설명한다.",
+                        "masteryCriteria": "교류 사례 2개.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사01-03",
+                    "title": "지구촌 문제와 협력",
+                    "titleKo": "지구촌 문제와 협력",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "지구촌 문제와 국제 협력을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 문제와 협력 방안을 제안한다.",
+                        "masteryCriteria": "문제+방안.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6사-역사",
+            "title": "역사",
+            "titleKo": "역사",
+            "gradeLevel": "6",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6사-역사.Core",
+                "title": "역사",
+                "titleKo": "역사",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사02-01",
+                    "title": "근대 국가 수립 운동",
+                    "titleKo": "근대 국가 수립 운동",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "근대 국가 수립 운동을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주요 운동을 설명한다.",
+                        "masteryCriteria": "운동 2건.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사02-02",
+                    "title": "일제 강점과 민족 운동",
+                    "titleKo": "일제 강점과 민족 운동",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "일제 강점과 민족 운동을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 민족 운동 사례를 든다.",
+                        "masteryCriteria": "사례 2건+의미.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사02-03",
+                    "title": "광복과 대한민국 수립",
+                    "titleKo": "광복과 대한민국 수립",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "광복과 대한민국 수립 과정을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 수립 과정을 순서대로 정리한다.",
+                        "masteryCriteria": "주요 사건 3개.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사02-04",
+                    "title": "민주주의의 발전과 오늘",
+                    "titleKo": "민주주의의 발전과 오늘",
+                    "gradeLevel": "6",
+                    "sortOrder": 4,
+                    "summary": "민주주의 발전과 오늘날 과제를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 발전 사례와 과제를 말한다.",
+                        "masteryCriteria": "사례+과제.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6사-일반사회",
+            "title": "일반사회",
+            "titleKo": "일반사회",
+            "gradeLevel": "6",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6사-일반사회.Core",
+                "title": "일반사회",
+                "titleKo": "일반사회",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사03-01",
+                    "title": "헌법과 국가기관",
+                    "titleKo": "헌법과 국가기관",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "헌법과 국가기관의 역할을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 국가기관 역할을 구분한다.",
+                        "masteryCriteria": "기관 3개 역할.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6사03-02",
+                    "title": "세계화와 평화",
+                    "titleKo": "세계화와 평화",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "세계화와 평화의 중요성을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 평화 협력 사례를 제시한다.",
+                        "masteryCriteria": "사례 1건+의.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G7",
+        "title": "7학년",
+        "titleKo": "7학년",
+        "gradeLevel": "7",
+        "sortOrder": 7,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "7한-선사고대",
+            "title": "선사·고대",
+            "titleKo": "선사·고대",
+            "gradeLevel": "7",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7한-선사고대.Core",
+                "title": "선사·고대",
+                "titleKo": "선사·고대",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7한01-01",
+                    "title": "선사 문화의 발전",
+                    "titleKo": "선사 문화의 발전",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "선사 문화의 발전을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 시대별 문화 변화를 설명한다.",
+                        "masteryCriteria": "변화 2단계.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7한01-02",
+                    "title": "고조선과 여러 나라",
+                    "titleKo": "고조선과 여러 나라",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "고조선과 여러 나라의 성립을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 국가 성립 조건을 말한다.",
+                        "masteryCriteria": "조건 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7한01-03",
+                    "title": "삼국의 성립과 발전",
+                    "titleKo": "삼국의 성립과 발전",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "삼국의 경쟁과 발전을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 삼국 관계를 정리한다.",
+                        "masteryCriteria": "관계 설명.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7한01-04",
+                    "title": "통일 신라와 발해",
+                    "titleKo": "통일 신라와 발해",
+                    "gradeLevel": "7",
+                    "sortOrder": 4,
+                    "summary": "통일 신라와 발해의 발전을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 두 나라의 문화 성과를 비교한다.",
+                        "masteryCriteria": "성과 비교 2항.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7한-세계",
+            "title": "세계사 기초",
+            "titleKo": "세계사 기초",
+            "gradeLevel": "7",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7한-세계.Core",
+                "title": "세계사 기초",
+                "titleKo": "세계사 기초",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7한02-01",
+                    "title": "고대 문명의 형성",
+                    "titleKo": "고대 문명의 형성",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "고대 문명의 형성을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 문명 형성 요인을 말한다.",
+                        "masteryCriteria": "요인 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7한02-02",
+                    "title": "아시아 여러 지역의 교류",
+                    "titleKo": "아시아 여러 지역의 교류",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "아시아 지역 교류를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 교류 경로/물자를 설명한다.",
+                        "masteryCriteria": "경로+물자.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G8",
+        "title": "8학년",
+        "titleKo": "8학년",
+        "gradeLevel": "8",
+        "sortOrder": 8,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "8한-고려조선",
+            "title": "고려·조선",
+            "titleKo": "고려·조선",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8한-고려조선.Core",
+                "title": "고려·조선",
+                "titleKo": "고려·조선",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8한01-01",
+                    "title": "고려의 정치와 사회",
+                    "titleKo": "고려의 정치와 사회",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "고려의 정치와 사회를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 고려 통치 특징을 설명한다.",
+                        "masteryCriteria": "특징 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8한01-02",
+                    "title": "조선의 성립과 통치 질서",
+                    "titleKo": "조선의 성립과 통치 질서",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "조선의 성립과 통치 질서를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 통치 질서의 핵심을 말한다.",
+                        "masteryCriteria": "핵심 제도 2개.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8한01-03",
+                    "title": "사림 세력과 붕당 정치",
+                    "titleKo": "사림 세력과 붕당 정치",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "사림과 붕당 정치를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 붕당의 형성 배경을 설명한다.",
+                        "masteryCriteria": "배경+영향.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8한01-04",
+                    "title": "조선 후기 사회 변동",
+                    "titleKo": "조선 후기 사회 변동",
+                    "gradeLevel": "8",
+                    "sortOrder": 4,
+                    "summary": "조선 후기 사회 변동을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 변동 양상을 정리한다.",
+                        "masteryCriteria": "변동 3가지.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8한-세계",
+            "title": "세계사의 흐름",
+            "titleKo": "세계사의 흐름",
+            "gradeLevel": "8",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8한-세계.Core",
+                "title": "세계사의 흐름",
+                "titleKo": "세계사의 흐름",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8한02-01",
+                    "title": "중세 유럽과 이슬람 세계",
+                    "titleKo": "중세 유럽과 이슬람 세계",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "중세 유럽과 이슬람 세계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 두 세계의 특징을 비교한다.",
+                        "masteryCriteria": "비교 2항.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8한02-02",
+                    "title": "근대 세계의 형성",
+                    "titleKo": "근대 세계의 형성",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "근대 세계 형성 과정을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 근대 전환 사건을 정리한다.",
+                        "masteryCriteria": "사건 3개.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G9",
+        "title": "9학년",
+        "titleKo": "9학년",
+        "gradeLevel": "9",
+        "sortOrder": 9,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "9한-근현대",
+            "title": "근현대",
+            "titleKo": "근현대",
+            "gradeLevel": "9",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9한-근현대.Core",
+                "title": "근현대",
+                "titleKo": "근현대",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한01-01",
+                    "title": "개항과 근대 개혁",
+                    "titleKo": "개항과 근대 개혁",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "개항과 근대 개혁을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 개혁의 성과와 한계를 말한다.",
+                        "masteryCriteria": "성과+한계.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한01-02",
+                    "title": "국권 피탈과 독립운동",
+                    "titleKo": "국권 피탈과 독립운동",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "국권 피탈과 독립운동을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 독립운동의 흐름을 정리한다.",
+                        "masteryCriteria": "시기별 2사례.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한01-03",
+                    "title": "광복과 대한민국 수립",
+                    "titleKo": "광복과 대한민국 수립",
+                    "gradeLevel": "9",
+                    "sortOrder": 3,
+                    "summary": "광복과 대한민국 수립을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 수립 과정의 쟁점을 설명한다.",
+                        "masteryCriteria": "쟁점 1개+근거.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한01-04",
+                    "title": "산업화와 민주화",
+                    "titleKo": "산업화와 민주화",
+                    "gradeLevel": "9",
+                    "sortOrder": 4,
+                    "summary": "산업화와 민주화 과정을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 두 과정의 관계를 설명한다.",
+                        "masteryCriteria": "관계 설명.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한01-05",
+                    "title": "남북 관계와 통일 과제",
+                    "titleKo": "남북 관계와 통일 과제",
+                    "gradeLevel": "9",
+                    "sortOrder": 5,
+                    "summary": "남북 관계와 통일 과제를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 통일 과제를 제안한다.",
+                        "masteryCriteria": "과제 2개.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "9한-현대세계",
+            "title": "현대 세계",
+            "titleKo": "현대 세계",
+            "gradeLevel": "9",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9한-현대세계.Core",
+                "title": "현대 세계",
+                "titleKo": "현대 세계",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한02-01",
+                    "title": "두 차례 세계 대전과 국제 질서",
+                    "titleKo": "두 차례 세계 대전과 국제 질서",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "세계 대전과 국제 질서 변화를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 질서 변화 요인을 말한다.",
+                        "masteryCriteria": "요인 2가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9한02-02",
+                    "title": "냉전과 세계화",
+                    "titleKo": "냉전과 세계화",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "냉전과 세계화의 흐름을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 냉전/세계화 특징을 비교한다.",
+                        "masteryCriteria": "비교 2항.",
+                        "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }
                     ],

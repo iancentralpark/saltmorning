@@ -81,15 +81,15 @@ npm run db:seed
 npm run test:prisma
 ```
 
-Seed packs:
+Seed packs (full-band sample coverage — **533 skills** / 6 packs):
 
-- `prisma/seed/ccss-math-grade-4.json` — CCSS Math **K–8 + Algebra I**
-- `prisma/seed/ccss-ela-grade-4.json` — ELA **G3–G8**
-- `prisma/seed/kr2022-korean-grade-4.json` — 국어 **G3–G6**
-- `prisma/seed/kr2022-history-grade-4.json` — 한국사 **G4–G6**
-- `prisma/seed/ngss-science-grade-4.json` — NGSS **G4–G8**
+- `prisma/seed/ccss-math-grade-4.json` — CCSS Math **K–8 + HS Algebra/Geometry/Stats**
+- `prisma/seed/ccss-ela-grade-4.json` — ELA **K–8 + HS 9–12** (RL/RI/RF/W/SL/L)
+- `prisma/seed/ngss-science-grade-4.json` — NGSS **K–8 + HS**
+- `prisma/seed/kr2022-korean-grade-4.json` — 국어 **1–9**
+- `prisma/seed/kr2022-history-grade-4.json` — 한국사/사회 **3–9**
 - `prisma/seed/custom-acme-sel.json` — private Acme SEL
-- See `prisma/seed/OFFICIAL_IMPORT.md` for denser catalog imports
+- See `CURRICULUM_ROADMAP.md` + `prisma/seed/OFFICIAL_IMPORT.md` for expansion / denser imports
 
 ### Auth
 

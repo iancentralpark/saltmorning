@@ -1,6 +1,7 @@
 # Official pack import notes
 
-CurricuMap seed packs are **sample-depth** trees (DOMAIN → CONCEPT → SKILL), not full official dumps.
+CurricuMap seed packs are **full-band sample** trees (DOMAIN → CONCEPT → SKILL) covering major grade spans.
+They are not line-by-line official dumps — use this import tool when you need denser catalogs.
 
 ## Importing denser catalogs
 

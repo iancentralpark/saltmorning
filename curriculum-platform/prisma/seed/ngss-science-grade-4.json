@@ -1,16 +1,17 @@
 {
   "framework": {
     "code": "ngss-science",
-    "name": "Next Generation Science Standards — Science",
-    "nameKo": "차세대 과학 기준 — 과학",
+    "name": "Next Generation Science Standards — Science (K–HS sample)",
+    "nameKo": "차세대 과학 표준 — 과학 (K–고등 샘플)",
     "subject": "SCIENCE",
     "regionStandard": "US-NGSS",
     "version": "2013",
-    "description": "NGSS sample spanning Grades 4–5 (elementary) and 6–8 (middle school). Sample PE depth — expand with full PE/DCI/CCC/SEP as needed.",
+    "description": "NGSS coverage pack: Kindergarten–Grade 8 plus High School physical, life, Earth, and engineering samples.",
     "metadata": {
       "source": "https://www.nextgenscience.org/",
       "license": "public-reference",
-      "gradeSpan": "4-8"
+      "gradeSpan": "K-8,HS",
+      "coverage": "full-band-sample"
     }
   },
   "tree": {
@@ -20,6 +21,718 @@
     "titleKo": "NGSS 과학",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "GK",
+        "title": "Kindergarten",
+        "titleKo": "유치원",
+        "gradeLevel": "K",
+        "sortOrder": 0,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "K-PS2",
+            "title": "Motion and Stability",
+            "titleKo": "운동과 안정성",
+            "gradeLevel": "K",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "K-PS2.Core",
+                "title": "Motion and Stability",
+                "titleKo": "운동과 안정성",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K-PS2-1",
+                    "title": "Pushes and pulls",
+                    "titleKo": "밀고 당기기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Plan and conduct an investigation to compare the effects of different strengths or directions of pushes and pulls.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare effects of push/pull strength or direction.",
+                        "masteryCriteria": "Fair test + observation for 2 comparisons.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K-PS2-2",
+                    "title": "Change speed or direction",
+                    "titleKo": "속력·방향 바꾸기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Analyze data to determine if a design solution works as intended to change speed or direction.",
+                    "objectives": [
+                      {
+                        "statement": "Students test a design that changes motion.",
+                        "masteryCriteria": "Design tested with before/after observation.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "K-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "K",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "K-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K-LS1-1",
+                    "title": "What plants and animals need to survive",
+                    "titleKo": "식물·동물이 살아가는 데 필요한 것",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Use observations to describe patterns of what plants and animals need to survive.",
+                    "objectives": [
+                      {
+                        "statement": "Students list needs of plants and animals from observations.",
+                        "masteryCriteria": "≥3 accurate needs stated.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "K-ESS2",
+            "title": "Earth's Systems",
+            "titleKo": "지구 시스템",
+            "gradeLevel": "K",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "K-ESS2.Core",
+                "title": "Earth's Systems",
+                "titleKo": "지구 시스템",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K-ESS2-1",
+                    "title": "Weather patterns",
+                    "titleKo": "날씨 패턴",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Use and share observations of local weather conditions to describe patterns over time.",
+                    "objectives": [
+                      {
+                        "statement": "Students record weather and describe a pattern.",
+                        "masteryCriteria": "≥5 days of data + 1 pattern.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K-ESS3-1",
+                    "title": "Needs and where organisms live",
+                    "titleKo": "필요와 서식지",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Use a model to represent the relationship between the needs of different plants/animals and the places they live.",
+                    "objectives": [
+                      {
+                        "statement": "Students match organisms to habitats by needs.",
+                        "masteryCriteria": "Correct matches for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G1",
+        "title": "Grade 1",
+        "titleKo": "1학년",
+        "gradeLevel": "1",
+        "sortOrder": 1,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "1-PS4",
+            "title": "Waves and Light",
+            "titleKo": "파동과 빛",
+            "gradeLevel": "1",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1-PS4.Core",
+                "title": "Waves and Light",
+                "titleKo": "파동과 빛",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1-PS4-2",
+                    "title": "Objects in darkness need light to be seen",
+                    "titleKo": "어두운 곳의 물체는 빛이 있어야 보임",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Make observations to construct an evidence-based account that objects can be seen only when illuminated.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain why objects need light to be seen.",
+                        "masteryCriteria": "Evidence-based explanation with 1 demo.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1-PS4-4",
+                    "title": "Devices that use light or sound",
+                    "titleKo": "빛·소리를 쓰는 장치",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Use tools and materials to design and build a device that uses light or sound to solve a problem of communicating over a distance.",
+                    "objectives": [
+                      {
+                        "statement": "Students build a simple communication device.",
+                        "masteryCriteria": "Working prototype + explanation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "1",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1-LS1-1",
+                    "title": "How plants and animals use external parts",
+                    "titleKo": "식물·동물의 겉모습 이용",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Use materials to design a solution to a human problem by mimicking how plants/animals use external parts.",
+                    "objectives": [
+                      {
+                        "statement": "Students design a biomimicry solution.",
+                        "masteryCriteria": "Design linked to organism part function.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1-LS1-2",
+                    "title": "Parents and offspring behavior",
+                    "titleKo": "부모와 새끼의 행동",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Read texts and use media to determine patterns in behavior of parents and offspring that help offspring survive.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a parent–offspring survival pattern.",
+                        "masteryCriteria": "Pattern + survival link for 2 examples.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1-ESS1",
+            "title": "Earth's Place in the Universe",
+            "titleKo": "우주 속 지구의 위치",
+            "gradeLevel": "1",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1-ESS1.Core",
+                "title": "Earth's Place in the Universe",
+                "titleKo": "우주 속 지구의 위치",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1-ESS1-1",
+                    "title": "Patterns of sun, moon, and stars",
+                    "titleKo": "해·달·별의 패턴",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Use observations of the sun, moon, and stars to describe patterns that can be predicted.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a predictable sky pattern.",
+                        "masteryCriteria": "Pattern stated with observational support.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1-ESS1-2",
+                    "title": "Seasonal daylight patterns",
+                    "titleKo": "계절별 낮의 길이 패턴",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Make observations at different times of year to relate the amount of daylight to the time of year.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare daylight across seasons.",
+                        "masteryCriteria": "Correct seasonal daylight comparison.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G2",
+        "title": "Grade 2",
+        "titleKo": "2학년",
+        "gradeLevel": "2",
+        "sortOrder": 2,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "2-PS1",
+            "title": "Matter and Its Interactions",
+            "titleKo": "물질과 상호작용",
+            "gradeLevel": "2",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2-PS1.Core",
+                "title": "Matter and Its Interactions",
+                "titleKo": "물질과 상호작용",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2-PS1-1",
+                    "title": "Describe and classify materials",
+                    "titleKo": "물질 관찰·분류하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Plan and conduct an investigation to describe and classify different kinds of materials by their observable properties.",
+                    "objectives": [
+                      {
+                        "statement": "Students classify materials by properties.",
+                        "masteryCriteria": "≥2 properties used for 6 materials.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2-PS1-4",
+                    "title": "Heating or cooling can change matter",
+                    "titleKo": "가열·냉각으로 물질 변화",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Construct an argument with evidence that some changes caused by heating or cooling can be reversed and some cannot.",
+                    "objectives": [
+                      {
+                        "statement": "Students argue reversible vs irreversible changes.",
+                        "masteryCriteria": "Evidence for 2 reversible + 1 irreversible.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2-LS2",
+            "title": "Ecosystems",
+            "titleKo": "생태계",
+            "gradeLevel": "2",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2-LS2.Core",
+                "title": "Ecosystems",
+                "titleKo": "생태계",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2-LS2-1",
+                    "title": "Plants need sunlight and water",
+                    "titleKo": "식물은 햇빛과 물이 필요함",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Plan and conduct an investigation to determine if plants need sunlight and water to grow.",
+                    "objectives": [
+                      {
+                        "statement": "Students test plant needs with a controlled comparison.",
+                        "masteryCriteria": "Fair test + conclusion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2-LS4-1",
+                    "title": "Diversity of life in habitats",
+                    "titleKo": "서식지의 생물 다양성",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Make observations of plants and animals to compare the diversity of life in different habitats.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare diversity across 2 habitats.",
+                        "masteryCriteria": "Comparison with observational counts.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2-ESS1",
+            "title": "Earth's Place / Systems",
+            "titleKo": "지구와 시스템",
+            "gradeLevel": "2",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2-ESS1.Core",
+                "title": "Earth's Place / Systems",
+                "titleKo": "지구와 시스템",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2-ESS1-1",
+                    "title": "Earth events can occur quickly or slowly",
+                    "titleKo": "지구 사건은 빠르게 또는 느리게 일어남",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Use information from several sources to provide evidence that Earth events can occur quickly or slowly.",
+                    "objectives": [
+                      {
+                        "statement": "Students sort events by timescale.",
+                        "masteryCriteria": "Correct sort for 4 of 5 events.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2-ESS2-2",
+                    "title": "Shapes and kinds of land and water",
+                    "titleKo": "땅과 물의 모양·종류",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Develop a model to represent the shapes and kinds of land and bodies of water in an area.",
+                    "objectives": [
+                      {
+                        "statement": "Students build a land/water model of a local area.",
+                        "masteryCriteria": "Model includes ≥3 land/water features.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G3",
+        "title": "Grade 3",
+        "titleKo": "3학년",
+        "gradeLevel": "3",
+        "sortOrder": 3,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "3-PS2",
+            "title": "Motion and Stability",
+            "titleKo": "운동과 안정성",
+            "gradeLevel": "3",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3-PS2.Core",
+                "title": "Motion and Stability",
+                "titleKo": "운동과 안정성",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-PS2-1",
+                    "title": "Effects of balanced and unbalanced forces",
+                    "titleKo": "균형·불균형 힘의 영향",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Plan and conduct an investigation to provide evidence of the effects of balanced and unbalanced forces.",
+                    "objectives": [
+                      {
+                        "statement": "Students investigate balanced vs unbalanced forces.",
+                        "masteryCriteria": "Evidence table + conclusion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-PS2-2",
+                    "title": "Patterns of motion",
+                    "titleKo": "운동의 패턴",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Make observations and/or measurements of an object's motion to provide evidence that a pattern can be used to predict future motion.",
+                    "objectives": [
+                      {
+                        "statement": "Students predict motion from a pattern.",
+                        "masteryCriteria": "Prediction verified for 2 of 2 trials.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "3",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-LS1-1",
+                    "title": "Life cycles of plants and animals",
+                    "titleKo": "식물·동물의 한살이",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Develop models to describe that organisms have unique and diverse life cycles but all have birth, growth, reproduction, and death.",
+                    "objectives": [
+                      {
+                        "statement": "Students model two life cycles with shared stages.",
+                        "masteryCriteria": "2 models + shared stages labeled.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-LS3-1",
+                    "title": "Inherited traits",
+                    "titleKo": "유전되는 형질",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Analyze and interpret data to provide evidence that plants and animals have traits inherited from parents.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze trait data across generations.",
+                        "masteryCriteria": "Evidence-based inheritance claim.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-LS4-2",
+                    "title": "Adaptation",
+                    "titleKo": "적응",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "Use evidence to construct an explanation for how the variations in characteristics among individuals may provide advantages in surviving.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain an adaptive advantage.",
+                        "masteryCriteria": "Trait–advantage–survival link.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3-ESS2",
+            "title": "Earth's Systems",
+            "titleKo": "지구 시스템",
+            "gradeLevel": "3",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3-ESS2.Core",
+                "title": "Earth's Systems",
+                "titleKo": "지구 시스템",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-ESS2-1",
+                    "title": "Typical weather conditions",
+                    "titleKo": "전형적인 날씨 조건",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Represent data in tables and graphical displays to describe typical weather conditions expected during a particular season.",
+                    "objectives": [
+                      {
+                        "statement": "Students graph seasonal weather data.",
+                        "masteryCriteria": "Graph + seasonal description.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3-ESS3-1",
+                    "title": "Solutions that reduce weather hazards",
+                    "titleKo": "기상 재해 줄이는 해결책",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Make a claim about the merit of a design solution that reduces the impacts of a weather-related hazard.",
+                    "objectives": [
+                      {
+                        "statement": "Students evaluate a hazard-reduction design.",
+                        "masteryCriteria": "Claim + merit criteria.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G4",
@@ -89,6 +802,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS3-4",
+                    "title": "Device that converts energy",
+                    "titleKo": "에너지를 변환하는 장치",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Apply scientific ideas to design, test, and refine a device that converts energy from one form to another.",
+                    "objectives": [
+                      {
+                        "statement": "Students design and refine an energy-conversion device.",
+                        "masteryCriteria": "Tested prototype + refinement note.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               },
@@ -113,24 +844,6 @@
                         "statement": "Students ask testable questions and predict energy changes in collision events.",
                         "masteryCriteria": "Student writes 1 testable question and 1 evidence-based prediction for a collision demo.",
                         "bloomLevel": "Apply",
-                        "sortOrder": 1
-                      }
-                    ],
-                    "resources": []
-                  },
-                  {
-                    "nodeType": "SKILL",
-                    "code": "4-PS3-4",
-                    "title": "Design a device that converts energy from one form to another",
-                    "titleKo": "한 형태의 에너지를 다른 형태로 바꾸는 장치 설계하기",
-                    "gradeLevel": "4",
-                    "sortOrder": 2,
-                    "summary": "Apply scientific ideas to design, test, and refine a device that converts energy from one form to another.",
-                    "objectives": [
-                      {
-                        "statement": "Students design and refine a simple device demonstrating energy conversion.",
-                        "masteryCriteria": "Prototype shows intentional conversion; student explains input/output forms and one refinement.",
-                        "bloomLevel": "Create",
                         "sortOrder": 1
                       }
                     ],
@@ -271,6 +984,118 @@
                 ]
               }
             ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4-PS4",
+            "title": "Waves",
+            "titleKo": "파동",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-PS4.Core",
+                "title": "Waves",
+                "titleKo": "파동",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS4-1",
+                    "title": "Waves of amplitude and wavelength",
+                    "titleKo": "진폭과 파장의 파동",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Develop a model of waves to describe patterns in terms of amplitude and wavelength.",
+                    "objectives": [
+                      {
+                        "statement": "Students model amplitude and wavelength.",
+                        "masteryCriteria": "Model labels both features.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS4-3",
+                    "title": "Patterns transfer information",
+                    "titleKo": "패턴으로 정보 전달",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Generate and compare multiple solutions that use patterns to transfer information.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare 2 information-transfer solutions.",
+                        "masteryCriteria": "Comparison with criteria.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "4",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-LS1-1",
+                    "title": "Internal and external structures",
+                    "titleKo": "내부·외부 구조",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Construct an argument that plants and animals have internal and external structures that function to support survival, growth, behavior, and reproduction.",
+                    "objectives": [
+                      {
+                        "statement": "Students argue structure–function for an organism.",
+                        "masteryCriteria": "≥2 structures with functions.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-LS1-2",
+                    "title": "Animals receive information through senses",
+                    "titleKo": "동물의 감각을 통한 정보 수용",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Use a model to describe that animals receive different types of information through their senses, process it, and respond.",
+                    "objectives": [
+                      {
+                        "statement": "Students model sense → process → response.",
+                        "masteryCriteria": "Complete model with example.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
@@ -333,6 +1158,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-PS1-2",
+                    "title": "Conservation of weight",
+                    "titleKo": "무게 보존",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Measure and graph quantities to provide evidence that regardless of the type of change that occurs when heating, cooling, or mixing substances, the total weight of matter is conserved.",
+                    "objectives": [
+                      {
+                        "statement": "Students graph weight before/after a change.",
+                        "masteryCriteria": "Graph supports conservation claim.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -367,6 +1210,174 @@
                         "statement": "Students diagram an interaction between at least two Earth systems.",
                         "masteryCriteria": "Diagram names ≥2 systems and one interaction.",
                         "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5-PS2",
+            "title": "Motion and Stability",
+            "titleKo": "운동과 안정성",
+            "gradeLevel": "5",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5-PS2.Core",
+                "title": "Motion and Stability",
+                "titleKo": "운동과 안정성",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-PS2-1",
+                    "title": "Gravitational force",
+                    "titleKo": "중력",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Support an argument that the gravitational force exerted by Earth on objects is directed down.",
+                    "objectives": [
+                      {
+                        "statement": "Students argue direction of gravity with evidence.",
+                        "masteryCriteria": "Evidence-based down-direction claim.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "5",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-LS1-1",
+                    "title": "Plants get materials for growth",
+                    "titleKo": "식물의 성장 재료",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Support an argument that plants get the materials they need for growth chiefly from air and water.",
+                    "objectives": [
+                      {
+                        "statement": "Students argue plant growth materials with evidence.",
+                        "masteryCriteria": "Air/water claim with evidence.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-LS2-1",
+                    "title": "Movement of matter among organisms",
+                    "titleKo": "생물 간 물질 이동",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Develop a model to describe the movement of matter among plants, animals, decomposers, and the environment.",
+                    "objectives": [
+                      {
+                        "statement": "Students model matter cycling in an ecosystem.",
+                        "masteryCriteria": "Model includes producers/consumers/decomposers.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5-ESS1",
+            "title": "Earth's Place in the Universe",
+            "titleKo": "우주 속 지구의 위치",
+            "gradeLevel": "5",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5-ESS1.Core",
+                "title": "Earth's Place in the Universe",
+                "titleKo": "우주 속 지구의 위치",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-ESS1-1",
+                    "title": "Brightness of sun vs distance",
+                    "titleKo": "태양의 밝기와 거리",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Support an argument that differences in the apparent brightness of the sun compared to other stars is due to their relative distances.",
+                    "objectives": [
+                      {
+                        "statement": "Students argue brightness–distance relationship.",
+                        "masteryCriteria": "Evidence-based argument.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-ESS1-2",
+                    "title": "Daily patterns of shadows / day / night",
+                    "titleKo": "그림자·낮·밤의 일일 패턴",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Represent data in graphical displays to reveal patterns of daily changes in length and direction of shadows, day and night, and seasonal appearance of stars.",
+                    "objectives": [
+                      {
+                        "statement": "Students graph shadow or day/night patterns.",
+                        "masteryCriteria": "Graph + pattern statement.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-ESS3-1",
+                    "title": "Protect Earth's resources",
+                    "titleKo": "지구 자원 보호",
+                    "gradeLevel": "5",
+                    "sortOrder": 4,
+                    "summary": "Obtain and combine information about ways individual communities use science ideas to protect Earth's resources and environment.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a community protection practice.",
+                        "masteryCriteria": "Practice + science idea link.",
+                        "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
                     ],
@@ -437,6 +1448,210 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS1-4",
+                    "title": "Particle motion and states of matter",
+                    "titleKo": "입자 운동과 상태",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Develop a model that predicts and describes changes in particle motion, temperature, and state of a pure substance when thermal energy is added or removed.",
+                    "objectives": [
+                      {
+                        "statement": "Students model state change with particle motion.",
+                        "masteryCriteria": "Model links T, motion, and state.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-PS2",
+            "title": "Motion and Stability",
+            "titleKo": "운동과 안정성",
+            "gradeLevel": "6",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-PS2.Core",
+                "title": "Motion and Stability",
+                "titleKo": "운동과 안정성",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS2-1",
+                    "title": "Newton's third law",
+                    "titleKo": "뉴턴 제3법칙",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Apply Newton's third law to design a solution to a problem involving the motion of two colliding objects.",
+                    "objectives": [
+                      {
+                        "statement": "Students apply action–reaction in a design.",
+                        "masteryCriteria": "Design cites third-law pairs.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS2-2",
+                    "title": "Change in motion depends on force and mass",
+                    "titleKo": "운동 변화는 힘과 질량에 의존",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Plan an investigation to provide evidence that the change in an object's motion depends on the sum of the forces and the mass of the object.",
+                    "objectives": [
+                      {
+                        "statement": "Students plan a force/mass investigation.",
+                        "masteryCriteria": "Fair test plan with variables.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "6",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS1-1",
+                    "title": "Living things made of cells",
+                    "titleKo": "생물은 세포로 이루어짐",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Conduct an investigation to provide evidence that living things are made of cells; either one cell or many different numbers and types of cells.",
+                    "objectives": [
+                      {
+                        "statement": "Students use microscopes/models as evidence for cells.",
+                        "masteryCriteria": "Evidence statement from investigation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS1-2",
+                    "title": "Function of cell parts",
+                    "titleKo": "세포 소기관의 기능",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Develop and use a model to describe the function of a cell as a whole and ways parts of cells contribute to the function.",
+                    "objectives": [
+                      {
+                        "statement": "Students model cell part functions.",
+                        "masteryCriteria": "≥3 organelles with functions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS1-5",
+                    "title": "Environmental and genetic factors",
+                    "titleKo": "환경·유전 요인",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Construct a scientific explanation based on evidence for how environmental and genetic factors influence the growth of organisms.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain growth with both factor types.",
+                        "masteryCriteria": "Evidence for environment + genetics.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-ESS2",
+            "title": "Earth's Systems",
+            "titleKo": "지구 시스템",
+            "gradeLevel": "6",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-ESS2.Core",
+                "title": "Earth's Systems",
+                "titleKo": "지구 시스템",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS2-1",
+                    "title": "Cycling of Earth's materials",
+                    "titleKo": "지구 물질의 순환",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Develop a model to describe the cycling of Earth's materials and the flow of energy that drives the process.",
+                    "objectives": [
+                      {
+                        "statement": "Students model rock/material cycling.",
+                        "masteryCriteria": "Cycle model with energy driver.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS2-4",
+                    "title": "Water cycle",
+                    "titleKo": "물의 순환",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Develop a model to describe the cycling of water through Earth's systems driven by energy from the sun and the force of gravity.",
+                    "objectives": [
+                      {
+                        "statement": "Students model the water cycle.",
+                        "masteryCriteria": "Sun + gravity roles labeled.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -454,32 +1669,50 @@
         "children": [
           {
             "nodeType": "DOMAIN",
-            "code": "MS-LS1",
-            "title": "From Molecules to Organisms",
-            "titleKo": "From Molecules to Organisms",
+            "code": "MS-PS3",
+            "title": "Energy",
+            "titleKo": "에너지",
             "gradeLevel": "7",
             "sortOrder": 1,
             "children": [
               {
                 "nodeType": "CONCEPT",
-                "code": "MS-LS1.Core",
-                "title": "From Molecules to Organisms",
-                "titleKo": "From Molecules to Organisms",
+                "code": "MS-PS3.Core",
+                "title": "Energy",
+                "titleKo": "에너지",
                 "gradeLevel": "7",
                 "sortOrder": 1,
                 "children": [
                   {
                     "nodeType": "SKILL",
-                    "code": "MS-LS1-1",
-                    "title": "Conduct an investigation of living things made of cells",
-                    "titleKo": "생물이 세포로 이루어짐을 조사하기",
+                    "code": "MS-PS3-1",
+                    "title": "Kinetic energy depends on mass and speed",
+                    "titleKo": "운동 에너지는 질량·속력에 의존",
                     "gradeLevel": "7",
                     "sortOrder": 1,
-                    "summary": "Conduct an investigation to provide evidence that living things are made of cells.",
+                    "summary": "Construct and interpret graphical displays of data to describe the relationships of kinetic energy to mass and speed.",
                     "objectives": [
                       {
-                        "statement": "Students collect evidence that an organism is cellular.",
-                        "masteryCriteria": "Evidence log with ≥2 observations supporting the claim.",
+                        "statement": "Students interpret KE vs mass/speed graphs.",
+                        "masteryCriteria": "Correct relationship statements.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS3-3",
+                    "title": "Minimize or maximize thermal energy transfer",
+                    "titleKo": "열에너지 전달 최소화·최대화",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Apply scientific principles to design, construct, and test a device that either minimizes or maximizes thermal energy transfer.",
+                    "objectives": [
+                      {
+                        "statement": "Students build and test an insulation/transfer device.",
+                        "masteryCriteria": "Test data + design claim.",
                         "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
@@ -488,16 +1721,202 @@
                   },
                   {
                     "nodeType": "SKILL",
-                    "code": "MS-LS1-2",
-                    "title": "Develop a model of cell organelle function",
-                    "titleKo": "세포 소기관 기능 모형 만들기",
+                    "code": "MS-PS3-5",
+                    "title": "Energy transfer results in temperature change",
+                    "titleKo": "에너지 전달과 온도 변화",
                     "gradeLevel": "7",
-                    "sortOrder": 2,
-                    "summary": "Develop and use a model to describe the function of a cell as a whole and ways parts contribute.",
+                    "sortOrder": 3,
+                    "summary": "Construct, use, and present arguments to support the claim that when the kinetic energy of an object changes, energy is transferred to or from the object.",
                     "objectives": [
                       {
-                        "statement": "Students model how ≥2 organelles contribute to cell function.",
-                        "masteryCriteria": "Model labels ≥2 organelles with functions.",
+                        "statement": "Students argue energy transfer from KE change.",
+                        "masteryCriteria": "Evidence-based argument.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-PS4",
+            "title": "Waves",
+            "titleKo": "파동",
+            "gradeLevel": "7",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-PS4.Core",
+                "title": "Waves",
+                "titleKo": "파동",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS4-1",
+                    "title": "Model of waves",
+                    "titleKo": "파동 모형",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Use mathematical representations to describe a simple model for waves that includes how the amplitude of a wave is related to the energy in a wave.",
+                    "objectives": [
+                      {
+                        "statement": "Students relate amplitude to energy mathematically.",
+                        "masteryCriteria": "Correct amplitude–energy representation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS4-2",
+                    "title": "Waves are reflected, absorbed, or transmitted",
+                    "titleKo": "파동의 반사·흡수·투과",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Develop and use a model to describe that waves are reflected, absorbed, or transmitted through various materials.",
+                    "objectives": [
+                      {
+                        "statement": "Students model wave behavior with materials.",
+                        "masteryCriteria": "Model shows ≥2 behaviors.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-LS2",
+            "title": "Ecosystems",
+            "titleKo": "생태계",
+            "gradeLevel": "7",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-LS2.Core",
+                "title": "Ecosystems",
+                "titleKo": "생태계",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS2-1",
+                    "title": "Effects of resource availability",
+                    "titleKo": "자원 가용성의 영향",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Analyze and interpret data to provide evidence for the effects of resource availability on organisms and populations.",
+                    "objectives": [
+                      {
+                        "statement": "Students interpret population–resource data.",
+                        "masteryCriteria": "Evidence-based effect claim.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS2-2",
+                    "title": "Interactions among organisms",
+                    "titleKo": "생물 간 상호작용",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Construct an explanation that predicts patterns of interactions among organisms across multiple ecosystems.",
+                    "objectives": [
+                      {
+                        "statement": "Students predict interaction patterns.",
+                        "masteryCriteria": "Prediction with ecological reasoning.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS2-3",
+                    "title": "Cycling of matter and energy flow",
+                    "titleKo": "물질 순환과 에너지 흐름",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "Develop a model to describe the cycling of matter and flow of energy among living and nonliving parts of an ecosystem.",
+                    "objectives": [
+                      {
+                        "statement": "Students model matter/energy flow.",
+                        "masteryCriteria": "Complete cycle/flow model.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-ESS1",
+            "title": "Earth's Place in the Universe",
+            "titleKo": "우주 속 지구의 위치",
+            "gradeLevel": "7",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-ESS1.Core",
+                "title": "Earth's Place in the Universe",
+                "titleKo": "우주 속 지구의 위치",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS1-1",
+                    "title": "Earth-sun-moon system",
+                    "titleKo": "지구·태양·달 시스템",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Develop and use a model of the Earth-sun-moon system to describe the cyclic patterns of lunar phases, eclipses of the sun and moon, and seasons.",
+                    "objectives": [
+                      {
+                        "statement": "Students model phases/seasons/eclipses.",
+                        "masteryCriteria": "Model explains 1 cyclic pattern.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS1-2",
+                    "title": "Role of gravity in solar system",
+                    "titleKo": "태양계에서 중력의 역할",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Develop and use a model to describe the role of gravity in the motions within galaxies and the solar system.",
+                    "objectives": [
+                      {
+                        "statement": "Students model gravity-driven orbits.",
+                        "masteryCriteria": "Gravity role stated in model.",
                         "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
@@ -565,6 +1984,702 @@
                         "statement": "Students ask a testable question tied to temperature-rise evidence.",
                         "masteryCriteria": "Question is evidence-linked and investigable.",
                         "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS3-1",
+                    "title": "Uneven distribution of resources",
+                    "titleKo": "자원의 불균등 분포",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Construct a scientific explanation based on evidence for how the uneven distributions of Earth's mineral, energy, and groundwater resources are the result of past and current geoscience processes.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain uneven resource distribution.",
+                        "masteryCriteria": "Process–distribution link with evidence.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS3-2",
+                    "title": "Natural hazards",
+                    "titleKo": "자연재해",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Analyze and interpret data on natural hazards to forecast future catastrophic events and inform the development of technologies to mitigate their effects.",
+                    "objectives": [
+                      {
+                        "statement": "Students use hazard data to inform mitigation.",
+                        "masteryCriteria": "Forecast + mitigation idea.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS3-4",
+                    "title": "Rise in global temperatures",
+                    "titleKo": "지구 기온 상승",
+                    "gradeLevel": "8",
+                    "sortOrder": 4,
+                    "summary": "Construct an argument supported by evidence for how increases in human population and per-capita consumption of natural resources impact Earth's systems.",
+                    "objectives": [
+                      {
+                        "statement": "Students argue human-impact pathways.",
+                        "masteryCriteria": "Evidence-based systems impact argument.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-PS1-chem",
+            "title": "Chemical Reactions",
+            "titleKo": "화학 반응",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-PS1-chem.Core",
+                "title": "Chemical Reactions",
+                "titleKo": "화학 반응",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS1-5",
+                    "title": "Conservation of atoms in reactions",
+                    "titleKo": "반응에서 원자 보존",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Develop and use a model to describe how the total number of atoms does not change in a chemical reaction and thus mass is conserved.",
+                    "objectives": [
+                      {
+                        "statement": "Students model atom conservation in a reaction.",
+                        "masteryCriteria": "Balanced particle model.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS1-6",
+                    "title": "Device using thermal energy release",
+                    "titleKo": "열에너지 방출을 쓰는 장치",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Undertake a design project to construct, test, and modify a device that either releases or absorbs thermal energy by chemical processes.",
+                    "objectives": [
+                      {
+                        "statement": "Students build a chemical thermal device.",
+                        "masteryCriteria": "Tested device + modification.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-LS3",
+            "title": "Heredity",
+            "titleKo": "유전",
+            "gradeLevel": "8",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-LS3.Core",
+                "title": "Heredity",
+                "titleKo": "유전",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS3-1",
+                    "title": "Genes influence traits",
+                    "titleKo": "유전자가 형질에 영향",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Develop and use a model to describe why structural changes to genes (mutations) located on chromosomes may affect proteins and may result in harmful, beneficial, or neutral effects to the structure and function of the organism.",
+                    "objectives": [
+                      {
+                        "statement": "Students model gene → protein → trait.",
+                        "masteryCriteria": "Model includes mutation effect types.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS3-2",
+                    "title": "Structural changes to genes",
+                    "titleKo": "유전자의 구조적 변화",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Develop and use a model to describe why asexual reproduction results in offspring with identical genetic information and sexual reproduction results in offspring with genetic variation.",
+                    "objectives": [
+                      {
+                        "statement": "Students contrast asexual vs sexual genetic outcomes.",
+                        "masteryCriteria": "Correct contrast with model.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS4-1",
+                    "title": "Anatomical similarities",
+                    "titleKo": "해부학적 유사성",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "Analyze and interpret data for patterns in the fossil record that document the existence, diversity, extinction, and change of life forms.",
+                    "objectives": [
+                      {
+                        "statement": "Students interpret fossil-record patterns.",
+                        "masteryCriteria": "Pattern claim with data.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS4-2",
+                    "title": "Fossil record",
+                    "titleKo": "화석 기록",
+                    "gradeLevel": "8",
+                    "sortOrder": 4,
+                    "summary": "Apply scientific ideas to construct an explanation for the anatomical similarities and differences among modern organisms and between modern and fossil organisms.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain anatomical relationships.",
+                        "masteryCriteria": "Evidence-based evolutionary explanation.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-ETS1",
+            "title": "Engineering Design",
+            "titleKo": "공학 설계",
+            "gradeLevel": "8",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-ETS1.Core",
+                "title": "Engineering Design",
+                "titleKo": "공학 설계",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ETS1-1",
+                    "title": "Define design problem",
+                    "titleKo": "설계 문제 정의하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Define the criteria and constraints of a design problem with sufficient precision to ensure a successful solution.",
+                    "objectives": [
+                      {
+                        "statement": "Students write precise criteria/constraints.",
+                        "masteryCriteria": "Measurable criteria + constraints.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ETS1-2",
+                    "title": "Evaluate competing design solutions",
+                    "titleKo": "경쟁 설계안 평가하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Evaluate competing design solutions using a systematic process to determine how well they meet the criteria and constraints.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare 2 designs systematically.",
+                        "masteryCriteria": "Evaluation matrix completed.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "GHS",
+        "title": "High School",
+        "titleKo": "고등",
+        "gradeLevel": "HS",
+        "sortOrder": 90,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-PS1",
+            "title": "Matter and Its Interactions",
+            "titleKo": "물질과 상호작용",
+            "gradeLevel": "HS",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-PS1.Core",
+                "title": "Matter and Its Interactions",
+                "titleKo": "물질과 상호작용",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-PS1-1",
+                    "title": "Periodic table predicts properties",
+                    "titleKo": "주기율표로 성질 예측",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Use the periodic table as a model to predict the relative properties of elements based on the patterns of electrons in the outermost energy level.",
+                    "objectives": [
+                      {
+                        "statement": "Students predict properties from periodic trends.",
+                        "masteryCriteria": "Correct predictions for 3 of 4 elements.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-PS1-2",
+                    "title": "Construct explanation for chemical reactions",
+                    "titleKo": "화학 반응 설명 구성하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Construct and revise an explanation for the outcome of a simple chemical reaction based on the outermost electron states of atoms.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain a reaction using valence electrons.",
+                        "masteryCriteria": "Revised explanation with electron reasoning.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-PS1-7",
+                    "title": "Conservation of atoms in reactions",
+                    "titleKo": "반응에서 원자 보존",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Use mathematical representations to support the claim that atoms, and therefore mass, are conserved during a chemical reaction.",
+                    "objectives": [
+                      {
+                        "statement": "Students balance and justify mass conservation.",
+                        "masteryCriteria": "Balanced equation + conservation claim.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-PS2",
+            "title": "Motion and Stability",
+            "titleKo": "운동과 안정성",
+            "gradeLevel": "HS",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-PS2.Core",
+                "title": "Motion and Stability",
+                "titleKo": "운동과 안정성",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-PS2-1",
+                    "title": "Analyze data to support Newton's second law",
+                    "titleKo": "뉴턴 제2법칙을 뒷받침하는 자료 분석",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Analyze data to support the claim that Newton's second law of motion describes the mathematical relationship among net force, mass, and acceleration.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze F=ma data.",
+                        "masteryCriteria": "Data supports second-law claim.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-PS2-4",
+                    "title": "Predict gravitational and electrostatic forces",
+                    "titleKo": "중력·정전기력 예측하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Use mathematical representations of Newton's law of gravitation and Coulomb's law to describe and predict gravitational and electrostatic forces.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute/compare force magnitudes.",
+                        "masteryCriteria": "Correct prediction for 2 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "분자에서 생물까지",
+            "gradeLevel": "HS",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "분자에서 생물까지",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-LS1-1",
+                    "title": "DNA and specialized cells",
+                    "titleKo": "DNA와 분화된 세포",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Construct an explanation based on evidence for how the structure of DNA determines the structure of proteins which carry out the essential functions of life through systems of specialized cells.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain DNA → protein → cell function.",
+                        "masteryCriteria": "Evidence-based multi-step explanation.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-LS1-2",
+                    "title": "Hierarchical organization of interacting systems",
+                    "titleKo": "상호작용 시스템의 계층 구조",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Develop and use a model to illustrate the hierarchical organization of interacting systems that provide specific functions within multicellular organisms.",
+                    "objectives": [
+                      {
+                        "statement": "Students model organ-system hierarchy.",
+                        "masteryCriteria": "≥3 levels with interactions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-LS1-5",
+                    "title": "Photosynthesis transforms light energy",
+                    "titleKo": "광합성의 빛 에너지 변환",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Use a model to illustrate how photosynthesis transforms light energy into stored chemical energy.",
+                    "objectives": [
+                      {
+                        "statement": "Students model energy transformation in photosynthesis.",
+                        "masteryCriteria": "Inputs/outputs + energy form change.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-LS2",
+            "title": "Ecosystems",
+            "titleKo": "생태계",
+            "gradeLevel": "HS",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-LS2.Core",
+                "title": "Ecosystems",
+                "titleKo": "생태계",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-LS2-1",
+                    "title": "Factors affecting carrying capacity",
+                    "titleKo": "환경 용량에 영향을 주는 요인",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Use mathematical and/or computational representations to support explanations of factors that affect carrying capacity of ecosystems at different scales.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze carrying-capacity factors.",
+                        "masteryCriteria": "Representation + explanation.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-LS2-3",
+                    "title": "Cycling of matter and energy flow",
+                    "titleKo": "물질 순환과 에너지 흐름",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Construct and revise an explanation based on evidence for the cycling of matter and flow of energy in aerobic and anaerobic conditions.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain matter/energy cycling.",
+                        "masteryCriteria": "Revised explanation with evidence.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-ESS1",
+            "title": "Earth's Place in the Universe",
+            "titleKo": "우주 속 지구의 위치",
+            "gradeLevel": "HS",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-ESS1.Core",
+                "title": "Earth's Place in the Universe",
+                "titleKo": "우주 속 지구의 위치",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-ESS1-1",
+                    "title": "Life span of the sun and nuclear fusion",
+                    "titleKo": "태양의 수명과 핵융합",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Develop a model based on evidence to illustrate the life span of the sun and the role of nuclear fusion in the sun's core.",
+                    "objectives": [
+                      {
+                        "statement": "Students model solar fusion and life span.",
+                        "masteryCriteria": "Evidence-based sun model.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-ESS1-2",
+                    "title": "Big Bang theory and evidence",
+                    "titleKo": "빅뱅 이론과 증거",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Construct an explanation of the Big Bang theory based on astronomical evidence of light spectra, motion of distant galaxies, and composition of matter in the universe.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain Big Bang with ≥2 evidence types.",
+                        "masteryCriteria": "Multi-evidence explanation.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-ESS2",
+            "title": "Earth's Systems",
+            "titleKo": "지구 시스템",
+            "gradeLevel": "HS",
+            "sortOrder": 6,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-ESS2.Core",
+                "title": "Earth's Systems",
+                "titleKo": "지구 시스템",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-ESS2-2",
+                    "title": "Feedbacks that cause Earth system changes",
+                    "titleKo": "지구 시스템 변화를 일으키는 피드백",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Analyze geoscience data to make the claim that one change to Earth's surface can create feedbacks that cause changes to other Earth systems.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze a feedback example from data.",
+                        "masteryCriteria": "Feedback claim with data.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-ESS3-1",
+                    "title": "Availability of natural resources",
+                    "titleKo": "천연자원의 가용성",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Construct an explanation based on evidence for how the availability of natural resources, occurrence of natural hazards, and changes in climate have influenced human activity.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain human–resource–hazard–climate links.",
+                        "masteryCriteria": "Evidence-based multi-factor explanation.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "HS-ETS1",
+            "title": "Engineering Design",
+            "titleKo": "공학 설계",
+            "gradeLevel": "HS",
+            "sortOrder": 7,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "HS-ETS1.Core",
+                "title": "Engineering Design",
+                "titleKo": "공학 설계",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-ETS1-1",
+                    "title": "Analyze a major global challenge",
+                    "titleKo": "주요 지구적 과제 분석하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Analyze a major global challenge to specify qualitative and quantitative criteria and constraints for solutions.",
+                    "objectives": [
+                      {
+                        "statement": "Students define criteria/constraints for a global challenge.",
+                        "masteryCriteria": "Measurable criteria set.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "HS-ETS1-2",
+                    "title": "Design a solution to a complex problem",
+                    "titleKo": "복잡한 문제에 대한 해결책 설계하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Design a solution to a complex real-world problem by breaking it down into smaller, more manageable problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students decompose and propose a solution path.",
+                        "masteryCriteria": "Decomposition + solution sketch.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],

@@ -1,16 +1,17 @@
 {
   "framework": {
     "code": "ccss-ela",
-    "name": "Common Core State Standards — English Language Arts",
-    "nameKo": "공통핵심기준 — 영어",
+    "name": "Common Core State Standards — English Language Arts (K–12 sample)",
+    "nameKo": "공통핵심기준 — 영어 (K–12 샘플)",
     "subject": "ELA",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS ELA Grades 3–8 sample (RL/RI/W slices). Sample depth — expand with full grade bands as needed.",
+    "description": "CCSS ELA coverage pack: Kindergarten–Grade 8 plus Grades 9–10 and 11–12 samples across RL/RI/RF/W/SL/L.",
     "metadata": {
       "source": "http://www.corestandards.org/ELA-Literacy/",
       "license": "public-reference",
-      "gradeSpan": "3-8"
+      "gradeSpan": "K-8,9-10,11-12",
+      "coverage": "full-band-sample"
     }
   },
   "tree": {
@@ -20,6 +21,1134 @@
     "titleKo": "CCSS 영어",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "GK",
+        "title": "Kindergarten",
+        "titleKo": "유치원",
+        "gradeLevel": "K",
+        "sortOrder": 0,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.K",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "K",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.K.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.K.1",
+                    "title": "Ask and answer questions about key details",
+                    "titleKo": "핵심 내용에 대해 묻고 답하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "With prompting, ask and answer questions about key details in a text.",
+                    "objectives": [
+                      {
+                        "statement": "Students answer a key-detail question about a story.",
+                        "masteryCriteria": "Correct answer for 3 of 4 prompts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.K.2",
+                    "title": "Retell familiar stories",
+                    "titleKo": "익숙한 이야기 다시 말하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "With prompting, retell familiar stories including key details.",
+                    "objectives": [
+                      {
+                        "statement": "Students retell a familiar story with beginning/middle/end.",
+                        "masteryCriteria": "Includes ≥3 key details.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.K.3",
+                    "title": "Identify characters, settings, and major events",
+                    "titleKo": "인물·배경·주요 사건 식별하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 3,
+                    "summary": "With prompting, identify characters, settings, and major events.",
+                    "objectives": [
+                      {
+                        "statement": "Students name character, setting, and one event.",
+                        "masteryCriteria": "All three identified for 2 of 3 stories.",
+                        "bloomLevel": "Remember",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.K",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "K",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.K.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.K.1",
+                    "title": "Ask and answer questions about informational text",
+                    "titleKo": "정보 글에 대해 묻고 답하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "With prompting, ask and answer questions about key details in informational text.",
+                    "objectives": [
+                      {
+                        "statement": "Students answer a detail question from an informational text.",
+                        "masteryCriteria": "Correct for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.K.2",
+                    "title": "Identify the main topic",
+                    "titleKo": "주요 주제 식별하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "With prompting, identify the main topic and retell key details.",
+                    "objectives": [
+                      {
+                        "statement": "Students state the main topic of a short informational text.",
+                        "masteryCriteria": "Topic stated correctly for 2 of 3 texts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RF.K",
+            "title": "Foundational Skills",
+            "titleKo": "기초 읽기 기능",
+            "gradeLevel": "K",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RF.K.Core",
+                "title": "Foundational Skills",
+                "titleKo": "기초 읽기 기능",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.K.1",
+                    "title": "Demonstrate understanding of print concepts",
+                    "titleKo": "활자 개념 이해하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate understanding of the organization and basic features of print.",
+                    "objectives": [
+                      {
+                        "statement": "Students show where to start reading and track left-to-right.",
+                        "masteryCriteria": "Correct print tracking for 3 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.K.2",
+                    "title": "Demonstrate phonological awareness",
+                    "titleKo": "음운 인식 보이기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Demonstrate understanding of spoken words, syllables, and sounds.",
+                    "objectives": [
+                      {
+                        "statement": "Students blend or segment simple spoken words.",
+                        "masteryCriteria": "Correct for 4 of 5 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.K.3",
+                    "title": "Know and apply grade-level phonics",
+                    "titleKo": "학년 수준 파닉스 알고 적용하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 3,
+                    "summary": "Know and apply grade-level phonics and word analysis skills.",
+                    "objectives": [
+                      {
+                        "statement": "Students decode CVC words using letter-sound knowledge.",
+                        "masteryCriteria": "≥80% on 10 CVC words.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.K",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "K",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.K.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.K.1",
+                    "title": "Use drawing/dictating/writing to compose opinion pieces",
+                    "titleKo": "그림·구술·쓰기로 의견 표현하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Use a combination of drawing, dictating, and writing to compose opinion pieces.",
+                    "objectives": [
+                      {
+                        "statement": "Students state an opinion about a topic with a reason.",
+                        "masteryCriteria": "Opinion + 1 reason present.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.K.2",
+                    "title": "Use drawing/dictating/writing to inform",
+                    "titleKo": "그림·구술·쓰기로 정보 전달하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Use a combination of drawing, dictating, and writing to compose informative texts.",
+                    "objectives": [
+                      {
+                        "statement": "Students name a topic and supply information.",
+                        "masteryCriteria": "Topic + 1 fact present.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.K",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "K",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.K.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.K.1",
+                    "title": "Participate in collaborative conversations",
+                    "titleKo": "협력적 대화에 참여하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Participate in collaborative conversations with diverse partners.",
+                    "objectives": [
+                      {
+                        "statement": "Students take turns speaking about a classroom topic.",
+                        "masteryCriteria": "Takes turns and stays on topic for 1 discussion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.K.2",
+                    "title": "Confirm understanding of read-alouds",
+                    "titleKo": "읽어 주는 글 이해 확인하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Confirm understanding of a text read aloud by asking and answering questions.",
+                    "objectives": [
+                      {
+                        "statement": "Students ask or answer a clarifying question.",
+                        "masteryCriteria": "Relevant question/answer for 2 of 2.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.K",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "K",
+            "sortOrder": 6,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.K.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.K.1",
+                    "title": "Demonstrate command of grammar when writing or speaking",
+                    "titleKo": "말·글에서 문법 규칙 보이기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use frequently occurring nouns and verbs correctly.",
+                        "masteryCriteria": "Correct usage in 3 oral/written samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.K.4",
+                    "title": "Determine meaning of unknown words",
+                    "titleKo": "모르는 단어 의미 파악하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words with prompting.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context or word parts with support.",
+                        "masteryCriteria": "Correct meaning for 3 of 4 words.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G1",
+        "title": "Grade 1",
+        "titleKo": "1학년",
+        "gradeLevel": "1",
+        "sortOrder": 1,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.1",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "1",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.1.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.1.1",
+                    "title": "Ask and answer questions about key details",
+                    "titleKo": "핵심 내용에 대해 묻고 답하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Ask and answer questions about key details in a text.",
+                    "objectives": [
+                      {
+                        "statement": "Students ask/answer detail questions about a story.",
+                        "masteryCriteria": "Correct for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.1.2",
+                    "title": "Retell stories and demonstrate understanding of message",
+                    "titleKo": "이야기 다시 말하고 메시지 이해하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Retell stories including key details and demonstrate understanding of the central message.",
+                    "objectives": [
+                      {
+                        "statement": "Students retell and state a lesson/message.",
+                        "masteryCriteria": "Retell + message for 2 of 3 stories.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.1.3",
+                    "title": "Describe characters, settings, and events",
+                    "titleKo": "인물·배경·사건 설명하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 3,
+                    "summary": "Describe characters, settings, and major events using key details.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe character/setting/event with details.",
+                        "masteryCriteria": "All three described for 2 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.1",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "1",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.1.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.1.1",
+                    "title": "Ask and answer questions about informational text",
+                    "titleKo": "정보 글에 대해 묻고 답하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Ask and answer questions about key details in informational text.",
+                    "objectives": [
+                      {
+                        "statement": "Students locate answers in the text.",
+                        "masteryCriteria": "Correct + text support for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.1.2",
+                    "title": "Identify main topic and retell key details",
+                    "titleKo": "주요 주제 파악하고 세부 내용 다시 말하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Identify the main topic and retell key details of a text.",
+                    "objectives": [
+                      {
+                        "statement": "Students state topic and two details.",
+                        "masteryCriteria": "Topic + 2 details for 2 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RF.1",
+            "title": "Foundational Skills",
+            "titleKo": "기초 읽기 기능",
+            "gradeLevel": "1",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RF.1.Core",
+                "title": "Foundational Skills",
+                "titleKo": "기초 읽기 기능",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.1.2",
+                    "title": "Demonstrate phonological awareness",
+                    "titleKo": "음운 인식 보이기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate understanding of spoken words, syllables, and sounds.",
+                    "objectives": [
+                      {
+                        "statement": "Students isolate/blend phonemes in spoken words.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.1.3",
+                    "title": "Know and apply grade-level phonics",
+                    "titleKo": "학년 수준 파닉스 알고 적용하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Know and apply grade-level phonics and word analysis skills.",
+                    "objectives": [
+                      {
+                        "statement": "Students decode regularly spelled one-syllable words.",
+                        "masteryCriteria": "≥80% on 12 words.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.1.4",
+                    "title": "Read with sufficient accuracy and fluency",
+                    "titleKo": "정확하고 유창하게 읽기",
+                    "gradeLevel": "1",
+                    "sortOrder": 3,
+                    "summary": "Read with sufficient accuracy and fluency to support comprehension.",
+                    "objectives": [
+                      {
+                        "statement": "Students read a grade-level passage aloud.",
+                        "masteryCriteria": "Accuracy ≥90% on cold read.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.1",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "1",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.1.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.1.1",
+                    "title": "Write opinion pieces",
+                    "titleKo": "의견문 쓰기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Write opinion pieces in which they introduce the topic, state an opinion, and supply a reason.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an opinion with a reason.",
+                        "masteryCriteria": "Opinion + reason + closing present.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.1.2",
+                    "title": "Write informative texts",
+                    "titleKo": "정보문 쓰기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts naming a topic and supplying facts.",
+                    "objectives": [
+                      {
+                        "statement": "Students write 3+ sentences about a topic.",
+                        "masteryCriteria": "Topic + ≥2 facts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.1",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "1",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.1.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.1.1",
+                    "title": "Participate in collaborative conversations",
+                    "titleKo": "협력적 대화에 참여하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Participate in collaborative conversations with diverse partners.",
+                    "objectives": [
+                      {
+                        "statement": "Students build on others' talk in discussions.",
+                        "masteryCriteria": "On-topic contribution in 1 discussion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.1.2",
+                    "title": "Ask and answer questions about key details",
+                    "titleKo": "핵심 내용에 대해 묻고 답하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Ask and answer questions about key details in a text read aloud or information presented orally.",
+                    "objectives": [
+                      {
+                        "statement": "Students ask clarifying questions.",
+                        "masteryCriteria": "Relevant question for 2 of 2 texts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.1",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "1",
+            "sortOrder": 6,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.1.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.1.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use common/proper nouns and verbs correctly.",
+                        "masteryCriteria": "Correct in 3 writing samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.1.4",
+                    "title": "Determine meaning of unknown words",
+                    "titleKo": "모르는 단어 의미 파악하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 1 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use sentence-level context.",
+                        "masteryCriteria": "Correct for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G2",
+        "title": "Grade 2",
+        "titleKo": "2학년",
+        "gradeLevel": "2",
+        "sortOrder": 2,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.2",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "2",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.2.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.2.1",
+                    "title": "Ask and answer who/what/where/when/why/how questions",
+                    "titleKo": "육하원칙 질문하고 답하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Ask and answer such questions as who, what, where, when, why, and how.",
+                    "objectives": [
+                      {
+                        "statement": "Students answer 5W+H questions with text evidence.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.2.2",
+                    "title": "Recount stories and determine central message",
+                    "titleKo": "이야기 요약하고 중심 메시지 파악하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Recount stories and determine their central message, lesson, or moral.",
+                    "objectives": [
+                      {
+                        "statement": "Students recount and state the lesson.",
+                        "masteryCriteria": "Recount + lesson for 2 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.2.3",
+                    "title": "Describe how characters respond to challenges",
+                    "titleKo": "인물이 문제에 대응하는 방식 설명하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 3,
+                    "summary": "Describe how characters in a story respond to major events and challenges.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a character response to a challenge.",
+                        "masteryCriteria": "Response tied to event for 2 characters.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.2",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "2",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.2.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.2.1",
+                    "title": "Ask and answer 5W+H questions about informational text",
+                    "titleKo": "정보 글에 육하원칙으로 묻고 답하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Ask and answer who/what/where/when/why/how to demonstrate understanding.",
+                    "objectives": [
+                      {
+                        "statement": "Students cite text to answer 5W+H.",
+                        "masteryCriteria": "Correct + citation for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.2.2",
+                    "title": "Identify the main topic of a multiparagraph text",
+                    "titleKo": "여러 문단 글의 주요 주제 파악하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Identify the main topic of a multiparagraph text as well as the focus of specific paragraphs.",
+                    "objectives": [
+                      {
+                        "statement": "Students state overall topic and a paragraph focus.",
+                        "masteryCriteria": "Both correct for 2 of 3 texts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RF.2",
+            "title": "Foundational Skills",
+            "titleKo": "기초 읽기 기능",
+            "gradeLevel": "2",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RF.2.Core",
+                "title": "Foundational Skills",
+                "titleKo": "기초 읽기 기능",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.2.3",
+                    "title": "Know and apply grade-level phonics",
+                    "titleKo": "학년 수준 파닉스 알고 적용하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Know and apply grade-level phonics and word analysis skills.",
+                    "objectives": [
+                      {
+                        "statement": "Students decode two-syllable words with long vowels.",
+                        "masteryCriteria": "≥80% on 12 words.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RF.2.4",
+                    "title": "Read with sufficient accuracy and fluency",
+                    "titleKo": "정확하고 유창하게 읽기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Read with sufficient accuracy and fluency to support comprehension.",
+                    "objectives": [
+                      {
+                        "statement": "Students read grade-level text with purpose and understanding.",
+                        "masteryCriteria": "Accuracy ≥90% + 2 comprehension checks.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.2",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "2",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.2.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.2.1",
+                    "title": "Write opinion pieces with reasons",
+                    "titleKo": "이유를 들어 의견문 쓰기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Write opinion pieces introducing the topic, stating an opinion, supplying reasons, and providing a concluding statement.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an organized opinion paragraph.",
+                        "masteryCriteria": "Opinion + ≥2 reasons + conclusion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.2.2",
+                    "title": "Write informative texts",
+                    "titleKo": "정보문 쓰기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts introducing a topic and using facts and definitions.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a short informative piece.",
+                        "masteryCriteria": "Topic + ≥3 facts + closing.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.2",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "2",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.2.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.2.1",
+                    "title": "Participate in collaborative conversations",
+                    "titleKo": "협력적 대화에 참여하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Participate in collaborative conversations with diverse partners.",
+                    "objectives": [
+                      {
+                        "statement": "Students follow agreed-upon rules and build on others' remarks.",
+                        "masteryCriteria": "Meets discussion norms in 1 session.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.2.2",
+                    "title": "Recount or describe key ideas from media",
+                    "titleKo": "매체에서 핵심 아이디어 말하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Recount or describe key ideas or details from a text read aloud or information presented orally/through media.",
+                    "objectives": [
+                      {
+                        "statement": "Students recount key ideas from a short video/read-aloud.",
+                        "masteryCriteria": "≥3 accurate key ideas.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.2",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "2",
+            "sortOrder": 6,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.2.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.2.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use collective nouns, irregular plurals, and past tense correctly.",
+                        "masteryCriteria": "Correct in 3 writing samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.2.4",
+                    "title": "Determine meaning of unknown words",
+                    "titleKo": "모르는 단어 의미 파악하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 2 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context and prefixes.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G3",
@@ -75,6 +1204,302 @@
                         "statement": "Students describe a character trait tied to an action and event.",
                         "masteryCriteria": "Trait–action–event link for 2 characters.",
                         "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.3.2",
+                    "title": "Determine central message and how it is conveyed",
+                    "titleKo": "중심 메시지와 전달 방식 파악하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Recount stories and determine the central message; explain how it is conveyed.",
+                    "objectives": [
+                      {
+                        "statement": "Students state message and cite supporting details.",
+                        "masteryCriteria": "Message + 2 supports.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.3.4",
+                    "title": "Determine meaning of words and phrases",
+                    "titleKo": "단어·구의 의미 파악하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 4,
+                    "summary": "Determine the meaning of words and phrases as they are used in a text.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain a word using context.",
+                        "masteryCriteria": "Correct for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.3",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "3",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.3.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.3.1",
+                    "title": "Ask and answer questions referring explicitly to the text",
+                    "titleKo": "글을 명시적으로 인용하며 묻고 답하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Ask and answer questions to demonstrate understanding, referring explicitly to the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students cite text for answers.",
+                        "masteryCriteria": "Citation for 3 of 3.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.3.2",
+                    "title": "Determine main idea and recount key details",
+                    "titleKo": "주요 생각과 핵심 세부 내용 파악하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Determine the main idea of a text; recount key details and explain how they support the main idea.",
+                    "objectives": [
+                      {
+                        "statement": "Students state main idea + supporting details.",
+                        "masteryCriteria": "Main idea + 2 details.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.3.5",
+                    "title": "Use text features and search tools",
+                    "titleKo": "텍스트 특징과 검색 도구 사용하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "Use text features and search tools to locate information efficiently.",
+                    "objectives": [
+                      {
+                        "statement": "Students use headings/captions/keywords to find info.",
+                        "masteryCriteria": "Locates info for 3 of 3 prompts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.3",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "3",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.3.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.3.1",
+                    "title": "Write opinion pieces on topics or texts",
+                    "titleKo": "주제·글에 대한 의견문 쓰기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Write opinion pieces on topics or texts supporting a point of view with reasons.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an opinion with organized reasons.",
+                        "masteryCriteria": "Opinion + ≥2 reasons + conclusion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.3.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명문 쓰기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine a topic and convey ideas clearly.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a clear informative piece.",
+                        "masteryCriteria": "Topic intro + facts + closing.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.3.7",
+                    "title": "Conduct short research projects",
+                    "titleKo": "짧은 탐구 프로젝트 수행하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "Conduct short research projects that build knowledge about a topic.",
+                    "objectives": [
+                      {
+                        "statement": "Students gather facts from 2 sources on one topic.",
+                        "masteryCriteria": "Notes from ≥2 sources.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.3",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "3",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.3.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.3.1",
+                    "title": "Engage effectively in collaborative discussions",
+                    "titleKo": "협력 토론에 효과적으로 참여하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Engage effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students come prepared and build on others' ideas.",
+                        "masteryCriteria": "Meets norms in 1 discussion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.3.4",
+                    "title": "Report on a topic or text",
+                    "titleKo": "주제·글에 대해 보고하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Report on a topic or text with appropriate facts and relevant details.",
+                    "objectives": [
+                      {
+                        "statement": "Students give a short oral report.",
+                        "masteryCriteria": "Clear topic + ≥3 details.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.3",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "3",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.3.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.3.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use regular/irregular verbs and simple verb tenses.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.3.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 3 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context, affixes, and dictionaries.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
                     ],
@@ -170,6 +1595,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.4.4",
+                    "title": "Determine meaning of words and phrases",
+                    "titleKo": "단어·구의 의미 파악하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 4,
+                    "summary": "Determine the meaning of words and phrases as they are used in a text, including mythology references.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain figurative or academic language.",
+                        "masteryCriteria": "Correct for 3 of 4.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -240,6 +1683,24 @@
                         "statement": "Students explain a procedure or concept using specific text information.",
                         "masteryCriteria": "Explanation names what/why with ≥2 text-based details.",
                         "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.4.5",
+                    "title": "Describe overall structure of events/ideas",
+                    "titleKo": "사건·아이디어의 전체 구조 설명하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Describe the overall structure of events, ideas, concepts, or information in a text.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify structure (compare, cause/effect, etc.).",
+                        "masteryCriteria": "Correct structure label + evidence.",
+                        "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }
                     ],
@@ -318,6 +1779,136 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.4.7",
+                    "title": "Conduct short research projects",
+                    "titleKo": "짧은 탐구 프로젝트 수행하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Conduct short research projects that build knowledge through investigation of different aspects of a topic.",
+                    "objectives": [
+                      {
+                        "statement": "Students investigate 2 aspects of a topic.",
+                        "masteryCriteria": "Notes covering ≥2 aspects.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.4",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "4",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.4.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.4.1",
+                    "title": "Engage effectively in collaborative discussions",
+                    "titleKo": "협력 토론에 효과적으로 참여하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Engage effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students pose/respond to questions and elaborate.",
+                        "masteryCriteria": "Meets discussion criteria once.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.4.4",
+                    "title": "Report on a topic with organization",
+                    "titleKo": "조직적으로 주제 보고하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Report on a topic or text in an organized manner using appropriate facts and details.",
+                    "objectives": [
+                      {
+                        "statement": "Students present with clear organization.",
+                        "masteryCriteria": "Organized report with ≥4 facts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.4",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "4",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.4.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.4.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use relative pronouns and progressive verb tenses.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.4.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 4 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use Greek/Latin affixes and context.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -387,17 +1978,277 @@
                   },
                   {
                     "nodeType": "SKILL",
-                    "code": "W.5.1",
-                    "title": "Write opinion pieces supporting a point of view with reasons and information",
-                    "titleKo": "이유와 정보로 뒷받침하는 의견문 쓰기",
+                    "code": "RI.5.5",
+                    "title": "Compare overall structure of events/ideas",
+                    "titleKo": "사건·아이디어의 전체 구조 비교하기",
                     "gradeLevel": "5",
                     "sortOrder": 3,
-                    "summary": "Write opinion pieces on topics or texts, supporting a point of view with reasons and information.",
+                    "summary": "Compare and contrast the overall structure of events, ideas, concepts, or information in two or more texts.",
                     "objectives": [
                       {
-                        "statement": "Students write an opinion with reasons and a concluding statement.",
-                        "masteryCriteria": "Claim + ≥2 reasons + conclusion.",
-                        "bloomLevel": "Create",
+                        "statement": "Students compare structures across texts.",
+                        "masteryCriteria": "Correct comparison for 1 pair.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.5",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.5.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.5.1",
+                    "title": "Quote accurately when explaining/inferring",
+                    "titleKo": "설명·추론할 때 정확히 인용하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Quote accurately from a text when explaining what the text says explicitly and when drawing inferences.",
+                    "objectives": [
+                      {
+                        "statement": "Students support claims with accurate quotes.",
+                        "masteryCriteria": "Accurate quote for 3 of 3.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.5.2",
+                    "title": "Determine theme and how characters respond",
+                    "titleKo": "주제와 인물의 대응 파악하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Determine a theme and how characters respond to challenges; summarize.",
+                    "objectives": [
+                      {
+                        "statement": "Students state theme and character response.",
+                        "masteryCriteria": "Theme + response + summary.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.5.3",
+                    "title": "Compare characters, settings, or events",
+                    "titleKo": "인물·배경·사건 비교하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "Compare and contrast two or more characters, settings, or events.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a comparison using details.",
+                        "masteryCriteria": "≥2 similarities and differences.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.5",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "5",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.5.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.5.1",
+                    "title": "Write opinion pieces supporting a point of view",
+                    "titleKo": "관점을 뒷받침하는 의견문 쓰기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Write opinion pieces supporting a point of view with reasons and information.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a developed opinion essay.",
+                        "masteryCriteria": "Claim + linked reasons + conclusion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.5.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명문 쓰기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine a topic and convey ideas clearly.",
+                    "objectives": [
+                      {
+                        "statement": "Students develop a topic with facts/definitions.",
+                        "masteryCriteria": "Clear organization + domain vocabulary.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.5.7",
+                    "title": "Conduct short research projects using several sources",
+                    "titleKo": "여러 자료를 쓰는 짧은 탐구 수행하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "Conduct short research projects that use several sources to build knowledge.",
+                    "objectives": [
+                      {
+                        "statement": "Students synthesize 3 sources.",
+                        "masteryCriteria": "Notes from ≥3 sources.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.5",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "5",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.5.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.5.1",
+                    "title": "Engage effectively in collaborative discussions",
+                    "titleKo": "협력 토론에 효과적으로 참여하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Engage effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students draw on preparation and respond thoughtfully.",
+                        "masteryCriteria": "Meets criteria in 1 discussion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.5.4",
+                    "title": "Report on a topic sequencing ideas logically",
+                    "titleKo": "아이디어를 논리적으로 배열해 보고하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Report on a topic or text sequencing ideas logically and using appropriate facts.",
+                    "objectives": [
+                      {
+                        "statement": "Students present with logical sequence.",
+                        "masteryCriteria": "Logical sequence + adequate detail.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.5",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "5",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.5.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.5.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain correlative conjunctions and verb tense consistency.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.5.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 5 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context, affixes, and reference materials.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
                     ],
@@ -463,6 +2314,284 @@
                       {
                         "statement": "Students state the central idea and summarize without personal opinion.",
                         "masteryCriteria": "Central idea + objective summary.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.6.5",
+                    "title": "Analyze how a text presents information",
+                    "titleKo": "글이 정보를 제시하는 방식 분석하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Analyze how a particular sentence, paragraph, or section fits into the overall structure.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain a section's role in structure.",
+                        "masteryCriteria": "Role explained with evidence.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.6",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.6.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.6.1",
+                    "title": "Cite textual evidence to support analysis",
+                    "titleKo": "분석을 뒷받침할 텍스트 근거 인용하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Cite textual evidence to support analysis of what the text says explicitly as well as inferences.",
+                    "objectives": [
+                      {
+                        "statement": "Students cite evidence for an analysis claim.",
+                        "masteryCriteria": "Claim + citation for 3 of 3.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.6.2",
+                    "title": "Determine theme and how it is conveyed",
+                    "titleKo": "주제와 전달 방식 파악하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Determine a theme and how it is conveyed through particular details; provide a summary.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an objective summary with theme.",
+                        "masteryCriteria": "Theme + summary without opinion.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.6.3",
+                    "title": "Describe how plot unfolds and characters change",
+                    "titleKo": "플롯 전개와 인물 변화 설명하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Describe how a particular story's plot unfolds and how characters respond or change.",
+                    "objectives": [
+                      {
+                        "statement": "Students track character change across plot.",
+                        "masteryCriteria": "Change linked to ≥2 plot events.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.6",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "6",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.6.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.6.1",
+                    "title": "Write arguments to support claims",
+                    "titleKo": "주장을 뒷받침하는 논설문 쓰기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Write arguments to support claims with clear reasons and relevant evidence.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a claim-driven argument.",
+                        "masteryCriteria": "Claim + reasons + evidence + conclusion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.6.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명문 쓰기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine a topic and convey ideas.",
+                    "objectives": [
+                      {
+                        "statement": "Students organize complex information.",
+                        "masteryCriteria": "Clear structure + evidence.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.6.7",
+                    "title": "Conduct short research projects",
+                    "titleKo": "짧은 탐구 프로젝트 수행하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Conduct short research projects to answer a question, drawing on several sources.",
+                    "objectives": [
+                      {
+                        "statement": "Students answer a research question from multiple sources.",
+                        "masteryCriteria": "Question answered with ≥3 sources.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.6",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "6",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.6.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.6.1",
+                    "title": "Engage effectively in collaborative discussions",
+                    "titleKo": "협력 토론에 효과적으로 참여하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Engage effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students refer to evidence and propel conversations.",
+                        "masteryCriteria": "Evidence-based contribution once.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.6.4",
+                    "title": "Present claims and findings",
+                    "titleKo": "주장과 발견 발표하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Present claims and findings sequencing ideas logically and using pertinent descriptions.",
+                    "objectives": [
+                      {
+                        "statement": "Students give an organized oral presentation.",
+                        "masteryCriteria": "Clear claim + logical sequence.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.6",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "6",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.6.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.6.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use pronouns in proper case and intensive pronouns.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.6.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 6 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context, Greek/Latin affixes, and references.",
+                        "masteryCriteria": "Correct for 4 of 5.",
                         "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
@@ -534,6 +2663,284 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.7.3",
+                    "title": "Analyze how elements of a story interact",
+                    "titleKo": "이야기 요소의 상호작용 분석하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "Analyze how particular elements of a story or drama interact.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain setting–character or plot–character interaction.",
+                        "masteryCriteria": "Interaction analysis with evidence.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.7",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "7",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.7.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.7.1",
+                    "title": "Cite several pieces of textual evidence",
+                    "titleKo": "여러 텍스트 근거 인용하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Cite several pieces of textual evidence to support analysis.",
+                    "objectives": [
+                      {
+                        "statement": "Students support claims with multiple citations.",
+                        "masteryCriteria": "≥2 citations for 2 claims.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.7.2",
+                    "title": "Determine two or more central ideas",
+                    "titleKo": "둘 이상의 중심 생각 파악하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Determine two or more central ideas and analyze their development; provide an objective summary.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify dual central ideas.",
+                        "masteryCriteria": "2 ideas + development notes.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.7.5",
+                    "title": "Analyze structure of a text",
+                    "titleKo": "글의 구조 분석하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "Analyze the structure an author uses to organize a text, including how major sections contribute.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain contribution of a section.",
+                        "masteryCriteria": "Structure analysis with evidence.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.7",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "7",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.7.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.7.1",
+                    "title": "Write arguments to support claims",
+                    "titleKo": "주장을 뒷받침하는 논설문 쓰기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Write arguments to support claims with clear reasons and relevant evidence.",
+                    "objectives": [
+                      {
+                        "statement": "Students acknowledge alternate claims.",
+                        "masteryCriteria": "Claim + evidence + counterpoint.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.7.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명문 쓰기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine a topic and convey ideas.",
+                    "objectives": [
+                      {
+                        "statement": "Students use appropriate organization and vocabulary.",
+                        "masteryCriteria": "Clear informative draft.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.7.7",
+                    "title": "Conduct short research projects",
+                    "titleKo": "짧은 탐구 프로젝트 수행하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "Conduct short research projects to answer a question, drawing on several sources and generating additional related questions.",
+                    "objectives": [
+                      {
+                        "statement": "Students generate follow-up questions from research.",
+                        "masteryCriteria": "Answer + ≥1 new question + sources.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.7",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "7",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.7.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.7.1",
+                    "title": "Engage effectively in collaborative discussions",
+                    "titleKo": "협력 토론에 효과적으로 참여하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Engage effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students acknowledge new information and qualify views.",
+                        "masteryCriteria": "Meets discussion criteria once.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.7.4",
+                    "title": "Present claims and findings emphasizing key points",
+                    "titleKo": "핵심을 강조하며 주장·발견 발표하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Present claims and findings emphasizing salient points in a focused, coherent manner.",
+                    "objectives": [
+                      {
+                        "statement": "Students present with emphasis on key points.",
+                        "masteryCriteria": "Focused coherent presentation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.7",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "7",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.7.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.7.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain phrase/clause function and choose among simple/compound/complex sentences.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.7.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 7 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use Greek/Latin affixes and context.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -596,6 +3003,882 @@
                         "statement": "Students organize an informative text with introduction, analysis, and conclusion.",
                         "masteryCriteria": "Clear organization with ≥3 content points.",
                         "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.8.7",
+                    "title": "Conduct short research projects",
+                    "titleKo": "짧은 탐구 프로젝트 수행하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "Conduct short research projects to answer a question, drawing on several sources and generating additional related, focused questions.",
+                    "objectives": [
+                      {
+                        "statement": "Students refine a research question.",
+                        "masteryCriteria": "Refined question + multi-source answer.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.8",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.8.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.8.1",
+                    "title": "Cite textual evidence that most strongly supports analysis",
+                    "titleKo": "분석을 가장 강하게 뒷받침하는 근거 인용하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Cite the textual evidence that most strongly supports an analysis.",
+                    "objectives": [
+                      {
+                        "statement": "Students select strongest evidence for a claim.",
+                        "masteryCriteria": "Strongest evidence justified for 2 claims.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.8.2",
+                    "title": "Determine theme and analyze its development",
+                    "titleKo": "주제 파악과 전개 분석하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Determine a theme and analyze its development, including its relationship to characters, setting, and plot.",
+                    "objectives": [
+                      {
+                        "statement": "Students connect theme to story elements.",
+                        "masteryCriteria": "Theme linked to character/setting/plot.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.8.3",
+                    "title": "Analyze dialogue and incidents that propel action",
+                    "titleKo": "행동을 이끄는 대화·사건 분석하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "Analyze how particular lines of dialogue or incidents propel action and reveal character.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze a key dialogue/incident.",
+                        "masteryCriteria": "Action + character revelation explained.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.8",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "8",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.8.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.8.1",
+                    "title": "Cite strongest textual evidence",
+                    "titleKo": "가장 강한 텍스트 근거 인용하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Cite the textual evidence that most strongly supports an analysis.",
+                    "objectives": [
+                      {
+                        "statement": "Students choose strongest evidence.",
+                        "masteryCriteria": "Justification for 2 claims.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.8.2",
+                    "title": "Determine central idea and analyze development",
+                    "titleKo": "중심 생각 파악과 전개 분석하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Determine a central idea and analyze its development over the course of the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students track idea development.",
+                        "masteryCriteria": "Central idea arc with ≥3 moments.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.8.5",
+                    "title": "Analyze structure of a specific paragraph",
+                    "titleKo": "특정 문단의 구조 분석하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "Analyze in detail the structure of a specific paragraph, including the role of particular sentences.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain sentence roles in a paragraph.",
+                        "masteryCriteria": "Role analysis with evidence.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.8",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "8",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.8.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.8.1",
+                    "title": "Engage effectively in collaborative discussions",
+                    "titleKo": "협력 토론에 효과적으로 참여하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Engage effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students qualify or justify views with evidence.",
+                        "masteryCriteria": "Evidence-based discussion once.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.8.4",
+                    "title": "Present claims and findings with eye contact",
+                    "titleKo": "시선 맞춤을 유지하며 주장·발견 발표하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Present claims and findings emphasizing salient points and using appropriate eye contact, volume, and pronunciation.",
+                    "objectives": [
+                      {
+                        "statement": "Students deliver a clear oral presentation.",
+                        "masteryCriteria": "Meets delivery criteria.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.8",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "8",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.8.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.8.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain verbals and use active/passive voice.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.8.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grade 8 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context, affixes, and references.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G9",
+        "title": "Grades 9–10",
+        "titleKo": "9–10학년",
+        "gradeLevel": "9",
+        "sortOrder": 9,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.9-10",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "9",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.9-10.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.9-10.1",
+                    "title": "Cite strong textual evidence",
+                    "titleKo": "강한 텍스트 근거 인용하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "Cite strong and thorough textual evidence to support analysis of what the text says and inferences.",
+                    "objectives": [
+                      {
+                        "statement": "Students cite strong evidence for literary analysis.",
+                        "masteryCriteria": "Strong citation for 3 claims.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.9-10.2",
+                    "title": "Determine theme and analyze development",
+                    "titleKo": "주제 파악과 전개 분석하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "Determine a theme and analyze in detail its development, including how it emerges and is shaped.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a theme analysis essay paragraph.",
+                        "masteryCriteria": "Theme development with textual arc.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.9-10.3",
+                    "title": "Analyze complex characters",
+                    "titleKo": "복합적 인물 분석하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 3,
+                    "summary": "Analyze how complex characters develop over the course of a text, interact with other characters, and advance plot/theme.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze a complex character's development.",
+                        "masteryCriteria": "Development + interaction + theme link.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.9-10",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "9",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.9-10.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.9-10.1",
+                    "title": "Cite strong textual evidence",
+                    "titleKo": "강한 텍스트 근거 인용하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "Cite strong and thorough textual evidence to support analysis.",
+                    "objectives": [
+                      {
+                        "statement": "Students support informational claims with strong evidence.",
+                        "masteryCriteria": "Strong citation for 3 claims.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.9-10.2",
+                    "title": "Determine central idea and analyze development",
+                    "titleKo": "중심 생각 파악과 전개 분석하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "Determine a central idea and analyze its development; provide an objective summary.",
+                    "objectives": [
+                      {
+                        "statement": "Students produce an objective analytical summary.",
+                        "masteryCriteria": "Central idea + development + summary.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.9-10.8",
+                    "title": "Delineate and evaluate argument and claims",
+                    "titleKo": "논증과 주장 구분·평가하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 3,
+                    "summary": "Delineate and evaluate the argument and specific claims in a text, assessing whether reasoning is valid.",
+                    "objectives": [
+                      {
+                        "statement": "Students evaluate an argument's validity.",
+                        "masteryCriteria": "Claim map + validity judgment.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.9-10",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "9",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.9-10.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.9-10.1",
+                    "title": "Write arguments to support claims",
+                    "titleKo": "주장을 뒷받침하는 논설문 쓰기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "Write arguments to support claims in an analysis of substantive topics or texts.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a formal argument essay.",
+                        "masteryCriteria": "Claim + warrants + counterclaim.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.9-10.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명문 쓰기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine and convey complex ideas clearly.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a clear explanatory essay.",
+                        "masteryCriteria": "Organized complex explanation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.9-10.7",
+                    "title": "Conduct research projects",
+                    "titleKo": "탐구 프로젝트 수행하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 3,
+                    "summary": "Conduct short as well as more sustained research projects to answer a question or solve a problem.",
+                    "objectives": [
+                      {
+                        "statement": "Students complete a multi-source research mini-project.",
+                        "masteryCriteria": "Research question answered with citations.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.9-10",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "9",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.9-10.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.9-10.1",
+                    "title": "Initiate and participate in collaborative discussions",
+                    "titleKo": "협력 토론을 시작하고 참여하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "Initiate and participate effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students propel discussion with prepared evidence.",
+                        "masteryCriteria": "Initiates + contributes with evidence.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.9-10.4",
+                    "title": "Present information clearly and logically",
+                    "titleKo": "정보를 명확하고 논리적으로 발표하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "Present information, findings, and supporting evidence clearly, concisely, and logically.",
+                    "objectives": [
+                      {
+                        "statement": "Students deliver a structured presentation.",
+                        "masteryCriteria": "Clear logical presentation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.9-10",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "9",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.9-10.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.9-10.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students use parallel structure and various phrase/clause types.",
+                        "masteryCriteria": "Correct in 3 samples.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.9-10.4",
+                    "title": "Determine or clarify word meanings",
+                    "titleKo": "단어 의미 파악·명확히 하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "Determine or clarify the meaning of unknown words based on grades 9–10 reading.",
+                    "objectives": [
+                      {
+                        "statement": "Students use context and patterns of word changes.",
+                        "masteryCriteria": "Correct for 4 of 5.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G11",
+        "title": "Grades 11–12",
+        "titleKo": "11–12학년",
+        "gradeLevel": "11",
+        "sortOrder": 11,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.11-12",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "11",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.11-12.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "11",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.11-12.1",
+                    "title": "Cite strong and thorough textual evidence",
+                    "titleKo": "강력하고 철저한 텍스트 근거 인용하기",
+                    "gradeLevel": "11",
+                    "sortOrder": 1,
+                    "summary": "Cite strong and thorough textual evidence to support analysis, including determining where the text leaves matters uncertain.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze ambiguity with evidence.",
+                        "masteryCriteria": "Evidence for certainty and uncertainty.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.11-12.2",
+                    "title": "Determine two or more themes",
+                    "titleKo": "둘 이상의 주제 파악하기",
+                    "gradeLevel": "11",
+                    "sortOrder": 2,
+                    "summary": "Determine two or more themes and analyze their development, including how they interact and build on one another.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze interacting themes.",
+                        "masteryCriteria": "2 themes + interaction analysis.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.11-12",
+            "title": "Reading Informational",
+            "titleKo": "정보 글 읽기",
+            "gradeLevel": "11",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.11-12.Core",
+                "title": "Reading Informational",
+                "titleKo": "정보 글 읽기",
+                "gradeLevel": "11",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.11-12.1",
+                    "title": "Cite strong and thorough textual evidence",
+                    "titleKo": "강력하고 철저한 텍스트 근거 인용하기",
+                    "gradeLevel": "11",
+                    "sortOrder": 1,
+                    "summary": "Cite strong and thorough textual evidence to support analysis, including where the text leaves matters uncertain.",
+                    "objectives": [
+                      {
+                        "statement": "Students analyze informational nuance.",
+                        "masteryCriteria": "Nuanced evidence-based analysis.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.11-12.7",
+                    "title": "Integrate and evaluate multiple sources",
+                    "titleKo": "여러 자료 통합·평가하기",
+                    "gradeLevel": "11",
+                    "sortOrder": 2,
+                    "summary": "Integrate and evaluate multiple sources of information presented in different media or formats.",
+                    "objectives": [
+                      {
+                        "statement": "Students synthesize 3+ sources across media.",
+                        "masteryCriteria": "Synthesis with evaluation.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.11-12",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "11",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.11-12.Core",
+                "title": "Writing",
+                "titleKo": "쓰기",
+                "gradeLevel": "11",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.11-12.1",
+                    "title": "Write arguments to support claims in analysis",
+                    "titleKo": "분석에서 주장을 뒷받침하는 논설문 쓰기",
+                    "gradeLevel": "11",
+                    "sortOrder": 1,
+                    "summary": "Write arguments to support claims in an analysis of substantive topics or texts, using valid reasoning.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a college-ready argument.",
+                        "masteryCriteria": "Nuanced claim + valid reasoning.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.11-12.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명문 쓰기",
+                    "gradeLevel": "11",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine and convey complex ideas clearly and accurately.",
+                    "objectives": [
+                      {
+                        "statement": "Students convey complex ideas precisely.",
+                        "masteryCriteria": "Precise organized explanation.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "SL.11-12",
+            "title": "Speaking & Listening",
+            "titleKo": "말하기·듣기",
+            "gradeLevel": "11",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SL.11-12.Core",
+                "title": "Speaking & Listening",
+                "titleKo": "말하기·듣기",
+                "gradeLevel": "11",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SL.11-12.1",
+                    "title": "Initiate and participate effectively in discussions",
+                    "titleKo": "토론을 효과적으로 시작하고 참여하기",
+                    "gradeLevel": "11",
+                    "sortOrder": 1,
+                    "summary": "Initiate and participate effectively in a range of collaborative discussions.",
+                    "objectives": [
+                      {
+                        "statement": "Students synthesize multiple perspectives.",
+                        "masteryCriteria": "Synthesis contribution in discussion.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "L.11-12",
+            "title": "Language",
+            "titleKo": "언어",
+            "gradeLevel": "11",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "L.11-12.Core",
+                "title": "Language",
+                "titleKo": "언어",
+                "gradeLevel": "11",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "L.11-12.1",
+                    "title": "Demonstrate command of grammar",
+                    "titleKo": "문법 규칙 보이기",
+                    "gradeLevel": "11",
+                    "sortOrder": 1,
+                    "summary": "Demonstrate command of the conventions of standard English grammar.",
+                    "objectives": [
+                      {
+                        "statement": "Students apply usage conventions thoughtfully.",
+                        "masteryCriteria": "Correct polished usage in 2 samples.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],

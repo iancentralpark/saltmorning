@@ -1,17 +1,19 @@
 {
   "framework": {
     "code": "kr2022-korean",
-    "name": "2022 Revised National Curriculum — Korean Language",
-    "nameKo": "2022 개정 교육과정 — 국어",
+    "name": "2022 Revised National Curriculum — Korean Language (1–9 sample)",
+    "nameKo": "2022 개정 교육과정 — 국어 (1–9학년 샘플)",
     "subject": "KOREAN_LANGUAGE",
     "regionStandard": "KR-2022",
     "version": "2022",
-    "description": "대한민국 2022 개정 교육과정 국어과 성취기준 샘플. 초 3–6학년 샘플 밴드. 실제 고시 문언은 교육부 PDF를 기준으로 검수·확장하세요.",
+    "description": "국어 듣기·말하기/읽기/쓰기/문법/문학 영역 초·중학교 밴드 샘플 커버리지.",
     "metadata": {
       "source": "교육부 2022 개정 교육과정 국어과",
       "gradeBand": "3-6",
       "language": "ko",
-      "note": "Codes below use a conventional pattern [학년군][영역코드]-[일련번호] for demo mapping; replace with official codes when importing the full pack."
+      "note": "Codes below use a conventional pattern [학년군][영역코드]-[일련번호] for demo mapping; replace with official codes when importing the full pack.",
+      "gradeSpan": "1-9",
+      "coverage": "full-band-sample"
     }
   },
   "tree": {
@@ -21,6 +23,658 @@
     "titleKo": "2022 개정 국어",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G1",
+        "title": "1학년",
+        "titleKo": "1학년",
+        "gradeLevel": "1",
+        "sortOrder": 1,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "1국01",
+            "title": "듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "1",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1국01.Core",
+                "title": "듣기·말하기",
+                "titleKo": "듣기·말하기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국01-01",
+                    "title": "바른 자세로 듣고 말하기",
+                    "titleKo": "바른 자세로 듣고 말하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "바른 자세로 듣고 말하며 의사소통한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 바른 자세로 듣고 간단히 말한다.",
+                        "masteryCriteria": "3회 중 2회 이상 바른 자세 유지.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국01-02",
+                    "title": "인사와 소개하기",
+                    "titleKo": "인사와 소개하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "상황에 맞게 인사하고 자신을 소개한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 인사말과 자기소개를 한다.",
+                        "masteryCriteria": "인사+소개 완성.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국01-03",
+                    "title": "경험과 생각 나누기",
+                    "titleKo": "경험과 생각 나누기",
+                    "gradeLevel": "1",
+                    "sortOrder": 3,
+                    "summary": "자신의 경험과 생각을 친구와 나눈다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 짧은 경험을 말해 나눈다.",
+                        "masteryCriteria": "경험 1가지+반응 1회.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1국02",
+            "title": "읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "1",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1국02.Core",
+                "title": "읽기",
+                "titleKo": "읽기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국02-01",
+                    "title": "글자와 낱말 읽기",
+                    "titleKo": "글자와 낱말 읽기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "글자와 낱말을 바르게 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 학습한 글자·낱말을 읽는다.",
+                        "masteryCriteria": "제시 낱말 80% 이상 정확.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국02-02",
+                    "title": "짧은 글 내용 이해하기",
+                    "titleKo": "짧은 글 내용 이해하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "짧은 글의 내용을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 짧은 글의 중심 내용을 말한다.",
+                        "masteryCriteria": "중심 내용 정확히 진술.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국02-03",
+                    "title": "그림책·동화 즐겨 읽기",
+                    "titleKo": "그림책·동화 즐겨 읽기",
+                    "gradeLevel": "1",
+                    "sortOrder": 3,
+                    "summary": "그림책과 동화를 즐겨 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 그림책/동화 1권을 읽고 느낌을 말한다.",
+                        "masteryCriteria": "읽기+간단 감상.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "1",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국03-01",
+                    "title": "글자와 문장 쓰기",
+                    "titleKo": "글자와 문장 쓰기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "글자와 간단한 문장을 바르게 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 글자와 짧은 문장을 쓴다.",
+                        "masteryCriteria": "문장 2개 이상 바르게 작성.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국03-02",
+                    "title": "자신의 생각과 경험 쓰기",
+                    "titleKo": "자신의 생각과 경험 쓰기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "자신의 생각과 경험을 글로 표현한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 경험/생각을 2~3문장으로 쓴다.",
+                        "masteryCriteria": "주제 일치 문장 2개 이상.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "1",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국04-01",
+                    "title": "소리와 글자의 관계 알기",
+                    "titleKo": "소리와 글자의 관계 알기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "소리와 글자의 대응 관계를 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 소리에 맞는 글자를 고른다.",
+                        "masteryCriteria": "5문항 중 4문항 정답.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국04-02",
+                    "title": "기본 문장 성분 알기",
+                    "titleKo": "기본 문장 성분 알기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "문장의 기본 성분(누가·무엇을)을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주어·서술어를 찾는다.",
+                        "masteryCriteria": "3문장 중 2문장 이상 정확.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "1국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "1",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국05-01",
+                    "title": "동시·동화의 재미 느끼기",
+                    "titleKo": "동시·동화의 재미 느끼기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "동시와 동화의 재미를 느낀다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 작품의 재미있는 부분을 말한다.",
+                        "masteryCriteria": "재미 요소 1가지 이상 진술.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1국05-02",
+                    "title": "작품 속 인물과 사건 이해하기",
+                    "titleKo": "작품 속 인물과 사건 이해하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "작품 속 인물과 사건을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 인물과 주요 사건을 말한다.",
+                        "masteryCriteria": "인물+사건 정확히 진술.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G2",
+        "title": "2학년",
+        "titleKo": "2학년",
+        "gradeLevel": "2",
+        "sortOrder": 2,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "2국01",
+            "title": "듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "2",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2국01.Core",
+                "title": "듣기·말하기",
+                "titleKo": "듣기·말하기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국01-01",
+                    "title": "목적에 맞게 듣고 말하기",
+                    "titleKo": "목적에 맞게 듣고 말하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "목적에 맞게 내용을 듣고 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 목적에 맞는 말하기를 한다.",
+                        "masteryCriteria": "목적 부합 발화 1회.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국01-02",
+                    "title": "차례를 지키며 대화하기",
+                    "titleKo": "차례를 지키며 대화하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "차례를 지키며 대화에 참여한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 대화 규칙을 지키며 말한다.",
+                        "masteryCriteria": "차례 지키기+관련 발화.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국01-03",
+                    "title": "겪은 일과 생각 발표하기",
+                    "titleKo": "겪은 일과 생각 발표하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 3,
+                    "summary": "겪은 일과 생각을 발표한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 짧은 발표를 한다.",
+                        "masteryCriteria": "겪은 일+생각 포함.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2국02",
+            "title": "읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "2",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2국02.Core",
+                "title": "읽기",
+                "titleKo": "읽기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국02-01",
+                    "title": "글의 중심 내용 파악하기",
+                    "titleKo": "글의 중심 내용 파악하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "글의 중심 내용을 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 중심 내용을 한 문장으로 말한다.",
+                        "masteryCriteria": "중심 내용 정확.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국02-02",
+                    "title": "세부 내용 확인하기",
+                    "titleKo": "세부 내용 확인하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "글의 세부 내용을 확인한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 세부 질문에 답한다.",
+                        "masteryCriteria": "4문항 중 3문항 정답.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국02-03",
+                    "title": "다양한 글 즐겨 읽기",
+                    "titleKo": "다양한 글 즐겨 읽기",
+                    "gradeLevel": "2",
+                    "sortOrder": 3,
+                    "summary": "다양한 갈래의 글을 즐겨 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 서로 다른 갈래 글을 읽는다.",
+                        "masteryCriteria": "갈래 2종 이상 읽기 기록.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "2",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국03-01",
+                    "title": "문장과 짧은 글 쓰기",
+                    "titleKo": "문장과 짧은 글 쓰기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "문장과 짧은 글을 바르게 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 짧은 단락을 쓴다.",
+                        "masteryCriteria": "문장 4개 이상 응집.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국03-02",
+                    "title": "생각과 경험을 글로 표현하기",
+                    "titleKo": "생각과 경험을 글로 표현하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "자신의 생각과 경험을 글로 표현한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 경험 중심 글을 쓴다.",
+                        "masteryCriteria": "경험+느낌 포함.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "2",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국04-01",
+                    "title": "낱말의 뜻 알기",
+                    "titleKo": "낱말의 뜻 알기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "문맥 속에서 낱말의 뜻을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 문맥으로 낱말 뜻을 말한다.",
+                        "masteryCriteria": "4개 중 3개 정확.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국04-02",
+                    "title": "문장 부호와 띄어쓰기",
+                    "titleKo": "문장 부호와 띄어쓰기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "기본 문장 부호와 띄어쓰기를 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 문장 부호·띄어쓰기를 바르게 쓴다.",
+                        "masteryCriteria": "오류 2개 이하.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "2국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "2",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국05-01",
+                    "title": "작품의 재미와 감동 느끼기",
+                    "titleKo": "작품의 재미와 감동 느끼기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "문학 작품의 재미와 감동을 느낀다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 느낀 점을 구체적으로 말한다.",
+                        "masteryCriteria": "근거 있는 감상 1가지.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2국05-02",
+                    "title": "인물의 마음 짐작하기",
+                    "titleKo": "인물의 마음 짐작하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "작품 속 인물의 마음을 짐작한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 인물의 마음을 근거와 함께 말한다.",
+                        "masteryCriteria": "마음+근거 제시.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G3",
@@ -87,6 +741,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국01-03",
+                    "title": "매체 자료를 활용해 발표하기",
+                    "titleKo": "매체 자료를 활용해 발표하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "그림·표 등 매체를 활용해 발표한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체 1종을 활용해 발표한다.",
+                        "masteryCriteria": "매체+내용 일치.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -123,6 +795,246 @@
                         "masteryCriteria": "Main-idea statement is text-supported.",
                         "masteryCriteriaKo": "글에 근거한 중심 내용 진술.",
                         "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국02-02",
+                    "title": "사실과 의견 구별하기",
+                    "titleKo": "사실과 의견 구별하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "글에서 사실과 의견을 구별한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 사실/의견을 분류한다.",
+                        "masteryCriteria": "5문장 중 4문장 정확.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국02-03",
+                    "title": "다양한 갈래의 글 읽기",
+                    "titleKo": "다양한 갈래의 글 읽기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "다양한 갈래의 글을 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 서로 다른 갈래 글을 비교한다.",
+                        "masteryCriteria": "갈래 특징 1가지 이상.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "3",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국03-01",
+                    "title": "목적과 독자를 고려해 쓰기",
+                    "titleKo": "목적과 독자를 고려해 쓰기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "목적과 독자를 생각하며 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 목적/독자에 맞는 글을 쓴다.",
+                        "masteryCriteria": "목적·독자 반영.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국03-02",
+                    "title": "자료를 모아 보고 쓰기",
+                    "titleKo": "자료를 모아 보고 쓰기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "간단한 자료를 모아 보고 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 자료 2개 이상을 활용한다.",
+                        "masteryCriteria": "자료 근거 문장 포함.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국03-03",
+                    "title": "고쳐 쓰기로 글 다듬기",
+                    "titleKo": "고쳐 쓰기로 글 다듬기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "글을 읽고 고쳐 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 초고를 수정한다.",
+                        "masteryCriteria": "수정 전후 비교 가능.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "3",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국04-01",
+                    "title": "단어의 의미와 관계 이해하기",
+                    "titleKo": "단어의 의미와 관계 이해하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "단어의 의미와 관계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 유의어·반의어를 찾는다.",
+                        "masteryCriteria": "3쌍 중 2쌍 이상 정확.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국04-02",
+                    "title": "문장 구조와 높임 표현 알기",
+                    "titleKo": "문장 구조와 높임 표현 알기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "기본 문장 구조와 높임 표현을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 높임 표현을 바르게 고친다.",
+                        "masteryCriteria": "4문항 중 3문항 정답.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "3",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국05-01",
+                    "title": "작품의 갈래와 특성 이해하기",
+                    "titleKo": "작품의 갈래와 특성 이해하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "문학 갈래의 특성을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 갈래 특성을 말한다.",
+                        "masteryCriteria": "특성 2가지 이상.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국05-02",
+                    "title": "인물의 마음과 갈등 파악하기",
+                    "titleKo": "인물의 마음과 갈등 파악하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "인물의 마음과 갈등을 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 갈등 상황을 설명한다.",
+                        "masteryCriteria": "마음+갈등 근거 제시.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국05-03",
+                    "title": "작품에 대한 생각 표현하기",
+                    "titleKo": "작품에 대한 생각 표현하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "작품에 대한 자신의 생각을 표현한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 감상을 글로/말로 표현한다.",
+                        "masteryCriteria": "근거 있는 감상.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],
@@ -216,6 +1128,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국01-03",
+                    "title": "매체 자료를 활용해 발표하기",
+                    "titleKo": "매체 자료를 활용해 발표하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "매체 자료를 활용해 내용을 전달한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체와 함께 발표한다.",
+                        "masteryCriteria": "매체 활용 발표 완성.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -281,6 +1211,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국02-03",
+                    "title": "다양한 갈래의 글 읽기",
+                    "titleKo": "다양한 갈래의 글 읽기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "다양한 갈래의 글을 목적에 맞게 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 목적에 맞는 읽기 전략을 쓴다.",
+                        "masteryCriteria": "전략 1가지+적용.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -316,6 +1264,42 @@
                         "statementKo": "중심 문장과 뒷받침 문장 2개 이상으로 문단을 쓴다.",
                         "masteryCriteria": "루브릭: 중심 문장 명확(2) + 뒷받침 관련성(2) + 맞춤법·띄어쓰기(1).",
                         "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국03-02",
+                    "title": "자료를 모아 보고 쓰기",
+                    "titleKo": "자료를 모아 보고 쓰기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "여러 자료를 모아 정리해 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 자료 요약 후 글을 쓴다.",
+                        "masteryCriteria": "자료 3개 이상 반영.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국03-03",
+                    "title": "고쳐 쓰기로 글 다듬기",
+                    "titleKo": "고쳐 쓰기로 글 다듬기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "내용과 표현을 다듬어 고쳐 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 내용·표현을 수정한다.",
+                        "masteryCriteria": "수정 포인트 2개 이상.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],
@@ -359,6 +1343,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국04-02",
+                    "title": "문장 구조와 높임 표현 알기",
+                    "titleKo": "문장 구조와 높임 표현 알기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "문장 성분과 높임 표현을 바르게 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 높임 표현을 상황에 맞게 쓴다.",
+                        "masteryCriteria": "상황 적합 높임 사용.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               },
@@ -387,6 +1389,80 @@
                         "statementKo": "매주 읽은 책의 줄거리와 느낀 점을 정해진 형식으로 쓴다.",
                         "statement": "Students write a weekly reading journal with summary and response in the school template.",
                         "masteryCriteriaKo": "4주 중 3주 이상 양식에 맞게 제출.",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "4",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국05-01",
+                    "title": "작품의 갈래와 특성 이해하기",
+                    "titleKo": "작품의 갈래와 특성 이해하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "문학 갈래의 특성과 표현을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 갈래 특성을 사례로 말한다.",
+                        "masteryCriteria": "특성+사례.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국05-02",
+                    "title": "인물의 마음과 갈등 파악하기",
+                    "titleKo": "인물의 마음과 갈등 파악하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "인물의 마음 변화와 갈등을 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 마음 변화를 설명한다.",
+                        "masteryCriteria": "변화+근거.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국05-03",
+                    "title": "작품에 대한 생각 표현하기",
+                    "titleKo": "작품에 대한 생각 표현하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "작품에 대한 생각과 느낌을 표현한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 감상을 조직적으로 표현한다.",
+                        "masteryCriteria": "조직된 감상문/발표.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],
@@ -464,6 +1540,24 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국01-03",
+                    "title": "매체 자료를 활용해 발표하기",
+                    "titleKo": "매체 자료를 활용해 발표하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "여러 매체를 활용해 효과적으로 발표한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체를 조직해 발표한다.",
+                        "masteryCriteria": "매체 구성+전달 명확.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -500,6 +1594,246 @@
                         "masteryCriteria": "Purpose claim + ≥1 evidence sentence.",
                         "masteryCriteriaKo": "목적 주장과 근거 문장 1개 이상.",
                         "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국02-02",
+                    "title": "사실과 의견 구별하기",
+                    "titleKo": "사실과 의견 구별하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "사실·의견을 구별하고 타당성을 판단한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주장의 타당성을 평가한다.",
+                        "masteryCriteria": "타당성 판단+근거.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국02-03",
+                    "title": "다양한 갈래의 글 읽기",
+                    "titleKo": "다양한 갈래의 글 읽기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "목적에 따라 다양한 글을 비판적으로 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 비판적 질문을 던진다.",
+                        "masteryCriteria": "비판 질문 2개 이상.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "5",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국03-01",
+                    "title": "목적과 독자를 고려해 쓰기",
+                    "titleKo": "목적과 독자를 고려해 쓰기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "목적·독자·매체를 고려해 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체 특성을 반영해 쓴다.",
+                        "masteryCriteria": "목적·독자·매체 반영.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국03-02",
+                    "title": "자료를 모아 보고 쓰기",
+                    "titleKo": "자료를 모아 보고 쓰기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "자료를 비교·종합하여 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 자료를 종합한 글을 쓴다.",
+                        "masteryCriteria": "종합 문단 포함.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국03-03",
+                    "title": "고쳐 쓰기로 글 다듬기",
+                    "titleKo": "고쳐 쓰기로 글 다듬기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "내용·조직·표현을 점검해 고쳐 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 점검표를 활용해 수정한다.",
+                        "masteryCriteria": "점검+수정 완료.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "5",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국04-01",
+                    "title": "단어의 의미와 관계 이해하기",
+                    "titleKo": "단어의 의미와 관계 이해하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "단어의 의미 확장과 관계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 다의어/관용 표현을 설명한다.",
+                        "masteryCriteria": "설명 정확.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국04-02",
+                    "title": "문장 구조와 높임 표현 알기",
+                    "titleKo": "문장 구조와 높임 표현 알기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "문장 구조와 담화 맥락의 높임을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 맥락에 맞는 높임을 선택한다.",
+                        "masteryCriteria": "맥락 적합 선택.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "5",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국05-01",
+                    "title": "작품의 갈래와 특성 이해하기",
+                    "titleKo": "작품의 갈래와 특성 이해하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "갈래 특성과 표현 기법을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 표현 기법을 찾는다.",
+                        "masteryCriteria": "기법 2가지+효과.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국05-02",
+                    "title": "인물의 마음과 갈등 파악하기",
+                    "titleKo": "인물의 마음과 갈등 파악하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "인물 간 갈등과 해결 과정을 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 갈등 전개를 정리한다.",
+                        "masteryCriteria": "발생–전개–해결.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국05-03",
+                    "title": "작품에 대한 생각 표현하기",
+                    "titleKo": "작품에 대한 생각 표현하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "작품의 주제와 관련해 생각을 표현한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주제 연계 감상을 쓴다.",
+                        "masteryCriteria": "주제+자기 생각.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],
@@ -572,6 +1906,1172 @@
                         "statementKo": "동료 피드백을 반영해 문단을 한 번 고쳐 쓴다.",
                         "masteryCriteria": "Revision log shows ≥1 feedback-driven change.",
                         "masteryCriteriaKo": "피드백 반영 수정 1회 이상 기록.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국03-03",
+                    "title": "고쳐 쓰기로 글 다듬기",
+                    "titleKo": "고쳐 쓰기로 글 다듬기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "피드백을 반영해 글을 완성한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 동료/교사 피드백을 반영한다.",
+                        "masteryCriteria": "피드백 반영 증거.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6국01",
+            "title": "듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6국01.Core",
+                "title": "듣기·말하기",
+                "titleKo": "듣기·말하기",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국01-01",
+                    "title": "목적에 맞게 듣고 말하기",
+                    "titleKo": "목적에 맞게 듣고 말하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "목적·상황·매체를 고려해 듣고 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 설득/설명 목적에 맞게 말한다.",
+                        "masteryCriteria": "목적 달성 발화.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국01-02",
+                    "title": "토론·토의에 참여하기",
+                    "titleKo": "토론·토의에 참여하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "합리적 근거로 토론·토의에 참여한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 근거와 반론을 제시한다.",
+                        "masteryCriteria": "근거+반론 1회.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국01-03",
+                    "title": "매체 자료를 활용해 발표하기",
+                    "titleKo": "매체 자료를 활용해 발표하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "매체를 비판적으로 활용해 발표한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체 선택 이유를 설명한다.",
+                        "masteryCriteria": "선택 이유+발표.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6국02",
+            "title": "읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "6",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6국02.Core",
+                "title": "읽기",
+                "titleKo": "읽기",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국02-01",
+                    "title": "글의 중심 생각 파악하기",
+                    "titleKo": "글의 중심 생각 파악하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "글의 관점과 중심 생각을 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 필자 관점을 진술한다.",
+                        "masteryCriteria": "관점+근거.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국02-02",
+                    "title": "사실과 의견 구별하기",
+                    "titleKo": "사실과 의견 구별하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "주장과 근거의 타당성을 평가한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주장-근거를 평가한다.",
+                        "masteryCriteria": "평가 의견+기준.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국02-03",
+                    "title": "다양한 갈래의 글 읽기",
+                    "titleKo": "다양한 갈래의 글 읽기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "매체 텍스트를 포함하여 비판적으로 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체 텍스트를 분석한다.",
+                        "masteryCriteria": "분석 포인트 2개.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "6",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국04-01",
+                    "title": "단어의 의미와 관계 이해하기",
+                    "titleKo": "단어의 의미와 관계 이해하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "담화 맥락에서 단어 의미를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 맥락에 따른 의미 차이를 설명한다.",
+                        "masteryCriteria": "맥락 의미 설명.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국04-02",
+                    "title": "문장 구조와 높임 표현 알기",
+                    "titleKo": "문장 구조와 높임 표현 알기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "문법 요소가 담화에 미치는 영향을 안다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 문법 선택 효과를 설명한다.",
+                        "masteryCriteria": "효과 설명 1가지.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "6국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "6",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국05-01",
+                    "title": "작품의 갈래와 특성 이해하기",
+                    "titleKo": "작품의 갈래와 특성 이해하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "갈래·표현·주제를 종합적으로 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 종합 감상을 한다.",
+                        "masteryCriteria": "갈래+표현+주제.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국05-02",
+                    "title": "인물의 마음과 갈등 파악하기",
+                    "titleKo": "인물의 마음과 갈등 파악하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "인물·사건·배경의 관계를 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 요소 간 관계를 설명한다.",
+                        "masteryCriteria": "관계 설명 완성.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국05-03",
+                    "title": "작품에 대한 생각 표현하기",
+                    "titleKo": "작품에 대한 생각 표현하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "작품과 삶을 연결해 생각을 표현한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 삶 연계 감상을 쓴다.",
+                        "masteryCriteria": "작품-삶 연결.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G7",
+        "title": "7학년",
+        "titleKo": "7학년",
+        "gradeLevel": "7",
+        "sortOrder": 7,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "7국01",
+            "title": "듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "7",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7국01.Core",
+                "title": "듣기·말하기",
+                "titleKo": "듣기·말하기",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국01-01",
+                    "title": "비판적으로 듣고 말하기",
+                    "titleKo": "비판적으로 듣고 말하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "내용을 비판적으로 듣고 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주장의 문제점을 지적한다.",
+                        "masteryCriteria": "비판 포인트+대안.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국01-02",
+                    "title": "설득과 협상에 참여하기",
+                    "titleKo": "설득과 협상에 참여하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "설득과 협상 상황에 참여한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 설득 전략을 사용한다.",
+                        "masteryCriteria": "전략 1가지+적용.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7국02",
+            "title": "읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "7",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7국02.Core",
+                "title": "읽기",
+                "titleKo": "읽기",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국02-01",
+                    "title": "글의 관점과 의도 파악하기",
+                    "titleKo": "글의 관점과 의도 파악하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "필자의 관점과 의도를 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 관점·의도를 근거와 함께 말한다.",
+                        "masteryCriteria": "관점+의도+근거.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국02-02",
+                    "title": "매체 텍스트 비판적으로 읽기",
+                    "titleKo": "매체 텍스트 비판적으로 읽기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "매체 텍스트를 비판적으로 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체 메시지의 편향을 점검한다.",
+                        "masteryCriteria": "편향/의도 점검.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "7",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국03-01",
+                    "title": "논설문·설명문 쓰기",
+                    "titleKo": "논설문·설명문 쓰기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "논설문과 설명문을 목적에 맞게 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주장-근거 구조의 글을 쓴다.",
+                        "masteryCriteria": "주장+근거 2개 이상.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국03-02",
+                    "title": "자료와 근거를 들어 쓰기",
+                    "titleKo": "자료와 근거를 들어 쓰기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "신뢰할 자료와 근거를 들어 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 출처를 밝혀 쓴다.",
+                        "masteryCriteria": "출처 표기+근거.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "7",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국04-01",
+                    "title": "문법 요소와 담화 이해하기",
+                    "titleKo": "문법 요소와 담화 이해하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "문법 요소가 담화 의미에 미치는 영향을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 문법 선택의 의미 차이를 설명한다.",
+                        "masteryCriteria": "의미 차이 설명.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국04-02",
+                    "title": "한글의 특성과 국어 생활",
+                    "titleKo": "한글의 특성과 국어 생활",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "한글의 특성과 국어 생활을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 한글 특성 사례를 든다.",
+                        "masteryCriteria": "특성+사례.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "7국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "7",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국05-01",
+                    "title": "문학의 갈래와 표현 이해하기",
+                    "titleKo": "문학의 갈래와 표현 이해하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "문학 갈래와 표현 기법을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 표현 효과를 분석한다.",
+                        "masteryCriteria": "기법+효과.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7국05-02",
+                    "title": "작품의 주제와 세계관 탐구하기",
+                    "titleKo": "작품의 주제와 세계관 탐구하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "작품의 주제와 세계관을 탐구한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 주제/세계관을 진술한다.",
+                        "masteryCriteria": "주제+세계관 근거.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G8",
+        "title": "8학년",
+        "titleKo": "8학년",
+        "gradeLevel": "8",
+        "sortOrder": 8,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "8국01",
+            "title": "듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8국01.Core",
+                "title": "듣기·말하기",
+                "titleKo": "듣기·말하기",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국01-01",
+                    "title": "비판적으로 듣고 말하기",
+                    "titleKo": "비판적으로 듣고 말하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "논증을 평가하며 듣고 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 논증의 타당성을 평가한다.",
+                        "masteryCriteria": "평가 기준+판단.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국01-02",
+                    "title": "설득과 협상에 참여하기",
+                    "titleKo": "설득과 협상에 참여하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "상호 존중하며 설득·협상한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 합의점을 제안한다.",
+                        "masteryCriteria": "합의 제안+근거.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8국02",
+            "title": "읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "8",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8국02.Core",
+                "title": "읽기",
+                "titleKo": "읽기",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국02-01",
+                    "title": "글의 관점과 의도 파악하기",
+                    "titleKo": "글의 관점과 의도 파악하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "복합 텍스트의 관점과 의도를 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 관점 차이를 비교한다.",
+                        "masteryCriteria": "비교 분석 완성.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국02-02",
+                    "title": "매체 텍스트 비판적으로 읽기",
+                    "titleKo": "매체 텍스트 비판적으로 읽기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "매체 생산·유통 맥락을 고려해 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 생산 맥락을 분석한다.",
+                        "masteryCriteria": "맥락 분석 1건.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "8",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국03-01",
+                    "title": "논설문·설명문 쓰기",
+                    "titleKo": "논설문·설명문 쓰기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "복합적 주제를 논설·설명으로 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 반론을 포함한 논설문을 쓴다.",
+                        "masteryCriteria": "주장+반론+재반박.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국03-02",
+                    "title": "자료와 근거를 들어 쓰기",
+                    "titleKo": "자료와 근거를 들어 쓰기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "자료를 비판적으로 선별해 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 자료의 한계를 밝힌다.",
+                        "masteryCriteria": "선별 이유+한계.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "8",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국04-01",
+                    "title": "문법 요소와 담화 이해하기",
+                    "titleKo": "문법 요소와 담화 이해하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "문법과 담화 규범을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 담화 규범 사례를 분석한다.",
+                        "masteryCriteria": "규범+사례.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국04-02",
+                    "title": "한글의 특성과 국어 생활",
+                    "titleKo": "한글의 특성과 국어 생활",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "국어 생활의 문제와 개선을 탐구한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 국어 생활 개선안을 제시한다.",
+                        "masteryCriteria": "문제+개선안.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "8국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "8",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국05-01",
+                    "title": "문학의 갈래와 표현 이해하기",
+                    "titleKo": "문학의 갈래와 표현 이해하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "갈래 관습과 표현을 심화 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 갈래 관습을 적용해 분석한다.",
+                        "masteryCriteria": "관습 적용 분석.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8국05-02",
+                    "title": "작품의 주제와 세계관 탐구하기",
+                    "titleKo": "작품의 주제와 세계관 탐구하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "작품과 사회·역사 맥락을 연결한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 맥락 연계 해석을 한다.",
+                        "masteryCriteria": "작품-맥락 연결.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G9",
+        "title": "9학년",
+        "titleKo": "9학년",
+        "gradeLevel": "9",
+        "sortOrder": 9,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "9국01",
+            "title": "듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "9",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9국01.Core",
+                "title": "듣기·말하기",
+                "titleKo": "듣기·말하기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국01-01",
+                    "title": "비판적으로 듣고 말하기",
+                    "titleKo": "비판적으로 듣고 말하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "공공 담화를 비판적으로 듣고 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 공공 담화를 평가한다.",
+                        "masteryCriteria": "평가+대안 제시.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국01-02",
+                    "title": "설득과 협상에 참여하기",
+                    "titleKo": "설득과 협상에 참여하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "갈등 상황에서 합리적 협상에 참여한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 협상안을 설계한다.",
+                        "masteryCriteria": "이해관계+협상안.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "9국02",
+            "title": "읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "9",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9국02.Core",
+                "title": "읽기",
+                "titleKo": "읽기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국02-01",
+                    "title": "글의 관점과 의도 파악하기",
+                    "titleKo": "글의 관점과 의도 파악하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "복합적 관점과 숨은 전제를 파악한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 전제를 드러낸다.",
+                        "masteryCriteria": "전제+관점 분석.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국02-02",
+                    "title": "매체 텍스트 비판적으로 읽기",
+                    "titleKo": "매체 텍스트 비판적으로 읽기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "디지털 매체 텍스트를 비판적으로 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 디지털 텍스트를 검증한다.",
+                        "masteryCriteria": "검증 절차 적용.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "9국03",
+            "title": "쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "9",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9국03.Core",
+                "title": "쓰기",
+                "titleKo": "쓰기",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국03-01",
+                    "title": "논설문·설명문 쓰기",
+                    "titleKo": "논설문·설명문 쓰기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "사회 쟁점에 대한 논설·설명문을 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 쟁점 논설문을 완성한다.",
+                        "masteryCriteria": "쟁점+다관점+주장.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국03-02",
+                    "title": "자료와 근거를 들어 쓰기",
+                    "titleKo": "자료와 근거를 들어 쓰기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "학술적 형식에 가깝게 근거를 제시한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 인용·각주 형식을 적용한다.",
+                        "masteryCriteria": "인용 형식 준수.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "9국04",
+            "title": "문법",
+            "titleKo": "문법",
+            "gradeLevel": "9",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9국04.Core",
+                "title": "문법",
+                "titleKo": "문법",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국04-01",
+                    "title": "문법 요소와 담화 이해하기",
+                    "titleKo": "문법 요소와 담화 이해하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "문법·담화·매체의 관계를 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 매체별 언어 사용을 비교한다.",
+                        "masteryCriteria": "비교 분석.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국04-02",
+                    "title": "한글의 특성과 국어 생활",
+                    "titleKo": "한글의 특성과 국어 생활",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "국어정책과 국어 생활을 탐구한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 국어정책 사례를 평가한다.",
+                        "masteryCriteria": "사례+평가.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "9국05",
+            "title": "문학",
+            "titleKo": "문학",
+            "gradeLevel": "9",
+            "sortOrder": 5,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "9국05.Core",
+                "title": "문학",
+                "titleKo": "문학",
+                "gradeLevel": "9",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국05-01",
+                    "title": "문학의 갈래와 표현 이해하기",
+                    "titleKo": "문학의 갈래와 표현 이해하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 1,
+                    "summary": "현대·고전 갈래의 표현을 이해한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 현대/고전 표현을 비교한다.",
+                        "masteryCriteria": "비교 포인트 2개.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "9국05-02",
+                    "title": "작품의 주제와 세계관 탐구하기",
+                    "titleKo": "작품의 주제와 세계관 탐구하기",
+                    "gradeLevel": "9",
+                    "sortOrder": 2,
+                    "summary": "작품의 세계관을 비판적으로 탐구한다.",
+                    "objectives": [
+                      {
+                        "statement": "학생이 세계관을 비판적으로 해석한다.",
+                        "masteryCriteria": "해석+비판 관점.",
                         "bloomLevel": "Evaluate",
                         "sortOrder": 1
                       }
