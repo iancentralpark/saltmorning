@@ -23,6 +23,12 @@ import {
   type MapNodeData,
 } from "@/lib/curriculum/layout-tree";
 import { subscribeSkillOpen } from "@/lib/curriculum/selection-bus";
+import {
+  ORG_EVENT,
+  frameworksQuery,
+  readStoredOrg,
+  type OrgFilter,
+} from "@/lib/org/client";
 import { CurriculumNodeView } from "./CurriculumNodeView";
 import { SkillDrawer } from "./SkillDrawer";
 
@@ -30,10 +36,12 @@ const nodeTypes = { curriculum: CurriculumNodeView };
 
 type Props = {
   initialFramework?: string;
+  initialOrg?: string;
 };
 
-function MindmapCanvas({ initialFramework }: Props) {
+function MindmapCanvas({ initialFramework, initialOrg }: Props) {
   const { fitView } = useReactFlow();
+  const [org, setOrg] = useState<OrgFilter>(initialOrg || "all");
   const [frameworks, setFrameworks] = useState<FrameworkSummary[]>([]);
   const [code, setCode] = useState(initialFramework || "");
   const [gradeLevel, setGradeLevel] = useState("4");
@@ -50,6 +58,16 @@ function MindmapCanvas({ initialFramework }: Props) {
   const [subject, setSubject] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!initialOrg) setOrg(readStoredOrg());
+    const onOrg = (e: Event) => {
+      const detail = (e as CustomEvent<{ org: OrgFilter }>).detail;
+      if (detail?.org) setOrg(detail.org);
+    };
+    window.addEventListener(ORG_EVENT, onOrg);
+    return () => window.removeEventListener(ORG_EVENT, onOrg);
+  }, [initialOrg]);
+
+  useEffect(() => {
     return subscribeSkillOpen((nodeId) => {
       setFocusId(nodeId);
       setDrawerId(nodeId);
@@ -57,15 +75,22 @@ function MindmapCanvas({ initialFramework }: Props) {
   }, []);
 
   useEffect(() => {
-    fetch("/api/frameworks")
+    fetch(`/api/frameworks${frameworksQuery(org)}`)
       .then((r) => r.json())
       .then((data) => {
-        setFrameworks(data.frameworks);
-        if (!code && data.frameworks[0]) {
-          setCode(data.frameworks[0].code);
-        }
+        setFrameworks((data.frameworks || []) as FrameworkSummary[]);
       });
-  }, [code]);
+  }, [org]);
+
+  useEffect(() => {
+    if (frameworks.length === 0) {
+      if (code) setCode("");
+      return;
+    }
+    if (!frameworks.some((f) => f.code === code)) {
+      setCode(frameworks[0].code);
+    }
+  }, [frameworks, code]);
 
   useEffect(() => {
     if (!code) return;

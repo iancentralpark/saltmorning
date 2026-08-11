@@ -91,6 +91,56 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한01-03",
+                    "title": "Interview elders about local change",
+                    "titleKo": "어르신 인터뷰로 지역 변화 알아보기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "지역 어르신·가족 인터뷰를 통해 생활 변화를 조사하고 기록한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students collect one oral-history account and summarize a local change.",
+                        "statementKo": "구술 인터뷰 1건을 수집하고 지역 변화 한 가지를 요약한다.",
+                        "masteryCriteria": "Interview notes + 3-sentence change summary completed.",
+                        "masteryCriteriaKo": "인터뷰 메모와 변화 요약 3문장 완성.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-지역-지도",
+                "title": "Reading place through maps",
+                "titleKo": "지도로 장소 읽기",
+                "gradeLevel": "4",
+                "sortOrder": 2,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한01-04",
+                    "title": "Locate heritage sites on a community map",
+                    "titleKo": "마을 지도에서 문화유산 위치 찾기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "간단한 마을 지도에 문화유산·주요 장소를 표시하고 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students mark ≥2 heritage or civic sites on a map and explain their placement.",
+                        "statementKo": "지도에 문화유산·주요 장소 2곳 이상 표시하고 위치를 설명한다.",
+                        "masteryCriteria": "Map marks are accurate; oral explanation names relative location.",
+                        "masteryCriteriaKo": "표시가 정확하고 상대적 위치를 말로 설명한다.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }
@@ -181,6 +231,26 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한03-02",
+                    "title": "Connect a national era to a local story",
+                    "titleKo": "나라의 시대와 지역 이야기 연결하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "교과서의 시대 구분과 우리 지역 이야기를 연결해 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students link one national-era label to a local story with a reason.",
+                        "statementKo": "시대 구분 1가지와 지역 이야기를 이유와 함께 연결한다.",
+                        "masteryCriteria": "Written link names era, local story, and connecting reason.",
+                        "masteryCriteriaKo": "시대·지역 이야기·연결 이유가 담긴 글 완성.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               },
@@ -208,6 +278,46 @@
                         "masteryCriteria": "Booth plan checklist complete; peer feedback incorporated once.",
                         "masteryCriteriaKo": "부스 계획 체크리스트 완료, 동료 피드백 1회 반영.",
                         "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4사-탐구",
+            "title": "Historical inquiry habits",
+            "titleKo": "역사 탐구 습관",
+            "gradeLevel": "4",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-사료",
+                "title": "Working with sources",
+                "titleKo": "사료 다루기",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한04-01",
+                    "title": "Distinguish primary and secondary clues",
+                    "titleKo": "1차·2차 자료 단서 구분하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "사진·유물·교과서 설명 등에서 1차·2차 자료 단서를 구분한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students sort source cards into primary vs secondary with a reason.",
+                        "statementKo": "자료 카드를 1차·2차로 분류하고 이유를 말한다.",
+                        "masteryCriteria": "Correctly sorts ≥4/5 cards with one accurate reason each.",
+                        "masteryCriteriaKo": "카드 4/5개 이상 올바르게 분류하고 이유를 제시한다.",
+                        "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }
                     ],

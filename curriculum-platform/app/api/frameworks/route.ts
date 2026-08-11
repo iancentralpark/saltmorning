@@ -10,13 +10,11 @@ export async function GET(req: Request) {
 
   if (org && org !== "all") {
     frameworks = frameworks.filter((f) => {
-      if (org === "public") return f.isPublic !== false && !f.organizationCode;
-      // org-specific view: public catalog + that org's packs
-      return (
-        f.isPublic !== false ||
-        f.organizationCode === org ||
-        !f.organizationCode
-      );
+      const isPublicCatalog =
+        f.isPublic !== false && !f.organizationCode;
+      if (org === "public") return isPublicCatalog;
+      // org-specific view: public catalog + that org's packs (incl. private)
+      return isPublicCatalog || f.organizationCode === org;
     });
   }
 

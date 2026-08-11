@@ -8,6 +8,13 @@ import {
   frameworkDisplayName,
   usesKoreanContent,
 } from "@/lib/i18n/content-locale";
+import {
+  ORG_EVENT,
+  frameworksQuery,
+  readStoredOrg,
+  writeOrg,
+  type OrgFilter,
+} from "@/lib/org/client";
 
 type Org = {
   code: string | null;
@@ -17,19 +24,27 @@ type Org = {
 
 export function FrameworkCatalog() {
   const [orgs, setOrgs] = useState<Org[]>([]);
-  const [org, setOrg] = useState("all");
+  const [org, setOrg] = useState<OrgFilter>("all");
   const [frameworks, setFrameworks] = useState<FrameworkSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setOrg(readStoredOrg());
     fetch("/api/organizations")
       .then((r) => r.json())
       .then((d) => setOrgs(d.organizations || []))
       .catch(() => setOrgs([]));
+
+    const onOrg = (e: Event) => {
+      const detail = (e as CustomEvent<{ org: OrgFilter }>).detail;
+      if (detail?.org) setOrg(detail.org);
+    };
+    window.addEventListener(ORG_EVENT, onOrg);
+    return () => window.removeEventListener(ORG_EVENT, onOrg);
   }, []);
 
   useEffect(() => {
-    const q = org === "all" ? "" : `?org=${encodeURIComponent(org)}`;
+    const q = frameworksQuery(org);
     fetch(`/api/frameworks${q}`)
       .then((r) => r.json())
       .then((d) => setFrameworks(d.frameworks || []))
@@ -47,6 +62,11 @@ export function FrameworkCatalog() {
     [orgs]
   );
 
+  function selectOrg(code: OrgFilter) {
+    setOrg(code);
+    writeOrg(code);
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
       <h2 className="font-display text-2xl font-semibold text-ink-900">
@@ -61,7 +81,7 @@ export function FrameworkCatalog() {
           <button
             key={c.code}
             type="button"
-            onClick={() => setOrg(c.code)}
+            onClick={() => selectOrg(c.code)}
             className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
               org === c.code
                 ? "bg-moss-700 text-white"
@@ -110,7 +130,9 @@ export function FrameworkCatalog() {
               Grades {fw.gradeLevels.join(", ") || "—"} · {fw.skillCount} skills
             </p>
             <Link
-              href={`/map?framework=${fw.code}`}
+              href={`/map?framework=${fw.code}${
+                org && org !== "all" ? `&org=${encodeURIComponent(org)}` : ""
+              }`}
               className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-moss-700 hover:text-moss-600"
             >
               Explore <ArrowRight className="h-3.5 w-3.5" />
@@ -118,6 +140,11 @@ export function FrameworkCatalog() {
           </li>
         ))}
       </ul>
+      {frameworks.length === 0 && !error && (
+        <p className="mt-6 text-sm text-ink-700/60">
+          No frameworks for this organization filter.
+        </p>
+      )}
     </section>
   );
 }

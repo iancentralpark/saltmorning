@@ -53,10 +53,32 @@ type SeedPack = {
     regionStandard: string;
     version?: string;
     description?: string;
+    /** Owning org code for private packs (seed-mode multi-org). */
+    organizationCode?: string | null;
+    isPublic?: boolean;
     metadata?: Record<string, unknown>;
   };
   tree: SeedNode;
 };
+
+function resolveOrgFields(fw: SeedPack["framework"]): {
+  organizationCode: string | null;
+  isPublic: boolean;
+} {
+  const meta = fw.metadata || {};
+  const fromMeta =
+    typeof meta.ownerOrg === "string" ? meta.ownerOrg : null;
+  const organizationCode =
+    (fw.organizationCode ?? fromMeta)?.trim() || null;
+  const visibility = meta.visibility;
+  const isPublic =
+    typeof fw.isPublic === "boolean"
+      ? fw.isPublic
+      : visibility === "organization"
+        ? false
+        : !organizationCode;
+  return { organizationCode, isPublic };
+}
 
 export type LoadedFramework = {
   summary: FrameworkSummary;
@@ -161,6 +183,8 @@ export function loadAllFrameworks(): Map<string, LoadedFramework> {
     const root = mapNode(pack.framework.code, pack.tree, null, [], byId);
     const { gradeLevels, skillCount } = collectGradesAndSkills(root);
 
+    const { organizationCode, isPublic } = resolveOrgFields(pack.framework);
+
     map.set(pack.framework.code, {
       summary: {
         code: pack.framework.code,
@@ -172,8 +196,8 @@ export function loadAllFrameworks(): Map<string, LoadedFramework> {
         description: pack.framework.description ?? null,
         gradeLevels,
         skillCount,
-        organizationCode: null,
-        isPublic: true,
+        organizationCode,
+        isPublic,
       },
       root,
       byId,

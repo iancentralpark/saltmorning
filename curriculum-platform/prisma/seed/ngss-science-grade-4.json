@@ -176,6 +176,100 @@
                 ]
               }
             ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4-ESS2",
+            "title": "Earth's Systems",
+            "titleKo": "지구의 시스템",
+            "gradeLevel": "4",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-ESS2-A",
+                "title": "Earth Materials and Systems",
+                "titleKo": "지구 물질과 시스템",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-ESS2-1",
+                    "title": "Make observations of weathering or erosion rate",
+                    "titleKo": "풍화·침식 속도 관찰하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Make observations and/or measurements to provide evidence of the effects of weathering or the rate of erosion by water, ice, wind, or vegetation.",
+                    "objectives": [
+                      {
+                        "statement": "Students collect observations that evidence weathering or erosion by a named agent.",
+                        "masteryCriteria": "Observation log cites agent + ≥2 measurable or visible effects.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-ESS2-2",
+                    "title": "Analyze maps of Earth's features",
+                    "titleKo": "지구 지형 지도 분석하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Analyze and interpret data from maps to describe patterns of Earth's features.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe one spatial pattern of Earth's features using map data.",
+                        "masteryCriteria": "Written claim names the pattern and cites map evidence.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4-ESS3",
+            "title": "Earth and Human Activity",
+            "titleKo": "지구와 인간 활동",
+            "gradeLevel": "4",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-ESS3-A",
+                "title": "Natural Resources",
+                "titleKo": "천연자원",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-ESS3-1",
+                    "title": "Obtain information about energy and fuels from natural resources",
+                    "titleKo": "천연자원에서 얻는 에너지·연료 정보 조사하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Obtain and combine information to describe that energy and fuels are derived from natural resources and that their uses affect the environment.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe one fuel/energy source, its origin, and one environmental effect of use.",
+                        "masteryCriteria": "Info card includes source, origin, use, and environmental effect with a cited fact.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       }

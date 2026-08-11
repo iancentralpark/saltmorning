@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import Link from "next/link";
 import { EmbedMode } from "@/components/EmbedMode";
+import { OrgSwitcher } from "@/components/OrgSwitcher";
 import "./globals.css";
 
 const display = Fraunces({
@@ -44,6 +45,7 @@ export default function RootLayout({
                 className="flex items-center text-sm font-medium text-ink-800"
                 style={{ gap: "0.5rem" }}
               >
+                <OrgSwitcher />
                 <Link
                   href="/map"
                   className="rounded-md px-3 py-1.5 transition hover:bg-moss-100 hover:text-moss-700"

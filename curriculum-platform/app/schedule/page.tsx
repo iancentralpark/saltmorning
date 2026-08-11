@@ -192,21 +192,70 @@ export default function SchedulePage() {
             </ul>
 
             <h2 className="mt-8 font-display text-lg font-semibold">Calendar</h2>
+            <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide">
+              <span className="rounded bg-moss-100 px-2 py-0.5 text-moss-800">
+                Instructional
+              </span>
+              <span className="rounded bg-coral-500/15 px-2 py-0.5 text-coral-600">
+                Holiday
+              </span>
+              <span className="rounded bg-ink-900/10 px-2 py-0.5 text-ink-800">
+                Blackout
+              </span>
+              <span className="rounded bg-sand-200 px-2 py-0.5 text-ink-700">
+                Break
+              </span>
+            </div>
             <button
               type="button"
               disabled={syncBusy}
               onClick={() => void syncDemoHolidays()}
-              className="mt-2 w-full rounded-md border border-ink-900/15 bg-white px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-moss-100 disabled:opacity-50"
+              className="mt-3 w-full rounded-md border border-ink-900/15 bg-white px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-moss-100 disabled:opacity-50"
             >
-              {syncBusy ? "Syncing holidays…" : "Sync demo holidays / blackouts"}
+              {syncBusy
+                ? "Syncing holidays…"
+                : "Sync demo holidays / blackouts (then resequence)"}
             </button>
             {syncMsg && (
               <p className="mt-2 text-xs text-moss-700">{syncMsg}</p>
             )}
+            {(() => {
+              const overlays = data.calendar.filter(
+                (d) =>
+                  !d.isInstructional &&
+                  (d.dayType === "HOLIDAY" ||
+                    d.dayType === "BLACKOUT" ||
+                    d.dayType === "EVENT")
+              );
+              if (overlays.length === 0) return null;
+              return (
+                <p className="mt-2 text-xs text-ink-700/70">
+                  {overlays.length} calendar overlay
+                  {overlays.length === 1 ? "" : "s"} blocking instruction
+                  {overlays.slice(0, 3).map((o) => (
+                    <span key={o.date} className="block font-medium text-ink-800">
+                      {o.date} · {o.dayType}
+                      {o.title ? ` · ${o.title}` : ""}
+                    </span>
+                  ))}
+                  {overlays.length > 3 && (
+                    <span className="block">+{overlays.length - 3} more</span>
+                  )}
+                </p>
+              );
+            })()}
             <ul className="mt-3 max-h-[420px] space-y-1 overflow-y-auto pr-1 text-sm">
               {data.calendar.map((d) => {
                 const count = lessonsByDate.get(d.date)?.length || 0;
                 const active = selectedDate === d.date;
+                const overlayTone =
+                  d.dayType === "HOLIDAY"
+                    ? "border-l-2 border-coral-500"
+                    : d.dayType === "BLACKOUT"
+                      ? "border-l-2 border-ink-900/50"
+                      : d.dayType === "BREAK"
+                        ? "border-l-2 border-sand-300"
+                        : "border-l-2 border-transparent";
                 return (
                   <li key={d.date}>
                     <button
@@ -216,18 +265,22 @@ export default function SchedulePage() {
                         setSelectedDate(d.date);
                         setPlans([]);
                       }}
-                      className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left transition ${
+                      className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left transition ${overlayTone} ${
                         active
                           ? "bg-moss-700 text-white"
                           : d.isInstructional
                             ? "hover:bg-moss-100"
-                            : "cursor-not-allowed opacity-45"
+                            : "cursor-not-allowed opacity-70"
                       }`}
                     >
                       <span>
                         <span className="font-medium">{d.date}</span>
                         {!d.isInstructional && (
-                          <span className={active ? "text-moss-100" : "text-coral-600"}>
+                          <span
+                            className={
+                              active ? "text-moss-100" : "text-coral-600"
+                            }
+                          >
                             {" "}
                             · {d.dayType}
                             {d.title ? ` · ${d.title}` : ""}
@@ -235,7 +288,11 @@ export default function SchedulePage() {
                         )}
                       </span>
                       {count > 0 && (
-                        <span className={active ? "text-moss-100" : "text-moss-700"}>
+                        <span
+                          className={
+                            active ? "text-moss-100" : "text-moss-700"
+                          }
+                        >
                           {count}
                         </span>
                       )}

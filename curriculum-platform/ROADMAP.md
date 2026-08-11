@@ -25,6 +25,12 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - `/api/health` readiness check
 
 ## Later
-- Auth / multi-org tenancy UI
+- Auth / session-backed multi-org tenancy
 - Richer full K–12 packs
 - Auto-sync cron from Salt Morning holiday calendar
+
+## Step 13 — Multi-org polish + pack depth ✅
+- Seed-mode honors `organizationCode` / `isPublic` (Acme SEL private)
+- Header org switcher persists into map/home filters
+- KR 한국사 + NGSS Grade 4 packs expanded
+- Schedule calendar overlay legend + sync→resequence affordance

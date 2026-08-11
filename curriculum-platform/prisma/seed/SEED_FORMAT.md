@@ -19,7 +19,9 @@ Each curriculum pack file is a single JSON document:
 | `regionStandard` | string | e.g. `US-CCSS`, `KR-2022` |
 | `version` | string | pack version |
 | `description` | string? | |
-| `metadata` | object? | `Json` |
+| `organizationCode` | string? | Owning org for private packs (e.g. `acme-academy`) |
+| `isPublic` | boolean? | Default `true` when unset / no owner; `false` for school-private |
+| `metadata` | object? | `Json` — may include `ownerOrg`, `visibility` |
 
 ## `tree` / node
 
@@ -48,6 +50,7 @@ Recursive object:
 | `kr2022-history-grade-4.json` | 2022 개정 한국사(초등 사회 연계) · 초4 sample (+ CUSTOM) |
 | `ccss-ela-grade-4.json` | Common Core ELA · Grade 4 sample (RL + W) |
 | `ccss-math-grade-5.json` | Common Core Math · Grade 5 sample (5.NBT) |
+| `custom-acme-sel.json` | Acme Academy private SEL pack (`organizationCode: acme-academy`) |
 
 ## Content language
 
