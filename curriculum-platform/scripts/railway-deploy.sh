@@ -12,24 +12,19 @@ if ! $RAILWAY whoami 2>/dev/null; then
 fi
 
 PROJECT_NAME="${RAILWAY_PROJECT_NAME:-curricumap}"
+# Prefer known production project (avoids creating a duplicate empty "curricumap")
+PROJECT_ID="${RAILWAY_PROJECT_ID:-b110a25c-5edc-4f01-bd78-1f4f405b5ab9}"
+SERVICE_NAME="${RAILWAY_SERVICE_NAME:-curricumap}"
 
-echo "=== Link / create project: $PROJECT_NAME ==="
-if [[ ! -f .railway/project.json ]]; then
-  # Prefer linking an existing project named curricumap; else create
-  if $RAILWAY project list 2>/dev/null | grep -qi "$PROJECT_NAME"; then
-    $RAILWAY link --project "$PROJECT_NAME" || true
-  fi
-fi
-if [[ ! -f .railway/project.json ]]; then
-  $RAILWAY init --name "$PROJECT_NAME" || $RAILWAY link
-fi
+echo "=== Link project: $PROJECT_NAME ($PROJECT_ID) ==="
+$RAILWAY link -p "$PROJECT_ID" -s "$SERVICE_NAME" -e production 2>/dev/null || $RAILWAY link -p "$PROJECT_ID" || true
 
 AUTH_SECRET_VAL="${AUTH_SECRET:-curricumap-$(openssl rand -hex 16)}"
 PORTAL_KEY_VAL="${PORTAL_API_KEY:-dev-portal-key}"
 CRON_SECRET_VAL="${CRON_SECRET:-cron-$(openssl rand -hex 12)}"
 
 echo "=== Set environment variables ==="
-$RAILWAY variables set \
+$RAILWAY variables set --service "$SERVICE_NAME" \
   "NODE_ENV=production" \
   "CURRICULUM_STORE=seed" \
   "SCHEDULE_STORE=memory" \
@@ -41,15 +36,15 @@ $RAILWAY variables set \
   "GEMINI_MODEL=gemini-2.5-flash"
 
 if [[ -n "${GEMINI_API_KEY:-}" ]]; then
-  $RAILWAY variables set "GEMINI_API_KEY=${GEMINI_API_KEY}"
+  $RAILWAY variables set --service "$SERVICE_NAME" "GEMINI_API_KEY=${GEMINI_API_KEY}"
 fi
 
 echo "=== Deploy ==="
-$RAILWAY up --detach
+$RAILWAY up --detach --service "$SERVICE_NAME"
 
 echo "=== Public domain ==="
-$RAILWAY domain 2>/dev/null || echo "Dashboard → Settings → Networking → Generate Domain"
+$RAILWAY domain --service "$SERVICE_NAME" 2>/dev/null || echo "Dashboard → Settings → Networking → Generate Domain"
 
 echo ""
-echo "Health: https://<domain>/api/health"
-echo "App:    https://<domain>/"
+echo "Health: https://curricumap-production.up.railway.app/api/health"
+echo "App:    https://curricumap-production.up.railway.app/"
