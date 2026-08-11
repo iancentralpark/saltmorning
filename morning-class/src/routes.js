@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
-const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified } = require('./services/authService');
+const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild } = require('./services/authService');
 const { requireRole } = require('./auth/tokenAuth');
 const {
   getTeacherClasses,
@@ -348,7 +348,9 @@ router.post('/auth/student/login', async (req, res) => {
 
 router.post('/auth/parent/login', async (req, res) => {
   try {
-    const result = await loginParent(req.body.loginId, req.body.password);
+    const result = await loginParent(req.body.loginId, req.body.password, {
+      studentId: req.body.studentId
+    });
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Login failed.' });
@@ -2144,6 +2146,29 @@ router.get('/parent/overview', requireRole('parent'), async (req, res) => {
   }
 });
 
+router.get('/parent/children', requireRole('parent'), async (req, res) => {
+  try {
+    const { listChildrenForParent, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    const children = await listChildrenForParent(req.session.parentId);
+    res.json({
+      children,
+      activeStudentId: req.session.studentId || ''
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load children.' });
+  }
+});
+
+router.post('/parent/active-child', requireRole('parent'), async (req, res) => {
+  try {
+    const result = await switchParentActiveChild(req.session, (req.body && req.body.studentId) || '');
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not switch child.' });
+  }
+});
+
 router.get('/parent/attendance', requireRole('parent'), async (req, res) => {
   try {
     res.json(await getParentAttendance(req.session, req.query.start, req.query.end));
@@ -2645,6 +2670,76 @@ router.post('/admin/students/:studentId/photo', requireRole('admin'), (req, res,
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save photo.' });
+  }
+});
+
+router.get('/admin/parents', requireRole('admin'), async (req, res) => {
+  try {
+    const { listParents, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    res.json({ parents: await listParents({ q: req.query.q || '' }) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load parents.' });
+  }
+});
+
+router.get('/admin/parents/:parentId', requireRole('admin'), async (req, res) => {
+  try {
+    const {
+      getParentRecord,
+      listChildrenForParent,
+      ensureParentStudentsSheet
+    } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    const parent = await getParentRecord(req.params.parentId);
+    if (!parent) return res.status(404).json({ error: 'Parent not found.' });
+    const children = await listChildrenForParent(parent.parentId);
+    res.json({ parent, children });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load parent.' });
+  }
+});
+
+router.post('/admin/parents', requireRole('admin'), async (req, res) => {
+  try {
+    const { saveParentAccount, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    const parent = await saveParentAccount(req.body || {});
+    res.json({ parent });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save parent.' });
+  }
+});
+
+router.get('/admin/students/:studentId/parents', requireRole('admin'), async (req, res) => {
+  try {
+    const { listParentsForStudent, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    res.json({ parents: await listParentsForStudent(req.params.studentId) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load linked parents.' });
+  }
+});
+
+router.post('/admin/students/:studentId/parents', requireRole('admin'), async (req, res) => {
+  try {
+    const { linkOrCreateParentForStudent, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    const result = await linkOrCreateParentForStudent(req.params.studentId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not link parent.' });
+  }
+});
+
+router.delete('/admin/students/:studentId/parents/:parentId', requireRole('admin'), async (req, res) => {
+  try {
+    const { unlinkParentFromStudent, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    const result = await unlinkParentFromStudent(req.params.parentId, req.params.studentId);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not unlink parent.' });
   }
 });
 

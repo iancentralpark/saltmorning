@@ -95,6 +95,10 @@ window.SaltParent = (function() {
       if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
     });
     $('ppProfileForm').addEventListener('submit', saveProfile);
+    const childSel = $('ppChildSwitcher');
+    if (childSel) {
+      childSel.addEventListener('change', () => switchActiveChild(childSel.value));
+    }
     $('yearAttPrev').addEventListener('click', () => {
       if (!yearAtt) return;
       yearAttMonthIdx = Math.max(0, yearAttMonthIdx - 1);
@@ -105,6 +109,33 @@ window.SaltParent = (function() {
       yearAttMonthIdx = Math.min(yearAtt.months.length - 1, yearAttMonthIdx + 1);
       renderAttMonth();
     });
+  }
+
+  async function switchActiveChild(studentId) {
+    studentId = String(studentId || '').trim();
+    if (!studentId) return;
+    const activeId = overview && overview.student && overview.student.studentId;
+    if (studentId === activeId) return;
+    try {
+      const result = await api('/api/parent/active-child', {
+        method: 'POST',
+        body: { studentId }
+      });
+      if (result.token && window.SaltApp) {
+        SaltApp.setToken('parent', result.token);
+        SaltApp.setProfile('parent', result.profile || null);
+      }
+      // Reset seen badges for the new child context
+      writeSeen({});
+      currentTab = '';
+      await boot();
+      if (window.SaltMessenger && typeof SaltMessenger.refresh === 'function') {
+        try { await SaltMessenger.refresh(); } catch (_) { /* optional */ }
+      }
+    } catch (e) {
+      window.alert(e.message || 'Could not switch child.');
+      renderHeader(overview || {});
+    }
   }
 
   function setRoute(tab, replace) {
@@ -193,12 +224,32 @@ window.SaltParent = (function() {
 
   function renderHeader(data) {
     const s = data.student || {};
+    const children = Array.isArray(data.children) ? data.children : [];
     const name = s.name || t('parent.brand', 'Parent');
     const sub = [s.className || s.classId || '', s.gradeLevel || '']
       .filter(Boolean)
       .join(' · ');
     if ($('ppHeaderName')) $('ppHeaderName').textContent = name;
     if ($('ppHeaderSub')) $('ppHeaderSub').textContent = sub;
+
+    const wrap = $('ppChildSwitcherWrap');
+    const sel = $('ppChildSwitcher');
+    if (wrap && sel) {
+      if (children.length > 1) {
+        wrap.classList.remove('hidden');
+        const cur = s.studentId || '';
+        sel.innerHTML = children.map((c) =>
+          '<option value="' + escapeHtml(c.studentId) + '"' +
+          (c.studentId === cur || c.active ? ' selected' : '') + '>' +
+          escapeHtml(c.name || c.studentId) +
+          '</option>'
+        ).join('');
+        sel.value = cur || (children[0] && children[0].studentId) || '';
+      } else {
+        wrap.classList.add('hidden');
+        sel.innerHTML = '';
+      }
+    }
 
     const img = $('ppHeaderPhotoImg');
     const fallback = $('ppHeaderPhotoFallback');

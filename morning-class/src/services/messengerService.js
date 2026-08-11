@@ -571,19 +571,38 @@ async function sendThreadMessage(threadId, session, body) {
       classId = session.classId || '';
       studentName = await lookupStudentName(studentId);
     } else if (role === 'admin') {
-      const parentRows = await getSheetRows(PARENT_LIST_SHEET);
-      for (let i = 1; i < parentRows.length; i++) {
-        if (String(parentRows[i][0]) !== String(padm.parentId)) continue;
-        studentId = String(parentRows[i][1] || '');
-        break;
+      try {
+        const {
+          listChildrenForParent,
+          pickActiveChild,
+          ensureParentStudentsSheet
+        } = require('./parentRegistryService');
+        await ensureParentStudentsSheet();
+        const children = await listChildrenForParent(padm.parentId);
+        const active = pickActiveChild(children);
+        if (active) {
+          studentId = active.studentId || '';
+          studentName = active.name || '';
+          classId = active.classId || '';
+        }
+      } catch (_) { /* fall through to legacy Parent_List */ }
+      if (!studentId) {
+        const parentRows = await getSheetRows(PARENT_LIST_SHEET);
+        for (let i = 1; i < parentRows.length; i++) {
+          if (String(parentRows[i][0]) !== String(padm.parentId)) continue;
+          studentId = String(parentRows[i][1] || '');
+          break;
+        }
       }
       if (studentId) {
-        studentName = await lookupStudentName(studentId);
-        const rows = await getSheetRows(STUDENT_LIST_SHEET);
-        for (let i = 1; i < rows.length; i++) {
-          if (String(rows[i][0]) === String(studentId)) {
-            classId = String(rows[i][2] || '');
-            break;
+        if (!studentName) studentName = await lookupStudentName(studentId);
+        if (!classId) {
+          const rows = await getSheetRows(STUDENT_LIST_SHEET);
+          for (let i = 1; i < rows.length; i++) {
+            if (String(rows[i][0]) === String(studentId)) {
+              classId = String(rows[i][2] || '');
+              break;
+            }
           }
         }
       }
@@ -697,20 +716,46 @@ async function searchMessengerDirectory(query, opts) {
         classId: String(students[i][2] || '')
       };
     }
+    const childrenByParent = {};
+    try {
+      const { PARENT_STUDENTS_SHEET } = require('../config');
+      const linkRows = await getSheetRows(PARENT_STUDENTS_SHEET).catch(() => []);
+      for (let i = 1; i < (linkRows || []).length; i++) {
+        const parentId = String(linkRows[i][1] || '').trim();
+        const studentId = String(linkRows[i][2] || '').trim();
+        if (!parentId || !studentId) continue;
+        const st = studentMap[studentId] || {};
+        if (!childrenByParent[parentId]) childrenByParent[parentId] = [];
+        childrenByParent[parentId].push({
+          studentId,
+          name: st.name || studentId,
+          classId: st.classId || '',
+          isPrimary: String(linkRows[i][4] || '').toLowerCase() === 'true'
+        });
+      }
+    } catch (_) { /* legacy only */ }
     for (let i = 1; i < rows.length; i++) {
       const parentId = String(rows[i][0] || '');
-      const studentId = String(rows[i][1] || '');
+      const legacyStudentId = String(rows[i][1] || '');
       const name = String(rows[i][2] || '');
       const loginId = String(rows[i][3] || '');
       if (!parentId) continue;
-      const child = studentMap[studentId] || {};
-      const blob = [name, parentId, loginId, child.name, studentId].join(' ');
+      const linked = childrenByParent[parentId] || [];
+      const primary = linked.find((c) => c.isPrimary) || linked[0] || null;
+      const studentId = (primary && primary.studentId) || legacyStudentId;
+      const child = primary
+        ? { name: primary.name, classId: primary.classId }
+        : (studentMap[studentId] || {});
+      const childNames = linked.length
+        ? linked.map((c) => c.name || c.studentId).join(', ')
+        : (child.name || '');
+      const blob = [name, parentId, loginId, childNames, studentId].join(' ');
       if (!matchesQuery(blob, q)) continue;
       results.push({
         personType: 'parent',
         id: parentId,
         name: name || parentId,
-        subtitle: child.name ? ('Parent of ' + child.name) : 'Parent',
+        subtitle: childNames ? ('Parent of ' + childNames) : 'Parent',
         threadId: parentAdminThreadId(parentId),
         threadType: 'parent_admin',
         studentId,

@@ -37,45 +37,171 @@ async function loginStudent(loginId, password) {
   throw new Error('Login ID or password is incorrect.');
 }
 
-async function loginParent(loginId, password) {
+async function loginParent(loginId, password, opts) {
   loginId = String(loginId || '').trim();
   password = String(password || '').trim();
+  opts = opts || {};
   if (!loginId || !password) throw new Error('Enter login ID and password.');
 
-  const rows = await getSheetRows(PARENT_LIST_SHEET);
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][3] || '').trim() !== loginId) continue;
-    if (String(rows[i][4] || '').trim() !== password) continue;
-    const studentId = String(rows[i][1] || '');
-    const studentRows = await getSheetRows(STUDENT_LIST_SHEET);
-    let classId = '';
-    let studentName = '';
-    for (let j = 1; j < studentRows.length; j++) {
-      if (String(studentRows[j][0]) === studentId) {
-        classId = String(studentRows[j][2] || '');
-        studentName = String(studentRows[j][1] || '');
-        break;
-      }
-    }
-    const profile = {
-      parentId: String(rows[i][0]),
-      name: String(rows[i][2] || ''),
-      studentId,
-      studentName,
-      classId
-    };
-    return {
-      token: signToken({
-        role: 'parent',
-        parentId: profile.parentId,
-        studentId: profile.studentId,
-        classId: profile.classId,
-        name: profile.name
-      }),
-      profile
-    };
+  const {
+    findParentByLogin,
+    listChildrenForParent,
+    pickActiveChild,
+    ensureParentStudentsSheet
+  } = require('./parentRegistryService');
+
+  await ensureParentStudentsSheet();
+  const parent = await findParentByLogin(loginId);
+  if (!parent || String(parent.password || '').trim() !== password) {
+    throw new Error('Login ID or password is incorrect.');
   }
-  throw new Error('Login ID or password is incorrect.');
+
+  let children = await listChildrenForParent(parent.parentId);
+  if (!children.length && parent.legacyStudentId) {
+    children = [{
+      studentId: parent.legacyStudentId,
+      name: '',
+      classId: '',
+      status: 'Enrolled',
+      relationship: 'Guardian',
+      isPrimary: true
+    }];
+  }
+  if (!children.length) {
+    throw new Error('This parent account has no linked students. Ask the school office to link a child.');
+  }
+
+  const active = pickActiveChild(children, opts.studentId);
+  const studentRows = await getSheetRows(STUDENT_LIST_SHEET);
+  let classId = String(active.classId || '');
+  let studentName = String(active.name || '');
+  let status = String(active.status || '');
+  for (let j = 1; j < studentRows.length; j++) {
+    if (String(studentRows[j][0]) !== active.studentId) continue;
+    classId = String(studentRows[j][2] || '');
+    studentName = String(studentRows[j][1] || '');
+    status = String(studentRows[j][3] || '');
+    break;
+  }
+  if (status && status !== 'Enrolled') {
+    // Allow if another enrolled child exists
+    const enrolled = children.find((c) => {
+      if (c.studentId === active.studentId) return false;
+      return true;
+    });
+    if (!enrolled && status !== 'Enrolled') {
+      throw new Error('This account is not active.');
+    }
+  }
+
+  const childSummaries = children.map((c) => ({
+    studentId: c.studentId,
+    name: c.name || c.studentId,
+    classId: c.classId || '',
+    relationship: c.relationship || 'Guardian',
+    isPrimary: !!c.isPrimary
+  }));
+  // Enrich names/classIds from sheet for all children
+  for (const ch of childSummaries) {
+    for (let j = 1; j < studentRows.length; j++) {
+      if (String(studentRows[j][0]) !== ch.studentId) continue;
+      ch.name = String(studentRows[j][1] || ch.name);
+      ch.classId = String(studentRows[j][2] || ch.classId);
+      break;
+    }
+  }
+
+  const profile = {
+    parentId: parent.parentId,
+    name: parent.name || 'Parent',
+    studentId: active.studentId,
+    studentName,
+    classId,
+    children: childSummaries
+  };
+  return {
+    token: signToken({
+      role: 'parent',
+      parentId: profile.parentId,
+      studentId: profile.studentId,
+      classId: profile.classId,
+      name: profile.name
+    }),
+    profile
+  };
+}
+
+async function switchParentActiveChild(session, studentId) {
+  studentId = String(studentId || '').trim();
+  if (!session || !session.parentId) throw new Error('Login required.');
+  if (!studentId) throw new Error('Student ID is required.');
+
+  const {
+    parentHasStudent,
+    listChildrenForParent,
+    pickActiveChild,
+    getParentRecord,
+    ensureParentStudentsSheet
+  } = require('./parentRegistryService');
+
+  await ensureParentStudentsSheet();
+  const ok = await parentHasStudent(session.parentId, studentId);
+  if (!ok) throw new Error('That student is not linked to this parent account.');
+
+  const parent = await getParentRecord(session.parentId);
+  if (!parent) throw new Error('Parent account not found.');
+
+  const children = await listChildrenForParent(session.parentId);
+  const active = pickActiveChild(children, studentId);
+  if (!active) throw new Error('Student not found.');
+
+  const studentRows = await getSheetRows(STUDENT_LIST_SHEET);
+  let classId = active.classId || '';
+  let studentName = active.name || '';
+  for (let j = 1; j < studentRows.length; j++) {
+    if (String(studentRows[j][0]) !== active.studentId) continue;
+    classId = String(studentRows[j][2] || '');
+    studentName = String(studentRows[j][1] || '');
+    break;
+  }
+
+  const childSummaries = [];
+  for (const c of children) {
+    let name = c.name || c.studentId;
+    let cid = c.classId || '';
+    for (let j = 1; j < studentRows.length; j++) {
+      if (String(studentRows[j][0]) !== c.studentId) continue;
+      name = String(studentRows[j][1] || name);
+      cid = String(studentRows[j][2] || cid);
+      break;
+    }
+    childSummaries.push({
+      studentId: c.studentId,
+      name,
+      classId: cid,
+      relationship: c.relationship || 'Guardian',
+      isPrimary: !!c.isPrimary
+    });
+  }
+
+  const profile = {
+    parentId: parent.parentId,
+    name: parent.name || session.name || 'Parent',
+    studentId: active.studentId,
+    studentName,
+    classId,
+    children: childSummaries
+  };
+  return {
+    token: signToken({
+      role: 'parent',
+      parentId: profile.parentId,
+      studentId: profile.studentId,
+      classId: profile.classId,
+      name: profile.name
+    }),
+    profile
+  };
 }
 
 async function loginTeacher(loginId, password) {
@@ -201,4 +327,11 @@ async function loginUnified(loginId, password) {
   throw new Error(lastError);
 }
 
-module.exports = { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified };
+module.exports = {
+  loginStudent,
+  loginParent,
+  loginTeacher,
+  loginAdmin,
+  loginUnified,
+  switchParentActiveChild
+};

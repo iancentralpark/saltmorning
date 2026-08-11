@@ -26,10 +26,36 @@ const PARENT_EDITABLE_PROFILE = [
 ];
 
 async function assertParentChild(session) {
-  const studentId = String(session.studentId || '');
-  const classId = String(session.classId || '');
+  const parentId = String((session && session.parentId) || '');
+  const studentId = String((session && session.studentId) || '');
+  if (!parentId) throw new Error('Login required.');
   if (!studentId) throw new Error('No linked student on this parent account.');
-  return { studentId, classId };
+
+  const { parentHasStudent, ensureParentStudentsSheet } = require('./parentRegistryService');
+  await ensureParentStudentsSheet();
+  const ok = await parentHasStudent(parentId, studentId);
+  if (!ok) {
+    // Legacy fallback: Parent_List col B still points at this student
+    const rows = await getSheetRows(PARENT_LIST_SHEET);
+    let legacyOk = false;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) !== parentId) continue;
+      if (String(rows[i][1] || '').trim() === studentId) legacyOk = true;
+      break;
+    }
+    if (!legacyOk) throw new Error('That student is not linked to this parent account.');
+  }
+
+  let classId = String((session && session.classId) || '');
+  if (!classId) {
+    const studentRows = await getSheetRows(STUDENT_LIST_SHEET);
+    for (let j = 1; j < studentRows.length; j++) {
+      if (String(studentRows[j][0]) !== studentId) continue;
+      classId = String(studentRows[j][2] || '');
+      break;
+    }
+  }
+  return { studentId, classId, parentId };
 }
 
 async function teacherNameMap() {
@@ -79,13 +105,15 @@ async function listChildTeachers(classId) {
 }
 
 async function getParentOverview(session) {
-  const { studentId, classId } = await assertParentChild(session);
-  const [student, teachers, announcements, homework, reports] = await Promise.all([
+  const { studentId, classId, parentId } = await assertParentChild(session);
+  const { listChildrenForParent } = require('./parentRegistryService');
+  const [student, teachers, announcements, homework, reports, children] = await Promise.all([
     getStudent(studentId),
     listChildTeachers(classId),
     listParentAnnouncements(classId).catch(() => []),
     getStudentHomeworkStatus(studentId, classId).catch(() => ({ pending: [], today: [], completed: [] })),
-    listParentReportCards(session).catch(() => ({ reports: [] }))
+    listParentReportCards(session).catch(() => ({ reports: [] })),
+    listChildrenForParent(parentId).catch(() => [])
   ]);
 
   const newsfeed = await buildNewsfeed({
@@ -112,6 +140,14 @@ async function getParentOverview(session) {
       gradeLevel: (student.profile && student.profile.gradeLevel) || '',
       parentName: (student.profile && student.profile.parentName) || session.name
     },
+    children: (children || []).map((c) => ({
+      studentId: c.studentId,
+      name: c.name,
+      classId: c.classId,
+      relationship: c.relationship,
+      isPrimary: c.isPrimary,
+      active: c.studentId === studentId
+    })),
     teachers,
     homeworkSummary: {
       pending: (homework.pending || []).length,
@@ -428,22 +464,36 @@ async function ensureParentDemoData() {
     invalidateSheetRowsCache(STUDENT_LIST_SHEET);
   }
 
-  // 2) Parent account parent / parent
+  // 2) Parent account parent / parent + Parent_Students link
+  const {
+    saveParentAccount,
+    linkParentToStudent,
+    ensureParentStudentsSheet
+  } = require('./parentRegistryService');
+  await ensureParentStudentsSheet();
+  await saveParentAccount({
+    parentId: 'P001',
+    name: 'Test Parents',
+    loginId: 'parent',
+    password: 'parent',
+    phone: '',
+    email: ''
+  });
+  // Keep legacy StudentID column for older readers
   const parentRows = await getSheetRows(PARENT_LIST_SHEET, { skipCache: true });
-  let parentFound = -1;
   for (let i = 1; i < parentRows.length; i++) {
-    if (String(parentRows[i][3] || '').trim() === 'parent' || String(parentRows[i][0]) === 'P001') {
-      parentFound = i + 1;
-      break;
-    }
-  }
-  const parentRow = ['P001', studentId, 'Test Parents', 'parent', 'parent', '', ''];
-  if (parentFound > 0) {
-    await updateRange(PARENT_LIST_SHEET, `A${parentFound}:G${parentFound}`, [parentRow]);
-  } else {
-    await appendRows(PARENT_LIST_SHEET, [parentRow]);
+    if (String(parentRows[i][0]) !== 'P001') continue;
+    const row = parentRows[i].slice();
+    while (row.length < 7) row.push('');
+    row[1] = studentId;
+    row[2] = 'Test Parents';
+    row[3] = 'parent';
+    row[4] = 'parent';
+    await updateRange(PARENT_LIST_SHEET, `A${i + 1}:G${i + 1}`, [row.slice(0, 7)]);
+    break;
   }
   invalidateSheetRowsCache(PARENT_LIST_SHEET);
+  await linkParentToStudent('P001', studentId, { relationship: 'Guardian', isPrimary: true });
 
   try {
     await saveStudent({

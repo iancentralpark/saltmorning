@@ -18,6 +18,7 @@ module.exports = {
   TEACHER_PROFILE_SHEET: 'Teacher_Profile',
   CLASS_TEACHERS_SHEET: 'Class_Teachers',
   PARENT_LIST_SHEET: 'Parent_List',
+  PARENT_STUDENTS_SHEET: 'Parent_Students',
   PARENT_ANNOUNCEMENTS_SHEET: 'Parent_Announcements',
   ANNOUNCEMENTS_SHEET: 'Announcements',
   ATTENDANCE_SHEET: 'Attendance_Data',

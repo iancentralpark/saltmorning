@@ -24,6 +24,7 @@ const SHEETS = [
   { name: 'Teacher_Profile', headers: ['TeacherID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality', 'Phone', 'Email', 'Address', 'EmergencyContact', 'EmergencyPhone', 'Title', 'HireDate', 'Education', 'Notes', 'UpdatedAt', 'PreferredName'] },
   { name: 'Class_Teachers', headers: ['ClassID', 'TeacherID', 'AssignmentType', 'Subject'], seed: [['C001', 'T001', 'Homeroom', '']] },
   { name: 'Parent_List', headers: ['ParentID', 'StudentID', 'Name', 'LoginID', 'LoginPassword', 'Phone', 'Email'], seed: [['P001', 'S001', 'Test Parents', 'parent', 'parent', '', '']] },
+  { name: 'Parent_Students', headers: ['LinkID', 'ParentID', 'StudentID', 'Relationship', 'IsPrimary', 'LinkedAt'], seed: [['PL001', 'P001', 'S001', 'Guardian', 'true', new Date().toISOString()]] },
   { name: 'Parent_Announcements', headers: ['AnnouncementID', 'Title', 'Body', 'PostedAt', 'PostedBy', 'Active'], seed: [['A001', 'Welcome Parents', 'Salt Academy Morning Class parent portal is now open.', new Date().toISOString(), 'Admin', 'true']] },
   { name: 'Announcements', headers: ['AnnouncementID', 'Scope', 'Audience', 'ClassID', 'Title', 'Body', 'LinkUrl', 'LinkLabel', 'ImagePath', 'AttachmentPath', 'AttachmentName', 'PostedAt', 'PostedBy', 'PostedByRole', 'Active'] },
   { name: 'Subjects', headers: ['SubjectID', 'Name', 'SortOrder'], seed: [['SUBJ01', 'English', '1'], ['SUBJ02', 'Math', '2'], ['SUBJ03', 'Science', '3']] },
