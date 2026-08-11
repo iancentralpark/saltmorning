@@ -46,6 +46,8 @@
     const cls = getClass();
     const box = mount();
     const err = errBox();
+    const panel = $('panelReport');
+    if (panel) panel.classList.remove('rc-viewing-card');
     err.textContent = '';
     box.innerHTML = '<p class="muted">Loading students…</p>';
     try {
@@ -132,6 +134,8 @@
   }
 
   async function loadEditor() {
+    const panel = $('panelReport');
+    if (panel) panel.classList.remove('rc-viewing-card');
     const cls = getClass();
     const box = mount();
     const err = errBox();
@@ -303,26 +307,32 @@
     const box = mount();
     if (!card) return;
     const wfLabel = (card.workflow && card.workflow.stateLabel) || 'Draft';
+    const panel = $('panelReport');
+    if (panel) panel.classList.add('rc-viewing-card');
 
     let html = '<div class="rc-full">' +
       '<div class="rc-full-toolbar no-print">' +
+      '<div class="rc-full-toolbar-left">' +
       '<button type="button" class="btn btn-ghost" id="rcCardBack">← Back</button>' +
+      '<div class="rc-full-status">' +
       (card.reportReady
         ? '<span class="rc-ready-badge">Report Ready</span>'
         : '<span class="muted small">Not ready — missing subject sections</span>') +
       '<span class="muted small">Status: ' + escapeHtml(wfLabel) + '</span>' +
-      '<button type="button" class="btn btn-primary" id="rcPrintBtn"' +
-      (card.canGenerate ? '' : ' disabled') + '>Print report card</button>' +
+      '</div></div>' +
+      '<div class="rc-full-toolbar-right">' +
+      '<label class="btn btn-ghost rc-sig-upload-btn">' +
+      'Upload signature <input type="file" id="rcSigFile" accept="image/png,image/jpeg,image/webp" hidden>' +
+      '</label>' +
+      '<button type="button" class="btn btn-ghost" id="rcPrintBtn"' +
+      (card.canGenerate ? '' : ' disabled') + '>Print</button>' +
       (card.canHomeroomSign
         ? '<button type="button" class="btn btn-primary" id="rcSignBtn">Sign</button>'
         : '') +
       (card.canSubmitHead
-        ? '<button type="button" class="btn btn-primary" id="rcSubmitHeadBtn">Submit to Head Teacher</button>'
+        ? '<button type="button" class="btn btn-primary" id="rcSubmitHeadBtn">Submit</button>'
         : '') +
-      '<label class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:0.35rem">' +
-      'Upload signature <input type="file" id="rcSigFile" accept="image/png,image/jpeg,image/webp" hidden>' +
-      '</label>' +
-      '</div>' +
+      '</div></div>' +
       renderPrintableCard(card) +
       '<div class="error no-print" id="rcCardError"></div>' +
       '</div>';
@@ -330,6 +340,7 @@
 
     $('rcCardBack').addEventListener('click', () => {
       state.card = null;
+      if (panel) panel.classList.remove('rc-viewing-card');
       if (state.selectedStudentId) loadEditor();
       else renderOverview();
     });

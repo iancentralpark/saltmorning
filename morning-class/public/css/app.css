@@ -2442,6 +2442,7 @@ body.buddy-resize-active {
   margin-bottom: 0.85rem;
 }
 .rc-panel-toolbar input { min-width: 8rem; }
+.rc-viewing-card .rc-panel-toolbar { display: none; }
 .rc-overview-head {
   display: flex;
   justify-content: space-between;
@@ -2460,12 +2461,49 @@ body.buddy-resize-active {
   font-weight: 700;
 }
 .rc-ready-badge-sm { font-size: 0.72rem; padding: 0.15rem 0.55rem; }
-.rc-editor-toolbar, .rc-editor-meta, .rc-editor-actions, .rc-full-toolbar {
+.rc-editor-toolbar, .rc-editor-meta, .rc-editor-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
   align-items: center;
   margin-bottom: 0.85rem;
+}
+.rc-full-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.rc-full-toolbar-left,
+.rc-full-toolbar-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.rc-full-toolbar-right { margin-left: auto; }
+.rc-full-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+}
+.rc-sig-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  .rc-full-toolbar-right { margin-left: 0; width: 100%; }
+  .rc-full-toolbar-right .btn { flex: 1 1 auto; justify-content: center; }
 }
 .rc-section {
   border: 1px solid var(--border-soft);
