@@ -1256,8 +1256,20 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   opacity: 0.65;
 }
 .lp-cal-day-holiday { background: var(--sky-soft); }
+.lp-cal-day-break { background: #f3e8ff; }
+.lp-cal-day-event { background: #fff7ed; }
+.lp-cal-day-force { background: #ecfdf5; }
+.lp-cal-day-off-school { background: #f3f4f6; opacity: 0.92; }
 .lp-cal-day-num { font-weight: 700; font-size: 0.85rem; color: var(--text); margin-bottom: 0.25rem; }
 .lp-cal-holiday { font-size: 0.62rem; color: var(--muted); line-height: 1.2; margin-bottom: 0.25rem; }
+.lp-cal-badge-break { color: #7c3aed; }
+.lp-cal-badge-event { color: #c2410c; }
+.lp-cal-badge-school-day { color: #047857; }
+.lp-cal-badge-holiday,
+.lp-cal-badge-kr-holiday { color: #0369a1; }
+.lp-cal-school-note {
+  margin: 0 0 0.65rem;
+}
 .lp-cal-slots { display: flex; flex-direction: column; gap: 0.3rem; }
 .lp-slot-card {
   display: flex;
@@ -1766,6 +1778,14 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   font-size: 0.65rem;
   margin-top: 0.15rem;
 }
+.lp-fc-mount .fc-daygrid-day.lp-cal-day-holiday,
+.lp-fc-mount .fc-daygrid-day.lp-fc-day-off {
+  background: var(--sky-soft);
+}
+.lp-fc-mount .fc-daygrid-day.lp-cal-day-break { background: #f3e8ff; }
+.lp-fc-mount .fc-daygrid-day.lp-cal-day-event { background: #fff7ed; }
+.lp-fc-mount .fc-daygrid-day.lp-cal-day-force { background: #ecfdf5; }
+.lp-fc-mount .fc-daygrid-day.lp-cal-day-off-school { background: #f3f4f6; }
 
 /* —— AG Grid gradebook (Community / MIT) —— */
 .gb-ag-wrap {

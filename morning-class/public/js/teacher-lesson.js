@@ -394,6 +394,30 @@ window.SaltLesson = (function() {
 
   let fcInstance = null;
 
+  function cellSchoolCaption(cell) {
+    return cell.schoolCaption || cell.holiday || '';
+  }
+
+  function cellDayTypeClass(cell) {
+    const t = cell.dayType || '';
+    if (t === 'holiday' || t === 'kr_holiday') return 'lp-cal-day-holiday';
+    if (t === 'break') return 'lp-cal-day-break';
+    if (t === 'event') return 'lp-cal-day-event';
+    if (t === 'school_day') return 'lp-cal-day-force';
+    if (cell.inMonth && cell.isClassDay === false) return 'lp-cal-day-off-school';
+    return '';
+  }
+
+  function mountSchoolBadge(container, cell) {
+    const caption = cellSchoolCaption(cell);
+    if (!caption || !container) return;
+    const badge = document.createElement('div');
+    badge.className = 'lp-cal-holiday lp-fc-holiday' +
+      (cell.dayType ? ' lp-cal-badge-' + String(cell.dayType).replace(/_/g, '-') : '');
+    badge.textContent = caption;
+    container.appendChild(badge);
+  }
+
   function slotsToEvents(isAdmin) {
     const events = [];
     calendar.weeks.forEach((week) => {
@@ -410,7 +434,14 @@ window.SaltLesson = (function() {
             backgroundColor: style.bg || '#e8f4ea',
             borderColor: style.border || '#6b9b7a',
             textColor: '#1e293b',
-            extendedProps: { slot: slot, isAdmin: !!isAdmin, holiday: cell.holiday || '' }
+            extendedProps: {
+              slot: slot,
+              isAdmin: !!isAdmin,
+              holiday: cell.holiday || '',
+              schoolCaption: cellSchoolCaption(cell),
+              dayType: cell.dayType || '',
+              isClassDay: cell.isClassDay !== false
+            }
           });
         });
       });
@@ -444,15 +475,14 @@ window.SaltLesson = (function() {
         const dateStr = arg.date.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
         for (const week of calendar.weeks) {
           for (const cell of week) {
-            if (cell.dateStr === dateStr && cell.holiday) {
-              const top = arg.el.querySelector('.fc-daygrid-day-top');
-              if (top) {
-                const badge = document.createElement('div');
-                badge.className = 'lp-cal-holiday lp-fc-holiday';
-                badge.textContent = cell.holiday;
-                top.appendChild(badge);
-              }
+            if (cell.dateStr !== dateStr) continue;
+            const typeCls = cellDayTypeClass(cell);
+            if (typeCls) arg.el.classList.add(typeCls);
+            if (cell.inMonth && cell.isClassDay === false) {
+              arg.el.classList.add('lp-fc-day-off');
             }
+            const top = arg.el.querySelector('.fc-daygrid-day-top');
+            mountSchoolBadge(top, cell);
           }
         }
       }
@@ -479,9 +509,10 @@ window.SaltLesson = (function() {
       weekEl.className = 'lp-cal-week';
       week.forEach((cell) => {
         const dayEl = document.createElement('div');
+        const typeCls = cellDayTypeClass(cell);
         dayEl.className = 'lp-cal-day' +
           (!cell.inMonth ? ' lp-cal-day-off' : '') +
-          (cell.holiday ? ' lp-cal-day-holiday' : '');
+          (typeCls ? ' ' + typeCls : '');
 
         if (cell.inMonth) {
           const num = document.createElement('div');
@@ -489,19 +520,16 @@ window.SaltLesson = (function() {
           num.textContent = String(cell.dayNum);
           dayEl.appendChild(num);
 
-          if (cell.holiday) {
-            const hol = document.createElement('div');
-            hol.className = 'lp-cal-holiday';
-            hol.textContent = cell.holiday;
-            dayEl.appendChild(hol);
-          }
+          mountSchoolBadge(dayEl, cell);
 
           const slotsEl = document.createElement('div');
           slotsEl.className = 'lp-cal-slots';
           (cell.slots || []).forEach((slot) => {
             const card = document.createElement('button');
             card.type = 'button';
-            card.className = 'lp-slot-card' + (slot.plan && slot.plan.hasContent ? ' lp-slot-filled' : '');
+            card.className = 'lp-slot-card' +
+              (slot.plan && slot.plan.hasContent ? ' lp-slot-filled' : '') +
+              (slot.isClassDay === false ? ' lp-slot-off-day' : '');
             card.dataset.classId = slot.classId;
             card.dataset.className = slot.className;
             card.dataset.subject = slot.subject;
@@ -528,6 +556,7 @@ window.SaltLesson = (function() {
           });
           dayEl.appendChild(slotsEl);
         }
+
         weekEl.appendChild(dayEl);
       });
       grid.appendChild(weekEl);
