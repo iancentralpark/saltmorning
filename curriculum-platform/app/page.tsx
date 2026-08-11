@@ -68,8 +68,8 @@ export default function HomePage() {
             },
             {
               icon: Plug,
-              title: "Portal APIs",
-              body: "REST endpoints so existing teacher portals can fetch daily plans by teacher and class ID.",
+              title: "Salt Morning bridge",
+              body: "Lesson panel deep-links open mindmap and schedule for your class. See How it connects for details.",
             },
           ].map(({ icon: Icon, title, body }) => (
             <div key={title}>
