@@ -56,6 +56,8 @@ export type FrameworkSummary = {
   description?: string | null;
   gradeLevels: string[];
   skillCount: number;
+  organizationCode?: string | null;
+  isPublic?: boolean;
 };
 
 export type DayOfWeek = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";

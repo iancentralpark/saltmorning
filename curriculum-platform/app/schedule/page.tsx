@@ -17,7 +17,9 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [plans, setPlans] = useState<LessonPlan[]>([]);
   const [busy, setBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   async function loadSchedule(reset = false) {
     setError(null);
@@ -114,6 +116,39 @@ export default function SchedulePage() {
     }
   }
 
+  async function syncDemoHolidays() {
+    setSyncBusy(true);
+    setError(null);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/portal/v1/calendar/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": "dev-portal-key",
+        },
+        body: JSON.stringify({
+          holidays: {
+            "2026-03-03": "Samiljeol (synced)",
+            "2026-03-09": "School Foundation Day",
+          },
+          blackouts: [{ date: "2026-03-06", title: "Staff PD (synced)" }],
+          resequence: true,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Sync failed");
+      setSyncMsg(
+        `Synced ${json.overlayCount} overlays · ${json.nonInstructional} non-instructional days`
+      );
+      await loadSchedule(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sync failed");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   const dayLessons = selectedDate ? lessonsByDate.get(selectedDate) || [] : [];
 
   return (
@@ -157,6 +192,17 @@ export default function SchedulePage() {
             </ul>
 
             <h2 className="mt-8 font-display text-lg font-semibold">Calendar</h2>
+            <button
+              type="button"
+              disabled={syncBusy}
+              onClick={() => void syncDemoHolidays()}
+              className="mt-2 w-full rounded-md border border-ink-900/15 bg-white px-3 py-2 text-left text-xs font-semibold text-ink-800 transition hover:bg-moss-100 disabled:opacity-50"
+            >
+              {syncBusy ? "Syncing holidays…" : "Sync demo holidays / blackouts"}
+            </button>
+            {syncMsg && (
+              <p className="mt-2 text-xs text-moss-700">{syncMsg}</p>
+            )}
             <ul className="mt-3 max-h-[420px] space-y-1 overflow-y-auto pr-1 text-sm">
               {data.calendar.map((d) => {
                 const count = lessonsByDate.get(d.date)?.length || 0;
@@ -179,8 +225,14 @@ export default function SchedulePage() {
                       }`}
                     >
                       <span>
-                        {d.date}
-                        {!d.isInstructional && d.title ? ` · ${d.title}` : ""}
+                        <span className="font-medium">{d.date}</span>
+                        {!d.isInstructional && (
+                          <span className={active ? "text-moss-100" : "text-coral-600"}>
+                            {" "}
+                            · {d.dayType}
+                            {d.title ? ` · ${d.title}` : ""}
+                          </span>
+                        )}
                       </span>
                       {count > 0 && (
                         <span className={active ? "text-moss-100" : "text-moss-700"}>

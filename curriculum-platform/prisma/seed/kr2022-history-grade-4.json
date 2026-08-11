@@ -155,6 +155,36 @@
                 ]
               },
               {
+                "nodeType": "CONCEPT",
+                "code": "4사-시대",
+                "title": "Change across eras",
+                "titleKo": "시대에 따른 변화",
+                "gradeLevel": "4",
+                "sortOrder": 2,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한03-01",
+                    "title": "Sequence local events on a simple timeline",
+                    "titleKo": "지역 사건을 간단한 연표로 배열하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "우리 지역과 관련된 주요 사건을 시간 순서로 배열하고 변화를 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students place local historical events in chronological order and describe one change over time.",
+                        "statementKo": "지역 역사 사건을 시간순으로 배열하고 변화 한 가지를 설명한다.",
+                        "masteryCriteria": "Timeline of ≥4 events is correctly ordered with one change statement.",
+                        "masteryCriteriaKo": "사건 4개 이상 연표가 올바르고 변화 설명 1가지 포함.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
                 "nodeType": "CUSTOM",
                 "code": "SCHOOL-HISTORY-PROJECT",
                 "title": "School custom: Living history fair",

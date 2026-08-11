@@ -266,6 +266,32 @@ async function seedDemoSchool(): Promise<void> {
   );
 }
 
+async function seedSecondOrgPrivatePack(): Promise<void> {
+  const org =
+    (await prisma.organization.findUnique({ where: { code: "acme-academy" } })) ||
+    (await prisma.organization.create({
+      data: {
+        name: "Acme Academy",
+        code: "acme-academy",
+        timezone: "America/Los_Angeles",
+      },
+    }));
+
+  const fw = await prisma.framework.findUnique({
+    where: { code: "custom-acme-sel" },
+  });
+  if (fw) {
+    await prisma.framework.update({
+      where: { id: fw.id },
+      data: {
+        organizationId: org.id,
+        isPublic: false,
+      },
+    });
+    console.log(`✓ Linked custom-acme-sel → org ${org.code} (private)`);
+  }
+}
+
 async function main() {
   const seedDir = join(__dirname, "seed");
   const files = readdirSync(seedDir)
@@ -286,6 +312,7 @@ async function main() {
   }
 
   await seedDemoSchool();
+  await seedSecondOrgPrivatePack();
 }
 
 main()

@@ -200,6 +200,7 @@ export class PrismaCurriculumRepository implements CurriculumRepository {
     const frameworks = await prisma.framework.findMany({
       orderBy: { code: "asc" },
       include: {
+        organization: { select: { code: true } },
         nodes: {
           select: { nodeType: true, gradeLevel: true },
         },
@@ -222,6 +223,8 @@ export class PrismaCurriculumRepository implements CurriculumRepository {
           (a, b) => Number(a) - Number(b) || a.localeCompare(b)
         ),
         skillCount: fw.nodes.filter((n) => n.nodeType === "SKILL").length,
+        organizationCode: fw.organization?.code ?? null,
+        isPublic: fw.isPublic,
       };
     });
   }

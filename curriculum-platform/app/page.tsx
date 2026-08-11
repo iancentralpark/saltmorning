@@ -1,14 +1,8 @@
 import Link from "next/link";
-import { listFrameworks } from "@/lib/curriculum/seed-loader";
-import {
-  frameworkDisplayName,
-  usesKoreanContent,
-} from "@/lib/i18n/content-locale";
+import { FrameworkCatalog } from "@/components/FrameworkCatalog";
 import { ArrowRight, GitBranch, CalendarRange, Plug } from "lucide-react";
 
 export default function HomePage() {
-  const frameworks = listFrameworks();
-
   return (
     <div>
       <section className="relative overflow-hidden">
@@ -23,13 +17,22 @@ export default function HomePage() {
           <p className="animate-rise font-display text-5xl font-semibold tracking-tight text-ink-900 sm:text-6xl md:text-7xl">
             CurricuMap
           </p>
-          <h1 className="animate-rise mt-4 max-w-2xl text-xl text-ink-800/90 sm:text-2xl" style={{ animationDelay: "80ms" }}>
+          <h1
+            className="animate-rise mt-4 max-w-2xl text-xl text-ink-800/90 sm:text-2xl"
+            style={{ animationDelay: "80ms" }}
+          >
             Map standards into living skill trees, then schedule AI lesson plans onto real instructional days.
           </h1>
-          <p className="animate-rise mt-4 max-w-xl text-base text-ink-700/80" style={{ animationDelay: "140ms" }}>
+          <p
+            className="animate-rise mt-4 max-w-xl text-base text-ink-700/80"
+            style={{ animationDelay: "140ms" }}
+          >
             Framework-agnostic by design — CCSS, NGSS, and Korea 2022 Revised Curriculum in one graph.
           </p>
-          <div className="animate-rise mt-8 flex flex-wrap gap-3" style={{ animationDelay: "200ms" }}>
+          <div
+            className="animate-rise mt-8 flex flex-wrap gap-3"
+            style={{ animationDelay: "200ms" }}
+          >
             <Link
               href="/map"
               className="inline-flex items-center gap-2 rounded-md bg-moss-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-moss-600"
@@ -46,46 +49,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <h2 className="font-display text-2xl font-semibold text-ink-900">Loaded frameworks</h2>
-        <p className="mt-1 text-sm text-ink-700/75">Seed packs ready for drill-down exploration.</p>
-        <ul className="mt-6 grid gap-4 md:grid-cols-2">
-          {frameworks.map((fw, i) => (
-            <li
-              key={fw.code}
-              className="animate-rise border-l-4 border-moss-500 bg-white/60 px-5 py-4"
-              style={{ animationDelay: `${i * 70}ms` }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-display text-xl font-semibold text-ink-900">
-                    {frameworkDisplayName(fw)}
-                  </p>
-                  {usesKoreanContent(fw.subject, fw.code) && (
-                    <p className="mt-1 text-sm text-ink-700/80">{fw.name}</p>
-                  )}
-                  {!usesKoreanContent(fw.subject, fw.code) && fw.nameKo && (
-                    <p className="mt-1 text-sm text-ink-700/60">{fw.nameKo}</p>
-                  )}
-                </div>
-                <span className="shrink-0 text-xs uppercase tracking-wide text-moss-700">
-                  {fw.regionStandard}
-                </span>
-              </div>
-              <p className="mt-3 text-sm text-ink-700/70">
-                Grades {fw.gradeLevels.join(", ") || "—"} · {fw.skillCount} skills
-              </p>
-              <Link
-                href={`/map?framework=${fw.code}`}
-                className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-moss-700 hover:text-moss-600"
-              >
-                Explore <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </li>
-          ))}
-        </ul>
+      <FrameworkCatalog />
 
-        <div className="mt-14 grid gap-8 sm:grid-cols-3">
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+        <div className="grid gap-8 sm:grid-cols-3">
           {[
             {
               icon: GitBranch,
@@ -105,7 +72,9 @@ export default function HomePage() {
           ].map(({ icon: Icon, title, body }) => (
             <div key={title}>
               <Icon className="h-5 w-5 text-coral-500" />
-              <h3 className="mt-3 font-display text-lg font-semibold text-ink-900">{title}</h3>
+              <h3 className="mt-3 font-display text-lg font-semibold text-ink-900">
+                {title}
+              </h3>
               <p className="mt-1 text-sm leading-relaxed text-ink-700/75">{body}</p>
             </div>
           ))}

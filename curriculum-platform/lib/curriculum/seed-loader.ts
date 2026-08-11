@@ -172,6 +172,8 @@ export function loadAllFrameworks(): Map<string, LoadedFramework> {
         description: pack.framework.description ?? null,
         gradeLevels,
         skillCount,
+        organizationCode: null,
+        isPublic: true,
       },
       root,
       byId,
@@ -180,6 +182,11 @@ export function loadAllFrameworks(): Map<string, LoadedFramework> {
 
   cache = map;
   return map;
+}
+
+/** Clear in-memory cache (tests / hot reload after reseeding). */
+export function clearFrameworkCache() {
+  cache = null;
 }
 
 export function listFrameworks(): FrameworkSummary[] {

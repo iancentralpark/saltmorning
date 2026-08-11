@@ -1,0 +1,90 @@
+{
+  "framework": {
+    "code": "custom-acme-sel",
+    "name": "Acme Academy — Social Emotional Learning",
+    "nameKo": "Acme 아카데미 — 사회정서학습",
+    "subject": "CUSTOM",
+    "regionStandard": "CUSTOM",
+    "version": "1.0",
+    "description": "School-private SEL micro-framework demonstrating multi-org custom nodes.",
+    "metadata": {
+      "ownerOrg": "acme-academy",
+      "visibility": "organization"
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "custom-acme-sel",
+    "title": "Acme SEL",
+    "titleKo": "Acme 사회정서학습",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4",
+        "titleKo": "4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "SEL.SA",
+            "title": "Self-Awareness",
+            "titleKo": "자기인식",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SEL.SA.Emotions",
+                "title": "Naming emotions",
+                "titleKo": "감정 이름 붙이기",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SA.1",
+                    "title": "Identify and label personal feelings in context",
+                    "titleKo": "상황에서 자신의 감정을 파악하고 이름 붙이기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Students identify feelings and use precise emotion vocabulary in classroom scenarios.",
+                    "objectives": [
+                      {
+                        "statement": "Students label feelings with precise vocabulary and cite a situational cue.",
+                        "masteryCriteria": "Correctly labels 4/5 scenario cards with emotion + cue.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SA.2",
+                    "title": "Connect body cues to emotions",
+                    "titleKo": "몸의 신호와 감정 연결하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Students notice physical cues and link them to emotional states.",
+                    "objectives": [
+                      {
+                        "statement": "Students map at least two body cues to an emotion and a helpful strategy.",
+                        "masteryCriteria": "Completes cue→emotion→strategy map for 2 scenarios.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
