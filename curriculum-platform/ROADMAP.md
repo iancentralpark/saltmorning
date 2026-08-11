@@ -20,7 +20,9 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 
 ## Step 12 — Pack expansion ✅
 - CCSS ELA Grade 4 (RL.4 + W.4)
+- CCSS Math Grade 5 slice (5.NBT)
 - Demo timetable includes ELA Monday P1
+- `/api/health` readiness check
 
 ## Later
 - Auth / multi-org tenancy UI
