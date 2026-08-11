@@ -6,7 +6,7 @@
     "subject": "KOREAN_HISTORY",
     "regionStandard": "KR-2022",
     "version": "2022",
-    "description": "초등 4–5학년 사회·역사 연계 한국사 프레임워크 샘플. 중·고등 한국사 고시 문언으로 확장 시 코드·진술을 검수하세요.",
+    "description": "초등 4–6학년 사회·역사 연계 한국사 프레임워크 샘플. 중·고등 한국사 고시 문언으로 확장 시 코드·진술을 검수하세요.",
     "metadata": {
       "source": "교육부 2022 개정 교육과정 사회과/역사 관련",
       "gradeBand": "3-4",
@@ -408,6 +408,76 @@
                         "masteryCriteria": "Comparison table with ≥2 differences.",
                         "masteryCriteriaKo": "차이점 2가지 이상 비교표 완성.",
                         "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G6",
+        "title": "Grade 6 / 초등학교 6학년",
+        "titleKo": "초등학교 6학년",
+        "gradeLevel": "6",
+        "sortOrder": 6,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "6사-근현대",
+            "title": "Modern Korea and civic life",
+            "titleKo": "근현대와 시민 생활",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6사-변화",
+                "title": "Change in modern society",
+                "titleKo": "근대 사회의 변화",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6한01-01",
+                    "title": "Explain a modern historical change with evidence",
+                    "titleKo": "근대 역사 변화를 근거와 함께 설명하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "근대 역사 변화 한 가지를 자료 근거와 함께 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain one modern historical change with ≥2 evidence notes.",
+                        "statementKo": "근대 역사 변화 한 가지를 근거 2가지 이상과 함께 설명한다.",
+                        "masteryCriteria": "Change statement + 2 evidence notes completed.",
+                        "masteryCriteriaKo": "변화 설명과 근거 노트 2개 완성.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6한01-02",
+                    "title": "Connect a civic practice to democratic values",
+                    "titleKo": "시민 실천과 민주주의 가치 연결하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "일상 시민 실천을 민주주의 가치와 연결해 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students link one civic practice to a democratic value.",
+                        "statementKo": "시민 실천 한 가지를 민주주의 가치와 연결한다.",
+                        "masteryCriteria": "Practice + value + one-sentence rationale.",
+                        "masteryCriteriaKo": "실천·가치·이유 한 문장 포함.",
+                        "bloomLevel": "Evaluate",
                         "sortOrder": 1
                       }
                     ],

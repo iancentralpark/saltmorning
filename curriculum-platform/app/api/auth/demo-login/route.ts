@@ -7,14 +7,11 @@ import {
 } from "@/lib/auth/session";
 import { isGoogleOAuthConfigured } from "@/lib/auth/google";
 import { isMicrosoftOAuthConfigured } from "@/lib/auth/microsoft";
+import { isAppleOAuthConfigured } from "@/lib/auth/apple";
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
 
-/**
- * Demo login — HMAC httpOnly cookie scoped to an organization.
- * Body: { orgCode: "salt-morning" | "acme-academy", role?: "teacher"|"admin", pin? }
- */
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     orgCode?: string;
@@ -69,11 +66,12 @@ export async function GET() {
   const oauth = {
     google: isGoogleOAuthConfigured(),
     microsoft: isMicrosoftOAuthConfigured(),
+    apple: isAppleOAuthConfigured(),
   };
   return Response.json({
     organizations: DEMO_ORGS,
     pinRequired: Boolean(process.env.DEMO_LOGIN_PIN),
-    oauthConfigured: oauth.google || oauth.microsoft,
+    oauthConfigured: oauth.google || oauth.microsoft || oauth.apple,
     oauth,
     demoLoginEnabled:
       process.env.DEMO_LOGIN_DISABLED !== "1" &&

@@ -6,10 +6,11 @@
     "subject": "SCIENCE",
     "regionStandard": "US-NGSS",
     "version": "2013",
-    "description": "NGSS sample pack for Grade 4 (energy + Earth) and Grade 5 (matter + Earth systems). Expand with full PE/DCI/CCC/SEP metadata as needed.",
+    "description": "NGSS sample spanning Grades 4–5 (elementary) and 6–8 (middle school). Sample PE depth — expand with full PE/DCI/CCC/SEP as needed.",
     "metadata": {
       "source": "https://www.nextgenscience.org/",
-      "license": "public-reference"
+      "license": "public-reference",
+      "gradeSpan": "4-8"
     }
   },
   "tree": {
@@ -366,6 +367,204 @@
                         "statement": "Students diagram an interaction between at least two Earth systems.",
                         "masteryCriteria": "Diagram names ≥2 systems and one interaction.",
                         "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G6",
+        "title": "Grade 6",
+        "titleKo": "6학년",
+        "gradeLevel": "6",
+        "sortOrder": 6,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-PS1",
+            "title": "Matter and Its Interactions",
+            "titleKo": "Matter and Its Interactions",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-PS1.Core",
+                "title": "Matter and Its Interactions",
+                "titleKo": "Matter and Its Interactions",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS1-1",
+                    "title": "Develop models of atomic composition of molecules",
+                    "titleKo": "분자의 원자 구성 모형 만들기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Develop models to describe the atomic composition of simple molecules and extended structures.",
+                    "objectives": [
+                      {
+                        "statement": "Students build/draw a model of a simple molecule’s atomic composition.",
+                        "masteryCriteria": "Model correctly names atoms and structure for 1 compound.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-PS1-2",
+                    "title": "Analyze data on properties before/after chemical change",
+                    "titleKo": "화학 변화 전후 성질 자료 분석하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Analyze and interpret data on the properties of substances before and after the substances interact to determine if a chemical reaction has occurred.",
+                    "objectives": [
+                      {
+                        "statement": "Students decide if a reaction occurred using property data.",
+                        "masteryCriteria": "Correct decision + ≥2 property citations for 3 scenarios.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G7",
+        "title": "Grade 7",
+        "titleKo": "7학년",
+        "gradeLevel": "7",
+        "sortOrder": 7,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-LS1",
+            "title": "From Molecules to Organisms",
+            "titleKo": "From Molecules to Organisms",
+            "gradeLevel": "7",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-LS1.Core",
+                "title": "From Molecules to Organisms",
+                "titleKo": "From Molecules to Organisms",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS1-1",
+                    "title": "Conduct an investigation of living things made of cells",
+                    "titleKo": "생물이 세포로 이루어짐을 조사하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Conduct an investigation to provide evidence that living things are made of cells.",
+                    "objectives": [
+                      {
+                        "statement": "Students collect evidence that an organism is cellular.",
+                        "masteryCriteria": "Evidence log with ≥2 observations supporting the claim.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-LS1-2",
+                    "title": "Develop a model of cell organelle function",
+                    "titleKo": "세포 소기관 기능 모형 만들기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Develop and use a model to describe the function of a cell as a whole and ways parts contribute.",
+                    "objectives": [
+                      {
+                        "statement": "Students model how ≥2 organelles contribute to cell function.",
+                        "masteryCriteria": "Model labels ≥2 organelles with functions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G8",
+        "title": "Grade 8",
+        "titleKo": "8학년",
+        "gradeLevel": "8",
+        "sortOrder": 8,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "MS-ESS3",
+            "title": "Earth and Human Activity",
+            "titleKo": "Earth and Human Activity",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "MS-ESS3.Core",
+                "title": "Earth and Human Activity",
+                "titleKo": "Earth and Human Activity",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS3-3",
+                    "title": "Apply scientific principles to design a method to monitor human impact",
+                    "titleKo": "인간 영향 모니터링 방법 설계하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Apply scientific principles to design a method for monitoring and minimizing a human impact on the environment.",
+                    "objectives": [
+                      {
+                        "statement": "Students propose a monitoring method for one human impact.",
+                        "masteryCriteria": "Design includes measure + minimization step.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "MS-ESS3-5",
+                    "title": "Ask questions about evidence of factors that affect global temperatures",
+                    "titleKo": "지구 기온 요인 증거에 대해 질문하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Ask questions to clarify evidence of the factors that have caused the rise in global temperatures over the past century.",
+                    "objectives": [
+                      {
+                        "statement": "Students ask a testable question tied to temperature-rise evidence.",
+                        "masteryCriteria": "Question is evidence-linked and investigable.",
+                        "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }
                     ],

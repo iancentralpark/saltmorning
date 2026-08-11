@@ -25,8 +25,8 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - `/api/health` readiness check
 
 ## Later
-- Apple Sign In (requires Apple Developer private key JWT)
-- Exhaustive official PE/achievement PDF dumps (beyond sample catalogs)
+- Wire Apple credentials in production + rotate .p8 keys
+- Machine-import full official PE/achievement PDFs into seed JSON
 
 ## Step 13 — Multi-org polish + pack depth ✅
 - Seed-mode honors `organizationCode` / `isPublic` (Acme SEL private)
@@ -50,3 +50,8 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 ## Step 16 — Microsoft IdP + broader K–8 packs ✅
 - Microsoft Entra OAuth (`/api/auth/microsoft/*`)
 - CCSS Math K–8, ELA 3–5, 국어 3–6, 한국사 4–5 sample bands
+
+## Step 17 — Apple Sign In + HS/MS pack breadth ✅
+- Sign in with Apple (`/api/auth/apple/*`, ES256 client_secret JWT)
+- Math + Algebra I (HS), ELA 3–8, NGSS 4–8, 한국사 4–6
+- `prisma/seed/OFFICIAL_IMPORT.md` for denser catalog imports

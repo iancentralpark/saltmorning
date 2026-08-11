@@ -14,7 +14,7 @@ type SessionInfo = {
 
 type OrgOption = { code: string; name: string };
 
-type OAuthFlags = { google?: boolean; microsoft?: boolean };
+type OAuthFlags = { google?: boolean; microsoft?: boolean; apple?: boolean };
 
 export function DemoAuth() {
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -112,6 +112,14 @@ export function DemoAuth() {
           className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
         >
           Microsoft
+        </a>
+      )}
+      {oauth.apple && (
+        <a
+          href="/api/auth/apple/start"
+          className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
+        >
+          Apple
         </a>
       )}
       {demoEnabled && (

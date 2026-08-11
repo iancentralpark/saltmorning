@@ -161,8 +161,11 @@ function collectGradesAndSkills(root: CurriculumNode) {
 
   return {
     gradeLevels: [...grades].sort((a, b) => {
-      const rank = (g: string) =>
-        g === "K" || g === "TK" ? -1 : Number.isFinite(Number(g)) ? Number(g) : 1000;
+      const rank = (g: string) => {
+        if (g === "K" || g === "TK") return -1;
+        if (g === "HS" || g === "9-12") return 90;
+        return Number.isFinite(Number(g)) ? Number(g) : 1000;
+      };
       return rank(a) - rank(b) || a.localeCompare(b);
     }),
     skillCount,

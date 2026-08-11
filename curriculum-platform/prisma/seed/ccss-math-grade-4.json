@@ -1,16 +1,16 @@
 {
   "framework": {
     "code": "ccss-math",
-    "name": "Common Core State Standards — Mathematics (K–8 sample)",
-    "nameKo": "공통핵심기준 — 수학 (K–8 샘플)",
+    "name": "Common Core State Standards — Mathematics (K–8 + Algebra I)",
+    "nameKo": "공통핵심기준 — 수학 (K–8 + 대수 I)",
     "subject": "MATH",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS Mathematics sample spanning Kindergarten–Grade 8. Sample depth — not a full standards dump.",
+    "description": "CCSS Mathematics sample spanning Kindergarten–Grade 8 plus High School Algebra I. Sample depth — not a full standards dump.",
     "metadata": {
       "source": "http://www.corestandards.org/Math/",
       "license": "public-reference",
-      "gradeSpan": "K-8",
+      "gradeSpan": "K-8,HS-Algebra-I",
       "note": "Merged former ccss-math-g5 into this pack as GRADE G5."
     }
   },
@@ -975,6 +975,108 @@
                         "statement": "Students find a missing side using a²+b²=c².",
                         "masteryCriteria": "Correct missing side for 4 of 5 right triangles.",
                         "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "GHS",
+        "title": "High School — Algebra I",
+        "titleKo": "고등 — 대수 I",
+        "gradeLevel": "HS",
+        "sortOrder": 90,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "A-REI",
+            "title": "Reasoning with Equations & Inequalities",
+            "titleKo": "방정식과 부등식의 추론",
+            "gradeLevel": "HS",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "A-REI.Core",
+                "title": "Reasoning with Equations & Inequalities",
+                "titleKo": "방정식과 부등식의 추론",
+                "gradeLevel": "HS",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "A-REI.B.3",
+                    "title": "Solve linear equations and inequalities in one variable",
+                    "titleKo": "일차 방정식·부등식 풀기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 1,
+                    "summary": "Solve linear equations and inequalities in one variable, including equations with coefficients represented by letters.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a linear equation/inequality and check the solution.",
+                        "masteryCriteria": "Correct solution set for 4 of 5 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "A-REI.C.6",
+                    "title": "Solve systems of linear equations exactly and approximately",
+                    "titleKo": "연립일차방정식 정확히·근사적으로 풀기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 2,
+                    "summary": "Solve systems of linear equations exactly and approximately (e.g., with graphs).",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a 2×2 system algebraically and verify graphically.",
+                        "masteryCriteria": "Correct solution + verification for 3 of 3 systems.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "A-SSE.A.1",
+                    "title": "Interpret expressions that represent a quantity in context",
+                    "titleKo": "맥락에서 식을 해석하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 3,
+                    "summary": "Interpret expressions that represent a quantity in terms of its context.",
+                    "objectives": [
+                      {
+                        "statement": "Students interpret parts of an expression in a real-world model.",
+                        "masteryCriteria": "Correct interpretation for 3 of 3 expressions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "F-IF.A.1",
+                    "title": "Understand the concept of a function and function notation",
+                    "titleKo": "함수 개념과 함수 기호 이해하기",
+                    "gradeLevel": "HS",
+                    "sortOrder": 4,
+                    "summary": "Understand that a function from one set to another assigns each element exactly one output; use function notation.",
+                    "objectives": [
+                      {
+                        "statement": "Students evaluate f(x) and explain domain/range in context.",
+                        "masteryCriteria": "Correct evaluations for 4 of 5 items.",
+                        "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
                     ],

@@ -97,6 +97,10 @@ GET /api/auth/google/callback
 GET /api/auth/microsoft/start
 GET /api/auth/microsoft/callback
 
+# Optional Sign in with Apple (when APPLE_* credentials set)
+GET  /api/auth/apple/start
+POST /api/auth/apple/callback   # form_post
+
 # AUTH_REQUIRED=1 → middleware requires session on /map /schedule`}
           </pre>
         </div>

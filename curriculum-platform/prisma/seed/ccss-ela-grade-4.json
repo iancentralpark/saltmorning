@@ -6,11 +6,11 @@
     "subject": "ELA",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS ELA Grades 3–5 sample (RL/RI/W slices). Sample depth — expand with full grade bands as needed.",
+    "description": "CCSS ELA Grades 3–8 sample (RL/RI/W slices). Sample depth — expand with full grade bands as needed.",
     "metadata": {
       "source": "http://www.corestandards.org/ELA-Literacy/",
       "license": "public-reference",
-      "gradeSpan": "3-5"
+      "gradeSpan": "3-8"
     }
   },
   "tree": {
@@ -397,6 +397,204 @@
                       {
                         "statement": "Students write an opinion with reasons and a concluding statement.",
                         "masteryCriteria": "Claim + ≥2 reasons + conclusion.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G6",
+        "title": "Grade 6",
+        "titleKo": "6학년",
+        "gradeLevel": "6",
+        "sortOrder": 6,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.6",
+            "title": "Reading Informational Text",
+            "titleKo": "Reading Informational Text",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.6.Core",
+                "title": "Reading Informational Text",
+                "titleKo": "Reading Informational Text",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.6.1",
+                    "title": "Cite textual evidence to support analysis",
+                    "titleKo": "분석을 뒷받침하는 텍스트 근거 인용하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Cite textual evidence to support analysis of what the text says explicitly as well as inferences drawn from the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students cite evidence for an explicit claim and an inference.",
+                        "masteryCriteria": "Two citations correctly paired with claims.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.6.2",
+                    "title": "Determine a central idea and how it is conveyed",
+                    "titleKo": "중심 생각과 전달 방식 파악하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Determine a central idea of a text and how it is conveyed through particular details; provide a summary.",
+                    "objectives": [
+                      {
+                        "statement": "Students state the central idea and summarize without personal opinion.",
+                        "masteryCriteria": "Central idea + objective summary.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G7",
+        "title": "Grade 7",
+        "titleKo": "7학년",
+        "gradeLevel": "7",
+        "sortOrder": 7,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.7",
+            "title": "Reading Literature",
+            "titleKo": "Reading Literature",
+            "gradeLevel": "7",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.7.Core",
+                "title": "Reading Literature",
+                "titleKo": "Reading Literature",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.7.1",
+                    "title": "Cite several pieces of textual evidence",
+                    "titleKo": "여러 텍스트 근거 인용하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Cite several pieces of textual evidence to support analysis of what the text says explicitly as well as inferences.",
+                    "objectives": [
+                      {
+                        "statement": "Students support an analysis with ≥2 citations.",
+                        "masteryCriteria": "Analysis with ≥2 accurate citations.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.7.2",
+                    "title": "Determine a theme and analyze its development",
+                    "titleKo": "주제 파악과 전개 분석하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Determine a theme or central idea and analyze its development over the course of the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students state a theme and trace how it develops with two moments.",
+                        "masteryCriteria": "Theme + two development moments.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G8",
+        "title": "Grade 8",
+        "titleKo": "8학년",
+        "gradeLevel": "8",
+        "sortOrder": 8,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.8",
+            "title": "Writing",
+            "titleKo": "Writing",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.8.Core",
+                "title": "Writing",
+                "titleKo": "Writing",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.8.1",
+                    "title": "Write arguments to support claims with clear reasons and evidence",
+                    "titleKo": "이유와 근거로 주장을 뒷받침하는 논증문 쓰기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Write arguments to support claims with clear reasons and relevant evidence.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an argument with claim, reasons, evidence, and conclusion.",
+                        "masteryCriteria": "Claim + ≥2 reasons with evidence + conclusion.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.8.2",
+                    "title": "Write informative/explanatory texts to examine a topic",
+                    "titleKo": "주제를 탐구하는 정보·설명문 쓰기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine a topic and convey ideas through analysis of content.",
+                    "objectives": [
+                      {
+                        "statement": "Students organize an informative text with introduction, analysis, and conclusion.",
+                        "masteryCriteria": "Clear organization with ≥3 content points.",
                         "bloomLevel": "Create",
                         "sortOrder": 1
                       }

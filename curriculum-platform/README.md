@@ -72,12 +72,13 @@ npm run test:prisma
 
 Seed packs:
 
-- `prisma/seed/ccss-math-grade-4.json` — CCSS Math **K–8** sample
-- `prisma/seed/ccss-ela-grade-4.json` — ELA **G3–G5** (RL/RI/W)
+- `prisma/seed/ccss-math-grade-4.json` — CCSS Math **K–8 + Algebra I**
+- `prisma/seed/ccss-ela-grade-4.json` — ELA **G3–G8**
 - `prisma/seed/kr2022-korean-grade-4.json` — 국어 **G3–G6**
-- `prisma/seed/kr2022-history-grade-4.json` — 한국사 **G4–G5**
-- `prisma/seed/ngss-science-grade-4.json` — NGSS G4–G5
+- `prisma/seed/kr2022-history-grade-4.json` — 한국사 **G4–G6**
+- `prisma/seed/ngss-science-grade-4.json` — NGSS **G4–G8**
 - `prisma/seed/custom-acme-sel.json` — private Acme SEL
+- See `prisma/seed/OFFICIAL_IMPORT.md` for denser catalog imports
 
 ### Auth
 
@@ -86,6 +87,7 @@ Seed packs:
 | Demo login | Always (unless `DEMO_LOGIN_DISABLED=1`) |
 | Google OAuth | When `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` set |
 | Microsoft OAuth | When `MICROSOFT_CLIENT_ID` + `MICROSOFT_CLIENT_SECRET` set |
+| Apple Sign In | When `APPLE_CLIENT_ID` + team/key/private key set |
 | Force login | `AUTH_REQUIRED=1` gates `/map` and `/schedule` |
 
 Curriculum data source: `CURRICULUM_STORE=seed` (default) or `prisma` after migrate/seed.  
