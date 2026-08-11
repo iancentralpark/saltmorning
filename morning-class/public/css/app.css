@@ -306,8 +306,25 @@ a:hover { color: var(--gold); }
 .sr-parent-card:last-child {
   border-bottom: none;
 }
-.sr-parent-link-form {
-  margin-top: 0.35rem;
+.sr-parent-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.sr-parent-rel-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+.sr-parent-rel-select {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.35rem;
+  background: #fff;
 }
 .pp-nav-badge {
   display: inline-flex;

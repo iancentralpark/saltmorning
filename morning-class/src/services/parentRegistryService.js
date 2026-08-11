@@ -303,8 +303,15 @@ async function linkParentToStudent(parentId, studentId, opts) {
 
   await ensureParentStudentsSheet();
   const links = await listLinksForParent(parentId);
-  if (links.some((l) => l.studentId === studentId)) {
-    return { linked: true, already: true, parentId, studentId };
+  const existing = links.find((l) => l.studentId === studentId);
+  if (existing) {
+    if (opts.relationship || opts.isPrimary === true || opts.isPrimary === false) {
+      return updateParentStudentLink(parentId, studentId, {
+        relationship: opts.relationship || existing.relationship,
+        isPrimary: opts.isPrimary
+      });
+    }
+    return { linked: true, already: true, parentId, studentId, relationship: existing.relationship };
   }
 
   const isPrimary = opts.isPrimary === true || links.length === 0;
@@ -360,6 +367,63 @@ async function unlinkParentFromStudent(parentId, studentId) {
   await updateRange(PARENT_STUDENTS_SHEET, `A${found}:F${found}`, [new Array(6).fill('')]);
   invalidateSheetRowsCache(PARENT_STUDENTS_SHEET);
   return { unlinked: true, parentId, studentId };
+}
+
+async function updateParentStudentLink(parentId, studentId, opts) {
+  opts = opts || {};
+  parentId = String(parentId || '').trim();
+  studentId = String(studentId || '').trim();
+  if (!parentId || !studentId) throw new Error('Parent ID and Student ID are required.');
+
+  await ensureParentStudentsSheet();
+  const rows = await getSheetRows(PARENT_STUDENTS_SHEET, { skipCache: true });
+  let found = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][1]) === parentId && String(rows[i][2]) === studentId) {
+      found = i + 1;
+      break;
+    }
+  }
+  if (found < 0) throw new Error('Link not found.');
+
+  const next = (rows[found - 1] || []).slice();
+  while (next.length < 6) next.push('');
+  if (opts.relationship != null && String(opts.relationship).trim()) {
+    next[3] = String(opts.relationship).trim();
+  }
+  if (opts.isPrimary === true) {
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][1]) !== parentId) continue;
+      if (i + 1 === found) continue;
+      if (String(rows[i][4] || '').toLowerCase() !== 'true') continue;
+      const other = rows[i].slice();
+      while (other.length < 6) other.push('');
+      other[4] = 'false';
+      await updateRange(PARENT_STUDENTS_SHEET, `A${i + 1}:F${i + 1}`, [other.slice(0, 6)]);
+    }
+    next[4] = 'true';
+    const parent = await getParentRecord(parentId);
+    if (parent && parent.rowIndex) {
+      const prows = await getSheetRows(PARENT_LIST_SHEET, { skipCache: true });
+      const r = (prows[parent.rowIndex - 1] || []).slice();
+      while (r.length < 7) r.push('');
+      r[1] = studentId;
+      await updateRange(PARENT_LIST_SHEET, `A${parent.rowIndex}:G${parent.rowIndex}`, [r.slice(0, 7)]);
+      invalidateSheetRowsCache(PARENT_LIST_SHEET);
+    }
+  } else if (opts.isPrimary === false) {
+    next[4] = 'false';
+  }
+
+  await updateRange(PARENT_STUDENTS_SHEET, `A${found}:F${found}`, [next.slice(0, 6)]);
+  invalidateSheetRowsCache(PARENT_STUDENTS_SHEET);
+  return {
+    updated: true,
+    parentId,
+    studentId,
+    relationship: String(next[3] || 'Guardian'),
+    isPrimary: String(next[4] || '').toLowerCase() === 'true'
+  };
 }
 
 /**
@@ -440,5 +504,6 @@ module.exports = {
   saveParentAccount,
   linkParentToStudent,
   unlinkParentFromStudent,
+  updateParentStudentLink,
   linkOrCreateParentForStudent
 };

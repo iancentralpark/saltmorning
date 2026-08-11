@@ -198,17 +198,26 @@
         body =
           '<div class="sr-parent-list" id="srParentList">' +
           (linkedParents.length
-            ? linkedParents.map((p) =>
-              '<div class="sr-parent-card" data-parent-id="' + escapeHtml(p.parentId) + '">' +
-              '<div><strong>' + escapeHtml(p.name || p.parentId) + '</strong>' +
-              '<div class="muted small">' + escapeHtml(p.relationship || 'Guardian') +
-              (p.loginId ? ' · login ' + escapeHtml(p.loginId) : '') +
-              (p.phone ? ' · ' + escapeHtml(p.phone) : '') +
-              '</div></div>' +
-              '<button type="button" class="btn btn-ghost sr-unlink-parent" data-parent-id="' +
-              escapeHtml(p.parentId) + '">Unlink</button>' +
-              '</div>'
-            ).join('')
+            ? linkedParents.map((p) => {
+              const rel = p.relationship || 'Guardian';
+              const relOpts = ['Guardian', 'Mother', 'Father', 'Other'].map((r) =>
+                '<option value="' + r + '"' + (rel === r ? ' selected' : '') + '>' + r + '</option>'
+              ).join('');
+              return '<div class="sr-parent-card" data-parent-id="' + escapeHtml(p.parentId) + '">' +
+                '<div class="sr-parent-card-main">' +
+                '<strong>' + escapeHtml(p.name || p.parentId) + '</strong>' +
+                '<div class="muted small">' +
+                (p.loginId ? 'login ' + escapeHtml(p.loginId) : escapeHtml(p.parentId)) +
+                (p.phone ? ' · ' + escapeHtml(p.phone) : '') +
+                '</div>' +
+                '<label class="sr-parent-rel-edit muted small">Relationship ' +
+                '<select class="sr-parent-rel-select" data-parent-id="' + escapeHtml(p.parentId) + '">' +
+                relOpts + '</select></label>' +
+                '</div>' +
+                '<button type="button" class="btn btn-ghost sr-unlink-parent" data-parent-id="' +
+                escapeHtml(p.parentId) + '">Unlink</button>' +
+                '</div>';
+            }).join('')
             : '<p class="muted">No parent accounts linked yet.</p>') +
           '</div>' +
           '<h4 class="sr-subsection-title">Link or create parent</h4>' +
@@ -431,6 +440,12 @@
 
     mountEl.querySelectorAll('.sr-unlink-parent').forEach((btn) => {
       btn.addEventListener('click', () => unlinkParent(btn.dataset.parentId));
+    });
+
+    mountEl.querySelectorAll('.sr-parent-rel-select').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        updateParentRelationship(sel.dataset.parentId, sel.value);
+      });
     });
 
     const searchInput = mountEl.querySelector('.sr-parent-search');
@@ -732,26 +747,46 @@
     if (!activeStudent || !activeStudent.studentId || role !== 'admin') return;
     const errEl = mountEl.querySelector('.sr-parent-error');
     if (errEl) errEl.textContent = '';
-    const parentId = (mountEl.querySelector('.sr-parent-id') || {}).value || '';
-    const name = (mountEl.querySelector('.sr-parent-name') || {}).value || '';
-    const loginId = (mountEl.querySelector('.sr-parent-login') || {}).value || '';
-    const password = (mountEl.querySelector('.sr-parent-password') || {}).value || '';
-    const relationship = (mountEl.querySelector('.sr-parent-rel') || {}).value || 'Guardian';
-    const phone = (mountEl.querySelector('.sr-parent-phone') || {}).value || '';
-    const email = (mountEl.querySelector('.sr-parent-email') || {}).value || '';
-    const payload = {
-      parentId: String(parentId).trim() || undefined,
-      name: String(name).trim() || undefined,
-      loginId: String(loginId).trim() || undefined,
-      password: String(password) || undefined,
-      relationship: String(relationship).trim() || 'Guardian',
-      phone: String(phone).trim() || undefined,
-      email: String(email).trim() || undefined,
-      isPrimary: linkedParents.length === 0
-    };
-    if (!payload.parentId && (!payload.name || !payload.loginId)) {
-      if (errEl) errEl.textContent = 'Search an existing parent, or enter Name + Login ID to create one.';
-      return;
+    const parentId = String((mountEl.querySelector('.sr-parent-id') || {}).value || '').trim();
+    const searchVal = String((mountEl.querySelector('.sr-parent-search') || {}).value || '').trim();
+    // Resolve parent id from datalist if search selected but hidden id empty
+    let resolvedId = parentId;
+    if (!resolvedId && searchVal) {
+      const hit = Array.from(mountEl.querySelectorAll('#srParentOptions option'))
+        .find((o) => o.value === searchVal);
+      resolvedId = (hit && hit.dataset.parentId) || '';
+    }
+    const name = String((mountEl.querySelector('.sr-parent-name') || {}).value || '').trim();
+    const loginId = String((mountEl.querySelector('.sr-parent-login') || {}).value || '').trim();
+    const password = String((mountEl.querySelector('.sr-parent-password') || {}).value || '');
+    const relationship = String((mountEl.querySelector('.sr-parent-rel') || {}).value || 'Guardian').trim() || 'Guardian';
+    const phone = String((mountEl.querySelector('.sr-parent-phone') || {}).value || '').trim();
+    const email = String((mountEl.querySelector('.sr-parent-email') || {}).value || '').trim();
+
+    let payload;
+    if (resolvedId) {
+      // Existing parent → link only (do not send autofilled login/password)
+      payload = {
+        parentId: resolvedId,
+        relationship,
+        isPrimary: linkedParents.length === 0
+      };
+    } else {
+      if (!name || !loginId) {
+        if (errEl) {
+          errEl.textContent = 'Search an existing parent above, or enter Name + Login ID to create a new one.';
+        }
+        return;
+      }
+      payload = {
+        name,
+        loginId,
+        password: password || undefined,
+        relationship,
+        phone: phone || undefined,
+        email: email || undefined,
+        isPrimary: linkedParents.length === 0
+      };
     }
     try {
       await api('/api/admin/students/' + encodeURIComponent(activeStudent.studentId) + '/parents', {
@@ -779,6 +814,25 @@
       await loadLinkedParents(activeStudent.studentId);
     } catch (e) {
       if (errEl) errEl.textContent = e.message || 'Could not unlink parent.';
+    }
+  }
+
+  async function updateParentRelationship(parentId, relationship) {
+    if (!activeStudent || !activeStudent.studentId || !parentId) return;
+    const errEl = mountEl.querySelector('.sr-parent-error');
+    if (errEl) errEl.textContent = '';
+    try {
+      await api(
+        '/api/admin/students/' + encodeURIComponent(activeStudent.studentId) +
+        '/parents/' + encodeURIComponent(parentId),
+        { method: 'PATCH', body: { relationship: relationship || 'Guardian' } },
+        role
+      );
+      const hit = linkedParents.find((p) => p.parentId === parentId);
+      if (hit) hit.relationship = relationship || 'Guardian';
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || 'Could not update relationship.';
+      await loadLinkedParents(activeStudent.studentId);
     }
   }
 

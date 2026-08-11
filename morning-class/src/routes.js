@@ -2732,6 +2732,17 @@ router.post('/admin/students/:studentId/parents', requireRole('admin'), async (r
   }
 });
 
+router.patch('/admin/students/:studentId/parents/:parentId', requireRole('admin'), async (req, res) => {
+  try {
+    const { updateParentStudentLink, ensureParentStudentsSheet } = require('./services/parentRegistryService');
+    await ensureParentStudentsSheet();
+    const result = await updateParentStudentLink(req.params.parentId, req.params.studentId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update parent link.' });
+  }
+});
+
 router.delete('/admin/students/:studentId/parents/:parentId', requireRole('admin'), async (req, res) => {
   try {
     const { unlinkParentFromStudent, ensureParentStudentsSheet } = require('./services/parentRegistryService');
