@@ -6,16 +6,20 @@ import {
   Background,
   Controls,
   MiniMap,
+  ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useReactFlow,
   type Edge,
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { ArrowDownUp, ArrowRightLeft } from "lucide-react";
 import type { CurriculumNode, FrameworkSummary } from "@/lib/types";
 import {
   buildVisibleGraph,
   defaultExpanded,
+  type LayoutOrientation,
   type MapNodeData,
 } from "@/lib/curriculum/layout-tree";
 import { CurriculumNodeView } from "./CurriculumNodeView";
@@ -27,9 +31,13 @@ type Props = {
   initialFramework?: string;
 };
 
-export function CurriculumMindmap({ initialFramework }: Props) {
+function MindmapCanvas({ initialFramework }: Props) {
+  const { fitView } = useReactFlow();
   const [frameworks, setFrameworks] = useState<FrameworkSummary[]>([]);
   const [code, setCode] = useState(initialFramework || "");
+  const [gradeLevel, setGradeLevel] = useState("4");
+  const [orientation, setOrientation] =
+    useState<LayoutOrientation>("horizontal");
   const [root, setRoot] = useState<CurriculumNode | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -59,19 +67,35 @@ export function CurriculumMindmap({ initialFramework }: Props) {
       })
       .then((data) => {
         setRoot(data.tree);
-        setExpanded(defaultExpanded(data.tree, "4"));
+        const grades: string[] = data.framework.gradeLevels || [];
+        const nextGrade = grades.includes(gradeLevel)
+          ? gradeLevel
+          : grades[0] || "4";
+        setGradeLevel(nextGrade);
+        setExpanded(defaultExpanded(data.tree, nextGrade));
         setFocusId(null);
         setDrawerId(null);
       })
       .catch((e) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset grade only when framework changes
   }, [code]);
 
   useEffect(() => {
     if (!root) return;
-    const g = buildVisibleGraph(root, expanded, focusId);
+    setExpanded(defaultExpanded(root, gradeLevel));
+    setFocusId(null);
+    setDrawerId(null);
+  }, [gradeLevel, root]);
+
+  useEffect(() => {
+    if (!root) return;
+    const g = buildVisibleGraph(root, expanded, focusId, orientation);
     setNodes(g.nodes);
     setEdges(g.edges);
-  }, [root, expanded, focusId, setNodes, setEdges]);
+    requestAnimationFrame(() => {
+      fitView({ padding: 0.2, duration: 220 });
+    });
+  }, [root, expanded, focusId, orientation, setNodes, setEdges, fitView]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<MapNodeData>) => {
@@ -85,7 +109,6 @@ export function CurriculumMindmap({ initialFramework }: Props) {
         setExpanded((prev) => {
           const next = new Set(prev);
           if (next.has(node.id)) {
-            // collapse: remove this and descendants
             const remove = (n: CurriculumNode) => {
               next.delete(n.id);
               n.children.forEach(remove);
@@ -102,6 +125,7 @@ export function CurriculumMindmap({ initialFramework }: Props) {
     []
   );
 
+  const activeFramework = frameworks.find((f) => f.code === code);
   const legend = useMemo(
     () => ["GRADE", "DOMAIN", "CONCEPT", "SKILL", "CUSTOM"],
     []
@@ -124,9 +148,55 @@ export function CurriculumMindmap({ initialFramework }: Props) {
             ))}
           </select>
         </label>
+
+        <label className="text-sm font-medium text-ink-800">
+          Grade
+          <select
+            className="ml-2 rounded-md border border-ink-900/15 bg-white px-2 py-1.5 text-sm"
+            value={gradeLevel}
+            onChange={(e) => setGradeLevel(e.target.value)}
+          >
+            {(activeFramework?.gradeLevels || ["4"]).map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="flex items-center gap-1 rounded-md border border-ink-900/15 bg-white p-0.5">
+          <button
+            type="button"
+            title="Horizontal layout"
+            onClick={() => setOrientation("horizontal")}
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold transition ${
+              orientation === "horizontal"
+                ? "bg-moss-700 text-white"
+                : "text-ink-700 hover:bg-moss-100"
+            }`}
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" /> Horizontal
+          </button>
+          <button
+            type="button"
+            title="Vertical layout"
+            onClick={() => setOrientation("vertical")}
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold transition ${
+              orientation === "vertical"
+                ? "bg-moss-700 text-white"
+                : "text-ink-700 hover:bg-moss-100"
+            }`}
+          >
+            <ArrowDownUp className="h-3.5 w-3.5" /> Vertical
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-2 text-[11px] text-ink-700/70">
           {legend.map((t) => (
-            <span key={t} className="rounded bg-moss-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-moss-700">
+            <span
+              key={t}
+              className="rounded bg-moss-100 px-2 py-0.5 font-semibold uppercase tracking-wide text-moss-700"
+            >
               {t}
             </span>
           ))}
@@ -151,7 +221,9 @@ export function CurriculumMindmap({ initialFramework }: Props) {
           <Controls />
           <MiniMap
             nodeColor={(n) =>
-              n.data?.nodeType === "SKILL" ? "#d4654a" : "#3a6f4e"
+              (n.data as MapNodeData | undefined)?.nodeType === "SKILL"
+                ? "#d4654a"
+                : "#3a6f4e"
             }
             maskColor="rgba(243,247,244,0.75)"
           />
@@ -160,5 +232,13 @@ export function CurriculumMindmap({ initialFramework }: Props) {
 
       <SkillDrawer nodeId={drawerId} onClose={() => setDrawerId(null)} />
     </div>
+  );
+}
+
+export function CurriculumMindmap(props: Props) {
+  return (
+    <ReactFlowProvider>
+      <MindmapCanvas {...props} />
+    </ReactFlowProvider>
   );
 }

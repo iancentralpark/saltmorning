@@ -1,0 +1,184 @@
+{
+  "framework": {
+    "code": "ngss-science",
+    "name": "Next Generation Science Standards — Science",
+    "nameKo": "차세대 과학 기준 — 과학",
+    "subject": "SCIENCE",
+    "regionStandard": "US-NGSS",
+    "version": "2013",
+    "description": "NGSS sample pack for Grade 4 Physical Science (energy) and Earth Science slice. Expand with full PE/DCI/CCC/SEP metadata as needed.",
+    "metadata": {
+      "source": "https://www.nextgenscience.org/",
+      "license": "public-reference"
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "ngss-science",
+    "title": "NGSS Science",
+    "titleKo": "NGSS 과학",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4",
+        "titleKo": "4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "4-PS3",
+            "title": "Energy",
+            "titleKo": "에너지",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-PS3-A",
+                "title": "Definitions of Energy",
+                "titleKo": "에너지의 정의",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS3-1",
+                    "title": "Use evidence to relate speed of an object to energy",
+                    "titleKo": "물체의 속도와 에너지 관계 증거로 설명하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Use evidence to construct an explanation relating the speed of an object to the energy of that object.",
+                    "objectives": [
+                      {
+                        "code": "4-PS3-1.a",
+                        "statement": "Students relate greater speed to greater energy using observational evidence.",
+                        "statementKo": "관찰 증거를 바탕으로 속력이 클수록 에너지가 큼을 설명한다.",
+                        "masteryCriteria": "Given 3 motion scenarios, student correctly ranks relative energy and cites speed evidence.",
+                        "masteryCriteriaKo": "운동 상황 3개에서 상대 에너지를 순위로 매기고 속력 근거를 제시한다.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "type": "WORKSHEET",
+                        "title": "Speed & Energy Evidence Log",
+                        "description": "Record observations linking speed and energy (sample placeholder).",
+                        "url": "/resources/ngss/4-PS3-1-log.pdf"
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS3-2",
+                    "title": "Make observations to provide evidence of energy transfer",
+                    "titleKo": "에너지 전달 증거 관찰하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Make observations to provide evidence that energy can be transferred from place to place by sound, light, heat, and electric currents.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify examples of energy transfer by sound, light, heat, and electric current.",
+                        "masteryCriteria": "Student correctly classifies 8/10 transfer examples by mechanism.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-PS3-B",
+                "title": "Conservation of Energy and Energy Transfer",
+                "titleKo": "에너지 보존과 전달",
+                "gradeLevel": "4",
+                "sortOrder": 2,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS3-3",
+                    "title": "Ask questions about energy changes when objects collide",
+                    "titleKo": "물체 충돌 시 에너지 변화에 대해 질문하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Ask questions and predict outcomes about the changes in energy that occur when objects collide.",
+                    "objectives": [
+                      {
+                        "statement": "Students ask testable questions and predict energy changes in collision events.",
+                        "masteryCriteria": "Student writes 1 testable question and 1 evidence-based prediction for a collision demo.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-PS3-4",
+                    "title": "Design a device that converts energy from one form to another",
+                    "titleKo": "한 형태의 에너지를 다른 형태로 바꾸는 장치 설계하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Apply scientific ideas to design, test, and refine a device that converts energy from one form to another.",
+                    "objectives": [
+                      {
+                        "statement": "Students design and refine a simple device demonstrating energy conversion.",
+                        "masteryCriteria": "Prototype shows intentional conversion; student explains input/output forms and one refinement.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4-ESS1",
+            "title": "Earth's Place in the Universe",
+            "titleKo": "우주 속 지구의 위치",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4-ESS1-A",
+                "title": "The History of Planet Earth",
+                "titleKo": "지구의 역사",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4-ESS1-1",
+                    "title": "Identify evidence from rock formations and fossils for landscape change",
+                    "titleKo": "지층·화석 증거로 지형 변화 파악하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Identify evidence from patterns in rock formations and fossils in rock layers to support an explanation for changes in a landscape over time.",
+                    "objectives": [
+                      {
+                        "statement": "Students use rock layer and fossil patterns as evidence of landscape change over time.",
+                        "masteryCriteria": "Student cites ≥2 pattern-based evidence statements supporting a landscape-change explanation.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

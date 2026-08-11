@@ -15,7 +15,12 @@ const accent: Record<string, string> = {
   CUSTOM: "bg-sand-200 text-ink-800",
 };
 
-export function CurriculumNodeView({ data, selected }: NodeProps<CurriculumFlowNode>) {
+export function CurriculumNodeView({
+  data,
+  selected,
+}: NodeProps<CurriculumFlowNode>) {
+  const vertical = data.orientation === "vertical";
+
   return (
     <div
       className={cn(
@@ -25,7 +30,11 @@ export function CurriculumNodeView({ data, selected }: NodeProps<CurriculumFlowN
         data.nodeType === "SKILL" && "cursor-pointer"
       )}
     >
-      <Handle type="target" position={Position.Left} className="!bg-moss-400 !w-2 !h-2" />
+      <Handle
+        type="target"
+        position={vertical ? Position.Top : Position.Left}
+        className="!h-2 !w-2 !bg-moss-400"
+      />
       <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70">
         {data.nodeType}
         {data.code ? ` · ${data.code}` : ""}
@@ -34,7 +43,11 @@ export function CurriculumNodeView({ data, selected }: NodeProps<CurriculumFlowN
       {data.hasChildren && (
         <p className="mt-1 text-[10px] opacity-60">click to expand</p>
       )}
-      <Handle type="source" position={Position.Right} className="!bg-moss-400 !w-2 !h-2" />
+      <Handle
+        type="source"
+        position={vertical ? Position.Bottom : Position.Right}
+        className="!h-2 !w-2 !bg-moss-400"
+      />
     </div>
   );
 }

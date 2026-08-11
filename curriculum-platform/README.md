@@ -55,3 +55,10 @@ Seed packs:
 
 - `prisma/seed/ccss-math-grade-4.json`
 - `prisma/seed/kr2022-korean-grade-4.json`
+- `prisma/seed/ngss-science-grade-4.json`
+
+Curriculum data source: `CURRICULUM_STORE=seed` (default) or `prisma` after `npm run db:migrate && npm run db:seed`.
+
+```bash
+npm run test:smoke   # sequencer sanity check
+```

@@ -19,15 +19,38 @@ export default function SchedulePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/schedule")
-      .then((r) => r.json())
-      .then((payload: SchedulePayload) => {
-        setData(payload);
+  async function loadSchedule(reset = false) {
+    setError(null);
+    try {
+      const res = reset
+        ? await fetch("/api/schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reset: true, gradeLevel: "4" }),
+          })
+        : await fetch("/api/schedule");
+      const payload = (await res.json()) as SchedulePayload & {
+        scheduledLessons: ScheduledLesson[];
+        count?: number;
+      };
+      if (reset) {
+        const full = await fetch("/api/schedule").then((r) => r.json());
+        setData(full);
+        const first = full.scheduledLessons[0]?.scheduledDate;
+        if (first) setSelectedDate(first);
+      } else {
+        setData(payload as SchedulePayload);
         const first = payload.scheduledLessons[0]?.scheduledDate;
         if (first) setSelectedDate(first);
-      })
-      .catch(() => setError("Failed to load schedule"));
+      }
+      setPlans([]);
+    } catch {
+      setError("Failed to load schedule");
+    }
+  }
+
+  useEffect(() => {
+    void loadSchedule(false);
   }, []);
 
   const lessonsByDate = useMemo(() => {
@@ -149,19 +172,28 @@ export default function SchedulePage() {
               <h2 className="font-display text-lg font-semibold">
                 {selectedDate ? `Lessons · ${selectedDate}` : "Select a day"}
               </h2>
-              <button
-                type="button"
-                disabled={!selectedDate || busy || dayLessons.length === 0}
-                onClick={generateForDay}
-                className="inline-flex items-center gap-2 rounded-md bg-coral-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral-600 disabled:opacity-40"
-              >
-                {busy ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                Generate AI lesson plans
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void loadSchedule(true)}
+                  className="rounded-md border border-ink-900/15 bg-white px-3 py-2 text-sm font-semibold text-ink-800 transition hover:bg-moss-100"
+                >
+                  Resequence skills
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedDate || busy || dayLessons.length === 0}
+                  onClick={generateForDay}
+                  className="inline-flex items-center gap-2 rounded-md bg-coral-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral-600 disabled:opacity-40"
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Generate AI lesson plans
+                </button>
+              </div>
             </div>
 
             <ul className="mt-4 space-y-3">

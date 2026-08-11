@@ -1,7 +1,8 @@
-import { listFrameworks } from "@/lib/curriculum/seed-loader";
+import { getCurriculumRepository } from "@/lib/curriculum/repository";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  return Response.json({ frameworks: listFrameworks() });
+  const repo = getCurriculumRepository();
+  return Response.json({ frameworks: await repo.listFrameworks() });
 }

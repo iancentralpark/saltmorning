@@ -44,5 +44,6 @@ Recursive object:
 |------|------|
 | `ccss-math-grade-4.json` | Common Core Math · Grade 4 sample |
 | `kr2022-korean-grade-4.json` | 2022 개정 국어 · 초4 sample (+ CUSTOM school node) |
+| `ngss-science-grade-4.json` | NGSS Science · Grade 4 sample (energy + ESS slice) |
 
 Load via `npm run db:seed` (`prisma/seed.ts`).
