@@ -2619,6 +2619,15 @@ router.get('/admin/students/:studentId', requireRole('admin'), async (req, res) 
   }
 });
 
+router.get('/admin/students/:studentId/grades', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const { getStudentGradeSummary } = require('./services/gradeService');
+    res.json(await getStudentGradeSummary(req.params.studentId, { term: req.query.term || '' }));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load grades.' });
+  }
+});
+
 router.post('/admin/students', requireRole('admin'), async (req, res) => {
   try {
     await ensureRegistrySheets();

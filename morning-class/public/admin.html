@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811parentrel">
+  <link rel="stylesheet" href="/css/app.css?v=20260811adminux">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -49,15 +49,15 @@
         <select id="monitorClass"><option value="" data-i18n="admin.monitor.allClasses">All classes</option></select>
         <select id="monitorType">
           <option value="" data-i18n="admin.monitor.allActivity">All activity</option>
-          <option value="attendance">Attendance</option>
-          <option value="grade">Grades</option>
-          <option value="lesson_plan">Lesson plans</option>
-          <option value="planned_absence">Planned absences</option>
-          <option value="message">Messages</option>
-          <option value="dollar">Dollars</option>
-          <option value="homework">Homework</option>
-          <option value="english_buddy">English Buddy</option>
-          <option value="vocab">Vocab Booster</option>
+          <option value="attendance" data-i18n="admin.monitor.attendance">Attendance</option>
+          <option value="grade" data-i18n="admin.monitor.grades">Grades</option>
+          <option value="lesson_plan" data-i18n="admin.monitor.lessonPlans">Lesson plans</option>
+          <option value="planned_absence" data-i18n="admin.monitor.plannedAbsences">Planned absences</option>
+          <option value="message" data-i18n="admin.monitor.messages">Messages</option>
+          <option value="dollar" data-i18n="admin.monitor.dollars">Dollars</option>
+          <option value="homework" data-i18n="admin.monitor.homework">Homework</option>
+          <option value="english_buddy" data-i18n="admin.monitor.buddy">English Buddy</option>
+          <option value="vocab" data-i18n="admin.monitor.vocab">Vocab Booster</option>
         </select>
         <button type="button" class="btn btn-primary" id="monitorRefresh" data-i18n="admin.monitor.refresh">Refresh</button>
       </div>
@@ -66,16 +66,16 @@
 
     <div id="panelLessons" class="card hidden lp-cal-panel">
       <div class="admin-toolbar">
-        <select id="lpAdminTeacher"><option value="">All teachers</option></select>
-        <select id="lpAdminClass"><option value="">All classes</option></select>
+        <select id="lpAdminTeacher"><option value="" data-i18n="admin.lessons.allTeachers">All teachers</option></select>
+        <select id="lpAdminClass"><option value="" data-i18n="admin.lessons.allClasses">All classes</option></select>
       </div>
       <div class="lp-cal-toolbar">
         <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
         <strong class="lp-month-label"></strong>
         <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
-        <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
+        <button type="button" class="btn btn-ghost lp-today-btn" data-i18n="admin.lessons.today">Today</button>
       </div>
-      <p class="muted small lp-cal-school-note">Day colors follow School calendar (holiday / break / event). Linked with attendance class days.</p>
+      <p class="muted small lp-cal-school-note" data-i18n="admin.lessons.note">Day colors follow School calendar (holiday / break / event). Linked with attendance class days.</p>
       <div id="lpAdminLayout" class="lp-cal-layout">
         <div class="lp-cal-main">
           <div id="lpAdminCalendar"><p class="muted">Loading…</p></div>
@@ -184,112 +184,112 @@
     </div>
 
     <div id="panelClasses" class="card hidden">
-      <h3>Classes</h3>
-      <p class="muted small">Create classes and import students from the registry one at a time. Timetables for students and teachers will be added later.</p>
+      <h3 data-i18n="admin.classes.title">Classes</h3>
+      <p class="muted small" data-i18n="admin.classes.help">Create classes and import students from the registry. Timetables are managed in the Timetables tab.</p>
       <div id="classRegistryMount"></div>
     </div>
 
     <div id="panelSchoolCal" class="card hidden sc-panel">
       <div class="sc-panel-head">
         <div>
-          <h3 style="margin:0">Annual school calendar</h3>
-          <p class="muted small" style="margin:0.35rem 0 0">
-            Korean public holidays sync automatically (no class). Add school holidays, breaks, events, or force a holiday into a school day.
+          <h3 style="margin:0" data-i18n="admin.schoolCal.title">Annual school calendar</h3>
+          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.schoolCal.help">
+            Korean public holidays sync automatically. Add school holidays, breaks, events, or force a holiday into a school day.
           </p>
         </div>
         <div class="sc-toolbar-actions">
           <select id="scClassFilter"></select>
-          <button type="button" class="btn btn-ghost" id="scViewMonth">Monthly</button>
-          <button type="button" class="btn btn-ghost" id="scViewYear">Yearly</button>
-          <button type="button" class="btn btn-primary" id="scPrint">Print plan</button>
+          <button type="button" class="btn btn-ghost" id="scViewMonth" data-i18n="admin.schoolCal.monthly">Monthly</button>
+          <button type="button" class="btn btn-ghost" id="scViewYear" data-i18n="admin.schoolCal.yearly">Yearly</button>
+          <button type="button" class="btn btn-primary" id="scPrint" data-i18n="admin.schoolCal.print">Print plan</button>
         </div>
       </div>
       <div class="sc-nav">
         <button type="button" class="btn btn-ghost" id="scPrev" aria-label="Previous">‹</button>
         <strong id="scLabel"></strong>
         <button type="button" class="btn btn-ghost" id="scNext" aria-label="Next">›</button>
-        <button type="button" class="btn btn-ghost" id="scToday">Today</button>
+        <button type="button" class="btn btn-ghost" id="scToday" data-i18n="admin.schoolCal.today">Today</button>
       </div>
-      <div id="scMount" class="sc-mount"><p class="muted">Loading…</p></div>
+      <div id="scMount" class="sc-mount"><p class="muted" data-i18n="common.loading">Loading…</p></div>
       <div class="sc-editor">
-        <h4 id="scFormTitle">Add to annual plan</h4>
+        <h4 id="scFormTitle" data-i18n="admin.schoolCal.addTitle">Add to annual plan</h4>
         <form id="scEntryForm" class="form-grid admin-form-grid sc-form">
           <input type="hidden" id="scEntryId">
-          <label>Start <input type="date" id="scDate" required></label>
-          <label>End <input type="date" id="scEndDate"></label>
-          <label>Type
+          <label><span data-i18n="admin.schoolCal.start">Start</span> <input type="date" id="scDate" required></label>
+          <label><span data-i18n="admin.schoolCal.end">End</span> <input type="date" id="scEndDate"></label>
+          <label><span data-i18n="admin.schoolCal.type">Type</span>
             <select id="scDayType" required>
-              <option value="holiday">School holiday</option>
-              <option value="break">Break / 방학</option>
-              <option value="event">School event</option>
-              <option value="school_day">Force school day (override holiday)</option>
+              <option value="holiday" data-i18n="admin.schoolCal.type.holiday">School holiday</option>
+              <option value="break" data-i18n="admin.schoolCal.type.break">Break / 방학</option>
+              <option value="event" data-i18n="admin.schoolCal.type.event">School event</option>
+              <option value="school_day" data-i18n="admin.schoolCal.type.schoolDay">Force school day (override holiday)</option>
             </select>
           </label>
-          <label>Title <input id="scTitle" required placeholder="e.g. Sports Day, Summer break"></label>
-          <label>Class
+          <label><span data-i18n="admin.schoolCal.titleField">Title</span> <input id="scTitle" required placeholder="e.g. Sports Day, Summer break"></label>
+          <label><span data-i18n="admin.schoolCal.class">Class</span>
             <select id="scEntryClass">
-              <option value="*">All classes</option>
+              <option value="*" data-i18n="admin.schoolCal.allClasses">All classes</option>
             </select>
           </label>
-          <label class="sc-check"><input type="checkbox" id="scBlocksAttendance" checked> No class / block attendance</label>
-          <label class="sc-notes">Notes <input id="scNotes" placeholder="Optional"></label>
+          <label class="sc-check"><input type="checkbox" id="scBlocksAttendance" checked> <span data-i18n="admin.schoolCal.blockAtt">No class / block attendance</span></label>
+          <label class="sc-notes"><span data-i18n="admin.schoolCal.notes">Notes</span> <input id="scNotes" placeholder="Optional"></label>
           <div class="sc-form-actions">
-            <button type="submit" class="btn btn-primary">Save</button>
-            <button type="button" class="btn btn-ghost" id="scEntryCancel">Clear</button>
+            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
+            <button type="button" class="btn btn-ghost" id="scEntryCancel" data-i18n="admin.schoolCal.clear">Clear</button>
           </div>
           <div class="error" id="scFormError"></div>
         </form>
-        <h4>Entries in view</h4>
+        <h4 data-i18n="admin.schoolCal.entries">Entries in view</h4>
         <div id="scEntryList" class="table-wrap"></div>
       </div>
     </div>
 
     <div id="panelTerms" class="card hidden">
-      <h3>Term dates by class</h3>
-      <p class="muted small">Teachers use the active term automatically. Set date ranges here.</p>
+      <h3 data-i18n="admin.terms.title">Term dates by class</h3>
+      <p class="muted small" data-i18n="admin.terms.help">Teachers use the active term automatically. Set date ranges here.</p>
       <div id="termList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3>Add / update term</h3>
+      <h3 data-i18n="admin.terms.add">Add / update term</h3>
       <form id="termForm" class="form-grid admin-form-grid">
         <select id="termClassId" required></select>
         <input id="termLabel" placeholder="Term label (e.g. Term1)" required>
-        <label>Start <input type="date" id="termStart" required></label>
-        <label>End <input type="date" id="termEnd" required></label>
-        <button type="submit" class="btn btn-primary">Save term</button>
+        <label><span data-i18n="admin.schoolCal.start">Start</span> <input type="date" id="termStart" required></label>
+        <label><span data-i18n="admin.schoolCal.end">End</span> <input type="date" id="termEnd" required></label>
+        <button type="submit" class="btn btn-primary" data-i18n="admin.terms.save">Save term</button>
         <div class="error" id="termError"></div>
       </form>
     </div>
 
     <div id="panelStudents" class="card hidden">
-      <h3>Student registry</h3>
-      <p class="muted small">Master student list for photos, school records, and future class enrollment. Class assignment is optional until you import students into a class.</p>
+      <h3 data-i18n="admin.students.title">Student registry</h3>
+      <p class="muted small" data-i18n="admin.students.help">Master student list for photos, school records, and class enrollment.</p>
       <div id="studentRegistryMount"></div>
     </div>
 
     <div id="panelTimetables" class="card hidden">
-      <h3>Timetables</h3>
-      <p class="muted small">Bell schedule → subject hours → drag chips onto the period grid (or Auto-Solve). Lock cells so the solver keeps them. Toggle Class / Teacher / All-Classes Matrix below.</p>
+      <h3 data-i18n="admin.timetables.title">Timetables</h3>
+      <p class="muted small" data-i18n="admin.timetables.help">Bell schedule → subject hours → drag chips onto the period grid (or Auto-Solve).</p>
       <div id="timetableSetupMount"></div>
       <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border-soft)">
-      <h4>Resource views</h4>
+      <h4 data-i18n="admin.timetables.resources">Resource views</h4>
       <div id="timetableMount"></div>
     </div>
 
     <div id="panelAnnouncements" class="card hidden">
-      <h3 style="margin-top:0">Announcements</h3>
-      <p class="muted small">Post school-wide or class announcements to parents, students, or both. Add a link, photo, or file if needed.</p>
+      <h3 style="margin-top:0" data-i18n="admin.ann.title">Announcements</h3>
+      <p class="muted small" data-i18n="admin.ann.help">Post school-wide or class announcements to parents, students, or both.</p>
       <div id="adminAnnCompose"></div>
       <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border-soft)">
       <div class="admin-toolbar" style="margin-bottom:0.75rem">
-        <button type="button" class="btn btn-ghost" id="adminAnnRefresh">Refresh</button>
+        <button type="button" class="btn btn-ghost" id="adminAnnRefresh" data-i18n="admin.ann.refresh">Refresh</button>
       </div>
-      <div id="adminAnnList"><p class="muted">Loading…</p></div>
+      <div id="adminAnnList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
     </div>
 
     <div id="panelReportCards" class="card hidden">
-      <h3 style="margin-top:0">Report card approvals</h3>
+      <h3 style="margin-top:0" data-i18n="admin.rc.approvals">Report card approvals</h3>
       <p class="muted small" data-i18n="admin.rc.help">Principal queue — sign submitted cards, then share (or schedule share) with parents.</p>
       <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;align-items:center">
-        <button type="button" class="btn btn-ghost" id="adminRcRefresh">Refresh</button>
+        <button type="button" class="btn btn-ghost" id="adminRcRefresh" data-i18n="admin.rc.refresh">Refresh</button>
         <label class="btn btn-ghost">Upload Principal signature
           <input type="file" id="adminRcSigFile" accept="image/png,image/jpeg,image/webp" hidden>
         </label>
@@ -369,18 +369,18 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
-<script src="/js/i18n.js?v=20260811multichild"></script>
+<script src="/js/i18n.js?v=20260811adminux"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260811schoolcal"></script>
 <script src="/js/teacher-analytics.js?v=20260811school"></script>
 <script src="/js/messenger.js?v=20260811kakaotabs"></script>
-<script src="/js/student-registry.js?v=20260811parentrel"></script>
+<script src="/js/student-registry.js?v=20260811adminux"></script>
 <script src="/js/class-registry.js?v=20260709classes"></script>
 <script src="/js/timetable.js?v=20260810ttclass"></script>
 <script src="/js/timetable-setup.js?v=20260810ttpastel"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
-<script src="/js/admin-school-calendar.js?v=20260810attendance"></script>
+<script src="/js/admin-school-calendar.js?v=20260811adminux"></script>
 <script>
 (function() {
   const role = SaltApp.getToken('principal') ? 'principal' : 'admin';

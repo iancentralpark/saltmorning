@@ -260,7 +260,9 @@ window.SaltSchoolCalendar = (function() {
         $('scBlocksAttendance').checked = !!e.blocksAttendance;
         $('scNotes').value = e.notes || '';
         $('scEntryClass').value = e.classId || '*';
-        $('scFormTitle').textContent = 'Edit calendar entry';
+        $('scFormTitle').textContent = (window.SaltI18n
+          ? SaltI18n.t('admin.schoolCal.editTitle', 'Edit calendar entry')
+          : 'Edit calendar entry');
       });
     });
   }
@@ -268,7 +270,9 @@ window.SaltSchoolCalendar = (function() {
   function resetForm() {
     $('scEntryId').value = '';
     $('scEntryForm').reset();
-    $('scFormTitle').textContent = 'Add to annual plan';
+    $('scFormTitle').textContent = (window.SaltI18n
+      ? SaltI18n.t('admin.schoolCal.addTitle', 'Add to annual plan')
+      : 'Add to annual plan');
     syncBlocksDefault();
   }
 

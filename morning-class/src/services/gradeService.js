@@ -712,5 +712,107 @@ module.exports = {
   pctScore,
   ensureGradesColumns,
   ensureAssessmentSheet,
-  clearGradebookCache
+  clearGradebookCache,
+  getStudentGradeSummary
 };
+
+/**
+ * Admin/parent-facing compact grade summary for one student (all subjects).
+ */
+async function getStudentGradeSummary(studentId, opts) {
+  opts = opts || {};
+  const { CLASS_TEACHERS_SHEET, GRADE_ASSESSMENTS_SHEET } = require('../config');
+  const { getStudent } = require('./studentRegistryService');
+  const { getActiveTerm, listGradeTerms } = require('./gradeWeightService');
+
+  const student = await getStudent(studentId);
+  if (!student) throw new Error('Student not found.');
+  if (!student.classId) {
+    return {
+      studentId,
+      name: student.name || '',
+      classId: '',
+      className: '',
+      term: '',
+      terms: [],
+      subjects: [],
+      message: 'Student is not assigned to a class yet.'
+    };
+  }
+
+  let termLabel = String(opts.term || '').trim();
+  if (!termLabel) {
+    const active = await getActiveTerm(student.classId).catch(() => null);
+    termLabel = (active && active.label) || 'Term1';
+  }
+
+  const subjectSet = new Set();
+  try {
+    const assignRows = await getSheetRows(CLASS_TEACHERS_SHEET);
+    for (let i = 1; i < assignRows.length; i++) {
+      if (String(assignRows[i][0]) !== String(student.classId)) continue;
+      const subj = String(assignRows[i][3] || '').trim();
+      if (subj && subj !== 'All' && subj !== 'All subjects') subjectSet.add(subj);
+    }
+  } catch (_) { /* optional */ }
+  try {
+    const assessRows = await getSheetRows(GRADE_ASSESSMENTS_SHEET);
+    for (let i = 1; i < assessRows.length; i++) {
+      if (String(assessRows[i][1]) !== String(student.classId)) continue;
+      const subj = String(assessRows[i][3] || '').trim();
+      if (subj) subjectSet.add(subj);
+    }
+  } catch (_) { /* optional */ }
+
+  const subjects = Array.from(subjectSet).sort((a, b) => a.localeCompare(b));
+  const roster = [{ studentId: student.studentId, name: student.name || student.studentId }];
+  const out = [];
+  for (const subject of subjects) {
+    try {
+      const gb = await getGradebook(student.classId, termLabel, subject, roster);
+      const row = (gb.students || [])[0] || null;
+      const columns = gb.columns || [];
+      out.push({
+        subject,
+        finalGrade: row && row.finalGrade != null ? row.finalGrade : null,
+        gradedWeightPercent: row ? row.gradedWeightPercent : 0,
+        weights: (gb.weights || []).map((w) => ({
+          categoryKey: w.categoryKey,
+          label: w.label,
+          weightPercent: w.weightPercent
+        })),
+        recent: columns.slice(-6).map((c) => {
+          const cell = row && row.cells ? row.cells[c.assessmentId] : null;
+          return {
+            title: c.title || c.categoryLabel || c.assessmentId,
+            date: c.date || '',
+            categoryLabel: c.categoryLabel || c.categoryKey || '',
+            score: cell ? cell.score : null,
+            maxScore: cell ? cell.maxScore : (c.maxScore || null),
+            percent: cell ? cell.percent : null
+          };
+        })
+      });
+    } catch (_) {
+      out.push({
+        subject,
+        finalGrade: null,
+        gradedWeightPercent: 0,
+        weights: [],
+        recent: []
+      });
+    }
+  }
+
+  const terms = await listGradeTerms(student.classId).catch(() => []);
+  return {
+    studentId: student.studentId,
+    name: student.name || '',
+    classId: student.classId,
+    className: student.className || '',
+    term: termLabel,
+    terms: terms.map((t) => t.label).filter(Boolean),
+    subjects: out,
+    message: subjects.length ? '' : 'No graded subjects found for this class yet.'
+  };
+}

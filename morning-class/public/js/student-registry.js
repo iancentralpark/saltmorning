@@ -1,5 +1,12 @@
 (function (global) {
-  const SECTION_LABELS = {
+  const SECTION_KEYS = {
+    basic: 'sr.section.basic',
+    parents: 'sr.section.parents',
+    gradebook: 'sr.section.gradebook',
+    schedule: 'sr.section.schedule',
+    medical: 'sr.section.medical'
+  };
+  const SECTION_FALLBACK = {
     basic: 'Basic info',
     parents: 'Parents',
     gradebook: 'Gradebook',
@@ -20,7 +27,36 @@
   let activeStudent = null;
   let activeSection = 'basic';
   let linkedParents = [];
+  let liveGrades = null;
   let listFilter = { q: '', classId: '', status: '' };
+
+  function t(key, fallback) {
+    return global.SaltI18n ? SaltI18n.t(key, fallback) : (fallback || key);
+  }
+
+  function sectionLabel(key) {
+    return t(SECTION_KEYS[key] || key, SECTION_FALLBACK[key] || key);
+  }
+
+  function showSaveToast(message, isError) {
+    let toast = document.getElementById('srSaveToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'srSaveToast';
+      toast.className = 'sr-save-toast hidden';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message || t('common.saved', 'Saved.');
+    toast.classList.toggle('is-error', !!isError);
+    toast.classList.remove('hidden');
+    clearTimeout(showSaveToast._timer);
+    showSaveToast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+    const errEl = mountEl && mountEl.querySelector('.sr-save-error');
+    if (errEl) {
+      errEl.style.color = isError ? '#dc2626' : '#16a34a';
+      errEl.textContent = message || '';
+    }
+  }
 
   function apiBase() {
     return role === 'admin' ? '/api/admin/students' : '/api/teacher/students';
@@ -99,7 +135,7 @@
     const p = s.profile || {};
     const canEdit = !readonly;
 
-    const sectionKeys = Object.keys(SECTION_LABELS).filter((key) => {
+    const sectionKeys = Object.keys(SECTION_KEYS).filter((key) => {
       if (key === 'parents' && role !== 'admin') return false;
       return true;
     });
@@ -107,7 +143,7 @@
 
     let tabs = sectionKeys.map((key) =>
       '<button type="button" class="sr-section-tab' + (activeSection === key ? ' active' : '') +
-      '" data-section="' + key + '">' + SECTION_LABELS[key] + '</button>'
+      '" data-section="' + key + '">' + escapeHtml(sectionLabel(key)) + '</button>'
     ).join('');
 
     let body = '';
@@ -249,6 +285,14 @@
           '</div>' +
           '<div class="error sr-parent-error" style="margin-top:0.5rem"></div>';
       }
+    } else if (activeSection === 'gradebook') {
+      body =
+        '<div class="sr-grades-live" id="srGradesLive"><p class="muted">' +
+        escapeHtml(t('common.loading', 'Loading…')) + '</p></div>' +
+        '<h4 class="sr-subsection-title">' + escapeHtml(t('sr.gradebook.notesTitle', 'Placement / admin notes')) + '</h4>' +
+        '<p class="muted small">' + escapeHtml(t('sr.gradebook.notesHelp',
+          'Optional notes (placement, ESL level). Live class grades are shown above from the teacher gradebook.')) + '</p>' +
+        renderSectionFields('gradebook');
     } else if (activeSection === 'schedule') {
       if (!activeStudent.studentId) {
         body = '<p class="muted">Save the student first to add a weekly timetable.</p>' + renderSectionFields('schedule');
@@ -275,7 +319,8 @@
         escapeHtml(s.status) + '</span>' : '') +
       '</div></div></div>' +
       '<div class="sr-detail-actions">' +
-      (canEdit ? '<button type="button" class="btn btn-primary sr-save-btn">Save</button>' : '') +
+      (canEdit ? '<button type="button" class="btn btn-primary sr-save-btn">' +
+        escapeHtml(t('common.save', 'Save')) + '</button>' : '') +
       (canEdit && s.studentId && s.status !== 'Withdrawn'
         ? '<button type="button" class="btn btn-danger sr-withdraw-btn">Delete</button>' : '') +
       (canEdit && s.studentId && s.status === 'Withdrawn'
@@ -289,6 +334,80 @@
 
     bindDetailEvents();
     mountScheduleTimetable();
+    if (activeSection === 'gradebook' && activeStudent && activeStudent.studentId) {
+      loadLiveGrades(activeStudent.studentId);
+    }
+  }
+
+  function renderLiveGrades(mount) {
+    if (!mount) return;
+    if (!liveGrades) {
+      mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+      return;
+    }
+    if (liveGrades.message && !(liveGrades.subjects || []).length) {
+      mount.innerHTML = '<p class="muted">' + escapeHtml(liveGrades.message) + '</p>';
+      return;
+    }
+    const terms = liveGrades.terms || [];
+    const termOpts = (terms.length ? terms : [liveGrades.term || 'Term1']).map((term) =>
+      '<option value="' + escapeHtml(term) + '"' +
+      (term === liveGrades.term ? ' selected' : '') + '>' + escapeHtml(term) + '</option>'
+    ).join('');
+    let html =
+      '<div class="sr-grades-live-head">' +
+      '<div><strong>' + escapeHtml(t('sr.gradebook.liveTitle', 'Class gradebook')) + '</strong>' +
+      '<div class="muted small">' + escapeHtml(liveGrades.className || liveGrades.classId || '') + '</div></div>' +
+      '<label class="muted small">' + escapeHtml(t('sr.gradebook.term', 'Term')) + ' ' +
+      '<select class="sr-grades-term" id="srGradesTerm">' + termOpts + '</select></label>' +
+      '</div>';
+    const subjects = liveGrades.subjects || [];
+    if (!subjects.length) {
+      html += '<p class="muted">' + escapeHtml(t('sr.gradebook.empty', 'No grades recorded yet.')) + '</p>';
+    } else {
+      html += subjects.map((subj) => {
+        const final = subj.finalGrade == null || subj.finalGrade === ''
+          ? '—'
+          : (Number(subj.finalGrade).toFixed(1) + '%');
+        const chips = (subj.recent || []).filter((r) => r.score != null && r.score !== '').map((r) =>
+          '<span class="sr-grade-chip" title="' + escapeHtml(r.date || '') + '">' +
+          escapeHtml(r.title) + ': ' + escapeHtml(String(r.score)) +
+          (r.maxScore != null ? '/' + escapeHtml(String(r.maxScore)) : '') +
+          '</span>'
+        ).join('');
+        return '<div class="sr-grade-subject">' +
+          '<div class="sr-grade-subject-head">' +
+          '<strong>' + escapeHtml(subj.subject) + '</strong>' +
+          '<span class="sr-grade-final">' + escapeHtml(final) + '</span>' +
+          '</div>' +
+          (chips ? '<div class="sr-grade-recent">' + chips + '</div>' :
+            '<div class="muted small">' + escapeHtml(t('sr.gradebook.noScores', 'No scored assessments yet.')) + '</div>') +
+          '</div>';
+      }).join('');
+    }
+    mount.innerHTML = html;
+    const sel = mount.querySelector('#srGradesTerm');
+    if (sel) {
+      sel.addEventListener('change', () => {
+        if (activeStudent && activeStudent.studentId) {
+          loadLiveGrades(activeStudent.studentId, sel.value);
+        }
+      });
+    }
+  }
+
+  async function loadLiveGrades(studentId, term) {
+    const mount = mountEl && mountEl.querySelector('#srGradesLive');
+    if (!mount || role !== 'admin') return;
+    mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const q = term ? ('?term=' + encodeURIComponent(term)) : '';
+      liveGrades = await api('/api/admin/students/' + encodeURIComponent(studentId) + '/grades' + q, {}, role);
+      if (activeSection === 'gradebook') renderLiveGrades(mount);
+    } catch (e) {
+      liveGrades = null;
+      mount.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Failed to load grades') + '</p>';
+    }
   }
 
   function mountScheduleTimetable() {
@@ -419,6 +538,9 @@
         renderDetail();
         if (activeSection === 'parents' && activeStudent && activeStudent.studentId) {
           loadLinkedParents(activeStudent.studentId);
+        }
+        if (activeSection === 'gradebook' && activeStudent && activeStudent.studentId) {
+          loadLiveGrades(activeStudent.studentId);
         }
       });
     });
@@ -657,13 +779,11 @@
       const data = await api(apiBase(), { method: 'POST', body: payload }, role);
       activeStudent = data.student;
       activeId = activeStudent.studentId;
-      errEl.style.color = '#16a34a';
-      errEl.textContent = 'Saved.';
       await loadList();
       renderDetail();
+      showSaveToast(t('common.saved', 'Saved.'), false);
     } catch (e) {
-      errEl.style.color = '#dc2626';
-      errEl.textContent = e.message;
+      showSaveToast(e.message || 'Save failed', true);
     }
   }
 
@@ -840,6 +960,7 @@
     activeId = studentId;
     activeSection = 'basic';
     linkedParents = [];
+    liveGrades = null;
     try {
       const data = await api(apiBase() + '/' + encodeURIComponent(studentId), {}, role);
       activeStudent = data.student;
@@ -881,7 +1002,18 @@
     activeId = null;
     activeStudent = null;
     activeSection = 'basic';
+    linkedParents = [];
+    liveGrades = null;
     renderShell();
+    if (!init._langBound) {
+      init._langBound = true;
+      window.addEventListener('salt:langchange', () => {
+        if (!mountEl) return;
+        renderShell();
+        renderList();
+        renderDetail();
+      });
+    }
   }
 
   async function open() {

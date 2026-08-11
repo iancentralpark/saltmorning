@@ -3161,8 +3161,95 @@ body.buddy-resize-active {
 .sc-mini-event { background: #fef3c7; }
 .sc-mini-force, .sc-mini-class { background: #dbeafe; }
 .sc-editor { margin-top: 1.25rem; border-top: 1px solid var(--border-soft); padding-top: 1rem; }
-.sc-form .sc-check { display: flex; align-items: center; gap: 0.4rem; }
+.sc-form.admin-form-grid {
+  max-width: 760px;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+.sc-form.admin-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.sc-form.admin-form-grid input,
+.sc-form.admin-form-grid select {
+  width: 100%;
+}
+.sc-form .sc-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-direction: row;
+  padding-bottom: 0.35rem;
+}
+.sc-form .sc-notes,
+.sc-form .sc-form-actions,
+.sc-form #scFormError {
+  grid-column: 1 / -1;
+}
 .sc-form-actions { display: flex; gap: 0.5rem; align-items: center; }
+@media (max-width: 640px) {
+  .sc-form.admin-form-grid { grid-template-columns: 1fr; }
+}
+.sr-save-toast {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 80;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--sage);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,0.18));
+}
+.sr-save-toast.is-error { background: #dc2626; }
+.sr-grades-live { margin-bottom: 1rem; }
+.sr-grades-live-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+.sr-grades-term {
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.35rem;
+  font-size: 0.85rem;
+}
+.sr-grade-subject {
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.65rem 0;
+}
+.sr-grade-subject:last-child { border-bottom: none; }
+.sr-grade-subject-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.35rem;
+}
+.sr-grade-final {
+  font-weight: 700;
+  color: var(--olive-deep, #3f6212);
+}
+.sr-grade-recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.sr-grade-chip {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.35rem;
+  background: var(--cream);
+  border: 1px solid var(--border-soft);
+}
 .sc-entry-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .sc-entry-table th, .sc-entry-table td { border-bottom: 1px solid var(--border-soft); padding: 0.4rem; text-align: left; }
 .sc-print-head { grid-column: 1 / -1; margin-bottom: 0.5rem; }
