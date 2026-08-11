@@ -49,7 +49,7 @@
         // deploy; on mismatch we force exactly one hard reload (with a cache-busting
         // query param) so the home-screen icon can never get stuck on stale UI.
         (function() {
-            var APP_BUILD = '2026-07-31.08';
+            var APP_BUILD = '2026-08-11.01';
             window.MRPARK_BUILD = APP_BUILD;
             var KEY = 'mrpark_app_build';
             try {
@@ -6446,6 +6446,15 @@
                     </button>
                 </div>
             </div>
+            <div class="sidebar-tools-timer-label"><i class="fa-solid fa-sitemap"></i> CurricuMap</div>
+            <div class="sidebar-tools-action-row tools-row-2" style="margin-bottom:0.65rem">
+                <a class="btn btn-primary" id="openCurricuMapScheduleBtn" href="https://curricumap-production.up.railway.app/schedule?embed=1" target="_blank" rel="noopener" title="Open CurricuMap schedule">
+                    <i class="fa-solid fa-calendar-days"></i> Schedule
+                </a>
+                <a class="btn btn-outline-primary" id="openCurricuMapMindmapBtn" href="https://curricumap-production.up.railway.app/map?embed=1" target="_blank" rel="noopener" title="Open CurricuMap mindmap">
+                    <i class="fa-solid fa-brain"></i> Mindmap
+                </a>
+            </div>
             <div class="sidebar-tools-timer-label"><i class="fa-solid fa-stopwatch"></i> Vocab Test Timer</div>
             <div class="sidebar-tools-timer-row">
                 <button type="button" class="btn" id="timer2Btn">2 min</button>
@@ -9065,6 +9074,7 @@
         document.getElementById('openDiceBtn').addEventListener('click', openDiceWindow);
         document.getElementById('openLuckyDrawBtn').addEventListener('click', openLuckyDrawWindow);
         document.getElementById('openUnluckyDrawBtn').addEventListener('click', openUnluckyDrawWindow);
+        wireCurricuMapLinks();
         initStampBoardSidebarLauncher();
         initAbuseAlertSidebarLauncher();
         initVocabLmsModal();
@@ -9772,6 +9782,21 @@
         } catch (e) { /* ignore */ }
     }
 
+    var CURRICUMAP_BASE = 'https://curricumap-production.up.railway.app';
+
+    function wireCurricuMapLinks() {
+        var scheduleBtn = document.getElementById('openCurricuMapScheduleBtn');
+        var mindmapBtn = document.getElementById('openCurricuMapMindmapBtn');
+        if (!scheduleBtn && !mindmapBtn) return;
+        var params = new URLSearchParams();
+        params.set('embed', '1');
+        if (selectedClass && selectedClass.id) params.set('classId', String(selectedClass.id));
+        if (selectedClass && selectedClass.name) params.set('className', String(selectedClass.name));
+        var q = '?' + params.toString();
+        if (scheduleBtn) scheduleBtn.href = CURRICUMAP_BASE + '/schedule' + q;
+        if (mindmapBtn) mindmapBtn.href = CURRICUMAP_BASE + '/map' + q;
+    }
+
     // 클래스 버튼 탭 했을 때 행동
     function selectClass(cls, btnElement) {
         var classChanged = !selectedClass || selectedClass.id !== cls.id;
@@ -9785,6 +9810,7 @@
             workPanelsBlocked = false;
             clearWorkPanelStudents();
         }
+        wireCurricuMapLinks();
         updateClassWelcomePanel();
         
         // 버튼 Active 토글 스타일 입히기

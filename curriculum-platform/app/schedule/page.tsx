@@ -167,9 +167,18 @@ export default function SchedulePage() {
             <strong>Generate AI lesson plans</strong> to draft warm-up → closure for each.
           </li>
           <li>
-            From <strong>Salt Morning → Lesson plan</strong>, use{" "}
-            <em>Open CurricuMap schedule</em> so your teacher/class IDs are passed in. Class
-            Tools is unrelated — curriculum links live on the lesson panel.
+            From <strong>Salt Morning Teacher → Class Tools</strong>, open{" "}
+            <em>CurricuMap → Schedule</em> (class ID is passed automatically when a class is
+            selected). Direct link:{" "}
+            <a
+              href="https://curricumap-production.up.railway.app/schedule"
+              className="font-semibold text-moss-700 underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              curricumap schedule
+            </a>
+            .
           </li>
         </ol>
         <p className="mt-2 text-xs text-ink-700/70">

@@ -77,6 +77,14 @@
       <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
     </div>
 
+    <div class="lp-curricumap-bar card" style="margin:0.75rem 0;padding:0.75rem 1rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+      <strong style="margin-right:0.25rem">CurricuMap</strong>
+      <a id="lpCurricuMapLink" class="btn btn-primary" href="https://curricumap-production.up.railway.app/schedule?embed=1" target="_blank" rel="noopener">Open schedule</a>
+      <a id="lpCurricuMapMindmap" class="btn btn-ghost" href="https://curricumap-production.up.railway.app/map?embed=1" target="_blank" rel="noopener">Open mindmap</a>
+      <a id="lpCurricuMapHelp" class="btn btn-ghost" href="https://curricumap-production.up.railway.app/docs/api" target="_blank" rel="noopener">How it connects</a>
+      <span class="muted small">Standards → lesson plans / worksheets</span>
+    </div>
+
     <div id="panelAttendance" class="card att-panel">
       <div class="att-toolbar">
         <label class="att-date-label">Date <input type="date" id="attDate"></label>
@@ -162,11 +170,6 @@
         <div class="lp-cal-main">
           <div id="lpCalendarMount"><p class="muted">Loading calendar…</p></div>
         </div>
-      </div>
-      <div class="lp-curricumap-bar" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <a id="lpCurricuMapLink" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open CurricuMap schedule</a>
-        <a id="lpCurricuMapMindmap" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open curriculum mindmap</a>
-        <span class="muted small">AI-mapped standards → daily plans</span>
       </div>
     </div>
   </div>
@@ -385,6 +388,7 @@
     $('attDate').value = todayISO();
     $('gradeSubject').value = (cls.subjects && cls.subjects !== 'All subjects') ? cls.subjects.split(',')[0].trim() : 'English';
     $('reportTerm').value = $('gradeTerm').value || 'Term1';
+    if (SaltLesson.wireCurricuMapLinks) SaltLesson.wireCurricuMapLinks();
     switchTab('attendance');
     SaltAttendance.onClassOpen();
   }

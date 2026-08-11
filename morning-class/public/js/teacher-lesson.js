@@ -137,6 +137,7 @@ window.SaltLesson = (function() {
   async function onClassOpen() {
     setMount('lpCalendarMount');
     readOnly = false;
+    await wireCurricuMapLinks();
     await loadSubjectGroups();
     await loadCalendar();
     if (deps.onClassOpenExtra) deps.onClassOpenExtra();
@@ -616,6 +617,7 @@ window.SaltLesson = (function() {
   }
 
   function onSubjectChange() {
+    wireCurricuMapLinks();
     if (!activeSlot) return;
     activeSlot = Object.assign({}, activeSlot, { subject: $('lpSubjectSelect').value });
     $('lpDrawerMeta').textContent = activeSlot.className + ' · ' + activeSlot.subject;
@@ -759,6 +761,7 @@ window.SaltLesson = (function() {
     loadCalendar,
     loadAdminCalendar,
     loadSubjectGroups,
+    wireCurricuMapLinks,
     closeDrawer,
     closeAdminDrawer,
     setMount,
