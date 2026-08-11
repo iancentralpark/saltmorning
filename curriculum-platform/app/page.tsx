@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { FrameworkCatalog } from "@/components/FrameworkCatalog";
+import { AuthBanner } from "@/components/AuthBanner";
 import { ArrowRight, GitBranch, CalendarRange, Plug } from "lucide-react";
 
 export default function HomePage() {
   return (
     <div>
+      <AuthBanner />
       <section className="relative overflow-hidden">
         <div
           className="pointer-events-none absolute inset-0 opacity-40"

@@ -14,7 +14,18 @@ type SessionInfo = {
 
 type OrgOption = { code: string; name: string };
 
-type OAuthFlags = { google?: boolean; microsoft?: boolean; apple?: boolean };
+type OAuthFlags = {
+  google?: boolean;
+  microsoft?: boolean;
+  apple?: boolean;
+};
+
+function nextPath() {
+  if (typeof window === "undefined") return "/map";
+  const n = new URLSearchParams(window.location.search).get("next");
+  if (n && n.startsWith("/") && !n.startsWith("//")) return n;
+  return "/map";
+}
 
 export function DemoAuth() {
   const [session, setSession] = useState<SessionInfo | null>(null);
@@ -51,8 +62,8 @@ export function DemoAuth() {
         body: JSON.stringify({ orgCode, role: "teacher" }),
       });
       writeOrg(orgCode);
-      await refresh();
-      setOpen(false);
+      const dest = nextPath();
+      window.location.href = dest;
     } finally {
       setBusy(false);
     }
@@ -70,6 +81,8 @@ export function DemoAuth() {
     }
   }
 
+  const nextQ = `?next=${encodeURIComponent(nextPath())}`;
+
   if (session) {
     const label =
       session.displayName ||
@@ -77,9 +90,9 @@ export function DemoAuth() {
       session.orgName ||
       session.orgCode;
     return (
-      <div className="hidden items-center gap-1.5 sm:flex">
+      <div className="flex items-center gap-1.5">
         <span
-          className="max-w-[10rem] truncate text-[11px] font-semibold text-moss-700"
+          className="max-w-[9rem] truncate text-[11px] font-semibold text-moss-700 sm:max-w-[10rem]"
           title={session.email || session.orgCode}
         >
           {label}
@@ -97,10 +110,10 @@ export function DemoAuth() {
   }
 
   return (
-    <div className="relative hidden items-center gap-1.5 sm:flex">
+    <div className="relative flex items-center gap-1.5">
       {oauth.google && (
         <a
-          href="/api/auth/google/start"
+          href={`/api/auth/google/start${nextQ}`}
           className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
         >
           Google
@@ -108,16 +121,16 @@ export function DemoAuth() {
       )}
       {oauth.microsoft && (
         <a
-          href="/api/auth/microsoft/start"
-          className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
+          href={`/api/auth/microsoft/start${nextQ}`}
+          className="hidden rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100 sm:inline"
         >
           Microsoft
         </a>
       )}
       {oauth.apple && (
         <a
-          href="/api/auth/apple/start"
-          className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
+          href={`/api/auth/apple/start${nextQ}`}
+          className="hidden rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100 sm:inline"
         >
           Apple
         </a>

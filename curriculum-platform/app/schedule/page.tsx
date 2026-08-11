@@ -121,20 +121,9 @@ export default function SchedulePage() {
     setError(null);
     setSyncMsg(null);
     try {
-      const res = await fetch("/api/portal/v1/calendar/sync", {
+      const res = await fetch("/api/schedule/sync-demo", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": "dev-portal-key",
-        },
-        body: JSON.stringify({
-          holidays: {
-            "2026-03-03": "Samiljeol (synced)",
-            "2026-03-09": "School Foundation Day",
-          },
-          blackouts: [{ date: "2026-03-06", title: "Staff PD (synced)" }],
-          resequence: true,
-        }),
+        headers: { "Content-Type": "application/json" },
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Sync failed");
@@ -153,7 +142,7 @@ export default function SchedulePage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <div className="animate-rise flex items-start gap-3">
+      <div className="animate-rise schedule-hero-chrome flex items-start gap-3">
         <CalendarRange className="mt-1 h-6 w-6 text-coral-500" />
         <div>
           <h1 className="font-display text-3xl font-semibold text-ink-900">

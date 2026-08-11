@@ -80,6 +80,90 @@
                       }
                     ],
                     "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SA.3",
+                    "title": "Choose a calm-down strategy for a strong feeling",
+                    "titleKo": "강한 감정에 맞는 진정 전략 고르기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Students select and practice one calm-down strategy matched to a feeling.",
+                    "objectives": [
+                      {
+                        "statement": "Students name a feeling and pick an appropriate regulation strategy.",
+                        "masteryCriteria": "Feeling + strategy pair justified for 2 scenarios.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5",
+        "titleKo": "5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "SEL.SM",
+            "title": "Self-Management",
+            "titleKo": "자기관리",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SEL.SM.Goals",
+                "title": "Goal setting",
+                "titleKo": "목표 설정",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SM.1",
+                    "title": "Set a short-term academic or social goal",
+                    "titleKo": "단기 학습·관계 목표 세우기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Students write a specific short-term goal with one success check.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a SMART-ish goal with a check-in step.",
+                        "masteryCriteria": "Goal + check-in completed on planner card.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SM.2",
+                    "title": "Reflect on progress toward a goal",
+                    "titleKo": "목표 진행 돌아보기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Students reflect on what helped or blocked goal progress.",
+                    "objectives": [
+                      {
+                        "statement": "Students name one helper and one blocker for their goal.",
+                        "masteryCriteria": "Reflection includes helper + blocker + next step.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
                   }
                 ]
               }

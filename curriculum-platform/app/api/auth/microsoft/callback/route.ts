@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   exchangeMicrosoftCode,
   isMicrosoftOAuthConfigured,
-  orgForEmail,
 } from "@/lib/auth/microsoft";
-import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
+import { finishOAuthSession, readOAuthState } from "@/lib/auth/oauth-flow";
 
 export const runtime = "nodejs";
 
@@ -23,42 +22,14 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const expected = req.cookies.get("curricumap_oauth_state")?.value;
+  const expected = readOAuthState(req);
   if (!code || !state || !expected || state !== expected) {
     return NextResponse.redirect(new URL("/?auth=invalid-state", req.url));
   }
 
   try {
     const user = await exchangeMicrosoftCode(code);
-    const orgCode = orgForEmail(user.email);
-    const token = signSession({
-      orgCode,
-      role: "teacher",
-      demoUserId: `microsoft:${user.sub}`,
-      provider: "microsoft",
-      email: user.email,
-      displayName: user.name,
-    });
-
-    const res = NextResponse.redirect(new URL("/map", req.url));
-    res.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60,
-    });
-    res.cookies.set("curricumap_oauth_state", "", {
-      httpOnly: true,
-      path: "/",
-      maxAge: 0,
-    });
-    res.cookies.set("curricumap_oauth_provider", "", {
-      httpOnly: true,
-      path: "/",
-      maxAge: 0,
-    });
-    return res;
+    return finishOAuthSession(req, user, "microsoft");
   } catch (e) {
     const msg = e instanceof Error ? e.message : "oauth-failed";
     return NextResponse.redirect(

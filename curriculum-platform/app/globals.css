@@ -77,3 +77,11 @@ html[data-embed="1"] .site-header {
 html[data-embed="1"] body {
   background: #f3f7f4;
 }
+
+html[data-embed="1"] .map-shell {
+  height: 100vh !important;
+}
+
+html[data-embed="1"] .schedule-hero-chrome {
+  display: none;
+}

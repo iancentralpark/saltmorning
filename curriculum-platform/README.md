@@ -94,10 +94,14 @@ Curriculum data source: `CURRICULUM_STORE=seed` (default) or `prisma` after migr
 Schedule persistence: `SCHEDULE_STORE=memory` (default) or `prisma`.
 
 ```bash
+npm run test:all     # seed + session + oauth + auth + sequencer + calendar
 npm run test:smoke   # sequencer
 npm run test:ui      # Playwright drawer + AI plans
 npm run test:prisma  # Postgres schedule write path
+npm run test:seed    # validate seed JSON packs
 ```
+
+Production credentials & cron: see [OPS.md](./OPS.md).
 
 ### Salt Morning bridge
 

@@ -141,7 +141,7 @@ Header: x-api-key: $PORTAL_API_KEY`}
               <code>POST /api/lesson-plans</code> — generate by date or scheduledLessonId
             </li>
             <li>
-              <code>POST /api/nodes/:id/materials</code> — AI quiz / worksheet stub
+              <code>POST /api/nodes/:id/materials</code> — AI quiz / worksheet (Gemini flash or deterministic)
             </li>
           </ul>
         </div>

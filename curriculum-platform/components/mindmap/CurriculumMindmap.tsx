@@ -176,7 +176,7 @@ function MindmapCanvas({ initialFramework, initialOrg }: Props) {
   );
 
   return (
-    <div className="flex h-[calc(100vh-57px)] flex-col">
+    <div className="map-shell flex h-[calc(100vh-57px)] flex-col">
       <div className="flex flex-wrap items-center gap-3 border-b border-ink-900/10 bg-white/50 px-4 py-3 sm:px-6">
         <label className="text-sm font-medium text-ink-800">
           Framework

@@ -29,6 +29,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{if(/[?&]embed=1(?:&|$)/.test(location.search))document.documentElement.dataset.embed='1';}catch(e){}})();",
+          }}
+        />
+      </head>
       <body className={`${display.variable} ${sans.variable} font-sans antialiased`}>
         <EmbedMode />
         <div className="min-h-screen">
@@ -43,7 +51,7 @@ export default function RootLayout({
                 </span>
               </Link>
               <nav
-                className="flex items-center text-sm font-medium text-ink-800"
+                className="flex flex-wrap items-center justify-end text-sm font-medium text-ink-800"
                 style={{ gap: "0.5rem" }}
               >
                 <DemoAuth />
@@ -62,7 +70,7 @@ export default function RootLayout({
                 </Link>
                 <Link
                   href="/docs/api"
-                  className="rounded-md px-3 py-1.5 transition hover:bg-moss-100 hover:text-moss-700"
+                  className="hidden rounded-md px-3 py-1.5 transition hover:bg-moss-100 hover:text-moss-700 sm:inline"
                 >
                   Portal API
                 </Link>

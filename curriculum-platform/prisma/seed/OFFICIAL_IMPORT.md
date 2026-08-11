@@ -27,6 +27,8 @@ npx tsx scripts/expand-math-k12.ts
 npx tsx scripts/expand-kr-ngss-grades.ts
 npx tsx scripts/expand-k12-breadth.ts
 npx tsx scripts/expand-hs-ms-packs.ts
+npm run import:pack -- --in imports/sample-geometry-stats.csv --out prisma/seed/x.json --code x --name X --subject MATH
+npm run test:seed
 ```
 
 These are idempotent where possible (skip grades that already exist).

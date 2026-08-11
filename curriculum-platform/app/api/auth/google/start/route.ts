@@ -1,13 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   buildGoogleAuthUrl,
   createOAuthState,
   isGoogleOAuthConfigured,
 } from "@/lib/auth/google";
+import { beginOAuthRedirect } from "@/lib/auth/oauth-flow";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!isGoogleOAuthConfigured()) {
     return NextResponse.json(
       { error: "Google OAuth is not configured" },
@@ -15,20 +16,5 @@ export async function GET() {
     );
   }
   const state = createOAuthState();
-  const res = NextResponse.redirect(buildGoogleAuthUrl(state));
-  res.cookies.set("curricumap_oauth_state", state, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 600,
-  });
-  res.cookies.set("curricumap_oauth_provider", "google", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 600,
-  });
-  return res;
+  return beginOAuthRedirect(req, buildGoogleAuthUrl(state), state, "google");
 }

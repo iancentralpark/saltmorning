@@ -70,11 +70,11 @@ export function OrgSwitcher() {
       ];
 
   return (
-    <label className="hidden items-center gap-1.5 text-xs font-medium text-ink-700 sm:flex">
+    <label className="flex items-center gap-1.5 text-xs font-medium text-ink-700">
       <span className="sr-only">Organization</span>
       <select
         aria-label="Organization filter"
-        className="max-w-[11rem] rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-xs font-semibold text-ink-800 disabled:opacity-70"
+        className="max-w-[9rem] rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-xs font-semibold text-ink-800 disabled:opacity-70 sm:max-w-[11rem]"
         value={org}
         disabled={locked && options.length <= 1}
         onChange={(e) => {
