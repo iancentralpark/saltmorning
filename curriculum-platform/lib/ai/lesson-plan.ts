@@ -6,6 +6,12 @@ import {
   objectiveDisplayStatement,
   usesKoreanContent,
 } from "@/lib/i18n/content-locale";
+import {
+  askGemini,
+  isGeminiConfigured,
+  lessonPlanModel,
+  parseGeminiJson,
+} from "@/lib/ai/gemini";
 import { slugId } from "@/lib/utils";
 
 function fallbackPlan(
@@ -75,53 +81,46 @@ function fallbackPlan(
   };
 }
 
-async function tryOpenAIPlan(
+async function tryGeminiPlan(
   lesson: ScheduledLesson,
   skill: CurriculumNode
 ): Promise<(Omit<LessonPlan, "id" | "generatedAt" | "status"> & { model: string }) | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+  if (!isGeminiConfigured()) return null;
 
   try {
-    const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey });
     const useKo = usesKoreanContent(null, skill.frameworkCode);
     const localeOpts = { frameworkCode: skill.frameworkCode };
 
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: useKo
-            ? "당신은 K-12 수업 설계 전문가입니다. JSON 키: title, warmUp, instruction, guidedPractice, formativeAssessment, closure, materials. 각 섹션은 2–4문장으로 한국어로 작성하세요."
-            : "You are an expert K-12 lesson planner. Return JSON with keys: title, warmUp, instruction, guidedPractice, formativeAssessment, closure, materials. Keep each section concise (2-4 sentences) in English.",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            date: lesson.scheduledDate,
-            period: lesson.period,
-            language: useKo ? "ko" : "en",
-            skill: {
-              code: skill.code,
-              title: nodeDisplayTitle(skill, localeOpts),
-              summary: skill.summary,
-              objectives: skill.objectives.map((o) => ({
-                code: o.code,
-                statement: objectiveDisplayStatement(o, localeOpts),
-                masteryCriteria: masteryDisplay(o, localeOpts),
-              })),
-            },
-          }),
-        },
-      ],
-    });
+    const systemInstruction = useKo
+      ? "당신은 K-12 수업 설계 전문가입니다. JSON만 반환하세요. 키: title, warmUp, instruction, guidedPractice, formativeAssessment, closure, materials. 각 섹션은 2–4문장 한국어."
+      : "You are an expert K-12 lesson planner. Return JSON only with keys: title, warmUp, instruction, guidedPractice, formativeAssessment, closure, materials. Keep each section concise (2-4 sentences) in English.";
 
-    const raw = completion.choices[0]?.message?.content;
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, string>;
+    const { text, model } = await askGemini(
+      JSON.stringify({
+        date: lesson.scheduledDate,
+        period: lesson.period,
+        language: useKo ? "ko" : "en",
+        skill: {
+          code: skill.code,
+          title: nodeDisplayTitle(skill, localeOpts),
+          summary: skill.summary,
+          objectives: skill.objectives.map((o) => ({
+            code: o.code,
+            statement: objectiveDisplayStatement(o, localeOpts),
+            masteryCriteria: masteryDisplay(o, localeOpts),
+          })),
+        },
+      }),
+      {
+        model: lessonPlanModel(),
+        systemInstruction,
+        json: true,
+        temperature: 0.4,
+        maxOutputTokens: 2048,
+      }
+    );
+
+    const parsed = parseGeminiJson<Record<string, string>>(text);
     const base = fallbackPlan(lesson, skill);
 
     return {
@@ -133,8 +132,8 @@ async function tryOpenAIPlan(
       formativeAssessment: parsed.formativeAssessment || base.formativeAssessment,
       closure: parsed.closure || base.closure,
       materials: parsed.materials || base.materials,
-      contentJson: { ...base.contentJson, ai: parsed },
-      model: completion.model,
+      contentJson: { ...base.contentJson, ai: parsed, provider: "gemini" },
+      model,
     };
   } catch {
     return null;
@@ -149,7 +148,7 @@ export async function generateLessonPlan(
     throw new Error(`Skill node not found: ${lesson.skillNodeId}`);
   }
 
-  const ai = await tryOpenAIPlan(lesson, skill);
+  const ai = await tryGeminiPlan(lesson, skill);
   const body = ai ?? { ...fallbackPlan(lesson, skill), model: "deterministic-v1" };
 
   return {

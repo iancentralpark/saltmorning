@@ -6,8 +6,8 @@ Interactive K-12 curriculum mindmap, calendar-aware AI lesson planning, and teac
 
 - Next.js 15 (App Router) + TypeScript + Tailwind
 - React Flow (`@xyflow/react`) mindmap
-- PostgreSQL + Prisma (schema ready; UI uses seed-backed runtime store until DB is wired)
-- OpenAI structured JSON when `OPENAI_API_KEY` is set (deterministic fallback otherwise)
+- PostgreSQL + Prisma
+- Google Gemini via `@google/genai` (`GEMINI_API_KEY`): `gemini-2.5-pro` for lesson planning, `gemini-2.5-flash` for quizzes/worksheets; deterministic fallback when unset
 
 ## Roadmap
 

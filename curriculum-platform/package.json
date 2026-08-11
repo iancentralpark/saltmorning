@@ -20,15 +20,14 @@
     "test:calendar": "tsx scripts/smoke-calendar-sync.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.16.0",
     "@prisma/client": "^6.5.0",
     "@xyflow/react": "^12.6.0",
-    "ai": "^4.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.487.0",
     "next": "^15.2.0",
-    "openai": "^4.91.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.1.0",
