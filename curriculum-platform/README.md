@@ -47,8 +47,11 @@ curl "http://localhost:3000/api/portal/v1/teachers/T001/classes/C4A/lessons?date
 ## Prisma / seed
 
 ```bash
+# Start Postgres, then:
+cp .env.example .env   # set DATABASE_URL; optional CURRICULUM_STORE=prisma SCHEDULE_STORE=prisma
 npx prisma migrate dev
 npm run db:seed
+npm run test:prisma
 ```
 
 Seed packs:
@@ -56,9 +59,25 @@ Seed packs:
 - `prisma/seed/ccss-math-grade-4.json`
 - `prisma/seed/kr2022-korean-grade-4.json`
 - `prisma/seed/ngss-science-grade-4.json`
+- `prisma/seed/kr2022-history-grade-4.json`
 
-Curriculum data source: `CURRICULUM_STORE=seed` (default) or `prisma` after `npm run db:migrate && npm run db:seed`.
+Curriculum data source: `CURRICULUM_STORE=seed` (default) or `prisma` after migrate/seed.  
+Schedule persistence: `SCHEDULE_STORE=memory` (default) or `prisma`.
 
 ```bash
-npm run test:smoke   # sequencer sanity check
+npm run test:smoke   # sequencer
+npm run test:ui      # Playwright drawer + AI plans
+npm run test:prisma  # Postgres schedule write path
 ```
+
+### Salt Morning bridge
+
+Set in `morning-class/.env`:
+
+```
+CURRICULUM_MAP_URL=http://localhost:3000
+CURRICULUM_MAP_API_KEY=dev-portal-key
+```
+
+Teacher → Lesson plan panel exposes CurricuMap deep-links;  
+`GET /api/teacher/curriculum-map/lessons` proxies portal lesson JSON.

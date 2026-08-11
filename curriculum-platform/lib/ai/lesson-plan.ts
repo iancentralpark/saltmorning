@@ -1,5 +1,5 @@
 import type { CurriculumNode, LessonPlan, ScheduledLesson } from "@/lib/types";
-import { getNode } from "@/lib/curriculum/seed-loader";
+import { getCurriculumRepository } from "@/lib/curriculum/repository";
 import {
   masteryDisplay,
   nodeDisplayTitle,
@@ -144,7 +144,7 @@ async function tryOpenAIPlan(
 export async function generateLessonPlan(
   lesson: ScheduledLesson
 ): Promise<LessonPlan> {
-  const skill = getNode(lesson.skillNodeId);
+  const skill = await getCurriculumRepository().getNode(lesson.skillNodeId);
   if (!skill) {
     throw new Error(`Skill node not found: ${lesson.skillNodeId}`);
   }

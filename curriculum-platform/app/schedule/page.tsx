@@ -22,19 +22,37 @@ export default function SchedulePage() {
   async function loadSchedule(reset = false) {
     setError(null);
     try {
+      const params = new URLSearchParams(window.location.search);
+      const teacherId = params.get("teacherId") || undefined;
+      const classId = params.get("classId") || undefined;
       const res = reset
         ? await fetch("/api/schedule", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reset: true, gradeLevel: "4" }),
+            body: JSON.stringify({
+              reset: true,
+              gradeLevel: "4",
+              teacherId,
+              classId,
+            }),
           })
-        : await fetch("/api/schedule");
+        : await fetch(
+            `/api/schedule?${new URLSearchParams({
+              ...(teacherId ? { teacherId } : {}),
+              ...(classId ? { classId } : {}),
+            }).toString()}`
+          );
       const payload = (await res.json()) as SchedulePayload & {
         scheduledLessons: ScheduledLesson[];
         count?: number;
       };
       if (reset) {
-        const full = await fetch("/api/schedule").then((r) => r.json());
+        const full = await fetch(
+          `/api/schedule?${new URLSearchParams({
+            ...(teacherId ? { teacherId } : {}),
+            ...(classId ? { classId } : {}),
+          }).toString()}`
+        ).then((r) => r.json());
         setData(full);
         const first = full.scheduledLessons[0]?.scheduledDate;
         if (first) setSelectedDate(first);

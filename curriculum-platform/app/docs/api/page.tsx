@@ -3,7 +3,22 @@ import {
   DEMO_TEACHER_ID,
 } from "@/lib/schedule/demo-data";
 
+function buildUrl(path: string, q: Record<string, string>) {
+  const usp = new URLSearchParams(q);
+  return `${path}?${usp.toString()}`;
+}
+
 export default function ApiDocsPage() {
+  const scheduleEmbed = buildUrl("/schedule", {
+    embed: "1",
+    teacherId: DEMO_TEACHER_ID,
+    classId: DEMO_CLASS_ID,
+  });
+  const mapEmbed = buildUrl("/map", {
+    embed: "1",
+    framework: "ccss-math",
+  });
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
       <h1 className="font-display text-3xl font-semibold text-ink-900">
@@ -37,15 +52,14 @@ Response: { teacherId, classId, date, count, lessons: [{ ..., lessonPlan }] }`}
             Salt Morning / portal deep-link
           </h2>
           <p className="mt-2 text-ink-800">
-            Existing teacher portals can deep-link teachers into CurricuMap and
-            pull JSON for the day:
+            Existing teacher portals can deep-link or iframe CurricuMap:
           </p>
           <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`# Open mindmap for a framework
-/map?framework=ccss-math
+{`# Embed schedule for a teacher/class
+${scheduleEmbed}
 
-# Open schedule UI
-/schedule
+# Embed mindmap
+${mapEmbed}
 
 # Fetch + generate plans for portal widgets
 GET /api/portal/v1/teachers/{teacherId}/classes/{classId}/lessons?date=YYYY-MM-DD&generate=1

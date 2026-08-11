@@ -19,6 +19,30 @@ window.SaltLesson = (function() {
   function api(path, opts) { return deps.api(path, opts, deps.role || 'teacher'); }
   function getClass() { return deps.getClass ? deps.getClass() : null; }
 
+  async function wireCurricuMapLinks() {
+    const scheduleLink = $('lpCurricuMapLink');
+    const mindmapLink = $('lpCurricuMapMindmap');
+    if (!scheduleLink && !mindmapLink) return;
+    try {
+      const cls = getClass();
+      const q = cls && cls.classId ? ('?classId=' + encodeURIComponent(cls.classId)) : '';
+      const cfg = await api('/api/teacher/curriculum-map/config' + q);
+      if (scheduleLink && cfg.links && cfg.links.schedule) {
+        scheduleLink.href = cfg.links.schedule;
+      }
+      if (mindmapLink && cfg.links && cfg.links.mindmap) {
+        mindmapLink.href = cfg.links.mindmap;
+      }
+    } catch (e) {
+      if (scheduleLink) {
+        scheduleLink.href = 'http://localhost:3000/schedule?embed=1';
+      }
+      if (mindmapLink) {
+        mindmapLink.href = 'http://localhost:3000/map?embed=1';
+      }
+    }
+  }
+
   function init(options) {
     deps = options;
     document.querySelectorAll('.lp-prev-month').forEach((btn) => {
@@ -38,6 +62,7 @@ window.SaltLesson = (function() {
     const submitBtn = $('lpSubmitBtn');
     const subjectSelect = $('lpSubjectSelect');
     if (saveDraft) saveDraft.addEventListener('click', () => savePlan(false));
+    wireCurricuMapLinks();
     if (submitBtn) submitBtn.addEventListener('click', () => savePlan(true));
     if (subjectSelect) subjectSelect.addEventListener('change', onSubjectChange);
     if ($('lpAdminDrawerClose')) {

@@ -1,17 +1,16 @@
 /**
- * Load curriculum seed packs into PostgreSQL via Prisma.
- *
- * Usage:
- *   npx prisma db seed
- *   # or
- *   npm run db:seed
- *
- * Requires DATABASE_URL and `npx prisma generate`.
+ * Load curriculum packs + demo org/teacher/class/calendar/timetable into PostgreSQL.
  */
 
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
+import {
+  DEMO_CLASS_ID,
+  DEMO_SCHEDULE,
+  DEMO_TEACHER_ID,
+  buildDemoCalendar,
+} from "../lib/schedule/demo-data";
 
 const prisma = new PrismaClient();
 
@@ -155,6 +154,101 @@ async function loadPack(pack: SeedPack): Promise<void> {
   console.log(`✓ Loaded ${pack.framework.code}`);
 }
 
+async function seedDemoSchool(): Promise<void> {
+  const org =
+    (await prisma.organization.findUnique({ where: { code: "salt-morning" } })) ||
+    (await prisma.organization.create({
+      data: {
+        name: "Salt Morning Academy",
+        code: "salt-morning",
+        timezone: "Asia/Seoul",
+      },
+    }));
+
+  const teacher =
+    (await prisma.teacher.findFirst({
+      where: { organizationId: org.id, externalId: DEMO_TEACHER_ID },
+    })) ||
+    (await prisma.teacher.create({
+      data: {
+        externalId: DEMO_TEACHER_ID,
+        organizationId: org.id,
+        displayName: "Demo Teacher",
+        email: "teacher@saltmorning.demo",
+      },
+    }));
+
+  const klass =
+    (await prisma.class.findFirst({
+      where: { organizationId: org.id, externalId: DEMO_CLASS_ID },
+    })) ||
+    (await prisma.class.create({
+      data: {
+        externalId: DEMO_CLASS_ID,
+        organizationId: org.id,
+        name: "Grade 4A",
+        gradeLevel: "4",
+      },
+    }));
+
+  // Reset timetable + calendar for idempotent demo seed
+  await prisma.scheduledLesson.deleteMany({
+    where: { teacherId: teacher.id, classId: klass.id },
+  });
+  await prisma.teacherSchedule.deleteMany({
+    where: { teacherId: teacher.id, classId: klass.id },
+  });
+
+  for (const slot of DEMO_SCHEDULE) {
+    await prisma.teacherSchedule.create({
+      data: {
+        teacherId: teacher.id,
+        classId: klass.id,
+        dayOfWeek: slot.dayOfWeek,
+        period: slot.period,
+        periodLabel: slot.periodLabel ?? null,
+        startTime: slot.startTime ?? null,
+        endTime: slot.endTime ?? null,
+        subject: slot.subject ?? null,
+        frameworkCode: slot.frameworkCode ?? null,
+      },
+    });
+  }
+
+  const existingCal = await prisma.schoolCalendar.findFirst({
+    where: { organizationId: org.id, academicYear: "2025-2026" },
+  });
+  if (existingCal) {
+    await prisma.schoolCalendar.delete({ where: { id: existingCal.id } });
+  }
+
+  const days = buildDemoCalendar("2026-03-02", 28);
+  const start = new Date(`${days[0].date}T00:00:00.000Z`);
+  const end = new Date(`${days[days.length - 1].date}T00:00:00.000Z`);
+
+  await prisma.schoolCalendar.create({
+    data: {
+      organizationId: org.id,
+      name: "Demo Spring Window",
+      academicYear: "2025-2026",
+      startDate: start,
+      endDate: end,
+      days: {
+        create: days.map((d) => ({
+          date: new Date(`${d.date}T00:00:00.000Z`),
+          dayType: d.dayType,
+          title: d.title ?? null,
+          isInstructional: d.isInstructional,
+        })),
+      },
+    },
+  });
+
+  console.log(
+    `✓ Demo school ready — teacher ${DEMO_TEACHER_ID}, class ${DEMO_CLASS_ID}`
+  );
+}
+
 async function main() {
   const seedDir = join(__dirname, "seed");
   const files = readdirSync(seedDir)
@@ -173,6 +267,8 @@ async function main() {
     }
     await loadPack(pack);
   }
+
+  await seedDemoSchool();
 }
 
 main()

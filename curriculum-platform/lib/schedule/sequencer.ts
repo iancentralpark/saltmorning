@@ -1,11 +1,11 @@
-import { listSkills } from "@/lib/curriculum/seed-loader";
-import { nodeDisplayTitle } from "@/lib/i18n/content-locale";
+import type { CurriculumNode } from "@/lib/types";
 import type {
   DayOfWeek,
   ScheduledLesson,
   SchoolCalendarDay,
   TeacherScheduleSlot,
 } from "@/lib/types";
+import { nodeDisplayTitle } from "@/lib/i18n/content-locale";
 import { slugId } from "@/lib/utils";
 
 const DOW: DayOfWeek[] = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -24,10 +24,15 @@ export function sequenceSkillsOntoCalendar(input: {
   classExternalId: string;
   calendarDays: SchoolCalendarDay[];
   schedule: TeacherScheduleSlot[];
-  gradeLevel?: string;
+  skillsByFramework: Record<string, CurriculumNode[]>;
 }): ScheduledLesson[] {
-  const { teacherExternalId, classExternalId, calendarDays, schedule, gradeLevel } =
-    input;
+  const {
+    teacherExternalId,
+    classExternalId,
+    calendarDays,
+    schedule,
+    skillsByFramework,
+  } = input;
 
   const slots = schedule.filter(
     (s) =>
@@ -35,13 +40,9 @@ export function sequenceSkillsOntoCalendar(input: {
       s.classExternalId === classExternalId
   );
 
-  const frameworks = [
-    ...new Set(slots.map((s) => s.frameworkCode).filter(Boolean) as string[]),
-  ];
-
-  const queues = new Map<string, ReturnType<typeof listSkills>>();
-  for (const code of frameworks) {
-    queues.set(code, [...listSkills(code, gradeLevel)]);
+  const queues = new Map<string, CurriculumNode[]>();
+  for (const [code, skills] of Object.entries(skillsByFramework)) {
+    queues.set(code, [...skills]);
   }
 
   const instructional = calendarDays
@@ -65,7 +66,13 @@ export function sequenceSkillsOntoCalendar(input: {
 
       const skill = queue.shift()!;
       planned.push({
-        id: slugId("lesson", teacherExternalId, classExternalId, day.date, slot.period),
+        id: slugId(
+          "lesson",
+          teacherExternalId,
+          classExternalId,
+          day.date,
+          slot.period
+        ),
         teacherExternalId,
         classExternalId,
         skillNodeId: skill.id,

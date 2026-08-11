@@ -35,5 +35,8 @@ module.exports = {
   TIMETABLE_ENTRIES_SHEET: 'Timetable_Entries',
   BELL_SCHEDULE_SHEET: 'Bell_Schedule',
   TIMETABLE_REQUIREMENTS_SHEET: 'Timetable_Requirements',
-  TIMETABLE_SOLVER_URL: process.env.TIMETABLE_SOLVER_URL || 'http://127.0.0.1:8791'
+  TIMETABLE_SOLVER_URL: process.env.TIMETABLE_SOLVER_URL || 'http://127.0.0.1:8791',
+  /** CurricuMap base URL (Next.js curriculum platform) */
+  CURRICULUM_MAP_URL: process.env.CURRICULUM_MAP_URL || 'http://localhost:3000',
+  CURRICULUM_MAP_API_KEY: process.env.CURRICULUM_MAP_API_KEY || process.env.PORTAL_API_KEY || ''
 };

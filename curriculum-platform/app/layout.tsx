@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import Link from "next/link";
+import { EmbedMode } from "@/components/EmbedMode";
 import "./globals.css";
 
 const display = Fraunces({
@@ -27,8 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${display.variable} ${sans.variable} font-sans antialiased`}>
+        <EmbedMode />
         <div className="min-h-screen">
-          <header className="sticky top-0 z-40 border-b border-ink-900/10 bg-sand-50/80 backdrop-blur-md">
+          <header className="site-header sticky top-0 z-40 border-b border-ink-900/10 bg-sand-50/80 backdrop-blur-md">
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
               <Link href="/" className="group flex items-baseline gap-2">
                 <span className="font-display text-2xl font-semibold tracking-tight text-ink-900">

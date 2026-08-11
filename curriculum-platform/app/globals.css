@@ -69,3 +69,11 @@ body {
 .react-flow__attribution {
   display: none !important;
 }
+
+html[data-embed="1"] .site-header {
+  display: none;
+}
+
+html[data-embed="1"] body {
+  background: #f3f7f4;
+}

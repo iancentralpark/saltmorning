@@ -3,6 +3,7 @@
  * Run: npx tsx scripts/smoke-sequencer.ts
  */
 
+import { listSkills } from "../lib/curriculum/seed-loader";
 import { buildDemoCalendar, DEMO_SCHEDULE } from "../lib/schedule/demo-data";
 import { sequenceSkillsOntoCalendar } from "../lib/schedule/sequencer";
 
@@ -11,12 +12,19 @@ function assert(cond: unknown, msg: string): asserts cond {
 }
 
 const calendar = buildDemoCalendar("2026-03-02", 28);
+const frameworks = [
+  ...new Set(DEMO_SCHEDULE.map((s) => s.frameworkCode).filter(Boolean) as string[]),
+];
+const skillsByFramework = Object.fromEntries(
+  frameworks.map((code) => [code, listSkills(code, "4")])
+);
+
 const lessons = sequenceSkillsOntoCalendar({
   teacherExternalId: "T001",
   classExternalId: "C4A",
   calendarDays: calendar,
   schedule: DEMO_SCHEDULE,
-  gradeLevel: "4",
+  skillsByFramework,
 });
 
 assert(lessons.length > 0, "expected scheduled lessons");
@@ -40,7 +48,6 @@ assert(korean.length > 0, "expected KR korean lessons");
 assert(science.length > 0, "expected NGSS science lessons");
 assert(history.length > 0, "expected KR history lessons");
 
-// Sequence indexes are contiguous
 for (let i = 0; i < lessons.length; i++) {
   assert(lessons[i].sequenceIndex === i, "sequenceIndex must be contiguous");
 }
@@ -48,3 +55,5 @@ for (let i = 0; i < lessons.length; i++) {
 console.log(
   `✓ sequencer smoke OK — ${lessons.length} lessons (math=${math.length}, korean=${korean.length}, science=${science.length}, history=${history.length})`
 );
+console.log(`  sample math title: ${math[0].skillTitle}`);
+console.log(`  sample korean title: ${korean[0].skillTitle}`);

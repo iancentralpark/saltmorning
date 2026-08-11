@@ -619,6 +619,43 @@ router.get('/teacher/lesson-plans', requireRole('teacher'), async (req, res) => 
   }
 });
 
+router.get('/teacher/curriculum-map/config', requireRole('teacher'), async (req, res) => {
+  try {
+    const { getCurriculumMapPublicConfig, deepLink } = require('./services/curriculumMapService');
+    const cls = req.query.classId || '';
+    const teacherId = req.session.teacherId || '';
+    res.json({
+      ...getCurriculumMapPublicConfig(),
+      links: {
+        schedule: deepLink('/schedule', {
+          embed: '1',
+          teacherId,
+          classId: cls || 'C4A'
+        }),
+        mindmap: deepLink('/map', { embed: '1', framework: 'ccss-math' })
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load CurricuMap config.' });
+  }
+});
+
+router.get('/teacher/curriculum-map/lessons', requireRole('teacher'), async (req, res) => {
+  try {
+    const { curriculumMapFetch } = require('./services/curriculumMapService');
+    const teacherId = encodeURIComponent(req.session.teacherId || 'T001');
+    const classId = encodeURIComponent(req.query.classId || 'C4A');
+    const date = req.query.date ? `&date=${encodeURIComponent(req.query.date)}` : '';
+    const generate = req.query.generate === '1' ? '&generate=1' : '';
+    const data = await curriculumMapFetch(
+      `/api/portal/v1/teachers/${teacherId}/classes/${classId}/lessons?${date}${generate}`.replace('?&', '?')
+    );
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message || 'CurricuMap proxy failed.' });
+  }
+});
+
 router.get('/teacher/lesson-plans/:planId', requireRole('teacher'), async (req, res) => {
   try {
     const plan = await getLessonPlan(req.params.planId);

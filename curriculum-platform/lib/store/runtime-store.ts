@@ -7,6 +7,8 @@ import {
 } from "@/lib/schedule/demo-data";
 import { sequenceSkillsOntoCalendar } from "@/lib/schedule/sequencer";
 import { generateLessonPlan } from "@/lib/ai/lesson-plan";
+import { getCurriculumRepository } from "@/lib/curriculum/repository";
+import type { CurriculumNode } from "@/lib/types";
 
 /**
  * In-memory runtime store for demo / portal APIs until Postgres is wired.
@@ -19,21 +21,33 @@ class RuntimeStore {
   calendar = buildDemoCalendar("2026-03-02", 28);
   schedule = DEMO_SCHEDULE;
 
-  ensureSequenced(gradeLevel = "4") {
+  async ensureSequenced(gradeLevel = "4") {
     if (this.scheduledLessons.length > 0) return this.scheduledLessons;
+
+    const repo = getCurriculumRepository();
+    const frameworks = [
+      ...new Set(
+        this.schedule
+          .map((s) => s.frameworkCode)
+          .filter(Boolean) as string[]
+      ),
+    ];
+    const skillsByFramework: Record<string, CurriculumNode[]> = {};
+    for (const code of frameworks) {
+      skillsByFramework[code] = await repo.listSkills(code, gradeLevel);
+    }
 
     this.scheduledLessons = sequenceSkillsOntoCalendar({
       teacherExternalId: DEMO_TEACHER_ID,
       classExternalId: DEMO_CLASS_ID,
       calendarDays: this.calendar,
       schedule: this.schedule,
-      gradeLevel,
+      skillsByFramework,
     });
     return this.scheduledLessons;
   }
 
   getLessons(teacherId: string, classId: string, date?: string) {
-    this.ensureSequenced();
     return this.scheduledLessons.filter(
       (l) =>
         l.teacherExternalId === teacherId &&
@@ -46,7 +60,7 @@ class RuntimeStore {
     const existing = this.lessonPlans.get(lessonId);
     if (existing) return existing;
 
-    this.ensureSequenced();
+    await this.ensureSequenced();
     const lesson = this.scheduledLessons.find((l) => l.id === lessonId);
     if (!lesson) throw new Error(`Scheduled lesson not found: ${lessonId}`);
 
@@ -61,6 +75,7 @@ class RuntimeStore {
     classId: string,
     date: string
   ): Promise<LessonPlan[]> {
+    await this.ensureSequenced();
     const lessons = this.getLessons(teacherId, classId, date);
     const plans: LessonPlan[] = [];
     for (const lesson of lessons) {
@@ -75,8 +90,6 @@ class RuntimeStore {
   }
 
   getMaterials(teacherId: string, classId: string) {
-    // Materials are skill-scoped; filter by lessons belonging to this class
-    this.ensureSequenced();
     const skillIds = new Set(
       this.scheduledLessons
         .filter(

@@ -1,4 +1,4 @@
-import { getNode } from "@/lib/curriculum/seed-loader";
+import { getCurriculumRepository } from "@/lib/curriculum/repository";
 import {
   masteryDisplay,
   nodeDisplayTitle,
@@ -26,7 +26,7 @@ export async function generateAiMaterial(
   nodeId: string,
   type: MaterialType
 ): Promise<AiMaterial> {
-  const node = getNode(nodeId);
+  const node = await getCurriculumRepository().getNode(nodeId);
   if (!node) throw new Error(`Node not found: ${nodeId}`);
 
   const localeOpts = { frameworkCode: node.frameworkCode };
