@@ -3,7 +3,8 @@
 
   let role = '';
   let open = false;
-  let view = 'threads';
+  let view = 'threads'; // 'threads' (list shell) | 'chat'
+  let listTab = 'chats'; // 'contacts' | 'chats' (parent Kakao-style)
   let threads = [];
   let activeThread = null;
   let messages = [];
@@ -16,6 +17,24 @@
   let directoryQuery = '';
   let directorySearching = false;
   let quickContacts = [];
+
+  function usesContactTabs() {
+    return isParentRole();
+  }
+
+  function tabLabels() {
+    const ko = global.SaltI18n && SaltI18n.getLang() === 'ko';
+    return {
+      contacts: ko ? '연락처' : 'Contacts',
+      chats: ko ? '채팅' : 'Chats',
+      emptyContacts: ko ? '연락처가 없습니다.' : 'No contacts yet.',
+      emptyChats: ko ? '아직 대화가 없습니다.' : 'No conversations yet.',
+      schoolOffice: ko ? '학교 사무실' : 'School office',
+      homeroom: ko ? '담임' : 'Homeroom',
+      teacher: ko ? '교사' : 'Teacher',
+      messages: ko ? '메시지' : 'Messages'
+    };
+  }
 
   /** messageId → { original, translated, targetLang, error? } */
   const translationCache = Object.create(null);
@@ -238,23 +257,27 @@
   function renderThreads() {
     const list = root().querySelector('.msg-thread-list');
     if (!list) return;
-    renderQuickContacts();
+    const L = tabLabels();
     if (!threads.length) {
-      list.innerHTML = '<p class="msg-empty">No conversations yet.' +
+      list.innerHTML = '<p class="msg-empty">' + escapeHtml(L.emptyChats) +
         (isAdminRole() ? ' Search above to message someone.' : '') + '</p>';
       return;
     }
     list.innerHTML = threads.map((t) => {
       const preview = t.lastMessage ? escapeHtml(t.lastMessage) : '<span class="muted">No messages yet</span>';
       const badge = t.unread ? '<span class="msg-thread-unread">' + t.unread + '</span>' : '';
+      const initial = String(t.title || '?').trim().charAt(0).toUpperCase() || '?';
       return (
         '<button type="button" class="msg-thread-item" data-tid="' + escapeHtml(t.threadId) + '">' +
+        '<div class="msg-avatar" aria-hidden="true">' + escapeHtml(initial) + '</div>' +
+        '<div class="msg-thread-main">' +
         '<div class="msg-thread-top">' +
         '<strong>' + escapeHtml(t.title) + '</strong>' +
         badge +
         '</div>' +
         '<div class="msg-thread-sub">' + escapeHtml(t.subtitle || '') + '</div>' +
         '<div class="msg-thread-preview">' + preview + '</div>' +
+        '</div>' +
         '</button>'
       );
     }).join('');
@@ -264,53 +287,93 @@
     });
   }
 
-  function renderQuickContacts() {
-    const box = root() && root().querySelector('.msg-quick-contacts');
+  function renderContactsList() {
+    const box = root() && root().querySelector('.msg-contact-list');
     if (!box) return;
-    if (!isParentRole() || !quickContacts.length) {
-      box.classList.add('hidden');
+    const L = tabLabels();
+    if (!usesContactTabs()) {
       box.innerHTML = '';
       return;
     }
-    const chips = [];
-    chips.push(
-      '<button type="button" class="msg-quick-chip" data-admin="1">' +
-        '<strong>Salt Admin</strong>' +
-        '<span>School office</span>' +
-      '</button>'
-    );
-    quickContacts.forEach((t) => {
-      chips.push(
-        '<button type="button" class="msg-quick-chip" data-tid="' + escapeHtml(t.teacherId) + '">' +
-          '<strong>' + escapeHtml(t.name || t.teacherId) + '</strong>' +
-          '<span>' + escapeHtml(
-            t.isHomeroom ? 'Homeroom' : ((t.subjects || []).slice(0, 2).join(', ') || 'Teacher')
-          ) + '</span>' +
-        '</button>'
-      );
+    const rows = [];
+    rows.push({
+      admin: true,
+      name: 'Salt Admin',
+      subtitle: L.schoolOffice,
+      initial: 'A'
     });
-    box.innerHTML =
-      '<div class="msg-quick-label">' +
-      escapeHtml(
-        (global.SaltI18n && SaltI18n.getLang() === 'ko') ? '연락처' : 'Contacts'
-      ) +
-      '</div>' +
-      '<div class="msg-quick-row">' + chips.join('') + '</div>';
-    box.classList.remove('hidden');
-    box.querySelectorAll('.msg-quick-chip').forEach((btn) => {
+    (quickContacts || []).forEach((t) => {
+      const name = t.name || t.teacherId || '';
+      rows.push({
+        teacherId: t.teacherId,
+        name,
+        subtitle: t.isHomeroom ? L.homeroom : ((t.subjects || []).slice(0, 2).join(', ') || L.teacher),
+        initial: String(name || '?').trim().charAt(0).toUpperCase() || '?'
+      });
+    });
+    if (!rows.length) {
+      box.innerHTML = '<p class="msg-empty">' + escapeHtml(L.emptyContacts) + '</p>';
+      return;
+    }
+    box.innerHTML = rows.map((r) =>
+      '<button type="button" class="msg-contact-item"' +
+        (r.admin ? ' data-admin="1"' : ' data-tid="' + escapeHtml(r.teacherId) + '"') + '>' +
+        '<div class="msg-avatar" aria-hidden="true">' + escapeHtml(r.initial) + '</div>' +
+        '<div class="msg-contact-main">' +
+          '<strong>' + escapeHtml(r.name) + '</strong>' +
+          '<span>' + escapeHtml(r.subtitle) + '</span>' +
+        '</div>' +
+      '</button>'
+    ).join('');
+    box.querySelectorAll('.msg-contact-item').forEach((btn) => {
       btn.addEventListener('click', () => {
-        if (btn.dataset.admin === '1') {
-          openThreadForAdmin();
-          return;
-        }
-        openThreadForTeacher(btn.dataset.tid);
+        if (btn.dataset.admin === '1') openThreadForAdmin();
+        else openThreadForTeacher(btn.dataset.tid);
       });
     });
   }
 
+  function syncListTabs() {
+    const wrap = root();
+    if (!wrap) return;
+    const tabs = wrap.querySelector('.msg-list-tabs');
+    const contactsPane = wrap.querySelector('.msg-view-contacts');
+    const chatsPane = wrap.querySelector('.msg-view-chats');
+    const showTabs = usesContactTabs();
+    if (tabs) tabs.classList.toggle('hidden', !showTabs);
+    if (!showTabs) listTab = 'chats';
+
+    const L = tabLabels();
+    const contactsBtn = wrap.querySelector('[data-list-tab="contacts"]');
+    const chatsBtn = wrap.querySelector('[data-list-tab="chats"]');
+    if (contactsBtn) {
+      contactsBtn.textContent = L.contacts;
+      contactsBtn.classList.toggle('is-active', listTab === 'contacts');
+    }
+    if (chatsBtn) {
+      chatsBtn.textContent = L.chats;
+      chatsBtn.classList.toggle('is-active', listTab === 'chats');
+    }
+    if (contactsPane) contactsPane.classList.toggle('hidden', listTab !== 'contacts');
+    if (chatsPane) chatsPane.classList.toggle('hidden', listTab !== 'chats');
+
+    const title = wrap.querySelector('.msg-panel-title');
+    if (title) title.textContent = L.messages;
+  }
+
+  function setListTab(tab) {
+    listTab = tab === 'contacts' ? 'contacts' : 'chats';
+    syncListTabs();
+    if (listTab === 'contacts') renderContactsList();
+    else renderThreads();
+  }
+
   function setQuickContacts(teachers) {
     quickContacts = Array.isArray(teachers) ? teachers.slice() : [];
-    if (root()) renderQuickContacts();
+    if (root()) {
+      syncListTabs();
+      if (listTab === 'contacts') renderContactsList();
+    }
   }
 
   function displayBodyForMessage(m, autoOn) {
@@ -562,7 +625,11 @@
     if (threadsView) threadsView.classList.toggle('hidden', view !== 'threads');
     if (chatView) chatView.classList.toggle('hidden', view !== 'chat');
 
-    if (view === 'threads') renderThreads();
+    if (view === 'threads') {
+      syncListTabs();
+      if (listTab === 'contacts') renderContactsList();
+      else renderThreads();
+    }
     if (view === 'chat') renderChat();
   }
 
@@ -720,6 +787,7 @@
   function buildDom() {
     if (document.getElementById('saltMessenger')) return;
 
+    const L = tabLabels();
     const wrap = el('div', 'salt-messenger', '');
     wrap.id = 'saltMessenger';
     wrap.innerHTML =
@@ -730,12 +798,21 @@
       '</button>' +
       '<div class="msg-panel" aria-hidden="true">' +
       '<div class="msg-panel-head">' +
-      '<strong>Messages</strong>' +
+      '<strong class="msg-panel-title">' + escapeHtml(L.messages) + '</strong>' +
       '<button type="button" class="btn btn-ghost msg-close-btn" aria-label="Close">✕</button>' +
       '</div>' +
       '<div class="msg-panel-body">' +
       '<div class="msg-view-threads">' +
-      '<div class="msg-quick-contacts hidden"></div>' +
+      '<div class="msg-list-tabs' + (usesContactTabs() ? '' : ' hidden') + '" role="tablist">' +
+      '<button type="button" class="msg-list-tab" role="tab" data-list-tab="contacts">' +
+        escapeHtml(L.contacts) + '</button>' +
+      '<button type="button" class="msg-list-tab is-active" role="tab" data-list-tab="chats">' +
+        escapeHtml(L.chats) + '</button>' +
+      '</div>' +
+      '<div class="msg-view-contacts hidden">' +
+      '<div class="msg-contact-list"></div>' +
+      '</div>' +
+      '<div class="msg-view-chats">' +
       (isAdminRole()
         ? '<div class="msg-directory">' +
           '<input type="search" class="msg-directory-input" placeholder="Search teachers, parents, students…" autocomplete="off">' +
@@ -743,6 +820,7 @@
           '</div>'
         : '') +
       '<div class="msg-thread-list"></div>' +
+      '</div>' +
       '</div>' +
       '<div class="msg-view-chat hidden">' +
       '<div class="msg-chat-head"></div>' +
@@ -759,12 +837,18 @@
 
     document.body.appendChild(wrap);
 
+    wrap.querySelectorAll('[data-list-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => setListTab(btn.dataset.listTab));
+    });
+
     wrap.querySelector('.msg-fab').addEventListener('click', () => {
       open = !open;
       if (open) {
         view = 'threads';
         activeThread = null;
         leaveThreadRoom();
+        if (usesContactTabs()) listTab = 'contacts';
+        else listTab = 'chats';
         refreshThreads();
       }
       wrap.querySelector('.msg-backdrop').classList.toggle('hidden', !open);
@@ -811,6 +895,15 @@
         }
       });
     }
+
+    window.addEventListener('salt:langchange', () => {
+      if (!root()) return;
+      syncListTabs();
+      if (view === 'threads') {
+        if (listTab === 'contacts') renderContactsList();
+        else renderThreads();
+      }
+    });
   }
 
   function setLiveIndicator(on) {
