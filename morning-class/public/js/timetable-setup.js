@@ -139,13 +139,13 @@
 
   function renderRequirements(mountEl, classId, requirements) {
     const teacherOpts = teachers.map((t) =>
-      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
 
     let rows = (requirements || []).map((r, i) => {
       const tOpts = teachers.map((t) =>
         '<option value="' + escapeHtml(t.teacherId) + '"' +
-        (t.teacherId === r.teacherId ? ' selected' : '') + '>' + escapeHtml(t.name) + '</option>'
+        (t.teacherId === r.teacherId ? ' selected' : '') + '>' + escapeHtml(t.displayName || t.name) + '</option>'
       ).join('');
       const linked = (r.classIds || [r.classId].concat(r.linkedClassIds || []))
         .map(String)

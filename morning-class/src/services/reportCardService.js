@@ -283,12 +283,8 @@ async function upsertStatus(classId, studentId, term, subject, teacherId, patch)
 }
 
 async function teacherNameMap() {
-  const rows = await getSheetRows(TEACHER_LIST_SHEET);
-  const map = {};
-  for (let i = 1; i < rows.length; i++) {
-    map[String(rows[i][0])] = String(rows[i][1] || '');
-  }
-  return map;
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  return teacherDisplayNameMap();
 }
 
 async function getStudentMeta(studentId) {
@@ -457,7 +453,9 @@ async function getClassReportOverview(teacherId, classId, term) {
     subjects: subjectList,
     students: studentRows,
     classReady,
-    homeroomTeacherName: isHomeroom ? (teacher && teacher.name) : (names[(await getHomeroomTeacherId(classId))] || '')
+    homeroomTeacherName: isHomeroom
+      ? (teacher && (teacher.displayName || teacher.name))
+      : (names[(await getHomeroomTeacherId(classId))] || '')
   };
 }
 

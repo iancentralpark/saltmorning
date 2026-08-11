@@ -429,10 +429,12 @@ async function listThreadsForSession(session) {
       }));
     }
 
+    const { teacherDisplayNameMap } = require('./teacherRegistryService');
+    const teacherNames = await teacherDisplayNameMap().catch(() => ({}));
     const teacherRows = await getSheetRows(TEACHER_LIST_SHEET);
     for (let i = 1; i < teacherRows.length; i++) {
       const teacherId = String(teacherRows[i][0] || '');
-      const teacherName = String(teacherRows[i][1] || '');
+      const teacherName = teacherNames[teacherId] || String(teacherRows[i][1] || '');
       if (!teacherId) continue;
       const tid = adminThreadId(teacherId);
       const msgs = all.filter((m) => m.threadId === tid);
@@ -664,13 +666,16 @@ async function searchMessengerDirectory(query, opts) {
   const results = [];
 
   if (types.includes('teacher')) {
+    const { teacherDisplayNameMap } = require('./teacherRegistryService');
+    const displayNames = await teacherDisplayNameMap().catch(() => ({}));
     const rows = await getSheetRows(TEACHER_LIST_SHEET);
     for (let i = 1; i < rows.length; i++) {
       const teacherId = String(rows[i][0] || '');
-      const name = String(rows[i][1] || '');
+      const fullName = String(rows[i][1] || '');
+      const name = displayNames[teacherId] || fullName;
       const loginId = String(rows[i][2] || '');
       if (!teacherId) continue;
-      if (!matchesQuery(name + ' ' + teacherId + ' ' + loginId, q)) continue;
+      if (!matchesQuery(name + ' ' + fullName + ' ' + teacherId + ' ' + loginId, q)) continue;
       results.push({
         personType: 'teacher',
         id: teacherId,

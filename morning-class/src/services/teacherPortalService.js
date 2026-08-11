@@ -20,9 +20,21 @@ async function getTeacherProfile(teacherId) {
   const rows = await getSheetRows(TEACHER_LIST_SHEET);
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) !== String(teacherId)) continue;
+    const fullName = String(rows[i][1] || '');
+    let preferredName = '';
+    let displayName = fullName;
+    try {
+      const { getTeacherProfileRecord, teacherDisplayName } = require('./teacherRegistryService');
+      const tp = await getTeacherProfileRecord(teacherId, { skipEnsure: true });
+      preferredName = String((tp && tp.preferredName) || '').trim();
+      displayName = teacherDisplayName(fullName, preferredName);
+    } catch (_) { /* keep full name */ }
     return {
       teacherId: String(rows[i][0]),
-      name: String(rows[i][1] || ''),
+      name: displayName,
+      fullName,
+      preferredName,
+      displayName,
       homeroomClassId: String(rows[i][4] || '').trim(),
       staffRole: String(rows[i][5] || 'Teacher')
     };

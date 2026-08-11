@@ -155,16 +155,12 @@ async function listTeacherCustomSubjects(teacherId) {
 }
 
 async function listAdminClassAssignments() {
-  const [classNames, teachers, assignRows] = await Promise.all([
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  const [classNames, teacherNames, assignRows] = await Promise.all([
     getClassNameMap(),
-    getSheetRows(TEACHER_LIST_SHEET),
+    teacherDisplayNameMap(),
     getSheetRows(CLASS_TEACHERS_SHEET)
   ]);
-
-  const teacherNames = {};
-  for (let i = 1; i < teachers.length; i++) {
-    teacherNames[String(teachers[i][0])] = String(teachers[i][1] || '');
-  }
 
   const out = [];
   for (let i = 1; i < assignRows.length; i++) {
@@ -235,24 +231,20 @@ async function getTeacherGradeAccess(teacherId, classId, subject) {
 
 async function listClassGradeSubjects(teacherId, classId) {
   await assertTeacherClassAccess(teacherId, classId);
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
   const [
     data,
     assessRows,
-    teachers
+    teacherNames
   ] = await Promise.all([
     loadTeacherSubjectData(teacherId),
     getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
-    getSheetRows(TEACHER_LIST_SHEET)
+    teacherDisplayNameMap()
   ]);
 
   const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
   const taught = subjectsForClassFromData(teacherId, classId, data, { includeHomeroomDefault: false });
   const taughtSet = new Set(taught);
-
-  const teacherNames = {};
-  for (let i = 1; i < teachers.length; i++) {
-    teacherNames[String(teachers[i][0])] = String(teachers[i][1] || '');
-  }
 
   const bySubject = new Map();
   function addSubject(subject, teacherIdForSubj) {

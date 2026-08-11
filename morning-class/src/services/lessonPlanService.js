@@ -401,7 +401,7 @@ async function getAdminLessonCalendar(year, month, filters) {
       }
       slotRegistry.get(regKey).teachers.push({
         teacherId: tid,
-        teacherName: teacher.name
+        teacherName: teacher.displayName || teacher.name
       });
     }
   }
@@ -438,7 +438,7 @@ async function getAdminLessonCalendar(year, month, filters) {
         style: subjectStyles[subjectStyleKey(plan.classId, plan.subject)] ||
           subjectStyle(plan.subject, plan.classId, styleLookup),
         teacherId: plan.teacherId,
-        teacherName: teacher ? teacher.name : plan.teacherId,
+        teacherName: teacher ? (teacher.displayName || teacher.name) : plan.teacherId,
         plan: {
           planId: plan.planId,
           title: plan.title,

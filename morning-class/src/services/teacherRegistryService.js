@@ -27,13 +27,14 @@ const PROFILE_COL = {
   hireDate: 11,
   education: 12,
   notes: 13,
-  updatedAt: 14
+  updatedAt: 14,
+  preferredName: 15
 };
 
 const PROFILE_HEADERS = [
   'TeacherID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality',
   'Phone', 'Email', 'Address', 'EmergencyContact', 'EmergencyPhone',
-  'Title', 'HireDate', 'Education', 'Notes', 'UpdatedAt'
+  'Title', 'HireDate', 'Education', 'Notes', 'UpdatedAt', 'PreferredName'
 ];
 
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'teachers');
@@ -58,8 +59,16 @@ function emptyProfile(teacherId) {
     hireDate: '',
     education: '',
     notes: '',
-    updatedAt: ''
+    updatedAt: '',
+    preferredName: ''
   };
+}
+
+/** Display name for students/parents/login: preferred name, else full name. */
+function teacherDisplayName(fullName, preferredName) {
+  const preferred = String(preferredName || '').trim();
+  if (preferred) return preferred;
+  return String(fullName || '').trim();
 }
 
 function rowToProfile(row) {
@@ -79,7 +88,8 @@ function rowToProfile(row) {
     hireDate: String(row[PROFILE_COL.hireDate] || ''),
     education: String(row[PROFILE_COL.education] || ''),
     notes: String(row[PROFILE_COL.notes] || ''),
-    updatedAt: String(row[PROFILE_COL.updatedAt] || '')
+    updatedAt: String(row[PROFILE_COL.updatedAt] || ''),
+    preferredName: String(row[PROFILE_COL.preferredName] || '').trim()
   };
 }
 
@@ -99,16 +109,28 @@ function profileToRow(profile) {
     profile.hireDate || '',
     profile.education || '',
     profile.notes || '',
-    profile.updatedAt || ''
+    profile.updatedAt || '',
+    profile.preferredName || ''
   ];
 }
 
 async function ensureTeacherProfileSheet() {
   await ensureSheet(TEACHER_PROFILE_SHEET, PROFILE_HEADERS);
+  try {
+    const rows = await getSheetRows(TEACHER_PROFILE_SHEET);
+    const header = rows[0] || [];
+    if (String(header[PROFILE_COL.preferredName] || '') !== 'PreferredName') {
+      await updateRange(TEACHER_PROFILE_SHEET, 'A1:P1', [PROFILE_HEADERS]);
+    }
+  } catch (_) {
+    /* best-effort header migration */
+  }
 }
 
-async function loadProfileMap() {
-  await ensureTeacherProfileSheet();
+async function loadProfileMap(opts) {
+  if (!(opts && opts.skipEnsure)) {
+    await ensureTeacherProfileSheet();
+  }
   const rows = await getSheetRows(TEACHER_PROFILE_SHEET);
   const map = {};
   for (let i = 1; i < rows.length; i++) {
@@ -118,8 +140,8 @@ async function loadProfileMap() {
   return map;
 }
 
-async function getTeacherProfileRecord(teacherId) {
-  const map = await loadProfileMap();
+async function getTeacherProfileRecord(teacherId, opts) {
+  const map = await loadProfileMap(opts);
   return map[String(teacherId)] || emptyProfile(teacherId);
 }
 
@@ -144,6 +166,7 @@ async function upsertTeacherProfile(teacherId, profilePayload, opts) {
     hireDate: String(profilePayload.hireDate != null ? profilePayload.hireDate : existing.hireDate || ''),
     education: String(profilePayload.education != null ? profilePayload.education : existing.education || ''),
     notes: String(profilePayload.notes != null ? profilePayload.notes : existing.notes || ''),
+    preferredName: String(profilePayload.preferredName != null ? profilePayload.preferredName : existing.preferredName || '').trim(),
     photoPath: keepPhoto ? (existing.photoPath || '') : String(profilePayload.photoPath || existing.photoPath || ''),
     updatedAt: isoNow()
   });
@@ -162,7 +185,7 @@ async function upsertTeacherProfile(teacherId, profilePayload, opts) {
   }
   const row = profileToRow(next);
   if (found > 0) {
-    await updateRange(TEACHER_PROFILE_SHEET, `A${found}:O${found}`, [row]);
+    await updateRange(TEACHER_PROFILE_SHEET, `A${found}:P${found}`, [row]);
   } else {
     await appendRows(TEACHER_PROFILE_SHEET, [row]);
   }
@@ -211,7 +234,15 @@ async function getTeacherDetail(teacherId) {
   }
   if (!teacher) throw new Error('Teacher not found.');
   const profile = await getTeacherProfileRecord(teacherId);
-  return { ...teacher, profile, photoPath: profile.photoPath || '' };
+  const preferredName = profile.preferredName || '';
+  const displayName = teacherDisplayName(teacher.name, preferredName);
+  return {
+    ...teacher,
+    preferredName,
+    displayName,
+    profile,
+    photoPath: profile.photoPath || ''
+  };
 }
 
 async function listTeachersWithProfiles() {
@@ -224,9 +255,13 @@ async function listTeachersWithProfiles() {
     if (!listRows[i][0]) continue;
     const teacherId = String(listRows[i][0]);
     const profile = profileMap[teacherId] || emptyProfile(teacherId);
+    const name = String(listRows[i][1] || '');
+    const preferredName = profile.preferredName || '';
     out.push({
       teacherId,
-      name: String(listRows[i][1] || ''),
+      name,
+      preferredName,
+      displayName: teacherDisplayName(name, preferredName),
       loginId: String(listRows[i][2] || ''),
       homeroomClassId: String(listRows[i][4] || ''),
       staffRole: String(listRows[i][5] || 'Teacher'),
@@ -239,6 +274,29 @@ async function listTeachersWithProfiles() {
     });
   }
   return out;
+}
+
+/** Map of teacherId → preferred name (fallback: full name). */
+async function teacherDisplayNameMap() {
+  let profileMap = {};
+  try {
+    // Read-only: avoid ensure/header writes on hot display paths (quota).
+    profileMap = await loadProfileMap({ skipEnsure: true });
+  } catch (_) {
+    profileMap = {};
+  }
+  const listRows = await getSheetRows(TEACHER_LIST_SHEET);
+  const map = {};
+  for (let i = 1; i < listRows.length; i++) {
+    const teacherId = String(listRows[i][0] || '');
+    if (!teacherId) continue;
+    const profile = profileMap[teacherId];
+    map[teacherId] = teacherDisplayName(
+      listRows[i][1],
+      profile && profile.preferredName
+    );
+  }
+  return map;
 }
 
 async function saveTeacherPhoto(teacherId, file) {
@@ -284,7 +342,7 @@ async function deleteTeacherRecord(teacherId) {
   const profileRows = await getSheetRows(TEACHER_PROFILE_SHEET, { skipCache: true });
   for (let i = 1; i < profileRows.length; i++) {
     if (String(profileRows[i][0]) !== teacherId) continue;
-    await updateRange(TEACHER_PROFILE_SHEET, `A${i + 1}:O${i + 1}`, [new Array(15).fill('')]);
+    await updateRange(TEACHER_PROFILE_SHEET, `A${i + 1}:P${i + 1}`, [new Array(16).fill('')]);
     break;
   }
   invalidateSheetRowsCache(TEACHER_PROFILE_SHEET);
@@ -294,6 +352,8 @@ async function deleteTeacherRecord(teacherId) {
 module.exports = {
   ensureTeacherProfileSheet,
   emptyProfile,
+  teacherDisplayName,
+  teacherDisplayNameMap,
   getTeacherProfileRecord,
   upsertTeacherProfile,
   getTeacherDetail,

@@ -88,9 +88,24 @@ async function loginTeacher(loginId, password) {
     if (String(rows[i][2] || '').trim() !== loginId) continue;
     if (String(rows[i][3] || '').trim() !== password) continue;
     const staffRole = String(rows[i][5] || 'Teacher').trim();
+    const teacherId = String(rows[i][0]);
+    const fullName = String(rows[i][1] || '');
+    let preferredName = '';
+    let displayName = fullName;
+    try {
+      const { getTeacherProfileRecord, teacherDisplayName } = require('./teacherRegistryService');
+      // Read-only: skip sheet ensure/header writes during login (quota-sensitive).
+      const tp = await getTeacherProfileRecord(teacherId, { skipEnsure: true });
+      preferredName = String((tp && tp.preferredName) || '').trim();
+      displayName = teacherDisplayName(fullName, preferredName);
+    } catch (_) {
+      displayName = fullName;
+    }
     const profile = {
-      teacherId: String(rows[i][0]),
-      name: String(rows[i][1] || ''),
+      teacherId,
+      name: displayName,
+      fullName,
+      preferredName,
       homeroomClassId: String(rows[i][4] || '').trim(),
       staffRole,
       headTeacherId: String(rows[i][6] || '').trim()
@@ -129,8 +144,8 @@ async function loginAdmin(loginId, password) {
   password = String(password || '').trim();
   if (!loginId || !password) throw new Error('Enter login ID and password.');
 
-  const { ensureAdminSheet } = require('./adminService');
-  await ensureAdminSheet();
+  // Do not call ensureAdminSheet() here — login should be read-only and
+  // avoid extra meta/write traffic that burns Sheets quota.
   const rows = await getSheetRows(ADMIN_LIST_SHEET);
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][2] || '').trim() !== loginId) continue;
@@ -152,13 +167,16 @@ async function loginAdmin(loginId, password) {
 }
 
 async function loginUnified(loginId, password) {
+  // Teacher first: most frequent portal users; avoids Admin_List ensure/reads
+  // when the account is a teacher (and skips parent/student sheet walks).
   const attempts = [
-    { role: 'admin', fn: loginAdmin },
     { role: 'teacher', fn: loginTeacher },
+    { role: 'admin', fn: loginAdmin },
     { role: 'parent', fn: loginParent },
     { role: 'student', fn: loginStudent }
   ];
   let lastError = 'Login ID or password is incorrect.';
+  let quotaHit = false;
   for (const a of attempts) {
     try {
       const result = await a.fn(loginId, password);
@@ -167,11 +185,18 @@ async function loginUnified(loginId, password) {
       return { ...result, role };
     } catch (e) {
       lastError = e.message || lastError;
+      if (/quota exceeded/i.test(String(e.message || ''))) {
+        quotaHit = true;
+        break;
+      }
       // Only continue when credentials simply don't match this role sheet
       if (!/incorrect|not active/i.test(String(e.message || ''))) {
         throw e;
       }
     }
+  }
+  if (quotaHit) {
+    throw new Error('The school directory is busy right now. Please wait a moment and try logging in again.');
   }
   throw new Error(lastError);
 }

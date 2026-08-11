@@ -117,6 +117,7 @@
           </div>
           <div class="sr-form-grid teacher-profile-grid">
             <label>Full name <input id="teacherName" required></label>
+            <label>Preferred name <input id="teacherPreferredName" placeholder="e.g. Mr. Park (shown to students/parents)"></label>
             <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
             <label>Login ID <input id="teacherLoginId" required></label>
             <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
@@ -440,9 +441,9 @@
     const tData = await api('/api/admin/teachers', {}, role);
     teachers = tData.teachers || [];
     $('lpAdminTeacher').innerHTML = '<option value="">All teachers</option>' +
-      teachers.map(t => '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>').join('');
+      teachers.map(t => '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>').join('');
     $('assignTeacher').innerHTML = teachers.map(t =>
-      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
     $('assignClass').innerHTML = classes.map(c =>
       '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>'
@@ -556,32 +557,37 @@
     const teachers = data.teachers || [];
     let html = '<table class="grades-table"><thead><tr><th></th><th>Name</th><th>Title</th><th>Login</th><th>Contact</th><th>Homeroom</th><th>Role</th><th></th></tr></thead><tbody>';
     teachers.forEach(t => {
-      const initial = (t.name || '?').trim().charAt(0).toUpperCase();
+      const shown = t.displayName || t.preferredName || t.name || '';
+      const initial = (shown || '?').trim().charAt(0).toUpperCase();
       const photo = t.photoPath
         ? '<img class="sr-photo-xs" src="' + escapeHtml(t.photoPath) + '" alt="">'
         : '<div class="sr-avatar-fallback sr-photo-xs">' + escapeHtml(initial) + '</div>';
       const contact = [t.phone, t.email].filter(Boolean).map(escapeHtml).join('<br>') || '—';
-      html += '<tr><td>' + photo + '</td><td>' + escapeHtml(t.name) + '</td>' +
+      const nameCell = escapeHtml(shown) +
+        (t.preferredName && t.name && t.preferredName !== t.name
+          ? '<div class="muted small">' + escapeHtml(t.name) + '</div>'
+          : '');
+      html += '<tr><td>' + photo + '</td><td>' + nameCell + '</td>' +
         '<td>' + escapeHtml(t.title || '—') + '</td>' +
         '<td>' + escapeHtml(t.loginId) + '</td>' +
         '<td class="muted small">' + contact + '</td>' +
         '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td><td>' + escapeHtml(t.staffRole) + '</td>' +
         '<td style="white-space:nowrap">' +
         '<button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button> ' +
-        '<button type="button" class="btn btn-danger" data-del-teacher="' + escapeHtml(t.teacherId) + '" data-del-name="' + escapeHtml(t.name) + '">Delete</button>' +
+        '<button type="button" class="btn btn-danger" data-del-teacher="' + escapeHtml(t.teacherId) + '" data-del-name="' + escapeHtml(shown || t.name) + '">Delete</button>' +
         '</td></tr>';
     });
     html += '</tbody></table>';
     $('teacherList').innerHTML = html || '<p class="muted">No teachers.</p>';
     $('assignTeacher').innerHTML = teachers.map(t =>
-      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
     if ($('headTeacherOptions')) {
       $('headTeacherOptions').innerHTML = teachers
         .filter((t) => /head\s*teacher/i.test(String(t.staffRole || '')))
         .map((t) =>
           '<option value="' + escapeHtml(t.teacherId) + '">' +
-          escapeHtml(t.name + ' (' + t.teacherId + ')') + '</option>'
+          escapeHtml((t.displayName || t.name) + ' (' + t.teacherId + ')') + '</option>'
         ).join('');
     }
     document.querySelectorAll('[data-edit]').forEach(btn => {
@@ -672,6 +678,9 @@
     $('teacherId').value = t.teacherId;
     $('teacherIdDisplay').value = t.teacherId;
     $('teacherName').value = t.name || '';
+    if ($('teacherPreferredName')) {
+      $('teacherPreferredName').value = t.preferredName || p.preferredName || '';
+    }
     $('teacherLoginId').value = t.loginId || '';
     $('teacherPassword').value = '';
     $('teacherHomeroom').value = t.homeroomClassId || '';
@@ -747,6 +756,7 @@
         body: {
           teacherId: $('teacherId').value,
           name: $('teacherName').value,
+          preferredName: $('teacherPreferredName') ? $('teacherPreferredName').value : '',
           loginId: $('teacherLoginId').value,
           password: $('teacherPassword').value,
           homeroomClassId: $('teacherHomeroom').value,

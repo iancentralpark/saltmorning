@@ -31,7 +31,7 @@ function isQuotaError(err) {
 }
 
 async function withRetry(fn, retries) {
-  const max = retries == null ? 3 : retries;
+  const max = retries == null ? 5 : retries;
   let lastErr;
   for (let attempt = 0; attempt < max; attempt++) {
     try {
@@ -39,7 +39,8 @@ async function withRetry(fn, retries) {
     } catch (err) {
       lastErr = err;
       if (!isQuotaError(err) || attempt >= max - 1) throw err;
-      await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
+      // Longer backoff for Sheets read-quota bursts (login walks several sheets).
+      await new Promise((r) => setTimeout(r, 1500 * Math.pow(2, attempt)));
     }
   }
   throw lastErr;
@@ -131,11 +132,20 @@ async function getSheetRows(sheetName, options) {
   }
 
   const task = (async () => {
-    const data = await fetchSheetRows(sheetName);
-    if (!skipCache) {
-      sheetRowsCache.set(sheetName, { data, expires: Date.now() + CACHE_SEC * 1000 });
+    try {
+      const data = await fetchSheetRows(sheetName);
+      if (!skipCache) {
+        sheetRowsCache.set(sheetName, { data, expires: Date.now() + CACHE_SEC * 1000 });
+      }
+      return data;
+    } catch (err) {
+      // Prefer a stale cache over failing login/portals when quota is exhausted.
+      if (isQuotaError(err)) {
+        const stale = sheetRowsCache.get(sheetName);
+        if (stale && stale.data) return stale.data;
+      }
+      throw err;
     }
-    return data;
   })();
 
   if (!skipCache) {

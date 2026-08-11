@@ -89,12 +89,8 @@ function reqInvolvesClass(req, classId) {
 }
 
 async function teacherNameMap() {
-  const rows = await getSheetRows(TEACHER_LIST_SHEET);
-  const map = {};
-  for (let i = 1; i < rows.length; i++) {
-    map[String(rows[i][0])] = String(rows[i][1] || '');
-  }
-  return map;
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  return teacherDisplayNameMap();
 }
 
 async function listRequirements(classId) {

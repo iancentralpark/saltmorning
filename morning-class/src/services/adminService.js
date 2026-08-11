@@ -115,12 +115,17 @@ async function saveTeacher(payload) {
     title: payload.title,
     hireDate: payload.hireDate,
     education: payload.education,
-    notes: payload.notes
+    notes: payload.notes,
+    preferredName: payload.preferredName
   }, { keepPhoto: true });
 
+  const { teacherDisplayName } = require('./teacherRegistryService');
+  const preferredName = profile.preferredName || '';
   return {
     teacherId,
     name,
+    preferredName,
+    displayName: teacherDisplayName(name, preferredName),
     loginId,
     homeroomClassId,
     staffRole,
@@ -136,14 +141,12 @@ async function getMonitoringFeed(options) {
   const limit = Number(options && options.limit) || 80;
 
   const nameMaps = { student: {}, teacher: {}, class: {} };
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
   const students = await getSheetRows(STUDENT_LIST_SHEET);
   for (let i = 1; i < students.length; i++) {
     nameMaps.student[String(students[i][0])] = String(students[i][1] || '');
   }
-  const teachers = await getSheetRows(TEACHER_LIST_SHEET);
-  for (let i = 1; i < teachers.length; i++) {
-    nameMaps.teacher[String(teachers[i][0])] = String(teachers[i][1] || '');
-  }
+  nameMaps.teacher = await teacherDisplayNameMap().catch(() => ({}));
   const classes = await getSheetRows(CLASS_LIST_SHEET);
   for (let i = 1; i < classes.length; i++) {
     nameMaps.class[String(classes[i][0])] = String(classes[i][1] || '');

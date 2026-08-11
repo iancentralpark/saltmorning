@@ -33,7 +33,7 @@
     if (slot.teacherName) return slot.teacherName;
     if (!slot.teacherId || !teachers) return '';
     const t = teachers.find((x) => x.teacherId === slot.teacherId);
-    return t ? t.name : slot.teacherId;
+    return t ? (t.displayName || t.name) : slot.teacherId;
   }
 
   function subjectColor(subject, isBreak, classId) {
@@ -206,7 +206,7 @@
       const need = Number(r.periodsPerWeek) || 0;
       const remaining = Math.max(0, need - done);
       const t = (teachers || []).find((x) => x.teacherId === r.teacherId);
-      const teacherName = r.teacherName || (t && t.name) || r.teacherId || '';
+      const teacherName = r.teacherName || (t && (t.displayName || t.name)) || r.teacherId || '';
       return {
         subject: r.subject,
         teacherId: r.teacherId,
@@ -887,7 +887,7 @@
       if (view === 'teacher') {
         return teachers.map((t) =>
           '<option value="' + escapeHtml(t.teacherId) + '"' + (t.teacherId === selectedId ? ' selected' : '') + '>' +
-          escapeHtml(t.name) + '</option>'
+          escapeHtml(t.displayName || t.name) + '</option>'
         ).join('');
       }
       if (view === 'student') {
@@ -939,7 +939,7 @@
         boardHandle = renderEditor(editorMount, {
           ownerType: 'teacher',
           ownerId: selectedId,
-          ownerName: t ? t.name : selectedId,
+          ownerName: t ? (t.displayName || t.name) : selectedId,
           timetable: data.timetable,
           readonly: false
         });

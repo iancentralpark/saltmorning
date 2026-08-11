@@ -309,13 +309,18 @@ async function getTeacherHeadId(teacherId) {
 }
 
 async function listTeachersForHead(headTeacherId) {
-  const rows = await getSheetRows(TEACHER_LIST_SHEET);
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  const [rows, names] = await Promise.all([
+    getSheetRows(TEACHER_LIST_SHEET),
+    teacherDisplayNameMap().catch(() => ({}))
+  ]);
   const out = [];
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][6] || '').trim() !== String(headTeacherId)) continue;
+    const teacherId = String(rows[i][0]);
     out.push({
-      teacherId: String(rows[i][0]),
-      name: String(rows[i][1] || ''),
+      teacherId,
+      name: names[teacherId] || String(rows[i][1] || ''),
       staffRole: String(rows[i][5] || 'Teacher'),
       homeroomClassId: String(rows[i][4] || '')
     });
