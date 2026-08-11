@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import Link from "next/link";
 import { EmbedMode } from "@/components/EmbedMode";
+import { DemoAuth } from "@/components/DemoAuth";
 import { OrgSwitcher } from "@/components/OrgSwitcher";
 import "./globals.css";
 
@@ -45,6 +46,7 @@ export default function RootLayout({
                 className="flex items-center text-sm font-medium text-ink-800"
                 style={{ gap: "0.5rem" }}
               >
+                <DemoAuth />
                 <OrgSwitcher />
                 <Link
                   href="/map"

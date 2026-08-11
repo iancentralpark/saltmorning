@@ -27,7 +27,10 @@ export default function ApiDocsPage() {
       <p className="mt-2 text-sm text-ink-700/80">
         REST endpoints for existing portals. Auth: header{" "}
         <code className="text-moss-700">x-api-key</code> when{" "}
-        <code className="text-moss-700">PORTAL_API_KEY</code> is set.
+        <code className="text-moss-700">PORTAL_API_KEY</code> is set. Optional{" "}
+        <code className="text-moss-700">x-organization-code</code> for multi-org
+        (required when <code className="text-moss-700">PORTAL_REQUIRE_ORG=1</code>
+        ). Demo browser login: <code className="text-moss-700">POST /api/auth/demo-login</code>.
       </p>
 
       <section className="mt-8 space-y-6 text-sm leading-relaxed">
@@ -52,11 +55,39 @@ Response: { teacherId, classId, date, count, lessons: [{ ..., lessonPlan }] }`}
           <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
 {`POST /api/portal/v1/calendar/sync
 Header: x-api-key: $PORTAL_API_KEY
+Header: x-organization-code: salt-morning
 Body: {
   "holidays": { "2026-03-01": "삼일절" },
   "blackouts": [{ "date": "2026-03-05", "title": "Staff PD" }],
   "resequence": true
 }`}
+          </pre>
+        </div>
+
+        <div>
+          <h2 className="font-display text-xl font-semibold">Cron calendar sync</h2>
+          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
+{`# CurricuMap (local overlay or proxy to Salt Morning)
+POST /api/cron/calendar-sync
+Header: x-cron-secret: $CRON_SECRET
+Body: { "holidays": { "2026-03-01": "삼일절" } }
+# or with SALT_MORNING_URL set: { "year": 2026, "months": [3,4,5] }
+
+# Salt Morning host cron (preferred — holidays live there)
+POST $SALT_MORNING_URL/api/internal/curriculum-map/sync-calendar-cron
+Header: x-cron-secret: $CRON_SECRET
+Body: { "year": 2026, "months": [1,2,3,4,5,6,7,8,9,10,11,12] }`}
+          </pre>
+        </div>
+
+        <div>
+          <h2 className="font-display text-xl font-semibold">Demo org session</h2>
+          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
+{`POST /api/auth/demo-login
+Body: { "orgCode": "salt-morning" | "acme-academy", "role": "teacher" }
+
+GET  /api/auth/me
+POST /api/auth/logout`}
           </pre>
         </div>
 

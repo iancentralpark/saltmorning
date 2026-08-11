@@ -6,7 +6,7 @@
     "subject": "MATH",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS Mathematics K–12. This seed sample covers Grade 4 Operations & Algebraic Thinking (4.OA) and a slice of Number & Operations in Base Ten (4.NBT).",
+    "description": "CCSS Mathematics K–12. This seed sample covers Grade 4 Operations & Algebraic Thinking (4.OA), Number & Operations in Base Ten (4.NBT), and Number & Operations — Fractions (4.NF).",
     "metadata": {
       "source": "http://www.corestandards.org/Math/",
       "license": "public-reference"
@@ -196,6 +196,108 @@
                       {
                         "statement": "Students write numbers in standard, word, and expanded form and compare using place value.",
                         "masteryCriteria": "≥85% on mixed read/write/compare formative.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4.NF",
+            "title": "Number & Operations — Fractions",
+            "titleKo": "수와 연산 — 분수",
+            "gradeLevel": "4",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.NF.A",
+                "title": "Extend understanding of fraction equivalence and ordering",
+                "titleKo": "분수의 동치와 크기 비교 확장",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.NF.A.1",
+                    "title": "Explain why fractions are equivalent using visual models",
+                    "titleKo": "시각 모델로 동치분수 설명하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Explain why a fraction a/b is equivalent to a fraction (n×a)/(n×b) by using visual fraction models.",
+                    "objectives": [
+                      {
+                        "statement": "Students generate and justify an equivalent fraction with a visual model.",
+                        "masteryCriteria": "Produces a correct equivalent pair and cites a model for 2 of 2 prompts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.NF.A.2",
+                    "title": "Compare two fractions with different numerators and denominators",
+                    "titleKo": "분모·분자가 다른 분수 비교하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Compare two fractions with different numerators and different denominators by creating common denominators or numerators, or by comparing to a benchmark.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare fractions using a common denominator or benchmark and record with >, =, or <.",
+                        "masteryCriteria": "≥80% accuracy on 8 comparison items with a stated strategy.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.NF.B",
+                "title": "Build fractions from unit fractions",
+                "titleKo": "단위분수로 분수 구성하기",
+                "gradeLevel": "4",
+                "sortOrder": 2,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.NF.B.3",
+                    "title": "Understand a fraction a/b as a sum of unit fractions 1/b",
+                    "titleKo": "분수 a/b를 단위분수 1/b의 합으로 이해하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Understand a fraction a/b with a > 1 as a sum of fractions 1/b.",
+                    "objectives": [
+                      {
+                        "statement": "Students decompose a fraction into unit fractions and record an equation.",
+                        "masteryCriteria": "Correct decomposition equation + model for 3 of 3 fractions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.NF.B.4",
+                    "title": "Multiply a fraction by a whole number",
+                    "titleKo": "분수와 자연수의 곱 구하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Apply and extend previous understandings of multiplication to multiply a fraction by a whole number.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve n × (a/b) problems using models or equations.",
+                        "masteryCriteria": "≥85% on 6 multiply-a-fraction-by-whole-number items.",
                         "bloomLevel": "Apply",
                         "sortOrder": 1
                       }

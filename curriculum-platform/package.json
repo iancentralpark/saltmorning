@@ -17,7 +17,8 @@
     "test:smoke": "tsx scripts/smoke-sequencer.ts",
     "test:ui": "tsx scripts/playwright-click-smoke.ts",
     "test:prisma": "tsx scripts/smoke-prisma-schedule.ts",
-    "test:calendar": "tsx scripts/smoke-calendar-sync.ts"
+    "test:calendar": "tsx scripts/smoke-calendar-sync.ts",
+    "test:session": "tsx scripts/smoke-session.ts"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

@@ -658,27 +658,53 @@ router.get('/teacher/curriculum-map/lessons', requireRole('teacher'), async (req
 
 router.post('/teacher/curriculum-map/sync-calendar', requireRole('teacher'), async (req, res) => {
   try {
-    const { getHolidaysForMonth } = require('./holiday');
-    const { pushCalendarOverlay } = require('./services/curriculumMapService');
+    const { pushHolidayOverlay } = require('./services/curriculumMapService');
     const year = Number(req.body.year) || new Date().getFullYear();
     const months = Array.isArray(req.body.months)
       ? req.body.months.map(Number)
       : [Number(req.body.month) || new Date().getMonth() + 1];
 
-    const holidays = {};
-    for (const month of months) {
-      Object.assign(holidays, await getHolidaysForMonth(year, month));
-    }
-
     const blackouts = Array.isArray(req.body.blackouts) ? req.body.blackouts : [];
-    const result = await pushCalendarOverlay({
-      holidays,
+    const result = await pushHolidayOverlay({
+      year,
+      months,
       blackouts,
       resequence: req.body.resequence !== false
     });
-    res.json({ ok: true, holidays: Object.keys(holidays).length, ...result });
+    res.json({ ok: true, ...result });
   } catch (e) {
     res.status(e.status || 502).json({ error: e.message || 'Calendar sync failed.' });
+  }
+});
+
+/** Host crontab / scheduler — no teacher session; gated by CRON_SECRET. */
+router.post('/internal/curriculum-map/sync-calendar-cron', async (req, res) => {
+  try {
+    const { CRON_SECRET } = require('./config');
+    const provided =
+      req.get('x-cron-secret') ||
+      (String(req.get('authorization') || '').match(/^Bearer\s+(.+)$/i) || [])[1];
+    if (!CRON_SECRET || provided !== CRON_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { pushHolidayOverlay } = require('./services/curriculumMapService');
+    const year = Number(req.body.year) || new Date().getFullYear();
+    const months = Array.isArray(req.body.months)
+      ? req.body.months.map(Number).filter(Boolean)
+      : Array.from({ length: 12 }, (_, i) => i + 1);
+    const blackouts = Array.isArray(req.body.blackouts) ? req.body.blackouts : [];
+
+    const result = await pushHolidayOverlay({
+      year,
+      months,
+      blackouts,
+      resequence: req.body.resequence !== false,
+      organizationCode: req.body.organizationCode
+    });
+    res.json({ ok: true, year, months, ...result });
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message || 'Calendar cron sync failed.' });
   }
 });
 

@@ -1,4 +1,4 @@
-import { assertPortalAuth } from "@/lib/portal/auth";
+import { assertPortalAuth, resolvePortalContext } from "@/lib/portal/auth";
 import {
   holidaysMapToOverlay,
   type CalendarOverlayDay,
@@ -17,17 +17,26 @@ export const runtime = "nodejs";
  *   holidays?: { "2026-03-01": "삼일절", ... },
  *   resequence?: boolean  // default true — rebuild skill→slot mapping
  * }
+ *
+ * Optional header: x-organization-code (required when PORTAL_REQUIRE_ORG=1)
  */
 export async function POST(req: NextRequest) {
   const denied = assertPortalAuth(req);
   if (denied) return denied;
+
+  const ctx = resolvePortalContext(req);
+  if (ctx instanceof Response) return ctx;
 
   const body = (await req.json().catch(() => ({}))) as {
     days?: CalendarOverlayDay[];
     holidays?: Record<string, string>;
     blackouts?: Array<{ date: string; title?: string }>;
     resequence?: boolean;
+    organizationCode?: string;
   };
+
+  const organizationCode =
+    body.organizationCode || ctx.organizationCode || null;
 
   const overlay: CalendarOverlayDay[] = [
     ...(body.days || []),
@@ -55,6 +64,7 @@ export async function POST(req: NextRequest) {
 
   return Response.json({
     ok: true,
+    organizationCode,
     overlayCount: overlay.length,
     calendarDays: calendar.length,
     nonInstructional: calendar.filter((d) => !d.isInstructional).length,

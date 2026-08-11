@@ -44,12 +44,12 @@ Recursive object:
 
 | File | Pack |
 |------|------|
-| `ccss-math-grade-4.json` | Common Core Math · Grade 4 sample |
+| `ccss-math-grade-4.json` | Common Core Math · Grade 4 (4.OA, 4.NBT, 4.NF) |
 | `kr2022-korean-grade-4.json` | 2022 개정 국어 · 초4 sample (+ CUSTOM school node) |
-| `ngss-science-grade-4.json` | NGSS Science · Grade 4 sample (energy + ESS slice) |
+| `ngss-science-grade-4.json` | NGSS Science · Grade 4 (energy + ESS systems) |
 | `kr2022-history-grade-4.json` | 2022 개정 한국사(초등 사회 연계) · 초4 sample (+ CUSTOM) |
-| `ccss-ela-grade-4.json` | Common Core ELA · Grade 4 sample (RL + W) |
-| `ccss-math-grade-5.json` | Common Core Math · Grade 5 sample (5.NBT) |
+| `ccss-ela-grade-4.json` | Common Core ELA · Grade 4 (RL + RI + W) |
+| `ccss-math-grade-5.json` | Common Core Math · Grade 5 (5.NBT + 5.NF) |
 | `custom-acme-sel.json` | Acme Academy private SEL pack (`organizationCode: acme-academy`) |
 
 ## Content language

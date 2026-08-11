@@ -37,11 +37,27 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - Teacher: `T001`
 - Class: `C4A`
+- Demo orgs: `salt-morning`, `acme-academy` (header **Demo login**)
 
 ### Portal example
 
 ```bash
-curl "http://localhost:3000/api/portal/v1/teachers/T001/classes/C4A/lessons?date=2026-03-02&generate=1"
+curl -H "x-api-key: dev-portal-key" -H "x-organization-code: salt-morning" \
+  "http://localhost:3000/api/portal/v1/teachers/T001/classes/C4A/lessons?date=2026-03-02&generate=1"
+```
+
+### Calendar cron
+
+```bash
+# Prefer Salt Morning (has Google holiday calendar):
+curl -X POST http://localhost:8790/api/internal/curriculum-map/sync-calendar-cron \
+  -H "x-cron-secret: $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"year":2026,"months":[3,4,5,6]}'
+
+# Or CurricuMap local overlay:
+curl -X POST http://localhost:3000/api/cron/calendar-sync \
+  -H "x-cron-secret: $CRON_SECRET" -H "Content-Type: application/json" \
+  -d '{"holidays":{"2026-03-01":"삼일절"}}'
 ```
 
 ## Prisma / seed
@@ -77,7 +93,10 @@ Set in `morning-class/.env`:
 ```
 CURRICULUM_MAP_URL=http://localhost:3000
 CURRICULUM_MAP_API_KEY=dev-portal-key
+CURRICULUM_MAP_ORG_CODE=salt-morning
+CRON_SECRET=dev-cron-secret
 ```
 
 Teacher → Lesson plan panel exposes CurricuMap deep-links;  
-`GET /api/teacher/curriculum-map/lessons` proxies portal lesson JSON.
+`GET /api/teacher/curriculum-map/lessons` proxies portal lesson JSON.  
+Host cron: `POST /api/internal/curriculum-map/sync-calendar-cron`.

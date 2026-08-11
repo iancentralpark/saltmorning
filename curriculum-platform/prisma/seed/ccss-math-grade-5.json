@@ -6,7 +6,7 @@
     "subject": "MATH",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS Math Grade 5 sample: Number & Operations in Base Ten (5.NBT) place value and decimals.",
+    "description": "CCSS Math Grade 5 sample: Number & Operations in Base Ten (5.NBT) and a Fractions (5.NF) slice.",
     "metadata": {
       "source": "http://www.corestandards.org/Math/",
       "license": "public-reference",
@@ -92,6 +92,62 @@
                       {
                         "statement": "Students round decimals to a specified place using place-value reasoning.",
                         "masteryCriteria": "Correct rounding on 8/10 items across tenths–thousandths.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5.NF",
+            "title": "Number & Operations — Fractions",
+            "titleKo": "수와 연산 — 분수",
+            "gradeLevel": "5",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5.NF.A",
+                "title": "Use equivalent fractions as a strategy to add and subtract fractions",
+                "titleKo": "동치분수를 이용해 분수 덧셈·뺄셈하기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NF.A.1",
+                    "title": "Add and subtract fractions with unlike denominators",
+                    "titleKo": "분모가 다른 분수의 덧셈·뺄셈하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Add and subtract fractions with unlike denominators (including mixed numbers) by replacing given fractions with equivalent fractions.",
+                    "objectives": [
+                      {
+                        "statement": "Students add/subtract fractions with unlike denominators using equivalent fractions.",
+                        "masteryCriteria": "≥80% on 8 mixed add/subtract items with unlike denominators.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NF.B.4",
+                    "title": "Multiply a fraction or whole number by a fraction",
+                    "titleKo": "분수·자연수와 분수의 곱 구하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Apply and extend previous understandings of multiplication to multiply a fraction or whole number by a fraction.",
+                    "objectives": [
+                      {
+                        "statement": "Students multiply fractions and interpret products with a model or equation.",
+                        "masteryCriteria": "Correct product + interpretation for 4 of 5 prompts.",
                         "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
