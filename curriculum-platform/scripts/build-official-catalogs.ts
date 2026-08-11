@@ -25,6 +25,7 @@ type Std = {
   position?: number;
   parentId?: string | null;
   ancestorIds?: string[];
+  listId?: string | null;
 };
 
 type Node = {
