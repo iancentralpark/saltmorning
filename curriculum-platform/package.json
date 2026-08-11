@@ -23,7 +23,9 @@
     "test:oauth": "tsx scripts/smoke-oauth-helpers.ts",
     "test:auth": "tsx scripts/smoke-auth-middleware.ts",
     "import:pack": "tsx scripts/import-official-pack.ts",
-    "test:all": "npm run test:seed && npm run test:session && npm run test:oauth && npm run test:auth && npm run test:smoke && npm run test:calendar"
+    "test:all": "npm run test:seed && npm run test:session && npm run test:oauth && npm run test:auth && npm run test:smoke && npm run test:calendar",
+    "postinstall": "prisma generate",
+    "deploy:railway": "bash scripts/railway-deploy.sh"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

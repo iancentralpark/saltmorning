@@ -1,8 +1,9 @@
-node_modules
-.next
-out
+.DS_Store
 .env
 .env.local
 *.log
-.DS_Store
+.next
+node_modules
+out
+.railway
 *.tsbuildinfo

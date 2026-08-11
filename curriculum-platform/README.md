@@ -24,6 +24,17 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Production
+
+Live on Railway: **https://curricumap-production.up.railway.app**  
+Health: https://curricumap-production.up.railway.app/api/health  
+
+```bash
+npm run deploy:railway
+```
+
+See [OPS.md](./OPS.md) for OAuth redirect URIs and Salt Morning bridge env.
+
 ### Pages
 
 | Route | Purpose |

@@ -27,3 +27,8 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - Demo holiday sync without browser API key
 - `npm run test:seed` + `scripts/import-official-pack.ts`
 - OPS.md for production credentials
+
+## Step 19 — Railway production deploy ✅
+- https://curricumap-production.up.railway.app
+- `railway.toml` + `nixpacks.toml` + `scripts/railway-deploy.sh`
+- Salt Morning `CURRICULUM_MAP_URL` pointed at production
