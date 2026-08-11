@@ -9,7 +9,7 @@ export type DemoSession = {
   role: "teacher" | "admin";
   demoUserId: string;
   exp: number;
-  provider?: "demo" | "google";
+  provider?: "demo" | "google" | "microsoft";
   email?: string;
   displayName?: string;
 };

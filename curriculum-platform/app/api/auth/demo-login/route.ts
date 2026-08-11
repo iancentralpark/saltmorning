@@ -6,6 +6,7 @@ import {
   SESSION_COOKIE,
 } from "@/lib/auth/session";
 import { isGoogleOAuthConfigured } from "@/lib/auth/google";
+import { isMicrosoftOAuthConfigured } from "@/lib/auth/microsoft";
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -65,10 +66,15 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   const session = await getSession();
+  const oauth = {
+    google: isGoogleOAuthConfigured(),
+    microsoft: isMicrosoftOAuthConfigured(),
+  };
   return Response.json({
     organizations: DEMO_ORGS,
     pinRequired: Boolean(process.env.DEMO_LOGIN_PIN),
-    oauthConfigured: isGoogleOAuthConfigured(),
+    oauthConfigured: oauth.google || oauth.microsoft,
+    oauth,
     demoLoginEnabled:
       process.env.DEMO_LOGIN_DISABLED !== "1" &&
       process.env.DEMO_LOGIN_DISABLED !== "true",

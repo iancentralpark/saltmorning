@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  exchangeGoogleCode,
-  isGoogleOAuthConfigured,
+  exchangeMicrosoftCode,
+  isMicrosoftOAuthConfigured,
   orgForEmail,
-} from "@/lib/auth/google";
+} from "@/lib/auth/microsoft";
 import { SESSION_COOKIE, signSession } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  if (!isGoogleOAuthConfigured()) {
+  if (!isMicrosoftOAuthConfigured()) {
     return NextResponse.redirect(new URL("/?auth=oauth-disabled", req.url));
   }
 
@@ -29,13 +29,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const user = await exchangeGoogleCode(code);
+    const user = await exchangeMicrosoftCode(code);
     const orgCode = orgForEmail(user.email);
     const token = signSession({
       orgCode,
       role: "teacher",
-      demoUserId: `google:${user.sub}`,
-      provider: "google",
+      demoUserId: `microsoft:${user.sub}`,
+      provider: "microsoft",
       email: user.email,
       displayName: user.name,
     });

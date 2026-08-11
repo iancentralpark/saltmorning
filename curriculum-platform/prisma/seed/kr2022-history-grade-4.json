@@ -6,7 +6,7 @@
     "subject": "KOREAN_HISTORY",
     "regionStandard": "KR-2022",
     "version": "2022",
-    "description": "초등 4학년 사회과에서 다루는 우리 지역·역사 탐구 성취기준을 한국사 프레임워크 샘플로 구조화한 데모 팩입니다. 중·고등 한국사 고시 문언으로 확장 시 코드·진술을 검수하세요.",
+    "description": "초등 4–5학년 사회·역사 연계 한국사 프레임워크 샘플. 중·고등 한국사 고시 문언으로 확장 시 코드·진술을 검수하세요.",
     "metadata": {
       "source": "교육부 2022 개정 교육과정 사회과/역사 관련",
       "gradeBand": "3-4",
@@ -317,6 +317,96 @@
                         "statementKo": "자료 카드를 1차·2차로 분류하고 이유를 말한다.",
                         "masteryCriteria": "Correctly sorts ≥4/5 cards with one accurate reason each.",
                         "masteryCriteriaKo": "카드 4/5개 이상 올바르게 분류하고 이유를 제시한다.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5 / 초등학교 5학년",
+        "titleKo": "초등학교 5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "5사-나라",
+            "title": "Early states and cultural exchange",
+            "titleKo": "고대 국가와 문화 교류",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5사-고대",
+                "title": "Life in early Korean states",
+                "titleKo": "고대 국가의 생활",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5한01-01",
+                    "title": "Describe features of an early Korean state",
+                    "titleKo": "고대 국가의 특징 설명하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "고대 국가 한 곳의 정치·생활 특징을 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe political or daily-life features of one early Korean state.",
+                        "statementKo": "고대 국가 한 곳의 정치·생활 특징을 설명한다.",
+                        "masteryCriteria": "Description names the state + ≥2 accurate features.",
+                        "masteryCriteriaKo": "국가명과 특징 2가지 이상 포함.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5한01-02",
+                    "title": "Explain an example of cultural exchange",
+                    "titleKo": "문화 교류의 사례 설명하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "문화 교류 사례 한 가지를 찾아 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain one cultural-exchange example with a cause or effect.",
+                        "statementKo": "문화 교류 사례 한 가지를 원인·결과와 함께 설명한다.",
+                        "masteryCriteria": "Example + cause/effect sentence completed.",
+                        "masteryCriteriaKo": "사례와 원인·결과 문장 완성.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5한01-03",
+                    "title": "Compare then-and-now community roles",
+                    "titleKo": "과거와 오늘날의 역할 비교하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "과거와 오늘날의 공동체 역할을 비교한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare one community role across past and present.",
+                        "statementKo": "과거와 오늘날의 공동체 역할 한 가지를 비교한다.",
+                        "masteryCriteria": "Comparison table with ≥2 differences.",
+                        "masteryCriteriaKo": "차이점 2가지 이상 비교표 완성.",
                         "bloomLevel": "Analyze",
                         "sortOrder": 1
                       }

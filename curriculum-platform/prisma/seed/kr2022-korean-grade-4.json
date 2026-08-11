@@ -6,10 +6,10 @@
     "subject": "KOREAN_LANGUAGE",
     "regionStandard": "KR-2022",
     "version": "2022",
-    "description": "대한민국 2022 개정 교육과정 국어과 성취기준 샘플. 초등학교 3–4학년군 샘플(듣기·말하기·읽기 등). 실제 고시 문언은 교육부 PDF를 기준으로 검수·확장하세요.",
+    "description": "대한민국 2022 개정 교육과정 국어과 성취기준 샘플. 초 3–6학년 샘플 밴드. 실제 고시 문언은 교육부 PDF를 기준으로 검수·확장하세요.",
     "metadata": {
       "source": "교육부 2022 개정 교육과정 국어과",
-      "gradeBand": "3-4",
+      "gradeBand": "3-6",
       "language": "ko",
       "note": "Codes below use a conventional pattern [학년군][영역코드]-[일련번호] for demo mapping; replace with official codes when importing the full pack."
     }
@@ -387,6 +387,192 @@
                         "statementKo": "매주 읽은 책의 줄거리와 느낀 점을 정해진 형식으로 쓴다.",
                         "statement": "Students write a weekly reading journal with summary and response in the school template.",
                         "masteryCriteriaKo": "4주 중 3주 이상 양식에 맞게 제출.",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5 / 초등학교 5학년",
+        "titleKo": "초등학교 5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "metadata": {
+          "gradeBand": "5-6"
+        },
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "5국01",
+            "title": "Listening · Speaking / 듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5국01-토의",
+                "title": "Discussing with evidence",
+                "titleKo": "근거를 들어 토의하기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국01-01",
+                    "title": "Support a claim with reasons in a discussion",
+                    "titleKo": "토의에서 이유와 함께 주장하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "토의에서 자신의 주장을 이유와 함께 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students state a claim with at least one reason in a short discussion.",
+                        "statementKo": "짧은 토의에서 주장과 이유 한 가지 이상을 말한다.",
+                        "masteryCriteria": "Claim + reason present; on-topic.",
+                        "masteryCriteriaKo": "주제와 관련된 주장·이유 포함.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국01-02",
+                    "title": "Summarize others’ viewpoints fairly",
+                    "titleKo": "상대 의견을 공정하게 요약하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "상대의 의견을 왜곡 없이 요약한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students paraphrase a peer’s viewpoint without distortion.",
+                        "statementKo": "상대 의견을 왜곡 없이 한두 문장으로 요약한다.",
+                        "masteryCriteria": "Paraphrase accepted by peer or teacher as fair.",
+                        "masteryCriteriaKo": "동료·교사가 공정하다고 인정하는 요약.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5국02",
+            "title": "Reading / 읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "5",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5국02-추론",
+                "title": "Inferring from text",
+                "titleKo": "글에서 추론하기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5국02-01",
+                    "title": "Infer the author’s purpose with text evidence",
+                    "titleKo": "글의 목적을 근거와 함께 추론하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "글의 목적을 추론하고 근거를 제시한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students infer author’s purpose and cite evidence.",
+                        "statementKo": "글의 목적과 근거를 함께 말한다.",
+                        "masteryCriteria": "Purpose claim + ≥1 evidence sentence.",
+                        "masteryCriteriaKo": "목적 주장과 근거 문장 1개 이상.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G6",
+        "title": "Grade 6 / 초등학교 6학년",
+        "titleKo": "초등학교 6학년",
+        "gradeLevel": "6",
+        "sortOrder": 6,
+        "metadata": {
+          "gradeBand": "5-6"
+        },
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "6국03",
+            "title": "Writing / 쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6국03-설득",
+                "title": "Persuasive writing",
+                "titleKo": "설득하는 글쓰기",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국03-01",
+                    "title": "Write a persuasive paragraph with claim and reasons",
+                    "titleKo": "주장과 이유가 있는 설득 문단 쓰기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "주장과 이유를 갖춘 설득 문단을 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a persuasive paragraph with a claim and ≥2 reasons.",
+                        "statementKo": "주장과 이유 2가지 이상이 있는 설득 문단을 쓴다.",
+                        "masteryCriteria": "Claim + ≥2 reasons + closing.",
+                        "masteryCriteriaKo": "주장·이유 2개 이상·맺음말 포함.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6국03-02",
+                    "title": "Revise for clarity using peer feedback",
+                    "titleKo": "동료 피드백으로 명확하게 고쳐 쓰기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "동료 피드백을 반영해 글을 고쳐 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "Students revise one paragraph based on peer feedback.",
+                        "statementKo": "동료 피드백을 반영해 문단을 한 번 고쳐 쓴다.",
+                        "masteryCriteria": "Revision log shows ≥1 feedback-driven change.",
+                        "masteryCriteriaKo": "피드백 반영 수정 1회 이상 기록.",
+                        "bloomLevel": "Evaluate",
                         "sortOrder": 1
                       }
                     ],

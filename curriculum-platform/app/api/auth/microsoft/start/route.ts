@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
 import {
-  buildGoogleAuthUrl,
+  buildMicrosoftAuthUrl,
   createOAuthState,
-  isGoogleOAuthConfigured,
-} from "@/lib/auth/google";
+  isMicrosoftOAuthConfigured,
+} from "@/lib/auth/microsoft";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!isGoogleOAuthConfigured()) {
+  if (!isMicrosoftOAuthConfigured()) {
     return NextResponse.json(
-      { error: "Google OAuth is not configured" },
+      { error: "Microsoft OAuth is not configured" },
       { status: 503 }
     );
   }
   const state = createOAuthState();
-  const res = NextResponse.redirect(buildGoogleAuthUrl(state));
+  const res = NextResponse.redirect(buildMicrosoftAuthUrl(state));
   res.cookies.set("curricumap_oauth_state", state, {
     httpOnly: true,
     sameSite: "lax",
@@ -23,7 +23,7 @@ export async function GET() {
     path: "/",
     maxAge: 600,
   });
-  res.cookies.set("curricumap_oauth_provider", "google", {
+  res.cookies.set("curricumap_oauth_provider", "microsoft", {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

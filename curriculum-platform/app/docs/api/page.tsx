@@ -93,6 +93,10 @@ POST /api/auth/logout
 GET /api/auth/google/start
 GET /api/auth/google/callback
 
+# Optional Microsoft Entra OAuth (when MICROSOFT_CLIENT_ID/SECRET set)
+GET /api/auth/microsoft/start
+GET /api/auth/microsoft/callback
+
 # AUTH_REQUIRED=1 → middleware requires session on /map /schedule`}
           </pre>
         </div>

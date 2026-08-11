@@ -25,8 +25,8 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - `/api/health` readiness check
 
 ## Later
-- Additional IdPs (Microsoft / Apple) if needed beyond Google
-- Exhaustive official-code K–12 dumps (replace sample slices with full PE/achievement catalogs)
+- Apple Sign In (requires Apple Developer private key JWT)
+- Exhaustive official PE/achievement PDF dumps (beyond sample catalogs)
 
 ## Step 13 — Multi-org polish + pack depth ✅
 - Seed-mode honors `organizationCode` / `isPublic` (Acme SEL private)
@@ -46,3 +46,7 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - `AUTH_REQUIRED` middleware for `/map` `/schedule`
 - CCSS Math merged to K–6 (retired `ccss-math-g5`)
 - KR 국어 Grade 3 + NGSS Grade 5 sample bands
+
+## Step 16 — Microsoft IdP + broader K–8 packs ✅
+- Microsoft Entra OAuth (`/api/auth/microsoft/*`)
+- CCSS Math K–8, ELA 3–5, 국어 3–6, 한국사 4–5 sample bands

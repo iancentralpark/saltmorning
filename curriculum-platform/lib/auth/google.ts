@@ -1,10 +1,16 @@
 /**
  * Google OAuth helpers (optional — enabled when client id/secret are set).
- * Sessions still use the shared HMAC cookie from lib/auth/session.ts.
  */
 
-import { createHash, randomBytes } from "crypto";
-import { isDemoOrgCode } from "@/lib/auth/session";
+import { createHash } from "crypto";
+import {
+  createOAuthState,
+  orgForEmail,
+  defaultOAuthOrg,
+  type OAuthUser,
+} from "@/lib/auth/oauth-shared";
+
+export { createOAuthState, orgForEmail, defaultOAuthOrg };
 
 export function isGoogleOAuthConfigured() {
   return Boolean(
@@ -18,28 +24,6 @@ export function googleRedirectUri() {
     process.env.GOOGLE_REDIRECT_URI ||
     "http://localhost:3000/api/auth/google/callback"
   );
-}
-
-export function defaultOAuthOrg() {
-  const code = process.env.OAUTH_DEFAULT_ORG || "salt-morning";
-  return isDemoOrgCode(code) ? code : "salt-morning";
-}
-
-/** Optional email→org map: "a@x.com:acme-academy,b@y.com:salt-morning" */
-export function orgForEmail(email: string): string {
-  const raw = process.env.OAUTH_EMAIL_ORG_MAP || "";
-  const lower = email.trim().toLowerCase();
-  for (const part of raw.split(",")) {
-    const [addr, org] = part.split(":").map((s) => s.trim());
-    if (addr && org && addr.toLowerCase() === lower && isDemoOrgCode(org)) {
-      return org;
-    }
-  }
-  return defaultOAuthOrg();
-}
-
-export function createOAuthState() {
-  return randomBytes(16).toString("hex");
 }
 
 export function buildGoogleAuthUrl(state: string) {
@@ -56,7 +40,7 @@ export function buildGoogleAuthUrl(state: string) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function exchangeGoogleCode(code: string) {
+export async function exchangeGoogleCode(code: string): Promise<OAuthUser> {
   const body = new URLSearchParams({
     code,
     client_id: process.env.GOOGLE_CLIENT_ID || "",
@@ -82,14 +66,14 @@ export async function exchangeGoogleCode(code: string) {
     );
   }
 
-  const userRes = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-    headers: { Authorization: `Bearer ${tokenJson.access_token}` },
-  });
+  const userRes = await fetch(
+    "https://openidconnect.googleapis.com/v1/userinfo",
+    { headers: { Authorization: `Bearer ${tokenJson.access_token}` } }
+  );
   const user = (await userRes.json()) as {
     sub?: string;
     email?: string;
     name?: string;
-    email_verified?: boolean;
   };
   if (!userRes.ok || !user.email) {
     throw new Error("Could not load Google userinfo");
@@ -97,6 +81,8 @@ export async function exchangeGoogleCode(code: string) {
   return {
     email: user.email,
     name: user.name || user.email,
-    sub: user.sub || createHash("sha256").update(user.email).digest("hex").slice(0, 16),
+    sub:
+      user.sub ||
+      createHash("sha256").update(user.email).digest("hex").slice(0, 16),
   };
 }

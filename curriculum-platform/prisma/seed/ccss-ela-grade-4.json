@@ -6,10 +6,11 @@
     "subject": "ELA",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS ELA Grade 4 sample covering Reading Literature (RL), Reading Informational Text (RI), and Writing (W) slices.",
+    "description": "CCSS ELA Grades 3–5 sample (RL/RI/W slices). Sample depth — expand with full grade bands as needed.",
     "metadata": {
       "source": "http://www.corestandards.org/ELA-Literacy/",
-      "license": "public-reference"
+      "license": "public-reference",
+      "gradeSpan": "3-5"
     }
   },
   "tree": {
@@ -19,6 +20,72 @@
     "titleKo": "CCSS 영어",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G3",
+        "title": "Grade 3",
+        "titleKo": "3학년",
+        "gradeLevel": "3",
+        "sortOrder": 3,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.3",
+            "title": "Reading Literature",
+            "titleKo": "문학 읽기",
+            "gradeLevel": "3",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.3.Core",
+                "title": "Reading Literature",
+                "titleKo": "문학 읽기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.3.1",
+                    "title": "Ask and answer questions to demonstrate understanding of a text",
+                    "titleKo": "글 이해를 위한 질문하고 답하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Ask and answer questions to demonstrate understanding of a text, referring explicitly to the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students answer a text-based question with an explicit citation.",
+                        "masteryCriteria": "Answer + citation for 3 of 3 questions.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.3.3",
+                    "title": "Describe characters and explain how their actions contribute to events",
+                    "titleKo": "인물과 행동이 사건에 미치는 영향 설명하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Describe characters in a story and explain how their actions contribute to the sequence of events.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a character trait tied to an action and event.",
+                        "masteryCriteria": "Trait–action–event link for 2 characters.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G4",
@@ -246,6 +313,90 @@
                       {
                         "statement": "Students write a narrative with sequenced events and sensory/descriptive details.",
                         "masteryCriteria": "Narrative shows clear sequence and ≥4 descriptive details.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5",
+        "titleKo": "5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RI.5",
+            "title": "Reading Informational Text",
+            "titleKo": "정보 텍스트 읽기",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RI.5.Core",
+                "title": "Reading Informational Text",
+                "titleKo": "정보 텍스트 읽기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.5.1",
+                    "title": "Quote accurately when explaining and drawing inferences",
+                    "titleKo": "설명·추론 시 정확히 인용하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Quote accurately from a text when explaining what the text says explicitly and when drawing inferences.",
+                    "objectives": [
+                      {
+                        "statement": "Students support an inference with an accurate quotation.",
+                        "masteryCriteria": "Inference + accurate quote for 3 of 3 prompts.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RI.5.2",
+                    "title": "Determine two or more main ideas and explain how they are supported",
+                    "titleKo": "둘 이상의 중심 생각과 뒷받침 설명하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Determine two or more main ideas of a text and explain how they are supported by key details.",
+                    "objectives": [
+                      {
+                        "statement": "Students state ≥2 main ideas with supporting details.",
+                        "masteryCriteria": "Two main ideas + ≥1 detail each.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.5.1",
+                    "title": "Write opinion pieces supporting a point of view with reasons and information",
+                    "titleKo": "이유와 정보로 뒷받침하는 의견문 쓰기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "Write opinion pieces on topics or texts, supporting a point of view with reasons and information.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an opinion with reasons and a concluding statement.",
+                        "masteryCriteria": "Claim + ≥2 reasons + conclusion.",
                         "bloomLevel": "Create",
                         "sortOrder": 1
                       }

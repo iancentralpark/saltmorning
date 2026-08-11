@@ -14,10 +14,12 @@ type SessionInfo = {
 
 type OrgOption = { code: string; name: string };
 
+type OAuthFlags = { google?: boolean; microsoft?: boolean };
+
 export function DemoAuth() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [orgs, setOrgs] = useState<OrgOption[]>([]);
-  const [oauthConfigured, setOauthConfigured] = useState(false);
+  const [oauth, setOauth] = useState<OAuthFlags>({});
   const [demoEnabled, setDemoEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
@@ -29,7 +31,7 @@ export function DemoAuth() {
     ]);
     setSession(me.session || null);
     setOrgs(loginMeta.organizations || []);
-    setOauthConfigured(Boolean(me.oauthConfigured || loginMeta.oauthConfigured));
+    setOauth(me.oauth || loginMeta.oauth || {});
     setDemoEnabled(loginMeta.demoLoginEnabled !== false);
     if (me.session?.orgCode) {
       writeOrg(me.session.orgCode, true);
@@ -96,12 +98,20 @@ export function DemoAuth() {
 
   return (
     <div className="relative hidden items-center gap-1.5 sm:flex">
-      {oauthConfigured && (
+      {oauth.google && (
         <a
           href="/api/auth/google/start"
           className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
         >
           Google
+        </a>
+      )}
+      {oauth.microsoft && (
+        <a
+          href="/api/auth/microsoft/start"
+          className="rounded-md border border-ink-900/15 bg-white/90 px-2 py-1.5 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
+        >
+          Microsoft
         </a>
       )}
       {demoEnabled && (

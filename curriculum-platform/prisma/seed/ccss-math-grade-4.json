@@ -1,16 +1,16 @@
 {
   "framework": {
     "code": "ccss-math",
-    "name": "Common Core State Standards — Mathematics (K–6 sample)",
-    "nameKo": "공통핵심기준 — 수학 (K–6 샘플)",
+    "name": "Common Core State Standards — Mathematics (K–8 sample)",
+    "nameKo": "공통핵심기준 — 수학 (K–8 샘플)",
     "subject": "MATH",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS Mathematics sample spanning Kindergarten–Grade 6 (K.CC, 1.OA, 2.NBT, 3.NF/OA, 4.OA/NBT/NF, 5.NBT/NF, 6.RP/NS). Sample depth — not a full standards dump.",
+    "description": "CCSS Mathematics sample spanning Kindergarten–Grade 8. Sample depth — not a full standards dump.",
     "metadata": {
       "source": "http://www.corestandards.org/Math/",
       "license": "public-reference",
-      "gradeSpan": "K-6",
+      "gradeSpan": "K-8",
       "note": "Merged former ccss-math-g5 into this pack as GRADE G5."
     }
   },
@@ -807,6 +807,174 @@
                         "statement": "Students place integers on a number line and interpret a real-world signed quantity.",
                         "masteryCriteria": "Correct placements for 4 of 5 prompts.",
                         "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G7",
+        "title": "Grade 7",
+        "titleKo": "7학년",
+        "gradeLevel": "7",
+        "sortOrder": 7,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "7.RP",
+            "title": "Ratios & Proportional Relationships",
+            "titleKo": "비와 비례 관계",
+            "gradeLevel": "7",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "7.RP.Core",
+                "title": "Ratios & Proportional Relationships",
+                "titleKo": "비와 비례 관계",
+                "gradeLevel": "7",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.RP.A.2",
+                    "title": "Recognize and represent proportional relationships",
+                    "titleKo": "비례 관계 인식·표현하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 1,
+                    "summary": "Recognize and represent proportional relationships between quantities.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify a proportional relationship and write an equation y=kx.",
+                        "masteryCriteria": "Correct constant of proportionality for 4 of 5 tables.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.EE.B.4",
+                    "title": "Use variables to represent quantities in real-world problems",
+                    "titleKo": "실생활 문제에서 변수로 양 나타내기",
+                    "gradeLevel": "7",
+                    "sortOrder": 2,
+                    "summary": "Use variables to represent quantities and construct simple equations and inequalities.",
+                    "objectives": [
+                      {
+                        "statement": "Students write and solve a one-variable equation for a word problem.",
+                        "masteryCriteria": "Correct equation + solution for 4 of 5 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "7.NS.A.3",
+                    "title": "Solve real-world problems with rational numbers",
+                    "titleKo": "유리수로 실생활 문제 해결하기",
+                    "gradeLevel": "7",
+                    "sortOrder": 3,
+                    "summary": "Solve real-world and mathematical problems involving the four operations with rational numbers.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute with signed rationals in a multi-step context.",
+                        "masteryCriteria": "≥80% on mixed rational-number set.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G8",
+        "title": "Grade 8",
+        "titleKo": "8학년",
+        "gradeLevel": "8",
+        "sortOrder": 8,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "8.F",
+            "title": "Functions",
+            "titleKo": "함수",
+            "gradeLevel": "8",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "8.F.Core",
+                "title": "Functions",
+                "titleKo": "함수",
+                "gradeLevel": "8",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.F.A.1",
+                    "title": "Understand that a function assigns exactly one output",
+                    "titleKo": "함수가 하나의 출력을 대응시킴을 이해하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 1,
+                    "summary": "Understand that a function is a rule that assigns to each input exactly one output.",
+                    "objectives": [
+                      {
+                        "statement": "Students decide whether a relation is a function and justify.",
+                        "masteryCriteria": "Correct function/non-function decisions for 4 of 5 relations.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.EE.B.5",
+                    "title": "Graph proportional relationships and interpret slope",
+                    "titleKo": "비례 관계를 그래프로 그리고 기울기 해석하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 2,
+                    "summary": "Graph proportional relationships, interpreting the unit rate as the slope.",
+                    "objectives": [
+                      {
+                        "statement": "Students graph y=kx and interpret slope as unit rate.",
+                        "masteryCriteria": "Correct graph + slope interpretation for 3 of 3.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "8.G.B.7",
+                    "title": "Apply the Pythagorean Theorem",
+                    "titleKo": "피타고라스 정리 적용하기",
+                    "gradeLevel": "8",
+                    "sortOrder": 3,
+                    "summary": "Apply the Pythagorean Theorem to determine unknown side lengths in right triangles.",
+                    "objectives": [
+                      {
+                        "statement": "Students find a missing side using a²+b²=c².",
+                        "masteryCriteria": "Correct missing side for 4 of 5 right triangles.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],
