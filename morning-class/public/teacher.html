@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811schoolcal">
+  <link rel="stylesheet" href="/css/app.css?v=20260811teacherhome">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -31,15 +31,17 @@
     </nav>
   </header>
 
-  <div id="homeView" class="hidden">
-    <div class="card">
-      <div class="section-title">My timetable</div>
-      <div id="teacherTimetableMount"></div>
-    </div>
-    <div class="card" id="homeClassesSection">
-      <div class="section-title">My classes</div>
-      <p class="muted small" style="margin:0 0 0.75rem">Homeroom classes include attendance and analytics. Subject classes focus on grades, homework, and dollars.</p>
-      <div class="class-list" id="assignedList"></div>
+  <div id="homeView" class="hidden teacher-home">
+    <div class="teacher-home-grid">
+      <div class="card teacher-home-tt">
+        <div class="section-title">My timetable</div>
+        <div id="teacherTimetableMount" class="teacher-home-tt-scroll"></div>
+      </div>
+      <div class="card teacher-home-classes" id="homeClassesSection">
+        <div class="section-title">My classes</div>
+        <p class="muted small teacher-home-classes-help">Open a class for attendance, grades, homework, and more.</p>
+        <div class="class-list" id="assignedList"></div>
+      </div>
     </div>
     <div class="card hidden" id="homeHeadReportSection">
       <div class="section-title">Report cards — Head Teacher</div>
@@ -627,6 +629,7 @@
     hideAllAppViews();
     show($('homeView'));
     setShellIdentity('My classes');
+    setClassToolsMinimized(true);
     const p = getProfile(role);
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
     loadHeadReportQueue();
@@ -637,7 +640,7 @@
     }
     if (opts.focus === 'classes' && $('homeClassesSection')) {
       setTimeout(() => {
-        $('homeClassesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('homeClassesSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 40);
     }
   }
@@ -1312,7 +1315,7 @@
     await loadClasses();
     SaltMessenger.init(role);
     showClassToolsSidebar();
-    setClassToolsMinimized(false);
+    setClassToolsMinimized(true);
     await applyRoute();
   }
 

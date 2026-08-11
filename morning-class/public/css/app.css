@@ -58,7 +58,99 @@ body {
 a { color: var(--olive); text-decoration: none; }
 a:hover { color: var(--gold); }
 .shell { max-width: 960px; margin: 0 auto; padding: 1rem; }
-.shell.teacher-shell-wide { max-width: 1100px; }
+.shell.teacher-shell-wide { max-width: 1280px; }
+
+/* Teacher home: timetable + classes side-by-side */
+.teacher-home-grid {
+  display: grid;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.teacher-home-tt .section-title,
+.teacher-home-classes .section-title {
+  margin-top: 0;
+  margin-bottom: 0.55rem;
+}
+.teacher-home-classes-help {
+  margin: 0 0 0.55rem;
+}
+.teacher-home-tt-scroll {
+  min-height: 0;
+}
+@media (min-width: 900px) {
+  .teacher-home-grid {
+    grid-template-columns: minmax(0, 1.75fr) minmax(15rem, 0.95fr);
+    max-height: calc(100vh - 5.75rem);
+  }
+  .teacher-home-tt,
+  .teacher-home-classes {
+    margin-bottom: 0;
+    padding: 0.85rem 0.95rem;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .teacher-home-tt-scroll,
+  .teacher-home-classes .class-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+  .teacher-home-classes .class-list {
+    gap: 0.4rem;
+    align-content: start;
+  }
+  .teacher-home-classes .class-card {
+    padding: 0.55rem 0.7rem;
+  }
+  .teacher-home-classes .class-homeroom-badge {
+    margin-bottom: 0.25rem;
+    font-size: 0.62rem;
+    padding: 0.12rem 0.4rem;
+  }
+  .teacher-home-classes .class-card-roles {
+    font-size: 0.78rem;
+    margin-top: 0.2rem;
+  }
+  /* Compact timetable cells on home only */
+  .teacher-home-tt .tt-week-period-grid {
+    font-size: 0.78rem;
+  }
+  .teacher-home-tt .tt-week-period-grid .tt-cell-slot,
+  .teacher-home-tt .tt-week-period-grid .tt-cell-break {
+    min-width: 5.5rem;
+    min-height: 2.15rem;
+    padding: 0.15rem;
+  }
+  .teacher-home-tt .tt-week-period-grid .tt-slot,
+  .teacher-home-tt .tt-week-period-grid .tt-day-empty {
+    min-height: 1.75rem;
+  }
+  .teacher-home-tt .tt-slot {
+    padding: 0.18rem 0.3rem;
+    font-size: 0.72rem;
+  }
+  .teacher-home-tt .tt-slot-time {
+    font-size: 0.62rem;
+  }
+  .teacher-home-tt .tt-slot-teacher,
+  .teacher-home-tt .tt-slot-notes {
+    display: none;
+  }
+  .teacher-home-tt .tt-period-label,
+  .teacher-home-tt .tt-week-period-grid .tt-period-label {
+    min-width: 4.25rem;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.35rem;
+  }
+}
+@media (max-width: 899px) {
+  .teacher-home-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; margin-bottom: 1rem;
