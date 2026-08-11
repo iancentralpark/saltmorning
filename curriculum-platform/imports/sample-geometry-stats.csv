@@ -1,0 +1,4 @@
+grade,domainCode,domainTitle,conceptCode,conceptTitle,skillCode,skillTitle,summary,objective,mastery,bloom
+HS,G-CO,Congruence,G-CO.A,Experiment with transformations,G-CO.A.1,Know precise definitions of angle circle etc,Geometry definitions,Students state precise definitions for angle circle perpendicular parallel,Correct definitions for 4 of 5 terms,Understand
+HS,G-CO,Congruence,G-CO.B,Understand congruence,G-CO.B.6,Use geometric descriptions of rigid motions,Rigid motions,Students describe a rigid motion taking one figure onto another,Correct motion description for 3 of 3,Apply
+HS,S-ID,Interpreting Data,S-ID.A,Summarize data,S-ID.A.1,Represent data with plots,Data plots,Students create an appropriate plot for a data set,Correct plot type + labels,Apply

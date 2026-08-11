@@ -19,6 +19,35 @@ window.SaltLesson = (function() {
   function api(path, opts) { return deps.api(path, opts, deps.role || 'teacher'); }
   function getClass() { return deps.getClass ? deps.getClass() : null; }
 
+  async function wireCurricuMapLinks() {
+    const scheduleLink = $('lpCurricuMapLink');
+    const mindmapLink = $('lpCurricuMapMindmap');
+    if (!scheduleLink && !mindmapLink) return;
+    try {
+      const cls = getClass();
+      const subjectSelect = $('lpSubjectSelect');
+      const subject = subjectSelect && subjectSelect.value ? subjectSelect.value : '';
+      const params = new URLSearchParams();
+      if (cls && cls.classId) params.set('classId', cls.classId);
+      if (subject) params.set('subject', subject);
+      const q = params.toString() ? ('?' + params.toString()) : '';
+      const cfg = await api('/api/teacher/curriculum-map/config' + q);
+      if (scheduleLink && cfg.links && cfg.links.schedule) {
+        scheduleLink.href = cfg.links.schedule;
+      }
+      if (mindmapLink && cfg.links && cfg.links.mindmap) {
+        mindmapLink.href = cfg.links.mindmap;
+      }
+    } catch (e) {
+      if (scheduleLink) {
+        scheduleLink.href = 'https://curricumap-production.up.railway.app/schedule?embed=1';
+      }
+      if (mindmapLink) {
+        mindmapLink.href = 'https://curricumap-production.up.railway.app/map?embed=1';
+      }
+    }
+  }
+
   function init(options) {
     deps = options;
     document.querySelectorAll('.lp-prev-month').forEach((btn) => {
@@ -38,6 +67,7 @@ window.SaltLesson = (function() {
     const submitBtn = $('lpSubmitBtn');
     const subjectSelect = $('lpSubjectSelect');
     if (saveDraft) saveDraft.addEventListener('click', () => savePlan(false));
+    wireCurricuMapLinks();
     if (submitBtn) submitBtn.addEventListener('click', () => savePlan(true));
     if (subjectSelect) subjectSelect.addEventListener('change', onSubjectChange);
     if ($('lpAdminDrawerClose')) {
@@ -107,6 +137,7 @@ window.SaltLesson = (function() {
   async function onClassOpen() {
     setMount('lpCalendarMount');
     readOnly = false;
+    await wireCurricuMapLinks();
     await loadSubjectGroups();
     await loadCalendar();
     if (deps.onClassOpenExtra) deps.onClassOpenExtra();
@@ -586,6 +617,7 @@ window.SaltLesson = (function() {
   }
 
   function onSubjectChange() {
+    wireCurricuMapLinks();
     if (!activeSlot) return;
     activeSlot = Object.assign({}, activeSlot, { subject: $('lpSubjectSelect').value });
     $('lpDrawerMeta').textContent = activeSlot.className + ' · ' + activeSlot.subject;
@@ -729,6 +761,7 @@ window.SaltLesson = (function() {
     loadCalendar,
     loadAdminCalendar,
     loadSubjectGroups,
+    wireCurricuMapLinks,
     closeDrawer,
     closeAdminDrawer,
     setMount,

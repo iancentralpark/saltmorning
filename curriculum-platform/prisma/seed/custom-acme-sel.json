@@ -1,0 +1,176 @@
+{
+  "framework": {
+    "code": "custom-acme-sel",
+    "name": "Acme Academy — Social Emotional Learning",
+    "nameKo": "Acme 아카데미 — 사회정서학습",
+    "subject": "CUSTOM",
+    "regionStandard": "CUSTOM",
+    "version": "1.0",
+    "description": "School-private SEL micro-framework demonstrating multi-org custom nodes.",
+    "organizationCode": "acme-academy",
+    "isPublic": false,
+    "metadata": {
+      "ownerOrg": "acme-academy",
+      "visibility": "organization"
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "custom-acme-sel",
+    "title": "Acme SEL",
+    "titleKo": "Acme 사회정서학습",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4",
+        "titleKo": "4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "SEL.SA",
+            "title": "Self-Awareness",
+            "titleKo": "자기인식",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SEL.SA.Emotions",
+                "title": "Naming emotions",
+                "titleKo": "감정 이름 붙이기",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SA.1",
+                    "title": "Identify and label personal feelings in context",
+                    "titleKo": "상황에서 자신의 감정을 파악하고 이름 붙이기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Students identify feelings and use precise emotion vocabulary in classroom scenarios.",
+                    "objectives": [
+                      {
+                        "statement": "Students label feelings with precise vocabulary and cite a situational cue.",
+                        "masteryCriteria": "Correctly labels 4/5 scenario cards with emotion + cue.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SA.2",
+                    "title": "Connect body cues to emotions",
+                    "titleKo": "몸의 신호와 감정 연결하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Students notice physical cues and link them to emotional states.",
+                    "objectives": [
+                      {
+                        "statement": "Students map at least two body cues to an emotion and a helpful strategy.",
+                        "masteryCriteria": "Completes cue→emotion→strategy map for 2 scenarios.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SA.3",
+                    "title": "Choose a calm-down strategy for a strong feeling",
+                    "titleKo": "강한 감정에 맞는 진정 전략 고르기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Students select and practice one calm-down strategy matched to a feeling.",
+                    "objectives": [
+                      {
+                        "statement": "Students name a feeling and pick an appropriate regulation strategy.",
+                        "masteryCriteria": "Feeling + strategy pair justified for 2 scenarios.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5",
+        "titleKo": "5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "SEL.SM",
+            "title": "Self-Management",
+            "titleKo": "자기관리",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "SEL.SM.Goals",
+                "title": "Goal setting",
+                "titleKo": "목표 설정",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SM.1",
+                    "title": "Set a short-term academic or social goal",
+                    "titleKo": "단기 학습·관계 목표 세우기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Students write a specific short-term goal with one success check.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a SMART-ish goal with a check-in step.",
+                        "masteryCriteria": "Goal + check-in completed on planner card.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SEL.SM.2",
+                    "title": "Reflect on progress toward a goal",
+                    "titleKo": "목표 진행 돌아보기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Students reflect on what helped or blocked goal progress.",
+                    "objectives": [
+                      {
+                        "statement": "Students name one helper and one blocker for their goal.",
+                        "masteryCriteria": "Reflection includes helper + blocker + next step.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

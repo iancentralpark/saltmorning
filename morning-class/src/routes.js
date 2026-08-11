@@ -619,6 +619,111 @@ router.get('/teacher/lesson-plans', requireRole('teacher'), async (req, res) => 
   }
 });
 
+router.get('/teacher/curriculum-map/config', requireRole('teacher'), async (req, res) => {
+  try {
+    const { getCurriculumMapPublicConfig, deepLink } = require('./services/curriculumMapService');
+    const cls = req.query.classId || '';
+    const teacherId = req.session.teacherId || '';
+    const subject = String(req.query.subject || '').toLowerCase();
+    const frameworkBySubject = {
+      math: 'ccss-math',
+      mathematics: 'ccss-math',
+      ela: 'ccss-ela',
+      english: 'ccss-ela',
+      reading: 'ccss-ela',
+      science: 'ngss-science',
+      korean: 'kr2022-korean',
+      'korean language': 'kr2022-korean',
+      history: 'kr2022-history',
+      'korean history': 'kr2022-history',
+      social: 'kr2022-history'
+    };
+    const framework = frameworkBySubject[subject] || 'ccss-ela';
+    res.json({
+      ...getCurriculumMapPublicConfig(),
+      links: {
+        schedule: deepLink('/schedule', {
+          embed: '1',
+          teacherId,
+          classId: cls || 'C4A'
+        }),
+        mindmap: deepLink('/map', { embed: '1', framework }),
+        connect: deepLink('/docs/api', { embed: '1' })
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load CurricuMap config.' });
+  }
+});
+
+router.get('/teacher/curriculum-map/lessons', requireRole('teacher'), async (req, res) => {
+  try {
+    const { curriculumMapFetch } = require('./services/curriculumMapService');
+    const teacherId = encodeURIComponent(req.session.teacherId || 'T001');
+    const classId = encodeURIComponent(req.query.classId || 'C4A');
+    const date = req.query.date ? `&date=${encodeURIComponent(req.query.date)}` : '';
+    const generate = req.query.generate === '1' ? '&generate=1' : '';
+    const data = await curriculumMapFetch(
+      `/api/portal/v1/teachers/${teacherId}/classes/${classId}/lessons?${date}${generate}`.replace('?&', '?')
+    );
+    res.json(data);
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message || 'CurricuMap proxy failed.' });
+  }
+});
+
+router.post('/teacher/curriculum-map/sync-calendar', requireRole('teacher'), async (req, res) => {
+  try {
+    const { pushHolidayOverlay } = require('./services/curriculumMapService');
+    const year = Number(req.body.year) || new Date().getFullYear();
+    const months = Array.isArray(req.body.months)
+      ? req.body.months.map(Number)
+      : [Number(req.body.month) || new Date().getMonth() + 1];
+
+    const blackouts = Array.isArray(req.body.blackouts) ? req.body.blackouts : [];
+    const result = await pushHolidayOverlay({
+      year,
+      months,
+      blackouts,
+      resequence: req.body.resequence !== false
+    });
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message || 'Calendar sync failed.' });
+  }
+});
+
+/** Host crontab / scheduler — no teacher session; gated by CRON_SECRET. */
+router.post('/internal/curriculum-map/sync-calendar-cron', async (req, res) => {
+  try {
+    const { CRON_SECRET } = require('./config');
+    const provided =
+      req.get('x-cron-secret') ||
+      (String(req.get('authorization') || '').match(/^Bearer\s+(.+)$/i) || [])[1];
+    if (!CRON_SECRET || provided !== CRON_SECRET) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { pushHolidayOverlay } = require('./services/curriculumMapService');
+    const year = Number(req.body.year) || new Date().getFullYear();
+    const months = Array.isArray(req.body.months)
+      ? req.body.months.map(Number).filter(Boolean)
+      : Array.from({ length: 12 }, (_, i) => i + 1);
+    const blackouts = Array.isArray(req.body.blackouts) ? req.body.blackouts : [];
+
+    const result = await pushHolidayOverlay({
+      year,
+      months,
+      blackouts,
+      resequence: req.body.resequence !== false,
+      organizationCode: req.body.organizationCode
+    });
+    res.json({ ok: true, year, months, ...result });
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message || 'Calendar cron sync failed.' });
+  }
+});
+
 router.get('/teacher/lesson-plans/:planId', requireRole('teacher'), async (req, res) => {
   try {
     const plan = await getLessonPlan(req.params.planId);

@@ -1,0 +1,405 @@
+// Curriculum Mapping & AI Lesson Planning Platform
+// Multi-framework, hierarchy-agnostic curriculum graph + teacher scheduling
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum FrameworkSubject {
+  MATH
+  ELA
+  SCIENCE
+  KOREAN_LANGUAGE
+  KOREAN_HISTORY
+  SOCIAL_STUDIES
+  OTHER
+  CUSTOM
+}
+
+/// Hierarchical levels for React Flow drill-down.
+/// CUSTOM allows school-specific intermediate layers without schema changes.
+enum CurriculumNodeType {
+  ROOT
+  GRADE
+  DOMAIN
+  CONCEPT
+  SKILL
+  CUSTOM
+}
+
+enum ResourceType {
+  PDF
+  WORKSHEET
+  SLIDES
+  VIDEO
+  LINK
+  OTHER
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+/// Aligns with Salt Morning school calendar day types where useful.
+enum CalendarDayType {
+  INSTRUCTIONAL
+  HOLIDAY
+  BREAK
+  EVENT
+  BLACKOUT
+  SCHOOL_DAY_OVERRIDE
+}
+
+enum ScheduledLessonStatus {
+  PLANNED
+  GENERATED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
+enum LessonPlanStatus {
+  DRAFT
+  GENERATED
+  REVIEWED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AiMaterialType {
+  DAILY_QUIZ
+  FORMATIVE_TEST
+  WORKSHEET
+  EXIT_TICKET
+  WARM_UP
+  OTHER
+}
+
+// ─── Tenancy / people (external portal IDs) ───────────────────────────────────
+
+/// Optional school/tenant for multi-school deployments.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  code      String?  @unique
+  timezone  String   @default("Asia/Seoul")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teachers         Teacher[]
+  classes          Class[]
+  schoolCalendars  SchoolCalendar[]
+  frameworks       Framework[]
+}
+
+/// External teacher identity (maps to existing Teacher Portal teacherId).
+model Teacher {
+  id           String   @id @default(cuid())
+  /// ID from Salt Morning / external portal (e.g. T001)
+  externalId   String
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  displayName  String
+  email        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  schedules         TeacherSchedule[]
+  scheduledLessons  ScheduledLesson[]
+  lessonPlans       LessonPlan[]
+
+  @@unique([organizationId, externalId])
+  @@index([externalId])
+}
+
+/// External class identity (maps to existing Class ID, e.g. C001).
+model Class {
+  id             String   @id @default(cuid())
+  externalId     String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name           String
+  gradeLevel     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  schedules         TeacherSchedule[]
+  scheduledLessons  ScheduledLesson[]
+  lessonPlans       LessonPlan[]
+
+  @@unique([organizationId, externalId])
+  @@index([externalId])
+}
+
+// ─── Curriculum frameworks & mindmap graph ───────────────────────────────────
+
+/// Top-level curriculum package (CCSS Math, NGSS, KR 2022 국어, custom packs).
+model Framework {
+  id             String           @id @default(cuid())
+  /// Stable machine code: ccss-math, ngss, kr2022-korean, custom-acme-math
+  code           String           @unique
+  name           String
+  nameKo         String?
+  subject        FrameworkSubject @default(OTHER)
+  /// e.g. "US-CCSS", "US-NGSS", "KR-2022", "CUSTOM"
+  regionStandard String
+  version        String           @default("1.0")
+  description    String?
+  /// Extensible bag for publisher metadata, license, source URL, etc.
+  metadata       Json?
+  organizationId String?
+  organization   Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  isPublic       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  nodes CurriculumNode[]
+
+  @@index([subject, regionStandard])
+}
+
+/// Adjacency-list tree node for Framework → Grade → Domain → Concept → Skill.
+/// React Flow positions stored for persisted layouts.
+model CurriculumNode {
+  id          String             @id @default(cuid())
+  frameworkId String
+  framework   Framework          @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      CurriculumNode?    @relation("NodeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    CurriculumNode[]   @relation("NodeTree")
+
+  nodeType CurriculumNodeType
+  /// Official standard / achievement code when applicable (e.g. 4.OA.A.1, 4국01-01)
+  code     String?
+  title    String
+  titleKo  String?
+  summary  String?
+  /// Grade band: "K", "1"…"12", or ranges like "6-8" for middle-school packs
+  gradeLevel String?
+  sortOrder  Int      @default(0)
+
+  /// React Flow canvas position (optional; layout engines may recompute)
+  positionX Float?
+  positionY Float?
+
+  /// Arbitrary extension: tags, strands, DOK, visual style, custom fields
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  objectives       LearningObjective[]
+  resources        Resource[]
+  scheduledLessons ScheduledLesson[]
+  lessonPlans      LessonPlan[]
+  aiMaterials      AiMaterial[]
+
+  @@index([frameworkId, nodeType])
+  @@index([frameworkId, gradeLevel])
+  @@index([parentId, sortOrder])
+  @@index([code])
+}
+
+model LearningObjective {
+  id              String         @id @default(cuid())
+  nodeId          String
+  node            CurriculumNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  /// Optional sub-code under the parent skill standard
+  code            String?
+  statement       String
+  statementKo     String?
+  masteryCriteria String?
+  masteryCriteriaKo String?
+  bloomLevel      String?
+  sortOrder       Int            @default(0)
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([nodeId, sortOrder])
+}
+
+model Resource {
+  id          String         @id @default(cuid())
+  nodeId      String
+  node        CurriculumNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  type        ResourceType   @default(OTHER)
+  title       String
+  description String?
+  url         String?
+  storageKey  String?
+  mimeType    String?
+  sortOrder   Int            @default(0)
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([nodeId, type])
+}
+
+// ─── School calendar & teacher timetable ─────────────────────────────────────
+
+model SchoolCalendar {
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  name           String
+  /// Academic year label, e.g. "2025-2026"
+  academicYear   String
+  startDate      DateTime      @db.Date
+  endDate        DateTime      @db.Date
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  days SchoolCalendarDay[]
+
+  @@index([organizationId, academicYear])
+}
+
+model SchoolCalendarDay {
+  id         String           @id @default(cuid())
+  calendarId String
+  calendar   SchoolCalendar   @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  date       DateTime         @db.Date
+  dayType    CalendarDayType  @default(INSTRUCTIONAL)
+  title      String?
+  /// false = blackout / no class scheduling
+  isInstructional Boolean     @default(true)
+  metadata   Json?
+
+  @@unique([calendarId, date])
+  @@index([calendarId, isInstructional])
+}
+
+/// Weekly recurring class period for a teacher (timetable row).
+model TeacherSchedule {
+  id         String    @id @default(cuid())
+  teacherId  String
+  teacher    Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId    String
+  class      Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  dayOfWeek  DayOfWeek
+  /// Period index within the day (1-based) or bell label key
+  period     Int
+  periodLabel String?
+  startTime  String?
+  endTime    String?
+  subject    String?
+  /// Soft link to a framework for default sequencing
+  frameworkCode String?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  scheduledLessons ScheduledLesson[]
+
+  @@unique([teacherId, classId, dayOfWeek, period])
+  @@index([teacherId, dayOfWeek])
+  @@index([classId])
+}
+
+/// A curriculum skill placed onto a concrete instructional slot.
+model ScheduledLesson {
+  id               String                @id @default(cuid())
+  teacherId        String
+  teacher          Teacher               @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId          String
+  class            Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
+  skillNodeId      String
+  skillNode        CurriculumNode        @relation(fields: [skillNodeId], references: [id], onDelete: Restrict)
+  teacherScheduleId String?
+  teacherSchedule  TeacherSchedule?      @relation(fields: [teacherScheduleId], references: [id], onDelete: SetNull)
+
+  scheduledDate DateTime               @db.Date
+  period        Int
+  sequenceIndex Int                    @default(0)
+  status        ScheduledLessonStatus  @default(PLANNED)
+  notes         String?
+  metadata      Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  lessonPlan LessonPlan?
+
+  @@unique([teacherId, classId, scheduledDate, period])
+  @@index([teacherId, scheduledDate])
+  @@index([classId, scheduledDate])
+  @@index([skillNodeId])
+}
+
+// ─── AI lesson plans & generated materials ───────────────────────────────────
+
+model LessonPlan {
+  id                String           @id @default(cuid())
+  scheduledLessonId String?          @unique
+  scheduledLesson   ScheduledLesson? @relation(fields: [scheduledLessonId], references: [id], onDelete: SetNull)
+
+  teacherId   String
+  teacher     Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId     String
+  class       Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  skillNodeId String?
+  skillNode   CurriculumNode? @relation(fields: [skillNodeId], references: [id], onDelete: SetNull)
+
+  lessonDate DateTime @db.Date
+  period     Int?
+  title      String
+  status     LessonPlanStatus @default(DRAFT)
+
+  /// Structured sections (also mirrored as columns for simple queries)
+  warmUp               String? @db.Text
+  instruction          String? @db.Text
+  guidedPractice       String? @db.Text
+  formativeAssessment  String? @db.Text
+  closure              String? @db.Text
+  materials            String? @db.Text
+  differentiation      String? @db.Text
+  homework             String? @db.Text
+
+  /// Full AI structured JSON payload for portal consumers
+  contentJson Json?
+  model       String?
+  generatedAt DateTime?
+  publishedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  aiMaterials AiMaterial[]
+
+  @@index([teacherId, lessonDate])
+  @@index([classId, lessonDate])
+  @@index([status])
+}
+
+/// AI-generated quizzes / worksheets attached to a skill or lesson plan.
+model AiMaterial {
+  id           String         @id @default(cuid())
+  nodeId       String?
+  node         CurriculumNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  lessonPlanId String?
+  lessonPlan   LessonPlan?    @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  type         AiMaterialType @default(OTHER)
+  title        String
+  prompt       String?        @db.Text
+  contentJson  Json
+  model        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([nodeId, type])
+  @@index([lessonPlanId])
+}
