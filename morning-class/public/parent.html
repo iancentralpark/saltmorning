@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811portal">
+  <link rel="stylesheet" href="/css/app.css?v=20260811pphead">
 </head>
 <body>
 <div class="shell portal-shell-wide">
@@ -15,10 +15,16 @@
   </div>
 
   <div id="appView" class="hidden pp-app">
-    <header class="topbar teacher-topbar teacher-shell-topbar portal-shell-topbar">
-      <div class="teacher-shell-identity">
-        <div class="brand" id="welcomeText" data-i18n="parent.brand">Parent</div>
-        <div class="teacher-shell-page muted small" id="parentPageTitle" data-i18n="nav.feed">Newsfeed</div>
+    <header class="topbar teacher-topbar teacher-shell-topbar portal-shell-topbar pp-topbar">
+      <div class="pp-header-student" id="ppHeaderStudent">
+        <div class="pp-header-photo" id="ppHeaderPhoto" aria-hidden="true">
+          <div class="pp-header-photo-fallback" id="ppHeaderPhotoFallback">?</div>
+          <img class="pp-header-photo-img hidden" id="ppHeaderPhotoImg" alt="">
+        </div>
+        <div class="pp-header-meta">
+          <div class="brand" id="ppHeaderName">Student</div>
+          <div class="pp-header-sub muted small" id="ppHeaderSub"></div>
+        </div>
       </div>
       <div class="teacher-shell-nav">
         <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
@@ -28,22 +34,27 @@
 
     <nav class="class-subnav portal-subnav" id="parentNav" aria-label="Parent sections">
       <div class="class-subnav-track">
-        <button class="class-subnav-item active" data-tab="feed" type="button" data-i18n="nav.feed">Newsfeed</button>
-        <button class="class-subnav-item" data-tab="announcements" type="button" data-i18n="nav.parentAnnouncements">Announcements</button>
+        <button class="class-subnav-item active" data-tab="feed" type="button">
+          <span data-i18n="nav.feed">Newsfeed</span>
+          <span class="pp-nav-badge hidden" data-badge="feed">0</span>
+        </button>
+        <button class="class-subnav-item" data-tab="announcements" type="button">
+          <span data-i18n="nav.parentAnnouncements">Announcements</span>
+          <span class="pp-nav-badge hidden" data-badge="announcements">0</span>
+        </button>
         <button class="class-subnav-item" data-tab="attendance" type="button" data-i18n="nav.attendance">Attendance</button>
         <button class="class-subnav-item" data-tab="timetable" type="button" data-i18n="nav.timetable">Timetable</button>
-        <button class="class-subnav-item" data-tab="homework" type="button" data-i18n="nav.homework">Homework</button>
-        <button class="class-subnav-item" data-tab="reportcards" type="button" data-i18n="nav.parentReports">Report cards</button>
+        <button class="class-subnav-item" data-tab="homework" type="button">
+          <span data-i18n="nav.homework">Homework</span>
+          <span class="pp-nav-badge hidden" data-badge="homework">0</span>
+        </button>
+        <button class="class-subnav-item" data-tab="reportcards" type="button">
+          <span data-i18n="nav.parentReports">Report cards</span>
+          <span class="pp-nav-badge hidden" data-badge="reportcards">0</span>
+        </button>
         <button class="class-subnav-item" data-tab="profile" type="button" data-i18n="nav.profile">Profile</button>
       </div>
     </nav>
-
-    <div id="ppHero" class="pp-hero card"></div>
-    <div id="ppContacts" class="pp-contacts card">
-      <h3 style="margin-top:0" data-i18n="parent.message.title">Message</h3>
-      <p class="muted small" data-i18n="parent.message.help">Chat with teachers or the school office. Use Auto Translate in the bubble for Korean.</p>
-      <div id="ppTeacherList" class="pp-teacher-list"></div>
-    </div>
 
     <div id="tabFeed" class="card">
       <h3 style="margin-top:0" data-i18n="parent.feed.title">Updates</h3>
@@ -151,8 +162,8 @@
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
-<script src="/js/messenger.js?v=20260810admdir"></script>
-<script src="/js/parent.js?v=20260811i18n"></script>
+<script src="/js/messenger.js?v=20260811ppmsg"></script>
+<script src="/js/parent.js?v=20260811pphead"></script>
 <script>
 (function() {
   const role = 'parent';

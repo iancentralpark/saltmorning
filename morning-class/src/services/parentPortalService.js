@@ -118,7 +118,22 @@ async function getParentOverview(session) {
       today: (homework.today || []).length
     },
     reportCardsShared: (reports.reports || []).length,
-    newsfeed
+    newsfeed,
+    badgeSources: {
+      feed: (newsfeed || []).map((i) => ({ id: String(i.id || ''), at: String(i.at || '') })),
+      announcements: (announcements || []).map((a) => ({
+        id: String(a.announcementId || a.title || ''),
+        at: String(a.postedAt || '')
+      })),
+      homework: (homework.pending || []).map((h) => ({
+        id: String(h.itemId || h.homeworkId || h.title || ''),
+        at: String(h.assignedDate || h.postedAt || h.createdAt || '')
+      })),
+      reportcards: (reports.reports || []).map((r) => ({
+        id: String(r.term || ''),
+        at: String(r.sharedAt || '')
+      }))
+    }
   };
 }
 

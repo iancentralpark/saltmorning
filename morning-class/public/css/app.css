@@ -209,6 +209,134 @@ a:hover { color: var(--gold); }
 .portal-shell-topbar .teacher-shell-nav {
   gap: 0.4rem;
 }
+/* Parent header: student photo + class/grade in topbar */
+.pp-topbar {
+  align-items: center;
+}
+.pp-header-student {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.pp-header-photo {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(197, 160, 89, 0.4);
+}
+.pp-header-photo-img,
+.pp-header-photo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  object-fit: cover;
+}
+.pp-header-photo-fallback {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #F7F3EA;
+}
+.pp-header-meta {
+  min-width: 0;
+  overflow: hidden;
+}
+.pp-header-meta .brand {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+.pp-header-sub {
+  margin-top: 0.12rem;
+  color: rgba(247, 243, 234, 0.78);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.32rem;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+.class-subnav-item .pp-nav-badge.hidden { display: none; }
+.msg-quick-contacts {
+  padding: 0.55rem 0.75rem 0.35rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.msg-quick-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.msg-quick-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.35rem;
+}
+.msg-quick-chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  cursor: pointer;
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  max-width: 9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.msg-quick-chip strong {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-quick-chip span {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.msg-quick-chip:hover {
+  border-color: var(--olive);
+  background: var(--sage-soft);
+}
+@media (max-width: 720px) {
+  .pp-header-photo { width: 40px; height: 40px; }
+  .pp-header-meta .brand { font-size: 1.05rem; }
+}
 .card {
   background: var(--card);
   border: 1px solid var(--border);

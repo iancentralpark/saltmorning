@@ -15,6 +15,7 @@
   let directoryResults = [];
   let directoryQuery = '';
   let directorySearching = false;
+  let quickContacts = [];
 
   /** messageId → { original, translated, targetLang, error? } */
   const translationCache = Object.create(null);
@@ -237,6 +238,7 @@
   function renderThreads() {
     const list = root().querySelector('.msg-thread-list');
     if (!list) return;
+    renderQuickContacts();
     if (!threads.length) {
       list.innerHTML = '<p class="msg-empty">No conversations yet.' +
         (isAdminRole() ? ' Search above to message someone.' : '') + '</p>';
@@ -260,6 +262,55 @@
     list.querySelectorAll('.msg-thread-item').forEach((btn) => {
       btn.addEventListener('click', () => openThread(btn.dataset.tid));
     });
+  }
+
+  function renderQuickContacts() {
+    const box = root() && root().querySelector('.msg-quick-contacts');
+    if (!box) return;
+    if (!isParentRole() || !quickContacts.length) {
+      box.classList.add('hidden');
+      box.innerHTML = '';
+      return;
+    }
+    const chips = [];
+    chips.push(
+      '<button type="button" class="msg-quick-chip" data-admin="1">' +
+        '<strong>Salt Admin</strong>' +
+        '<span>School office</span>' +
+      '</button>'
+    );
+    quickContacts.forEach((t) => {
+      chips.push(
+        '<button type="button" class="msg-quick-chip" data-tid="' + escapeHtml(t.teacherId) + '">' +
+          '<strong>' + escapeHtml(t.name || t.teacherId) + '</strong>' +
+          '<span>' + escapeHtml(
+            t.isHomeroom ? 'Homeroom' : ((t.subjects || []).slice(0, 2).join(', ') || 'Teacher')
+          ) + '</span>' +
+        '</button>'
+      );
+    });
+    box.innerHTML =
+      '<div class="msg-quick-label">' +
+      escapeHtml(
+        (global.SaltI18n && SaltI18n.getLang() === 'ko') ? '연락처' : 'Contacts'
+      ) +
+      '</div>' +
+      '<div class="msg-quick-row">' + chips.join('') + '</div>';
+    box.classList.remove('hidden');
+    box.querySelectorAll('.msg-quick-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.admin === '1') {
+          openThreadForAdmin();
+          return;
+        }
+        openThreadForTeacher(btn.dataset.tid);
+      });
+    });
+  }
+
+  function setQuickContacts(teachers) {
+    quickContacts = Array.isArray(teachers) ? teachers.slice() : [];
+    if (root()) renderQuickContacts();
   }
 
   function displayBodyForMessage(m, autoOn) {
@@ -684,6 +735,7 @@
       '</div>' +
       '<div class="msg-panel-body">' +
       '<div class="msg-view-threads">' +
+      '<div class="msg-quick-contacts hidden"></div>' +
       (isAdminRole()
         ? '<div class="msg-directory">' +
           '<input type="search" class="msg-directory-input" placeholder="Search teachers, parents, students…" autocomplete="off">' +
@@ -853,6 +905,7 @@
     refresh: refreshThreads,
     open: openMessenger,
     openThreadForTeacher,
-    openThreadForAdmin
+    openThreadForAdmin,
+    setQuickContacts
   };
 })(window);

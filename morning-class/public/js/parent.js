@@ -11,6 +11,12 @@ window.SaltParent = (function() {
   let yearAtt = null;
   let yearAttMonthIdx = 0;
   let currentTab = '';
+  let badgeSources = {
+    feed: [],
+    announcements: [],
+    homework: [],
+    reportcards: []
+  };
 
   const TAB_TITLE_KEYS = {
     feed: 'nav.feed',
@@ -22,11 +28,60 @@ window.SaltParent = (function() {
     profile: 'nav.profile'
   };
 
+  const BADGE_TABS = ['feed', 'announcements', 'homework', 'reportcards'];
+  const SEEN_KEY = 'salt_pp_seen_v1';
+
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
   function api(path, opts) { return deps.api(path, opts, 'parent'); }
   function t(key, fallback) {
     return window.SaltI18n ? SaltI18n.t(key, fallback) : (fallback || key);
+  }
+
+  function readSeen() {
+    try {
+      return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function writeSeen(map) {
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(map || {})); } catch (_) { /* ignore */ }
+  }
+
+  function unseenCount(tab) {
+    const items = badgeSources[tab] || [];
+    const seen = readSeen()[tab] || {};
+    const ids = new Set((seen.ids || []).map(String));
+    return items.filter((it) => it && it.id && !ids.has(String(it.id))).length;
+  }
+
+  function markTabSeen(tab) {
+    if (!BADGE_TABS.includes(tab)) return;
+    const items = badgeSources[tab] || [];
+    const map = readSeen();
+    map[tab] = {
+      ids: items.map((it) => String(it.id || '')).filter(Boolean),
+      at: Date.now()
+    };
+    writeSeen(map);
+    renderBadges();
+  }
+
+  function renderBadges() {
+    BADGE_TABS.forEach((tab) => {
+      const el = document.querySelector('#parentNav [data-badge="' + tab + '"]');
+      if (!el) return;
+      const n = unseenCount(tab);
+      if (n > 0) {
+        el.textContent = n > 99 ? '99+' : String(n);
+        el.classList.remove('hidden');
+      } else {
+        el.textContent = '0';
+        el.classList.add('hidden');
+      }
+    });
   }
 
   function init(options) {
@@ -36,10 +91,7 @@ window.SaltParent = (function() {
     });
     window.addEventListener('hashchange', applyRoute);
     window.addEventListener('salt:langchange', () => {
-      if (currentTab && $('parentPageTitle')) {
-        $('parentPageTitle').textContent = t(TAB_TITLE_KEYS[currentTab]);
-      }
-      if (overview) renderHero(overview);
+      if (overview) renderHeader(overview);
       if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
     });
     $('ppProfileForm').addEventListener('submit', saveProfile);
@@ -75,8 +127,8 @@ window.SaltParent = (function() {
     if (!opts.skipHash) setRoute(name, !!opts.replace);
     if (currentTab === name && !opts.force) return;
     currentTab = name;
-    document.querySelectorAll('#parentNav .class-subnav-item').forEach((t) =>
-      t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
+      btn.classList.toggle('active', btn.dataset.tab === name));
     ['feed', 'announcements', 'attendance', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       if (el) deps.hide(el);
@@ -91,10 +143,7 @@ window.SaltParent = (function() {
       profile: 'tabProfile'
     };
     deps.show($(map[name]));
-    if ($('parentPageTitle')) {
-      $('parentPageTitle').setAttribute('data-i18n', TAB_TITLE_KEYS[name]);
-      $('parentPageTitle').textContent = t(TAB_TITLE_KEYS[name]);
-    }
+    markTabSeen(name);
     if (name === 'announcements') loadAnnouncements();
     if (name === 'attendance') loadAttendance();
     if (name === 'timetable') loadTimetable();
@@ -107,7 +156,7 @@ window.SaltParent = (function() {
   async function loadAnnouncements() {
     const mount = $('ppAnnList');
     if (!mount) return;
-    mount.innerHTML = '<p class="muted">Loading…</p>';
+    mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
       const data = await api('/api/parent/announcements');
       if (window.SaltAnnouncements) {
@@ -125,9 +174,15 @@ window.SaltParent = (function() {
   async function boot() {
     const data = await api('/api/parent/overview');
     overview = data;
-    renderHero(data);
+    badgeSources = Object.assign({
+      feed: [], announcements: [], homework: [], reportcards: []
+    }, data.badgeSources || {});
+    renderHeader(data);
     renderFeed(data.newsfeed || []);
-    renderTeachers(data.teachers || []);
+    if (window.SaltMessenger && SaltMessenger.setQuickContacts) {
+      SaltMessenger.setQuickContacts(data.teachers || []);
+    }
+    renderBadges();
     if (!location.hash || location.hash === '#') {
       switchTab('feed', { replace: true });
     } else {
@@ -136,34 +191,35 @@ window.SaltParent = (function() {
     if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
   }
 
-  function renderHero(data) {
+  function renderHeader(data) {
     const s = data.student || {};
-    const photo = s.photoPath
-      ? '<img class="pp-hero-photo" src="' + escapeHtml(s.photoPath) + '" alt="">'
-      : '<div class="pp-hero-fallback">' + escapeHtml((s.name || '?').charAt(0)) + '</div>';
-    const hwPending = (data.homeworkSummary && data.homeworkSummary.pending) || 0;
-    const reports = data.reportCardsShared || 0;
-    $('ppHero').innerHTML =
-      photo +
-      '<div class="pp-hero-text">' +
-        '<div class="pp-hero-eyebrow">' + escapeHtml(t('parent.hero.child', 'My child')) + '</div>' +
-        '<h2>' + escapeHtml(s.name || '') + '</h2>' +
-        '<p class="muted">' +
-          escapeHtml(s.className || s.classId || '') +
-          (s.gradeLevel ? ' · ' + escapeHtml(s.gradeLevel) : '') +
-        '</p>' +
-        '<div class="pp-hero-stats">' +
-          '<span>' + hwPending + ' ' + escapeHtml(t('parent.hero.hwPending', 'homework pending')) + '</span>' +
-          '<span>' + reports + ' ' + escapeHtml(t('parent.hero.reports', 'report card(s)')) + '</span>' +
-        '</div>' +
-      '</div>';
-    $('welcomeText').textContent = (data.parent && data.parent.name ? data.parent.name : t('parent.brand', 'Parent')) +
-      ' · ' + (s.name || '');
-    $('welcomeText').removeAttribute('data-i18n');
+    const name = s.name || t('parent.brand', 'Parent');
+    const sub = [s.className || s.classId || '', s.gradeLevel || '']
+      .filter(Boolean)
+      .join(' · ');
+    if ($('ppHeaderName')) $('ppHeaderName').textContent = name;
+    if ($('ppHeaderSub')) $('ppHeaderSub').textContent = sub;
+
+    const img = $('ppHeaderPhotoImg');
+    const fallback = $('ppHeaderPhotoFallback');
+    if (!img || !fallback) return;
+    const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    fallback.textContent = initial;
+    if (s.photoPath) {
+      img.src = s.photoPath + (s.photoPath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+      img.alt = name;
+      img.classList.remove('hidden');
+      fallback.classList.add('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+      fallback.classList.remove('hidden');
+    }
   }
 
   function renderFeed(items) {
     const box = $('ppFeed');
+    if (!box) return;
     if (!items.length) {
       box.innerHTML = '<p class="muted">No updates yet. Grades and teacher comments will appear here.</p>';
       return;
@@ -206,42 +262,6 @@ window.SaltParent = (function() {
         '</div>' +
       '</article>';
     }).join('');
-  }
-
-  function renderTeachers(teachers) {
-    const box = $('ppTeacherList');
-    if (!box) return;
-    const chips = [];
-    chips.push(
-      '<button type="button" class="pp-teacher-chip pp-admin-chip" data-admin="1">' +
-        '<strong>Salt Admin</strong>' +
-        '<span>School office</span>' +
-      '</button>'
-    );
-    (teachers || []).forEach((t) => {
-      chips.push(
-        '<button type="button" class="pp-teacher-chip" data-tid="' + escapeHtml(t.teacherId) + '">' +
-          '<strong>' + escapeHtml(t.name) + '</strong>' +
-          '<span>' + escapeHtml(t.isHomeroom ? 'Homeroom' : ((t.subjects || []).join(', ') || 'Teacher')) + '</span>' +
-        '</button>'
-      );
-    });
-    box.innerHTML = chips.join('');
-    box.querySelectorAll('.pp-teacher-chip').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (!window.SaltMessenger) return;
-        if (btn.dataset.admin === '1') {
-          if (SaltMessenger.openThreadForAdmin) SaltMessenger.openThreadForAdmin();
-          else SaltMessenger.open();
-          return;
-        }
-        if (SaltMessenger.openThreadForTeacher) {
-          SaltMessenger.openThreadForTeacher(btn.dataset.tid);
-        } else {
-          SaltMessenger.open();
-        }
-      });
-    });
   }
 
   async function loadAttendance() {
