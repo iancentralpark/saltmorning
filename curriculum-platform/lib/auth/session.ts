@@ -9,6 +9,9 @@ export type DemoSession = {
   role: "teacher" | "admin";
   demoUserId: string;
   exp: number;
+  provider?: "demo" | "google";
+  email?: string;
+  displayName?: string;
 };
 
 export const DEMO_ORGS = [
@@ -24,10 +27,27 @@ export const DEMO_ORGS = [
   },
 ] as const;
 
-function authSecret() {
+export function authSecret() {
   return process.env.AUTH_SECRET || "curricumap-dev-secret";
 }
 
+function toBase64Url(bytes: Uint8Array) {
+  let str = "";
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]!);
+  // btoa available in Node 22 + Edge
+  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromBase64Url(s: string) {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** Node-sync sign (API routes). */
 export function signSession(
   payload: Omit<DemoSession, "exp"> & { exp?: number }
 ): string {
@@ -42,6 +62,7 @@ export function signSession(
   return `${data}.${sig}`;
 }
 
+/** Sync verify for Node (API routes / smoke tests). */
 export function verifySession(token: string | undefined | null): DemoSession | null {
   if (!token || typeof token !== "string") return null;
   const parts = token.split(".");
@@ -57,6 +78,49 @@ export function verifySession(token: string | undefined | null): DemoSession | n
     const body = JSON.parse(
       Buffer.from(data, "base64url").toString("utf8")
     ) as DemoSession;
+    if (!body.orgCode || !body.role || !body.exp) return null;
+    if (Date.now() > body.exp) return null;
+    return body;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Edge-safe verify for middleware (Web Crypto).
+ * Signature format matches Node createHmac(...).digest("base64url").
+ */
+export async function verifySessionEdge(
+  token: string | undefined | null
+): Promise<DemoSession | null> {
+  if (!token || typeof token !== "string") return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [data, sig] = parts;
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(authSecret()),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const mac = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(data)
+    );
+    const expected = toBase64Url(new Uint8Array(mac));
+    if (expected.length !== sig.length) return null;
+    // constant-ish compare
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) {
+      diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
+    }
+    if (diff !== 0) return null;
+
+    const json = new TextDecoder().decode(fromBase64Url(data));
+    const body = JSON.parse(json) as DemoSession;
     if (!body.orgCode || !body.role || !body.exp) return null;
     if (Date.now() > body.exp) return null;
     return body;
@@ -95,7 +159,6 @@ export function filterFrameworksForSession<
 
   if (!org || org === "all") {
     if (session?.role === "teacher") {
-      // Teachers never see other orgs' private packs
       return frameworks.filter(
         (f) =>
           (f.isPublic !== false && !f.organizationCode) ||

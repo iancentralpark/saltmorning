@@ -5,6 +5,7 @@ import {
   signSession,
   SESSION_COOKIE,
 } from "@/lib/auth/session";
+import { isGoogleOAuthConfigured } from "@/lib/auth/google";
 import { NextRequest } from "next/server";
 
 export const runtime = "nodejs";
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
     orgCode,
     role,
     demoUserId: role === "admin" ? "demo-admin" : `demo-${orgCode}`,
+    provider: "demo",
   });
 
   const res = Response.json({
@@ -48,6 +50,7 @@ export async function POST(req: NextRequest) {
     session: {
       orgCode,
       role,
+      provider: "demo",
       orgName: DEMO_ORGS.find((o) => o.code === orgCode)?.name,
     },
   });
@@ -65,11 +68,16 @@ export async function GET() {
   return Response.json({
     organizations: DEMO_ORGS,
     pinRequired: Boolean(process.env.DEMO_LOGIN_PIN),
+    oauthConfigured: isGoogleOAuthConfigured(),
+    demoLoginEnabled:
+      process.env.DEMO_LOGIN_DISABLED !== "1" &&
+      process.env.DEMO_LOGIN_DISABLED !== "true",
     session: session
       ? {
           orgCode: session.orgCode,
           role: session.role,
           demoUserId: session.demoUserId,
+          provider: session.provider || "demo",
           orgName: DEMO_ORGS.find((o) => o.code === session.orgCode)?.name,
         }
       : null,

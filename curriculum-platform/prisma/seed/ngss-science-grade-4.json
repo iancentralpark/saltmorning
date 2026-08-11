@@ -6,7 +6,7 @@
     "subject": "SCIENCE",
     "regionStandard": "US-NGSS",
     "version": "2013",
-    "description": "NGSS sample pack for Grade 4 Physical Science (energy) and Earth Science slice. Expand with full PE/DCI/CCC/SEP metadata as needed.",
+    "description": "NGSS sample pack for Grade 4 (energy + Earth) and Grade 5 (matter + Earth systems). Expand with full PE/DCI/CCC/SEP metadata as needed.",
     "metadata": {
       "source": "https://www.nextgenscience.org/",
       "license": "public-reference"
@@ -262,6 +262,110 @@
                         "statement": "Students describe one fuel/energy source, its origin, and one environmental effect of use.",
                         "masteryCriteria": "Info card includes source, origin, use, and environmental effect with a cited fact.",
                         "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5",
+        "titleKo": "5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "5-PS1",
+            "title": "Matter and Its Interactions",
+            "titleKo": "물질과 그 상호작용",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5-PS1-A",
+                "title": "Structure and Properties of Matter",
+                "titleKo": "물질의 구조와 성질",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-PS1-1",
+                    "title": "Develop a model that matter is made of particles too small to be seen",
+                    "titleKo": "눈에 보이지 않는 입자로 물질을 모형화하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Develop a model to describe that matter is made of particles too small to be seen.",
+                    "objectives": [
+                      {
+                        "statement": "Students use a particle model to explain a phenomenon (e.g., dissolving, air).",
+                        "masteryCriteria": "Model + explanation cites particles for 1 phenomenon.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-PS1-3",
+                    "title": "Make observations to identify materials based on properties",
+                    "titleKo": "성질을 관찰해 물질 구별하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Make observations and measurements to identify materials based on their properties.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify a material using ≥2 measurable/observable properties.",
+                        "masteryCriteria": "Correct identification with 2 property citations.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5-ESS2",
+            "title": "Earth's Systems",
+            "titleKo": "지구의 시스템",
+            "gradeLevel": "5",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5-ESS2-A",
+                "title": "Earth Materials and Systems",
+                "titleKo": "지구 물질과 시스템",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5-ESS2-1",
+                    "title": "Develop a model of ways the geosphere, biosphere, hydrosphere, and/or atmosphere interact",
+                    "titleKo": "지구 영역 간 상호작용 모형 만들기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Develop a model using an example to describe ways the geosphere, biosphere, hydrosphere, and/or atmosphere interact.",
+                    "objectives": [
+                      {
+                        "statement": "Students diagram an interaction between at least two Earth systems.",
+                        "masteryCriteria": "Diagram names ≥2 systems and one interaction.",
+                        "bloomLevel": "Apply",
                         "sortOrder": 1
                       }
                     ],

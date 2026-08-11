@@ -1,15 +1,17 @@
 {
   "framework": {
     "code": "ccss-math",
-    "name": "Common Core State Standards — Mathematics",
-    "nameKo": "공통핵심기준 — 수학",
+    "name": "Common Core State Standards — Mathematics (K–6 sample)",
+    "nameKo": "공통핵심기준 — 수학 (K–6 샘플)",
     "subject": "MATH",
     "regionStandard": "US-CCSS",
     "version": "2010",
-    "description": "CCSS Mathematics K–12. This seed sample covers Grade 4 Operations & Algebraic Thinking (4.OA), Number & Operations in Base Ten (4.NBT), and Number & Operations — Fractions (4.NF).",
+    "description": "CCSS Mathematics sample spanning Kindergarten–Grade 6 (K.CC, 1.OA, 2.NBT, 3.NF/OA, 4.OA/NBT/NF, 5.NBT/NF, 6.RP/NS). Sample depth — not a full standards dump.",
     "metadata": {
       "source": "http://www.corestandards.org/Math/",
-      "license": "public-reference"
+      "license": "public-reference",
+      "gradeSpan": "K-6",
+      "note": "Merged former ccss-math-g5 into this pack as GRADE G5."
     }
   },
   "tree": {
@@ -19,6 +21,288 @@
     "titleKo": "CCSS 수학",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "GK",
+        "title": "Kindergarten",
+        "titleKo": "유치원",
+        "gradeLevel": "K",
+        "sortOrder": 0,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "K.CC",
+            "title": "Counting & Cardinality",
+            "titleKo": "수 세기와 기수",
+            "gradeLevel": "K",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "K.CC.Core",
+                "title": "Counting & Cardinality",
+                "titleKo": "수 세기와 기수",
+                "gradeLevel": "K",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.CC.A.1",
+                    "title": "Count to 100 by ones and by tens",
+                    "titleKo": "1과 10씩 100까지 세기",
+                    "gradeLevel": "K",
+                    "sortOrder": 1,
+                    "summary": "Count to 100 by ones and by tens.",
+                    "objectives": [
+                      {
+                        "statement": "Students count aloud to 100 by ones and by tens.",
+                        "masteryCriteria": "Accurate count by ones to 20 and by tens to 100.",
+                        "bloomLevel": "Remember",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "K.CC.B.4",
+                    "title": "Understand the relationship between numbers and quantities",
+                    "titleKo": "수와 양의 관계 이해하기",
+                    "gradeLevel": "K",
+                    "sortOrder": 2,
+                    "summary": "Understand that the last number name said tells the number of objects counted.",
+                    "objectives": [
+                      {
+                        "statement": "Students count a set and state how many without recounting.",
+                        "masteryCriteria": "Correct cardinality for 4 of 5 sets ≤10.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G1",
+        "title": "Grade 1",
+        "titleKo": "1학년",
+        "gradeLevel": "1",
+        "sortOrder": 1,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "1.OA",
+            "title": "Operations & Algebraic Thinking",
+            "titleKo": "연산과 대수적 사고",
+            "gradeLevel": "1",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "1.OA.Core",
+                "title": "Operations & Algebraic Thinking",
+                "titleKo": "연산과 대수적 사고",
+                "gradeLevel": "1",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.OA.A.1",
+                    "title": "Solve addition and subtraction word problems within 20",
+                    "titleKo": "20 이내 덧셈·뺄셈 문장제 해결하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 1,
+                    "summary": "Use addition and subtraction within 20 to solve word problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a word problem with a matching equation and answer.",
+                        "masteryCriteria": "Correct equation + answer for 4 of 5 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "1.OA.C.6",
+                    "title": "Add and subtract within 20 using strategies",
+                    "titleKo": "전략을 이용해 20 이내 덧셈·뺄셈하기",
+                    "gradeLevel": "1",
+                    "sortOrder": 2,
+                    "summary": "Add and subtract within 20, demonstrating fluency within 10.",
+                    "objectives": [
+                      {
+                        "statement": "Students compute within 20 using a named strategy.",
+                        "masteryCriteria": "≥80% on mixed within-20 set.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G2",
+        "title": "Grade 2",
+        "titleKo": "2학년",
+        "gradeLevel": "2",
+        "sortOrder": 2,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "2.NBT",
+            "title": "Number & Operations in Base Ten",
+            "titleKo": "수와 십진 연산",
+            "gradeLevel": "2",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "2.NBT.Core",
+                "title": "Number & Operations in Base Ten",
+                "titleKo": "수와 십진 연산",
+                "gradeLevel": "2",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.NBT.A.1",
+                    "title": "Understand hundreds, tens, and ones",
+                    "titleKo": "백·십·일의 자릿값 이해하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 1,
+                    "summary": "Understand that the three digits of a three-digit number represent amounts of hundreds, tens, and ones.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify place values in a 3-digit number.",
+                        "masteryCriteria": "Correct place-value breakdown for 4 of 5 numbers.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "2.NBT.B.5",
+                    "title": "Fluently add and subtract within 100",
+                    "titleKo": "100 이내 덧셈·뺄셈을 능숙하게 하기",
+                    "gradeLevel": "2",
+                    "sortOrder": 2,
+                    "summary": "Fluently add and subtract within 100 using strategies based on place value.",
+                    "objectives": [
+                      {
+                        "statement": "Students add/subtract within 100 with a place-value strategy.",
+                        "masteryCriteria": "≥85% on 10 mixed items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G3",
+        "title": "Grade 3",
+        "titleKo": "3학년",
+        "gradeLevel": "3",
+        "sortOrder": 3,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "3.NF",
+            "title": "Number & Operations — Fractions",
+            "titleKo": "수와 연산 — 분수",
+            "gradeLevel": "3",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3.NF.Core",
+                "title": "Number & Operations — Fractions",
+                "titleKo": "수와 연산 — 분수",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.NF.A.1",
+                    "title": "Understand a fraction 1/b as the quantity formed by 1 part",
+                    "titleKo": "단위분수 1/b 이해하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "Understand a fraction 1/b as the quantity formed by 1 part when a whole is partitioned into b equal parts.",
+                    "objectives": [
+                      {
+                        "statement": "Students shade 1/b of a model and name the unit fraction.",
+                        "masteryCriteria": "Correct model + name for 3 of 3 prompts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.NF.A.3",
+                    "title": "Explain equivalence of fractions and compare",
+                    "titleKo": "분수의 동치와 비교 설명하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "Explain equivalence of fractions in special cases and compare fractions by reasoning about their size.",
+                    "objectives": [
+                      {
+                        "statement": "Students justify why two fractions are equivalent or which is larger.",
+                        "masteryCriteria": "Correct comparison with reason for 4 of 5 items.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3.OA.A.1",
+                    "title": "Interpret products of whole numbers",
+                    "titleKo": "자연수 곱의 의미 해석하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 3,
+                    "summary": "Interpret products of whole numbers as equal groups.",
+                    "objectives": [
+                      {
+                        "statement": "Students relate a×b to equal groups and write an equation.",
+                        "masteryCriteria": "Correct model + equation for 4 of 5 items.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G4",
@@ -299,6 +583,230 @@
                         "statement": "Students solve n × (a/b) problems using models or equations.",
                         "masteryCriteria": "≥85% on 6 multiply-a-fraction-by-whole-number items.",
                         "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G5",
+        "title": "Grade 5",
+        "titleKo": "5학년",
+        "gradeLevel": "5",
+        "sortOrder": 5,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "5.NBT",
+            "title": "Number & Operations in Base Ten",
+            "titleKo": "수와 십진 연산",
+            "gradeLevel": "5",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5.NBT.A",
+                "title": "Understand the place value system",
+                "titleKo": "자릿값 체계 이해하기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NBT.A.1",
+                    "title": "Recognize that a digit in one place represents 10 times as much",
+                    "titleKo": "한 자리의 숫자가 오른쪽보다 10배임을 인식하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Recognize that in a multi-digit number, a digit in one place represents 10 times as much as it represents in the place to its right and 1/10 of what it represents in the place to its left.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain ×10 / ÷10 place-value relationships across adjacent places, including decimals.",
+                        "masteryCriteria": "Correct explanations for 4/5 adjacent-place prompts including tenths/hundredths.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NBT.A.3",
+                    "title": "Read, write, and compare decimals to thousandths",
+                    "titleKo": "천분까지 소수 읽고 쓰고 비교하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Read, write, and compare decimals to thousandths.",
+                    "objectives": [
+                      {
+                        "statement": "Students read/write decimals to thousandths and compare using place value.",
+                        "masteryCriteria": "≥85% on mixed read/write/compare formative including thousandths.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NBT.A.4",
+                    "title": "Use place value to round decimals to any place",
+                    "titleKo": "자릿값을 이용해 소수 반올림하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 3,
+                    "summary": "Use place value understanding to round decimals to any place.",
+                    "objectives": [
+                      {
+                        "statement": "Students round decimals to a specified place using place-value reasoning.",
+                        "masteryCriteria": "Correct rounding on 8/10 items across tenths–thousandths.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "5.NF",
+            "title": "Number & Operations — Fractions",
+            "titleKo": "수와 연산 — 분수",
+            "gradeLevel": "5",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "5.NF.A",
+                "title": "Use equivalent fractions as a strategy to add and subtract fractions",
+                "titleKo": "동치분수를 이용해 분수 덧셈·뺄셈하기",
+                "gradeLevel": "5",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NF.A.1",
+                    "title": "Add and subtract fractions with unlike denominators",
+                    "titleKo": "분모가 다른 분수의 덧셈·뺄셈하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 1,
+                    "summary": "Add and subtract fractions with unlike denominators (including mixed numbers) by replacing given fractions with equivalent fractions.",
+                    "objectives": [
+                      {
+                        "statement": "Students add/subtract fractions with unlike denominators using equivalent fractions.",
+                        "masteryCriteria": "≥80% on 8 mixed add/subtract items with unlike denominators.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "5.NF.B.4",
+                    "title": "Multiply a fraction or whole number by a fraction",
+                    "titleKo": "분수·자연수와 분수의 곱 구하기",
+                    "gradeLevel": "5",
+                    "sortOrder": 2,
+                    "summary": "Apply and extend previous understandings of multiplication to multiply a fraction or whole number by a fraction.",
+                    "objectives": [
+                      {
+                        "statement": "Students multiply fractions and interpret products with a model or equation.",
+                        "masteryCriteria": "Correct product + interpretation for 4 of 5 prompts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "nodeType": "GRADE",
+        "code": "G6",
+        "title": "Grade 6",
+        "titleKo": "6학년",
+        "gradeLevel": "6",
+        "sortOrder": 6,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "6.RP",
+            "title": "Ratios & Proportional Relationships",
+            "titleKo": "비와 비례 관계",
+            "gradeLevel": "6",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "6.RP.Core",
+                "title": "Ratios & Proportional Relationships",
+                "titleKo": "비와 비례 관계",
+                "gradeLevel": "6",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.RP.A.1",
+                    "title": "Understand the concept of a ratio",
+                    "titleKo": "비의 개념 이해하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 1,
+                    "summary": "Understand the concept of a ratio and use ratio language to describe a ratio relationship between two quantities.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a ratio and describe the relationship in words.",
+                        "masteryCriteria": "Correct ratio language for 3 of 3 scenarios.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.RP.A.3",
+                    "title": "Use ratio and rate reasoning to solve problems",
+                    "titleKo": "비와 비율로 문제 해결하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 2,
+                    "summary": "Use ratio and rate reasoning to solve real-world and mathematical problems.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve a rate/ratio problem with a table or equation.",
+                        "masteryCriteria": "Correct solution + representation for 4 of 5 items.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "6.NS.C.5",
+                    "title": "Understand positive and negative numbers",
+                    "titleKo": "양수와 음수 이해하기",
+                    "gradeLevel": "6",
+                    "sortOrder": 3,
+                    "summary": "Understand that positive and negative numbers are used together to describe quantities having opposite directions or values.",
+                    "objectives": [
+                      {
+                        "statement": "Students place integers on a number line and interpret a real-world signed quantity.",
+                        "masteryCriteria": "Correct placements for 4 of 5 prompts.",
+                        "bloomLevel": "Understand",
                         "sortOrder": 1
                       }
                     ],

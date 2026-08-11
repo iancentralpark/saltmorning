@@ -72,10 +72,20 @@ npm run test:prisma
 
 Seed packs:
 
-- `prisma/seed/ccss-math-grade-4.json`
-- `prisma/seed/kr2022-korean-grade-4.json`
-- `prisma/seed/ngss-science-grade-4.json`
-- `prisma/seed/kr2022-history-grade-4.json`
+- `prisma/seed/ccss-math-grade-4.json` — CCSS Math **K–6** sample (merged former G5 pack)
+- `prisma/seed/ccss-ela-grade-4.json` — ELA G4 (RL + RI + W)
+- `prisma/seed/kr2022-korean-grade-4.json` — 국어 G3–G4
+- `prisma/seed/kr2022-history-grade-4.json` — 한국사 G4
+- `prisma/seed/ngss-science-grade-4.json` — NGSS G4–G5
+- `prisma/seed/custom-acme-sel.json` — private Acme SEL
+
+### Auth
+
+| Mode | When |
+|------|------|
+| Demo login | Always (unless `DEMO_LOGIN_DISABLED=1`) |
+| Google OAuth | When `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` set |
+| Force login | `AUTH_REQUIRED=1` gates `/map` and `/schedule` |
 
 Curriculum data source: `CURRICULUM_STORE=seed` (default) or `prisma` after migrate/seed.  
 Schedule persistence: `SCHEDULE_STORE=memory` (default) or `prisma`.

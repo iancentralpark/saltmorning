@@ -87,7 +87,13 @@ Body: { "year": 2026, "months": [1,2,3,4,5,6,7,8,9,10,11,12] }`}
 Body: { "orgCode": "salt-morning" | "acme-academy", "role": "teacher" }
 
 GET  /api/auth/me
-POST /api/auth/logout`}
+POST /api/auth/logout
+
+# Optional Google OAuth (when GOOGLE_CLIENT_ID/SECRET set)
+GET /api/auth/google/start
+GET /api/auth/google/callback
+
+# AUTH_REQUIRED=1 → middleware requires session on /map /schedule`}
           </pre>
         </div>
 

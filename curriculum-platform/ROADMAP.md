@@ -25,8 +25,8 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - `/api/health` readiness check
 
 ## Later
-- Full OAuth / production IdP
-- Complete K–12 pack coverage beyond sample slices
+- Additional IdPs (Microsoft / Apple) if needed beyond Google
+- Exhaustive official-code K–12 dumps (replace sample slices with full PE/achievement catalogs)
 
 ## Step 13 — Multi-org polish + pack depth ✅
 - Seed-mode honors `organizationCode` / `isPublic` (Acme SEL private)
@@ -40,3 +40,9 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - Salt Morning `POST /api/internal/curriculum-map/sync-calendar-cron`
 - CurricuMap `POST /api/cron/calendar-sync`
 - CCSS Math G4 (+4.NF), ELA (+RI.4), Math G5 (+5.NF)
+
+## Step 15 — Google OAuth + K–6 pack span ✅
+- Optional Google OAuth (`/api/auth/google/*`) writing the same HMAC session cookie
+- `AUTH_REQUIRED` middleware for `/map` `/schedule`
+- CCSS Math merged to K–6 (retired `ccss-math-g5`)
+- KR 국어 Grade 3 + NGSS Grade 5 sample bands

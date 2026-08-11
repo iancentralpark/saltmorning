@@ -6,7 +6,7 @@
     "subject": "KOREAN_LANGUAGE",
     "regionStandard": "KR-2022",
     "version": "2022",
-    "description": "대한민국 2022 개정 교육과정 국어과 성취기준 샘플. 초등학교 4학년(5–6학년군이 아닌 3–4학년군 중 4학년 지도에 쓰이는 성취기준 예시 구조). 실제 고시 문언은 교육부 PDF를 기준으로 검수·확장하세요.",
+    "description": "대한민국 2022 개정 교육과정 국어과 성취기준 샘플. 초등학교 3–4학년군 샘플(듣기·말하기·읽기 등). 실제 고시 문언은 교육부 PDF를 기준으로 검수·확장하세요.",
     "metadata": {
       "source": "교육부 2022 개정 교육과정 국어과",
       "gradeBand": "3-4",
@@ -21,6 +21,119 @@
     "titleKo": "2022 개정 국어",
     "sortOrder": 0,
     "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G3",
+        "title": "Grade 3 / 초등학교 3학년",
+        "titleKo": "초등학교 3학년",
+        "gradeLevel": "3",
+        "sortOrder": 3,
+        "metadata": {
+          "gradeBand": "3-4"
+        },
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "3국01",
+            "title": "Listening · Speaking / 듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "3",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3국01-대화",
+                "title": "Listening with care",
+                "titleKo": "상대를 배려하며 듣기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국01-01",
+                    "title": "Listen carefully and retell key points",
+                    "titleKo": "집중하여 듣고 핵심 내용 말하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "상대의 말을 집중하여 듣고 핵심 내용을 간단히 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students retell 2–3 key points after listening.",
+                        "statementKo": "들은 내용의 핵심을 2–3가지로 말한다.",
+                        "masteryCriteria": "Retell includes ≥2 accurate key points.",
+                        "masteryCriteriaKo": "핵심 내용 2가지 이상 정확히 포함.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국01-02",
+                    "title": "Ask a clarifying question in conversation",
+                    "titleKo": "대화에서 확인 질문하기",
+                    "gradeLevel": "3",
+                    "sortOrder": 2,
+                    "summary": "대화 중 이해가 부족한 부분을 정중히 묻는다.",
+                    "objectives": [
+                      {
+                        "statement": "Students ask one clarifying question related to the speaker’s message.",
+                        "statementKo": "상대 말과 관련된 확인 질문을 한 가지 한다.",
+                        "masteryCriteria": "Question is on-topic and politely phrased.",
+                        "masteryCriteriaKo": "주제와 관련되고 예절 바른 질문.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "3국02",
+            "title": "Reading / 읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "3",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "3국02-내용",
+                "title": "Finding main ideas",
+                "titleKo": "중심 내용 찾기",
+                "gradeLevel": "3",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "3국02-01",
+                    "title": "Identify the main idea of a short text",
+                    "titleKo": "짧은 글의 중심 내용 찾기",
+                    "gradeLevel": "3",
+                    "sortOrder": 1,
+                    "summary": "짧은 글에서 중심 내용을 찾아 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students state the main idea of a short grade-level text.",
+                        "statementKo": "짧은 글의 중심 내용을 한 문장으로 말한다.",
+                        "masteryCriteria": "Main-idea statement is text-supported.",
+                        "masteryCriteriaKo": "글에 근거한 중심 내용 진술.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       {
         "nodeType": "GRADE",
         "code": "G4",

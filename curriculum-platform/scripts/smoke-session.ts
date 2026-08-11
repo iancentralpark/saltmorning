@@ -22,9 +22,24 @@ const token = signSession({
   orgCode: "salt-morning",
   role: "teacher",
   demoUserId: "demo-salt-morning",
+  provider: "demo",
 });
 const session = verifySession(token) as DemoSession;
 assert.equal(session.orgCode, "salt-morning");
+assert.equal(session.provider, "demo");
+
+const googleShaped = verifySession(
+  signSession({
+    orgCode: "acme-academy",
+    role: "teacher",
+    demoUserId: "google:abc",
+    provider: "google",
+    email: "t@acme.edu",
+    displayName: "Teacher",
+  })
+) as DemoSession;
+assert.equal(googleShaped.provider, "google");
+assert.equal(googleShaped.email, "t@acme.edu");
 
 const saltView = filterFrameworksForSession(packs, session, "all");
 assert.equal(saltView.some((p) => p.code === "custom-acme-sel"), false);
