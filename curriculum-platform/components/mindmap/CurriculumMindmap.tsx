@@ -141,9 +141,10 @@ function MindmapCanvas({ initialFramework, initialOrg }: Props) {
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<MapNodeData>) => {
+      // Keep current zoom/pan when drilling the tree — only fit on framework/grade/orientation changes.
+      skipFitRef.current = true;
       const raw = node.data.raw;
       if (raw.nodeType === "SKILL") {
-        skipFitRef.current = true;
         setFocusId(node.id);
         setDrawerId(node.id);
         return;
@@ -259,11 +260,14 @@ function MindmapCanvas({ initialFramework, initialOrg }: Props) {
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           fitView
+          fitViewOptions={{ padding: 0.2 }}
           proOptions={{ hideAttribution: true }}
           minZoom={0.3}
           maxZoom={1.6}
           nodesDraggable={false}
           elementsSelectable
+          // Don't auto-recenter when the graph mutates from expand/collapse clicks
+          elevateNodesOnSelect={false}
         >
           <Background gap={22} color="#c5dccb" />
           <Controls />

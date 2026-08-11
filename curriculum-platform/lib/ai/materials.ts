@@ -35,71 +35,127 @@ function deterministicItems(
   objective: string,
   useKo: boolean
 ) {
-  return useKo
-    ? type === "DAILY_QUIZ" || type === "EXIT_TICKET"
-      ? [
-          {
-            q: `간단 점검: ${code || displayTitle}의 핵심을 한 문장으로 설명하세요.`,
-            a: objective,
-          },
-          {
-            q: `${code || displayTitle}를 짧은 교실 상황에 적용해 보세요.`,
-            a: "숙달 기준에 맞는 예시 답안",
-          },
-          {
-            q: "참/거짓: 표준 용어 없이도 숙달을 보여줄 수 있다.",
-            a: "거짓 — 정확한 언어 사용도 숙달의 일부이다.",
-          },
-        ]
-      : type === "WORKSHEET"
-        ? [
-            { prompt: `${displayTitle} 연습 세트 A`, items: 6 },
-            { prompt: `${objective}와 연결된 도전 문제`, items: 1 },
-          ]
-        : [
-            {
-              section: "1부",
-              prompt: `${code || displayTitle} 형성평가 문항`,
-              count: 5,
-            },
-            {
-              section: "2부",
-              prompt: "생각을 설명하는 서술형",
-              count: 1,
-            },
-          ]
-    : type === "DAILY_QUIZ" || type === "EXIT_TICKET"
-      ? [
-          {
-            q: `Quick check: explain the core idea of ${code || displayTitle} in one sentence.`,
-            a: objective,
-          },
-          {
-            q: `Apply ${code || displayTitle} to a short classroom scenario.`,
-            a: "Sample response aligned to mastery criteria.",
-          },
-          {
-            q: `True/False: students can demonstrate mastery without using standard vocabulary.`,
-            a: "False — precise language is part of mastery.",
-          },
-        ]
-      : type === "WORKSHEET"
-        ? [
-            { prompt: `Practice set A for ${displayTitle}`, items: 6 },
-            { prompt: `Challenge problem tied to ${objective}`, items: 1 },
-          ]
-        : [
-            {
-              section: "Part 1",
-              prompt: `Formative items for ${code || displayTitle}`,
-              count: 5,
-            },
-            {
-              section: "Part 2",
-              prompt: "Explain-your-thinking written response",
-              count: 1,
-            },
-          ];
+  const label = code || displayTitle;
+  if (useKo) {
+    if (type === "WORKSHEET") {
+      return [
+        {
+          prompt: `${label} — 핵심 개념을 자신의 말로 정리하세요.`,
+          sampleAnswer: objective,
+        },
+        {
+          prompt: `${label}를 활용한 연습 문제 하나를 풀고 풀이 과정을 쓰세요.`,
+          sampleAnswer: "풀이 과정과 최종 답을 제시한다.",
+        },
+        {
+          prompt: "오늘 배운 내용을 친구 상황에 적용한 예시를 쓰세요.",
+          sampleAnswer: "숙달 기준에 맞는 예시 답안",
+        },
+        {
+          prompt: "아직 헷갈리는 점과 다음에 확인할 질문을 적으세요.",
+          sampleAnswer: "자기 점검 질문 1개 이상",
+        },
+      ];
+    }
+    if (type === "FORMATIVE_TEST") {
+      return [
+        {
+          section: "1부",
+          q: `${label}의 핵심을 설명하세요.`,
+          a: objective,
+        },
+        {
+          section: "1부",
+          q: `${label}와 관련된 예를 하나 드세요.`,
+          a: "표준과 연결된 구체적 예시",
+        },
+        {
+          section: "1부",
+          q: "참/거짓: 정확한 용어 없이도 숙달을 보여줄 수 있다.",
+          a: "거짓 — 정확한 언어 사용도 숙달의 일부이다.",
+        },
+        {
+          section: "2부",
+          q: "생각을 설명하는 서술형: 이 기능을 교실 상황에 어떻게 적용할까요?",
+          a: "숙달 기준에 맞는 근거 있는 설명",
+        },
+      ];
+    }
+    // DAILY_QUIZ / EXIT_TICKET / WARM_UP
+    return [
+      {
+        q: `간단 점검: ${label}의 핵심을 한 문장으로 설명하세요.`,
+        a: objective,
+      },
+      {
+        q: `${label}를 짧은 교실 상황에 적용해 보세요.`,
+        a: "숙달 기준에 맞는 예시 답안",
+      },
+      {
+        q: "참/거짓: 표준 용어 없이도 숙달을 보여줄 수 있다.",
+        a: "거짓 — 정확한 언어 사용도 숙달의 일부이다.",
+      },
+    ];
+  }
+
+  if (type === "WORKSHEET") {
+    return [
+      {
+        prompt: `${label} — restate the core idea in your own words.`,
+        sampleAnswer: objective,
+      },
+      {
+        prompt: `Solve one practice problem that uses ${label}. Show your work.`,
+        sampleAnswer: "Work + final answer aligned to the standard.",
+      },
+      {
+        prompt: "Give a real-world or classroom example that applies today's skill.",
+        sampleAnswer: "Concrete example tied to mastery criteria.",
+      },
+      {
+        prompt: "Write one question you still have and how you will check it.",
+        sampleAnswer: "Self-check question + next step.",
+      },
+    ];
+  }
+  if (type === "FORMATIVE_TEST") {
+    return [
+      {
+        section: "Part 1",
+        q: `Explain the core idea of ${label}.`,
+        a: objective,
+      },
+      {
+        section: "Part 1",
+        q: `Give one example that shows ${label} in action.`,
+        a: "Concrete example connected to the standard.",
+      },
+      {
+        section: "Part 1",
+        q: `True/False: students can demonstrate mastery without using standard vocabulary.`,
+        a: "False — precise language is part of mastery.",
+      },
+      {
+        section: "Part 2",
+        q: "Explain-your-thinking: How would you apply this skill in a short classroom scenario?",
+        a: "Evidence-based response aligned to mastery criteria.",
+      },
+    ];
+  }
+  return [
+    {
+      q: `Quick check: explain the core idea of ${label} in one sentence.`,
+      a: objective,
+    },
+    {
+      q: `Apply ${label} to a short classroom scenario.`,
+      a: "Sample response aligned to mastery criteria.",
+    },
+    {
+      q: `True/False: students can demonstrate mastery without using standard vocabulary.`,
+      a: "False — precise language is part of mastery.",
+    },
+  ];
 }
 
 export async function generateAiMaterial(
