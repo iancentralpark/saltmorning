@@ -212,22 +212,28 @@
             : '<p class="muted">No parent accounts linked yet.</p>') +
           '</div>' +
           '<h4 class="sr-subsection-title">Link or create parent</h4>' +
-          '<p class="muted small">Search an existing login, or create a new parent account and link it to this student.</p>' +
-          '<div class="sr-form-grid sr-parent-link-form">' +
-          '<label>Existing parent search <input class="sr-parent-search" placeholder="Name / login / phone" list="srParentOptions">' +
+          '<p class="muted small">Already have a parent login (e.g. sibling)? Search and link below — do not create again. ' +
+          'New family: fill Name + Login ID + Password, then Link parent.</p>' +
+          '<div class="sr-form-grid sr-parent-link-form" autocomplete="off">' +
+          '<label class="sr-span2">Find existing parent <input class="sr-parent-search" type="search" ' +
+          'placeholder="Name / login / phone" list="srParentOptions" autocomplete="off" ' +
+          'autocapitalize="off" spellcheck="false">' +
           '<datalist id="srParentOptions"></datalist></label>' +
-          '<label>Or Parent ID <input class="sr-parent-id" placeholder="Leave blank to create"></label>' +
-          '<label>Name <input class="sr-parent-name" placeholder="Required if creating"></label>' +
-          '<label>Login ID <input class="sr-parent-login" placeholder="e.g. kim.parent"></label>' +
-          '<label>Password <input class="sr-parent-password" type="password" placeholder="Required for new"></label>' +
-          '<label>Relationship <select class="sr-parent-rel">' +
+          '<input type="hidden" class="sr-parent-id" value="" autocomplete="off">' +
+          '<label>Name (new only) <input class="sr-parent-name" placeholder="Required if creating" ' +
+          'autocomplete="off" name="salt_parent_name"></label>' +
+          '<label>Login ID (new only) <input class="sr-parent-login" placeholder="e.g. onyumom" ' +
+          'autocomplete="off" name="salt_parent_login" autocapitalize="off" spellcheck="false"></label>' +
+          '<label>Password (new only) <input class="sr-parent-password" type="password" ' +
+          'placeholder="Required for new" autocomplete="new-password" name="salt_parent_password"></label>' +
+          '<label>Relationship <select class="sr-parent-rel" autocomplete="off">' +
           '<option value="Guardian">Guardian</option>' +
           '<option value="Mother">Mother</option>' +
           '<option value="Father">Father</option>' +
           '<option value="Other">Other</option>' +
           '</select></label>' +
-          '<label>Phone <input class="sr-parent-phone" type="tel"></label>' +
-          '<label>Email <input class="sr-parent-email" type="email"></label>' +
+          '<label>Phone <input class="sr-parent-phone" type="tel" autocomplete="off" name="salt_parent_phone"></label>' +
+          '<label>Email <input class="sr-parent-email" type="email" autocomplete="off" name="salt_parent_email"></label>' +
           '</div>' +
           '<div style="margin-top:0.75rem">' +
           '<button type="button" class="btn btn-primary sr-link-parent-btn">Link parent</button>' +
@@ -440,7 +446,28 @@
         const hit = opts.find((o) => o.value === val);
         const pid = (hit && hit.dataset.parentId) || '';
         const idInput = mountEl.querySelector('.sr-parent-id');
-        if (pid && idInput) idInput.value = pid;
+        if (pid && idInput) {
+          idInput.value = pid;
+          // Linking existing — clear create fields so browser autofill cannot overwrite
+          ['sr-parent-name', 'sr-parent-login', 'sr-parent-password', 'sr-parent-phone', 'sr-parent-email']
+            .forEach((cls) => {
+              const el = mountEl.querySelector('.' + cls);
+              if (el) el.value = '';
+            });
+        }
+      });
+      // Browsers often autofill admin credentials into the first password field — wipe after paint
+      setTimeout(() => {
+        const login = mountEl.querySelector('.sr-parent-login');
+        const pass = mountEl.querySelector('.sr-parent-password');
+        if (login && !login.dataset.userTyped) login.value = '';
+        if (pass && !pass.dataset.userTyped) pass.value = '';
+      }, 100);
+      mountEl.querySelector('.sr-parent-login')?.addEventListener('input', (e) => {
+        e.target.dataset.userTyped = '1';
+      });
+      mountEl.querySelector('.sr-parent-password')?.addEventListener('input', (e) => {
+        e.target.dataset.userTyped = '1';
       });
     }
 
