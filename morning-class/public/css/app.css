@@ -58,6 +58,7 @@ body {
 a { color: var(--olive); text-decoration: none; }
 a:hover { color: var(--gold); }
 .shell { max-width: 960px; margin: 0 auto; padding: 1rem; }
+.shell.teacher-shell-wide { max-width: 1100px; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   gap: 1rem; margin-bottom: 1rem;
@@ -97,42 +98,102 @@ a:hover { color: var(--gold); }
 .teacher-topbar .brand { line-height: 1.2; }
 .teacher-topbar .muted { color: rgba(247, 243, 234, 0.72); }
 .teacher-shell-topbar {
-  align-items: flex-start;
-  gap: 0.85rem 1.25rem;
+  align-items: center;
+  gap: 0.75rem 1rem;
   margin-bottom: 1rem;
+  flex-wrap: nowrap;
 }
 .teacher-shell-identity {
-  min-width: 10rem;
+  min-width: 0;
   flex: 1 1 auto;
+  overflow: hidden;
+}
+.teacher-shell-identity .brand {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .teacher-shell-page {
-  margin: 0.2rem 0 0;
-  font-size: 0.92rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.86rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .teacher-shell-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
   align-items: center;
   justify-content: flex-end;
+  flex: 0 0 auto;
 }
 .teacher-shell-nav .btn {
   text-decoration: none;
   white-space: nowrap;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.84rem;
 }
 .teacher-nav-btn.is-active {
   background: rgba(197, 160, 89, 0.28);
   border-color: rgba(197, 160, 89, 0.55);
   color: #fff;
 }
+.teacher-nav-logout {
+  opacity: 0.92;
+}
+/* Class section nav: underline strip, scroll instead of wrap */
+.class-subnav {
+  margin: 0 0 1rem;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.class-subnav-track {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.15rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 0 0.1rem;
+}
+.class-subnav-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.7rem 0.85rem;
+  margin: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.class-subnav-item:hover {
+  color: var(--olive);
+}
+.class-subnav-item.active {
+  color: var(--olive-deep);
+  border-bottom-color: var(--gold);
+  background: transparent;
+  box-shadow: none;
+}
 @media (max-width: 720px) {
-  .teacher-topbar {
+  .teacher-topbar.teacher-shell-topbar {
     flex-direction: column;
     align-items: stretch;
+    flex-wrap: wrap;
   }
   .teacher-home-actions,
   .teacher-shell-nav {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }
 .card {
@@ -2968,7 +3029,7 @@ body.buddy-resize-active {
     width: 100%;
     background: #fff;
   }
-  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar-actions, .topbar, .tabs, .no-print { display: none !important; }
+  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar-actions, .topbar, .tabs, .class-subnav, .no-print { display: none !important; }
   .no-print { display: none !important; }
 }
 

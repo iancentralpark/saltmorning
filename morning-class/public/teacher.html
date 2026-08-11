@@ -4,31 +4,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811teachnav">
+  <link rel="stylesheet" href="/css/app.css?v=20260811subnav">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
-<div class="shell">
+<div class="shell" id="teacherShellRoot">
   <div id="loginView" class="card">
     <h2>Teacher</h2>
     <p class="muted">Redirecting to sign in…</p>
     <p><a href="/">Go to login</a></p>
   </div>
 
-    <div id="appShell" class="hidden">
+    <div id="appShell" class="hidden teacher-app-shell">
   <header class="topbar teacher-topbar teacher-shell-topbar">
     <div class="teacher-shell-identity">
       <div class="brand" id="teacherNameBrand">Teacher</div>
-      <div class="teacher-shell-page muted small" id="teacherPageTitle">My timetable</div>
+      <div class="teacher-shell-page muted small" id="teacherPageTitle">My classes</div>
     </div>
     <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
-      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home">My timetable</button>
-      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="classes">My classes</button>
-      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students">Student directory</button>
-      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson">My Lesson Plan</button>
-      <button type="button" class="btn btn-ghost" id="shellLogoutBtn">Log out</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home">My classes</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students">Students</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson">Lesson Plan</button>
+      <button type="button" class="btn btn-ghost teacher-nav-logout" id="shellLogoutBtn">Log out</button>
     </nav>
   </header>
 
@@ -82,17 +81,19 @@
   </div>
 
   <div id="classView" class="hidden">
-    <div class="tabs" id="classTabs">
-      <button class="tab active" data-tab="attendance" data-homeroom-only="1" type="button">Attendance</button>
-      <button class="tab" data-tab="grades" type="button">Grades</button>
-      <button class="tab" data-tab="dollars" type="button">Dollars</button>
-      <button class="tab" data-tab="homework" type="button">Homework</button>
-      <button class="tab" data-tab="announcements" type="button">Announcements</button>
-      <button class="tab" data-tab="vocab" data-homeroom-only="1" type="button">Vocab Booster</button>
-      <button class="tab" data-tab="report" type="button">Report card</button>
-      <button class="tab" data-tab="analytics" data-homeroom-only="1" type="button">Learning Analytics</button>
-      <button class="tab" data-tab="lesson" data-homeroom-only="1" type="button">Lesson plan</button>
-    </div>
+    <nav class="class-subnav" id="classTabs" aria-label="Class sections">
+      <div class="class-subnav-track">
+        <button class="class-subnav-item active" data-tab="attendance" data-homeroom-only="1" type="button">Attendance</button>
+        <button class="class-subnav-item" data-tab="grades" type="button">Grades</button>
+        <button class="class-subnav-item" data-tab="dollars" type="button">Dollars</button>
+        <button class="class-subnav-item" data-tab="homework" type="button">Homework</button>
+        <button class="class-subnav-item" data-tab="announcements" type="button">Announce</button>
+        <button class="class-subnav-item" data-tab="vocab" data-homeroom-only="1" type="button">Vocab</button>
+        <button class="class-subnav-item" data-tab="report" type="button">Report</button>
+        <button class="class-subnav-item" data-tab="analytics" data-homeroom-only="1" type="button">Analytics</button>
+        <button class="class-subnav-item" data-tab="lesson" data-homeroom-only="1" type="button">Lessons</button>
+      </div>
+    </nav>
 <div id="panelAttendance" class="card att-panel">
       <div class="att-toolbar">
         <label class="att-date-label">Date <input type="date" id="attDate"></label>
@@ -535,10 +536,9 @@
     document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
       const nav = btn.getAttribute('data-nav');
       const active =
-        (nav === 'home' && pageTitle === 'My timetable') ||
-        (nav === 'classes' && (pageTitle === 'My classes' || inClass)) ||
-        (nav === 'students' && pageTitle === 'Student directory') ||
-        (nav === 'lesson' && pageTitle === 'My Lesson Plan');
+        (nav === 'home' && (pageTitle === 'My classes' || inClass)) ||
+        (nav === 'students' && pageTitle === 'Students') ||
+        (nav === 'lesson' && pageTitle === 'Lesson Plan');
       btn.classList.toggle('is-active', !!active);
     });
   }
@@ -625,13 +625,13 @@
     currentClassTab = '';
     hideAllAppViews();
     show($('homeView'));
-    setShellIdentity(opts.focus === 'classes' ? 'My classes' : 'My timetable');
+    setShellIdentity('My classes');
     const p = getProfile(role);
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
     loadHeadReportQueue();
     if (!applyingRoute) {
       applyingRoute = true;
-      setRoute(opts.focus === 'classes' ? '#/classes' : '#/home');
+      setRoute('#/home');
       applyingRoute = false;
     }
     if (opts.focus === 'classes' && $('homeClassesSection')) {
@@ -783,7 +783,7 @@
 
   function syncClassTabs() {
     const hr = isHomeroomClass(currentClass);
-    document.querySelectorAll('#classTabs .tab').forEach((btn) => {
+    document.querySelectorAll('#classTabs .class-subnav-item').forEach((btn) => {
       const homeroomOnly = btn.getAttribute('data-homeroom-only') === '1';
       btn.classList.toggle('hidden', homeroomOnly && !hr);
     });
@@ -799,11 +799,11 @@
       grades: 'Grades',
       dollars: 'Dollars',
       homework: 'Homework',
-      announcements: 'Announcements',
-      vocab: 'Vocab Booster',
-      report: 'Report card',
-      analytics: 'Learning Analytics',
-      lesson: 'Lesson plan'
+      announcements: 'Announce',
+      vocab: 'Vocab',
+      report: 'Report',
+      analytics: 'Analytics',
+      lesson: 'Lessons'
     };
     return map[name] || name;
   }
@@ -833,7 +833,7 @@
     lessonScope = 'class';
     hideAllAppViews();
     show($('studentsView'));
-    setShellIdentity('Student directory');
+    setShellIdentity('Students');
     if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.open) {
       SaltStudentRegistry.open();
     }
@@ -850,7 +850,7 @@
     lessonScope = 'global';
     hideAllAppViews();
     show($('globalLessonView'));
-    setShellIdentity('My Lesson Plan');
+    setShellIdentity('Lesson Plan');
     SaltLesson.onGlobalOpen();
     if (!applyingRoute) {
       applyingRoute = true;
@@ -885,7 +885,7 @@
       name = defaultClassTab();
     }
     currentClassTab = name;
-    document.querySelectorAll('#classView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('#classTabs .class-subnav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
     ['panelAttendance','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
       if ($(id)) hide($(id));
     });
@@ -1231,7 +1231,7 @@
     }
   }
 
-  document.querySelectorAll('#classView .tab').forEach(btn => {
+  document.querySelectorAll('#classTabs .class-subnav-item').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
@@ -1287,8 +1287,7 @@
   document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const nav = btn.getAttribute('data-nav');
-      if (nav === 'home') openHome();
-      else if (nav === 'classes') openHome({ focus: 'classes' });
+      if (nav === 'home') openHome({ focus: 'classes' });
       else if (nav === 'students') openStudents();
       else if (nav === 'lesson') openGlobalLesson();
     });
@@ -1303,7 +1302,8 @@
     if (!p) return;
     hide($('loginView'));
     show($('appShell'));
-    setShellIdentity('My timetable');
+    if ($('teacherShellRoot')) $('teacherShellRoot').classList.add('teacher-shell-wide');
+    setShellIdentity('My classes');
     SaltTimetable.init({ api, escapeHtml, role });
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
