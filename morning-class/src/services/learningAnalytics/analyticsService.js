@@ -389,6 +389,105 @@ async function getStudentAnalytics(classId, studentId) {
   return hit;
 }
 
+/**
+ * School-wide Learning Analytics for Admin / Principal.
+ * Optional classId filter; otherwise all enrolled students.
+ */
+async function getSchoolAnalyticsDashboard(opts) {
+  opts = opts || {};
+  const classFilter = opts.classId ? String(opts.classId).trim() : '';
+  await ensureAnalyticsSheets();
+
+  const { listStudents } = require('../studentRegistryService');
+  const { getClassNameMap } = require('../teacherPortalService');
+
+  let roster = await listStudents({ status: 'Enrolled' });
+  if (classFilter) {
+    roster = roster.filter((s) => String(s.classId || '') === classFilter);
+  }
+
+  const classIds = Array.from(new Set(
+    roster.map((s) => String(s.classId || '').trim()).filter(Boolean)
+  ));
+
+  const [testRows, logRows, intRows, classNames, hwMaps] = await Promise.all([
+    getSheetRows(ANALYTICS_TEST_REPORTS_SHEET),
+    getSheetRows(ANALYTICS_DAILY_LOGS_SHEET),
+    getSheetRows(ANALYTICS_INTERVENTIONS_SHEET),
+    getClassNameMap(),
+    Promise.all(classIds.map((cid) =>
+      getPendingHomeworkCounts(cid).catch(() => ({}))
+    ))
+  ]);
+
+  const pendingByStudent = {};
+  (hwMaps || []).forEach((map) => {
+    Object.keys(map || {}).forEach((sid) => {
+      pendingByStudent[sid] = (pendingByStudent[sid] || 0) + (map[sid] || 0);
+    });
+  });
+
+  const tests = filterParsed(testRows, parseTestRow, '')
+    .sort((a, b) => a.testDate.localeCompare(b.testDate));
+  const logs = filterParsed(logRows, parseLogRow, '')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const ints = filterParsed(intRows, parseInterventionRow, '')
+    .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+
+  const students = roster.map((st) => {
+    const bundle = buildStudentBundle(
+      st.classId,
+      st,
+      tests,
+      logs,
+      ints,
+      pendingByStudent[st.studentId] || 0
+    );
+    bundle.className = classNames[st.classId] || st.className || st.classId || '';
+    return bundle;
+  });
+
+  const statusFilter = opts.status ? String(opts.status) : '';
+  let filtered = students;
+  if (statusFilter) filtered = students.filter((s) => s.status.status === statusFilter);
+
+  const counts = { on_track: 0, attention: 0, warning: 0, intervention: 0 };
+  students.forEach((s) => { counts[s.status.status] = (counts[s.status.status] || 0) + 1; });
+
+  filtered.sort((a, b) => {
+    const ra = STATUS_META[a.status.status]?.rank ?? 0;
+    const rb = STATUS_META[b.status.status]?.rank ?? 0;
+    if (rb !== ra) return rb - ra;
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    classId: classFilter || '*',
+    schoolWide: true,
+    generatedAt: isoNow(),
+    counts,
+    statusMeta: STATUS_META,
+    students: filtered,
+    totalStudents: students.length,
+    classes: classIds.map((id) => ({ classId: id, className: classNames[id] || id }))
+  };
+}
+
+async function getSchoolStudentAnalytics(studentId) {
+  studentId = String(studentId || '').trim();
+  if (!studentId) throw new Error('Student ID is required.');
+  const { getStudent } = require('../studentRegistryService');
+  const st = await getStudent(studentId);
+  if (!st) throw new Error('Student not found.');
+  const classId = String(st.classId || '').trim();
+  if (!classId) throw new Error('Student has no class assignment.');
+  const hit = await getStudentAnalytics(classId, studentId);
+  const { getClassNameMap } = require('../teacherPortalService');
+  const classNames = await getClassNameMap().catch(() => ({}));
+  hit.className = classNames[classId] || classId;
+  return hit;
+}
+
 module.exports = {
   ensureAnalyticsSheets,
   listTestReports,
@@ -400,6 +499,8 @@ module.exports = {
   saveIntervention,
   getClassAnalyticsDashboard,
   getStudentAnalytics,
+  getSchoolAnalyticsDashboard,
+  getSchoolStudentAnalytics,
   defaultActions,
   STATUS_META,
   todayStr

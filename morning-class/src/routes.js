@@ -147,6 +147,8 @@ const {
 const {
   getClassAnalyticsDashboard,
   getStudentAnalytics,
+  getSchoolAnalyticsDashboard,
+  getSchoolStudentAnalytics,
   importAssessments,
   seedLearningAnalyticsMock,
   generateAiDiagnostic
@@ -1175,6 +1177,85 @@ router.post('/teacher/class/:classId/analytics/students/:studentId/diagnose', re
     res.status(status).json({ error: e.message || 'Could not generate diagnostic.' });
   }
 });
+
+/** Admin / Principal — school-wide Learning Analytics (all enrolled students). */
+router.get('/admin/analytics', requireRole('admin'), async (req, res) => {
+  try {
+    const data = await getSchoolAnalyticsDashboard({
+      classId: req.query.classId || '',
+      status: req.query.status || ''
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load school analytics.' });
+  }
+});
+
+router.get('/admin/analytics/students/:studentId', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await getSchoolStudentAnalytics(req.params.studentId));
+  } catch (e) {
+    const status = /not found/i.test(e.message || '') ? 404 : 500;
+    res.status(status).json({ error: e.message || 'Could not load student analytics.' });
+  }
+});
+
+router.post('/admin/analytics/students/:studentId/diagnose', requireRole('admin'), async (req, res) => {
+  try {
+    const bundle = await getSchoolStudentAnalytics(req.params.studentId);
+    res.json(await generateAiDiagnostic(bundle.classId, req.params.studentId));
+  } catch (e) {
+    const status = /not found/i.test(e.message || '') ? 404 : 400;
+    res.status(status).json({ error: e.message || 'Could not generate diagnostic.' });
+  }
+});
+
+router.post('/admin/analytics/seed-mock', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
+    if (!classId) {
+      return res.status(400).json({ error: 'Choose a class to seed demo analytics data.' });
+    }
+    res.json(await seedLearningAnalyticsMock(classId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not seed mock analytics.' });
+  }
+});
+
+router.post(
+  '/admin/analytics/import',
+  requireRole('admin'),
+  (req, res, next) => {
+    analyticsUpload.single('file')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'Invalid upload.' });
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      const classId = String((req.body && req.body.classId) || '').trim();
+      if (!classId) {
+        return res.status(400).json({ error: 'Choose a class for this import.' });
+      }
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'Upload a Star Reading or MAP PDF / scan image.'
+        });
+      }
+      const result = await importAssessments({
+        classId,
+        source: (req.body && req.body.source) || 'star_reading',
+        file: req.file,
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        filename: req.file.originalname
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Import failed.' });
+    }
+  }
+);
 
 router.post('/dev/seed-learning-analytics', async (req, res) => {
   try {

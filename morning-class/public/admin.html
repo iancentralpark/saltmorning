@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810rcsig2">
+  <link rel="stylesheet" href="/css/app.css?v=20260811portal">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
-<div class="shell">
+<div class="shell portal-shell-wide" id="adminShellRoot">
   <div id="loginView" class="card">
     <h2>Admin</h2>
     <p class="muted">Redirecting to sign in…</p>
@@ -16,30 +16,39 @@
   </div>
 
   <div id="adminView" class="hidden">
-    <div class="topbar">
-      <div class="brand" id="welcomeText">Salt Admin</div>
-      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
-    </div>
+    <header class="topbar teacher-topbar teacher-shell-topbar portal-shell-topbar">
+      <div class="teacher-shell-identity">
+        <div class="brand" id="welcomeText" data-i18n="admin.brand">Salt Admin</div>
+        <div class="teacher-shell-page muted small" id="adminPageTitle" data-i18n="admin.page.monitor">Monitoring</div>
+      </div>
+      <div class="teacher-shell-nav">
+        <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
+        <button class="btn btn-ghost teacher-nav-logout" id="logoutBtn" type="button" data-i18n="nav.logout">Log out</button>
+      </div>
+    </header>
 
-    <div class="tabs">
-      <button class="tab active" data-tab="monitor" type="button">Monitoring</button>
-      <button class="tab" data-tab="lessons" type="button">Lesson plans</button>
-      <button class="tab" data-tab="teachers" type="button">Teachers</button>
-      <button class="tab" data-tab="classes" type="button">Classes</button>
-      <button class="tab" data-tab="students" type="button">Students</button>
-      <button class="tab" data-tab="timetables" type="button">Timetables</button>
-      <button class="tab" data-tab="schoolCal" type="button">School calendar</button>
-      <button class="tab" data-tab="terms" type="button">Term dates</button>
-      <button class="tab" data-tab="announcements" type="button">Announcements</button>
-      <button class="tab" data-tab="reportCards" type="button">Report cards</button>
-      <button class="tab" data-tab="vocabPlatform" type="button">Vocab Booster</button>
-    </div>
+    <nav class="class-subnav portal-subnav" id="adminNav" aria-label="Admin sections">
+      <div class="class-subnav-track">
+        <button class="class-subnav-item active" data-tab="monitor" type="button" data-i18n="nav.monitor">Monitor</button>
+        <button class="class-subnav-item" data-tab="lessons" type="button" data-i18n="nav.lessons">Lessons</button>
+        <button class="class-subnav-item" data-tab="teachers" type="button" data-i18n="nav.teachers">Teachers</button>
+        <button class="class-subnav-item" data-tab="classes" type="button" data-i18n="nav.classes">Classes</button>
+        <button class="class-subnav-item" data-tab="students" type="button" data-i18n="nav.students">Students</button>
+        <button class="class-subnav-item" data-tab="analytics" type="button" data-i18n="nav.analytics">Analytics</button>
+        <button class="class-subnav-item" data-tab="timetables" type="button" data-i18n="nav.timetables">Timetables</button>
+        <button class="class-subnav-item" data-tab="schoolCal" type="button" data-i18n="nav.schoolCal">Calendar</button>
+        <button class="class-subnav-item" data-tab="terms" type="button" data-i18n="nav.terms">Terms</button>
+        <button class="class-subnav-item" data-tab="announcements" type="button" data-i18n="nav.announcements">News</button>
+        <button class="class-subnav-item" data-tab="reportCards" type="button" data-i18n="nav.reportCards">Reports</button>
+        <button class="class-subnav-item" data-tab="vocabPlatform" type="button" data-i18n="nav.vocabPlatform">Vocab</button>
+      </div>
+    </nav>
 
     <div id="panelMonitor" class="card">
       <div class="admin-toolbar">
-        <select id="monitorClass"><option value="">All classes</option></select>
+        <select id="monitorClass"><option value="" data-i18n="admin.monitor.allClasses">All classes</option></select>
         <select id="monitorType">
-          <option value="">All activity</option>
+          <option value="" data-i18n="admin.monitor.allActivity">All activity</option>
           <option value="attendance">Attendance</option>
           <option value="grade">Grades</option>
           <option value="lesson_plan">Lesson plans</option>
@@ -50,7 +59,7 @@
           <option value="english_buddy">English Buddy</option>
           <option value="vocab">Vocab Booster</option>
         </select>
-        <button type="button" class="btn btn-primary" id="monitorRefresh">Refresh</button>
+        <button type="button" class="btn btn-primary" id="monitorRefresh" data-i18n="admin.monitor.refresh">Refresh</button>
       </div>
       <div id="monitorFeed" class="table-wrap"></div>
     </div>
@@ -86,10 +95,10 @@
     <div id="panelTeachers" class="card hidden">
       <div class="teacher-panel-head">
         <div>
-          <h3 style="margin:0">Teachers</h3>
-          <p class="muted small" style="margin:0.35rem 0 0">계정·프로필·사진을 관리합니다.</p>
+          <h3 style="margin:0" data-i18n="admin.teachers.title">Teachers</h3>
+          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.teachers.help">Manage accounts, profiles, and photos.</p>
         </div>
-        <button type="button" class="btn btn-primary" id="teacherAddBtn">+ Add teacher</button>
+        <button type="button" class="btn btn-primary" id="teacherAddBtn" data-i18n="admin.teachers.add">+ Add teacher</button>
       </div>
       <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
       <div id="teacherList" class="table-wrap" style="margin:1rem 0"></div>
@@ -277,7 +286,7 @@
 
     <div id="panelReportCards" class="card hidden">
       <h3 style="margin-top:0">Report card approvals</h3>
-      <p class="muted small">Principal queue — sign submitted cards, then share (or schedule share) with parents.</p>
+      <p class="muted small" data-i18n="admin.rc.help">Principal queue — sign submitted cards, then share (or schedule share) with parents.</p>
       <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;align-items:center">
         <button type="button" class="btn btn-ghost" id="adminRcRefresh">Refresh</button>
         <label class="btn btn-ghost">Upload Principal signature
@@ -296,11 +305,61 @@
       <div class="error" id="adminRcError"></div>
     </div>
 
+    <div id="panelAnalytics" class="card hidden la-panel">
+      <div class="la-toolbar">
+        <div>
+          <h3 style="margin:0" data-i18n="admin.analytics.title">Learning Analytics</h3>
+          <p class="muted small" style="margin:0.25rem 0 0" data-i18n="admin.analytics.help">School-wide SR/MAP trends, engagement, and early-warning badges for every enrolled student.</p>
+        </div>
+        <div class="la-toolbar-actions">
+          <select id="laClassFilter">
+            <option value="" data-i18n="admin.analytics.allClasses">All classes</option>
+          </select>
+          <select id="laStatusFilter">
+            <option value="" data-i18n="admin.analytics.allStatuses">All statuses</option>
+            <option value="on_track" data-i18n="la.on_track">On Track</option>
+            <option value="attention" data-i18n="la.attention">Attention</option>
+            <option value="warning" data-i18n="la.warning">Warning</option>
+            <option value="intervention" data-i18n="la.intervention">Intervention</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="laRefresh" data-i18n="admin.analytics.refresh">Refresh</button>
+          <button type="button" class="btn btn-primary" id="laSeedMock" data-i18n="admin.analytics.seed">Load demo data</button>
+        </div>
+      </div>
+      <div id="laCounts" class="la-counts"></div>
+      <div id="laRoster"></div>
+
+      <details class="la-import">
+        <summary data-i18n="admin.analytics.importSummary">Import Star Reading / MAP (PDF or scan)</summary>
+        <p class="muted small" data-i18n="admin.analytics.importHelp">Choose a class, then upload the official report PDF or a clear photo/scan.</p>
+        <div class="la-import-row">
+          <select id="laImportSource">
+            <option value="star_reading">Star Reading</option>
+            <option value="map">NWEA MAP</option>
+          </select>
+          <input type="file" id="laImportFile" accept="application/pdf,image/*">
+          <button type="button" class="btn btn-primary" id="laImportBtn" data-i18n="admin.analytics.importBtn">Analyze &amp; import</button>
+        </div>
+        <p class="muted small" id="laImportMsg"></p>
+      </details>
+
+      <div id="laDetail" class="la-detail hidden">
+        <div class="la-detail-head">
+          <h3 id="laDetailTitle" style="margin:0">Student analysis</h3>
+          <div>
+            <button type="button" class="btn btn-primary" id="laDiagnoseBtn" data-i18n="la.diagnose">Generate AI learning profile</button>
+            <button type="button" class="btn btn-ghost" id="laDetailClose" data-i18n="common.close">Close</button>
+          </div>
+        </div>
+        <div id="laDetailBody"></div>
+      </div>
+    </div>
+
     <div id="panelVocabPlatform" class="card hidden">
-      <h3>Vocab Booster</h3>
-      <p class="muted">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
+      <h3 data-i18n="admin.vocab.title">Vocab Booster</h3>
+      <p class="muted" data-i18n="admin.vocab.help">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
       <p style="margin:1rem 0 0">
-        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener">Open Vocab Booster</a>
+        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener" data-i18n="admin.vocab.open">Open Vocab Booster</a>
       </p>
     </div>
   </div>
@@ -309,8 +368,10 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
+<script src="/js/i18n.js?v=20260811i18n"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260810ttclass"></script>
+<script src="/js/teacher-analytics.js?v=20260811school"></script>
 <script src="/js/messenger.js?v=20260810admdir"></script>
 <script src="/js/student-registry.js?v=20260804uxaudit"></script>
 <script src="/js/class-registry.js?v=20260709classes"></script>
@@ -324,9 +385,25 @@
   const role = SaltApp.getToken('principal') ? 'principal' : 'admin';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
 
+  SaltI18n.bindToggle($('langToggleBtn'));
   SaltSchoolCalendar.init({ $, api, escapeHtml, show, hide });
+  SaltAnalytics.init({ $, api, escapeHtml, role, mode: 'school' });
   let classes = [];
   let teachers = [];
+  const TAB_TITLE_KEYS = {
+    monitor: 'admin.page.monitor',
+    lessons: 'admin.page.lessons',
+    teachers: 'admin.page.teachers',
+    classes: 'admin.page.classes',
+    students: 'admin.page.students',
+    analytics: 'admin.page.analytics',
+    timetables: 'admin.page.timetables',
+    schoolCal: 'admin.page.schoolCal',
+    terms: 'admin.page.terms',
+    announcements: 'admin.page.announcements',
+    reportCards: 'admin.page.reportCards',
+    vocabPlatform: 'admin.page.vocabPlatform'
+  };
 
   SaltTimetable.init({ api, escapeHtml, role });
 
@@ -358,27 +435,56 @@
       ).join('');
   }
 
-  function switchTab(name) {
-    document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelSchoolCal','panelTerms','panelAnnouncements','panelReportCards','panelVocabPlatform'].forEach(id => hide($(id)));
+  let currentAdminTab = '';
+
+  function setAdminRoute(tab, replace) {
+    const hash = '#/' + encodeURIComponent(tab || 'monitor');
+    if (replace) history.replaceState(null, '', hash);
+    else if (location.hash !== hash) location.hash = hash;
+  }
+
+  function switchTab(name, opts) {
+    opts = opts || {};
+    if (!TAB_TITLE_KEYS[name]) name = 'monitor';
+    if (!opts.skipHash) setAdminRoute(name, !!opts.replace);
+    if (currentAdminTab === name && !opts.force) return;
+    currentAdminTab = name;
+    document.querySelectorAll('#adminNav .class-subnav-item').forEach((t) =>
+      t.classList.toggle('active', t.dataset.tab === name));
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelAnalytics','panelTimetables','panelSchoolCal','panelTerms','panelAnnouncements','panelReportCards','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
-      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables',
+      classes: 'panelClasses', students: 'panelStudents', analytics: 'panelAnalytics',
+      timetables: 'panelTimetables',
       schoolCal: 'panelSchoolCal', terms: 'panelTerms', announcements: 'panelAnnouncements',
       reportCards: 'panelReportCards',
       vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
+    if ($('adminPageTitle')) {
+      $('adminPageTitle').setAttribute('data-i18n', TAB_TITLE_KEYS[name]);
+      $('adminPageTitle').textContent = SaltI18n.t(TAB_TITLE_KEYS[name]);
+    }
     if (name === 'monitor') loadMonitor();
     if (name === 'lessons') SaltLesson.onAdminOpen();
     if (name === 'teachers') { loadTeachers(); loadAssignments(); }
     if (name === 'classes') SaltClassRegistry.open();
     if (name === 'students') SaltStudentRegistry.open();
+    if (name === 'analytics') SaltAnalytics.onSchoolOpen(classes);
     if (name === 'timetables') loadTimetables();
     if (name === 'schoolCal') SaltSchoolCalendar.open();
     if (name === 'terms') loadTerms();
     if (name === 'announcements') loadAdminAnnouncements();
     if (name === 'reportCards') loadAdminReportCards();
+    SaltI18n.apply(document.getElementById('adminView'));
+  }
+
+  function applyAdminRoute() {
+    const raw = String(location.hash || '').replace(/^#\/?/, '');
+    const tab = decodeURIComponent(raw.split('/')[0] || 'monitor');
+    const next = TAB_TITLE_KEYS[tab] ? tab : 'monitor';
+    if (currentAdminTab === next) return;
+    switchTab(next, { skipHash: true });
   }
 
   async function loadAdminAnnouncements() {
@@ -430,8 +536,16 @@
     });
   }
 
-  document.querySelectorAll('#adminView .tab').forEach(btn => {
+  document.querySelectorAll('#adminNav .class-subnav-item').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  window.addEventListener('hashchange', () => applyAdminRoute());
+  window.addEventListener('salt:langchange', () => {
+    const active = document.querySelector('#adminNav .class-subnav-item.active');
+    const tab = active && active.dataset.tab;
+    if (tab && $('adminPageTitle')) {
+      $('adminPageTitle').textContent = SaltI18n.t(TAB_TITLE_KEYS[tab]);
+    }
   });
 
   async function loadClasses() {
@@ -1035,14 +1149,16 @@
     if (!p) return;
     hide($('loginView')); show($('adminView'));
     $('welcomeText').textContent = 'Hi, ' + p.name;
+    $('welcomeText').removeAttribute('data-i18n');
     await loadClasses();
     SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
     SaltClassRegistry.init({
       api, escapeHtml, mount: 'classRegistryMount',
       onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
     });
-    switchTab('monitor');
+    applyAdminRoute();
     SaltMessenger.init(role);
+    SaltI18n.apply(document.getElementById('adminView'));
   }
 
   if (getToken(role)) bootApp();

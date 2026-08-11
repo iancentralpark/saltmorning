@@ -1,96 +1,167 @@
-/* Salt Morning Class — Learning Analytics teacher dashboard */
+/* Salt Morning Class — Learning Analytics (teacher class / admin school-wide) */
 window.SaltAnalytics = (function() {
   let deps = {};
   let dash = null;
   let statusFilter = '';
+  let classFilter = '';
   let selectedId = '';
+  let mode = 'class'; // 'class' | 'school'
+  let role = 'teacher';
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
-  function api(path, opts) { return deps.api(path, opts, 'teacher'); }
+  function api(path, opts) { return deps.api(path, opts, role); }
   function getClass() { return typeof deps.getClass === 'function' ? deps.getClass() : null; }
+  function t(key, fallback) {
+    return window.SaltI18n ? SaltI18n.t(key, fallback) : (fallback || key);
+  }
+
+  function analyticsBase() {
+    if (mode === 'school') return '/api/admin/analytics';
+    const cls = getClass();
+    if (!cls) return '';
+    return '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics';
+  }
 
   function init(options) {
     deps = options || {};
-    $('laRefresh').addEventListener('click', loadDashboard);
-    $('laSeedMock').addEventListener('click', seedMock);
-    $('laStatusFilter').addEventListener('change', () => {
-      statusFilter = $('laStatusFilter').value;
-      renderRoster();
+    mode = deps.mode === 'school' ? 'school' : 'class';
+    role = deps.role || (mode === 'school' ? 'admin' : 'teacher');
+
+    if ($('laRefresh')) $('laRefresh').addEventListener('click', loadDashboard);
+    if ($('laSeedMock')) $('laSeedMock').addEventListener('click', seedMock);
+    if ($('laStatusFilter')) {
+      $('laStatusFilter').addEventListener('change', () => {
+        statusFilter = $('laStatusFilter').value;
+        renderRoster();
+      });
+    }
+    if ($('laClassFilter')) {
+      $('laClassFilter').addEventListener('change', () => {
+        classFilter = $('laClassFilter').value;
+        loadDashboard();
+      });
+    }
+    if ($('laImportBtn')) $('laImportBtn').addEventListener('click', importData);
+    if ($('laDetailClose')) {
+      $('laDetailClose').addEventListener('click', () => {
+        selectedId = '';
+        $('laDetail').classList.add('hidden');
+      });
+    }
+    if ($('laDiagnoseBtn')) $('laDiagnoseBtn').addEventListener('click', runDiagnose);
+
+    window.addEventListener('salt:langchange', () => {
+      if (dash) {
+        renderCounts();
+        renderRoster();
+      }
     });
-    $('laImportBtn').addEventListener('click', importData);
-    $('laDetailClose').addEventListener('click', () => {
-      selectedId = '';
-      $('laDetail').classList.add('hidden');
-    });
-    $('laDiagnoseBtn').addEventListener('click', runDiagnose);
   }
 
   function onClassOpen() {
     statusFilter = '';
     selectedId = '';
-    $('laStatusFilter').value = '';
-    $('laDetail').classList.add('hidden');
+    if ($('laStatusFilter')) $('laStatusFilter').value = '';
+    if ($('laDetail')) $('laDetail').classList.add('hidden');
     loadDashboard();
   }
 
+  function onSchoolOpen(classes) {
+    statusFilter = '';
+    selectedId = '';
+    if ($('laStatusFilter')) $('laStatusFilter').value = '';
+    if ($('laDetail')) $('laDetail').classList.add('hidden');
+    fillClassFilter(classes || []);
+    loadDashboard();
+  }
+
+  function fillClassFilter(classes) {
+    const sel = $('laClassFilter');
+    if (!sel) return;
+    const prev = classFilter || sel.value || '';
+    sel.innerHTML = '<option value="">' + escapeHtml(t('admin.analytics.allClasses', 'All classes')) + '</option>' +
+      (classes || []).map((c) =>
+        '<option value="' + escapeHtml(c.classId) + '">' +
+        escapeHtml(c.name || c.className || c.classId) + '</option>'
+      ).join('');
+    if (prev) {
+      sel.value = prev;
+      classFilter = prev;
+    }
+  }
+
   async function loadDashboard() {
-    const cls = getClass();
-    if (!cls) return;
-    $('laRoster').innerHTML = '<p class="muted">Loading analytics…</p>';
+    const base = analyticsBase();
+    if (!base && mode === 'class') return;
+    if ($('laRoster')) $('laRoster').innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
-      const q = statusFilter ? ('?status=' + encodeURIComponent(statusFilter)) : '';
-      dash = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics' + q);
+      const params = new URLSearchParams();
+      if (mode === 'school' && classFilter) params.set('classId', classFilter);
+      // Load full dash for count integrity; filter roster client-side by status
+      const q = params.toString() ? ('?' + params.toString()) : '';
+      dash = await api(base + q);
+      if (mode === 'school' && dash.classes && $('laClassFilter') && !$('laClassFilter').options.length) {
+        fillClassFilter((dash.classes || []).map((c) => ({
+          classId: c.classId,
+          name: c.className
+        })));
+      }
       renderCounts();
       renderRoster();
     } catch (e) {
-      $('laRoster').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      if ($('laRoster')) {
+        $('laRoster').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      }
     }
   }
 
   function renderCounts() {
+    if (!$('laCounts')) return;
     const c = (dash && dash.counts) || {};
-    $('laCounts').innerHTML = [
-      ['on_track', 'On Track', c.on_track || 0],
-      ['attention', 'Attention', c.attention || 0],
-      ['warning', 'Warning', c.warning || 0],
-      ['intervention', 'Intervention', c.intervention || 0]
-    ].map((row) =>
+    const labels = [
+      ['on_track', t('la.on_track', 'On Track'), c.on_track || 0],
+      ['attention', t('la.attention', 'Attention'), c.attention || 0],
+      ['warning', t('la.warning', 'Warning'), c.warning || 0],
+      ['intervention', t('la.intervention', 'Intervention'), c.intervention || 0]
+    ];
+    $('laCounts').innerHTML = labels.map((row) =>
       '<button type="button" class="la-count la-count-' + row[0] + '" data-status="' + row[0] + '">' +
-        '<strong>' + row[2] + '</strong><span>' + row[1] + '</span></button>'
+        '<strong>' + row[2] + '</strong><span>' + escapeHtml(row[1]) + '</span></button>'
     ).join('');
     $('laCounts').querySelectorAll('[data-status]').forEach((btn) => {
       btn.addEventListener('click', () => {
         statusFilter = btn.dataset.status;
-        $('laStatusFilter').value = statusFilter;
-        // client filter from full dash — reload without server filter for counts integrity
-        api('/api/teacher/class/' + encodeURIComponent(getClass().classId) + '/analytics').then((data) => {
-          dash = data;
-          renderCounts();
-          renderRoster();
-        });
+        if ($('laStatusFilter')) $('laStatusFilter').value = statusFilter;
+        renderRoster();
       });
     });
   }
 
   function badge(st) {
     const s = st || {};
+    const key = 'la.' + (s.status || '');
+    const label = t(key, s.label || s.status || '');
     return '<span class="la-badge la-badge-' + escapeHtml(s.status || '') + '">' +
-      escapeHtml(s.label || s.status || '') + '</span>';
+      escapeHtml(label) + '</span>';
   }
 
   function renderRoster() {
     const box = $('laRoster');
-    if (!dash) return;
+    if (!box || !dash) return;
     let students = dash.students || [];
     if (statusFilter) students = students.filter((s) => s.status.status === statusFilter);
     if (!students.length) {
-      box.innerHTML = '<p class="muted">No students match this filter. Seed mock data to try the demo.</p>';
+      box.innerHTML = '<p class="muted">' + escapeHtml(t('la.empty', 'No students match this filter.')) + '</p>';
       return;
     }
+    const showClass = mode === 'school';
     box.innerHTML =
       '<table class="la-table"><thead><tr>' +
-      '<th>Student</th><th>Status</th><th>HW%</th><th>Vocab</th><th>Latest SR</th><th>Latest MAP</th><th></th>' +
+      '<th>' + escapeHtml(t('la.student', 'Student')) + '</th>' +
+      (showClass ? '<th>' + escapeHtml(t('la.class', 'Class')) + '</th>' : '') +
+      '<th>' + escapeHtml(t('la.status', 'Status')) + '</th>' +
+      '<th>HW%</th><th>Vocab</th><th>Latest SR</th><th>Latest MAP</th><th></th>' +
       '</tr></thead><tbody>' +
       students.map((s) => {
         const eng = s.engagement || {};
@@ -98,13 +169,15 @@ window.SaltAnalytics = (function() {
         const map = s.status.metrics && s.status.metrics.map;
         return '<tr data-sid="' + escapeHtml(s.studentId) + '">' +
           '<td><strong>' + escapeHtml(s.name) + '</strong></td>' +
+          (showClass ? '<td class="muted small">' + escapeHtml(s.className || s.classId || '') + '</td>' : '') +
           '<td>' + badge(s.status) + '</td>' +
           '<td>' + Math.round((eng.homeworkCompletionRate || 0) * 100) + '%</td>' +
           '<td>' + (eng.avgVocabScore != null ? Math.round(eng.avgVocabScore) : '—') + '</td>' +
           '<td>' + (sr && sr.latest != null ? sr.latest : '—') + '</td>' +
           '<td>' + (map && map.latest != null ? map.latest : '—') + '</td>' +
           '<td><button type="button" class="btn btn-ghost la-open" data-sid="' +
-            escapeHtml(s.studentId) + '">Analyze</button></td>' +
+            escapeHtml(s.studentId) + '">' + escapeHtml(t('admin.analytics.analyze', 'Analyze')) +
+            '</button></td>' +
           '</tr>';
       }).join('') +
       '</tbody></table>';
@@ -135,14 +208,19 @@ window.SaltAnalytics = (function() {
 
   async function openDetail(studentId) {
     selectedId = studentId;
-    const cls = getClass();
     $('laDetail').classList.remove('hidden');
-    $('laDetailBody').innerHTML = '<p class="muted">Loading…</p>';
+    $('laDetailBody').innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
-      const s = await api(
-        '/api/teacher/class/' + encodeURIComponent(cls.classId) +
-        '/analytics/students/' + encodeURIComponent(studentId)
-      );
+      let s;
+      if (mode === 'school') {
+        s = await api('/api/admin/analytics/students/' + encodeURIComponent(studentId));
+      } else {
+        const cls = getClass();
+        s = await api(
+          '/api/teacher/class/' + encodeURIComponent(cls.classId) +
+          '/analytics/students/' + encodeURIComponent(studentId)
+        );
+      }
       renderDetail(s);
     } catch (e) {
       $('laDetailBody').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
@@ -190,7 +268,9 @@ window.SaltAnalytics = (function() {
   }
 
   function renderDetail(s) {
-    $('laDetailTitle').textContent = s.name + ' — Learning Analytics';
+    $('laDetailTitle').textContent = s.name +
+      (s.className ? ' · ' + s.className : '') +
+      ' — Learning Analytics';
     const domains = (s.domainProfile || []).map((d) =>
       '<div class="la-domain la-domain-' + escapeHtml(d.band) + '">' +
         '<strong>' + escapeHtml(d.label) + '</strong>' +
@@ -213,6 +293,10 @@ window.SaltAnalytics = (function() {
       '<h4>Strengths & weaknesses</h4><div class="la-domains">' + domains + '</div>' +
       '<div id="laDiagOut" class="la-diag"></div>';
 
+    if ($('laDiagnoseBtn')) {
+      $('laDiagnoseBtn').textContent = t('la.diagnose', 'Generate AI learning profile');
+    }
+
     if (s.latestIntervention) {
       $('laDiagOut').innerHTML = renderDiagnostic({
         teacherReport: s.latestIntervention.teacherReport,
@@ -226,15 +310,23 @@ window.SaltAnalytics = (function() {
 
   async function runDiagnose() {
     if (!selectedId) return;
-    const cls = getClass();
     $('laDiagnoseBtn').disabled = true;
     $('laDiagOut').innerHTML = '<p class="muted">Generating pedagogical profile… this can take a moment.</p>';
     try {
-      const data = await api(
-        '/api/teacher/class/' + encodeURIComponent(cls.classId) +
-        '/analytics/students/' + encodeURIComponent(selectedId) + '/diagnose',
-        { method: 'POST', body: {} }
-      );
+      let data;
+      if (mode === 'school') {
+        data = await api(
+          '/api/admin/analytics/students/' + encodeURIComponent(selectedId) + '/diagnose',
+          { method: 'POST', body: {} }
+        );
+      } else {
+        const cls = getClass();
+        data = await api(
+          '/api/teacher/class/' + encodeURIComponent(cls.classId) +
+          '/analytics/students/' + encodeURIComponent(selectedId) + '/diagnose',
+          { method: 'POST', body: {} }
+        );
+      }
       const d = data.diagnostic || {};
       $('laDiagOut').innerHTML = renderDiagnostic(d);
       loadDashboard();
@@ -245,14 +337,28 @@ window.SaltAnalytics = (function() {
   }
 
   async function seedMock() {
-    const cls = getClass();
-    if (!cls) return;
     $('laSeedMock').disabled = true;
     try {
-      const res = await api(
-        '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics/seed-mock',
-        { method: 'POST', body: {} }
-      );
+      let res;
+      if (mode === 'school') {
+        const cid = classFilter || ($('laClassFilter') && $('laClassFilter').value) || '';
+        if (!cid) {
+          $('laImportMsg').textContent = 'Choose a class first, then load demo data.';
+          $('laSeedMock').disabled = false;
+          return;
+        }
+        res = await api('/api/admin/analytics/seed-mock', {
+          method: 'POST',
+          body: { classId: cid }
+        });
+      } else {
+        const cls = getClass();
+        if (!cls) return;
+        res = await api(
+          '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics/seed-mock',
+          { method: 'POST', body: {} }
+        );
+      }
       $('laImportMsg').textContent = res.message ||
         ('Seeded ' + (res.savedReports || 0) + ' reports, ' + (res.savedLogs || 0) + ' daily logs.');
       await loadDashboard();
@@ -263,7 +369,6 @@ window.SaltAnalytics = (function() {
   }
 
   async function importData() {
-    const cls = getClass();
     const input = $('laImportFile');
     const file = input && input.files && input.files[0];
     if (!file) {
@@ -276,10 +381,23 @@ window.SaltAnalytics = (function() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('source', $('laImportSource').value);
-      const res = await api(
-        '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics/import',
-        { method: 'POST', body: fd }
-      );
+      let res;
+      if (mode === 'school') {
+        const cid = classFilter || ($('laClassFilter') && $('laClassFilter').value) || '';
+        if (!cid) {
+          $('laImportMsg').textContent = 'Choose a class for this import.';
+          $('laImportBtn').disabled = false;
+          return;
+        }
+        fd.append('classId', cid);
+        res = await api('/api/admin/analytics/import', { method: 'POST', body: fd });
+      } else {
+        const cls = getClass();
+        res = await api(
+          '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics/import',
+          { method: 'POST', body: fd }
+        );
+      }
       let msg = 'Imported ' + (res.saved || res.matched || 0) + ' student score(s).';
       if (res.unmatched && res.unmatched.length) {
         msg += ' Unmatched: ' + res.unmatched.join(', ') + '.';
@@ -296,5 +414,5 @@ window.SaltAnalytics = (function() {
     $('laImportBtn').disabled = false;
   }
 
-  return { init, onClassOpen, loadDashboard };
+  return { init, onClassOpen, onSchoolOpen, loadDashboard };
 })();

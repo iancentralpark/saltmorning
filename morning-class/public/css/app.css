@@ -196,6 +196,19 @@ a:hover { color: var(--gold); }
     flex-wrap: wrap;
   }
 }
+/* Shared portal shell (admin / parent) — same underline strip as teacher class tabs */
+.shell.portal-shell-wide { max-width: 1100px; }
+.portal-subnav {
+  margin: 0 0 1rem;
+}
+#langToggleBtn {
+  min-width: 4.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.portal-shell-topbar .teacher-shell-nav {
+  gap: 0.4rem;
+}
 .card {
   background: var(--card);
   border: 1px solid var(--border);

@@ -10,15 +10,37 @@ window.SaltParent = (function() {
   let overview = null;
   let yearAtt = null;
   let yearAttMonthIdx = 0;
+  let currentTab = '';
+
+  const TAB_TITLE_KEYS = {
+    feed: 'nav.feed',
+    announcements: 'nav.parentAnnouncements',
+    attendance: 'nav.attendance',
+    timetable: 'nav.timetable',
+    homework: 'nav.homework',
+    reportcards: 'nav.parentReports',
+    profile: 'nav.profile'
+  };
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
   function api(path, opts) { return deps.api(path, opts, 'parent'); }
+  function t(key, fallback) {
+    return window.SaltI18n ? SaltI18n.t(key, fallback) : (fallback || key);
+  }
 
   function init(options) {
     deps = options || {};
-    document.querySelectorAll('#appView .tab').forEach((btn) => {
+    document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+    window.addEventListener('hashchange', applyRoute);
+    window.addEventListener('salt:langchange', () => {
+      if (currentTab && $('parentPageTitle')) {
+        $('parentPageTitle').textContent = t(TAB_TITLE_KEYS[currentTab]);
+      }
+      if (overview) renderHero(overview);
+      if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
     });
     $('ppProfileForm').addEventListener('submit', saveProfile);
     $('yearAttPrev').addEventListener('click', () => {
@@ -33,8 +55,27 @@ window.SaltParent = (function() {
     });
   }
 
-  function switchTab(name) {
-    document.querySelectorAll('#appView .tab').forEach((t) =>
+  function setRoute(tab, replace) {
+    const hash = '#/' + encodeURIComponent(tab || 'feed');
+    if (replace) history.replaceState(null, '', hash);
+    else if (location.hash !== hash) location.hash = hash;
+  }
+
+  function applyRoute() {
+    const raw = String(location.hash || '').replace(/^#\/?/, '');
+    const tab = decodeURIComponent(raw.split('/')[0] || 'feed');
+    const next = TAB_TITLE_KEYS[tab] ? tab : 'feed';
+    if (currentTab === next) return;
+    switchTab(next, { skipHash: true });
+  }
+
+  function switchTab(name, opts) {
+    opts = opts || {};
+    if (!TAB_TITLE_KEYS[name]) name = 'feed';
+    if (!opts.skipHash) setRoute(name, !!opts.replace);
+    if (currentTab === name && !opts.force) return;
+    currentTab = name;
+    document.querySelectorAll('#parentNav .class-subnav-item').forEach((t) =>
       t.classList.toggle('active', t.dataset.tab === name));
     ['feed', 'announcements', 'attendance', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
@@ -50,12 +91,17 @@ window.SaltParent = (function() {
       profile: 'tabProfile'
     };
     deps.show($(map[name]));
+    if ($('parentPageTitle')) {
+      $('parentPageTitle').setAttribute('data-i18n', TAB_TITLE_KEYS[name]);
+      $('parentPageTitle').textContent = t(TAB_TITLE_KEYS[name]);
+    }
     if (name === 'announcements') loadAnnouncements();
     if (name === 'attendance') loadAttendance();
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
     if (name === 'reportcards') loadReportCards();
     if (name === 'profile') loadProfile();
+    if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
   }
 
   async function loadAnnouncements() {
@@ -82,6 +128,12 @@ window.SaltParent = (function() {
     renderHero(data);
     renderFeed(data.newsfeed || []);
     renderTeachers(data.teachers || []);
+    if (!location.hash || location.hash === '#') {
+      switchTab('feed', { replace: true });
+    } else {
+      applyRoute();
+    }
+    if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
   }
 
   function renderHero(data) {
@@ -89,22 +141,25 @@ window.SaltParent = (function() {
     const photo = s.photoPath
       ? '<img class="pp-hero-photo" src="' + escapeHtml(s.photoPath) + '" alt="">'
       : '<div class="pp-hero-fallback">' + escapeHtml((s.name || '?').charAt(0)) + '</div>';
+    const hwPending = (data.homeworkSummary && data.homeworkSummary.pending) || 0;
+    const reports = data.reportCardsShared || 0;
     $('ppHero').innerHTML =
       photo +
       '<div class="pp-hero-text">' +
-        '<div class="pp-hero-eyebrow">My child</div>' +
+        '<div class="pp-hero-eyebrow">' + escapeHtml(t('parent.hero.child', 'My child')) + '</div>' +
         '<h2>' + escapeHtml(s.name || '') + '</h2>' +
         '<p class="muted">' +
           escapeHtml(s.className || s.classId || '') +
           (s.gradeLevel ? ' · ' + escapeHtml(s.gradeLevel) : '') +
         '</p>' +
         '<div class="pp-hero-stats">' +
-          '<span>' + (data.homeworkSummary && data.homeworkSummary.pending || 0) + ' homework pending</span>' +
-          '<span>' + (data.reportCardsShared || 0) + ' report card(s)</span>' +
+          '<span>' + hwPending + ' ' + escapeHtml(t('parent.hero.hwPending', 'homework pending')) + '</span>' +
+          '<span>' + reports + ' ' + escapeHtml(t('parent.hero.reports', 'report card(s)')) + '</span>' +
         '</div>' +
       '</div>';
-    $('welcomeText').textContent = (data.parent && data.parent.name ? data.parent.name : 'Parent') +
+    $('welcomeText').textContent = (data.parent && data.parent.name ? data.parent.name : t('parent.brand', 'Parent')) +
       ' · ' + (s.name || '');
+    $('welcomeText').removeAttribute('data-i18n');
   }
 
   function renderFeed(items) {
