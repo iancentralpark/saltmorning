@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811teacherhome">
+  <link rel="stylesheet" href="/css/app.css?v=20260811teachernav">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -21,12 +21,19 @@
   <header class="topbar teacher-topbar teacher-shell-topbar">
     <div class="teacher-shell-identity">
       <div class="brand" id="teacherNameBrand">Teacher</div>
-      <div class="teacher-shell-page muted small" id="teacherPageTitle">My classes</div>
+      <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
     </div>
     <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
-      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home">My classes</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home">Home</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students">Students</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson">Lesson Plan</button>
+      <div class="teacher-nav-dropdown" id="classToolsMenu">
+        <button type="button" class="btn btn-ghost teacher-nav-btn" id="classToolsMenuBtn" aria-expanded="false" aria-haspopup="true">Class Tools</button>
+        <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
+          <button type="button" class="teacher-nav-dropdown-item" id="openJeopardyBtn" role="menuitem">AI Jeopardy</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
+        </div>
+      </div>
       <button type="button" class="btn btn-ghost teacher-nav-logout" id="shellLogoutBtn">Log out</button>
     </nav>
   </header>
@@ -39,7 +46,7 @@
       </div>
       <div class="card teacher-home-classes" id="homeClassesSection">
         <div class="section-title">My classes</div>
-        <p class="muted small teacher-home-classes-help">Open a class for attendance, grades, homework, and more.</p>
+        <p class="muted small teacher-home-classes-help">Pick a shortcut, or open the class for all tools.</p>
         <div class="class-list" id="assignedList"></div>
       </div>
     </div>
@@ -83,6 +90,13 @@
   </div>
 
   <div id="classView" class="hidden">
+    <div class="teacher-class-context" id="classContextBar">
+      <button type="button" class="btn btn-ghost teacher-back-home" id="classBackHomeBtn">← Home</button>
+      <div class="teacher-class-context-meta">
+        <strong id="classContextName">Class</strong>
+        <span class="muted small" id="classContextRole"></span>
+      </div>
+    </div>
     <nav class="class-subnav" id="classTabs" aria-label="Class sections">
       <div class="class-subnav-track">
         <button class="class-subnav-item active" data-tab="attendance" data-homeroom-only="1" type="button">Attendance</button>
@@ -236,22 +250,6 @@
     </div>
   </div>
 </div>
-
-<aside id="classToolsSidebar" class="class-tools-sidebar hidden" aria-label="Class Tools">
-  <div class="class-tools-card">
-    <div class="class-tools-head">
-      <strong>Class Tools</strong>
-      <button type="button" class="btn btn-ghost class-tools-min-btn" id="classToolsToggleBtn" aria-label="Minimize Class Tools">−</button>
-    </div>
-    <div class="class-tools-body" id="classToolsBody">
-      <button type="button" class="btn btn-primary class-tools-btn" id="openJeopardyBtn">AI Jeopardy</button>
-      <p class="muted small" style="margin:0.35rem 0 0">Smartboard quiz board</p>
-      <button type="button" class="btn btn-primary class-tools-btn" id="openItemBankBtn" style="margin-top:0.65rem">Item Bank</button>
-      <p class="muted small" style="margin:0.35rem 0 0">AI questions · exams · print</p>
-    </div>
-  </div>
-  <button type="button" class="class-tools-chip hidden" id="classToolsChip" title="Open Class Tools">Tools</button>
-</aside>
 
 <div id="lpDrawerBackdrop" class="lp-lesson-backdrop hidden" aria-hidden="true"></div>
 <aside id="lpLessonDrawer" class="lp-lesson-drawer" role="dialog" aria-modal="true" aria-hidden="true">
@@ -473,10 +471,29 @@
     }
   });
 
+  function parseClassFromCard(el) {
+    let subjects = [];
+    try { subjects = JSON.parse(el.dataset.subjects || '[]'); } catch (e) { subjects = []; }
+    return {
+      classId: el.dataset.id,
+      className: el.dataset.name,
+      isHomeroom: el.dataset.homeroom === '1',
+      subjects: subjects,
+      roleLabel: el.dataset.roles || ''
+    };
+  }
+
   function classCard(c) {
     const isHomeroom = !!c.isHomeroom;
     const roleLabel = c.roleLabel || (c.roles && c.roles.length ? c.roles.join(' / ') : (c.subjects || []).join(' / '));
     const subjectsJson = JSON.stringify(c.subjects || []);
+    const quick = isHomeroom
+      ? [['attendance', 'Attendance'], ['grades', 'Grades'], ['homework', 'Homework']]
+      : [['grades', 'Grades'], ['homework', 'Homework'], ['dollars', 'Dollars']];
+    const actions = quick.map((pair) =>
+      '<button type="button" class="class-card-quick" data-tab="' + pair[0] + '">' + pair[1] + '</button>'
+    ).join('') +
+      '<button type="button" class="class-card-quick class-card-quick-more" data-tab="">Open</button>';
     return '<div class="class-card' + (isHomeroom ? ' class-card-homeroom' : '') +
       '" data-id="' + escapeHtml(c.classId) +
       '" data-name="' + escapeHtml(c.className) +
@@ -487,6 +504,7 @@
       '<strong>' + escapeHtml(c.className) + '</strong>' +
       '<div class="class-card-meta"><small>' + escapeHtml(c.classId) + '</small></div>' +
       (roleLabel ? '<div class="class-card-roles">' + escapeHtml(roleLabel) + '</div>' : '') +
+      '<div class="class-card-actions">' + actions + '</div>' +
       '</div>';
   }
 
@@ -505,17 +523,18 @@
         );
     $('assignedList').innerHTML = classes.map(classCard).join('') ||
       '<p style="color:var(--muted)">No classes assigned.</p>';
-    document.querySelectorAll('.class-card').forEach(el => {
-      el.addEventListener('click', () => {
-        let subjects = [];
-        try { subjects = JSON.parse(el.dataset.subjects || '[]'); } catch (e) { subjects = []; }
-        navigateToClass({
-          classId: el.dataset.id,
-          className: el.dataset.name,
-          isHomeroom: el.dataset.homeroom === '1',
-          subjects: subjects,
-          roleLabel: el.dataset.roles || ''
-        });
+    document.querySelectorAll('.class-card').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        const quick = e.target.closest('.class-card-quick');
+        const cls = parseClassFromCard(el);
+        if (quick) {
+          e.preventDefault();
+          e.stopPropagation();
+          const tab = quick.getAttribute('data-tab') || '';
+          navigateToClass(cls, tab || defaultClassTabFor(cls));
+          return;
+        }
+        navigateToClass(cls);
       });
     });
     const seen = new Set();
@@ -531,19 +550,32 @@
   }
 
 
-  function setShellIdentity(pageTitle) {
+  function setShellIdentity(pageTitle, mode) {
     const p = getProfile(role) || {};
     if ($('teacherNameBrand')) $('teacherNameBrand').textContent = p.name || 'Teacher';
     if ($('teacherPageTitle')) $('teacherPageTitle').textContent = pageTitle || '';
-    const inClass = / · /.test(String(pageTitle || ''));
-    document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
+    const view = mode || (
+      pageTitle === 'Students' ? 'students' :
+      pageTitle === 'Lesson Plan' ? 'lesson' :
+      pageTitle === 'Home' || pageTitle === 'My classes' ? 'home' :
+      currentClass ? 'class' : 'home'
+    );
+    document.querySelectorAll('.teacher-nav-btn[data-nav]').forEach((btn) => {
       const nav = btn.getAttribute('data-nav');
-      const active =
-        (nav === 'home' && (pageTitle === 'My classes' || inClass)) ||
-        (nav === 'students' && pageTitle === 'Students') ||
-        (nav === 'lesson' && pageTitle === 'Lesson Plan');
-      btn.classList.toggle('is-active', !!active);
+      btn.classList.toggle('is-active', nav === view);
     });
+  }
+
+  function updateClassContextBar(cls) {
+    if ($('classContextName')) {
+      $('classContextName').textContent = (cls && (cls.className || cls.classId)) || 'Class';
+    }
+    if ($('classContextRole')) {
+      const bits = [];
+      if (cls && cls.isHomeroom) bits.push('Homeroom');
+      if (cls && cls.roleLabel && !/homeroom/i.test(cls.roleLabel)) bits.push(cls.roleLabel);
+      $('classContextRole').textContent = bits.join(' · ');
+    }
   }
 
   function setRoute(hash, replace) {
@@ -628,8 +660,7 @@
     currentClassTab = '';
     hideAllAppViews();
     show($('homeView'));
-    setShellIdentity('My classes');
-    setClassToolsMinimized(true);
+    setShellIdentity('Home', 'home');
     const p = getProfile(role);
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
     loadHeadReportQueue();
@@ -837,7 +868,7 @@
     lessonScope = 'class';
     hideAllAppViews();
     show($('studentsView'));
-    setShellIdentity('Students');
+    setShellIdentity('Students', 'students');
     if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.open) {
       SaltStudentRegistry.open();
     }
@@ -854,7 +885,7 @@
     lessonScope = 'global';
     hideAllAppViews();
     show($('globalLessonView'));
-    setShellIdentity('Lesson Plan');
+    setShellIdentity('Lesson Plan', 'lesson');
     SaltLesson.onGlobalOpen();
     if (!applyingRoute) {
       applyingRoute = true;
@@ -869,6 +900,7 @@
     currentClass = cls;
     hideAllAppViews();
     show($('classView'));
+    updateClassContextBar(cls);
     $('attDate').value = todayISO();
     const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
     if ($('gradeSubject')) $('gradeSubject').value = firstSubject;
@@ -906,10 +938,9 @@
     };
     if ($(map[name])) show($(map[name]));
     if (currentClass) {
-      const title = (currentClass.className || currentClass.classId) +
-        (currentClass.isHomeroom ? ' · Homeroom' : '') +
-        ' · ' + tabLabel(name);
-      setShellIdentity(title);
+      const title = (currentClass.className || currentClass.classId) + ' · ' + tabLabel(name);
+      setShellIdentity(title, 'class');
+      updateClassContextBar(currentClass);
       if (!opts.skipRoute && !applyingRoute) {
         setRoute('#/class/' + encodeURIComponent(currentClass.classId) + '/' + encodeURIComponent(name));
       }
@@ -1239,51 +1270,51 @@
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
+  if ($('classBackHomeBtn')) {
+    $('classBackHomeBtn').addEventListener('click', () => openHome());
+  }
+
   $('loadReportBtn').addEventListener('click', () => SaltReportCard.loadOverview());
   if ($('reportTerm')) {
     $('reportTerm').addEventListener('change', () => SaltReportCard.loadOverview());
   }
 
-
-  function showClassToolsSidebar() {
-    const bar = $('classToolsSidebar');
-    if (bar) bar.classList.remove('hidden');
+  function closeClassToolsMenu() {
+    const panel = $('classToolsMenuPanel');
+    const btn = $('classToolsMenuBtn');
+    if (panel) panel.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
   }
 
-  function setClassToolsMinimized(min) {
-    const bar = $('classToolsSidebar');
-    const body = $('classToolsBody');
-    const chip = $('classToolsChip');
-    const toggle = $('classToolsToggleBtn');
-    if (!bar) return;
-    bar.classList.toggle('is-minimized', !!min);
-    if (body) body.classList.toggle('hidden', !!min);
-    if (chip) chip.classList.toggle('hidden', !min);
-    if (toggle) toggle.textContent = min ? '+' : '−';
+  const classToolsMenuBtn = $('classToolsMenuBtn');
+  if (classToolsMenuBtn) {
+    classToolsMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = $('classToolsMenuPanel');
+      if (!panel) return;
+      const open = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !open);
+      classToolsMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
   }
+  document.addEventListener('click', (e) => {
+    const menu = $('classToolsMenu');
+    if (menu && !menu.contains(e.target)) closeClassToolsMenu();
+  });
 
   const openJeopardyBtn = $('openJeopardyBtn');
   if (openJeopardyBtn) {
     openJeopardyBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
       window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
     });
   }
   const openItemBankBtn = $('openItemBankBtn');
   if (openItemBankBtn) {
     openItemBankBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
       window.open('/tools/item-bank', 'saltItemBank', 'noopener,width=1440,height=900');
     });
-  }
-  const classToolsToggleBtn = $('classToolsToggleBtn');
-  if (classToolsToggleBtn) {
-    classToolsToggleBtn.addEventListener('click', () => {
-      const bar = $('classToolsSidebar');
-      setClassToolsMinimized(!(bar && bar.classList.contains('is-minimized')));
-    });
-  }
-  const classToolsChip = $('classToolsChip');
-  if (classToolsChip) {
-    classToolsChip.addEventListener('click', () => setClassToolsMinimized(false));
   }
 
   if ($('shellLogoutBtn')) $('shellLogoutBtn').addEventListener('click', doLogout);
@@ -1307,15 +1338,13 @@
     hide($('loginView'));
     show($('appShell'));
     if ($('teacherShellRoot')) $('teacherShellRoot').classList.add('teacher-shell-wide');
-    setShellIdentity('My classes');
+    setShellIdentity('Home', 'home');
     SaltTimetable.init({ api, escapeHtml, role });
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
     });
     await loadClasses();
     SaltMessenger.init(role);
-    showClassToolsSidebar();
-    setClassToolsMinimized(true);
     await applyRoute();
   }
 

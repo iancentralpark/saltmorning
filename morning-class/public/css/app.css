@@ -175,12 +175,112 @@ a:hover { color: var(--gold); }
   border: 1px solid rgba(197, 160, 89, 0.35);
 }
 .topbar .btn-ghost:hover { background: rgba(197, 160, 89, 0.22); color: #fff; }
-.teacher-home-actions {
+.teacher-shell-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
   align-items: center;
   justify-content: flex-end;
+}
+.teacher-nav-dropdown {
+  position: relative;
+}
+.teacher-nav-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 10.5rem;
+  padding: 0.35rem;
+  border-radius: 0.65rem;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 12px 28px rgba(28, 37, 27, 0.16);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.teacher-nav-dropdown-panel.hidden { display: none !important; }
+.teacher-nav-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.topbar .teacher-nav-dropdown-panel {
+  background: #fff;
+}
+.topbar .teacher-nav-dropdown-item {
+  color: var(--text);
+}
+.teacher-class-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  border: 1px solid var(--border-soft);
+}
+.teacher-back-home {
+  flex: 0 0 auto;
+}
+.teacher-class-context-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.teacher-class-context-meta strong {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+.class-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+}
+.class-card-quick {
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  color: var(--olive-deep);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.3;
+}
+.class-card-quick:hover {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+}
+.class-card-quick-more {
+  background: var(--olive);
+  border-color: var(--olive);
+  color: #fff;
+}
+.class-card-quick-more:hover {
+  background: var(--olive-deep);
+  border-color: var(--olive-deep);
+  color: #fff;
+}
+.teacher-home-classes .class-card-actions {
+  margin-top: 0.4rem;
+}
+.teacher-home-classes .class-card-quick {
+  font-size: 0.68rem;
+  padding: 0.16rem 0.45rem;
 }
 .teacher-home-actions .btn,
 .teacher-home-actions a.btn {
@@ -214,11 +314,11 @@ a:hover { color: var(--gold); }
 }
 .teacher-shell-nav {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
   justify-content: flex-end;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
 }
 .teacher-shell-nav .btn {
   text-decoration: none;
@@ -2671,68 +2771,7 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   .stu-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* Class Tools sidebar — teacher classroom tools */
-.class-tools-sidebar {
-  position: fixed;
-  top: 5.5rem;
-  right: max(0.75rem, env(safe-area-inset-right));
-  z-index: 860;
-  width: min(11.5rem, calc(100vw - 1.5rem));
-}
-.class-tools-sidebar.hidden { display: none !important; }
-.class-tools-card {
-  background: #fff;
-  border: 1px solid var(--border-soft, #d7e3ef);
-  border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(30, 41, 59, 0.14);
-  overflow: hidden;
-}
-.class-tools-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
-  padding: 0.55rem 0.65rem;
-  background: linear-gradient(135deg, var(--sage-soft), #fff);
-  border-bottom: 1px solid var(--border-soft, #d7e3ef);
-  font-size: 0.9rem;
-  color: var(--olive);
-}
-.class-tools-min-btn {
-  min-height: 1.75rem !important;
-  padding: 0.15rem 0.45rem !important;
-  line-height: 1;
-}
-.class-tools-body {
-  padding: 0.65rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.class-tools-btn {
-  width: 100%;
-  justify-content: center;
-}
-.class-tools-chip {
-  display: none;
-  border: none;
-  border-radius: 999px;
-  padding: 0.55rem 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  background: linear-gradient(135deg, var(--olive), var(--olive-deep));
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(59, 74, 52, 0.35);
-}
-.class-tools-sidebar.is-minimized .class-tools-card { display: none; }
-.class-tools-sidebar.is-minimized .class-tools-chip { display: inline-flex; }
-@media (max-width: 720px) {
-  .class-tools-sidebar {
-    top: auto;
-    bottom: max(1rem, env(safe-area-inset-bottom));
-    right: max(0.75rem, env(safe-area-inset-right));
-  }
-}
+/* Class Tools moved into teacher top nav dropdown */
 
 /* English Buddy float — bottom right (Mr. Park style) */
 .buddy-float {
