@@ -11,6 +11,7 @@ import type {
 } from "@/lib/types";
 import { getStore } from "@/lib/store/runtime-store";
 import { getPrisma } from "@/lib/db";
+import { nodeDisplayTitle } from "@/lib/i18n/content-locale";
 
 export interface ScheduleRepository {
   getCalendar(): Promise<SchoolCalendarDay[]>;
@@ -157,7 +158,9 @@ export class PrismaScheduleRepository implements ScheduleRepository {
       classExternalId,
       skillNodeId: r.skillNodeId,
       skillCode: r.skillNode.code,
-      skillTitle: r.skillNode.titleKo || r.skillNode.title,
+      skillTitle: nodeDisplayTitle(r.skillNode, {
+        frameworkCode: undefined,
+      }) || r.skillNode.title,
       frameworkCode: "", // filled by join if needed
       scheduledDate: r.scheduledDate.toISOString().slice(0, 10),
       period: r.period,

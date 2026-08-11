@@ -1,5 +1,6 @@
 import type { CurriculumNode, NodeType } from "@/lib/types";
 import type { Edge, Node } from "@xyflow/react";
+import { nodeDisplayTitle } from "@/lib/i18n/content-locale";
 
 const TYPE_COLOR: Record<NodeType, string> = {
   ROOT: "#152820",
@@ -34,7 +35,8 @@ export function buildVisibleGraph(
   root: CurriculumNode,
   expandedIds: Set<string>,
   focusId: string | null,
-  orientation: LayoutOrientation = "horizontal"
+  orientation: LayoutOrientation = "horizontal",
+  subject?: string | null
 ): { nodes: Node<MapNodeData>[]; edges: Edge[] } {
   const nodes: Node<MapNodeData>[] = [];
   const edges: Edge[] = [];
@@ -70,7 +72,10 @@ export function buildVisibleGraph(
 
   for (const [depth, items] of columns) {
     items.forEach((item, row) => {
-      const label = item.node.titleKo || item.node.title;
+      const label = nodeDisplayTitle(item.node, {
+        subject,
+        frameworkCode: item.node.frameworkCode,
+      });
       const sub =
         item.node.code ||
         (item.node.nodeType === "GRADE"

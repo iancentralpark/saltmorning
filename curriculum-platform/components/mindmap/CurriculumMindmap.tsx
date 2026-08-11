@@ -47,6 +47,7 @@ function MindmapCanvas({ initialFramework }: Props) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [error, setError] = useState<string | null>(null);
   const skipFitRef = useRef(false);
+  const [subject, setSubject] = useState<string | null>(null);
 
   useEffect(() => {
     return subscribeSkillOpen((nodeId) => {
@@ -80,6 +81,7 @@ function MindmapCanvas({ initialFramework }: Props) {
           ? "4"
           : grades[0] || "4";
         setRoot(data.tree);
+        setSubject(data.framework.subject || null);
         setGradeLevel(nextGrade);
         setExpanded(defaultExpanded(data.tree, nextGrade));
         setFocusId(null);
@@ -100,7 +102,7 @@ function MindmapCanvas({ initialFramework }: Props) {
 
   useEffect(() => {
     if (!root) return;
-    const g = buildVisibleGraph(root, expanded, focusId, orientation);
+    const g = buildVisibleGraph(root, expanded, focusId, orientation, subject);
     setNodes(g.nodes);
     setEdges(g.edges);
     if (skipFitRef.current) {
@@ -110,7 +112,7 @@ function MindmapCanvas({ initialFramework }: Props) {
     requestAnimationFrame(() => {
       fitView({ padding: 0.2, duration: 220 });
     });
-  }, [root, expanded, focusId, orientation, setNodes, setEdges, fitView]);
+  }, [root, expanded, focusId, orientation, subject, setNodes, setEdges, fitView]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<MapNodeData>) => {
@@ -160,7 +162,9 @@ function MindmapCanvas({ initialFramework }: Props) {
           >
             {frameworks.map((f) => (
               <option key={f.code} value={f.code}>
-                {f.nameKo || f.name}
+                {f.subject === "KOREAN_LANGUAGE" || f.subject === "KOREAN_HISTORY"
+                  ? f.nameKo || f.name
+                  : f.name}
               </option>
             ))}
           </select>

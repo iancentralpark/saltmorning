@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { listFrameworks } from "@/lib/curriculum/seed-loader";
+import {
+  frameworkDisplayName,
+  usesKoreanContent,
+} from "@/lib/i18n/content-locale";
 import { ArrowRight, GitBranch, CalendarRange, Plug } from "lucide-react";
 
 export default function HomePage() {
@@ -55,9 +59,14 @@ export default function HomePage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-display text-xl font-semibold text-ink-900">
-                    {fw.nameKo || fw.name}
+                    {frameworkDisplayName(fw)}
                   </p>
-                  <p className="mt-1 text-sm text-ink-700/80">{fw.name}</p>
+                  {usesKoreanContent(fw.subject, fw.code) && (
+                    <p className="mt-1 text-sm text-ink-700/80">{fw.name}</p>
+                  )}
+                  {!usesKoreanContent(fw.subject, fw.code) && fw.nameKo && (
+                    <p className="mt-1 text-sm text-ink-700/60">{fw.nameKo}</p>
+                  )}
                 </div>
                 <span className="shrink-0 text-xs uppercase tracking-wide text-moss-700">
                   {fw.regionStandard}

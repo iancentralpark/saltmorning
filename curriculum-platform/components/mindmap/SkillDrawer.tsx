@@ -3,14 +3,22 @@
 import { useEffect, useState } from "react";
 import { X, FileText, Sparkles, Loader2 } from "lucide-react";
 import type { AiMaterial, CurriculumNode } from "@/lib/types";
+import {
+  masteryDisplay,
+  nodeDisplayTitle,
+  objectiveDisplayStatement,
+  usesKoreanContent,
+} from "@/lib/i18n/content-locale";
 
 type Props = {
   nodeId: string | null;
   onClose: () => void;
 };
 
+type DrawerNode = Omit<CurriculumNode, "children"> & { childCount?: number };
+
 export function SkillDrawer({ nodeId, onClose }: Props) {
-  const [node, setNode] = useState<Omit<CurriculumNode, "children"> | null>(null);
+  const [node, setNode] = useState<DrawerNode | null>(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
   const [material, setMaterial] = useState<AiMaterial | null>(null);
@@ -56,6 +64,15 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
   }, [nodeId, onClose]);
 
   if (!nodeId) return null;
+
+  const localeOpts = {
+    frameworkCode: node?.frameworkCode,
+  };
+  const title = node
+    ? nodeDisplayTitle(node, localeOpts)
+    : loading
+      ? "Loading…"
+      : "Skill";
 
   async function generate(type: string) {
     setGenerating(type);
@@ -114,10 +131,9 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-moss-700">
               Skill node
+              {node && usesKoreanContent(null, node.frameworkCode) ? " · KO" : " · EN"}
             </p>
-            <h2 className="font-display text-xl font-semibold text-ink-900">
-              {node?.titleKo || node?.title || (loading ? "Loading…" : "Skill")}
-            </h2>
+            <h2 className="font-display text-xl font-semibold text-ink-900">{title}</h2>
             {node?.code && (
               <p className="mt-1 font-mono text-sm text-coral-600">{node.code}</p>
             )}
@@ -153,21 +169,22 @@ export function SkillDrawer({ nodeId, onClose }: Props) {
                   {node.objectives.length === 0 && (
                     <li className="text-sm text-ink-700/60">No objectives on this node.</li>
                   )}
-                  {node.objectives.map((o) => (
-                    <li key={o.id} className="border-l-2 border-moss-400 pl-3">
-                      {o.code && (
-                        <p className="font-mono text-xs text-moss-700">{o.code}</p>
-                      )}
-                      <p className="text-sm text-ink-900">
-                        {o.statementKo || o.statement}
-                      </p>
-                      {(o.masteryCriteriaKo || o.masteryCriteria) && (
-                        <p className="mt-1 text-xs text-ink-700/70">
-                          Mastery: {o.masteryCriteriaKo || o.masteryCriteria}
+                  {node.objectives.map((o) => {
+                    const mastery = masteryDisplay(o, localeOpts);
+                    return (
+                      <li key={o.id} className="border-l-2 border-moss-400 pl-3">
+                        {o.code && (
+                          <p className="font-mono text-xs text-moss-700">{o.code}</p>
+                        )}
+                        <p className="text-sm text-ink-900">
+                          {objectiveDisplayStatement(o, localeOpts)}
                         </p>
-                      )}
-                    </li>
-                  ))}
+                        {mastery && (
+                          <p className="mt-1 text-xs text-ink-700/70">Mastery: {mastery}</p>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
 

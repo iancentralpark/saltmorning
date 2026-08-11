@@ -47,4 +47,11 @@ Recursive object:
 | `ngss-science-grade-4.json` | NGSS Science · Grade 4 sample (energy + ESS slice) |
 | `kr2022-history-grade-4.json` | 2022 개정 한국사(초등 사회 연계) · 초4 sample (+ CUSTOM) |
 
-Load via `npm run db:seed` (`prisma/seed.ts`).
+## Content language
+
+| Framework subject | Display language |
+|-------------------|------------------|
+| `KOREAN_LANGUAGE`, `KOREAN_HISTORY` | Korean (`titleKo` / `statementKo`) |
+| All others (CCSS, NGSS, …) | English (`title` / `statement`) |
+
+UI chrome is always English. Bilingual fields may still be stored for reference.

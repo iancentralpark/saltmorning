@@ -1,4 +1,5 @@
 import { listSkills } from "@/lib/curriculum/seed-loader";
+import { nodeDisplayTitle } from "@/lib/i18n/content-locale";
 import type {
   DayOfWeek,
   ScheduledLesson,
@@ -69,7 +70,7 @@ export function sequenceSkillsOntoCalendar(input: {
         classExternalId,
         skillNodeId: skill.id,
         skillCode: skill.code,
-        skillTitle: skill.titleKo || skill.title,
+        skillTitle: nodeDisplayTitle(skill, { frameworkCode: fw }),
         frameworkCode: fw,
         scheduledDate: day.date,
         period: slot.period,
