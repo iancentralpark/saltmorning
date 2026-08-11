@@ -2,8 +2,7 @@ const crypto = require('crypto');
 const {
   TIMETABLE_ENTRIES_SHEET,
   SUBJECTS_SHEET,
-  STUDENT_LIST_SHEET,
-  TEACHER_LIST_SHEET
+  STUDENT_LIST_SHEET
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { getTeacherStudentIds } = require('./studentRegistryService');

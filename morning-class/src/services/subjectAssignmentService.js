@@ -2,7 +2,6 @@ const {
   CLASS_TEACHERS_SHEET,
   TEACHER_CLASS_SUBJECTS_SHEET,
   SUBJECTS_SHEET,
-  TEACHER_LIST_SHEET,
   GRADE_ASSESSMENTS_SHEET
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet } = require('../sheets');

@@ -2,8 +2,7 @@ const crypto = require('crypto');
 const {
   TIMETABLE_REQUIREMENTS_SHEET,
   CLASS_TEACHERS_SHEET,
-  TEACHER_CLASS_SUBJECTS_SHEET,
-  TEACHER_LIST_SHEET
+  TEACHER_CLASS_SUBJECTS_SHEET
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { getClassNameMap } = require('./teacherPortalService');
