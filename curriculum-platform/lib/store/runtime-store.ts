@@ -9,6 +9,10 @@ import { sequenceSkillsOntoCalendar } from "@/lib/schedule/sequencer";
 import { generateLessonPlan } from "@/lib/ai/lesson-plan";
 import { getCurriculumRepository } from "@/lib/curriculum/repository";
 import type { CurriculumNode } from "@/lib/types";
+import {
+  mergeCalendarOverlay,
+  type CalendarOverlayDay,
+} from "@/lib/schedule/calendar-sync";
 
 /**
  * In-memory runtime store for demo / portal APIs until Postgres is wired.
@@ -20,6 +24,15 @@ class RuntimeStore {
   materials: AiMaterial[] = [];
   calendar = buildDemoCalendar("2026-03-02", 28);
   schedule = DEMO_SCHEDULE;
+
+  applyCalendarOverlay(overlay: CalendarOverlayDay[], resequence = true) {
+    this.calendar = mergeCalendarOverlay(this.calendar, overlay);
+    if (resequence) {
+      this.scheduledLessons = [];
+      this.lessonPlans.clear();
+    }
+    return this.calendar;
+  }
 
   async ensureSequenced(gradeLevel = "4") {
     if (this.scheduledLessons.length > 0) return this.scheduledLessons;

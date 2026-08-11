@@ -13,7 +13,16 @@ Data foundation, mindmap, schedule AI, portal APIs, UX polish, repositories, pac
 - Proxy: `GET /api/teacher/curriculum-map/lessons`
 - Embed mode (`?embed=1`) hides CurricuMap chrome
 
+## Step 11 — Calendar blackout sync ✅
+- `POST /api/portal/v1/calendar/sync` merges holidays/blackouts
+- Salt Morning: `POST /api/teacher/curriculum-map/sync-calendar`
+- Resequence skills after overlay (optional)
+
+## Step 12 — Pack expansion ✅
+- CCSS ELA Grade 4 (RL.4 + W.4)
+- Demo timetable includes ELA Monday P1
+
 ## Later
 - Auth / multi-org tenancy UI
-- Richer K–12 packs
-- Two-way sync of Salt Morning calendar blackout dates into CurricuMap
+- Richer full K–12 packs
+- Auto-sync cron from Salt Morning holiday calendar

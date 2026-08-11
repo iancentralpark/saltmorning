@@ -3,18 +3,25 @@ const {
   CURRICULUM_MAP_API_KEY
 } = require('../config');
 
-async function curriculumMapFetch(pathWithQuery) {
+async function curriculumMapFetch(pathWithQuery, options = {}) {
   const base = String(CURRICULUM_MAP_URL || '').replace(/\/$/, '');
   if (!base) {
     const err = new Error('CURRICULUM_MAP_URL is not configured.');
     err.status = 503;
     throw err;
   }
-  const headers = { Accept: 'application/json' };
+  const headers = {
+    Accept: 'application/json',
+    ...(options.headers || {})
+  };
   if (CURRICULUM_MAP_API_KEY) {
     headers['x-api-key'] = CURRICULUM_MAP_API_KEY;
   }
-  const res = await fetch(base + pathWithQuery, { headers });
+  const res = await fetch(base + pathWithQuery, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body
+  });
   const text = await res.text();
   let body;
   try {
@@ -44,5 +51,12 @@ module.exports = {
       enabled: Boolean(CURRICULUM_MAP_URL),
       baseUrl: CURRICULUM_MAP_URL || null
     };
+  },
+  async pushCalendarOverlay(payload) {
+    return curriculumMapFetch('/api/portal/v1/calendar/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   }
 };

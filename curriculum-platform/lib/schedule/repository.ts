@@ -20,6 +20,10 @@ import {
   DEMO_CLASS_ID,
   DEMO_TEACHER_ID,
 } from "@/lib/schedule/demo-data";
+import {
+  mergeCalendarOverlay,
+  type CalendarOverlayDay,
+} from "@/lib/schedule/calendar-sync";
 
 export interface ScheduleRepository {
   getCalendar(): Promise<SchoolCalendarDay[]>;
@@ -40,6 +44,10 @@ export interface ScheduleRepository {
     classExternalId: string,
     date: string
   ): Promise<LessonPlan[]>;
+  applyCalendarOverlay(
+    overlay: CalendarOverlayDay[],
+    options?: { resequence?: boolean }
+  ): Promise<SchoolCalendarDay[]>;
 }
 
 class MemoryScheduleRepository implements ScheduleRepository {
@@ -83,6 +91,14 @@ class MemoryScheduleRepository implements ScheduleRepository {
       classExternalId,
       date
     );
+  }
+
+  async applyCalendarOverlay(
+    overlay: CalendarOverlayDay[],
+    options?: { resequence?: boolean }
+  ) {
+    const resequence = options?.resequence !== false;
+    return getStore().applyCalendarOverlay(overlay, resequence);
   }
 }
 
@@ -397,6 +413,66 @@ export class PrismaScheduleRepository implements ScheduleRepository {
     }
     return plans;
   }
+
+  async applyCalendarOverlay(
+    overlay: CalendarOverlayDay[],
+    options?: { resequence?: boolean }
+  ): Promise<SchoolCalendarDay[]> {
+    const prisma = getPrisma();
+    const cal = await prisma.schoolCalendar.findFirst({
+      orderBy: { startDate: "desc" },
+      include: { days: true },
+    });
+    if (!cal) throw new Error("No SchoolCalendar in database");
+
+    const base = cal.days.map((d) => ({
+      date: toIsoDate(d.date),
+      dayType: d.dayType,
+      title: d.title ?? undefined,
+      isInstructional: d.isInstructional,
+    }));
+    const merged = mergeCalendarOverlay(base, overlay);
+
+    for (const day of overlay) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day.date)) continue;
+      const date = new Date(`${day.date}T00:00:00.000Z`);
+      const dayType = day.dayType || "HOLIDAY";
+      const isInstructional =
+        typeof day.isInstructional === "boolean"
+          ? day.isInstructional
+          : dayType === "INSTRUCTIONAL" || dayType === "SCHOOL_DAY_OVERRIDE";
+
+      const existing = await prisma.schoolCalendarDay.findUnique({
+        where: { calendarId_date: { calendarId: cal.id, date } },
+      });
+      if (existing) {
+        await prisma.schoolCalendarDay.update({
+          where: { id: existing.id },
+          data: {
+            dayType,
+            title: day.title ?? existing.title,
+            isInstructional,
+          },
+        });
+      } else {
+        await prisma.schoolCalendarDay.create({
+          data: {
+            calendarId: cal.id,
+            date,
+            dayType,
+            title: day.title ?? null,
+            isInstructional,
+          },
+        });
+      }
+    }
+
+    if (options?.resequence !== false) {
+      await this.resetAndSequence("4");
+    }
+
+    return merged;
+  }
 }
 
 class AutoScheduleRepository implements ScheduleRepository {
@@ -469,6 +545,19 @@ class AutoScheduleRepository implements ScheduleRepository {
     return this.withFallback(
       () => this.prisma.generatePlansForDay(t, c, date),
       () => this.memory.generatePlansForDay(t, c, date)
+    );
+  }
+
+  applyCalendarOverlay(
+    overlay: CalendarOverlayDay[],
+    options?: { resequence?: boolean }
+  ) {
+    if (!this.usePrisma()) {
+      return this.memory.applyCalendarOverlay(overlay, options);
+    }
+    return this.withFallback(
+      () => this.prisma.applyCalendarOverlay(overlay, options),
+      () => this.memory.applyCalendarOverlay(overlay, options)
     );
   }
 }

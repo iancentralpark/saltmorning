@@ -66,6 +66,18 @@ export const DEMO_CLASS_ID = "C4A";
 
 export const DEMO_SCHEDULE: TeacherScheduleSlot[] = [
   {
+    id: "sched-mon-1",
+    teacherExternalId: DEMO_TEACHER_ID,
+    classExternalId: DEMO_CLASS_ID,
+    dayOfWeek: "MON",
+    period: 1,
+    periodLabel: "Period 1",
+    startTime: "08:50",
+    endTime: "09:35",
+    subject: "ELA",
+    frameworkCode: "ccss-ela",
+  },
+  {
     id: "sched-mon-2",
     teacherExternalId: DEMO_TEACHER_ID,
     classExternalId: DEMO_CLASS_ID,

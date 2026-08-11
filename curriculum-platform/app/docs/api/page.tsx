@@ -48,6 +48,19 @@ Response: { teacherId, classId, date, count, lessons: [{ ..., lessonPlan }] }`}
         </div>
 
         <div>
+          <h2 className="font-display text-xl font-semibold">Calendar sync</h2>
+          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
+{`POST /api/portal/v1/calendar/sync
+Header: x-api-key: $PORTAL_API_KEY
+Body: {
+  "holidays": { "2026-03-01": "삼일절" },
+  "blackouts": [{ "date": "2026-03-05", "title": "Staff PD" }],
+  "resequence": true
+}`}
+          </pre>
+        </div>
+
+        <div>
           <h2 className="font-display text-xl font-semibold">
             Salt Morning / portal deep-link
           </h2>

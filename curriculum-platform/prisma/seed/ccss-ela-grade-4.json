@@ -1,0 +1,189 @@
+{
+  "framework": {
+    "code": "ccss-ela",
+    "name": "Common Core State Standards — English Language Arts",
+    "nameKo": "공통핵심기준 — 영어",
+    "subject": "ELA",
+    "regionStandard": "US-CCSS",
+    "version": "2010",
+    "description": "CCSS ELA Grade 4 sample covering Reading Literature (RL) and Writing (W) slices.",
+    "metadata": {
+      "source": "http://www.corestandards.org/ELA-Literacy/",
+      "license": "public-reference"
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "ccss-ela",
+    "title": "CCSS English Language Arts",
+    "titleKo": "CCSS 영어",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4",
+        "titleKo": "4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "RL.4",
+            "title": "Reading: Literature",
+            "titleKo": "읽기: 문학",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "RL.4.KeyIdeas",
+                "title": "Key Ideas and Details",
+                "titleKo": "핵심 아이디어와 세부사항",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.4.1",
+                    "title": "Refer to details and examples when explaining text",
+                    "titleKo": "텍스트를 설명할 때 세부사항과 예시를 인용하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Refer to details and examples in a text when explaining what the text says explicitly and when drawing inferences from the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students cite specific textual details when explaining explicit meaning and inferences.",
+                        "masteryCriteria": "In 2 of 3 prompts, student cites a relevant detail for an explicit claim and an inference.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "type": "WORKSHEET",
+                        "title": "Evidence Hunt — RL.4.1",
+                        "description": "Find and label explicit vs inferred evidence (placeholder).",
+                        "url": "/resources/ccss/RL.4.1-evidence.pdf"
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.4.2",
+                    "title": "Determine theme and summarize text",
+                    "titleKo": "주제 파악하고 텍스트 요약하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Determine a theme of a story, drama, or poem from details in the text; summarize the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students state a theme supported by details and write a concise summary.",
+                        "masteryCriteria": "Theme statement + 2 supporting details + summary of ≤5 sentences.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "RL.4.3",
+                    "title": "Describe character, setting, or event using details",
+                    "titleKo": "세부사항으로 인물·배경·사건 묘사하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Describe in depth a character, setting, or event in a story or drama, drawing on specific details in the text.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a character/setting/event with specific text details.",
+                        "masteryCriteria": "Description includes ≥3 text-based details without plot dumping.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "W.4",
+            "title": "Writing",
+            "titleKo": "쓰기",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "W.4.TextTypes",
+                "title": "Text Types and Purposes",
+                "titleKo": "텍스트 유형과 목적",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.4.1",
+                    "title": "Write opinion pieces with reasons and support",
+                    "titleKo": "이유와 근거가 있는 의견문 쓰기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Write opinion pieces on topics or texts, supporting a point of view with reasons and information.",
+                    "objectives": [
+                      {
+                        "statement": "Students write an opinion with a clear claim, reasons, and concluding statement.",
+                        "masteryCriteria": "Opinion piece includes claim, ≥2 reasons with support, and conclusion.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.4.2",
+                    "title": "Write informative/explanatory texts",
+                    "titleKo": "정보·설명 글 쓰기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Write informative/explanatory texts to examine a topic and convey ideas and information clearly.",
+                    "objectives": [
+                      {
+                        "statement": "Students organize an informative text with introduction, facts, and conclusion.",
+                        "masteryCriteria": "Text has clear topic intro, ≥3 facts/details, and closing.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "W.4.3",
+                    "title": "Write narratives with descriptive details",
+                    "titleKo": "묘사 세부사항이 있는 서사문 쓰기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Write narratives to develop real or imagined experiences or events using effective technique, descriptive details, and clear event sequences.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a narrative with sequenced events and sensory/descriptive details.",
+                        "masteryCriteria": "Narrative shows clear sequence and ≥4 descriptive details.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

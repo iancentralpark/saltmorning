@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "test:smoke": "tsx scripts/smoke-sequencer.ts",
     "test:ui": "tsx scripts/playwright-click-smoke.ts",
-    "test:prisma": "tsx scripts/smoke-prisma-schedule.ts"
+    "test:prisma": "tsx scripts/smoke-prisma-schedule.ts",
+    "test:calendar": "tsx scripts/smoke-calendar-sync.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

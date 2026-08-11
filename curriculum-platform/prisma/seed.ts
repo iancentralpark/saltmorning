@@ -132,6 +132,23 @@ async function loadPack(pack: SeedPack): Promise<void> {
   });
   if (existing) {
     console.log(`↻ Replacing framework ${pack.framework.code}`);
+    const nodeIds = (
+      await prisma.curriculumNode.findMany({
+        where: { frameworkId: existing.id },
+        select: { id: true },
+      })
+    ).map((n) => n.id);
+    if (nodeIds.length > 0) {
+      await prisma.lessonPlan.deleteMany({
+        where: { skillNodeId: { in: nodeIds } },
+      });
+      await prisma.scheduledLesson.deleteMany({
+        where: { skillNodeId: { in: nodeIds } },
+      });
+      await prisma.aiMaterial.deleteMany({
+        where: { nodeId: { in: nodeIds } },
+      });
+    }
     await prisma.framework.delete({ where: { id: existing.id } });
   }
 

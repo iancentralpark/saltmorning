@@ -656,6 +656,32 @@ router.get('/teacher/curriculum-map/lessons', requireRole('teacher'), async (req
   }
 });
 
+router.post('/teacher/curriculum-map/sync-calendar', requireRole('teacher'), async (req, res) => {
+  try {
+    const { getHolidaysForMonth } = require('./holiday');
+    const { pushCalendarOverlay } = require('./services/curriculumMapService');
+    const year = Number(req.body.year) || new Date().getFullYear();
+    const months = Array.isArray(req.body.months)
+      ? req.body.months.map(Number)
+      : [Number(req.body.month) || new Date().getMonth() + 1];
+
+    const holidays = {};
+    for (const month of months) {
+      Object.assign(holidays, await getHolidaysForMonth(year, month));
+    }
+
+    const blackouts = Array.isArray(req.body.blackouts) ? req.body.blackouts : [];
+    const result = await pushCalendarOverlay({
+      holidays,
+      blackouts,
+      resequence: req.body.resequence !== false
+    });
+    res.json({ ok: true, holidays: Object.keys(holidays).length, ...result });
+  } catch (e) {
+    res.status(e.status || 502).json({ error: e.message || 'Calendar sync failed.' });
+  }
+});
+
 router.get('/teacher/lesson-plans/:planId', requireRole('teacher'), async (req, res) => {
   try {
     const plan = await getLessonPlan(req.params.planId);

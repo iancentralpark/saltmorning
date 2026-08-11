@@ -40,10 +40,12 @@ for (const l of lessons) {
 }
 
 const math = lessons.filter((l) => l.frameworkCode === "ccss-math");
+const ela = lessons.filter((l) => l.frameworkCode === "ccss-ela");
 const korean = lessons.filter((l) => l.frameworkCode === "kr2022-korean");
 const science = lessons.filter((l) => l.frameworkCode === "ngss-science");
 const history = lessons.filter((l) => l.frameworkCode === "kr2022-history");
 assert(math.length > 0, "expected CCSS math lessons");
+assert(ela.length > 0, "expected CCSS ELA lessons");
 assert(korean.length > 0, "expected KR korean lessons");
 assert(science.length > 0, "expected NGSS science lessons");
 assert(history.length > 0, "expected KR history lessons");
@@ -53,7 +55,7 @@ for (let i = 0; i < lessons.length; i++) {
 }
 
 console.log(
-  `✓ sequencer smoke OK — ${lessons.length} lessons (math=${math.length}, korean=${korean.length}, science=${science.length}, history=${history.length})`
+  `✓ sequencer smoke OK — ${lessons.length} lessons (math=${math.length}, ela=${ela.length}, korean=${korean.length}, science=${science.length}, history=${history.length})`
 );
 console.log(`  sample math title: ${math[0].skillTitle}`);
 console.log(`  sample korean title: ${korean[0].skillTitle}`);
