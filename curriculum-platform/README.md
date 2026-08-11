@@ -1,34 +1,57 @@
-# Curriculum Mapping & AI Lesson Planning Platform
+# CurricuMap — Curriculum Mapping & AI Lesson Planning
 
 Interactive K-12 curriculum mindmap, calendar-aware AI lesson planning, and teacher-portal APIs.
 
 ## Stack
 
-- Next.js (App Router) + TypeScript
-- PostgreSQL + Prisma
-- React Flow (mindmap) — planned
-- OpenAI / Vercel AI SDK — planned
+- Next.js 15 (App Router) + TypeScript + Tailwind
+- React Flow (`@xyflow/react`) mindmap
+- PostgreSQL + Prisma (schema ready; UI uses seed-backed runtime store until DB is wired)
+- OpenAI structured JSON when `OPENAI_API_KEY` is set (deterministic fallback otherwise)
 
-## Step 1 (this PR)
+## Roadmap
 
-1. **Prisma schema** — multi-framework, hierarchy, schedules, lesson plans  
-   → `prisma/schema.prisma`
-2. **Sample seed JSON**  
-   - Common Core Math Grade 4 → `prisma/seed/ccss-math-grade-4.json`  
-   - Korea 2022 Revised Curriculum · Korean Language Grade 4 → `prisma/seed/kr2022-korean-grade-4.json`
+See [ROADMAP.md](./ROADMAP.md).
 
-## Quick start (when DB is available)
+## Quick start
 
 ```bash
 cd curriculum-platform
-cp .env.example .env   # set DATABASE_URL
+cp .env.example .env
 npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Pages
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Brand landing + loaded frameworks |
+| `/map` | React Flow drill-down mindmap + skill drawer |
+| `/schedule` | Calendar sequencing + AI lesson plan generation |
+| `/docs/api` | External portal API reference |
+
+### Demo IDs
+
+- Teacher: `T001`
+- Class: `C4A`
+
+### Portal example
+
+```bash
+curl "http://localhost:3000/api/portal/v1/teachers/T001/classes/C4A/lessons?date=2026-03-02&generate=1"
+```
+
+## Prisma / seed
+
+```bash
 npx prisma migrate dev
 npm run db:seed
 ```
 
-## Framework-agnostic model
+Seed packs:
 
-`Framework` owns a tree of `CurriculumNode`s (`GRADE` → `DOMAIN` → `CONCEPT` → `SKILL`).  
-Skills attach `LearningObjective`s and optional `Resource`s.  
-Teachers map skills onto instructional days via `ScheduledLesson`, then generate `LessonPlan`s.
+- `prisma/seed/ccss-math-grade-4.json`
+- `prisma/seed/kr2022-korean-grade-4.json`
