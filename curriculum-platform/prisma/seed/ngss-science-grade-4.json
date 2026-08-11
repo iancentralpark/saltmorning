@@ -40,8 +40,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "K:K-PS2.Core",
-                "title": "K-PS2",
-                "titleKo": "K-PS2",
+                "title": "Plan and conduct an investigation to compare the effects of different…",
+                "titleKo": "Plan and conduct an investigation to compare the effects of different…",
                 "gradeLevel": "K",
                 "sortOrder": 1,
                 "children": [
@@ -98,8 +98,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "K:K-PS3.Core",
-                "title": "K-PS3",
-                "titleKo": "K-PS3",
+                "title": "Make observations to determine the effect of sunlight on Earth's surface",
+                "titleKo": "Make observations to determine the effect of sunlight on Earth's surface",
                 "gradeLevel": "K",
                 "sortOrder": 1,
                 "children": [
@@ -156,8 +156,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "K:K-LS1.Core",
-                "title": "K-LS1",
-                "titleKo": "K-LS1",
+                "title": "Use observations to describe patterns of what plants and animals…",
+                "titleKo": "Use observations to describe patterns of what plants and animals…",
                 "gradeLevel": "K",
                 "sortOrder": 1,
                 "children": [
@@ -195,8 +195,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "K:K-ESS2.Core",
-                "title": "K-ESS2",
-                "titleKo": "K-ESS2",
+                "title": "Use and share observations of local weather conditions to describe…",
+                "titleKo": "Use and share observations of local weather conditions to describe…",
                 "gradeLevel": "K",
                 "sortOrder": 1,
                 "children": [
@@ -253,8 +253,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "K:K-ESS3.Core",
-                "title": "K-ESS3",
-                "titleKo": "K-ESS3",
+                "title": "Use a model to represent the relationship between the needs of…",
+                "titleKo": "Use a model to represent the relationship between the needs of…",
                 "gradeLevel": "K",
                 "sortOrder": 1,
                 "children": [
@@ -330,8 +330,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "K:K-2-ETS1.Core",
-                "title": "K-2-ETS1",
-                "titleKo": "K-2-ETS1",
+                "title": "Ask questions, make observations, and gather information about a…",
+                "titleKo": "Ask questions, make observations, and gather information about a…",
                 "gradeLevel": "K",
                 "sortOrder": 1,
                 "children": [
@@ -417,8 +417,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "1:1-PS4.Core",
-                "title": "1-PS4",
-                "titleKo": "1-PS4",
+                "title": "Plan and conduct investigations to provide evidence that vibrating…",
+                "titleKo": "Plan and conduct investigations to provide evidence that vibrating…",
                 "gradeLevel": "1",
                 "sortOrder": 1,
                 "children": [
@@ -513,8 +513,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "1:1-LS1.Core",
-                "title": "1-LS1",
-                "titleKo": "1-LS1",
+                "title": "Use materials to design a solution to a human problem by mimicking how…",
+                "titleKo": "Use materials to design a solution to a human problem by mimicking how…",
                 "gradeLevel": "1",
                 "sortOrder": 1,
                 "children": [
@@ -571,8 +571,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "1:1-LS3.Core",
-                "title": "1-LS3",
-                "titleKo": "1-LS3",
+                "title": "Make observations to construct an evidence-based account that young…",
+                "titleKo": "Make observations to construct an evidence-based account that young…",
                 "gradeLevel": "1",
                 "sortOrder": 1,
                 "children": [
@@ -610,8 +610,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "1:1-ESS1.Core",
-                "title": "1-ESS1",
-                "titleKo": "1-ESS1",
+                "title": "Use observations of the sun, moon, and stars to describe patterns that…",
+                "titleKo": "Use observations of the sun, moon, and stars to describe patterns that…",
                 "gradeLevel": "1",
                 "sortOrder": 1,
                 "children": [
@@ -656,25 +656,6 @@
                 ]
               }
             ]
-          },
-          {
-            "nodeType": "DOMAIN",
-            "code": "1:K-2-ETS1",
-            "title": "K-2-ETS1",
-            "titleKo": "K-2-ETS1",
-            "gradeLevel": "1",
-            "sortOrder": 5,
-            "children": [
-              {
-                "nodeType": "CONCEPT",
-                "code": "1:K-2-ETS1.Core",
-                "title": "K-2-ETS1",
-                "titleKo": "K-2-ETS1",
-                "gradeLevel": "1",
-                "sortOrder": 1,
-                "children": []
-              }
-            ]
           }
         ]
       },
@@ -697,8 +678,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "2:2-PS1.Core",
-                "title": "2-PS1",
-                "titleKo": "2-PS1",
+                "title": "Plan and conduct an investigation to describe and classify different…",
+                "titleKo": "Plan and conduct an investigation to describe and classify different…",
                 "gradeLevel": "2",
                 "sortOrder": 1,
                 "children": [
@@ -793,8 +774,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "2:2-LS2.Core",
-                "title": "2-LS2",
-                "titleKo": "2-LS2",
+                "title": "Plan and conduct an investigation to determine if plants need sunlight…",
+                "titleKo": "Plan and conduct an investigation to determine if plants need sunlight…",
                 "gradeLevel": "2",
                 "sortOrder": 1,
                 "children": [
@@ -851,8 +832,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "2:2-LS4.Core",
-                "title": "2-LS4",
-                "titleKo": "2-LS4",
+                "title": "Make observations of plants and animals to compare the diversity of…",
+                "titleKo": "Make observations of plants and animals to compare the diversity of…",
                 "gradeLevel": "2",
                 "sortOrder": 1,
                 "children": [
@@ -890,8 +871,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "2:2-ESS1.Core",
-                "title": "2-ESS1",
-                "titleKo": "2-ESS1",
+                "title": "Use information from several sources to provide evidence that Earth…",
+                "titleKo": "Use information from several sources to provide evidence that Earth…",
                 "gradeLevel": "2",
                 "sortOrder": 1,
                 "children": [
@@ -929,8 +910,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "2:2-ESS2.Core",
-                "title": "2-ESS2",
-                "titleKo": "2-ESS2",
+                "title": "Compare multiple solutions designed to slow or prevent wind or water…",
+                "titleKo": "Compare multiple solutions designed to slow or prevent wind or water…",
                 "gradeLevel": "2",
                 "sortOrder": 1,
                 "children": [
@@ -994,25 +975,6 @@
                 ]
               }
             ]
-          },
-          {
-            "nodeType": "DOMAIN",
-            "code": "2:K-2-ETS1",
-            "title": "K-2-ETS1",
-            "titleKo": "K-2-ETS1",
-            "gradeLevel": "2",
-            "sortOrder": 6,
-            "children": [
-              {
-                "nodeType": "CONCEPT",
-                "code": "2:K-2-ETS1.Core",
-                "title": "K-2-ETS1",
-                "titleKo": "K-2-ETS1",
-                "gradeLevel": "2",
-                "sortOrder": 1,
-                "children": []
-              }
-            ]
           }
         ]
       },
@@ -1035,8 +997,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-PS2.Core",
-                "title": "3-PS2",
-                "titleKo": "3-PS2",
+                "title": "Plan and conduct an investigation to provide evidence of the effects of…",
+                "titleKo": "Plan and conduct an investigation to provide evidence of the effects of…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1131,8 +1093,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-LS1.Core",
-                "title": "3-LS1",
-                "titleKo": "3-LS1",
+                "title": "Develop models to describe that organisms have unique and diverse life…",
+                "titleKo": "Develop models to describe that organisms have unique and diverse life…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1170,8 +1132,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-LS2.Core",
-                "title": "3-LS2",
-                "titleKo": "3-LS2",
+                "title": "Construct an argument that some animals form groups that help members…",
+                "titleKo": "Construct an argument that some animals form groups that help members…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1209,8 +1171,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-LS3.Core",
-                "title": "3-LS3",
-                "titleKo": "3-LS3",
+                "title": "Analyze and interpret data to provide evidence that plants and animals…",
+                "titleKo": "Analyze and interpret data to provide evidence that plants and animals…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1267,8 +1229,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-LS4.Core",
-                "title": "3-LS4",
-                "titleKo": "3-LS4",
+                "title": "Analyze and interpret data from fossils to provide evidence of the…",
+                "titleKo": "Analyze and interpret data from fossils to provide evidence of the…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1363,8 +1325,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-ESS2.Core",
-                "title": "3-ESS2",
-                "titleKo": "3-ESS2",
+                "title": "Represent data in tables and graphical displays to describe typical…",
+                "titleKo": "Represent data in tables and graphical displays to describe typical…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1421,8 +1383,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-ESS3.Core",
-                "title": "3-ESS3",
-                "titleKo": "3-ESS3",
+                "title": "Make a claim about the merit of a design solution that reduces the…",
+                "titleKo": "Make a claim about the merit of a design solution that reduces the…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1460,8 +1422,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "3:3-5-ETS1.Core",
-                "title": "3-5-ETS1",
-                "titleKo": "3-5-ETS1",
+                "title": "Define a simple design problem reflecting a need or a want that…",
+                "titleKo": "Define a simple design problem reflecting a need or a want that…",
                 "gradeLevel": "3",
                 "sortOrder": 1,
                 "children": [
@@ -1547,8 +1509,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "4:4-PS3.Core",
-                "title": "4-PS3",
-                "titleKo": "4-PS3",
+                "title": "Use evidence to construct an explanation relating the speed of an…",
+                "titleKo": "Use evidence to construct an explanation relating the speed of an…",
                 "gradeLevel": "4",
                 "sortOrder": 1,
                 "children": [
@@ -1643,8 +1605,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "4:4-PS4.Core",
-                "title": "4-PS4",
-                "titleKo": "4-PS4",
+                "title": "Develop a model of waves to describe patterns in terms of amplitude and…",
+                "titleKo": "Develop a model of waves to describe patterns in terms of amplitude and…",
                 "gradeLevel": "4",
                 "sortOrder": 1,
                 "children": [
@@ -1720,8 +1682,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "4:4-LS1.Core",
-                "title": "4-LS1",
-                "titleKo": "4-LS1",
+                "title": "Construct an argument that plants and animals have internal and…",
+                "titleKo": "Construct an argument that plants and animals have internal and…",
                 "gradeLevel": "4",
                 "sortOrder": 1,
                 "children": [
@@ -1778,8 +1740,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "4:4-ESS1.Core",
-                "title": "4-ESS1",
-                "titleKo": "4-ESS1",
+                "title": "Identify evidence from patterns in rock formations and fossils in rock…",
+                "titleKo": "Identify evidence from patterns in rock formations and fossils in rock…",
                 "gradeLevel": "4",
                 "sortOrder": 1,
                 "children": [
@@ -1817,8 +1779,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "4:4-ESS2.Core",
-                "title": "4-ESS2",
-                "titleKo": "4-ESS2",
+                "title": "Make observations and/or measurements to provide evidence of the…",
+                "titleKo": "Make observations and/or measurements to provide evidence of the…",
                 "gradeLevel": "4",
                 "sortOrder": 1,
                 "children": [
@@ -1875,8 +1837,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "4:4-ESS3.Core",
-                "title": "4-ESS3",
-                "titleKo": "4-ESS3",
+                "title": "Obtain and combine information to describe that energy and fuels are…",
+                "titleKo": "Obtain and combine information to describe that energy and fuels are…",
                 "gradeLevel": "4",
                 "sortOrder": 1,
                 "children": [
@@ -1921,25 +1883,6 @@
                 ]
               }
             ]
-          },
-          {
-            "nodeType": "DOMAIN",
-            "code": "4:3-5-ETS1",
-            "title": "3-5-ETS1",
-            "titleKo": "3-5-ETS1",
-            "gradeLevel": "4",
-            "sortOrder": 7,
-            "children": [
-              {
-                "nodeType": "CONCEPT",
-                "code": "4:3-5-ETS1.Core",
-                "title": "3-5-ETS1",
-                "titleKo": "3-5-ETS1",
-                "gradeLevel": "4",
-                "sortOrder": 1,
-                "children": []
-              }
-            ]
           }
         ]
       },
@@ -1962,8 +1905,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-PS1.Core",
-                "title": "5-PS1",
-                "titleKo": "5-PS1",
+                "title": "Develop a model to describe that matter is made of particles too small…",
+                "titleKo": "Develop a model to describe that matter is made of particles too small…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2058,8 +2001,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-PS2.Core",
-                "title": "5-PS2",
-                "titleKo": "5-PS2",
+                "title": "Support an argument that the gravitational force exerted by Earth on…",
+                "titleKo": "Support an argument that the gravitational force exerted by Earth on…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2097,8 +2040,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-PS3.Core",
-                "title": "5-PS3",
-                "titleKo": "5-PS3",
+                "title": "Use models to describe that energy in animals' food (used for body…",
+                "titleKo": "Use models to describe that energy in animals' food (used for body…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2136,8 +2079,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-LS1.Core",
-                "title": "5-LS1",
-                "titleKo": "5-LS1",
+                "title": "Support an argument that plants get the materials they need for growth…",
+                "titleKo": "Support an argument that plants get the materials they need for growth…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2175,8 +2118,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-LS2.Core",
-                "title": "5-LS2",
-                "titleKo": "5-LS2",
+                "title": "Develop a model to describe the movement of matter among plants,…",
+                "titleKo": "Develop a model to describe the movement of matter among plants,…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2214,8 +2157,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-ESS1.Core",
-                "title": "5-ESS1",
-                "titleKo": "5-ESS1",
+                "title": "Support an argument that differences in the apparent brightness of the…",
+                "titleKo": "Support an argument that differences in the apparent brightness of the…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2272,8 +2215,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-ESS2.Core",
-                "title": "5-ESS2",
-                "titleKo": "5-ESS2",
+                "title": "Develop a model using an example to describe ways the geosphere,…",
+                "titleKo": "Develop a model using an example to describe ways the geosphere,…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2330,8 +2273,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "5:5-ESS3.Core",
-                "title": "5-ESS3",
-                "titleKo": "5-ESS3",
+                "title": "Obtain and combine information about ways individual communities use…",
+                "titleKo": "Obtain and combine information about ways individual communities use…",
                 "gradeLevel": "5",
                 "sortOrder": 1,
                 "children": [
@@ -2357,25 +2300,6 @@
                 ]
               }
             ]
-          },
-          {
-            "nodeType": "DOMAIN",
-            "code": "5:3-5-ETS1",
-            "title": "3-5-ETS1",
-            "titleKo": "3-5-ETS1",
-            "gradeLevel": "5",
-            "sortOrder": 9,
-            "children": [
-              {
-                "nodeType": "CONCEPT",
-                "code": "5:3-5-ETS1.Core",
-                "title": "3-5-ETS1",
-                "titleKo": "3-5-ETS1",
-                "gradeLevel": "5",
-                "sortOrder": 1,
-                "children": []
-              }
-            ]
           }
         ]
       },
@@ -2398,8 +2322,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-PS1.Core",
-                "title": "MS-PS1",
-                "titleKo": "MS-PS1",
+                "title": "Develop models to describe the atomic composition of simple molecules…",
+                "titleKo": "Develop models to describe the atomic composition of simple molecules…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -2532,8 +2456,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-PS2.Core",
-                "title": "MS-PS2",
-                "titleKo": "MS-PS2",
+                "title": "Apply Newton's Third Law to design a solution to a problem involving…",
+                "titleKo": "Apply Newton's Third Law to design a solution to a problem involving…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -2647,8 +2571,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-PS3.Core",
-                "title": "MS-PS3",
-                "titleKo": "MS-PS3",
+                "title": "Construct and interpret graphical displays of data to describe the…",
+                "titleKo": "Construct and interpret graphical displays of data to describe the…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -2762,8 +2686,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-PS4.Core",
-                "title": "MS-PS4",
-                "titleKo": "MS-PS4",
+                "title": "Use mathematical representations to describe a simple model for waves…",
+                "titleKo": "Use mathematical representations to describe a simple model for waves…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -2839,8 +2763,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-LS1.Core",
-                "title": "MS-LS1",
-                "titleKo": "MS-LS1",
+                "title": "Conduct an investigation to provide evidence that living things are…",
+                "titleKo": "Conduct an investigation to provide evidence that living things are…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3011,8 +2935,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-LS2.Core",
-                "title": "MS-LS2",
-                "titleKo": "MS-LS2",
+                "title": "Analyze and interpret data to provide evidence for the effects of…",
+                "titleKo": "Analyze and interpret data to provide evidence for the effects of…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3126,8 +3050,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-LS3.Core",
-                "title": "MS-LS3",
-                "titleKo": "MS-LS3",
+                "title": "Develop and use a model to describe why structural changes to genes…",
+                "titleKo": "Develop and use a model to describe why structural changes to genes…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3184,8 +3108,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-LS4.Core",
-                "title": "MS-LS4",
-                "titleKo": "MS-LS4",
+                "title": "Analyze and interpret data for patterns in the fossil record that…",
+                "titleKo": "Analyze and interpret data for patterns in the fossil record that…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3318,8 +3242,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-ESS1.Core",
-                "title": "MS-ESS1",
-                "titleKo": "MS-ESS1",
+                "title": "Develop and use a model of the Earth-sun-moon system to describe the…",
+                "titleKo": "Develop and use a model of the Earth-sun-moon system to describe the…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3414,8 +3338,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-ESS2.Core",
-                "title": "MS-ESS2",
-                "titleKo": "MS-ESS2",
+                "title": "Develop a model to describe the cycling of Earth's materials and the…",
+                "titleKo": "Develop a model to describe the cycling of Earth's materials and the…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3548,8 +3472,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-ESS3.Core",
-                "title": "MS-ESS3",
-                "titleKo": "MS-ESS3",
+                "title": "Construct a scientific explanation based on evidence for how the uneven…",
+                "titleKo": "Construct a scientific explanation based on evidence for how the uneven…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3663,8 +3587,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "MS:MS-ETS1.Core",
-                "title": "MS-ETS1",
-                "titleKo": "MS-ETS1",
+                "title": "Define the criteria and constraints of a design problem with sufficient…",
+                "titleKo": "Define the criteria and constraints of a design problem with sufficient…",
                 "gradeLevel": "MS",
                 "sortOrder": 1,
                 "children": [
@@ -3769,8 +3693,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-PS1.Core",
-                "title": "HS-PS1",
-                "titleKo": "HS-PS1",
+                "title": "Use the periodic table as a model to predict the relative properties of…",
+                "titleKo": "Use the periodic table as a model to predict the relative properties of…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -3941,8 +3865,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-PS2.Core",
-                "title": "HS-PS2",
-                "titleKo": "HS-PS2",
+                "title": "Analyze data to support the claim that Newton's second law of motion…",
+                "titleKo": "Analyze data to support the claim that Newton's second law of motion…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4075,8 +3999,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-PS3.Core",
-                "title": "HS-PS3",
-                "titleKo": "HS-PS3",
+                "title": "Create a computational model to calculate the change in the energy of…",
+                "titleKo": "Create a computational model to calculate the change in the energy of…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4190,8 +4114,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-PS4.Core",
-                "title": "HS-PS4",
-                "titleKo": "HS-PS4",
+                "title": "Use mathematical representations to support a claim regarding…",
+                "titleKo": "Use mathematical representations to support a claim regarding…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4305,8 +4229,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-LS1.Core",
-                "title": "HS-LS1",
-                "titleKo": "HS-LS1",
+                "title": "Construct an explanation based on evidence for how the structure of DNA…",
+                "titleKo": "Construct an explanation based on evidence for how the structure of DNA…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4458,8 +4382,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-LS2.Core",
-                "title": "HS-LS2",
-                "titleKo": "HS-LS2",
+                "title": "Use mathematical and/or computational representations to support…",
+                "titleKo": "Use mathematical and/or computational representations to support…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4630,8 +4554,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-LS3.Core",
-                "title": "HS-LS3",
-                "titleKo": "HS-LS3",
+                "title": "Ask questions to clarify relationships about the role of DNA and…",
+                "titleKo": "Ask questions to clarify relationships about the role of DNA and…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4707,8 +4631,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-LS4.Core",
-                "title": "HS-LS4",
-                "titleKo": "HS-LS4",
+                "title": "Communicate scientific information that common ancestry and biological…",
+                "titleKo": "Communicate scientific information that common ancestry and biological…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4841,8 +4765,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-ESS1.Core",
-                "title": "HS-ESS1",
-                "titleKo": "HS-ESS1",
+                "title": "Develop a model based on evidence to illustrate the life span of the…",
+                "titleKo": "Develop a model based on evidence to illustrate the life span of the…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -4975,8 +4899,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-ESS2.Core",
-                "title": "HS-ESS2",
-                "titleKo": "HS-ESS2",
+                "title": "Develop a model to illustrate how Earth's internal and surface…",
+                "titleKo": "Develop a model to illustrate how Earth's internal and surface…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -5128,8 +5052,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-ESS3.Core",
-                "title": "HS-ESS3",
-                "titleKo": "HS-ESS3",
+                "title": "Construct an explanation based on evidence for how the availability of…",
+                "titleKo": "Construct an explanation based on evidence for how the availability of…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [
@@ -5262,8 +5186,8 @@
               {
                 "nodeType": "CONCEPT",
                 "code": "HS:HS-ETS1.Core",
-                "title": "HS-ETS1",
-                "titleKo": "HS-ETS1",
+                "title": "Analyze a major global challenge to specify qualitative and…",
+                "titleKo": "Analyze a major global challenge to specify qualitative and…",
                 "gradeLevel": "HS",
                 "sortOrder": 1,
                 "children": [

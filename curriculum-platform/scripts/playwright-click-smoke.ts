@@ -17,9 +17,9 @@ async function main() {
   await drawer.waitFor({ state: "visible", timeout: 5000 });
   await drawer.getByText("Learning objectives").waitFor({ timeout: 5000 });
   await drawer.getByRole("button", { name: "DAILY QUIZ" }).click();
-  await drawer.getByText("Quick check:", { exact: false }).waitFor({ timeout: 5000 });
-  await drawer.getByText("Answer ·", { exact: false }).first().waitFor({ timeout: 5000 });
-  console.log("MAP PASS — drawer + daily quiz preview");
+  await drawer.getByText("Student handout", { exact: false }).waitFor({ timeout: 5000 });
+  await drawer.getByText("One sentence:", { exact: false }).waitFor({ timeout: 5000 });
+  console.log("MAP PASS — drawer + daily quiz handout");
 
   await page.goto("http://localhost:3000/schedule", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: /Generate AI lesson plans/i }).click();

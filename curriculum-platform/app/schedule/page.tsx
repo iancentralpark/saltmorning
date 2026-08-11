@@ -150,9 +150,35 @@ export default function SchedulePage() {
           </h1>
           <p className="mt-1 text-sm text-ink-700/75">
             Demo teacher <code className="text-moss-700">T001</code> · class{" "}
-            <code className="text-moss-700">C4A</code> — skills sequenced onto instructional days.
+            <code className="text-moss-700">C4A</code> — skills lined up on instructional days.
           </p>
         </div>
+      </div>
+
+      <div className="mt-5 rounded-xl border border-moss-500/20 bg-moss-50/70 px-4 py-3 text-sm leading-relaxed text-ink-800">
+        <p className="font-semibold text-ink-900">How to use this page</p>
+        <ol className="mt-2 list-decimal space-y-1.5 pl-5">
+          <li>
+            Left: pick an <strong>instructional day</strong> (numbers = how many skills are
+            queued that day).
+          </li>
+          <li>
+            Right: review the skill cards for that day, then click{" "}
+            <strong>Generate AI lesson plans</strong> to draft warm-up → closure for each.
+          </li>
+          <li>
+            From <strong>Salt Morning → Lesson plan</strong>, use{" "}
+            <em>Open CurricuMap schedule</em> so your teacher/class IDs are passed in. Class
+            Tools is unrelated — curriculum links live on the lesson panel.
+          </li>
+        </ol>
+        <p className="mt-2 text-xs text-ink-700/70">
+          This screen is a CurricuMap demo sequencer, not a full copy of every Salt Morning
+          timetable yet. Holidays can sync from Salt Morning when the bridge env is set.{" "}
+          <a href="/docs/api" className="font-semibold text-moss-700 underline-offset-2 hover:underline">
+            How it connects →
+          </a>
+        </p>
       </div>
 
       {error && <p className="mt-4 text-sm text-coral-600">{error}</p>}

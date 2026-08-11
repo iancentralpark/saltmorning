@@ -27,23 +27,27 @@ type MaterialContent = {
 };
 
 function MaterialPreview({ material }: { material: AiMaterial }) {
+  const [showTeacher, setShowTeacher] = useState(false);
   const content = (material.contentJson || {}) as MaterialContent;
   const items = Array.isArray(content.items) ? content.items : [];
   const typeLabel = material.type.replaceAll("_", " ");
+  const provider = String(content.provider || material.model || "ai");
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border border-ink-900/10 bg-white p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold text-ink-900">{material.title}</p>
         <p className="text-[10px] uppercase tracking-wide text-ink-700/55">
-          {content.provider || material.model || "ai"}
+          {provider === "template" || provider === "deterministic"
+            ? "Printable template"
+            : provider}
         </p>
       </div>
 
       {content.objective && (
         <div className="rounded-md bg-moss-50 px-3 py-2">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-moss-700">
-            Objective
+            Learning goal
           </p>
           <p className="mt-0.5 text-xs leading-relaxed text-ink-800">{content.objective}</p>
           {content.masteryCriteria && (
@@ -54,33 +58,43 @@ function MaterialPreview({ material }: { material: AiMaterial }) {
         </div>
       )}
 
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-700/60">
+          Student handout
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowTeacher((v) => !v)}
+          className="rounded border border-ink-900/15 bg-sand-50 px-2 py-1 text-[11px] font-semibold text-ink-800 hover:bg-moss-100"
+        >
+          {showTeacher ? "Hide teacher key" : "Show teacher key"}
+        </button>
+      </div>
+
       <ol className="space-y-2.5">
         {items.length === 0 && (
           <li className="text-sm text-ink-700/60">No items generated.</li>
         )}
         {items.map((raw, i) => {
-          const item = (raw && typeof raw === "object" ? raw : { text: String(raw) }) as Record<
+          const item = (raw && typeof raw === "object" ? raw : { student: String(raw) }) as Record<
             string,
             unknown
           >;
-          const q =
+          const student =
+            (typeof item.student === "string" && item.student) ||
             (typeof item.q === "string" && item.q) ||
             (typeof item.question === "string" && item.question) ||
             (typeof item.prompt === "string" && item.prompt) ||
             (typeof item.text === "string" && item.text) ||
-            null;
-          const a =
+            "";
+          const teacher =
+            (typeof item.teacher === "string" && item.teacher) ||
             (typeof item.a === "string" && item.a) ||
             (typeof item.answer === "string" && item.answer) ||
             (typeof item.sampleAnswer === "string" && item.sampleAnswer) ||
             null;
           const section = typeof item.section === "string" ? item.section : null;
-          const count =
-            typeof item.count === "number"
-              ? item.count
-              : typeof item.items === "number"
-                ? item.items
-                : null;
+          const kind = typeof item.kind === "string" ? item.kind : null;
 
           return (
             <li
@@ -91,23 +105,19 @@ function MaterialPreview({ material }: { material: AiMaterial }) {
                 <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded bg-moss-700 px-1 text-[10px] font-bold text-white">
                   {i + 1}
                 </span>
-                <div className="min-w-0 flex-1 space-y-1">
-                  {section && (
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  {(section || kind) && (
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-coral-600">
-                      {section}
+                      {[section, kind].filter(Boolean).join(" · ")}
                     </p>
                   )}
-                  {q && <p className="text-sm leading-snug text-ink-900">{q}</p>}
-                  {!q && !section && (
-                    <p className="text-sm text-ink-800">{JSON.stringify(item)}</p>
-                  )}
-                  {count != null && (
-                    <p className="text-xs text-ink-700/70">{count} item{count === 1 ? "" : "s"}</p>
-                  )}
-                  {a && (
-                    <p className="rounded bg-white/80 px-2 py-1 text-xs text-ink-700/80">
-                      <span className="font-semibold text-moss-700">Answer · </span>
-                      {a}
+                  <p className="whitespace-pre-wrap text-sm leading-snug text-ink-900">
+                    {student || JSON.stringify(item)}
+                  </p>
+                  {showTeacher && teacher && (
+                    <p className="rounded border border-dashed border-moss-400/50 bg-white px-2 py-1.5 text-xs text-ink-700/85">
+                      <span className="font-semibold text-moss-700">Teacher · </span>
+                      {teacher}
                     </p>
                   )}
                 </div>
@@ -120,6 +130,8 @@ function MaterialPreview({ material }: { material: AiMaterial }) {
       <p className="text-[10px] text-ink-700/45">
         {typeLabel}
         {content.standardCode ? ` · ${content.standardCode}` : ""}
+        {" · "}
+        Print student handout; reveal teacher key when grading.
       </p>
     </div>
   );

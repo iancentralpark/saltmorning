@@ -25,7 +25,12 @@ window.SaltLesson = (function() {
     if (!scheduleLink && !mindmapLink) return;
     try {
       const cls = getClass();
-      const q = cls && cls.classId ? ('?classId=' + encodeURIComponent(cls.classId)) : '';
+      const subjectSelect = $('lpSubjectSelect');
+      const subject = subjectSelect && subjectSelect.value ? subjectSelect.value : '';
+      const params = new URLSearchParams();
+      if (cls && cls.classId) params.set('classId', cls.classId);
+      if (subject) params.set('subject', subject);
+      const q = params.toString() ? ('?' + params.toString()) : '';
       const cfg = await api('/api/teacher/curriculum-map/config' + q);
       if (scheduleLink && cfg.links && cfg.links.schedule) {
         scheduleLink.href = cfg.links.schedule;
@@ -35,10 +40,10 @@ window.SaltLesson = (function() {
       }
     } catch (e) {
       if (scheduleLink) {
-        scheduleLink.href = 'http://localhost:3000/schedule?embed=1';
+        scheduleLink.href = 'https://curricumap-production.up.railway.app/schedule?embed=1';
       }
       if (mindmapLink) {
-        mindmapLink.href = 'http://localhost:3000/map?embed=1';
+        mindmapLink.href = 'https://curricumap-production.up.railway.app/map?embed=1';
       }
     }
   }

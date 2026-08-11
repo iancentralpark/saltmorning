@@ -72,7 +72,7 @@ export default function RootLayout({
                   href="/docs/api"
                   className="hidden rounded-md px-3 py-1.5 transition hover:bg-moss-100 hover:text-moss-700 sm:inline"
                 >
-                  Portal API
+                  How it connects
                 </Link>
               </nav>
             </div>

@@ -404,31 +404,28 @@ async function buildEla() {
       const code = cleanCode(s.statementNotation, s.altStatementNotation);
       if (!code || !s.description) continue;
       // Strand = first token before grade, e.g. RL.4.1 → RL.4 domain, or RH.6-8.1
-      const parts = code.split(".");
       const strand = parts[0] || "ELA";
+      // Skip College & Career Readiness anchors — they duplicate across grades and create empty shells.
+      if (strand === "CCR" || code.startsWith("CCR.")) continue;
+
       let domainCode = parts.length >= 2 ? `${parts[0]}.${parts[1]}` : strand;
-      // For components like RL.4.1.a keep domain as RL.4
       if (parts.length >= 3 && /^[A-Za-z]+$/.test(parts[0])) {
         domainCode = `${parts[0]}.${parts[1]}`;
       }
-      const domainTitle =
-        (
-          {
-            RL: "Reading Literature",
-            RI: "Reading Informational",
-            RF: "Reading Foundational Skills",
-            W: "Writing",
-            SL: "Speaking & Listening",
-            L: "Language",
-            RH: "Literacy in History/Social Studies",
-            RST: "Literacy in Science & Technical Subjects",
-            WHST: "Writing in History/Science/Technical",
-          } as Record<string, string>
-        )[strand] || strand;
+      const strandTitles: Record<string, string> = {
+        RL: "Reading Literature",
+        RI: "Reading Informational",
+        RF: "Reading Foundational Skills",
+        W: "Writing",
+        SL: "Speaking & Listening",
+        L: "Language",
+        RH: "Literacy in History/Social Studies",
+        RST: "Literacy in Science & Technical Subjects",
+        WHST: "Writing in History/Science/Technical",
+      };
+      const domainTitle = strandTitles[strand] || strand;
 
-      // Find cluster/parent standard for concept
       let conceptCode = parts.length >= 3 ? parts.slice(0, 3).join(".") : code;
-      // If this is a component (ends with letter), concept is parent standard
       if (/[a-z]$/i.test(parts[parts.length - 1]) && parts.length >= 4) {
         conceptCode = parts.slice(0, 3).join(".");
       } else if (parts.length === 3) {
@@ -436,7 +433,9 @@ async function buildEla() {
       }
 
       const domain = ensureDomain(gradeNode, domainCode, domainTitle);
-      const concept = ensureConcept(domain, `${conceptCode}.Core`, conceptCode);
+      const conceptTitle =
+        (s.description || "").split(/[.!?]/)[0].slice(0, 72) || conceptCode;
+      const concept = ensureConcept(domain, `${conceptCode}.Core`, conceptTitle);
       addSkill(concept, code, s.description.split(/[.!?]/)[0].slice(0, 160), s.description, seen);
     }
   }

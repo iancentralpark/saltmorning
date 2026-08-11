@@ -8,7 +8,7 @@ function buildUrl(path: string, q: Record<string, string>) {
   return `${path}?${usp.toString()}`;
 }
 
-export default function ApiDocsPage() {
+export default function ConnectPage() {
   const scheduleEmbed = buildUrl("/schedule", {
     embed: "1",
     teacherId: DEMO_TEACHER_ID,
@@ -21,131 +21,111 @@ export default function ApiDocsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-ink-900">
-        External Teacher Portal API
+      <p className="text-xs font-semibold uppercase tracking-wide text-moss-700">
+        For Salt Morning teachers
+      </p>
+      <h1 className="mt-1 font-display text-3xl font-semibold text-ink-900">
+        How CurricuMap connects
       </h1>
-      <p className="mt-2 text-sm text-ink-700/80">
-        REST endpoints for existing portals. Auth: header{" "}
-        <code className="text-moss-700">x-api-key</code> when{" "}
-        <code className="text-moss-700">PORTAL_API_KEY</code> is set. Optional{" "}
-        <code className="text-moss-700">x-organization-code</code> for multi-org
-        (required when <code className="text-moss-700">PORTAL_REQUIRE_ORG=1</code>
-        ). Demo browser login: <code className="text-moss-700">POST /api/auth/demo-login</code>.
+      <p className="mt-3 text-sm leading-relaxed text-ink-700/85">
+        CurricuMap is the curriculum + AI lesson layer.{" "}
+        <strong className="font-semibold text-ink-900">Salt Morning</strong> stays your
+        attendance / class / lesson home. Teachers do not need to paste API code — open the
+        links from the Salt Morning lesson panel.
       </p>
 
-      <section className="mt-8 space-y-6 text-sm leading-relaxed">
-        <div>
-          <h2 className="font-display text-xl font-semibold">Daily lesson plans</h2>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`GET /api/portal/v1/teachers/${DEMO_TEACHER_ID}/classes/${DEMO_CLASS_ID}/lessons?date=2026-03-02&generate=1
+      <section className="mt-8 space-y-4 rounded-xl border border-ink-900/10 bg-white/70 p-5">
+        <h2 className="font-display text-xl font-semibold text-ink-900">
+          What you use day-to-day
+        </h2>
+        <ol className="list-decimal space-y-3 pl-5 text-sm leading-relaxed text-ink-800">
+          <li>
+            In <strong>Salt Morning → Teacher → Lesson plan</strong>, use{" "}
+            <em>Open CurricuMap schedule</em> or <em>Open curriculum mindmap</em>.
+            Those buttons already pass your teacher/class context when the bridge env is set.
+          </li>
+          <li>
+            <strong>Mindmap</strong> — browse standards, open a skill, generate a printable
+            worksheet / quiz for that skill.
+          </li>
+          <li>
+            <strong>Schedule</strong> — demo sequence of skills onto instructional days, then
+            generate AI lesson plans for a selected day. Today this demo uses teacher{" "}
+            <code className="text-moss-700">{DEMO_TEACHER_ID}</code> / class{" "}
+            <code className="text-moss-700">{DEMO_CLASS_ID}</code> unless the deep-link
+            sends other IDs.
+          </li>
+        </ol>
+        <p className="text-sm text-ink-700/80">
+          Class Tools (timer / dice) is separate — it is not CurricuMap. Curriculum links live
+          on the <strong>lesson plan</strong> panel, not Class Tools.
+        </p>
+      </section>
 
-Response: { teacherId, classId, date, count, lessons: [{ ..., lessonPlan }] }`}
-          </pre>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-semibold">AI materials</h2>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`GET /api/portal/v1/teachers/${DEMO_TEACHER_ID}/classes/${DEMO_CLASS_ID}/materials`}
-          </pre>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-semibold">Calendar sync</h2>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`POST /api/portal/v1/calendar/sync
-Header: x-api-key: $PORTAL_API_KEY
-Header: x-organization-code: salt-morning
-Body: {
-  "holidays": { "2026-03-01": "삼일절" },
-  "blackouts": [{ "date": "2026-03-05", "title": "Staff PD" }],
-  "resequence": true
-}`}
-          </pre>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-semibold">Cron calendar sync</h2>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`# CurricuMap (local overlay or proxy to Salt Morning)
-POST /api/cron/calendar-sync
-Header: x-cron-secret: $CRON_SECRET
-Body: { "holidays": { "2026-03-01": "삼일절" } }
-# or with SALT_MORNING_URL set: { "year": 2026, "months": [3,4,5] }
-
-# Salt Morning host cron (preferred — holidays live there)
-POST $SALT_MORNING_URL/api/internal/curriculum-map/sync-calendar-cron
-Header: x-cron-secret: $CRON_SECRET
-Body: { "year": 2026, "months": [1,2,3,4,5,6,7,8,9,10,11,12] }`}
-          </pre>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-semibold">Demo org session</h2>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`POST /api/auth/demo-login
-Body: { "orgCode": "salt-morning" | "acme-academy", "role": "teacher" }
-
-GET  /api/auth/me
-POST /api/auth/logout
-
-# Optional Google OAuth (when GOOGLE_CLIENT_ID/SECRET set)
-GET /api/auth/google/start
-GET /api/auth/google/callback
-
-# Optional Microsoft Entra OAuth (when MICROSOFT_CLIENT_ID/SECRET set)
-GET /api/auth/microsoft/start
-GET /api/auth/microsoft/callback
-
-# Optional Sign in with Apple (when APPLE_* credentials set)
-GET  /api/auth/apple/start
-POST /api/auth/apple/callback   # form_post
-
-# AUTH_REQUIRED=1 → middleware requires session on /map /schedule`}
-          </pre>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-semibold">
-            Salt Morning / portal deep-link
-          </h2>
-          <p className="mt-2 text-ink-800">
-            Existing teacher portals can deep-link or iframe CurricuMap:
-          </p>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
-{`# Embed schedule for a teacher/class
-${scheduleEmbed}
-
-# Embed mindmap
-${mapEmbed}
-
-# Fetch + generate plans for portal widgets
-GET /api/portal/v1/teachers/{teacherId}/classes/{classId}/lessons?date=YYYY-MM-DD&generate=1
-Header: x-api-key: $PORTAL_API_KEY`}
-          </pre>
-        </div>
-
-        <div>
-          <h2 className="font-display text-xl font-semibold">Internal helpers</h2>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-800">
-            <li>
-              <code>GET /api/frameworks</code> — list frameworks
-            </li>
-            <li>
-              <code>GET /api/frameworks/:code</code> — full tree
-            </li>
-            <li>
-              <code>GET /api/schedule</code> — calendar + sequenced skills
-            </li>
-            <li>
-              <code>POST /api/lesson-plans</code> — generate by date or scheduledLessonId
-            </li>
-            <li>
-              <code>POST /api/nodes/:id/materials</code> — AI quiz / worksheet (Gemini flash or deterministic)
-            </li>
-          </ul>
+      <section className="mt-6 space-y-3 rounded-xl border border-ink-900/10 bg-moss-50/60 p-5">
+        <h2 className="font-display text-xl font-semibold text-ink-900">
+          Change which teacher/class is linked
+        </h2>
+        <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-ink-800">
+          <li>
+            Open Salt Morning as that teacher — the lesson panel deep-link includes their{" "}
+            <code className="text-moss-700">teacherId</code> / active{" "}
+            <code className="text-moss-700">classId</code>.
+          </li>
+          <li>
+            Or open CurricuMap schedule manually with query params, e.g.{" "}
+            <code className="break-all text-moss-700">
+              /schedule?teacherId=YOUR_ID&amp;classId=YOUR_CLASS
+            </code>
+            .
+          </li>
+          <li>
+            Ops (Railway / morning-class env):{" "}
+            <code className="text-moss-700">CURRICULUM_MAP_URL</code>,{" "}
+            <code className="text-moss-700">CURRICULUM_MAP_API_KEY</code>,{" "}
+            <code className="text-moss-700">CURRICULUM_MAP_ORG_CODE=salt-morning</code>. See{" "}
+            <code className="text-moss-700">OPS.md</code>.
+          </li>
+        </ul>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <a
+            href={scheduleEmbed}
+            className="rounded-md bg-moss-700 px-3 py-2 text-xs font-semibold text-white hover:bg-moss-800"
+          >
+            Open demo schedule embed
+          </a>
+          <a
+            href={mapEmbed}
+            className="rounded-md border border-ink-900/15 bg-white px-3 py-2 text-xs font-semibold text-ink-800 hover:bg-moss-100"
+          >
+            Open demo mindmap embed
+          </a>
         </div>
       </section>
+
+      <details className="mt-8 rounded-xl border border-ink-900/10 bg-ink-900/95 p-5 text-sand-50">
+        <summary className="cursor-pointer font-display text-lg font-semibold text-white">
+          Developer API reference (optional)
+        </summary>
+        <p className="mt-3 text-sm text-sand-100/80">
+          For engineers wiring portals. Teachers can ignore this section. Auth header{" "}
+          <code className="text-moss-200">x-api-key</code> (={" "}
+          <code className="text-moss-200">PORTAL_API_KEY</code>), optional{" "}
+          <code className="text-moss-200">x-organization-code</code>.
+        </p>
+        <pre className="mt-4 overflow-x-auto rounded-md bg-black/40 p-4 text-xs text-moss-100">
+{`GET /api/portal/v1/teachers/${DEMO_TEACHER_ID}/classes/${DEMO_CLASS_ID}/lessons?date=2026-03-02&generate=1
+GET /api/portal/v1/teachers/${DEMO_TEACHER_ID}/classes/${DEMO_CLASS_ID}/materials
+POST /api/portal/v1/calendar/sync
+Header: x-api-key: $PORTAL_API_KEY
+Header: x-organization-code: salt-morning
+
+# Salt Morning proxies these for the logged-in teacher:
+GET  /api/teacher/curriculum-map/config
+GET  /api/teacher/curriculum-map/lessons
+POST /api/teacher/curriculum-map/sync-calendar`}
+        </pre>
+      </details>
     </div>
   );
 }

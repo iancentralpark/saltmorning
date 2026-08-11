@@ -624,6 +624,21 @@ router.get('/teacher/curriculum-map/config', requireRole('teacher'), async (req,
     const { getCurriculumMapPublicConfig, deepLink } = require('./services/curriculumMapService');
     const cls = req.query.classId || '';
     const teacherId = req.session.teacherId || '';
+    const subject = String(req.query.subject || '').toLowerCase();
+    const frameworkBySubject = {
+      math: 'ccss-math',
+      mathematics: 'ccss-math',
+      ela: 'ccss-ela',
+      english: 'ccss-ela',
+      reading: 'ccss-ela',
+      science: 'ngss-science',
+      korean: 'kr2022-korean',
+      'korean language': 'kr2022-korean',
+      history: 'kr2022-history',
+      'korean history': 'kr2022-history',
+      social: 'kr2022-history'
+    };
+    const framework = frameworkBySubject[subject] || 'ccss-ela';
     res.json({
       ...getCurriculumMapPublicConfig(),
       links: {
@@ -632,7 +647,8 @@ router.get('/teacher/curriculum-map/config', requireRole('teacher'), async (req,
           teacherId,
           classId: cls || 'C4A'
         }),
-        mindmap: deepLink('/map', { embed: '1', framework: 'ccss-math' })
+        mindmap: deepLink('/map', { embed: '1', framework }),
+        connect: deepLink('/docs/api', { embed: '1' })
       }
     });
   } catch (e) {
