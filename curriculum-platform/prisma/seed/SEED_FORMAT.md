@@ -47,6 +47,7 @@ Recursive object:
 | `ngss-science-grade-4.json` | NGSS Science · Grade 4 sample (energy + ESS slice) |
 | `kr2022-history-grade-4.json` | 2022 개정 한국사(초등 사회 연계) · 초4 sample (+ CUSTOM) |
 | `ccss-ela-grade-4.json` | Common Core ELA · Grade 4 sample (RL + W) |
+| `ccss-math-grade-5.json` | Common Core Math · Grade 5 sample (5.NBT) |
 
 ## Content language
 
