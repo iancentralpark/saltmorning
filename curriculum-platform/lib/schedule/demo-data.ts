@@ -137,4 +137,16 @@ export const DEMO_SCHEDULE: TeacherScheduleSlot[] = [
     subject: "Science",
     frameworkCode: "ngss-science",
   },
+  {
+    id: "sched-wed-5",
+    teacherExternalId: DEMO_TEACHER_ID,
+    classExternalId: DEMO_CLASS_ID,
+    dayOfWeek: "WED",
+    period: 5,
+    periodLabel: "Period 5",
+    startTime: "13:10",
+    endTime: "13:55",
+    subject: "Korean History",
+    frameworkCode: "kr2022-history",
+  },
 ];

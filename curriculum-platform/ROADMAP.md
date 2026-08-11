@@ -30,11 +30,16 @@
 - `CURRICULUM_STORE=seed|prisma` — Prisma path used when DB is seeded
 - Next: migrate schedule/lesson runtime store to Postgres
 
-## Step 7 — Expand curriculum packs (partial)
-- NGSS Science Grade 4 sample added
-- Later: full NGSS K–12, KR 한국사, richer CCSS/KR packs
+## Step 7 — Expand curriculum packs ✅ (samples)
+- NGSS Science Grade 4
+- KR 2022 한국사 (초등 사회 연계) Grade 4 + CUSTOM school node
+
+## Step 8 — Schedule repository port ✅
+- `ScheduleRepository` (`memory` default, `prisma` partial + fallback)
+- APIs routed through repository
 
 ## Later
-- Salt Morning teacher portal deep-link integration
+- Salt Morning teacher portal deep-link / embed
 - Auth / multi-org tenancy UI
-- Persist schedules & lesson plans via Prisma
+- Full Prisma write path for sequencer + lesson plans
+- Richer K–12 packs across all frameworks

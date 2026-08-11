@@ -1,0 +1,194 @@
+{
+  "framework": {
+    "code": "kr2022-history",
+    "name": "2022 Revised National Curriculum — Korean History (elementary social studies slice)",
+    "nameKo": "2022 개정 교육과정 — 한국사(초등 사회 연계 샘플)",
+    "subject": "KOREAN_HISTORY",
+    "regionStandard": "KR-2022",
+    "version": "2022",
+    "description": "초등 4학년 사회과에서 다루는 우리 지역·역사 탐구 성취기준을 한국사 프레임워크 샘플로 구조화한 데모 팩입니다. 중·고등 한국사 고시 문언으로 확장 시 코드·진술을 검수하세요.",
+    "metadata": {
+      "source": "교육부 2022 개정 교육과정 사회과/역사 관련",
+      "gradeBand": "3-4",
+      "note": "Demo codes use a conventional pattern for mapping; replace with official achievement codes when importing the full pack."
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "kr2022-history",
+    "title": "2022 개정 한국사(초등 샘플)",
+    "titleKo": "2022 개정 한국사(초등 샘플)",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4 / 초등학교 4학년",
+        "titleKo": "초등학교 4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "4사-지역",
+            "title": "Our community and local history",
+            "titleKo": "우리 지역과 향토사",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-지역-탐구",
+                "title": "Exploring local heritage",
+                "titleKo": "지역 문화유산 탐구",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한01-01",
+                    "title": "Identify cultural heritage in our community",
+                    "titleKo": "우리 지역의 문화유산 찾기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "우리 지역에 있는 문화유산(유형·무형)을 찾아 그 특징을 설명한다.",
+                    "objectives": [
+                      {
+                        "code": "4한01-01-①",
+                        "statement": "Students locate and describe at least one local cultural heritage site or tradition.",
+                        "statementKo": "우리 지역의 문화유산(유적·전통 등)을 찾아 특징을 설명한다.",
+                        "masteryCriteria": "Student presents one heritage example with location, feature, and why it matters locally.",
+                        "masteryCriteriaKo": "문화유산 1가지를 위치·특징·지역적 의미와 함께 발표한다.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "type": "SLIDES",
+                        "title": "우리 지역 문화유산 탐방 슬라이드",
+                        "description": "현장 조사 전 안내 자료 (placeholder)",
+                        "url": "/resources/kr/4한01-01-slides.pdf"
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한01-02",
+                    "title": "Compare past and present life in the community",
+                    "titleKo": "과거와 오늘날의 지역 생활 비교하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "사진·지도·인터뷰 자료를 활용해 과거와 오늘날의 지역 생활 모습을 비교한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students compare past and present community life using primary-source clues.",
+                        "statementKo": "사진·지도 등 자료를 보고 과거와 오늘날의 생활을 비교한다.",
+                        "masteryCriteria": "Student lists ≥3 differences with evidence from provided sources.",
+                        "masteryCriteriaKo": "자료 근거와 함께 변화점 3가지 이상 제시한다.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4사-역사이야기",
+            "title": "Stories from Korean history",
+            "titleKo": "역사 속 인물과 이야기",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4사-인물",
+                "title": "People who shaped our community and nation",
+                "titleKo": "지역과 나라에 영향을 준 인물",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한02-01",
+                    "title": "Retell a historical figure’s contribution with evidence",
+                    "titleKo": "역사 인물의 업적을 근거와 함께 이야기하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "선택한 역사 인물의 주요 업적과 시대적 배경을 짧은 이야기로 재구성한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students retell a historical figure’s contribution using at least two pieces of evidence.",
+                        "statementKo": "역사 인물의 업적을 근거 2가지 이상과 함께 이야기한다.",
+                        "masteryCriteria": "Oral/written retell includes figure, context, contribution, and 2 evidence notes.",
+                        "masteryCriteriaKo": "인물·시대·업적·근거 2가지가 포함된 이야기 완성.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한02-02",
+                    "title": "Explain why we remember historical events today",
+                    "titleKo": "역사적 사건을 오늘날 기억하는 까닭 설명하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "기념일·기념물 등을 통해 역사 사건을 기억하는 까닭을 자신의 언어로 설명한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain the present-day meaning of remembering a historical event.",
+                        "statementKo": "역사 사건을 기억하는 오늘날의 의미를 설명한다.",
+                        "masteryCriteria": "Student connects one commemorative practice to a civic or community value.",
+                        "masteryCriteriaKo": "기념 실천 1가지와 공동체 가치를 연결해 설명한다.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "CUSTOM",
+                "code": "SCHOOL-HISTORY-PROJECT",
+                "title": "School custom: Living history fair",
+                "titleKo": "학교 맞춤: 살아있는 역사 한마당",
+                "gradeLevel": "4",
+                "sortOrder": 2,
+                "summary": "학교 행사에 맞춘 커스텀 노드 — 프레임워크 확장 예시.",
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4한-SCHOOL-01",
+                    "title": "Prepare a booth that teaches one local history story",
+                    "titleKo": "지역 역사 이야기 부스 준비하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "모둠별로 지역 역사 이야기 부스를 기획·준비한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students plan a booth with a clear storyline, visual, and visitor question.",
+                        "statementKo": "이야기 흐름·시각 자료·방문객 질문이 있는 부스를 계획한다.",
+                        "masteryCriteria": "Booth plan checklist complete; peer feedback incorporated once.",
+                        "masteryCriteriaKo": "부스 계획 체크리스트 완료, 동료 피드백 1회 반영.",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -33,6 +33,27 @@ Response: { teacherId, classId, date, count, lessons: [{ ..., lessonPlan }] }`}
         </div>
 
         <div>
+          <h2 className="font-display text-xl font-semibold">
+            Salt Morning / portal deep-link
+          </h2>
+          <p className="mt-2 text-ink-800">
+            Existing teacher portals can deep-link teachers into CurricuMap and
+            pull JSON for the day:
+          </p>
+          <pre className="mt-2 overflow-x-auto rounded-md bg-ink-900 p-4 text-xs text-moss-100">
+{`# Open mindmap for a framework
+/map?framework=ccss-math
+
+# Open schedule UI
+/schedule
+
+# Fetch + generate plans for portal widgets
+GET /api/portal/v1/teachers/{teacherId}/classes/{classId}/lessons?date=YYYY-MM-DD&generate=1
+Header: x-api-key: $PORTAL_API_KEY`}
+          </pre>
+        </div>
+
+        <div>
           <h2 className="font-display text-xl font-semibold">Internal helpers</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-800">
             <li>

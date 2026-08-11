@@ -1,8 +1,9 @@
 import {
   DEMO_CLASS_ID,
   DEMO_TEACHER_ID,
-  getStore,
 } from "@/lib/store/runtime-store";
+import { getScheduleRepository } from "@/lib/schedule/repository";
+import { getStore } from "@/lib/store/runtime-store";
 
 export const runtime = "nodejs";
 
@@ -11,15 +12,15 @@ export async function GET(req: Request) {
   const teacherId = url.searchParams.get("teacherId") || DEMO_TEACHER_ID;
   const classId = url.searchParams.get("classId") || DEMO_CLASS_ID;
   const date = url.searchParams.get("date") || undefined;
-  const store = getStore();
+  const repo = getScheduleRepository();
 
   if (date) {
-    const plans = await store.generateAllPlansForDay(teacherId, classId, date);
+    const plans = await repo.generatePlansForDay(teacherId, classId, date);
     return Response.json({ teacherId, classId, date, lessonPlans: plans });
   }
 
-  const lessons = store.getLessons(teacherId, classId);
-  const plans = [...store.lessonPlans.values()].filter(
+  const lessons = await repo.getScheduledLessons(teacherId, classId);
+  const plans = [...getStore().lessonPlans.values()].filter(
     (p) =>
       p.teacherExternalId === teacherId && p.classExternalId === classId
   );
@@ -39,11 +40,11 @@ export async function POST(req: Request) {
     classId?: string;
     date?: string;
   };
-  const store = getStore();
+  const repo = getScheduleRepository();
 
   if (body.scheduledLessonId) {
     try {
-      const plan = await store.getOrCreateLessonPlan(body.scheduledLessonId);
+      const plan = await repo.getOrCreateLessonPlan(body.scheduledLessonId);
       return Response.json({ lessonPlan: plan }, { status: 201 });
     } catch (e) {
       return Response.json(
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
   }
 
   if (body.date) {
-    const plans = await store.generateAllPlansForDay(
+    const plans = await repo.generatePlansForDay(
       body.teacherId || DEMO_TEACHER_ID,
       body.classId || DEMO_CLASS_ID,
       body.date
