@@ -81,15 +81,16 @@ npm run db:seed
 npm run test:prisma
 ```
 
-Seed packs (full-band sample coverage — **533 skills** / 6 packs):
+Seed packs (**official-complete** — **2,333 skills** / 6 packs):
 
-- `prisma/seed/ccss-math-grade-4.json` — CCSS Math **K–8 + HS Algebra/Geometry/Stats**
-- `prisma/seed/ccss-ela-grade-4.json` — ELA **K–8 + HS 9–12** (RL/RI/RF/W/SL/L)
-- `prisma/seed/ngss-science-grade-4.json` — NGSS **K–8 + HS**
-- `prisma/seed/kr2022-korean-grade-4.json` — 국어 **1–9**
-- `prisma/seed/kr2022-history-grade-4.json` — 한국사/사회 **3–9**
-- `prisma/seed/custom-acme-sel.json` — private Acme SEL
-- See `CURRICULUM_ROADMAP.md` + `prisma/seed/OFFICIAL_IMPORT.md` for expansion / denser imports
+- `prisma/seed/ccss-math-grade-4.json` — CCSS Math complete (K–8 + HS + Practices) · **525**
+- `prisma/seed/ccss-ela-grade-4.json` — CCSS ELA/Literacy complete (K–12) · **1,019**
+- `prisma/seed/ngss-science-grade-4.json` — NGSS all Performance Expectations · **208**
+- `prisma/seed/kr2022-korean-grade-4.json` — 2022 국어 성취기준 전체 · **228**
+- `prisma/seed/kr2022-history-grade-4.json` — 2022 사회/역사 성취기준 전체 · **348**
+- `prisma/seed/custom-acme-sel.json` — private Acme SEL · **5**
+- Rebuild: `python3 scripts/extract-kr-official.py && npx tsx scripts/build-official-catalogs.ts`  
+  See `CURRICULUM_ROADMAP.md` / `prisma/seed/OFFICIAL_IMPORT.md`
 
 ### Auth
 

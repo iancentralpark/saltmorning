@@ -1,35 +1,40 @@
 # Official pack import notes
 
-CurricuMap seed packs are **full-band sample** trees (DOMAIN → CONCEPT → SKILL) covering major grade spans.
-They are not line-by-line official dumps — use this import tool when you need denser catalogs.
+CurricuMap public seed packs are **official-complete** coded catalogs:
 
-## Importing denser catalogs
+| Pack | Source | Skills |
+|------|--------|--------|
+| `ccss-math-grade-4.json` | [Common Standards Project](https://api.commonstandardsproject.com) CCSS Math | 525 |
+| `ccss-ela-grade-4.json` | CSP CCSS ELA/Literacy | 1,019 |
+| `ngss-science-grade-4.json` | CSP NGSS Performance Expectations | 208 |
+| `kr2022-korean-grade-4.json` | NCIC 별책 5 (국어) PDF | 228 |
+| `kr2022-history-grade-4.json` | NCIC 별책 7 (사회) PDF | 348 |
 
-1. Follow [`SEED_FORMAT.md`](./SEED_FORMAT.md) JSON shape.
-2. Prefer one framework file with multiple `GRADE` children (see CCSS Math K–8 + Algebra I).
-3. Keep bilingual fields when required by content-locale rules (국어/한국사 → Korean display).
-4. Place new `*.json` under `prisma/seed/` — `seed-loader` auto-loads them.
-5. Optional Prisma reseed: `npm run db:seed`.
-
-## Official sources (reference)
-
-| Framework | Source |
-|-----------|--------|
-| CCSS Math / ELA | http://www.corestandards.org/ |
-| NGSS | https://www.nextgenscience.org/ |
-| KR 2022 | 교육부 고시 PDF (성취기준) |
-
-When replacing a sample skill with an official code, keep `code` stable if schedules already reference it, or resequence after import.
-
-## Expansion scripts
+## Rebuild from upstream
 
 ```bash
-npx tsx scripts/expand-math-k12.ts
-npx tsx scripts/expand-kr-ngss-grades.ts
-npx tsx scripts/expand-k12-breadth.ts
-npx tsx scripts/expand-hs-ms-packs.ts
-npm run import:pack -- --in imports/sample-geometry-stats.csv --out prisma/seed/x.json --code x --name X --subject MATH
+# Download KR PDFs if missing (NCIC)
+curl -L -o imports/kr-korean-2022.pdf \
+  'https://ncic.re.kr/inv/org/download.do?year=2022&seq=10003553&orgType=ogi4'
+curl -L -o imports/kr-social-2022.pdf \
+  'https://ncic.re.kr/inv/org/download.do?year=2022&seq=10003800&orgType=ogi4'
+
+python3 scripts/extract-kr-official.py
+npx tsx scripts/build-official-catalogs.ts
 npm run test:seed
 ```
 
-These are idempotent where possible (skip grades that already exist).
+## Ad-hoc CSV/JSON import
+
+```bash
+npm run import:pack -- --in imports/catalog.csv --out prisma/seed/x.json \
+  --code x --name X --subject MATH --region US-CCSS
+```
+
+CSV columns: `grade,domainCode,domainTitle,conceptCode,conceptTitle,skillCode,skillTitle,summary,objective,mastery,bloom`
+
+## Notes
+
+- Domain/concept codes are grade-scoped (`4:RL.4`) so codes stay unique across the pack; **skill codes** keep official identifiers (`RL.4.1`, `4-PS3-1`, `[4국01-01]`).
+- `custom-acme-sel.json` remains a private sample pack.
+- PDFs under `imports/` are build inputs (large); extracted JSON sidecars can be committed for reproducible builds without re-downloading.
