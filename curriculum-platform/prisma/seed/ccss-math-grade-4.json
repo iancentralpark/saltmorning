@@ -1,0 +1,213 @@
+{
+  "framework": {
+    "code": "ccss-math",
+    "name": "Common Core State Standards — Mathematics",
+    "nameKo": "공통핵심기준 — 수학",
+    "subject": "MATH",
+    "regionStandard": "US-CCSS",
+    "version": "2010",
+    "description": "CCSS Mathematics K–12. This seed sample covers Grade 4 Operations & Algebraic Thinking (4.OA) and a slice of Number & Operations in Base Ten (4.NBT).",
+    "metadata": {
+      "source": "http://www.corestandards.org/Math/",
+      "license": "public-reference"
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "ccss-math",
+    "title": "CCSS Mathematics",
+    "titleKo": "CCSS 수학",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4",
+        "titleKo": "4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "4.OA",
+            "title": "Operations & Algebraic Thinking",
+            "titleKo": "연산과 대수적 사고",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "metadata": {
+              "cluster": "Use the four operations with whole numbers to solve problems"
+            },
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.OA.A",
+                "title": "Use the four operations with whole numbers to solve problems",
+                "titleKo": "네 가지 연산을 사용해 자연수 문제 해결",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.OA.A.1",
+                    "title": "Interpret multiplicative comparison equations",
+                    "titleKo": "곱셈적 비교 식 해석하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Interpret a multiplication equation as a comparison, e.g., interpret 35 = 5 × 7 as a statement that 35 is 5 times as many as 7 and 7 times as many as 5.",
+                    "objectives": [
+                      {
+                        "code": "4.OA.A.1.a",
+                        "statement": "Students explain a multiplication equation as a multiplicative comparison using language such as “times as many.”",
+                        "statementKo": "곱셈식을 “몇 배만큼” 등의 언어로 곱셈적 비교로 설명한다.",
+                        "masteryCriteria": "Given 3 comparison situations, student correctly matches each to a multiplication equation and explains using “times as many” language.",
+                        "masteryCriteriaKo": "비교 상황 3개를 곱셈식과 연결하고 “몇 배” 언어로 설명한다.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      },
+                      {
+                        "code": "4.OA.A.1.b",
+                        "statement": "Students represent verbal multiplicative comparisons with equations using a symbol for the unknown.",
+                        "statementKo": "말과 글로 된 곱셈적 비교를 미지수 기호가 있는 식으로 나타낸다.",
+                        "masteryCriteria": "Student writes a correct equation with unknown for 4/5 verbal comparison prompts.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 2
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "type": "WORKSHEET",
+                        "title": "Multiplicative Comparison Match",
+                        "description": "Match statements to equations (sample placeholder).",
+                        "url": "/resources/ccss/4.OA.A.1-match.pdf"
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.OA.A.2",
+                    "title": "Multiply or divide to solve multiplicative comparison word problems",
+                    "titleKo": "곱셈적 비교 문장제에서 곱셈·나눗셈으로 해결하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Multiply or divide to solve word problems involving multiplicative comparison, e.g., by using drawings and equations with a symbol for the unknown number.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve one-step multiplicative comparison word problems using multiplication or division and represent with a drawing or equation.",
+                        "masteryCriteria": "≥80% accuracy on a 10-item formative set mixing “times as many” multiply and divide cases.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.OA.A.3",
+                    "title": "Solve multistep word problems with whole numbers",
+                    "titleKo": "여러 단계 자연수 문장제 해결하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 3,
+                    "summary": "Solve multistep word problems posed with whole numbers and having whole-number answers using the four operations, including problems in which remainders must be interpreted.",
+                    "objectives": [
+                      {
+                        "statement": "Students solve multistep word problems using the four operations and interpret remainders in context.",
+                        "masteryCriteria": "Student correctly solves and explains remainder meaning in at least 2 of 3 contextual remainder problems.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.OA.B",
+                "title": "Gain familiarity with factors and multiples",
+                "titleKo": "약수와 배수에 익숙해지기",
+                "gradeLevel": "4",
+                "sortOrder": 2,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.OA.B.4",
+                    "title": "Find factor pairs; identify primes and composites",
+                    "titleKo": "약수 쌍 찾기; 소수와 합성수 구분하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Find all factor pairs for a whole number in the range 1–100. Recognize that a whole number is a multiple of each of its factors. Determine whether a given whole number in the range 1–100 is prime or composite.",
+                    "objectives": [
+                      {
+                        "statement": "Students list all factor pairs for numbers ≤100 and classify numbers as prime or composite.",
+                        "masteryCriteria": "Correct factor pairs for 8/10 numbers; correct prime/composite for 9/10.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4.NBT",
+            "title": "Number & Operations in Base Ten",
+            "titleKo": "수와 십진 연산",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4.NBT.A",
+                "title": "Generalize place value understanding for multi-digit whole numbers",
+                "titleKo": "여러 자리 자연수의 자릿값 이해 일반화",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.NBT.A.1",
+                    "title": "Recognize place value relationships (10 times)",
+                    "titleKo": "자릿값 관계 인식하기 (10배)",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "Recognize that in a multi-digit whole number, a digit in one place represents ten times what it represents in the place to its right.",
+                    "objectives": [
+                      {
+                        "statement": "Students explain that a digit in one place is ten times the value of the same digit one place to the right.",
+                        "masteryCriteria": "Student explains place-value ×10 relationship with a correct example for 3 of 3 prompts.",
+                        "bloomLevel": "Understand",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4.NBT.A.2",
+                    "title": "Read, write, and compare multi-digit whole numbers",
+                    "titleKo": "여러 자리 자연수 읽고 쓰고 비교하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "Read and write multi-digit whole numbers using base-ten numerals, number names, and expanded form. Compare two multi-digit numbers based on meanings of the digits in each place.",
+                    "objectives": [
+                      {
+                        "statement": "Students write numbers in standard, word, and expanded form and compare using place value.",
+                        "masteryCriteria": "≥85% on mixed read/write/compare formative.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

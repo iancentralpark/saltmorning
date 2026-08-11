@@ -1,0 +1,290 @@
+{
+  "framework": {
+    "code": "kr2022-korean",
+    "name": "2022 Revised National Curriculum — Korean Language",
+    "nameKo": "2022 개정 교육과정 — 국어",
+    "subject": "KOREAN_LANGUAGE",
+    "regionStandard": "KR-2022",
+    "version": "2022",
+    "description": "대한민국 2022 개정 교육과정 국어과 성취기준 샘플. 초등학교 4학년(5–6학년군이 아닌 3–4학년군 중 4학년 지도에 쓰이는 성취기준 예시 구조). 실제 고시 문언은 교육부 PDF를 기준으로 검수·확장하세요.",
+    "metadata": {
+      "source": "교육부 2022 개정 교육과정 국어과",
+      "gradeBand": "3-4",
+      "language": "ko",
+      "note": "Codes below use a conventional pattern [학년군][영역코드]-[일련번호] for demo mapping; replace with official codes when importing the full pack."
+    }
+  },
+  "tree": {
+    "nodeType": "ROOT",
+    "code": "kr2022-korean",
+    "title": "2022 개정 국어",
+    "titleKo": "2022 개정 국어",
+    "sortOrder": 0,
+    "children": [
+      {
+        "nodeType": "GRADE",
+        "code": "G4",
+        "title": "Grade 4 / 초등학교 4학년",
+        "titleKo": "초등학교 4학년",
+        "gradeLevel": "4",
+        "sortOrder": 4,
+        "metadata": {
+          "gradeBand": "3-4"
+        },
+        "children": [
+          {
+            "nodeType": "DOMAIN",
+            "code": "4국01",
+            "title": "Listening · Speaking / 듣기·말하기",
+            "titleKo": "듣기·말하기",
+            "gradeLevel": "4",
+            "sortOrder": 1,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4국01-대화",
+                "title": "대화와 배려",
+                "titleKo": "대화와 배려",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국01-01",
+                    "title": "상대를 배려하며 대화하기",
+                    "titleKo": "상대를 배려하며 대화하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "대화의 상황에 맞게 상대를 배려하며 듣고 말하는 방법을 익힌다.",
+                    "objectives": [
+                      {
+                        "code": "4국01-01-①",
+                        "statement": "Students listen and respond in conversation while showing consideration for the conversation partner.",
+                        "statementKo": "대화 상대를 배려하며 듣고 반응한다.",
+                        "masteryCriteria": "In a paired role-play, student uses at least two considerate listening/speaking behaviors (eye contact, turn-taking, polite clarification).",
+                        "masteryCriteriaKo": "짝 역할극에서 배려하는 듣기·말하기 행동(시선, 차례 지키기, 공손한 되묻기)을 2가지 이상 사용한다.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      },
+                      {
+                        "code": "4국01-01-②",
+                        "statement": "Students identify inappropriate utterances in a dialogue and suggest more considerate alternatives.",
+                        "statementKo": "대화에서 부적절한 발화를 찾고 배려하는 표현으로 고쳐 말한다.",
+                        "masteryCriteria": "Student revises 3/3 sample utterances into considerate alternatives.",
+                        "masteryCriteriaKo": "예시 발화 3개를 모두 배려하는 표현으로 수정한다.",
+                        "bloomLevel": "Evaluate",
+                        "sortOrder": 2
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "type": "SLIDES",
+                        "title": "배려하는 대화 예시 카드",
+                        "description": "상황별 말하기 예시 (샘플 플레이스홀더)",
+                        "url": "/resources/kr2022/4국01-01-cards.pdf"
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국01-02",
+                    "title": "목적에 맞게 내용을 정리하여 말하기",
+                    "titleKo": "목적에 맞게 내용을 정리하여 말하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "목적과 주제에 맞게 내용을 선정·조직하여 말한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students organize spoken content according to purpose (inform / persuade / share experience).",
+                        "statementKo": "목적(알리기·설득하기·경험 나누기)에 맞게 말할 내용을 조직한다.",
+                        "masteryCriteria": "1–2분 말하기에서 목적에 맞는 시작·전개·마무리가 드러난다.",
+                        "bloomLevel": "Apply",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4국02",
+            "title": "Reading / 읽기",
+            "titleKo": "읽기",
+            "gradeLevel": "4",
+            "sortOrder": 2,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4국02-사실과추론",
+                "title": "사실과 의견·중심 생각",
+                "titleKo": "사실과 의견·중심 생각",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국02-01",
+                    "title": "글의 중심 생각을 파악하기",
+                    "titleKo": "글의 중심 생각을 파악하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "글 전체의 중심 생각을 파악하고 근거가 되는 세부 내용을 찾는다.",
+                    "objectives": [
+                      {
+                        "statement": "Students identify the main idea of a short informational or narrative text and cite supporting details.",
+                        "statementKo": "짧은 설명문·이야기 글의 중심 생각을 찾고 근거가 되는 세부 내용을 제시한다.",
+                        "masteryCriteria": "중심 생각 서술 + 근거 문장 2개 이상을 올바르게 연결한다.",
+                        "masteryCriteriaKo": "중심 생각 서술과 근거 문장 2개 이상을 바르게 연결한다.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "type": "WORKSHEET",
+                        "title": "중심 생각 찾기 연습지",
+                        "url": "/resources/kr2022/4국02-01-main-idea.pdf"
+                      }
+                    ]
+                  },
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국02-02",
+                    "title": "사실과 의견을 구별하기",
+                    "titleKo": "사실과 의견을 구별하기",
+                    "gradeLevel": "4",
+                    "sortOrder": 2,
+                    "summary": "글에서 사실과 의견을 구별하여 읽는다.",
+                    "objectives": [
+                      {
+                        "statement": "Students classify sentences as fact or opinion and justify the classification.",
+                        "statementKo": "문장을 사실/의견으로 분류하고 이유를 말한다.",
+                        "masteryCriteria": "10문항 중 8문항 이상 정확 + 짧은 근거 설명.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4국03",
+            "title": "Writing / 쓰기",
+            "titleKo": "쓰기",
+            "gradeLevel": "4",
+            "sortOrder": 3,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4국03-조직",
+                "title": "쓰기 과정과 조직",
+                "titleKo": "쓰기 과정과 조직",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국03-01",
+                    "title": "중심 문장과 뒷받침 문장으로 문단 쓰기",
+                    "titleKo": "중심 문장과 뒷받침 문장으로 문단 쓰기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "중심 문장과 뒷받침 문장의 관계를 이해하여 문단을 쓴다.",
+                    "objectives": [
+                      {
+                        "statement": "Students write a paragraph with a clear topic sentence and at least two supporting sentences.",
+                        "statementKo": "중심 문장과 뒷받침 문장 2개 이상으로 문단을 쓴다.",
+                        "masteryCriteria": "루브릭: 중심 문장 명확(2) + 뒷받침 관련성(2) + 맞춤법·띄어쓰기(1).",
+                        "bloomLevel": "Create",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "nodeType": "DOMAIN",
+            "code": "4국04",
+            "title": "Grammar · Literature / 문법·문학",
+            "titleKo": "문법·문학",
+            "gradeLevel": "4",
+            "sortOrder": 4,
+            "children": [
+              {
+                "nodeType": "CONCEPT",
+                "code": "4국04-문학",
+                "title": "문학 작품 감상",
+                "titleKo": "문학 작품 감상",
+                "gradeLevel": "4",
+                "sortOrder": 1,
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "4국04-01",
+                    "title": "인물의 마음과 행동을 파악하며 작품 읽기",
+                    "titleKo": "인물의 마음과 행동을 파악하며 작품 읽기",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "작품 속 인물의 마음과 행동을 파악하며 읽고 자신의 생각과 연결한다.",
+                    "objectives": [
+                      {
+                        "statement": "Students describe a character’s feelings/actions with text evidence and connect to personal experience.",
+                        "statementKo": "인물의 마음·행동을 작품 근거와 함께 설명하고 자신의 경험과 연결한다.",
+                        "masteryCriteria": "근거 문장 1개 이상 + 개인 연결 1문장.",
+                        "bloomLevel": "Analyze",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "nodeType": "CUSTOM",
+                "code": "4국04-학교특화",
+                "title": "School custom strand (example)",
+                "titleKo": "학교 특화 갈래 (예시)",
+                "gradeLevel": "4",
+                "sortOrder": 99,
+                "metadata": {
+                  "custom": true,
+                  "note": "Demonstrates Framework-agnostic CUSTOM nodeType for school-specific layers."
+                },
+                "children": [
+                  {
+                    "nodeType": "SKILL",
+                    "code": "SCH-4국-독서일기",
+                    "title": "Weekly reading journal (school)",
+                    "titleKo": "주간 독서 일기 (학교)",
+                    "gradeLevel": "4",
+                    "sortOrder": 1,
+                    "summary": "School-added skill under Korean Language framework without altering core KR codes.",
+                    "objectives": [
+                      {
+                        "statementKo": "매주 읽은 책의 줄거리와 느낀 점을 정해진 형식으로 쓴다.",
+                        "statement": "Students write a weekly reading journal with summary and response in the school template.",
+                        "masteryCriteriaKo": "4주 중 3주 이상 양식에 맞게 제출.",
+                        "sortOrder": 1
+                      }
+                    ],
+                    "resources": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
