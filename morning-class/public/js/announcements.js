@@ -134,16 +134,23 @@ window.SaltAnnouncements = (function() {
   function composerHtml(opts) {
     opts = opts || {};
     const isTeacher = opts.mode === 'teacher';
+    const fixedClassId = String(opts.fixedClassId || '').trim();
     const classOpts = (opts.classes || []).map((c) =>
-      '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.className || c.classId) + '</option>'
+      '<option value="' + escapeHtml(c.classId) + '"' +
+      (fixedClassId && c.classId === fixedClassId ? ' selected' : '') + '>' +
+      escapeHtml(c.className || c.classId) + '</option>'
     ).join('');
     return (
       '<form class="ann-compose" id="' + escapeHtml(opts.formId || 'annComposeForm') + '">' +
       '<div class="ann-compose-grid">' +
         (isTeacher
-          ? '<label>Class <select name="classId" required><option value="">Select class</option>' +
-            classOpts + '</select></label>' +
-            '<input type="hidden" name="scope" value="class">'
+          ? (fixedClassId
+            ? '<input type="hidden" name="classId" value="' + escapeHtml(fixedClassId) + '">' +
+              '<input type="hidden" name="scope" value="class">' +
+              '<p class="muted small ann-span-2" style="margin:0">Posting to this class only.</p>'
+            : '<label>Class <select name="classId" required><option value="">Select class</option>' +
+              classOpts + '</select></label>' +
+              '<input type="hidden" name="scope" value="class">')
           : '<label>Scope <select name="scope" id="' + escapeHtml((opts.formId || 'ann') + 'Scope') + '">' +
             '<option value="school">School-wide</option>' +
             '<option value="class">Specific class</option></select></label>' +

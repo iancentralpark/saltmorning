@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811rctoolbar">
+  <link rel="stylesheet" href="/css/app.css?v=20260811teachnav">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -17,19 +17,22 @@
     <p><a href="/">Go to login</a></p>
   </div>
 
-  <div id="homeView" class="hidden">
-    <div class="topbar teacher-topbar">
-      <div>
-        <div class="brand" id="welcomeText">Teacher</div>
-        <p class="muted small" style="margin:0.15rem 0 0">Your weekly teaching schedule</p>
-      </div>
-      <div class="teacher-home-actions">
-        <a class="btn btn-ghost" href="#homeClassesSection" id="homeClassesLink">My classes</a>
-        <button type="button" class="btn btn-ghost" id="openStudentsBtn">Student directory</button>
-        <button type="button" class="btn btn-ghost" id="openGlobalLessonBtn">My Lesson Plan</button>
-        <button type="button" class="btn btn-ghost" id="logoutBtn">Log out</button>
-      </div>
+    <div id="appShell" class="hidden">
+  <header class="topbar teacher-topbar teacher-shell-topbar">
+    <div class="teacher-shell-identity">
+      <div class="brand" id="teacherNameBrand">Teacher</div>
+      <div class="teacher-shell-page muted small" id="teacherPageTitle">My timetable</div>
     </div>
+    <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home">My timetable</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="classes">My classes</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students">Student directory</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson">My Lesson Plan</button>
+      <button type="button" class="btn btn-ghost" id="shellLogoutBtn">Log out</button>
+    </nav>
+  </header>
+
+  <div id="homeView" class="hidden">
     <div class="card">
       <div class="section-title">My timetable</div>
       <div id="teacherTimetableMount"></div>
@@ -53,25 +56,9 @@
       <div id="headRcPreview" class="hidden" style="margin-top:1rem"></div>
       <div class="error" id="headRcError"></div>
     </div>
-    <div class="card" id="homeAnnouncementsSection">
-      <div class="section-title">Class announcements</div>
-      <p class="muted small" style="margin:0 0 0.75rem">Post to your class students and/or their parents. Add a link, photo, or file.</p>
-      <div id="teacherAnnCompose"></div>
-      <div style="margin:0.85rem 0 0.5rem">
-        <button type="button" class="btn btn-ghost" id="teacherAnnRefresh">Refresh</button>
-      </div>
-      <div id="teacherAnnList"><p class="muted">Loading…</p></div>
-    </div>
   </div>
 
   <div id="globalLessonView" class="hidden">
-    <div class="topbar teacher-topbar">
-      <div>
-        <button class="btn btn-ghost" id="globalLessonBackBtn" type="button">← Home</button>
-        <div class="brand">My Lesson Plan</div>
-      </div>
-      <button class="btn btn-ghost" id="globalLessonLogoutBtn" type="button">Log out</button>
-    </div>
     <div class="card lp-cal-panel">
       <div id="lpSubjectsGlobal" class="lp-subjects-panel"></div>
       <div class="lp-cal-toolbar">
@@ -89,38 +76,24 @@
   </div>
 
   <div id="studentsView" class="hidden">
-    <div class="topbar teacher-topbar">
-      <div>
-        <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Home</button>
-        <div class="brand">Student directory</div>
-      </div>
-      <button class="btn btn-ghost" id="studentsLogoutBtn" type="button">Log out</button>
-    </div>
     <div class="card">
       <div id="teacherStudentRegistryMount"></div>
     </div>
   </div>
 
   <div id="classView" class="hidden">
-    <div class="topbar teacher-topbar">
-      <div>
-        <button class="btn btn-ghost" id="backBtn" type="button">← Home</button>
-        <div class="brand" id="classTitle"></div>
-      </div>
-      <button class="btn btn-ghost" id="classLogoutBtn" type="button">Log out</button>
-    </div>
     <div class="tabs" id="classTabs">
       <button class="tab active" data-tab="attendance" data-homeroom-only="1" type="button">Attendance</button>
       <button class="tab" data-tab="grades" type="button">Grades</button>
       <button class="tab" data-tab="dollars" type="button">Dollars</button>
       <button class="tab" data-tab="homework" type="button">Homework</button>
+      <button class="tab" data-tab="announcements" type="button">Announcements</button>
       <button class="tab" data-tab="vocab" data-homeroom-only="1" type="button">Vocab Booster</button>
       <button class="tab" data-tab="report" type="button">Report card</button>
       <button class="tab" data-tab="analytics" data-homeroom-only="1" type="button">Learning Analytics</button>
       <button class="tab" data-tab="lesson" data-homeroom-only="1" type="button">Lesson plan</button>
     </div>
-
-    <div id="panelAttendance" class="card att-panel">
+<div id="panelAttendance" class="card att-panel">
       <div class="att-toolbar">
         <label class="att-date-label">Date <input type="date" id="attDate"></label>
         <button type="button" class="btn btn-primary" id="monthlyReportBtn">Monthly Report</button>
@@ -166,6 +139,16 @@
       <div id="hwDateList" class="hw-date-list"></div>
       <div id="hwTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="hwTeacherError"></div>
+    </div>
+
+    
+    <div id="panelAnnouncements" class="card hidden">
+      <p class="muted small" style="margin:0 0 0.75rem">Post to this class's students and/or their parents. Add a link, photo, or file.</p>
+      <div id="teacherAnnCompose"></div>
+      <div style="margin:0.85rem 0 0.5rem">
+        <button type="button" class="btn btn-ghost" id="teacherAnnRefresh">Refresh</button>
+      </div>
+      <div id="teacherAnnList"><p class="muted">Loading…</p></div>
     </div>
 
     <div id="panelVocab" class="card hidden">
@@ -428,6 +411,7 @@
     </div>
   </div>
 </div>
+  </div><!-- /appShell -->
 
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
@@ -441,7 +425,7 @@
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260810ttclass"></script>
 <script src="/js/messenger.js?v=20260810admdir"></script>
-<script src="/js/announcements.js?v=20260810ann2"></script>
+<script src="/js/announcements.js?v=20260811teachnav"></script>
 <script src="/js/student-registry.js?v=20260804uxaudit"></script>
 <script src="/js/timetable.js?v=20260810ttclass"></script>
 <script>
@@ -451,6 +435,9 @@
   let currentClass = null;
   let lessonScope = 'class';
   let teacherClasses = [];
+  let teacherClassModels = [];
+  let applyingRoute = false;
+  let currentClassTab = '';
 
   SaltAttendance.init({
     $, show, hide, escapeHtml, todayISO, api,
@@ -518,7 +505,7 @@
       el.addEventListener('click', () => {
         let subjects = [];
         try { subjects = JSON.parse(el.dataset.subjects || '[]'); } catch (e) { subjects = []; }
-        openClass({
+        navigateToClass({
           classId: el.dataset.id,
           className: el.dataset.name,
           isHomeroom: el.dataset.homeroom === '1',
@@ -536,18 +523,56 @@
     });
     SaltStudentRegistry.setClasses(classOpts);
     teacherClasses = classOpts.map((c) => ({ classId: c.classId, className: c.name }));
-    setupTeacherAnnouncements();
+    teacherClassModels = classes.slice();
+  }
+
+
+  function setShellIdentity(pageTitle) {
+    const p = getProfile(role) || {};
+    if ($('teacherNameBrand')) $('teacherNameBrand').textContent = p.name || 'Teacher';
+    if ($('teacherPageTitle')) $('teacherPageTitle').textContent = pageTitle || '';
+    const inClass = / · /.test(String(pageTitle || ''));
+    document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
+      const nav = btn.getAttribute('data-nav');
+      const active =
+        (nav === 'home' && pageTitle === 'My timetable') ||
+        (nav === 'classes' && (pageTitle === 'My classes' || inClass)) ||
+        (nav === 'students' && pageTitle === 'Student directory') ||
+        (nav === 'lesson' && pageTitle === 'My Lesson Plan');
+      btn.classList.toggle('is-active', !!active);
+    });
+  }
+
+  function setRoute(hash, replace) {
+    const next = hash.charAt(0) === '#' ? hash : ('#' + hash);
+    if (replace) history.replaceState(null, '', next);
+    else if (location.hash !== next) location.hash = next;
+  }
+
+  function parseRoute() {
+    const raw = String(location.hash || '').replace(/^#\/?/, '').trim();
+    if (!raw) return { view: 'home' };
+    const parts = raw.split('/').filter(Boolean);
+    if (parts[0] === 'students') return { view: 'students' };
+    if (parts[0] === 'lesson') return { view: 'lesson' };
+    if (parts[0] === 'classes') return { view: 'home', focus: 'classes' };
+    if (parts[0] === 'class' && parts[1]) {
+      return { view: 'class', classId: parts[1], tab: parts[2] || '' };
+    }
+    return { view: 'home' };
   }
 
   async function refreshTeacherAnnList() {
     const box = $('teacherAnnList');
-    if (!box) return;
+    if (!box || !currentClass) return;
     box.innerHTML = '<p class="muted">Loading…</p>';
     try {
       const data = await api('/api/teacher/announcements', {}, role);
-      SaltAnnouncements.renderList(box, data.announcements || [], {
+      const cid = String(currentClass.classId);
+      const rows = (data.announcements || []).filter((a) => String(a.classId || '') === cid);
+      SaltAnnouncements.renderList(box, rows, {
         canRemove: true,
-        emptyText: 'No class announcements yet.',
+        emptyText: 'No announcements for this class yet.',
         onRemove: async (id) => {
           if (!confirm('Remove this announcement?')) return;
           await api('/api/teacher/announcements/' + encodeURIComponent(id) + '/deactivate', { method: 'POST' }, role);
@@ -559,13 +584,16 @@
     }
   }
 
-  function setupTeacherAnnouncements() {
-    if (!$('teacherAnnCompose')) return;
+  function setupClassAnnouncements() {
+    if (!$('teacherAnnCompose') || !currentClass) return;
     SaltAnnouncements.bindComposer($('teacherAnnCompose'), {
       mode: 'teacher',
       formId: 'teacherAnnComposeForm',
       classes: teacherClasses,
+      fixedClassId: currentClass.classId,
       onSubmit: async (fd) => {
+        if (!fd.get('classId')) fd.set('classId', currentClass.classId);
+        fd.set('scope', 'class');
         await api('/api/teacher/announcements', { method: 'POST', body: fd }, role);
       },
       onPosted: () => refreshTeacherAnnList()
@@ -590,17 +618,27 @@
     });
   }
 
-  function openHome() {
+  function openHome(opts) {
+    opts = opts || {};
+    lessonScope = 'class';
+    currentClass = null;
+    currentClassTab = '';
     hideAllAppViews();
     show($('homeView'));
+    setShellIdentity(opts.focus === 'classes' ? 'My classes' : 'My timetable');
     const p = getProfile(role);
-    if ($('welcomeText') && p) {
-      $('welcomeText').textContent = (p.name || 'Teacher') + ' · My timetable';
-    }
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
-    if (teacherClasses.length) setupTeacherAnnouncements();
-    else refreshTeacherAnnList();
     loadHeadReportQueue();
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute(opts.focus === 'classes' ? '#/classes' : '#/home');
+      applyingRoute = false;
+    }
+    if (opts.focus === 'classes' && $('homeClassesSection')) {
+      setTimeout(() => {
+        $('homeClassesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 40);
+    }
   }
 
   async function loadHeadReportQueue() {
@@ -738,31 +776,6 @@
     });
   }
 
-  $('openStudentsBtn').addEventListener('click', () => {
-    hideAllAppViews();
-    show($('studentsView'));
-    SaltStudentRegistry.open();
-  });
-
-  $('openGlobalLessonBtn').addEventListener('click', () => {
-    lessonScope = 'global';
-    hideAllAppViews();
-    show($('globalLessonView'));
-    SaltLesson.onGlobalOpen();
-  });
-
-  $('globalLessonBackBtn').addEventListener('click', () => {
-    lessonScope = 'class';
-    openHome();
-  });
-
-  $('globalLessonLogoutBtn').addEventListener('click', doLogout);
-
-  $('studentsBackBtn').addEventListener('click', () => {
-    openHome();
-  });
-
-  $('studentsLogoutBtn').addEventListener('click', doLogout);
 
   function isHomeroomClass(cls) {
     return !!(cls && cls.isHomeroom);
@@ -780,47 +793,170 @@
     return isHomeroomClass(currentClass) ? 'attendance' : 'grades';
   }
 
-  function openClass(cls) {
+  function tabLabel(name) {
+    const map = {
+      attendance: 'Attendance',
+      grades: 'Grades',
+      dollars: 'Dollars',
+      homework: 'Homework',
+      announcements: 'Announcements',
+      vocab: 'Vocab Booster',
+      report: 'Report card',
+      analytics: 'Learning Analytics',
+      lesson: 'Lesson plan'
+    };
+    return map[name] || name;
+  }
+
+  function findClassModel(classId) {
+    return (teacherClassModels || []).find((c) => String(c.classId) === String(classId)) || null;
+  }
+
+  function navigateToClass(cls, tab) {
+    const t = tab || defaultClassTabFor(cls);
+    applyingRoute = true;
+    try {
+      setRoute('#/class/' + encodeURIComponent(cls.classId) + '/' + encodeURIComponent(t));
+      openClass(cls, t, { fromRoute: true });
+    } finally {
+      applyingRoute = false;
+    }
+  }
+
+  function defaultClassTabFor(cls) {
+    return isHomeroomClass(cls) ? 'attendance' : 'grades';
+  }
+
+  function openStudents() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('studentsView'));
+    setShellIdentity('Student directory');
+    if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.open) {
+      SaltStudentRegistry.open();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/students');
+      applyingRoute = false;
+    }
+  }
+
+  function openGlobalLesson() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'global';
+    hideAllAppViews();
+    show($('globalLessonView'));
+    setShellIdentity('My Lesson Plan');
+    SaltLesson.onGlobalOpen();
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/lesson');
+      applyingRoute = false;
+    }
+  }
+
+  function openClass(cls, tabName, opts) {
+    opts = opts || {};
     lessonScope = 'class';
     currentClass = cls;
     hideAllAppViews();
     show($('classView'));
-    $('classTitle').textContent = cls.className + (cls.isHomeroom ? ' · Homeroom' : '');
     $('attDate').value = todayISO();
     const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
-    $('gradeSubject').value = firstSubject;
-    $('reportTerm').value = $('gradeTerm').value || 'Term1';
+    if ($('gradeSubject')) $('gradeSubject').value = firstSubject;
+    if ($('reportTerm')) $('reportTerm').value = ($('gradeTerm') && $('gradeTerm').value) || 'Term1';
     syncClassTabs();
-    switchTab(defaultClassTab());
+    const tab = tabName || defaultClassTab();
+    switchTab(tab, { skipRoute: true });
     if (isHomeroomClass(cls)) SaltAttendance.onClassOpen();
+    if (!opts.fromRoute && !applyingRoute) {
+      setRoute('#/class/' + encodeURIComponent(cls.classId) + '/' + encodeURIComponent(tab));
+    }
   }
 
-  function switchTab(name) {
+  function switchTab(name, opts) {
+    opts = opts || {};
     const homeroomOnly = { attendance: 1, vocab: 1, analytics: 1, lesson: 1 };
     if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
       name = defaultClassTab();
     }
+    currentClassTab = name;
     document.querySelectorAll('#classView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => hide($(id)));
+    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
+      if ($(id)) hide($(id));
+    });
     const map = {
       attendance: 'panelAttendance',
       grades: 'panelGrades',
       dollars: 'panelDollars',
       homework: 'panelHomework',
+      announcements: 'panelAnnouncements',
       vocab: 'panelVocab',
       report: 'panelReport',
       analytics: 'panelAnalytics',
       lesson: 'panelLesson'
     };
-    show($(map[name]));
+    if ($(map[name])) show($(map[name]));
+    if (currentClass) {
+      const title = (currentClass.className || currentClass.classId) +
+        (currentClass.isHomeroom ? ' · Homeroom' : '') +
+        ' · ' + tabLabel(name);
+      setShellIdentity(title);
+      if (!opts.skipRoute && !applyingRoute) {
+        setRoute('#/class/' + encodeURIComponent(currentClass.classId) + '/' + encodeURIComponent(name));
+      }
+    }
     if (name === 'grades') SaltGrades.onClassOpen();
     if (name === 'dollars') loadDollars();
     if (name === 'homework') loadHomework();
+    if (name === 'announcements') setupClassAnnouncements();
     if (name === 'vocab') loadVocabOverview();
     if (name === 'report') SaltReportCard.onClassOpen();
     if (name === 'analytics') SaltAnalytics.onClassOpen();
     if (name === 'lesson') SaltLesson.onClassOpen();
     if (name === 'attendance') SaltAttendance.loadWork();
+  }
+
+  async function applyRoute() {
+    applyingRoute = true;
+    try {
+      const route = parseRoute();
+      if (route.view === 'students') {
+        openStudents();
+        return;
+      }
+      if (route.view === 'lesson') {
+        openGlobalLesson();
+        return;
+      }
+      if (route.view === 'class' && route.classId) {
+        let cls = findClassModel(route.classId);
+        if (!cls && !teacherClassModels.length) {
+          await loadClasses();
+          cls = findClassModel(route.classId);
+        }
+        if (!cls) {
+          openHome();
+          return;
+        }
+        const model = {
+          classId: cls.classId,
+          className: cls.className,
+          isHomeroom: !!cls.isHomeroom,
+          subjects: cls.subjects || [],
+          roleLabel: cls.roleLabel || ''
+        };
+        openClass(model, route.tab || defaultClassTabFor(model), { fromRoute: true });
+        return;
+      }
+      openHome({ focus: route.focus === 'classes' ? 'classes' : '' });
+    } finally {
+      applyingRoute = false;
+    }
   }
 
   async function loadDollars() {
@@ -1104,14 +1240,6 @@
     $('reportTerm').addEventListener('change', () => SaltReportCard.loadOverview());
   }
 
-  $('backBtn').addEventListener('click', () => {
-    SaltLesson.closeDrawer();
-    currentClass = null;
-    openHome();
-  });
-
-  $('logoutBtn').addEventListener('click', doLogout);
-  if ($('classLogoutBtn')) $('classLogoutBtn').addEventListener('click', doLogout);
 
   function showClassToolsSidebar() {
     const bar = $('classToolsSidebar');
@@ -1154,19 +1282,37 @@
     classToolsChip.addEventListener('click', () => setClassToolsMinimized(false));
   }
 
-  function bootApp() {
+  if ($('shellLogoutBtn')) $('shellLogoutBtn').addEventListener('click', doLogout);
+
+  document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nav = btn.getAttribute('data-nav');
+      if (nav === 'home') openHome();
+      else if (nav === 'classes') openHome({ focus: 'classes' });
+      else if (nav === 'students') openStudents();
+      else if (nav === 'lesson') openGlobalLesson();
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    if (!applyingRoute) applyRoute();
+  });
+
+  async function bootApp() {
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView'));
+    show($('appShell'));
+    setShellIdentity('My timetable');
     SaltTimetable.init({ api, escapeHtml, role });
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
     });
-    loadClasses();
+    await loadClasses();
     SaltMessenger.init(role);
     showClassToolsSidebar();
     setClassToolsMinimized(false);
-    openHome();
+    await applyRoute();
   }
 
   if (getToken(role)) bootApp();
