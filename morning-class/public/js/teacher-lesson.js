@@ -475,7 +475,7 @@ window.SaltLesson = (function() {
     });
   }
 
-  let semesterState = { classId: '', subject: '', plan: null };
+  let semesterState = { classId: '', subject: '', termLabel: '', plan: null };
 
   function renderSemesterPanels() {
     if (deps.role === 'admin') return;
@@ -517,6 +517,9 @@ window.SaltLesson = (function() {
         (semesterState.classId === o.classId && semesterState.subject === o.subject ? ' selected' : '') +
         '>' + escapeHtml(o.className + ' · ' + o.subject) + '</option>'
       ).join('') +
+      '</select>' +
+      '<select id="' + escapeHtml(panelId) + '-term" class="lp-semester-term-select" disabled>' +
+      '<option value="">' + escapeHtml(t('lessons.selectSemester', 'Semester')) + '</option>' +
       '</select></div>';
     html += '<div class="lp-semester-body" id="' + escapeHtml(panelId) + '-body">';
     if (!semesterState.classId) {
@@ -525,12 +528,21 @@ window.SaltLesson = (function() {
     html += '</div>';
     mount.innerHTML = html;
 
-    const select = mount.querySelector('select');
+    const select = $(panelId + '-select');
+    const termSelect = $(panelId + '-term');
+    async function reloadPlan() {
+      if (!semesterState.classId || !semesterState.subject) return;
+      await loadSemesterPlanInto(panelId + '-body', semesterState.classId, semesterState.subject, semesterState.termLabel);
+    }
     if (select) {
       select.addEventListener('change', async () => {
         const val = select.value;
         if (!val) {
-          semesterState = { classId: '', subject: '', plan: null };
+          semesterState = { classId: '', subject: '', termLabel: '', plan: null };
+          if (termSelect) {
+            termSelect.innerHTML = '<option value="">' + escapeHtml(t('lessons.selectSemester', 'Semester')) + '</option>';
+            termSelect.disabled = true;
+          }
           const body = $(panelId + '-body');
           if (body) body.innerHTML = '<p class="muted small">' + escapeHtml(t('lessons.selectSubject', 'Select a subject')) + '</p>';
           return;
@@ -538,7 +550,14 @@ window.SaltLesson = (function() {
         const parts = val.split('::');
         semesterState.classId = parts[0];
         semesterState.subject = parts.slice(1).join('::');
-        await loadSemesterPlanInto(panelId + '-body', semesterState.classId, semesterState.subject);
+        semesterState.termLabel = '';
+        await reloadPlan();
+      });
+    }
+    if (termSelect) {
+      termSelect.addEventListener('change', async () => {
+        semesterState.termLabel = termSelect.value || '';
+        await reloadPlan();
       });
     }
 
@@ -547,7 +566,7 @@ window.SaltLesson = (function() {
         o.classId === semesterState.classId && o.subject === semesterState.subject
       );
       if (stillThere) {
-        loadSemesterPlanInto(panelId + '-body', semesterState.classId, semesterState.subject);
+        reloadPlan();
       }
     }
   }
@@ -659,7 +678,7 @@ window.SaltLesson = (function() {
     if (active && plan) await persistSemesterPlan(active, plan);
   }
 
-  async function loadSemesterPlanInto(bodyId, classId, subject) {
+  async function loadSemesterPlanInto(bodyId, classId, subject, termLabel) {
     if (semesterSaveTimer) {
       clearTimeout(semesterSaveTimer);
       semesterSaveTimer = null;
@@ -674,12 +693,36 @@ window.SaltLesson = (function() {
     if (!body) return;
     body.innerHTML = '<p class="muted small">Loading…</p>';
     try {
-      const data = await api(
-        '/api/teacher/semester-plans?classId=' + encodeURIComponent(classId) +
-        '&subject=' + encodeURIComponent(subject)
-      );
-      semesterState.plan = data.plan;
-      renderSemesterEditor(body, data.plan);
+      let q = '/api/teacher/semester-plans?classId=' + encodeURIComponent(classId) +
+        '&subject=' + encodeURIComponent(subject);
+      if (termLabel) q += '&termLabel=' + encodeURIComponent(termLabel);
+      const data = await api(q);
+      const plan = data.plan;
+      semesterState.plan = plan;
+      if (plan && plan.term && plan.term.label) {
+        semesterState.termLabel = plan.term.label;
+      }
+
+      const panelId = bodyId.replace(/-body$/, '');
+      const termSelect = $(panelId + '-term');
+      if (termSelect) {
+        const semesters = data.semesters || [];
+        if (!semesters.length) {
+          termSelect.innerHTML = '<option value="">' + escapeHtml(t('lessons.noSemesters', 'Set semesters in Admin → Calendar')) + '</option>';
+          termSelect.disabled = true;
+          body.innerHTML = '<p class="err small">' + escapeHtml(t('lessons.noSemesters', 'Set semesters in Admin → Calendar')) + '</p>';
+          return;
+        }
+        termSelect.disabled = false;
+        termSelect.innerHTML = semesters.map((s) =>
+          '<option value="' + escapeHtml(s.label) + '"' +
+          (plan.term && plan.term.label === s.label ? ' selected' : '') +
+          '>' + escapeHtml(s.label) + ' (' + escapeHtml(s.startDate) + '–' + escapeHtml(s.endDate) + ')</option>'
+        ).join('');
+        semesterState.termLabel = termSelect.value;
+      }
+
+      renderSemesterEditor(body, plan);
     } catch (err) {
       body.innerHTML = '<p class="err small">' + escapeHtml(err.message) + '</p>';
     }

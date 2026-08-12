@@ -44,6 +44,9 @@ window.SaltSchoolCalendar = (function() {
     $('scEntryForm').addEventListener('submit', saveEntry);
     $('scEntryCancel').addEventListener('click', resetForm);
     $('scDayType').addEventListener('change', syncBlocksDefault);
+    if ($('scSemesterForm')) {
+      $('scSemesterForm').addEventListener('submit', saveSemesters);
+    }
     syncBlocksDefault();
   }
 
@@ -88,7 +91,52 @@ window.SaltSchoolCalendar = (function() {
   }
 
   async function open() {
+    await loadSemesters();
     await refresh();
+  }
+
+  async function loadSemesters() {
+    if (!$('scSem1Start')) return;
+    try {
+      const data = await api('/api/admin/school-semesters');
+      const byKey = {};
+      (data.semesters || []).forEach((s) => { byKey[s.key] = s; });
+      $('scSem1Start').value = (byKey.sem1 && byKey.sem1.startDate) || '';
+      $('scSem1End').value = (byKey.sem1 && byKey.sem1.endDate) || '';
+      $('scSem2Start').value = (byKey.sem2 && byKey.sem2.startDate) || '';
+      $('scSem2End').value = (byKey.sem2 && byKey.sem2.endDate) || '';
+      if ($('scSemesterError')) $('scSemesterError').textContent = '';
+      if ($('scSemesterMsg')) {
+        $('scSemesterMsg').textContent = data.activeSemesterKey
+          ? ('Active: ' + (data.activeSemesterKey === 'sem2' ? 'Semester 2' : 'Semester 1'))
+          : '';
+      }
+    } catch (err) {
+      if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not load semesters.';
+    }
+  }
+
+  async function saveSemesters(e) {
+    e.preventDefault();
+    if ($('scSemesterError')) $('scSemesterError').textContent = '';
+    if ($('scSemesterMsg')) $('scSemesterMsg').textContent = 'Saving…';
+    try {
+      await api('/api/admin/school-semesters', {
+        method: 'PUT',
+        body: {
+          sem1: { startDate: $('scSem1Start').value, endDate: $('scSem1End').value },
+          sem2: { startDate: $('scSem2Start').value, endDate: $('scSem2End').value }
+        }
+      });
+      if ($('scSemesterMsg')) {
+        $('scSemesterMsg').style.color = '#16a34a';
+        $('scSemesterMsg').textContent = 'Semesters saved.';
+      }
+      await loadSemesters();
+    } catch (err) {
+      if ($('scSemesterMsg')) $('scSemesterMsg').textContent = '';
+      if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not save.';
+    }
   }
 
   async function refresh() {

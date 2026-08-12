@@ -99,64 +99,53 @@ async function ensureGradeSheets() {
 }
 
 async function listGradeTerms(classId) {
-  await ensureGradeSheets();
-  const rows = await getSheetRows(GRADE_TERMS_SHEET);
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][1]) !== String(classId)) continue;
-    out.push(parseTermRow(rows[i]));
-  }
-  out.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  return out;
+  const { listTermsForClass } = require('./schoolSemesterService');
+  return listTermsForClass(classId);
 }
 
 async function getGradeTerm(classId, termLabel) {
-  const terms = await listGradeTerms(classId);
-  return terms.find((t) => t.label === termLabel) || null;
+  const { getTermForClass } = require('./schoolSemesterService');
+  return getTermForClass(classId, termLabel);
 }
 
 async function getActiveTerm(classId) {
-  const terms = await listGradeTerms(classId);
-  if (!terms.length) return null;
-  const { todayStr } = require('../dateUtils');
-  const today = todayStr();
-  const current = terms.find((t) => t.startDate <= today && today <= t.endDate);
-  if (current) return current;
-  const past = terms.filter((t) => t.startDate <= today);
-  if (past.length) return past[past.length - 1];
-  return terms[0];
+  const { getActiveTermForClass } = require('./schoolSemesterService');
+  return getActiveTermForClass(classId);
 }
 
 async function listAllGradeTerms() {
-  await ensureGradeSheets();
-  const rows = await getSheetRows(GRADE_TERMS_SHEET);
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue;
-    out.push(parseTermRow(rows[i]));
-  }
-  out.sort((a, b) => a.classId.localeCompare(b.classId) || a.startDate.localeCompare(b.startDate));
-  return out;
+  const { listSchoolSemesters, asTerm } = require('./schoolSemesterService');
+  const semesters = await listSchoolSemesters();
+  return semesters
+    .filter((s) => s.startDate && s.endDate)
+    .map((s) => asTerm(s, '*'));
 }
 
 async function saveGradeTerm(classId, label, startDate, endDate) {
-  await ensureGradeSheets();
-  classId = String(classId);
-  label = String(label || '').trim();
-  startDate = formatSheetDate(startDate);
-  endDate = formatSheetDate(endDate);
-  if (!label || !startDate || !endDate) throw new Error('Term label and dates are required.');
-  if (endDate < startDate) throw new Error('End date must be on or after start date.');
-
-  const data = await getSheetRows(GRADE_TERMS_SHEET, { skipCache: true });
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]) !== classId || String(data[i][2]) !== label) continue;
-    await updateRange(GRADE_TERMS_SHEET, `D${i + 1}:E${i + 1}`, [[startDate, endDate]]);
-    return { termId: String(data[i][0]), classId, label, startDate, endDate };
-  }
-  const termId = newId('gt');
-  await appendRows(GRADE_TERMS_SHEET, [[termId, classId, label, startDate, endDate]]);
-  return { termId, classId, label, startDate, endDate };
+  // Legacy admin Terms API → school-wide semester slots
+  const { getSchoolSemester, saveSchoolSemesters, listSchoolSemesters } = require('./schoolSemesterService');
+  const matched = await getSchoolSemester(label);
+  const key = matched ? matched.key : (/2|term2|2학기/i.test(String(label || '')) ? 'sem2' : 'sem1');
+  const current = await listSchoolSemesters();
+  const payload = {
+    sem1: {
+      startDate: key === 'sem1' ? startDate : (current[0] && current[0].startDate),
+      endDate: key === 'sem1' ? endDate : (current[0] && current[0].endDate)
+    },
+    sem2: {
+      startDate: key === 'sem2' ? startDate : (current[1] && current[1].startDate),
+      endDate: key === 'sem2' ? endDate : (current[1] && current[1].endDate)
+    }
+  };
+  const result = await saveSchoolSemesters(payload);
+  const saved = result.semesters.find((s) => s.key === key);
+  return {
+    termId: key,
+    classId: '*',
+    label: saved ? saved.label : label,
+    startDate: saved ? saved.startDate : startDate,
+    endDate: saved ? saved.endDate : endDate
+  };
 }
 
 async function listGradeWeights(classId, term, subject) {

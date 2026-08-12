@@ -3,7 +3,6 @@ const { SEMESTER_PLANS_SHEET } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet } = require('../sheets');
 const { getHolidaysForRange } = require('../holiday');
 const { listEntries, resolveDay, getClassMeta } = require('./schoolCalendarService');
-const { getActiveTerm, listGradeTerms } = require('./gradeWeightService');
 const {
   listTeacherSubjectPrefs,
   resolveTeachingDays,
@@ -80,7 +79,7 @@ function examLabelForTitles(titles) {
  */
 async function buildSemesterWeeks(classId, term) {
   if (!term || !term.startDate || !term.endDate) {
-    throw new Error('Set term dates for this class first (Admin → Term dates).');
+    throw new Error('Set Semester 1 / 2 dates in Admin → Calendar first.');
   }
   const start = term.startDate;
   const end = term.endDate;
@@ -189,15 +188,22 @@ async function buildSemesterWeeks(classId, term) {
 }
 
 async function resolveTerm(classId, termLabel) {
+  const {
+    getTermForClass,
+    getActiveTermForClass,
+    listTermsForClass
+  } = require('./schoolSemesterService');
+
   if (termLabel) {
-    const terms = await listGradeTerms(classId);
-    const found = terms.find((t) => t.label === termLabel);
-    if (!found) throw new Error('Term not found for this class.');
+    const found = await getTermForClass(classId, termLabel);
+    if (!found) throw new Error('Semester not found. Set Semester 1 / 2 dates in Admin → Calendar.');
     return found;
   }
-  const active = await getActiveTerm(classId);
-  if (!active) throw new Error('No term dates set for this class. Ask Admin to set Term dates.');
-  return active;
+  const active = await getActiveTermForClass(classId);
+  if (active) return active;
+  const all = await listTermsForClass(classId);
+  if (all.length) return all[0];
+  throw new Error('Set Semester 1 and Semester 2 dates in Admin → Calendar first.');
 }
 
 async function getSemesterPlanMeta(teacherId, classId, subject, termLabel) {

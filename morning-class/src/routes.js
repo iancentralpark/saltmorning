@@ -130,6 +130,11 @@ const {
   listTeacherSemesterSubjects
 } = require('./services/semesterPlanService');
 const {
+  listSchoolSemesters,
+  saveSchoolSemesters,
+  getActiveSchoolSemester
+} = require('./services/schoolSemesterService');
+const {
   getAdminOverview,
   listTeachers,
   getTeacher,
@@ -1429,13 +1434,21 @@ router.get('/teacher/semester-plans', requireRole('teacher'), async (req, res) =
     if (!classId || !subject) {
       return res.status(400).json({ error: 'classId and subject are required.' });
     }
-    const plan = await getSemesterPlan(
-      req.session.teacherId,
-      classId,
-      subject,
-      termLabel || ''
-    );
-    res.json({ plan });
+    const [plan, semesters, active] = await Promise.all([
+      getSemesterPlan(
+        req.session.teacherId,
+        classId,
+        subject,
+        termLabel || ''
+      ),
+      listSchoolSemesters(),
+      getActiveSchoolSemester()
+    ]);
+    res.json({
+      plan,
+      semesters: semesters.filter((s) => s.startDate && s.endDate),
+      activeSemesterKey: active ? active.key : ''
+    });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not load semester plan.' });
   }
@@ -2671,6 +2684,28 @@ router.delete('/admin/school-calendar/:entryId', requireRole('admin'), async (re
   }
 });
 
+router.get('/admin/school-semesters', requireRole('admin'), async (req, res) => {
+  try {
+    const [semesters, active] = await Promise.all([
+      listSchoolSemesters(),
+      getActiveSchoolSemester()
+    ]);
+    res.json({ semesters, activeSemesterKey: active ? active.key : '' });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load school semesters.' });
+  }
+});
+
+router.put('/admin/school-semesters', requireRole('admin'), async (req, res) => {
+  try {
+    const result = await saveSchoolSemesters(req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save school semesters.' });
+  }
+});
+
+/** @deprecated Prefer /admin/school-semesters — kept for compatibility */
 router.get('/admin/terms', requireRole('admin'), async (req, res) => {
   try {
     res.json({ terms: await listAllGradeTerms() });

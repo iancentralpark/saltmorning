@@ -23,6 +23,7 @@ module.exports = {
   ANNOUNCEMENTS_SHEET: 'Announcements',
   ATTENDANCE_SHEET: 'Attendance_Data',
   SCHOOL_CALENDAR_SHEET: 'School_Calendar',
+  SCHOOL_SEMESTERS_SHEET: 'School_Semesters',
   STUDENT_PLANNED_ATTENDANCE_SHEET: 'Student_Planned_Attendance',
   MESSAGES_SHEET: 'Student_Messages',
   GRADES_DAILY_SHEET: 'Grades_Daily',
