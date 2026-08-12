@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810teacherhome">
+  <link rel="stylesheet" href="/css/app.css?v=20260812pwchange">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -20,13 +20,14 @@
   <div id="homeView" class="hidden">
     <div class="topbar teacher-topbar">
       <div>
-        <div class="brand" id="welcomeText">Teacher</div>
+        <button type="button" class="brand brand-link" id="welcomeText" title="Go to home timetable">Teacher</button>
         <p class="muted small" style="margin:0.15rem 0 0">Your weekly teaching schedule</p>
       </div>
       <div class="teacher-home-actions">
         <a class="btn btn-ghost" href="#homeClassesSection" id="homeClassesLink">My classes</a>
         <button type="button" class="btn btn-ghost" id="openStudentsBtn">Student directory</button>
         <button type="button" class="btn btn-ghost" id="openGlobalLessonBtn">My Lesson Plan</button>
+        <button type="button" class="btn btn-ghost" id="changePasswordBtn" data-change-password>Password</button>
         <button type="button" class="btn btn-ghost" id="logoutBtn">Log out</button>
       </div>
     </div>
@@ -44,10 +45,16 @@
   <div id="globalLessonView" class="hidden">
     <div class="topbar teacher-topbar">
       <div>
-        <button class="btn btn-ghost" id="globalLessonBackBtn" type="button">← Home</button>
-        <div class="brand">My Lesson Plan</div>
+        <button type="button" class="brand brand-link teacher-home-name" title="Go to home timetable">Teacher</button>
+        <div class="teacher-subnav">
+          <button class="btn btn-ghost" id="globalLessonBackBtn" type="button">← Home</button>
+          <div class="brand page-brand">My Lesson Plan</div>
+        </div>
       </div>
-      <button class="btn btn-ghost" id="globalLessonLogoutBtn" type="button">Log out</button>
+      <div class="teacher-home-actions">
+        <button type="button" class="btn btn-ghost" data-change-password>Password</button>
+        <button class="btn btn-ghost" id="globalLessonLogoutBtn" type="button">Log out</button>
+      </div>
     </div>
     <div class="card lp-cal-panel">
       <div id="lpSubjectsGlobal" class="lp-subjects-panel"></div>
@@ -68,10 +75,16 @@
   <div id="studentsView" class="hidden">
     <div class="topbar teacher-topbar">
       <div>
-        <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Home</button>
-        <div class="brand">Student directory</div>
+        <button type="button" class="brand brand-link teacher-home-name" title="Go to home timetable">Teacher</button>
+        <div class="teacher-subnav">
+          <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Home</button>
+          <div class="brand page-brand">Student directory</div>
+        </div>
       </div>
-      <button class="btn btn-ghost" id="studentsLogoutBtn" type="button">Log out</button>
+      <div class="teacher-home-actions">
+        <button type="button" class="btn btn-ghost" data-change-password>Password</button>
+        <button class="btn btn-ghost" id="studentsLogoutBtn" type="button">Log out</button>
+      </div>
     </div>
     <div class="card">
       <div id="teacherStudentRegistryMount"></div>
@@ -81,10 +94,16 @@
   <div id="classView" class="hidden">
     <div class="topbar teacher-topbar">
       <div>
-        <button class="btn btn-ghost" id="backBtn" type="button">← Home</button>
-        <div class="brand" id="classTitle"></div>
+        <button type="button" class="brand brand-link teacher-home-name" title="Go to home timetable">Teacher</button>
+        <div class="teacher-subnav">
+          <button class="btn btn-ghost" id="backBtn" type="button">← Home</button>
+          <div class="brand page-brand" id="classTitle"></div>
+        </div>
       </div>
-      <button class="btn btn-ghost" id="classLogoutBtn" type="button">Log out</button>
+      <div class="teacher-home-actions">
+        <button type="button" class="btn btn-ghost" data-change-password>Password</button>
+        <button class="btn btn-ghost" id="classLogoutBtn" type="button">Log out</button>
+      </div>
     </div>
     <div class="tabs">
       <button class="tab active" data-tab="attendance" type="button">Attendance</button>
@@ -409,6 +428,7 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260804restore"></script>
+<script src="/js/change-password.js?v=20260812pw"></script>
 <script src="/js/teacher-attendance.js?v=20260810attendance"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/teacher-reportcard.js?v=20260810reportcard"></script>
@@ -527,11 +547,30 @@
     hideAllAppViews();
     show($('homeView'));
     const p = getProfile(role);
-    if ($('welcomeText') && p) {
-      $('welcomeText').textContent = (p.name || 'Teacher') + ' · My timetable';
+    const label = (p && p.name) ? p.name : 'Teacher';
+    if ($('welcomeText')) {
+      $('welcomeText').textContent = label + ' · My timetable';
     }
+    document.querySelectorAll('.teacher-home-name').forEach((el) => {
+      el.textContent = label;
+    });
     SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
   }
+
+  function wireTeacherHomeNameClicks() {
+    const goHome = (e) => {
+      e.preventDefault();
+      openHome();
+      window.scrollTo(0, 0);
+    };
+    if ($('welcomeText')) $('welcomeText').addEventListener('click', goHome);
+    document.querySelectorAll('.teacher-home-name').forEach((el) => {
+      el.addEventListener('click', goHome);
+    });
+  }
+  wireTeacherHomeNameClicks();
+
+  SaltChangePassword.mount({ role, api });
 
   $('openStudentsBtn').addEventListener('click', () => {
     hideAllAppViews();

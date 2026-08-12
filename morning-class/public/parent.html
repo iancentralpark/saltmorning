@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260810autotr">
+  <link rel="stylesheet" href="/css/app.css?v=20260812pwchange">
 </head>
 <body>
 <div class="shell">
@@ -17,7 +17,10 @@
   <div id="appView" class="hidden pp-app">
     <div class="topbar">
       <div class="brand" id="welcomeText">Parent</div>
-      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="changePasswordBtn" type="button" data-change-password>Password</button>
+        <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      </div>
     </div>
 
     <div id="ppHero" class="pp-hero card"></div>
@@ -103,6 +106,7 @@
 </div>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260806login2"></script>
+<script src="/js/change-password.js?v=20260812pw"></script>
 <script src="/js/subject-colors.js?v=20260810ttpastel"></script>
 <script src="/js/messenger.js?v=20260810autotr"></script>
 <script src="/js/parent.js?v=20260810autotr"></script>
@@ -112,6 +116,7 @@
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
 
   SaltParent.init({ api, $, show, hide, escapeHtml });
+  SaltChangePassword.mount({ role, api });
 
   $('logoutBtn').addEventListener('click', () => {
     setToken(role, ''); setProfile(role, null); location.href = '/';
