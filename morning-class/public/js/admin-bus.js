@@ -12,6 +12,7 @@ window.SaltAdminBus = (function () {
   let sub = 'setup';
   let editRun = null;
   let selectedStudents = new Map();
+  let addRouteType = 'pickup';
 
   function $(id) { return deps.$(id); }
   function api(path, opts) { return deps.api(path, opts || {}, deps.role || 'admin'); }
@@ -90,7 +91,18 @@ window.SaltAdminBus = (function () {
       });
     }
 
-    if ($('busAddDismissBtn')) $('busAddDismissBtn').addEventListener('click', addDismissalTime);
+    if ($('busAddRouteBtn')) $('busAddRouteBtn').addEventListener('click', openAddRouteModal);
+    if ($('busAddRouteCancel')) $('busAddRouteCancel').addEventListener('click', closeAddRouteModal);
+    if ($('busAddRouteForm')) $('busAddRouteForm').addEventListener('submit', onCreateRoute);
+    if ($('busAddRouteModal')) {
+      $('busAddRouteModal').addEventListener('click', (e) => {
+        if (e.target === $('busAddRouteModal')) closeAddRouteModal();
+      });
+    }
+    document.querySelectorAll('#busAddRouteTypeToggle button').forEach((btn) => {
+      btn.addEventListener('click', () => setAddRouteType(btn.dataset.type || 'pickup'));
+    });
+
     if ($('busRouteSaveBtn')) $('busRouteSaveBtn').addEventListener('click', saveRouteCell);
     if ($('busRouteModalClose')) $('busRouteModalClose').addEventListener('click', closeRouteModal);
     if ($('busRouteModal')) {
@@ -249,25 +261,93 @@ window.SaltAdminBus = (function () {
     }
   }
 
-  async function addDismissalTime() {
-    const input = $('busNewDismissTime');
-    const time = input && input.value ? String(input.value).slice(0, 5) : '';
-    if (!/^\d{2}:\d{2}$/.test(time)) {
-      window.alert(t('admin.bus.needTime', 'Select a time.'));
-      return;
+  function setAddRouteType(type) {
+    addRouteType = type === 'dismissal' ? 'dismissal' : 'pickup';
+    document.querySelectorAll('#busAddRouteTypeToggle button').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.type === addRouteType);
+    });
+    const wrap = $('busAddRouteTimeWrap');
+    const timeEl = $('busAddRouteTime');
+    if (wrap) wrap.classList.toggle('hidden', addRouteType !== 'dismissal');
+    if (timeEl) {
+      timeEl.required = addRouteType === 'dismissal';
+      if (addRouteType !== 'dismissal') timeEl.value = '';
     }
-    if (dismissalTimes().includes(time)) {
-      window.alert(t('admin.bus.timeExists', 'That dismissal time already exists.'));
-      return;
-    }
+  }
+
+  function openAddRouteModal() {
     const buses = activeBuses();
     if (!buses.length) {
       window.alert(t('admin.bus.needBusFirst', 'Add a bus first.'));
+      openFleetModal();
       return;
     }
+    if ($('busAddRouteBusId')) {
+      $('busAddRouteBusId').innerHTML = buses.map((b) =>
+        '<option value="' + escapeHtml(b.busId) + '">' + escapeHtml(b.name) + '</option>'
+      ).join('');
+    }
+    setAddRouteType('pickup');
+    if ($('busAddRouteError')) $('busAddRouteError').textContent = '';
+    if ($('busAddRouteTime')) $('busAddRouteTime').value = '';
+    deps.show($('busAddRouteModal'));
+  }
+
+  function closeAddRouteModal() {
+    if ($('busAddRouteModal')) deps.hide($('busAddRouteModal'));
+    if ($('busAddRouteForm')) $('busAddRouteForm').reset();
+    setAddRouteType('pickup');
+  }
+
+  async function onCreateRoute(ev) {
+    ev.preventDefault();
+    const errEl = $('busAddRouteError');
+    if (errEl) errEl.textContent = '';
+    const busId = $('busAddRouteBusId') && $('busAddRouteBusId').value;
+    if (!busId) {
+      if (errEl) errEl.textContent = t('admin.bus.needBus', 'Select a bus.');
+      return;
+    }
+
     try {
-      const nextIndex = dismissalTimes().length;
+      if (addRouteType === 'pickup') {
+        const existing = findRun(busId, 'pickup');
+        if (existing) {
+          closeAddRouteModal();
+          await openRouteCell({ bus: busId, type: 'pickup', time: PICKUP_TIME });
+          return;
+        }
+        await api('/api/admin/bus/run', {
+          method: 'POST',
+          body: {
+            busId,
+            runType: 'pickup',
+            label: '등교',
+            startTime: PICKUP_TIME,
+            sortOrder: 10,
+            active: true
+          }
+        });
+        closeAddRouteModal();
+        await loadSetup(false);
+        await openRouteCell({ bus: busId, type: 'pickup', time: PICKUP_TIME });
+        return;
+      }
+
+      const time = $('busAddRouteTime') && String($('busAddRouteTime').value).slice(0, 5);
+      if (!/^\d{2}:\d{2}$/.test(time)) {
+        if (errEl) errEl.textContent = t('admin.bus.needTime', 'Select a time.');
+        return;
+      }
+
+      const times = dismissalTimes();
+      const already = times.includes(time);
+      const nextIndex = already ? times.indexOf(time) : times.length;
+      const buses = activeBuses();
+
+      // Dismissal time is school-wide: create for every bus so the grid row appears
       for (const bus of buses) {
+        if (findRun(bus.busId, 'dismissal', time)) continue;
         await api('/api/admin/bus/run', {
           method: 'POST',
           body: {
@@ -280,10 +360,12 @@ window.SaltAdminBus = (function () {
           }
         });
       }
-      if (input) input.value = '';
-      await loadSetup();
+
+      closeAddRouteModal();
+      await loadSetup(false);
+      await openRouteCell({ bus: busId, type: 'dismissal', time: time });
     } catch (e) {
-      window.alert(e.message);
+      if (errEl) errEl.textContent = e.message || 'Failed';
     }
   }
 
@@ -315,7 +397,7 @@ window.SaltAdminBus = (function () {
     const times = dismissalTimes();
     if (!times.length) {
       mount.innerHTML = '<span class="muted small">' +
-        escapeHtml(t('admin.bus.noDismissTimes', 'No dismissal times yet — add 14:30, 15:30…')) +
+        escapeHtml(t('admin.bus.noDismissTimes', 'No dismissal times yet — use + Add route → 하교')) +
         '</span>';
       return;
     }
@@ -342,7 +424,14 @@ window.SaltAdminBus = (function () {
     const times = dismissalTimes();
 
     if (!buses.length) {
-      mount.innerHTML = '<p class="muted">' + escapeHtml(t('admin.bus.noBuses', 'No buses yet.')) + '</p>';
+      mount.innerHTML =
+        '<div class="bus-tt-empty-state">' +
+          '<p class="muted">' + escapeHtml(t('admin.bus.noBuses', 'No buses yet.')) + '</p>' +
+          '<button type="button" class="btn btn-primary" id="busEmptyAddBus">' +
+            escapeHtml(t('admin.bus.addBusBtn', '+ Add bus')) +
+          '</button></div>';
+      const btn = mount.querySelector('#busEmptyAddBus');
+      if (btn) btn.addEventListener('click', () => openFleetModal());
       return;
     }
 

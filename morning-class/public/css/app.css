@@ -4302,7 +4302,14 @@ body.buddy-resize-active {
   border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
   background: #f7f8f5; padding: 0.3rem 0.55rem; font-size: 0.85rem;
 }
-.bus-dismiss-add { display: flex; gap: 0.35rem; align-items: center; }
+.bus-grid-toolbar {
+  display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+  justify-content: space-between; margin: 0.35rem 0 0.75rem;
+}
+.bus-grid-toolbar .muted { margin: 0; flex: 1; min-width: 200px; }
+.bus-type-toggle { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.bus-type-toggle .btn.active { background: var(--sage-soft); border-color: var(--sage); }
+.bus-tt-empty-state { display: flex; flex-direction: column; gap: 0.65rem; align-items: flex-start; padding: 0.5rem 0; }
 
 .bus-route-grid-wrap { margin-top: 0.75rem; }
 .bus-tt-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
