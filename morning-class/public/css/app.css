@@ -133,17 +133,24 @@ a:hover { color: var(--gold); }
     font-size: 0.72rem;
   }
   .teacher-home-tt .tt-slot-time {
-    font-size: 0.62rem;
+    display: none;
   }
-  .teacher-home-tt .tt-slot-teacher,
   .teacher-home-tt .tt-slot-notes {
     display: none;
   }
   .teacher-home-tt .tt-period-label,
   .teacher-home-tt .tt-week-period-grid .tt-period-label {
-    min-width: 4.25rem;
-    font-size: 0.72rem;
-    padding: 0.25rem 0.35rem;
+    min-width: 5.25rem;
+    width: 5.25rem;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.3rem;
+  }
+  .teacher-home-tt .tt-period-name { font-size: 0.72rem; }
+  .teacher-home-tt .tt-period-time { font-size: 0.62rem !important; }
+  .teacher-home-tt .tt-slot-teacher {
+    display: block;
+    font-size: 0.65rem;
+    color: var(--muted);
   }
 }
 @media (max-width: 899px) {
@@ -2667,8 +2674,25 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .tt-week-period-grid .tt-period-label {
   white-space: nowrap;
-  min-width: 5.5rem;
+  min-width: 6.25rem;
+  width: 6.5rem;
+  vertical-align: middle;
+  text-align: left;
+  background: #f4f1ea;
+  border-right: 1px solid var(--border-soft);
 }
+.tt-period-name {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.2;
+}
+.tt-period-time {
+  margin-top: 0.15rem;
+  font-size: 0.7rem !important;
+  white-space: nowrap;
+}
+.tt-week-period-grid .tt-slot-time { display: none; }
 .tt-day-col {
   border: 1px solid var(--border-soft);
   border-radius: 0.65rem;

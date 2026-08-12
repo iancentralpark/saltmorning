@@ -405,6 +405,13 @@ window.SaltParent = (function() {
     $('ppTimetable').innerHTML = '<p class="muted">Loading…</p>';
     try {
       const data = await api('/api/parent/timetable');
+      if (window.SaltTimetable && typeof SaltTimetable.renderWeekGrid === 'function') {
+        $('ppTimetable').innerHTML = SaltTimetable.renderWeekGrid(data.byDay || {}, {
+          lessonPeriods: data.lessonPeriods || [],
+          bellSchedule: data.bellSchedule || []
+        });
+        return;
+      }
       const byDay = data.byDay || {};
       let html = '<div class="pp-tt-grid">';
       for (let d = 1; d <= 5; d++) {
@@ -422,7 +429,6 @@ window.SaltParent = (function() {
             return '<div class="pp-tt-slot pp-tt-slot-colored" style="background:' + color.bg +
               ';border-left-color:' + color.border + ';">' +
               '<strong>' + escapeHtml(s.subject || '') + '</strong>' +
-              '<span>' + escapeHtml((s.startTime || '') + '–' + (s.endTime || '')) + '</span>' +
               '<span class="muted">' + escapeHtml(s.teacherName || s.room || '') + '</span>' +
             '</div>';
           }).join('');

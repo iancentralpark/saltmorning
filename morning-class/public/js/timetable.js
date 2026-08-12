@@ -53,12 +53,14 @@
     return 'background:' + c.bg + ';border-left-color:' + c.border + ';';
   }
 
-  function slotCard(slot, canEdit) {
+  function slotCard(slot, canEdit, options) {
+    const opts = options || {};
+    const hideTime = !!opts.hideTime;
     if (slot.isBreak) {
       return (
         '<div class="tt-slot tt-slot-break tt-slot-colored" style="' +
         subjectInlineStyle(slot.subject || 'Break', true) + '">' +
-        '<div class="tt-slot-time">' + escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime) + '</div>' +
+        (hideTime ? '' : '<div class="tt-slot-time">' + escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime) + '</div>') +
         '<div class="tt-slot-subject"><em>' + escapeHtml(slot.subject) + '</em></div>' +
         '</div>'
       );
@@ -89,12 +91,18 @@
         '</div>'
       : '';
     const classId = slot.classId || (slot.ownerType === 'class' ? slot.ownerId : '') || '';
+    const timeLine = hideTime
+      ? ''
+      : '<div class="tt-slot-time">' + time + lock + '</div>';
+    const subjectLine = hideTime
+      ? '<div class="tt-slot-subject"><strong>' + titleLine + '</strong>' + lock + '</div>'
+      : '<div class="tt-slot-subject"><strong>' + titleLine + '</strong></div>';
     return (
       '<div class="tt-slot tt-slot-colored' + (slot.locked ? ' tt-slot-locked' : '') +
       '" data-id="' + escapeHtml(slot.entryId) + '" style="' +
       subjectInlineStyle(slot.subject, false, classId) + '">' +
-      '<div class="tt-slot-time">' + time + lock + '</div>' +
-      '<div class="tt-slot-subject"><strong>' + titleLine + '</strong></div>' +
+      timeLine +
+      subjectLine +
       teacherLine +
       roomLine +
       notes +
@@ -118,6 +126,51 @@
     return null;
   }
 
+  function ordinalPeriod(n) {
+    const num = Number(n) || 0;
+    if (num === 1) return '1st';
+    if (num === 2) return '2nd';
+    if (num === 3) return '3rd';
+    return num + 'th';
+  }
+
+  function periodDisplayLabel(period, lessonNumber) {
+    if (!period) return '';
+    if (period.periodType && period.periodType !== 'lesson') {
+      return period.label || period.subject || 'Break';
+    }
+    const raw = String(period.label || '').trim();
+    if (raw && !/^p(?:eriod)?\s*\d+$/i.test(raw) && !/^\d+$/.test(raw)) {
+      return raw;
+    }
+    const n = lessonNumber || Number((raw.match(/\d+/) || [])[0]) || 0;
+    if (n) return ordinalPeriod(n) + ' Period';
+    return raw || 'Period';
+  }
+
+  function inferPeriodsFromByDay(byDay) {
+    const map = new Map();
+    DAYS.forEach((d) => {
+      ((byDay && byDay[d.value]) || []).forEach((s) => {
+        const start = String(s.startTime || '').trim();
+        const end = String(s.endTime || '').trim();
+        if (!start && !end) return;
+        const key = start + '|' + end;
+        if (map.has(key)) return;
+        map.set(key, {
+          periodId: s.periodId || ('auto_' + start.replace(':', '')),
+          label: s.isBreak ? (s.subject || 'Break') : '',
+          startTime: start,
+          endTime: end,
+          periodType: s.isBreak ? 'break' : 'lesson'
+        });
+      });
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      String(a.startTime).localeCompare(String(b.startTime))
+    );
+  }
+
   function renderStackedWeekGrid(byDay) {
     let html = '<div class="tt-week-grid">';
     DAYS.forEach((d) => {
@@ -136,15 +189,16 @@
 
   /**
    * Week grid aligned to bell-schedule time slots.
-   * Empty periods keep their row so e.g. period 5 Library stays on row 5 every day.
+   * Left column = period + time; day cells show subject/teacher only.
    */
   function renderWeekGrid(byDay, options) {
     const opts = options || {};
-    const bellSchedule = opts.bellSchedule || [];
+    let bellSchedule = opts.bellSchedule || [];
     const lessonPeriods = opts.lessonPeriods || bellSchedule.filter((p) => p.periodType === 'lesson');
-    const periods = bellSchedule.length
-      ? bellSchedule
-      : lessonPeriods;
+    let periods = bellSchedule.length ? bellSchedule : lessonPeriods;
+    if (!periods.length) {
+      periods = inferPeriodsFromByDay(byDay);
+    }
 
     if (!periods.length) {
       return renderStackedWeekGrid(byDay);
@@ -158,14 +212,18 @@
     });
     html += '</tr></thead><tbody>';
 
+    let lessonNumber = 0;
     periods.forEach((period) => {
       const isBreak = period.periodType && period.periodType !== 'lesson';
+      if (!isBreak) lessonNumber += 1;
+      const label = periodDisplayLabel(period, isBreak ? 0 : lessonNumber);
       html += '<tr' + (isBreak ? ' class="tt-period-break-row"' : '') + '>';
       html +=
         '<th class="tt-period-label">' +
-        '<div>' + escapeHtml(period.label || period.periodId) + '</div>' +
-        '<div class="muted small">' + escapeHtml(period.startTime) + '–' + escapeHtml(period.endTime) + '</div>' +
-        '</th>';
+        '<div class="tt-period-name">' + escapeHtml(label) + '</div>' +
+        '<div class="tt-period-time muted small">' +
+        escapeHtml(period.startTime || '') + '–' + escapeHtml(period.endTime || '') +
+        '</div></th>';
 
       DAYS.forEach((d) => {
         if (isBreak) {
@@ -180,7 +238,7 @@
         }
         const entry = findEntryForPeriod((byDay && byDay[d.value]) || [], period, lessonPeriods);
         html += '<td class="tt-cell-slot">';
-        if (entry) html += slotCard(entry, false);
+        if (entry) html += slotCard(entry, false, { hideTime: true });
         else html += '<div class="tt-day-empty muted small">—</div>';
         html += '</td>';
       });
