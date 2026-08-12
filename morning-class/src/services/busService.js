@@ -206,11 +206,14 @@ async function saveRun(payload) {
   const runType = String(payload.runType || RUN_PICKUP).toLowerCase() === RUN_DISMISSAL
     ? RUN_DISMISSAL
     : RUN_PICKUP;
-  const startTime = String(payload.startTime || '').trim().slice(0, 5);
+  let startTime = String(payload.startTime || '').trim().slice(0, 5);
+  if (runType === RUN_PICKUP && !/^\d{2}:\d{2}$/.test(startTime)) {
+    startTime = '08:00'; // Morning pickup has no staggered times — shared boarding window
+  }
   if (!/^\d{2}:\d{2}$/.test(startTime)) throw new Error('Start time is required (HH:MM).');
   const runId = String(payload.runId || '').trim() || newId('run');
   const label = String(payload.label || '').trim() ||
-    (runType === RUN_PICKUP ? 'Morning pickup' : 'Dismissal') + ' ' + startTime;
+    (runType === RUN_PICKUP ? '등교' : ('하교 ' + startTime));
   const now = formatDateTimeNow(TIMEZONE);
   const row = [
     runId,
@@ -223,11 +226,21 @@ async function saveRun(payload) {
     now
   ];
   const rows = await getSheetRows(BUS_RUNS_SHEET, { skipCache: true });
+  // Update by runId, or reuse existing bus+type(+time for dismissal) row
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === runId) {
       await updateRange(BUS_RUNS_SHEET, `A${i + 1}:H${i + 1}`, [row]);
       return parseRun(row, i + 1);
     }
+  }
+  for (let i = 1; i < rows.length; i++) {
+    if (!parseBool(rows[i][6], true)) continue;
+    if (String(rows[i][1]) !== busId) continue;
+    if (String(rows[i][2] || '').toLowerCase() !== runType) continue;
+    if (runType === RUN_DISMISSAL && String(rows[i][4] || '').slice(0, 5) !== startTime) continue;
+    row[0] = String(rows[i][0]) || runId;
+    await updateRange(BUS_RUNS_SHEET, `A${i + 1}:H${i + 1}`, [row]);
+    return parseRun(row, i + 1);
   }
   await appendRows(BUS_RUNS_SHEET, [row]);
   return parseRun(row, null);
