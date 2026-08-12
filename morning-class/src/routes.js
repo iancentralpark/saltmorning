@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
-const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified } = require('./services/authService');
+const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, changePassword } = require('./services/authService');
 const { requireRole } = require('./auth/tokenAuth');
 const {
   getTeacherClasses,
@@ -307,6 +307,23 @@ router.post('/auth/login', async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Login failed.' });
+  }
+});
+
+router.post('/auth/change-password', requireRole('student', 'parent', 'teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const result = await changePassword(
+      req.session,
+      body.currentPassword,
+      body.newPassword,
+      body.confirmPassword
+    );
+    res.json(result);
+  } catch (e) {
+    const msg = e.message || 'Could not change password.';
+    const status = /incorrect|match|different|at least|Enter/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 
