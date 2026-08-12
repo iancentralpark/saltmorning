@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260812bus1">
+  <link rel="stylesheet" href="/css/app.css?v=20260812bus3">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -51,14 +51,14 @@
         <div class="class-list" id="assignedList"></div>
       </div>
     </div>
-    <div class="card" id="homeBusDutySection">
+    <div class="card bus-duty-section" id="homeBusDutySection">
       <div class="section-title">Bus duty today</div>
-      <p class="muted small">Runs you are assigned to. Early leave (조퇴) students are already removed from dismissal lists.</p>
-      <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
-        <label>Date <input type="date" id="teacherBusDutyDate"></label>
+      <p class="muted small">Your assigned runs. No-show is for morning pickup only.</p>
+      <div class="bus-duty-toolbar">
+        <label class="att-date-label">Date <input type="date" id="teacherBusDutyDate"></label>
         <button type="button" class="btn btn-ghost" id="teacherBusDutyRefresh">Refresh</button>
       </div>
-      <div id="teacherBusDutyBody"><p class="muted">Loading…</p></div>
+      <div id="teacherBusDutyBody" class="bus-duty-body"><p class="muted">Loading…</p></div>
     </div>
     <div class="card hidden" id="homeHeadReportSection">
       <div class="section-title">Report cards — Head Teacher</div>
@@ -709,45 +709,48 @@
         body.innerHTML = '<p class="muted">No bus duty assigned for this day.</p>';
         return;
       }
-      body.innerHTML = runs.map((run) =>
-        '<section class="bus-run-card" style="margin-bottom:1rem">' +
-          '<header><strong>' + escapeHtml(run.busName) + '</strong> · ' +
-          escapeHtml(run.label || run.runType) + ' ' + escapeHtml(run.startTime || '') +
-          ' <span class="muted">(' + escapeHtml(String(run.riderCount || 0)) + ')</span></header>' +
-          '<div class="muted small">' +
-            escapeHtml([run.driverName, run.driverPhone, run.vehiclePlate].filter(Boolean).join(' · ')) +
-          '</div>' +
-          '<ul class="bus-rider-list">' +
-            (run.riders || []).map((r) =>
-              '<li class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
-                '<div><strong>' + escapeHtml(r.name) + '</strong>' +
+      body.innerHTML = '<div class="bus-duty-grid">' + runs.map((run) => {
+        const isPickup = run.runType === 'pickup';
+        const typeLabel = isPickup ? 'Pickup' : 'Dismissal';
+        return '<section class="bus-duty-card">' +
+          '<header class="bus-duty-head">' +
+            '<div class="bus-duty-title"><strong>' + escapeHtml(run.busName) + '</strong> · ' +
+            escapeHtml(typeLabel) + ' <span class="muted">' + escapeHtml(run.startTime || '') + '</span></div>' +
+            '<div class="muted small">' + escapeHtml(String(run.riderCount || 0)) + ' riders</div>' +
+            '<div class="muted small">' +
+              escapeHtml([run.driverName, run.driverPhone, run.vehiclePlate].filter(Boolean).join(' · ')) +
+            '</div>' +
+          '</header>' +
+          '<table class="bus-duty-table"><thead><tr>' +
+            '<th>Student</th><th>Contact</th>' +
+            (isPickup ? '<th></th>' : '') +
+          '</tr></thead><tbody>' +
+            (run.riders || []).map((r) => {
+              const contact = [
+                r.emergency && r.emergency.parentPhone,
+                r.emergency && r.emergency.emergencyContact,
+                r.emergency && r.emergency.emergencyPhone
+              ].filter(Boolean).join(' · ') || '—';
+              return '<tr class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
+                '<td><strong>' + escapeHtml(r.name) + '</strong>' +
                 (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
-                (r.noShow ? ' <span class="error">No-show</span>' : '') +
-                '</div>' +
-                '<div class="muted small">' +
-                  escapeHtml([
-                    r.emergency && r.emergency.parentPhone,
-                    r.emergency && r.emergency.emergencyContact,
-                    r.emergency && r.emergency.emergencyPhone
-                  ].filter(Boolean).join(' · ') || 'No emergency contact on file') +
-                '</div>' +
-                '<button type="button" class="btn btn-ghost t-bus-ns" data-run="' +
-                escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">Mark no-show</button>' +
-              '</li>'
-            ).join('') || '<li class="muted">No riders</li>' +
-          '</ul>' +
-        '</section>'
-      ).join('');
+                (r.noShow ? ' <span class="error">No-show</span>' : '') + '</td>' +
+                '<td class="muted small">' + escapeHtml(contact) + '</td>' +
+                (isPickup
+                  ? '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ns" data-run="' +
+                    escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">No-show</button></td>'
+                  : '') +
+              '</tr>';
+            }).join('') || '<tr><td colspan="3" class="muted">No riders</td></tr>' +
+          '</tbody></table></section>';
+      }).join('') + '</div>';
+
       body.querySelectorAll('.t-bus-ns').forEach((btn) => {
         btn.addEventListener('click', async () => {
           try {
             await api('/api/teacher/bus/noshow', {
               method: 'POST',
-              body: {
-                dateStr,
-                runId: btn.dataset.run,
-                studentId: btn.dataset.sid
-              }
+              body: { dateStr, runId: btn.dataset.run, studentId: btn.dataset.sid }
             }, role);
             await loadBusDuty();
           } catch (e) {

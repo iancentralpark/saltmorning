@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260812bus1">
+  <link rel="stylesheet" href="/css/app.css?v=20260812bus3">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -384,84 +384,101 @@
     </div>
 
     <div id="panelBus" class="card hidden">
-      <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.5rem;align-items:center">
+      <div class="admin-toolbar bus-toolbar">
         <div class="bus-subnav">
-          <button type="button" class="btn btn-ghost active" id="busSubBoard" data-i18n="admin.bus.dailyBoard">Daily board</button>
-          <button type="button" class="btn btn-ghost" id="busSubSetup" data-i18n="admin.bus.setup">Setup</button>
+          <button type="button" class="btn btn-ghost active" id="busSubSetup" data-i18n="admin.bus.setup">Semester routes</button>
+          <button type="button" class="btn btn-ghost" id="busSubBoard" data-i18n="admin.bus.dailyBoard">Daily board</button>
         </div>
-        <label class="att-date-label"><span data-i18n="admin.bus.date">Date</span>
-          <input type="date" id="busBoardDate">
-        </label>
-        <button type="button" class="btn btn-primary" id="busBoardRefresh" data-i18n="common.refresh">Refresh</button>
+        <div class="bus-board-tools hidden" id="busBoardTools">
+          <label class="att-date-label"><span data-i18n="admin.bus.date">Date</span>
+            <input type="date" id="busBoardDate">
+          </label>
+          <button type="button" class="btn btn-ghost" id="busBoardRefresh" data-i18n="common.refresh">Refresh</button>
+        </div>
       </div>
-      <p class="muted small" data-i18n="admin.bus.help">
-        Morning pickup and dismissal runs. Early leave (조퇴) removes the student from all dismissal buses that day.
-      </p>
 
-      <div id="busBoardPanel">
+      <div id="busSetupPanel">
+        <div class="bus-fleet-bar">
+          <div class="bus-fleet-label" data-i18n="admin.bus.fleet">Bus fleet</div>
+          <div id="busFleetList" class="bus-fleet-list"></div>
+          <button type="button" class="btn btn-ghost" id="busAddFleetBtn" data-i18n="admin.bus.addBusBtn">+ Add bus</button>
+        </div>
+
+        <div class="bus-route-layout">
+          <section class="bus-route-builder">
+            <h4 data-i18n="admin.bus.routeBuilder">Route (semester default)</h4>
+            <p class="muted small" data-i18n="admin.bus.routeHelp">Pick bus → pickup or dismissal → time → duty teacher → add students. Parent notices update the daily board automatically.</p>
+
+            <label><span data-i18n="admin.bus.bus">Bus</span>
+              <select id="busRouteBusId" required><option value="">—</option></select>
+            </label>
+
+            <div class="bus-field">
+              <span class="bus-field-label" data-i18n="admin.bus.runType">Type</span>
+              <div class="bus-type-toggle" id="busRouteTypeToggle">
+                <button type="button" class="btn btn-ghost active" data-type="pickup" data-i18n="admin.bus.pickup">Pickup (등교)</button>
+                <button type="button" class="btn btn-ghost" data-type="dismissal" data-i18n="admin.bus.dismissal">Dismissal (하교)</button>
+              </div>
+            </div>
+
+            <div class="bus-field">
+              <span class="bus-field-label" data-i18n="admin.bus.time">Time</span>
+              <div class="bus-time-presets" id="busTimePresets"></div>
+              <input type="time" id="busRouteTime" class="bus-time-input">
+            </div>
+
+            <label><span data-i18n="admin.bus.teacher">Duty teacher</span>
+              <select id="busRouteTeacherId"><option value="">—</option></select>
+            </label>
+
+            <div class="bus-field">
+              <span class="bus-field-label" data-i18n="admin.bus.weekdays">Weekdays</span>
+              <div id="busRouteDays" class="bus-days"></div>
+            </div>
+
+            <div class="bus-field">
+              <span class="bus-field-label" data-i18n="admin.bus.students">Students</span>
+              <input type="search" id="busStudentSearch" placeholder="Search name…" autocomplete="off">
+              <div id="busStudentSearchResults" class="bus-search-results hidden"></div>
+              <div id="busStudentChips" class="bus-student-chips"></div>
+            </div>
+
+            <div class="bus-route-actions">
+              <button type="button" class="btn btn-primary" id="busRouteSaveBtn" data-i18n="admin.bus.saveRoute">Save route</button>
+              <button type="button" class="btn btn-ghost" id="busRouteNewBtn" data-i18n="admin.bus.newRoute">New route</button>
+            </div>
+            <p class="error" id="busRouteError"></p>
+            <p class="ok" id="busRouteOk"></p>
+          </section>
+
+          <section class="bus-saved-routes">
+            <h4 data-i18n="admin.bus.savedRoutes">Saved routes</h4>
+            <div id="busSavedRoutes"><p class="muted small" data-i18n="common.loading">Loading…</p></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="busBoardPanel" class="hidden">
+        <p class="muted small" data-i18n="admin.bus.boardHelp">Today’s boarding list. No-show applies to morning pickup only.</p>
         <div id="busBoardBody"><p class="muted" data-i18n="common.loading">Loading…</p></div>
       </div>
+    </div>
 
-      <div id="busSetupPanel" class="hidden">
-        <div class="bus-forms">
-          <form id="busSaveBusForm" class="bus-form-card">
-            <h4 data-i18n="admin.bus.addBus">Add / update bus</h4>
-            <input type="hidden" id="busEditId">
-            <label><span data-i18n="admin.bus.name">Name</span> <input id="busName" required placeholder="Bus A"></label>
-            <label><span data-i18n="admin.bus.driver">Driver</span> <input id="busDriverName"></label>
-            <label><span data-i18n="admin.bus.driverPhone">Driver phone</span> <input id="busDriverPhone"></label>
-            <label><span data-i18n="admin.bus.plate">Plate</span> <input id="busPlate"></label>
-            <label><span data-i18n="admin.bus.vehicle">Vehicle</span> <input id="busVehicleInfo" placeholder="Hyundai County…"></label>
-            <label><span data-i18n="admin.bus.notes">Notes</span> <input id="busNotes"></label>
+    <div id="busFleetModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card bus-fleet-modal">
+        <h3 id="busFleetModalTitle" data-i18n="admin.bus.addBus">Add bus</h3>
+        <form id="busFleetForm" class="bus-fleet-form">
+          <input type="hidden" id="busEditId">
+          <label><span data-i18n="admin.bus.name">Name</span> <input id="busName" required placeholder="1호차"></label>
+          <label><span data-i18n="admin.bus.driver">Driver</span> <input id="busDriverName"></label>
+          <label><span data-i18n="admin.bus.driverPhone">Driver phone</span> <input id="busDriverPhone"></label>
+          <label><span data-i18n="admin.bus.plate">Plate</span> <input id="busPlate"></label>
+          <label><span data-i18n="admin.bus.vehicle">Vehicle</span> <input id="busVehicleInfo"></label>
+          <div class="bus-modal-actions">
+            <button type="button" class="btn btn-ghost" id="busFleetCancel" data-i18n="common.cancel">Cancel</button>
             <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
-          </form>
-
-          <form id="busSaveRunForm" class="bus-form-card">
-            <h4 data-i18n="admin.bus.addRun">Add run</h4>
-            <label><span data-i18n="admin.bus.bus">Bus</span> <select id="busRunBusId" required></select></label>
-            <label><span data-i18n="admin.bus.runType">Type</span>
-              <select id="busRunType">
-                <option value="pickup">Pickup</option>
-                <option value="dismissal">Dismissal</option>
-              </select>
-            </label>
-            <label><span data-i18n="admin.bus.label">Label</span> <input id="busRunLabel" placeholder="Optional"></label>
-            <label><span data-i18n="admin.bus.time">Start time</span> <input id="busRunTime" type="time" required></label>
-            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
-          </form>
-
-          <form id="busSaveAssignForm" class="bus-form-card">
-            <h4 data-i18n="admin.bus.addAssign">Assign student</h4>
-            <label><span data-i18n="admin.bus.student">Student</span> <select id="busAssignStudentId" required></select></label>
-            <label><span data-i18n="admin.bus.run">Run</span> <select id="busAssignRunId" required></select></label>
-            <div id="busAssignDays" class="bus-days"></div>
-            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
-          </form>
-
-          <form id="busSaveDutyForm" class="bus-form-card">
-            <h4 data-i18n="admin.bus.addDuty">Duty teacher</h4>
-            <label><span data-i18n="admin.bus.teacher">Teacher</span> <select id="busDutyTeacherId" required></select></label>
-            <label><span data-i18n="admin.bus.run">Run</span> <select id="busDutyRunId" required></select></label>
-            <div id="busDutyDays" class="bus-days"></div>
-            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
-          </form>
-
-          <form id="busOverrideForm" class="bus-form-card">
-            <h4 data-i18n="admin.bus.override">Same-day override</h4>
-            <label><span data-i18n="admin.bus.date">Date</span> <input type="date" id="busOvDate"></label>
-            <label><span data-i18n="admin.bus.run">Run</span> <select id="busOvRunId" required></select></label>
-            <label><span data-i18n="admin.bus.student">Student</span> <select id="busOvStudentId" required></select></label>
-            <label><span data-i18n="admin.bus.action">Action</span>
-              <select id="busOvAction">
-                <option value="exclude">Exclude</option>
-                <option value="include">Include</option>
-              </select>
-            </label>
-            <label><span data-i18n="admin.bus.reason">Reason</span> <input id="busOvReason"></label>
-            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
-          </form>
-        </div>
-        <div id="busSetupBody"></div>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -471,7 +488,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
-<script src="/js/i18n.js?v=20260812bus1"></script>
+<script src="/js/i18n.js?v=20260812bus3"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
 <script src="/js/teacher-analytics.js?v=20260811school"></script>
@@ -483,7 +500,7 @@
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/admin-school-calendar.js?v=20260812sem3"></script>
-<script src="/js/admin-bus.js?v=20260812bus1"></script>
+<script src="/js/admin-bus.js?v=20260812bus3"></script>
 <script>
 (function() {
   const role = SaltApp.getToken('principal') ? 'principal' : 'admin';

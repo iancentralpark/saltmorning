@@ -447,6 +447,14 @@ async function reportNoShow(payload, actor) {
   const runId = String(payload.runId || '').trim();
   const studentId = String(payload.studentId || '').trim();
   if (!runId || !studentId) throw new Error('Run and student are required.');
+
+  const runs = await listRuns({ includeInactive: true });
+  const run = runs.find((r) => r.runId === runId);
+  if (!run) throw new Error('Run not found.');
+  if (run.runType !== RUN_PICKUP) {
+    throw new Error('No-show can only be recorded for morning pickup runs.');
+  }
+
   const note = String(payload.note || '').trim();
   const row = [
     newId('bns'),
