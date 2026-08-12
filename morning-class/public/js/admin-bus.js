@@ -1,8 +1,11 @@
-/* Salt Morning Class — Admin Bus (timetable grid) */
+/* Salt Morning Class — Admin Bus (weekday schedule view) */
 window.SaltAdminBus = (function () {
   const DAY_LABELS = [
-    { n: 1, label: 'Mon' }, { n: 2, label: 'Tue' }, { n: 3, label: 'Wed' },
-    { n: 4, label: 'Thu' }, { n: 5, label: 'Fri' }
+    { n: 1, label: 'Mon', ko: '월' },
+    { n: 2, label: 'Tue', ko: '화' },
+    { n: 3, label: 'Wed', ko: '수' },
+    { n: 4, label: 'Thu', ko: '목' },
+    { n: 5, label: 'Fri', ko: '금' }
   ];
   const PICKUP_TIME = '08:00';
 
@@ -12,7 +15,9 @@ window.SaltAdminBus = (function () {
   let sub = 'setup';
   let editRun = null;
   let selectedStudents = new Map();
-  let addRouteType = 'pickup';
+  let setupWeekday = 1; // 1 Mon .. 5 Fri
+  let boardWeekday = 1;
+  let boardWeekMonday = null; // YYYY-MM-DD of Monday
 
   function $(id) { return deps.$(id); }
   function api(path, opts) { return deps.api(path, opts || {}, deps.role || 'admin'); }
@@ -23,12 +28,41 @@ window.SaltAdminBus = (function () {
 
   function todayISO() {
     const d = new Date();
+    return formatISO(d);
+  }
+
+  function formatISO(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
       String(d.getDate()).padStart(2, '0');
   }
 
+  function parseISO(s) {
+    return new Date(String(s).slice(0, 10) + 'T12:00:00');
+  }
+
+  function mondayOf(dateStr) {
+    const d = parseISO(dateStr || todayISO());
+    const dow = d.getDay(); // 0 Sun
+    const offset = dow === 0 ? -6 : 1 - dow;
+    d.setDate(d.getDate() + offset);
+    return formatISO(d);
+  }
+
+  function dateForWeekday(mondayStr, weekday) {
+    // weekday 1=Mon .. 5=Fri
+    const d = parseISO(mondayStr);
+    d.setDate(d.getDate() + (Number(weekday) - 1));
+    return formatISO(d);
+  }
+
+  function jsDowToWeekday(jsDow) {
+    if (jsDow === 0 || jsDow === 6) return 1;
+    return jsDow; // 1..5
+  }
+
   function activeBuses() {
-    return (setup && setup.buses || []).filter((b) => b.active !== false);
+    return (setup && setup.buses || []).filter((b) => b.active !== false)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
   function dismissalTimes() {
@@ -56,11 +90,16 @@ window.SaltAdminBus = (function () {
     }) || null;
   }
 
+  function studentName(id) {
+    const st = (setup.students || []).find((s) => s.studentId === id);
+    return st ? st.name : id;
+  }
+
   function daysCheckboxesHtml(selected) {
     const set = new Set((selected || [1, 2, 3, 4, 5]).map(Number));
     return DAY_LABELS.map((d) =>
       '<label class="bus-day"><input type="checkbox" data-days="route" value="' + d.n + '"' +
-      (set.has(d.n) ? ' checked' : '') + '> ' + d.label + '</label>'
+      (set.has(d.n) ? ' checked' : '') + '> ' + d.ko + '</label>'
     ).join(' ');
   }
 
@@ -74,13 +113,21 @@ window.SaltAdminBus = (function () {
 
   function init(options) {
     deps = options || {};
-    const dateEl = $('busBoardDate');
-    if (dateEl && !dateEl.value) dateEl.value = todayISO();
+    const today = todayISO();
+    boardWeekMonday = mondayOf(today);
+    boardWeekday = jsDowToWeekday(parseISO(today).getDay());
+    setupWeekday = boardWeekday;
 
     if ($('busSubBoard')) $('busSubBoard').addEventListener('click', () => setSub('board'));
     if ($('busSubSetup')) $('busSubSetup').addEventListener('click', () => setSub('setup'));
     if ($('busBoardRefresh')) $('busBoardRefresh').addEventListener('click', loadBoard);
-    if (dateEl) dateEl.addEventListener('change', loadBoard);
+    if ($('busBoardPrevWeek')) $('busBoardPrevWeek').addEventListener('click', () => shiftBoardWeek(-7));
+    if ($('busBoardNextWeek')) $('busBoardNextWeek').addEventListener('click', () => shiftBoardWeek(7));
+    if ($('busBoardThisWeek')) $('busBoardThisWeek').addEventListener('click', () => {
+      boardWeekMonday = mondayOf(todayISO());
+      boardWeekday = jsDowToWeekday(parseISO(todayISO()).getDay());
+      loadBoard();
+    });
 
     if ($('busAddFleetBtn')) $('busAddFleetBtn').addEventListener('click', () => openFleetModal());
     if ($('busFleetCancel')) $('busFleetCancel').addEventListener('click', closeFleetModal);
@@ -91,17 +138,7 @@ window.SaltAdminBus = (function () {
       });
     }
 
-    if ($('busAddRouteBtn')) $('busAddRouteBtn').addEventListener('click', openAddRouteModal);
-    if ($('busAddRouteCancel')) $('busAddRouteCancel').addEventListener('click', closeAddRouteModal);
-    if ($('busAddRouteForm')) $('busAddRouteForm').addEventListener('submit', onCreateRoute);
-    if ($('busAddRouteModal')) {
-      $('busAddRouteModal').addEventListener('click', (e) => {
-        if (e.target === $('busAddRouteModal')) closeAddRouteModal();
-      });
-    }
-    document.querySelectorAll('#busAddRouteTypeToggle button').forEach((btn) => {
-      btn.addEventListener('click', () => setAddRouteType(btn.dataset.type || 'pickup'));
-    });
+    if ($('busAddDismissSlotBtn')) $('busAddDismissSlotBtn').addEventListener('click', addDismissSlot);
 
     if ($('busRouteSaveBtn')) $('busRouteSaveBtn').addEventListener('click', saveRouteCell);
     if ($('busRouteModalClose')) $('busRouteModalClose').addEventListener('click', closeRouteModal);
@@ -134,6 +171,26 @@ window.SaltAdminBus = (function () {
     setSub(sub || 'setup');
   }
 
+  function shiftBoardWeek(deltaDays) {
+    const d = parseISO(boardWeekMonday);
+    d.setDate(d.getDate() + deltaDays);
+    boardWeekMonday = formatISO(d);
+    loadBoard();
+  }
+
+  function renderDayTabs(mountId, activeDay, onPick) {
+    const mount = $(mountId);
+    if (!mount) return;
+    mount.innerHTML = DAY_LABELS.map((d) =>
+      '<button type="button" class="bus-day-tab' + (d.n === activeDay ? ' active' : '') +
+      '" data-day="' + d.n + '">' + escapeHtml(d.ko) + '</button>'
+    ).join('');
+    mount.querySelectorAll('.bus-day-tab').forEach((btn) => {
+      btn.addEventListener('click', () => onPick(Number(btn.dataset.day)));
+    });
+  }
+
+  /* ── Fleet ─────────────────────────────────────────────── */
   function openFleetModal(bus) {
     const modal = $('busFleetModal');
     if (!modal) return;
@@ -180,195 +237,6 @@ window.SaltAdminBus = (function () {
     }
   }
 
-  async function ensureRunsForBus(bus) {
-    if (!bus || !bus.busId) return;
-    const times = dismissalTimes();
-    await api('/api/admin/bus/run', {
-      method: 'POST',
-      body: {
-        busId: bus.busId,
-        runType: 'pickup',
-        label: '등교',
-        startTime: PICKUP_TIME,
-        sortOrder: 10,
-        active: true
-      }
-    });
-    for (let i = 0; i < times.length; i++) {
-      await api('/api/admin/bus/run', {
-        method: 'POST',
-        body: {
-          busId: bus.busId,
-          runType: 'dismissal',
-          label: dismissLabel(times[i], i),
-          startTime: times[i],
-          sortOrder: 50 + i * 10,
-          active: true
-        }
-      });
-    }
-  }
-
-  async function ensureMatrix() {
-    const buses = activeBuses();
-    const times = dismissalTimes();
-    for (const bus of buses) {
-      if (!findRun(bus.busId, 'pickup')) {
-        await api('/api/admin/bus/run', {
-          method: 'POST',
-          body: {
-            busId: bus.busId,
-            runType: 'pickup',
-            label: '등교',
-            startTime: PICKUP_TIME,
-            sortOrder: 10,
-            active: true
-          }
-        });
-      }
-      for (let i = 0; i < times.length; i++) {
-        if (!findRun(bus.busId, 'dismissal', times[i])) {
-          await api('/api/admin/bus/run', {
-            method: 'POST',
-            body: {
-              busId: bus.busId,
-              runType: 'dismissal',
-              label: dismissLabel(times[i], i),
-              startTime: times[i],
-              sortOrder: 50 + i * 10,
-              active: true
-            }
-          });
-        } else {
-          // keep labels in sync with order
-          const existing = findRun(bus.busId, 'dismissal', times[i]);
-          if (existing && existing.label !== dismissLabel(times[i], i)) {
-            await api('/api/admin/bus/run', {
-              method: 'POST',
-              body: {
-                runId: existing.runId,
-                busId: bus.busId,
-                runType: 'dismissal',
-                label: dismissLabel(times[i], i),
-                startTime: times[i],
-                sortOrder: 50 + i * 10,
-                active: true
-              }
-            });
-          }
-        }
-      }
-    }
-  }
-
-  function setAddRouteType(type) {
-    addRouteType = type === 'dismissal' ? 'dismissal' : 'pickup';
-    document.querySelectorAll('#busAddRouteTypeToggle button').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.type === addRouteType);
-    });
-    const wrap = $('busAddRouteTimeWrap');
-    const timeEl = $('busAddRouteTime');
-    if (wrap) wrap.classList.toggle('hidden', addRouteType !== 'dismissal');
-    if (timeEl) {
-      timeEl.required = addRouteType === 'dismissal';
-      if (addRouteType !== 'dismissal') timeEl.value = '';
-    }
-  }
-
-  function openAddRouteModal() {
-    const buses = activeBuses();
-    if (!buses.length) {
-      window.alert(t('admin.bus.needBusFirst', 'Add a bus first.'));
-      openFleetModal();
-      return;
-    }
-    if ($('busAddRouteBusId')) {
-      $('busAddRouteBusId').innerHTML = buses.map((b) =>
-        '<option value="' + escapeHtml(b.busId) + '">' + escapeHtml(b.name) + '</option>'
-      ).join('');
-    }
-    setAddRouteType('pickup');
-    if ($('busAddRouteError')) $('busAddRouteError').textContent = '';
-    if ($('busAddRouteTime')) $('busAddRouteTime').value = '';
-    deps.show($('busAddRouteModal'));
-  }
-
-  function closeAddRouteModal() {
-    if ($('busAddRouteModal')) deps.hide($('busAddRouteModal'));
-    if ($('busAddRouteForm')) $('busAddRouteForm').reset();
-    setAddRouteType('pickup');
-  }
-
-  async function onCreateRoute(ev) {
-    ev.preventDefault();
-    const errEl = $('busAddRouteError');
-    if (errEl) errEl.textContent = '';
-    const busId = $('busAddRouteBusId') && $('busAddRouteBusId').value;
-    if (!busId) {
-      if (errEl) errEl.textContent = t('admin.bus.needBus', 'Select a bus.');
-      return;
-    }
-
-    try {
-      if (addRouteType === 'pickup') {
-        const existing = findRun(busId, 'pickup');
-        if (existing) {
-          closeAddRouteModal();
-          await openRouteCell({ bus: busId, type: 'pickup', time: PICKUP_TIME });
-          return;
-        }
-        await api('/api/admin/bus/run', {
-          method: 'POST',
-          body: {
-            busId,
-            runType: 'pickup',
-            label: '등교',
-            startTime: PICKUP_TIME,
-            sortOrder: 10,
-            active: true
-          }
-        });
-        closeAddRouteModal();
-        await loadSetup(false);
-        await openRouteCell({ bus: busId, type: 'pickup', time: PICKUP_TIME });
-        return;
-      }
-
-      const time = $('busAddRouteTime') && String($('busAddRouteTime').value).slice(0, 5);
-      if (!/^\d{2}:\d{2}$/.test(time)) {
-        if (errEl) errEl.textContent = t('admin.bus.needTime', 'Select a time.');
-        return;
-      }
-
-      const times = dismissalTimes();
-      const already = times.includes(time);
-      const nextIndex = already ? times.indexOf(time) : times.length;
-      const buses = activeBuses();
-
-      // Dismissal time is school-wide: create for every bus so the grid row appears
-      for (const bus of buses) {
-        if (findRun(bus.busId, 'dismissal', time)) continue;
-        await api('/api/admin/bus/run', {
-          method: 'POST',
-          body: {
-            busId: bus.busId,
-            runType: 'dismissal',
-            label: dismissLabel(time, nextIndex),
-            startTime: time,
-            sortOrder: 50 + nextIndex * 10,
-            active: true
-          }
-        });
-      }
-
-      closeAddRouteModal();
-      await loadSetup(false);
-      await openRouteCell({ bus: busId, type: 'dismissal', time: time });
-    } catch (e) {
-      if (errEl) errEl.textContent = e.message || 'Failed';
-    }
-  }
-
   function renderFleetList() {
     const mount = $('busFleetList');
     if (!mount || !setup) return;
@@ -391,91 +259,266 @@ window.SaltAdminBus = (function () {
     });
   }
 
-  function renderDismissTimes() {
+  /* ── Dismissal slots ───────────────────────────────────── */
+  async function ensureRunsForBus(bus) {
+    if (!bus || !bus.busId) return;
+    const times = dismissalTimes();
+    await api('/api/admin/bus/run', {
+      method: 'POST',
+      body: {
+        busId: bus.busId, runType: 'pickup', label: '등교',
+        startTime: PICKUP_TIME, sortOrder: 10, active: true
+      }
+    });
+    for (let i = 0; i < times.length; i++) {
+      await api('/api/admin/bus/run', {
+        method: 'POST',
+        body: {
+          busId: bus.busId, runType: 'dismissal', label: dismissLabel(times[i], i),
+          startTime: times[i], sortOrder: 50 + i * 10, active: true
+        }
+      });
+    }
+  }
+
+  async function ensureMatrix() {
+    const buses = activeBuses();
+    const times = dismissalTimes();
+    for (const bus of buses) {
+      if (!findRun(bus.busId, 'pickup')) {
+        await api('/api/admin/bus/run', {
+          method: 'POST',
+          body: {
+            busId: bus.busId, runType: 'pickup', label: '등교',
+            startTime: PICKUP_TIME, sortOrder: 10, active: true
+          }
+        });
+      }
+      for (let i = 0; i < times.length; i++) {
+        const existing = findRun(bus.busId, 'dismissal', times[i]);
+        if (!existing) {
+          await api('/api/admin/bus/run', {
+            method: 'POST',
+            body: {
+              busId: bus.busId, runType: 'dismissal', label: dismissLabel(times[i], i),
+              startTime: times[i], sortOrder: 50 + i * 10, active: true
+            }
+          });
+        } else if (existing.label !== dismissLabel(times[i], i)) {
+          await api('/api/admin/bus/run', {
+            method: 'POST',
+            body: {
+              runId: existing.runId, busId: bus.busId, runType: 'dismissal',
+              label: dismissLabel(times[i], i), startTime: times[i],
+              sortOrder: 50 + i * 10, active: true
+            }
+          });
+        }
+      }
+    }
+  }
+
+  function renderDismissSettings() {
     const mount = $('busDismissTimes');
     if (!mount) return;
     const times = dismissalTimes();
     if (!times.length) {
-      mount.innerHTML = '<span class="muted small">' +
-        escapeHtml(t('admin.bus.noDismissTimes', 'No dismissal times yet — use + Add route → 하교')) +
-        '</span>';
+      mount.innerHTML = '<p class="muted small">' +
+        escapeHtml(t('admin.bus.noDismissTimes', 'No dismissal slots yet. Add 1차하교, 2차하교…')) +
+        '</p>';
       return;
     }
     mount.innerHTML = times.map((tm, i) =>
-      '<span class="bus-dismiss-chip"><strong>' + escapeHtml(dismissLabel(tm, i)) + '</strong></span>'
+      '<div class="bus-dismiss-edit-row" data-old="' + escapeHtml(tm) + '">' +
+        '<span class="bus-dismiss-ord">' + escapeHtml((i + 1) + '차하교') + '</span>' +
+        '<input type="time" class="bus-dismiss-time" value="' + escapeHtml(tm) + '">' +
+        '<button type="button" class="btn btn-ghost bus-dismiss-save" data-i18n-ignore>Save</button>' +
+        '<button type="button" class="btn btn-ghost bus-dismiss-del" title="Remove">×</button>' +
+      '</div>'
     ).join('');
+
+    mount.querySelectorAll('.bus-dismiss-edit-row').forEach((row) => {
+      const oldTime = row.dataset.old;
+      row.querySelector('.bus-dismiss-save').addEventListener('click', () => {
+        const next = row.querySelector('.bus-dismiss-time').value;
+        updateDismissTime(oldTime, next);
+      });
+      row.querySelector('.bus-dismiss-del').addEventListener('click', () => removeDismissTime(oldTime));
+    });
   }
 
-  function cellSummary(run) {
-    if (!run) return { count: 0, duty: '', days: [1, 2, 3, 4, 5] };
-    const assigns = (setup.assignments || []).filter((a) => a.runId === run.runId && a.active !== false);
-    const duty = (setup.duties || []).find((d) => d.runId === run.runId && d.active !== false);
-    const teacher = duty
-      ? ((setup.teachers || []).find((te) => te.teacherId === duty.teacherId) || {}).name || duty.teacherId
-      : '';
-    const days = (duty && duty.days) || (assigns[0] && assigns[0].days) || [1, 2, 3, 4, 5];
-    return { count: assigns.length, duty: teacher || '', days, assigns, dutyRow: duty };
-  }
-
-  function renderRouteGrid() {
-    const mount = $('busRouteGrid');
-    if (!mount || !setup) return;
+  async function addDismissSlot() {
     const buses = activeBuses();
-    const times = dismissalTimes();
-
     if (!buses.length) {
-      mount.innerHTML =
-        '<div class="bus-tt-empty-state">' +
-          '<p class="muted">' + escapeHtml(t('admin.bus.noBuses', 'No buses yet.')) + '</p>' +
-          '<button type="button" class="btn btn-primary" id="busEmptyAddBus">' +
-            escapeHtml(t('admin.bus.addBusBtn', '+ Add bus')) +
-          '</button></div>';
-      const btn = mount.querySelector('#busEmptyAddBus');
-      if (btn) btn.addEventListener('click', () => openFleetModal());
+      window.alert(t('admin.bus.needBusFirst', 'Add a bus first.'));
+      openFleetModal();
       return;
     }
+    const times = dismissalTimes();
+    let candidate = '15:00';
+    const presets = ['14:30', '15:30', '16:00', '16:30', '17:00'];
+    for (const p of presets) {
+      if (!times.includes(p)) { candidate = p; break; }
+    }
+    while (times.includes(candidate)) {
+      const [h, m] = candidate.split(':').map(Number);
+      const mins = h * 60 + m + 30;
+      candidate = String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
+    }
+    const idx = times.length;
+    try {
+      for (const bus of buses) {
+        await api('/api/admin/bus/run', {
+          method: 'POST',
+          body: {
+            busId: bus.busId, runType: 'dismissal', label: dismissLabel(candidate, idx),
+            startTime: candidate, sortOrder: 50 + idx * 10, active: true
+          }
+        });
+      }
+      await loadSetup(false);
+    } catch (e) {
+      window.alert(e.message);
+    }
+  }
 
-    const rows = [{ key: 'pickup', label: t('admin.bus.pickupRow', '등교'), runType: 'pickup', time: PICKUP_TIME }]
+  async function updateDismissTime(oldTime, newTime) {
+    newTime = String(newTime || '').slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(newTime)) {
+      window.alert(t('admin.bus.needTime', 'Select a time.'));
+      return;
+    }
+    if (oldTime === newTime) return;
+    if (dismissalTimes().includes(newTime)) {
+      window.alert(t('admin.bus.timeExists', 'That dismissal time already exists.'));
+      return;
+    }
+    const times = dismissalTimes();
+    const idx = times.indexOf(oldTime);
+    try {
+      const runs = (setup.runs || []).filter((r) =>
+        r.active !== false && r.runType === 'dismissal' && String(r.startTime).slice(0, 5) === oldTime
+      );
+      for (const r of runs) {
+        await api('/api/admin/bus/run', {
+          method: 'POST',
+          body: {
+            runId: r.runId, busId: r.busId, runType: 'dismissal',
+            label: dismissLabel(newTime, Math.max(0, idx)),
+            startTime: newTime, sortOrder: 50 + Math.max(0, idx) * 10, active: true
+          }
+        });
+      }
+      await loadSetup(false);
+    } catch (e) {
+      window.alert(e.message);
+    }
+  }
+
+  async function removeDismissTime(time) {
+    if (!window.confirm(t('admin.bus.confirmRemoveDismiss', 'Remove this dismissal slot from all buses?'))) return;
+    try {
+      const runs = (setup.runs || []).filter((r) =>
+        r.active !== false && r.runType === 'dismissal' && String(r.startTime).slice(0, 5) === time
+      );
+      for (const r of runs) {
+        await api('/api/admin/bus/run', {
+          method: 'POST',
+          body: {
+            runId: r.runId, busId: r.busId, runType: 'dismissal',
+            label: r.label, startTime: r.startTime, sortOrder: r.sortOrder, active: false
+          }
+        });
+      }
+      await loadSetup(false);
+    } catch (e) {
+      window.alert(e.message);
+    }
+  }
+
+  /* ── Setup day schedule ────────────────────────────────── */
+  function routeRows() {
+    const times = dismissalTimes();
+    return [{ key: 'pickup', label: t('admin.bus.pickupRow', '등교'), runType: 'pickup', time: PICKUP_TIME }]
       .concat(times.map((tm, i) => ({
         key: 'd-' + tm,
         label: dismissLabel(tm, i),
         runType: 'dismissal',
         time: tm
       })));
+  }
 
-    let html = '<div class="bus-tt-scroll"><table class="bus-tt-grid"><thead><tr>' +
-      '<th class="bus-tt-corner">' + escapeHtml(t('admin.bus.route', 'Route')) + '</th>' +
-      buses.map((b) => '<th>' + escapeHtml(b.name) + '</th>').join('') +
-      '</tr></thead><tbody>';
+  function ridersForRunOnDay(run, weekday) {
+    if (!run) return [];
+    return (setup.assignments || [])
+      .filter((a) => a.runId === run.runId && a.active !== false && (a.days || []).includes(weekday))
+      .map((a) => ({
+        studentId: a.studentId,
+        name: studentName(a.studentId),
+        classId: ((setup.students || []).find((s) => s.studentId === a.studentId) || {}).classId || ''
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
 
-    rows.forEach((row) => {
-      html += '<tr><th class="bus-tt-rowlabel">' + escapeHtml(row.label) + '</th>';
+  function renderSetupSchedule() {
+    renderDayTabs('busSetupDayTabs', setupWeekday, (day) => {
+      setupWeekday = day;
+      renderSetupSchedule();
+    });
+
+    const mount = $('busRouteGrid');
+    if (!mount || !setup) return;
+    const buses = activeBuses();
+    if (!buses.length) {
+      mount.innerHTML =
+        '<div class="bus-tt-empty-state"><p class="muted">' +
+        escapeHtml(t('admin.bus.noBuses', 'No buses yet.')) +
+        '</p><button type="button" class="btn btn-primary" id="busEmptyAddBus">' +
+        escapeHtml(t('admin.bus.addBusBtn', '+ Add bus')) +
+        '</button></div>';
+      const btn = mount.querySelector('#busEmptyAddBus');
+      if (btn) btn.addEventListener('click', () => openFleetModal());
+      return;
+    }
+
+    const dayName = DAY_LABELS.find((d) => d.n === setupWeekday);
+    let html = '<div class="bus-sched-day-title">' +
+      escapeHtml((dayName && dayName.ko) || '') +
+      escapeHtml(t('admin.bus.daySuffix', '요일 기본 배정')) +
+      '</div>';
+
+    routeRows().forEach((row) => {
+      html += '<section class="bus-sched-block">' +
+        '<h4 class="bus-sched-run">' + escapeHtml(row.label) + '</h4>' +
+        '<div class="bus-sched-buses">';
       buses.forEach((bus) => {
         const run = findRun(bus.busId, row.runType, row.time);
-        const sum = cellSummary(run);
-        const empty = !run || sum.count === 0;
-        html += '<td><button type="button" class="bus-tt-card' + (empty ? ' bus-tt-empty' : '') + '"' +
+        const riders = ridersForRunOnDay(run, setupWeekday);
+        const running = riders.length > 0;
+        html += '<button type="button" class="bus-sched-bus' + (running ? '' : ' bus-sched-off') + '"' +
           ' data-bus="' + escapeHtml(bus.busId) + '"' +
           ' data-type="' + escapeHtml(row.runType) + '"' +
-          ' data-time="' + escapeHtml(row.time) + '"' +
-          (run ? ' data-run="' + escapeHtml(run.runId) + '"' : '') +
-          '>' +
-          '<strong>' + escapeHtml(String(sum.count)) + ' ' +
-          escapeHtml(t('admin.bus.studentsShort', 'students')) + '</strong>' +
-          '<span class="muted small">' +
-            escapeHtml(sum.duty || t('admin.bus.noDuty', 'No duty')) +
-          '</span></button></td>';
+          ' data-time="' + escapeHtml(row.time) + '">' +
+          '<div class="bus-sched-bus-name"><strong>' + escapeHtml(bus.name) + '</strong></div>' +
+          (running
+            ? '<ul class="bus-sched-names">' + riders.map((r) =>
+              '<li>' + escapeHtml(r.name) +
+              (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
+              '</li>'
+            ).join('') + '</ul>'
+            : '<div class="muted small">' + escapeHtml(t('admin.bus.notRunning', '운행 안함')) + '</div>') +
+          '</button>';
       });
-      html += '</tr>';
+      html += '</div></section>';
     });
-    html += '</tbody></table></div>';
-    mount.innerHTML = html;
 
-    mount.querySelectorAll('.bus-tt-card').forEach((btn) => {
+    mount.innerHTML = html;
+    mount.querySelectorAll('.bus-sched-bus').forEach((btn) => {
       btn.addEventListener('click', () => openRouteCell(btn.dataset));
     });
   }
 
+  /* ── Route edit modal ──────────────────────────────────── */
   async function openRouteCell(ds) {
     const busId = ds.bus;
     const runType = ds.type;
@@ -485,20 +528,18 @@ window.SaltAdminBus = (function () {
       try {
         const times = dismissalTimes();
         const idx = times.indexOf(time);
-        const res = await api('/api/admin/bus/run', {
+        await api('/api/admin/bus/run', {
           method: 'POST',
           body: {
-            busId,
-            runType,
+            busId, runType,
             label: runType === 'pickup' ? '등교' : dismissLabel(time, Math.max(0, idx)),
             startTime: runType === 'pickup' ? PICKUP_TIME : time,
             sortOrder: runType === 'pickup' ? 10 : (50 + Math.max(0, idx) * 10),
             active: true
           }
         });
-        run = res.run;
         await loadSetup(false);
-        run = findRun(busId, runType, time) || run;
+        run = findRun(busId, runType, time);
       } catch (e) {
         window.alert(e.message);
         return;
@@ -506,7 +547,12 @@ window.SaltAdminBus = (function () {
     }
     editRun = run;
     const bus = activeBuses().find((b) => b.busId === busId);
-    const sum = cellSummary(run);
+    const assigns = (setup.assignments || []).filter((a) => a.runId === run.runId && a.active !== false);
+    const duty = (setup.duties || []).find((d) => d.runId === run.runId && d.active !== false);
+    // Prefer existing days; for a new empty cell, default to the weekday you're editing
+    let days = (duty && duty.days) || (assigns[0] && assigns[0].days) || null;
+    if (!days || !days.length) days = [setupWeekday];
+
     const title = (bus ? bus.name + ' · ' : '') +
       (runType === 'pickup'
         ? t('admin.bus.pickupRow', '등교')
@@ -515,7 +561,7 @@ window.SaltAdminBus = (function () {
     if ($('busRouteModalMeta')) {
       $('busRouteModalMeta').textContent = t(
         'admin.bus.cellHelp',
-        'Semester default riders for this route. Parent notices update the daily board.'
+        'Check weekdays this student rides. Empty weekdays = bus not running that day.'
       );
     }
 
@@ -524,12 +570,12 @@ window.SaltAdminBus = (function () {
       .join('');
     if ($('busRouteTeacherId')) {
       $('busRouteTeacherId').innerHTML = teacherOpts;
-      $('busRouteTeacherId').value = sum.dutyRow ? sum.dutyRow.teacherId : '';
+      $('busRouteTeacherId').value = duty ? duty.teacherId : '';
     }
-    if ($('busRouteDays')) $('busRouteDays').innerHTML = daysCheckboxesHtml(sum.days);
+    if ($('busRouteDays')) $('busRouteDays').innerHTML = daysCheckboxesHtml(days);
 
     selectedStudents = new Map();
-    (sum.assigns || []).forEach((a) => {
+    assigns.forEach((a) => {
       const st = (setup.students || []).find((s) => s.studentId === a.studentId);
       selectedStudents.set(a.studentId, st || { studentId: a.studentId, name: a.studentId, classId: '' });
     });
@@ -558,7 +604,7 @@ window.SaltAdminBus = (function () {
     mount.innerHTML = list.map((s) =>
       '<span class="bus-student-chip">' + escapeHtml(s.name) +
       (s.classId ? ' <span class="muted">(' + escapeHtml(s.classId) + ')</span>' : '') +
-      ' <button type="button" class="bus-chip-remove" data-id="' + escapeHtml(s.studentId) + '" aria-label="Remove">×</button></span>'
+      ' <button type="button" class="bus-chip-remove" data-id="' + escapeHtml(s.studentId) + '">×</button></span>'
     ).join('');
     mount.querySelectorAll('.bus-chip-remove').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -572,16 +618,13 @@ window.SaltAdminBus = (function () {
     const q = String(($('busStudentSearch') && $('busStudentSearch').value) || '').trim().toLowerCase();
     const results = $('busStudentSearchResults');
     if (!results || !setup) return;
-    if (q.length < 1) {
-      hideSearchResults();
-      return;
-    }
+    if (q.length < 1) { hideSearchResults(); return; }
     const hits = (setup.students || []).filter((s) => {
       const hay = (s.name + ' ' + s.classId + ' ' + s.studentId).toLowerCase();
       return hay.includes(q) && !selectedStudents.has(s.studentId);
     }).slice(0, 12);
     if (!hits.length) {
-      results.innerHTML = '<div class="bus-search-empty muted small">No matches</div>';
+      results.innerHTML = '<div class="muted small" style="padding:0.45rem">No matches</div>';
       results.classList.remove('hidden');
       return;
     }
@@ -595,10 +638,7 @@ window.SaltAdminBus = (function () {
       btn.addEventListener('mousedown', (e) => e.preventDefault());
       btn.addEventListener('click', () => {
         const st = (setup.students || []).find((x) => x.studentId === btn.dataset.id);
-        if (st) {
-          selectedStudents.set(st.studentId, st);
-          renderStudentChips();
-        }
+        if (st) { selectedStudents.set(st.studentId, st); renderStudentChips(); }
         if ($('busStudentSearch')) $('busStudentSearch').value = '';
         hideSearchResults();
       });
@@ -607,10 +647,7 @@ window.SaltAdminBus = (function () {
 
   function hideSearchResults() {
     const results = $('busStudentSearchResults');
-    if (results) {
-      results.classList.add('hidden');
-      results.innerHTML = '';
-    }
+    if (results) { results.classList.add('hidden'); results.innerHTML = ''; }
   }
 
   async function saveRouteCell() {
@@ -619,22 +656,23 @@ window.SaltAdminBus = (function () {
     const okEl = $('busRouteOk');
     if (errEl) errEl.textContent = '';
     if (okEl) okEl.textContent = '';
-
     const teacherId = $('busRouteTeacherId') && $('busRouteTeacherId').value;
     const days = readDays();
-    if (!teacherId) {
+    const wantIds = new Set(Array.from(selectedStudents.keys()));
+    if (!wantIds.size) {
+      // Clearing riders → this weekday shows 운행 안함; teacher optional
+    } else if (!teacherId) {
       if (errEl) errEl.textContent = t('admin.bus.needTeacher', 'Select a duty teacher.');
       return;
     }
-
     try {
-      await api('/api/admin/bus/duty', {
-        method: 'POST',
-        body: { runId: editRun.runId, teacherId, days, active: true }
-      });
-
+      if (teacherId) {
+        await api('/api/admin/bus/duty', {
+          method: 'POST',
+          body: { runId: editRun.runId, teacherId, days, active: true }
+        });
+      }
       const existing = (setup.assignments || []).filter((a) => a.runId === editRun.runId && a.active !== false);
-      const wantIds = new Set(Array.from(selectedStudents.keys()));
       for (const a of existing) {
         if (!wantIds.has(a.studentId)) {
           await api('/api/admin/bus/assignment/' + encodeURIComponent(a.assignmentId), { method: 'DELETE' });
@@ -646,10 +684,7 @@ window.SaltAdminBus = (function () {
           method: 'POST',
           body: {
             assignmentId: prev ? prev.assignmentId : undefined,
-            studentId: sid,
-            runId: editRun.runId,
-            days,
-            active: true
+            studentId: sid, runId: editRun.runId, days, active: true
           }
         });
       }
@@ -661,92 +696,104 @@ window.SaltAdminBus = (function () {
     }
   }
 
-  async function loadSetup(doEnsure) {
-    try {
-      setup = await api('/api/admin/bus/setup');
-      if (doEnsure !== false) {
-        const before = JSON.stringify((setup.runs || []).map((r) => r.runId).sort());
-        await ensureMatrix();
-        setup = await api('/api/admin/bus/setup');
-        const after = JSON.stringify((setup.runs || []).map((r) => r.runId).sort());
-        if (before !== after) {
-          // labels may need second pass
-          await ensureMatrix();
-          setup = await api('/api/admin/bus/setup');
-        }
-      }
-      renderFleetList();
-      renderDismissTimes();
-      renderRouteGrid();
-    } catch (e) {
-      if ($('busRouteGrid')) {
-        $('busRouteGrid').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
-      }
-    }
+  /* ── Daily board (weekday tabs) ────────────────────────── */
+  function updateWeekLabel() {
+    const el = $('busBoardWeekLabel');
+    if (!el) return;
+    const fri = dateForWeekday(boardWeekMonday, 5);
+    el.textContent = boardWeekMonday + ' ~ ' + fri;
   }
 
   async function loadBoard() {
+    renderDayTabs('busBoardDayTabs', boardWeekday, (day) => {
+      boardWeekday = day;
+      loadBoard();
+    });
+    updateWeekLabel();
     const mount = $('busBoardBody');
     if (!mount) return;
-    const dateStr = ($('busBoardDate') && $('busBoardDate').value) || todayISO();
+    const dateStr = dateForWeekday(boardWeekMonday, boardWeekday);
     mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
+      if (!setup) setup = await api('/api/admin/bus/setup');
       board = await api('/api/admin/bus/board?date=' + encodeURIComponent(dateStr));
-      renderBoard();
+      renderBoardDay();
     } catch (e) {
       mount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
     }
   }
 
-  function renderBoard() {
+  function renderBoardDay() {
     const mount = $('busBoardBody');
     if (!mount || !board) return;
-    if (board.note && !(board.runs || []).length) {
-      mount.innerHTML = '<p class="muted">' + escapeHtml(board.note) + '</p>';
-      return;
-    }
+    const dayName = DAY_LABELS.find((d) => d.n === boardWeekday);
     const runs = board.runs || [];
-    mount.innerHTML =
-      '<div class="bus-board-runs">' +
-        runs.map((run) => {
-          const isPickup = run.runType === 'pickup';
-          const duty = (run.dutyTeachers || []).map((te) => te.teacherName).join(', ') || '—';
-          const title = isPickup
-            ? (run.busName + ' · 등교')
-            : (run.busName + ' · ' + (run.label || run.startTime));
-          return '<section class="bus-duty-card">' +
-            '<header class="bus-duty-head">' +
-              '<div><strong>' + escapeHtml(title) + '</strong> ' +
-              (isPickup ? '' : '<span class="muted">' + escapeHtml(run.startTime || '') + '</span>') +
-              '</div>' +
-              '<div class="muted small">' + escapeHtml(run.riderCount + ' riders') + ' · Duty: ' + escapeHtml(duty) + '</div>' +
-              '<div class="muted small">' + escapeHtml([run.driverName, run.driverPhone, run.vehiclePlate].filter(Boolean).join(' · ')) + '</div>' +
-            '</header>' +
-            '<table class="bus-duty-table"><thead><tr>' +
-              '<th>Student</th><th>Contact</th>' +
-              (isPickup ? '<th></th>' : '') +
-            '</tr></thead><tbody>' +
-              (run.riders || []).map((r) => {
-                const contact = [
-                  r.emergency && r.emergency.parentPhone,
-                  r.emergency && r.emergency.emergencyContact,
-                  r.emergency && r.emergency.emergencyPhone
-                ].filter(Boolean).join(' · ') || '—';
-                return '<tr class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
-                  '<td><strong>' + escapeHtml(r.name) + '</strong>' +
-                  (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
-                  (r.noShow ? ' <span class="error">No-show</span>' : '') + '</td>' +
-                  '<td class="muted small">' + escapeHtml(contact) + '</td>' +
-                  (isPickup
-                    ? '<td class="bus-duty-action"><button type="button" class="btn btn-ghost bus-ns-btn" data-run="' +
-                      escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">No-show</button></td>'
-                    : '') +
-                '</tr>';
-              }).join('') || '<tr><td colspan="3" class="muted">No riders</td></tr>' +
-            '</tbody></table></section>';
-        }).join('') || '<p class="muted">No active runs.</p>' +
+    const buses = activeBuses();
+
+    let html = '<div class="bus-sched-day-title">' +
+      escapeHtml(board.dateStr || '') + ' · ' +
+      escapeHtml((dayName && dayName.ko) || '') +
+      escapeHtml(t('admin.bus.daySuffixShort', '요일')) +
       '</div>';
 
+    if (board.note) {
+      html += '<p class="muted small">' + escapeHtml(board.note) + '</p>';
+    }
+
+    if (!buses.length) {
+      html += '<p class="muted">' + escapeHtml(t('admin.bus.noBuses', 'No buses yet.')) + '</p>';
+      mount.innerHTML = html;
+      return;
+    }
+
+    // Same layout as semester routes: 등교 + each 하교 slot × every bus
+    const rows = routeRows();
+    rows.forEach((row) => {
+      html += '<section class="bus-sched-block">' +
+        '<h4 class="bus-sched-run">' + escapeHtml(row.label) + '</h4>' +
+        '<div class="bus-sched-buses">';
+      buses.forEach((bus) => {
+        const run = runs.find((r) => {
+          if (r.busId !== bus.busId || r.runType !== row.runType) return false;
+          if (row.runType === 'pickup') return true;
+          return String(r.startTime || '').slice(0, 5) === row.time;
+        });
+        const riders = run ? (run.riders || []) : [];
+        const running = riders.length > 0;
+        html += '<div class="bus-sched-bus bus-sched-static' + (running ? '' : ' bus-sched-off') + '">' +
+          '<div class="bus-sched-bus-name"><strong>' + escapeHtml(bus.name) + '</strong></div>';
+        if (!running) {
+          html += '<div class="muted small">' + escapeHtml(t('admin.bus.notRunning', '운행 안함')) + '</div>';
+        } else {
+          html += '<ul class="bus-sched-names">' + riders.map((r) => {
+            const contact = [
+              r.emergency && r.emergency.parentPhone,
+              r.emergency && r.emergency.emergencyContact,
+              r.emergency && r.emergency.emergencyPhone
+            ].filter(Boolean).join(' · ');
+            return '<li class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
+              '<div><strong>' + escapeHtml(r.name) + '</strong>' +
+              (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
+              (r.noShow ? ' <span class="error">No-show</span>' : '') +
+              '</div>' +
+              (contact ? '<div class="muted small">' + escapeHtml(contact) + '</div>' : '') +
+              (row.runType === 'pickup'
+                ? '<button type="button" class="btn btn-ghost bus-ns-btn" data-run="' +
+                  escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">No-show</button>'
+                : '') +
+              '</li>';
+          }).join('') + '</ul>';
+        }
+        html += '</div>';
+      });
+      html += '</div></section>';
+    });
+
+    if (!rows.length) {
+      html += '<p class="muted">' + escapeHtml(t('admin.bus.noRoutes', 'No routes yet.')) + '</p>';
+    }
+
+    mount.innerHTML = html;
     mount.querySelectorAll('.bus-ns-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         try {
@@ -760,6 +807,23 @@ window.SaltAdminBus = (function () {
         }
       });
     });
+  }
+
+  async function loadSetup(doEnsure) {
+    try {
+      setup = await api('/api/admin/bus/setup');
+      if (doEnsure !== false) {
+        await ensureMatrix();
+        setup = await api('/api/admin/bus/setup');
+      }
+      renderFleetList();
+      renderDismissSettings();
+      renderSetupSchedule();
+    } catch (e) {
+      if ($('busRouteGrid')) {
+        $('busRouteGrid').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      }
+    }
   }
 
   return { init, open };
