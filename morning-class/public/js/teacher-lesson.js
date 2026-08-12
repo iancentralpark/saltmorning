@@ -759,10 +759,10 @@ window.SaltLesson = (function() {
         html += '<td colspan="2" class="muted small">' + escapeHtml(t('lessons.break', 'Break')) + '</td>';
       } else {
         html += '<td class="lp-sem-content-col"><textarea class="lp-sem-content" data-week="' +
-          escapeHtml(String(row.weekIndex || '')) + '" rows="2">' +
+          escapeHtml(String(row.weekIndex || '')) + '" rows="1">' +
           escapeHtml(row.content || '') + '</textarea></td>' +
           '<td class="lp-sem-objective-col"><textarea class="lp-sem-objective" data-week="' +
-          escapeHtml(String(row.weekIndex || '')) + '" rows="2">' +
+          escapeHtml(String(row.weekIndex || '')) + '" rows="1">' +
           escapeHtml(row.objective || '') + '</textarea></td>';
       }
       html += '</tr>';
@@ -771,7 +771,11 @@ window.SaltLesson = (function() {
     body.innerHTML = html;
 
     body.querySelectorAll('.lp-sem-content, .lp-sem-objective').forEach((el) => {
-      el.addEventListener('input', () => scheduleSemesterSave(body, plan));
+      autosizeSemesterField(el);
+      el.addEventListener('input', () => {
+        autosizeSemesterField(el);
+        scheduleSemesterSave(body, plan);
+      });
       el.addEventListener('blur', () => {
         if (semesterSaveTimer) {
           clearTimeout(semesterSaveTimer);
@@ -780,6 +784,13 @@ window.SaltLesson = (function() {
         }
       });
     });
+  }
+
+  function autosizeSemesterField(el) {
+    if (!el) return;
+    el.style.height = '0px';
+    const next = Math.max(el.scrollHeight, 32);
+    el.style.height = next + 'px';
   }
 
   async function loadAdminSemesterPlans() {

@@ -138,7 +138,8 @@ async function getParentOverview(session) {
       status: student.status,
       photoPath: (student.profile && student.profile.photoPath) || student.photoPath || '',
       gradeLevel: (student.profile && student.profile.gradeLevel) || '',
-      parentName: (student.profile && student.profile.parentName) || session.name
+      parentName: (student.profile && student.profile.parentName) || session.name,
+      relationship: ((children || []).find((c) => c.studentId === studentId) || {}).relationship || 'Guardian'
     },
     children: (children || []).map((c) => ({
       studentId: c.studentId,

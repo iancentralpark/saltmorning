@@ -222,14 +222,36 @@ window.SaltParent = (function() {
     if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
   }
 
+  function possessiveFirstName(fullName) {
+    const first = String(fullName || '').trim().split(/\s+/)[0] || '';
+    if (!first) return '';
+    return /s$/i.test(first) ? first + "'" : first + "'s";
+  }
+
+  function relationshipLabel(rel) {
+    const r = String(rel || '').trim();
+    if (!r) return 'Guardian';
+    return r;
+  }
+
+  function parentDisplayTitle(studentName, relationship) {
+    const poss = possessiveFirstName(studentName);
+    const rel = relationshipLabel(relationship);
+    if (!poss) return rel;
+    return poss + ' ' + rel;
+  }
+
   function renderHeader(data) {
     const s = data.student || {};
     const children = Array.isArray(data.children) ? data.children : [];
-    const name = s.name || t('parent.brand', 'Parent');
+    const activeChild = children.find((c) => c.active || c.studentId === s.studentId) || children[0] || {};
+    const relationship = s.relationship || activeChild.relationship || 'Guardian';
+    const studentName = s.name || activeChild.name || '';
+    const title = parentDisplayTitle(studentName, relationship);
     const sub = [s.className || s.classId || '', s.gradeLevel || '']
       .filter(Boolean)
       .join(' · ');
-    if ($('ppHeaderName')) $('ppHeaderName').textContent = name;
+    if ($('ppHeaderName')) $('ppHeaderName').textContent = title || t('parent.brand', 'Parent');
     if ($('ppHeaderSub')) $('ppHeaderSub').textContent = sub;
 
     const wrap = $('ppChildSwitcherWrap');
@@ -241,7 +263,7 @@ window.SaltParent = (function() {
         sel.innerHTML = children.map((c) =>
           '<option value="' + escapeHtml(c.studentId) + '"' +
           (c.studentId === cur || c.active ? ' selected' : '') + '>' +
-          escapeHtml(c.name || c.studentId) +
+          escapeHtml(parentDisplayTitle(c.name || c.studentId, c.relationship)) +
           '</option>'
         ).join('');
         sel.value = cur || (children[0] && children[0].studentId) || '';
@@ -254,11 +276,11 @@ window.SaltParent = (function() {
     const img = $('ppHeaderPhotoImg');
     const fallback = $('ppHeaderPhotoFallback');
     if (!img || !fallback) return;
-    const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    const initial = (studentName || title || '?').trim().charAt(0).toUpperCase() || '?';
     fallback.textContent = initial;
     if (s.photoPath) {
       img.src = s.photoPath + (s.photoPath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
-      img.alt = name;
+      img.alt = studentName || title;
       img.classList.remove('hidden');
       fallback.classList.add('hidden');
     } else {

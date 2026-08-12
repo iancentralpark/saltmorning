@@ -305,6 +305,14 @@ a:hover { color: var(--gold); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.teacher-shell-identity .brand,
+.teacher-shell-identity .brand-link,
+#teacherNameBrand {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
 .brand-link {
   display: inline-block;
   margin: 0;
@@ -314,7 +322,7 @@ a:hover { color: var(--gold); }
   color: inherit;
   font: inherit;
   font-family: var(--font-serif);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
   text-align: left;
@@ -402,6 +410,11 @@ a:hover { color: var(--gold); }
   box-shadow: none;
 }
 @media (max-width: 720px) {
+  .teacher-shell-identity .brand,
+  .teacher-shell-identity .brand-link,
+  #teacherNameBrand {
+    font-size: 1.45rem;
+  }
   .teacher-topbar.teacher-shell-topbar {
     flex-direction: column;
     align-items: stretch;
@@ -470,8 +483,9 @@ a:hover { color: var(--gold); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 1.15rem;
-  line-height: 1.2;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.15;
 }
 .pp-header-sub {
   margin-top: 0.12rem;
@@ -657,7 +671,7 @@ a:hover { color: var(--gold); }
 }
 @media (max-width: 720px) {
   .pp-header-photo { width: 40px; height: 40px; }
-  .pp-header-meta .brand { font-size: 1.05rem; }
+  .pp-header-meta .brand { font-size: 1.35rem; }
 }
 .card {
   background: var(--card);
@@ -1746,14 +1760,31 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   font-weight: 650;
   white-space: nowrap;
 }
+.lp-semester-table textarea.lp-sem-content,
+.lp-semester-table textarea.lp-sem-objective {
+  width: 100%;
+  min-width: 0;
+  min-height: 2rem !important;
+  height: 2rem;
+  max-height: none;
+  resize: none;
+  overflow: hidden;
+  font: inherit;
+  line-height: 1.35;
+  border: 1px solid rgba(158, 202, 232, 0.45);
+  border-radius: 6px;
+  padding: 0.28rem 0.4rem;
+  background: #fff;
+  box-sizing: border-box;
+}
 .lp-semester-table textarea {
   width: 100%;
   min-width: 0;
-  resize: vertical;
+  resize: none;
   font: inherit;
   border: 1px solid rgba(158, 202, 232, 0.45);
   border-radius: 6px;
-  padding: 0.35rem 0.45rem;
+  padding: 0.28rem 0.4rem;
   background: #fff;
 }
 .lp-semester-row.is-break { background: #f3f4f6; }
@@ -1762,16 +1793,16 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .lp-semester-row.is-final,
 .lp-semester-table tr.is-final { background: #f5f3ff; }
 .lp-sem-week {
-  width: 5.5rem;
+  width: 4.1rem;
   white-space: nowrap;
   font-weight: 650;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
 }
 .lp-sem-date {
-  width: 5.75rem;
+  width: 4.4rem;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
 }
 .lp-sem-content-col,
 .lp-sem-objective-col { width: auto; }
