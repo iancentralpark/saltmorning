@@ -2270,6 +2270,60 @@ router.get('/parent/attendance', requireRole('parent'), async (req, res) => {
   }
 });
 
+router.get('/parent/attendance-notice', requireRole('parent'), async (req, res) => {
+  try {
+    const {
+      getNoticeForStudentDate,
+      listNotices
+    } = require('./services/parentAttendanceNoticeService');
+    const { todayStr } = require('./dateUtils');
+    const studentId = String(req.query.studentId || req.session.studentId || '').trim();
+    const dateStr = String(req.query.date || todayStr()).slice(0, 10);
+    if (!studentId) return res.status(400).json({ error: 'studentId is required.' });
+    const { parentHasStudent } = require('./services/parentRegistryService');
+    if (!(await parentHasStudent(req.session.parentId, studentId))) {
+      return res.status(403).json({ error: 'Not your child.' });
+    }
+    const notice = await getNoticeForStudentDate(studentId, dateStr);
+    const recent = await listNotices({ parentId: req.session.parentId, studentId });
+    res.json({ dateStr, studentId, notice, recent: recent.slice(0, 14) });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load notice.' });
+  }
+});
+
+router.post('/parent/attendance-notice', requireRole('parent'), async (req, res) => {
+  try {
+    const { submitNotice } = require('./services/parentAttendanceNoticeService');
+    const body = req.body || {};
+    const notice = await submitNotice({
+      parentId: req.session.parentId,
+      studentId: body.studentId || req.session.studentId,
+      noticeType: body.noticeType || body.type,
+      date: body.date || body.dateStr,
+      note: body.note
+    });
+    res.json({ ok: true, notice });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not submit notice.' });
+  }
+});
+
+router.post('/parent/attendance-notice/clear', requireRole('parent'), async (req, res) => {
+  try {
+    const { clearNotice } = require('./services/parentAttendanceNoticeService');
+    const body = req.body || {};
+    const result = await clearNotice({
+      parentId: req.session.parentId,
+      studentId: body.studentId || req.session.studentId,
+      date: body.date || body.dateStr
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not clear notice.' });
+  }
+});
+
 router.get('/parent/timetable', requireRole('parent'), async (req, res) => {
   try {
     res.json(await getParentTimetable(req.session));
@@ -3253,6 +3307,148 @@ router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (re
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not delete exam.' });
+  }
+});
+
+/* ── Bus system ─────────────────────────────────────────────── */
+async function busExclusions(dateStr) {
+  const { buildBusExclusionsForDate } = require('./services/parentAttendanceNoticeService');
+  return buildBusExclusionsForDate(dateStr);
+}
+
+router.get('/admin/bus/setup', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json(await busService.getBusSetupBundle());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load bus setup.' });
+  }
+});
+
+router.get('/admin/bus/board', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const { todayStr } = require('./dateUtils');
+    const dateStr = String(req.query.date || todayStr()).slice(0, 10);
+    const exclusions = await busExclusions(dateStr);
+    res.json(await busService.getAdminBusBoard(dateStr, exclusions));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load bus board.' });
+  }
+});
+
+router.post('/admin/bus', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json({ bus: await busService.saveBus(req.body || {}) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save bus.' });
+  }
+});
+
+router.post('/admin/bus/run', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json({ run: await busService.saveRun(req.body || {}) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save run.' });
+  }
+});
+
+router.post('/admin/bus/assignment', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json({ assignment: await busService.saveAssignment(req.body || {}) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save assignment.' });
+  }
+});
+
+router.delete('/admin/bus/assignment/:assignmentId', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json(await busService.deleteAssignment(req.params.assignmentId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete assignment.' });
+  }
+});
+
+router.post('/admin/bus/duty', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json({ duty: await busService.saveDuty(req.body || {}) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save duty.' });
+  }
+});
+
+router.post('/admin/bus/override', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: req.session.role, id: req.session.adminId || req.session.principalId || '' };
+    res.json({ override: await busService.saveOverride(req.body || {}, actor) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save override.' });
+  }
+});
+
+router.post('/admin/bus/noshow', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: req.session.role, id: req.session.adminId || req.session.principalId || '' };
+    res.json(await busService.reportNoShow(req.body || {}, actor));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not report no-show.' });
+  }
+});
+
+router.get('/teacher/bus/duty', requireRole('teacher'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const { todayStr } = require('./dateUtils');
+    const dateStr = String(req.query.date || todayStr()).slice(0, 10);
+    const exclusions = await busExclusions(dateStr);
+    res.json(await busService.getTeacherDutyManifest(req.session.teacherId, dateStr, exclusions));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load bus duty.' });
+  }
+});
+
+router.post('/teacher/bus/noshow', requireRole('teacher'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: 'teacher', id: req.session.teacherId };
+    const body = req.body || {};
+    const dateStr = body.dateStr || body.date;
+    const duty = await busService.getTeacherDutyManifest(
+      req.session.teacherId,
+      dateStr,
+      await busExclusions(dateStr)
+    );
+    const runOk = (duty.runs || []).some((r) => r.runId === String(body.runId || ''));
+    if (!runOk) return res.status(403).json({ error: 'Not on duty for this run.' });
+    res.json(await busService.reportNoShow(body, actor));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not report no-show.' });
+  }
+});
+
+router.post('/teacher/bus/override', requireRole('teacher'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: 'teacher', id: req.session.teacherId };
+    const body = req.body || {};
+    const dateStr = body.dateStr || body.date;
+    const duty = await busService.getTeacherDutyManifest(
+      req.session.teacherId,
+      dateStr,
+      await busExclusions(dateStr)
+    );
+    const runOk = (duty.runs || []).some((r) => r.runId === String(body.runId || ''));
+    if (!runOk) return res.status(403).json({ error: 'Not on duty for this run.' });
+    res.json({ override: await busService.saveOverride(body, actor) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save override.' });
   }
 });
 

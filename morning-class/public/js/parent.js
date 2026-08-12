@@ -22,6 +22,7 @@ window.SaltParent = (function() {
     feed: 'nav.feed',
     announcements: 'nav.parentAnnouncements',
     attendance: 'nav.attendance',
+    bus: 'nav.busNotice',
     timetable: 'nav.timetable',
     homework: 'nav.homework',
     reportcards: 'nav.parentReports',
@@ -95,6 +96,8 @@ window.SaltParent = (function() {
       if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
     });
     $('ppProfileForm').addEventListener('submit', saveProfile);
+    if ($('ppBusNoticeForm')) $('ppBusNoticeForm').addEventListener('submit', submitBusNotice);
+    if ($('ppBusClearBtn')) $('ppBusClearBtn').addEventListener('click', clearBusNotice);
     const childSel = $('ppChildSwitcher');
     if (childSel) {
       childSel.addEventListener('change', () => switchActiveChild(childSel.value));
@@ -160,7 +163,7 @@ window.SaltParent = (function() {
     currentTab = name;
     document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
       btn.classList.toggle('active', btn.dataset.tab === name));
-    ['feed', 'announcements', 'attendance', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
+    ['feed', 'announcements', 'attendance', 'bus', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       if (el) deps.hide(el);
     });
@@ -168,6 +171,7 @@ window.SaltParent = (function() {
       feed: 'tabFeed',
       announcements: 'tabAnnouncements',
       attendance: 'tabAttendance',
+      bus: 'tabBus',
       timetable: 'tabTimetable',
       homework: 'tabHomework',
       reportcards: 'tabReportcards',
@@ -177,6 +181,7 @@ window.SaltParent = (function() {
     markTabSeen(name);
     if (name === 'announcements') loadAnnouncements();
     if (name === 'attendance') loadAttendance();
+    if (name === 'bus') loadBusNotice();
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
     if (name === 'reportcards') loadReportCards();
@@ -399,6 +404,90 @@ window.SaltParent = (function() {
     });
     html += '</div>';
     $('ppAttCal').innerHTML = html;
+  }
+
+  function noticeTypeLabel(type) {
+    const map = {
+      '결석': t('parent.bus.absent', 'Absent (결석)'),
+      '지각': t('parent.bus.tardy', 'Tardy (지각)'),
+      '조퇴': t('parent.bus.earlyLeave', 'Early leave (조퇴)'),
+      pickup_only: t('parent.bus.pickupOnly', 'Parent pickup (no bus)')
+    };
+    return map[type] || type || '';
+  }
+
+  async function loadBusNotice() {
+    const cur = $('ppBusCurrent');
+    const ok = $('ppBusOk');
+    const err = $('ppBusError');
+    if (ok) ok.textContent = '';
+    if (err) err.textContent = '';
+    if (cur) cur.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const studentId = overview && overview.student && overview.student.studentId;
+      const data = await api('/api/parent/attendance-notice' +
+        (studentId ? ('?studentId=' + encodeURIComponent(studentId)) : ''));
+      if ($('ppBusDateLabel')) {
+        $('ppBusDateLabel').textContent = t('parent.bus.forDate', 'For date') + ': ' + (data.dateStr || '');
+      }
+      if (cur) {
+        if (data.notice) {
+          cur.innerHTML =
+            '<p><strong>' + escapeHtml(t('parent.bus.current', 'Current notice')) + ':</strong> ' +
+            escapeHtml(noticeTypeLabel(data.notice.noticeType)) +
+            (data.notice.note ? ' — ' + escapeHtml(data.notice.note) : '') +
+            '</p>';
+          if ($('ppBusNoticeType')) $('ppBusNoticeType').value = data.notice.noticeType;
+          if ($('ppBusNote')) $('ppBusNote').value = data.notice.note || '';
+        } else {
+          cur.innerHTML = '<p class="muted">' + escapeHtml(t('parent.bus.none', 'No notice for today.')) + '</p>';
+        }
+      }
+    } catch (e) {
+      if (cur) cur.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  async function submitBusNotice(ev) {
+    ev.preventDefault();
+    const ok = $('ppBusOk');
+    const err = $('ppBusError');
+    if (ok) ok.textContent = '';
+    if (err) err.textContent = '';
+    const studentId = overview && overview.student && overview.student.studentId;
+    try {
+      await api('/api/parent/attendance-notice', {
+        method: 'POST',
+        body: {
+          studentId,
+          noticeType: $('ppBusNoticeType').value,
+          note: $('ppBusNote').value
+        }
+      });
+      if (ok) ok.textContent = t('parent.bus.saved', 'Notice submitted. Staff have been notified.');
+      await loadBusNotice();
+    } catch (e) {
+      if (err) err.textContent = e.message || 'Failed';
+    }
+  }
+
+  async function clearBusNotice() {
+    const ok = $('ppBusOk');
+    const err = $('ppBusError');
+    if (ok) ok.textContent = '';
+    if (err) err.textContent = '';
+    const studentId = overview && overview.student && overview.student.studentId;
+    try {
+      await api('/api/parent/attendance-notice/clear', {
+        method: 'POST',
+        body: { studentId }
+      });
+      if ($('ppBusNote')) $('ppBusNote').value = '';
+      if (ok) ok.textContent = t('parent.bus.cleared', 'Today’s notice cleared.');
+      await loadBusNotice();
+    } catch (e) {
+      if (err) err.textContent = e.message || 'Failed';
+    }
   }
 
   async function loadTimetable() {

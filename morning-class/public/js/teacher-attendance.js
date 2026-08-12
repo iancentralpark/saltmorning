@@ -1,12 +1,13 @@
 /* Salt Morning Class — teacher attendance (Mr. Park style, auto-save) */
 window.SaltAttendance = (function() {
-  const ATT = { present: '출석', tardy: '지각', absent: '결석' };
-  const ATT_REV = { '출석': 'present', '지각': 'tardy', '결석': 'absent' };
-  const ATT_LABEL = { present: 'Present', tardy: 'Tardy', absent: 'Absent' };
+  const ATT = { present: '출석', tardy: '지각', absent: '결석', earlyLeave: '조퇴' };
+  const ATT_REV = { '출석': 'present', '지각': 'tardy', '결석': 'absent', '조퇴': 'earlyLeave' };
+  const ATT_LABEL = { present: 'Present', tardy: 'Tardy', absent: 'Absent', earlyLeave: 'Early leave' };
   const ATT_MAP = {
     '출석': { sym: 'O', cls: 'sym-present' },
     '지각': { sym: '△', cls: 'sym-tardy' },
-    '결석': { sym: 'X', cls: 'sym-absent' }
+    '결석': { sym: 'X', cls: 'sym-absent' },
+    '조퇴': { sym: '↗', cls: 'sym-early' }
   };
 
   const MONTH_NAMES = [
@@ -168,7 +169,7 @@ window.SaltAttendance = (function() {
     const editable = !!(workData && workData.scheduledDay);
     const att = std.attendance || (editable ? ATT.present : '');
     const attKey = ATT_REV[att] || (editable ? 'present' : '');
-    const showExcuse = att === ATT.tardy || att === ATT.absent;
+    const showExcuse = att === ATT.tardy || att === ATT.absent || att === ATT.earlyLeave;
     const hasExcuse = !!(std.excuse && std.excuse.trim());
     const planned = std.plannedNotice
       ? '<span class="att-badge att-badge-planned">' + (std.plannedNotice.type === ATT.tardy ? 'Tardy' : 'Absent') + ' planned</span>'
@@ -185,7 +186,7 @@ window.SaltAttendance = (function() {
     } else if (hr) {
       attBlock =
         '<div class="att-btn-row">' +
-          ['present', 'tardy', 'absent'].map((k) =>
+          ['present', 'tardy', 'absent', 'earlyLeave'].map((k) =>
             '<button type="button" class="att-status-btn att-' + k + (attKey === k ? ' active' : '') + '" data-att="' + k + '">' + ATT_LABEL[k] + '</button>'
           ).join('') +
         '</div>' +
@@ -289,8 +290,10 @@ window.SaltAttendance = (function() {
       { key: 'present', color: '#3b82f6', n: summary.present },
       { key: 'absent', color: '#f9a8d4', n: summary.absent },
       { key: 'tardy', color: '#86efac', n: summary.tardy },
+      { key: 'earlyLeave', color: '#c4b5fd', n: summary.earlyLeave || 0 },
       { key: 'absentExcused', color: '#fdba74', n: summary.absentExcused },
-      { key: 'tardyExcused', color: '#fde047', n: summary.tardyExcused }
+      { key: 'tardyExcused', color: '#fde047', n: summary.tardyExcused },
+      { key: 'earlyLeaveExcused', color: '#ddd6fe', n: summary.earlyLeaveExcused || 0 }
     ].filter((p) => p.n > 0);
     const total = parts.reduce((s, p) => s + p.n, 0) || 1;
     if (!parts.length) return 'conic-gradient(#e5e7eb 0 100%)';
@@ -318,8 +321,10 @@ window.SaltAttendance = (function() {
       ['Present', s.present, pct.present, '#3b82f6'],
       ['Absent', s.absent, pct.absent, '#f9a8d4'],
       ['Tardy', s.tardy, pct.tardy, '#86efac'],
+      ['Early leave', s.earlyLeave || 0, pct.earlyLeave || 0, '#c4b5fd'],
       ['Absent With Excuse', s.absentExcused, pct.absentExcused, '#fdba74'],
-      ['Tardy With Excuse', s.tardyExcused, pct.tardyExcused, '#fde047']
+      ['Tardy With Excuse', s.tardyExcused, pct.tardyExcused, '#fde047'],
+      ['Early leave excused', s.earlyLeaveExcused || 0, pct.earlyLeaveExcused || 0, '#ddd6fe']
     ].map((row) =>
       '<div class="ya-legend-row"><i class="ya-swatch" style="background:' + row[3] + '"></i>' +
         '<span>' + row[0] + '</span><strong>' + row[1] + ' days — ' + row[2] + '%</strong></div>'
@@ -342,6 +347,7 @@ window.SaltAttendance = (function() {
       if (day.category === 'present') cls.push('ya-cal-present');
       if (day.category === 'absent') cls.push('ya-cal-absent');
       if (day.category === 'tardy') cls.push('ya-cal-tardy');
+      if (day.category === 'earlyLeave' || day.category === 'earlyLeaveExcused') cls.push('ya-cal-tardy');
       if (day.category === 'absentExcused') cls.push('ya-cal-absent-ex');
       if (day.category === 'tardyExcused') cls.push('ya-cal-tardy-ex');
       if (day.isClassDay && !day.status) cls.push('ya-cal-unmarked');

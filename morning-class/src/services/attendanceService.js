@@ -14,7 +14,7 @@ const {
 } = require('./schoolCalendarService');
 const { getHolidaysForRange } = require('../holiday');
 
-const VALID_STATUS = ['출석', '지각', '결석'];
+const VALID_STATUS = ['출석', '지각', '결석', '조퇴'];
 
 function normalizeNote(val) {
   return String(val == null ? '' : val).trim();
@@ -22,7 +22,10 @@ function normalizeNote(val) {
 
 function countsAsPresent(attendance, excuse) {
   if (attendance === '출석') return true;
-  if ((attendance === '지각' || attendance === '결석') && String(excuse || '').trim()) return true;
+  if ((attendance === '지각' || attendance === '결석' || attendance === '조퇴') &&
+      String(excuse || '').trim()) {
+    return true;
+  }
   return false;
 }
 
@@ -206,6 +209,7 @@ function categorizeAttendance(attendance, excuse) {
   if (attendance === '출석') return 'present';
   if (attendance === '지각') return excused ? 'tardyExcused' : 'tardy';
   if (attendance === '결석') return excused ? 'absentExcused' : 'absent';
+  if (attendance === '조퇴') return excused ? 'earlyLeaveExcused' : 'earlyLeave';
   return null;
 }
 
@@ -258,8 +262,10 @@ async function getStudentYearAttendance(classId, studentId, startDate, endDate) 
     present: 0,
     absent: 0,
     tardy: 0,
+    earlyLeave: 0,
     absentExcused: 0,
     tardyExcused: 0,
+    earlyLeaveExcused: 0,
     unmarked: 0,
     schoolDays: 0
   };
@@ -331,8 +337,8 @@ async function getStudentYearAttendance(classId, studentId, startDate, endDate) 
     }
   }
 
-  const marked = summary.present + summary.absent + summary.tardy +
-    summary.absentExcused + summary.tardyExcused;
+  const marked = summary.present + summary.absent + summary.tardy + summary.earlyLeave +
+    summary.absentExcused + summary.tardyExcused + summary.earlyLeaveExcused;
   const pct = (n) => (marked ? Math.round((n / marked) * 100) : 0);
 
   return {
@@ -351,8 +357,10 @@ async function getStudentYearAttendance(classId, studentId, startDate, endDate) 
         present: pct(summary.present),
         absent: pct(summary.absent),
         tardy: pct(summary.tardy),
+        earlyLeave: pct(summary.earlyLeave),
         absentExcused: pct(summary.absentExcused),
-        tardyExcused: pct(summary.tardyExcused)
+        tardyExcused: pct(summary.tardyExcused),
+        earlyLeaveExcused: pct(summary.earlyLeaveExcused)
       }
     },
     months

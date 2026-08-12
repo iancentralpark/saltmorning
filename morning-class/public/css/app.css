@@ -4272,3 +4272,63 @@ body.buddy-resize-active {
 @media (max-width: 720px) {
   .ann-compose-grid { grid-template-columns: 1fr; }
 }
+
+/* Bus management */
+.bus-subnav { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.bus-subnav .btn.active { background: var(--sage-soft); border-color: var(--sage); }
+.bus-forms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+  margin: 0.75rem 0 1.25rem;
+}
+.bus-form-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: #fafbf8;
+}
+.bus-form-card h4 { margin: 0 0 0.25rem; font-size: 0.95rem; }
+.bus-form-card label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem; font-weight: 600; }
+.bus-days { display: flex; flex-wrap: wrap; gap: 0.35rem 0.65rem; font-size: 0.82rem; }
+.bus-day { font-weight: 600; display: inline-flex; align-items: center; gap: 0.2rem; }
+.bus-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.bus-list { list-style: none; padding: 0; margin: 0.35rem 0 0; }
+.bus-list li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.9rem;
+}
+.bus-board-runs { display: flex; flex-direction: column; gap: 1rem; }
+.bus-run-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.9rem;
+  background: #fff;
+}
+.bus-run-head { margin-bottom: 0.55rem; }
+.bus-rider-list { list-style: none; padding: 0; margin: 0; }
+.bus-rider-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.9rem;
+}
+.bus-rider-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.bus-noshow { background: #fff5f5; }
+.bus-changelog { margin-top: 1.25rem; }
+.pp-bus-form { display: flex; flex-direction: column; gap: 0.65rem; max-width: 420px; margin-top: 0.75rem; }
+.pp-bus-form label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
+.pp-bus-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.pp-bus-current { margin: 0.5rem 0; }
+.att-earlyLeave.active { background: #f3e8ff; border-color: #c4b5fd; color: #6b21a8; }
+.att-status-pill.att-earlyLeave { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+.sym-early { color: #7c3aed; font-weight: 700; }
