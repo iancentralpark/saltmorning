@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260811teachernav">
+  <link rel="stylesheet" href="/css/app.css?v=20260812pwchange">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -20,7 +20,7 @@
     <div id="appShell" class="hidden teacher-app-shell">
   <header class="topbar teacher-topbar teacher-shell-topbar">
     <div class="teacher-shell-identity">
-      <div class="brand" id="teacherNameBrand">Teacher</div>
+      <button type="button" class="brand brand-link" id="teacherNameBrand" title="Go to home timetable">Teacher</button>
       <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
     </div>
     <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
@@ -34,6 +34,7 @@
           <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
         </div>
       </div>
+      <button type="button" class="btn btn-ghost" id="changePasswordBtn" data-change-password>Password</button>
       <button type="button" class="btn btn-ghost teacher-nav-logout" id="shellLogoutBtn">Log out</button>
     </nav>
   </header>
@@ -419,6 +420,7 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
+<script src="/js/change-password.js?v=20260812pw"></script>
 <script src="/js/teacher-attendance.js?v=20260810attendance"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
@@ -1317,6 +1319,14 @@
   }
 
   if ($('shellLogoutBtn')) $('shellLogoutBtn').addEventListener('click', doLogout);
+
+  if ($('teacherNameBrand')) {
+    $('teacherNameBrand').addEventListener('click', () => {
+      openHome();
+      window.scrollTo(0, 0);
+    });
+  }
+  SaltChangePassword.mount({ role, api });
 
   document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

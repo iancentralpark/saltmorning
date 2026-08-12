@@ -305,6 +305,31 @@ a:hover { color: var(--gold); }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.brand-link {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.brand-link:hover,
+.brand-link:focus-visible {
+  color: var(--gold-soft);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  outline: none;
+}
 .teacher-shell-page {
   margin: 0.15rem 0 0;
   font-size: 0.86rem;
