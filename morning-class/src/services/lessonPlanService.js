@@ -146,7 +146,20 @@ async function ensureLessonPlanColumns() {
 ensureLessonPlanColumns.done = false;
 
 async function getTeacherClassSlots(teacherId, filterClassId) {
-  return getTeacherLessonSlots(teacherId, filterClassId || '');
+  const slots = await getTeacherLessonSlots(teacherId, filterClassId || '');
+  const {
+    listTeacherSubjectPrefs,
+    isHidden,
+    resolveTeachingDays
+  } = require('./subjectPrefsService');
+  const prefs = await listTeacherSubjectPrefs(teacherId);
+  const out = [];
+  for (const slot of slots) {
+    if (isHidden(prefs, slot.classId, slot.subject)) continue;
+    const teachingDays = await resolveTeachingDays(teacherId, slot.classId, slot.subject, prefs);
+    out.push(Object.assign({}, slot, { teachingDays }));
+  }
+  return out;
 }
 
 function buildMonthWeeks(year, month) {
@@ -354,6 +367,12 @@ async function buildCalendarDays(year, month, classSlots, planMap, opts) {
         if (!resolved.isClassDay && !plan) continue;
         if (!includeEmptySlots && !plan) continue;
 
+        // Teaching weekdays filter (Mon=1 … Fri=5). Keep existing plans visible.
+        const dow = new Date(cell.dateStr + 'T12:00:00').getDay();
+        const dayNum = dow === 0 ? 7 : dow; // convert Sun=0 → skip; Mon=1
+        const teachDays = Array.isArray(slot.teachingDays) ? slot.teachingDays : null;
+        if (teachDays && teachDays.length && !teachDays.includes(dayNum) && !plan) continue;
+
         daySlots.push({
           slotKey: key,
           classId: slot.classId,
@@ -362,6 +381,7 @@ async function buildCalendarDays(year, month, classSlots, planMap, opts) {
           lessonDate: cell.dateStr,
           style: subjectStyle(slot.subject, slot.classId, styleLookup),
           isClassDay: !!resolved.isClassDay,
+          teachingDays: teachDays || [1, 2, 3, 4, 5],
           plan: plan ? {
             planId: plan.planId,
             title: plan.title,

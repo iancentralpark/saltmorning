@@ -122,6 +122,13 @@ const {
   getLessonCalendar,
   getAdminLessonCalendar
 } = require('./services/lessonPlanService');
+const { saveSubjectPref, listTeacherSubjectPrefs } = require('./services/subjectPrefsService');
+const {
+  getSemesterPlan,
+  saveSemesterPlan,
+  listAdminSemesterPlans,
+  listTeacherSemesterSubjects
+} = require('./services/semesterPlanService');
 const {
   getAdminOverview,
   listTeachers,
@@ -1387,6 +1394,62 @@ router.post('/teacher/lesson-plans', requireRole('teacher'), async (req, res) =>
   }
 });
 
+router.get('/teacher/subject-prefs', requireRole('teacher'), async (req, res) => {
+  try {
+    const prefs = await listTeacherSubjectPrefs(req.session.teacherId);
+    res.json({ prefs });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load subject preferences.' });
+  }
+});
+
+router.post('/teacher/subject-prefs', requireRole('teacher'), async (req, res) => {
+  try {
+    const { classId, subject } = req.body || {};
+    await assertTeacherClassAccess(req.session.teacherId, classId);
+    const pref = await saveSubjectPref(req.session.teacherId, req.body || {});
+    res.json({ pref });
+  } catch (e) {
+    const status = /access|homeroom|not assigned/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not save subject preferences.' });
+  }
+});
+
+router.get('/teacher/semester-plans/subjects', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await listTeacherSemesterSubjects(req.session.teacherId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load subjects.' });
+  }
+});
+
+router.get('/teacher/semester-plans', requireRole('teacher'), async (req, res) => {
+  try {
+    const { classId, subject, termLabel } = req.query;
+    if (!classId || !subject) {
+      return res.status(400).json({ error: 'classId and subject are required.' });
+    }
+    const plan = await getSemesterPlan(
+      req.session.teacherId,
+      classId,
+      subject,
+      termLabel || ''
+    );
+    res.json({ plan });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not load semester plan.' });
+  }
+});
+
+router.post('/teacher/semester-plans', requireRole('teacher'), async (req, res) => {
+  try {
+    const result = await saveSemesterPlan(req.session.teacherId, req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save semester plan.' });
+  }
+});
+
 router.get('/student/messages', requireRole('student'), async (req, res) => {
   try {
     const messages = await loadMessagesForStudent(req.session.studentId);
@@ -2407,6 +2470,19 @@ router.get('/admin/lesson-plans/:planId', requireRole('admin'), async (req, res)
     res.json({ plan });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load lesson plan.' });
+  }
+});
+
+router.get('/admin/semester-plans', requireRole('admin'), async (req, res) => {
+  try {
+    const data = await listAdminSemesterPlans({
+      teacherId: req.query.teacherId || '',
+      classId: req.query.classId || '',
+      termLabel: req.query.termLabel || ''
+    });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load semester plans.' });
   }
 });
 

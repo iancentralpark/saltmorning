@@ -305,10 +305,12 @@ async function getTeacherLessonSlots(teacherId, filterClassId) {
 }
 
 async function listTeacherSubjectGroups(teacherId) {
-  const [data, customStyles] = await Promise.all([
+  const [data, customStyles, prefs] = await Promise.all([
     loadTeacherSubjectData(teacherId),
-    listTeacherSubjectStyles(teacherId)
+    listTeacherSubjectStyles(teacherId),
+    require('./subjectPrefsService').listTeacherSubjectPrefs(teacherId)
   ]);
+  const { isHidden, resolveTeachingDays, DAY_LABELS } = require('./subjectPrefsService');
   const groups = {};
 
   data.homeroom.forEach((e) => {
@@ -331,8 +333,22 @@ async function listTeacherSubjectGroups(teacherId) {
   });
 
   for (const classId of Object.keys(groups)) {
-    const subjects = subjectsForClassFromData(teacherId, classId, data);
+    let subjects = subjectsForClassFromData(teacherId, classId, data);
+    subjects = subjects.filter((s) => !isHidden(prefs, classId, s));
     groups[classId].subjects = subjects;
+    const subjectMeta = {};
+    for (const s of subjects) {
+      const days = await resolveTeachingDays(teacherId, classId, s, prefs);
+      const custom = data.custom.some((c) => c.classId === classId && c.subject === s);
+      subjectMeta[s] = {
+        teachingDays: days,
+        dayLabels: days.map((d) => DAY_LABELS[d] || String(d)),
+        removable: true,
+        isCustom: custom,
+        syncFromTimetable: !(prefs[classId + '|' + s] && prefs[classId + '|' + s].syncFromTimetable === false)
+      };
+    }
+    groups[classId].subjectMeta = subjectMeta;
     const roles = [];
     if (groups[classId].isHomeroom) roles.push('Homeroom');
     subjects.forEach((s) => {
@@ -342,7 +358,9 @@ async function listTeacherSubjectGroups(teacherId) {
     groups[classId].roleLabel = roles.join(' / ');
   }
 
-  const classSlots = buildLessonSlotsFromData(teacherId, '', data);
+  const classSlots = buildLessonSlotsFromData(teacherId, '', data).filter(
+    (s) => !isHidden(prefs, s.classId, s.subject)
+  );
   const styleBundle = buildStyleLookup(classSlots, customStyles);
   const classes = Object.values(groups).sort((a, b) => {
     if (a.isHomeroom !== b.isHomeroom) return a.isHomeroom ? -1 : 1;
@@ -354,7 +372,8 @@ async function listTeacherSubjectGroups(teacherId) {
     custom: data.custom,
     styles: customStyles,
     stylePalette: SUBJECT_PALETTE,
-    resolvedStyles: styleBundle.byKey
+    resolvedStyles: styleBundle.byKey,
+    prefs
   };
 }
 
@@ -364,6 +383,13 @@ async function addTeacherSubject(teacherId, classId, subject) {
   subject = String(subject || '').trim();
   if (!subject) throw new Error('Subject name is required.');
   if (subject.length > 40) throw new Error('Subject name is too long.');
+
+  const { isHidden, saveSubjectPref, listTeacherSubjectPrefs } = require('./subjectPrefsService');
+  const prefs = await listTeacherSubjectPrefs(teacherId);
+  if (isHidden(prefs, classId, subject)) {
+    await saveSubjectPref(teacherId, { classId, subject, hidden: false });
+    return { added: true, subject, classId, mode: 'unhidden' };
+  }
 
   const existing = await getSubjectsForClass(teacherId, classId);
   if (existing.includes(subject)) {
@@ -387,6 +413,7 @@ async function addTeacherSubject(teacherId, classId, subject) {
 async function removeTeacherSubject(teacherId, classId, subject) {
   await ensureTeacherClassSubjectsSheet();
   subject = String(subject || '').trim();
+  classId = String(classId || '').trim();
   const data = await getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET, { skipCache: true });
   let found = -1;
   for (let i = 1; i < data.length; i++) {
@@ -396,9 +423,14 @@ async function removeTeacherSubject(teacherId, classId, subject) {
     found = i + 1;
     break;
   }
-  if (found < 0) throw new Error('Custom subject not found.');
-  await updateRange(TEACHER_CLASS_SUBJECTS_SHEET, `A${found}:D${found}`, [['', '', '', '']]);
-  return { removed: true };
+  if (found > 0) {
+    await updateRange(TEACHER_CLASS_SUBJECTS_SHEET, `A${found}:D${found}`, [['', '', '', '']]);
+    return { removed: true, mode: 'custom' };
+  }
+  // Admin-assigned / homeroom default: hide via prefs instead of deleting source assignment.
+  const { saveSubjectPref } = require('./subjectPrefsService');
+  await saveSubjectPref(teacherId, { classId, subject, hidden: true });
+  return { removed: true, mode: 'hidden' };
 }
 
 async function saveAdminClassAssignment(payload) {

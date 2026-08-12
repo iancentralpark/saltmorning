@@ -1634,6 +1634,128 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .lp-subject-class-name { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.2rem; }
 .lp-subject-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .lp-subject-name { font-weight: 600; }
+.lp-subjects-help { margin: 0 0 0.55rem; }
+.lp-subject-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.45rem;
+  align-items: flex-start;
+}
+.lp-day-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.15rem;
+}
+.lp-day-label { margin-right: 0.2rem; }
+.lp-day-btn {
+  border: 1px solid rgba(158, 202, 232, 0.55);
+  background: var(--card);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 0.12rem 0.4rem;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.lp-day-btn.is-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+.lp-day-sync {
+  font-size: 0.68rem !important;
+  padding: 0.1rem 0.4rem !important;
+  opacity: 0.85;
+}
+.lp-day-sync.is-sync { font-weight: 600; }
+.lp-semester-panel {
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  background: #f7faf8;
+  border: 1px solid rgba(163, 177, 138, 0.35);
+  border-radius: var(--radius-sm);
+}
+.lp-semester-head { margin-bottom: 0.45rem; font-size: 0.9rem; }
+.lp-semester-picker { margin-bottom: 0.55rem; }
+.lp-semester-picker select { max-width: 100%; min-width: 220px; }
+.lp-semester-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.88rem;
+}
+.lp-semester-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(158, 202, 232, 0.35);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+.lp-semester-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.lp-semester-table th,
+.lp-semester-table td {
+  border-bottom: 1px solid rgba(158, 202, 232, 0.28);
+  padding: 0.45rem 0.5rem;
+  vertical-align: top;
+  text-align: left;
+}
+.lp-semester-table th {
+  background: var(--sky-soft);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.lp-semester-table textarea {
+  width: 100%;
+  min-width: 140px;
+  resize: vertical;
+  font: inherit;
+  border: 1px solid rgba(158, 202, 232, 0.45);
+  border-radius: 6px;
+  padding: 0.35rem 0.45rem;
+  background: #fff;
+}
+.lp-semester-row.is-break { background: #f3f4f6; }
+.lp-semester-row.is-midterm,
+.lp-semester-table tr.is-midterm { background: #fff7ed; }
+.lp-semester-row.is-final,
+.lp-semester-table tr.is-final { background: #f5f3ff; }
+.lp-sem-week { white-space: nowrap; font-weight: 650; min-width: 7rem; }
+.lp-sem-date { white-space: nowrap; color: var(--muted); font-size: 0.78rem; }
+.lp-semester-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+.lp-admin-sem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+.lp-admin-sem-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  text-align: left;
+  width: 100%;
+  border: 1px solid rgba(158, 202, 232, 0.4);
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+}
+.lp-admin-sem-item:hover { border-color: var(--primary); }
+.lp-admin-semester { margin-bottom: 1rem; }
 .lp-color-picker { position: relative; display: inline-flex; }
 .lp-color-swatch {
   width: 16px;
