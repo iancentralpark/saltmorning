@@ -98,6 +98,7 @@ window.SaltParent = (function() {
     $('ppProfileForm').addEventListener('submit', saveProfile);
     if ($('ppBusNoticeForm')) $('ppBusNoticeForm').addEventListener('submit', submitBusNotice);
     if ($('ppBusClearBtn')) $('ppBusClearBtn').addEventListener('click', clearBusNotice);
+    if ($('ppBusDate')) $('ppBusDate').addEventListener('change', loadBusNotice);
     const childSel = $('ppChildSwitcher');
     if (childSel) {
       childSel.addEventListener('change', () => switchActiveChild(childSel.value));
@@ -416,6 +417,56 @@ window.SaltParent = (function() {
     return map[type] || type || '';
   }
 
+  function todayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  function selectedBusDate() {
+    const el = $('ppBusDate');
+    return (el && el.value) ? el.value : todayISO();
+  }
+
+  function renderBusUpcoming(list) {
+    const mount = $('ppBusUpcoming');
+    if (!mount) return;
+    const items = (list || []).filter(Boolean);
+    if (!items.length) {
+      mount.innerHTML = '<p class="muted small">' + escapeHtml(t('parent.bus.upcomingEmpty', 'None scheduled.')) + '</p>';
+      return;
+    }
+    mount.innerHTML = '<ul class="pp-bus-upcoming-list">' + items.map((n) =>
+      '<li><button type="button" class="pp-bus-upcoming-item" data-date="' + escapeHtml(n.dateStr) + '">' +
+        '<strong>' + escapeHtml(n.dateStr) + '</strong> — ' + escapeHtml(noticeTypeLabel(n.noticeType)) +
+        (n.note ? ' <span class="muted">(' + escapeHtml(n.note) + ')</span>' : '') +
+      '</button></li>'
+    ).join('') + '</ul>';
+    mount.querySelectorAll('.pp-bus-upcoming-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if ($('ppBusDate')) $('ppBusDate').value = btn.dataset.date;
+        loadBusNotice();
+      });
+    });
+  }
+
+  function renderSchoolDayHint(schoolDay) {
+    const hint = $('ppBusSchoolDayHint');
+    if (!hint) return;
+    if (!schoolDay) {
+      hint.classList.add('hidden');
+      hint.textContent = '';
+      return;
+    }
+    if (schoolDay.isClassDay) {
+      hint.classList.add('hidden');
+      hint.textContent = '';
+      return;
+    }
+    hint.classList.remove('hidden');
+    hint.textContent = schoolDay.message || t('parent.bus.notSchoolDay', 'Not a school day — choose another date.');
+  }
+
   async function loadBusNotice() {
     const cur = $('ppBusCurrent');
     const ok = $('ppBusOk');
@@ -425,24 +476,31 @@ window.SaltParent = (function() {
     if (cur) cur.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
       const studentId = overview && overview.student && overview.student.studentId;
-      const data = await api('/api/parent/attendance-notice' +
-        (studentId ? ('?studentId=' + encodeURIComponent(studentId)) : ''));
-      if ($('ppBusDateLabel')) {
-        $('ppBusDateLabel').textContent = t('parent.bus.forDate', 'For date') + ': ' + (data.dateStr || '');
+      const date = selectedBusDate();
+      const data = await api('/api/parent/attendance-notice?studentId=' +
+        encodeURIComponent(studentId || '') + '&date=' + encodeURIComponent(date));
+      const bounds = data.bounds || {};
+      const dateEl = $('ppBusDate');
+      if (dateEl) {
+        if (!dateEl.value) dateEl.value = data.dateStr || todayISO();
+        if (bounds.minDate) dateEl.min = bounds.minDate;
+        if (bounds.maxDate) dateEl.max = bounds.maxDate;
       }
+      renderSchoolDayHint(data.schoolDay);
       if (cur) {
         if (data.notice) {
           cur.innerHTML =
-            '<p><strong>' + escapeHtml(t('parent.bus.current', 'Current notice')) + ':</strong> ' +
+            '<p><strong>' + escapeHtml(t('parent.bus.current', 'Notice for this date')) + ':</strong> ' +
             escapeHtml(noticeTypeLabel(data.notice.noticeType)) +
             (data.notice.note ? ' — ' + escapeHtml(data.notice.note) : '') +
             '</p>';
           if ($('ppBusNoticeType')) $('ppBusNoticeType').value = data.notice.noticeType;
           if ($('ppBusNote')) $('ppBusNote').value = data.notice.note || '';
         } else {
-          cur.innerHTML = '<p class="muted">' + escapeHtml(t('parent.bus.none', 'No notice for today.')) + '</p>';
+          cur.innerHTML = '<p class="muted">' + escapeHtml(t('parent.bus.none', 'No notice for this date.')) + '</p>';
         }
       }
+      renderBusUpcoming(data.upcoming);
     } catch (e) {
       if (cur) cur.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
     }
@@ -455,16 +513,23 @@ window.SaltParent = (function() {
     if (ok) ok.textContent = '';
     if (err) err.textContent = '';
     const studentId = overview && overview.student && overview.student.studentId;
+    const date = selectedBusDate();
     try {
       await api('/api/parent/attendance-notice', {
         method: 'POST',
         body: {
           studentId,
+          date,
           noticeType: $('ppBusNoticeType').value,
           note: $('ppBusNote').value
         }
       });
-      if (ok) ok.textContent = t('parent.bus.saved', 'Notice submitted. Staff have been notified.');
+      const isFuture = date > todayISO();
+      if (ok) {
+        ok.textContent = isFuture
+          ? t('parent.bus.savedFuture', 'Advance notice saved. Staff have been notified.')
+          : t('parent.bus.saved', 'Notice submitted. Staff have been notified.');
+      }
       await loadBusNotice();
     } catch (e) {
       if (err) err.textContent = e.message || 'Failed';
@@ -477,13 +542,14 @@ window.SaltParent = (function() {
     if (ok) ok.textContent = '';
     if (err) err.textContent = '';
     const studentId = overview && overview.student && overview.student.studentId;
+    const date = selectedBusDate();
     try {
       await api('/api/parent/attendance-notice/clear', {
         method: 'POST',
-        body: { studentId }
+        body: { studentId, date }
       });
       if ($('ppBusNote')) $('ppBusNote').value = '';
-      if (ok) ok.textContent = t('parent.bus.cleared', 'Today’s notice cleared.');
+      if (ok) ok.textContent = t('parent.bus.cleared', 'Notice cleared for this date.');
       await loadBusNotice();
     } catch (e) {
       if (err) err.textContent = e.message || 'Failed';

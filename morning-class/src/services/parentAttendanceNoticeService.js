@@ -16,6 +16,8 @@ const {
   invalidateSheetRowsCache
 } = require('../sheets');
 const { formatSheetDate, todayStr, formatDateTimeNow } = require('../dateUtils');
+const { resolveDay } = require('./schoolCalendarService');
+const { listSchoolSemesters } = require('./schoolSemesterService');
 const {
   parentHasStudent,
   getParentRecord
@@ -57,20 +59,111 @@ async function ensureNoticeSheet() {
   await ensureSheet(PARENT_ATTENDANCE_NOTICES_SHEET, NOTICE_HEADERS);
 }
 
-async function listNotices({ dateStr, studentId, parentId } = {}) {
+async function listNotices({ dateStr, studentId, parentId, fromDate, toDate } = {}) {
   await ensureNoticeSheet();
   const rows = await getSheetRows(PARENT_ATTENDANCE_NOTICES_SHEET);
   const out = [];
   const wantDate = dateStr ? formatSheetDate(dateStr) : '';
+  const from = fromDate ? formatSheetDate(fromDate) : '';
+  const to = toDate ? formatSheetDate(toDate) : '';
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     const n = parseNotice(rows[i], i + 1);
     if (wantDate && n.dateStr !== wantDate) continue;
+    if (from && n.dateStr < from) continue;
+    if (to && n.dateStr > to) continue;
     if (studentId && n.studentId !== String(studentId)) continue;
     if (parentId && n.parentId !== String(parentId)) continue;
     out.push(n);
   }
+  out.sort((a, b) => a.dateStr.localeCompare(b.dateStr) || a.createdAt.localeCompare(b.createdAt));
   return out;
+}
+
+async function noticeDateBounds() {
+  const today = todayStr();
+  let maxDate = '';
+  try {
+    const semesters = await listSchoolSemesters();
+    for (const s of semesters || []) {
+      if (s.endDate && s.endDate > maxDate) maxDate = s.endDate;
+    }
+  } catch (_) { /* optional */ }
+  if (!maxDate) {
+    const d = new Date(today + 'T12:00:00');
+    d.setDate(d.getDate() + 120);
+    maxDate = formatSheetDate(d);
+  }
+  return { minDate: today, maxDate };
+}
+
+async function schoolDayInfo(classId, dateStr) {
+  if (!classId) {
+    return { isClassDay: false, title: '', dayType: 'unknown', message: 'Class not assigned.' };
+  }
+  const day = await resolveDay(classId, dateStr);
+  const title = day.title || day.krHoliday || '';
+  let message = '';
+  if (!day.isClassDay) {
+    if (day.dayType === 'break') message = (title || 'School break') + ' — no class.';
+    else if (day.dayType === 'holiday' || day.dayType === 'kr_holiday') message = (title || 'Holiday') + ' — no class.';
+    else if (day.dayType === 'event') message = (title || 'School event') + ' — no class.';
+    else message = (title || 'Not a school day') + ' — choose another date.';
+  }
+  return {
+    isClassDay: !!day.isClassDay,
+    title,
+    dayType: day.dayType,
+    krHoliday: day.krHoliday || '',
+    message
+  };
+}
+
+/**
+ * Today or future school days only (school calendar).
+ */
+async function validateNoticeDate(classId, dateStr) {
+  dateStr = formatSheetDate(dateStr);
+  const today = todayStr();
+  if (dateStr < today) {
+    const err = new Error('Notices cannot be submitted for past dates.');
+    err.status = 400;
+    throw err;
+  }
+  const { maxDate } = await noticeDateBounds();
+  if (dateStr > maxDate) {
+    const err = new Error('Date is too far in the future. Please choose a date within the school year.');
+    err.status = 400;
+    throw err;
+  }
+  const info = await schoolDayInfo(classId, dateStr);
+  if (!info.isClassDay) {
+    const err = new Error(info.message || 'Not a school day.');
+    err.status = 400;
+    throw err;
+  }
+  return info;
+}
+
+async function getParentNoticeView(studentId, date) {
+  const today = todayStr();
+  const dateStr = formatSheetDate(date || today);
+  const student = await findStudentMeta(studentId);
+  const [notice, upcoming, bounds, schoolDay] = await Promise.all([
+    getNoticeForStudentDate(studentId, dateStr),
+    listNotices({ studentId, fromDate: today }),
+    noticeDateBounds(),
+    student && student.classId ? schoolDayInfo(student.classId, dateStr) : Promise.resolve(null)
+  ]);
+  return {
+    dateStr,
+    today,
+    studentId,
+    notice,
+    upcoming: upcoming.slice(0, 30),
+    bounds,
+    schoolDay
+  };
 }
 
 async function getNoticeForStudentDate(studentId, dateStr) {
@@ -147,10 +240,14 @@ async function buildBusExclusionsForDate(dateStr) {
 }
 
 async function notifyStaff({ parent, student, noticeType, dateStr, note }) {
+  const today = todayStr();
+  const isAdvance = dateStr > today;
   const typeLabel =
-    noticeType === 'pickup_only' ? 'Today: parent pickup (no bus)' : noticeType;
+    noticeType === 'pickup_only'
+      ? (isAdvance ? 'Parent pickup (no bus)' : 'Today: parent pickup (no bus)')
+      : noticeType;
   const body = [
-    '[Attendance notice] ' + typeLabel,
+    (isAdvance ? '[Advance attendance notice]' : '[Attendance notice]') + ' ' + typeLabel,
     'Student: ' + (student.name || student.studentId),
     'Date: ' + dateStr,
     note ? 'Note: ' + note : null,
@@ -186,9 +283,9 @@ async function notifyStaff({ parent, student, noticeType, dateStr, note }) {
 }
 
 /**
- * Parent submits today's notice. Applies immediately.
- * - 결석 / 지각 / 조퇴 → attendance + bus exclusion rules
- * - pickup_only → bus exclusion only (no attendance change)
+ * Parent submits a notice for today or a future school day.
+ * - 결석 / 지각 / 조퇴 → attendance sheet only when date is today; bus rules via notice sheet
+ * - pickup_only → bus exclusion for that date (no attendance change)
  * - 조퇴 → excluded from ALL dismissal buses (no switching to another run)
  */
 async function submitNotice({ parentId, studentId, noticeType, date, note }) {
@@ -199,6 +296,7 @@ async function submitNotice({ parentId, studentId, noticeType, date, note }) {
     throw err;
   }
   const dateStr = formatSheetDate(date || todayStr());
+  const today = todayStr();
   parentId = String(parentId || '').trim();
   studentId = String(studentId || '').trim();
 
@@ -223,6 +321,8 @@ async function submitNotice({ parentId, studentId, noticeType, date, note }) {
     err.status = 404;
     throw err;
   }
+
+  await validateNoticeDate(student.classId, dateStr);
 
   await ensureNoticeSheet();
   const now = formatDateTimeNow(TIMEZONE);
@@ -263,7 +363,8 @@ async function submitNotice({ parentId, studentId, noticeType, date, note }) {
     notice = parseNotice(row, null);
   }
 
-  if (ATTENDANCE_NOTICE_TYPES.has(type) && student.classId) {
+  // Same-day only: write attendance immediately. Future dates stay on notice sheet until that day.
+  if (ATTENDANCE_NOTICE_TYPES.has(type) && student.classId && dateStr === today) {
     try {
       await upsertStudentRecord(
         student.classId,
@@ -293,6 +394,11 @@ async function submitNotice({ parentId, studentId, noticeType, date, note }) {
 
 async function clearNotice({ parentId, studentId, date }) {
   const dateStr = formatSheetDate(date || todayStr());
+  if (dateStr < todayStr()) {
+    const err = new Error('Cannot clear a notice for a past date.');
+    err.status = 400;
+    throw err;
+  }
   parentId = String(parentId || '').trim();
   studentId = String(studentId || '').trim();
   const owns = await parentHasStudent(parentId, studentId);
@@ -319,6 +425,10 @@ module.exports = {
   ensureNoticeSheet,
   listNotices,
   getNoticeForStudentDate,
+  getParentNoticeView,
+  validateNoticeDate,
+  noticeDateBounds,
+  schoolDayInfo,
   buildBusExclusionsForDate,
   submitNotice,
   clearNotice

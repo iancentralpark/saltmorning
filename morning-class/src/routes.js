@@ -2272,10 +2272,7 @@ router.get('/parent/attendance', requireRole('parent'), async (req, res) => {
 
 router.get('/parent/attendance-notice', requireRole('parent'), async (req, res) => {
   try {
-    const {
-      getNoticeForStudentDate,
-      listNotices
-    } = require('./services/parentAttendanceNoticeService');
+    const { getParentNoticeView } = require('./services/parentAttendanceNoticeService');
     const { todayStr } = require('./dateUtils');
     const studentId = String(req.query.studentId || req.session.studentId || '').trim();
     const dateStr = String(req.query.date || todayStr()).slice(0, 10);
@@ -2284,9 +2281,7 @@ router.get('/parent/attendance-notice', requireRole('parent'), async (req, res) 
     if (!(await parentHasStudent(req.session.parentId, studentId))) {
       return res.status(403).json({ error: 'Not your child.' });
     }
-    const notice = await getNoticeForStudentDate(studentId, dateStr);
-    const recent = await listNotices({ parentId: req.session.parentId, studentId });
-    res.json({ dateStr, studentId, notice, recent: recent.slice(0, 14) });
+    res.json(await getParentNoticeView(studentId, dateStr));
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load notice.' });
   }
