@@ -502,7 +502,8 @@
 
   function applyAdminRoute() {
     const raw = String(location.hash || '').replace(/^#\/?/, '');
-    const tab = decodeURIComponent(raw.split('/')[0] || 'monitor');
+    let tab = decodeURIComponent(raw.split('/')[0] || 'monitor');
+    if (tab === 'terms') tab = 'schoolCal';
     const next = TAB_TITLE_KEYS[tab] ? tab : 'monitor';
     if (currentAdminTab === next) return;
     switchTab(next, { skipHash: true });
