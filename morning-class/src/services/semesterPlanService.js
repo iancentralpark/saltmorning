@@ -75,8 +75,8 @@ function examLabelForTitles(titles) {
 
 /**
  * Build instructional weeks for a class within a term.
- * Week 1 starts at the first Monday on/after term start that has a class day
- * (skipping leading vacation/break weeks).
+ * Week 1 starts after leading vacation/break weeks.
+ * Only Mon–Fri days inside the term are counted; weeks with no overlap are skipped.
  */
 async function buildSemesterWeeks(classId, term) {
   if (!term || !term.startDate || !term.endDate) {
@@ -92,34 +92,31 @@ async function buildSemesterWeeks(classId, term) {
 
   const weeks = [];
   let cursor = mondayOf(start);
-  // Walk week by week through the term
   while (cursor <= end) {
-    const weekStart = cursor;
-    const weekEnd = addDays(weekStart, 4); // Fri
-    const clampedStart = weekStart < start ? start : weekStart;
-    const clampedEnd = weekEnd > end ? end : weekEnd;
+    const monday = cursor;
+    const inTermDates = [];
+    for (let d = 0; d < 5; d++) {
+      const dateStr = addDays(monday, d);
+      if (dateStr < start || dateStr > end) continue;
+      inTermDates.push(dateStr);
+    }
+
+    // Partial calendar week entirely before/after term → skip (avoids inverted date ranges)
+    if (!inTermDates.length) {
+      cursor = addDays(monday, 7);
+      continue;
+    }
 
     let classDayCount = 0;
-    let breakOnly = true;
     const eventTitles = [];
-    for (let d = 0; d < 7; d++) {
-      const dateStr = addDays(weekStart, d);
-      if (dateStr < start || dateStr > end) continue;
-      if (d > 4) continue; // Mon–Fri only for instructional check
-      const resolved = resolveDay(classId, dateStr, {
+    for (const dateStr of inTermDates) {
+      // resolveDay is async — must await (missing await marked every week as Break)
+      const resolved = await resolveDay(classId, dateStr, {
         classMeta,
         entries,
         krHolidayMap
       });
-      if (resolved.isClassDay) {
-        classDayCount += 1;
-        breakOnly = false;
-      }
-      if (resolved.dayType === 'break') {
-        // stay breakOnly unless we also have a class day
-      } else if (resolved.dayType !== 'holiday' && resolved.dayType !== 'break') {
-        if (resolved.isClassDay) breakOnly = false;
-      }
+      if (resolved.isClassDay) classDayCount += 1;
       (resolved.events || []).forEach((ev) => {
         if (ev.title) eventTitles.push(ev.title);
       });
@@ -130,15 +127,15 @@ async function buildSemesterWeeks(classId, term) {
 
     const exam = examLabelForTitles(eventTitles);
     weeks.push({
-      weekStart: clampedStart,
-      weekEnd: clampedEnd,
-      monday: weekStart,
+      weekStart: inTermDates[0],
+      weekEnd: inTermDates[inTermDates.length - 1],
+      monday,
       classDayCount,
-      isBreakWeek: breakOnly || classDayCount === 0,
+      isBreakWeek: classDayCount === 0,
       examLabel: exam,
       eventTitles: Array.from(new Set(eventTitles))
     });
-    cursor = addDays(weekStart, 7);
+    cursor = addDays(monday, 7);
   }
 
   // Drop leading break/vacation weeks → Week 1 after vacation
@@ -150,8 +147,6 @@ async function buildSemesterWeeks(classId, term) {
   for (let i = firstIdx; i < weeks.length; i++) {
     const w = weeks[i];
     if (w.isBreakWeek && !w.examLabel) {
-      // trailing / mid-term breaks: still show but without advancing? User asked Week after vacation.
-      // Keep mid-semester break weeks in the plan with a Break label, but don't count as Week N.
       numbered.push({
         weekIndex: null,
         weekStart: w.weekStart,

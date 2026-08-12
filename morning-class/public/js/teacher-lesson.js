@@ -47,6 +47,12 @@ window.SaltLesson = (function() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeDrawer();
     });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushSemesterSave();
+    });
+    window.addEventListener('beforeunload', () => {
+      if (semesterSaveTimer) flushSemesterSave();
+    });
     document.addEventListener('click', (e) => {
       if (readOnly || (deps.role && deps.role === 'admin')) return;
       const card = e.target.closest('.lp-slot-card');
@@ -228,6 +234,7 @@ window.SaltLesson = (function() {
             picker.querySelector('.lp-color-menu').classList.add('hidden');
           }
           const styleKey = btn.dataset.class + '|' + btn.dataset.subject;
+          openSubjectMenuKey = subjectMenuKey(btn.dataset.class, btn.dataset.subject);
           if (subjectGroups) {
             if (!subjectGroups.styles) subjectGroups.styles = {};
             if (!subjectGroups.resolvedStyles) subjectGroups.resolvedStyles = {};
@@ -258,6 +265,14 @@ window.SaltLesson = (function() {
     const group = subjectGroups.classes.find((c) => c.classId === classId);
     if (!group || !group.subjectMeta) return null;
     return group.subjectMeta[subject] || null;
+  }
+
+  let openSubjectMenuKey = '';
+  let semesterSaveTimer = null;
+  let semesterSaveSeq = 0;
+
+  function subjectMenuKey(classId, subject) {
+    return String(classId) + '|' + String(subject);
   }
 
   function dayToggleHtml(classId, subject, meta) {
@@ -305,25 +320,45 @@ window.SaltLesson = (function() {
     const catalog = subjectGroups.catalog || [];
 
     let html = '<div class="lp-subjects-head"><strong>' + escapeHtml(t('lessons.mySubjects', 'My subjects')) + '</strong>' +
-      '<span class="muted small">' + escapeHtml(t('lessons.colorHint', ' · Tap a color dot to change subject colors')) + '</span></div>' +
-      '<p class="muted small lp-subjects-help">' + escapeHtml(t('lessons.addHint',
-        'Add subjects below. Use × to remove. Set teaching days under each subject (synced from timetable when available).')) + '</p>';
+      '<span class="muted small"> · ' + escapeHtml(t('lessons.clickSubject', 'Click a subject to set days, color, or remove')) +
+      '</span></div>';
     if (!classes.length) {
       html += '<p class="muted small">No classes assigned.</p>';
     } else {
       classes.forEach((c) => {
-        html += '<div class="lp-subject-class"><div class="lp-subject-class-name">' + escapeHtml(c.className) + '</div>';
+        html += '<div class="lp-subject-class">' +
+          '<div class="lp-subject-class-name">' + escapeHtml(c.className) + '</div>' +
+          '<div class="lp-subject-chips">';
         (c.subjects || []).forEach((s) => {
-          const meta = (c.subjectMeta && c.subjectMeta[s]) || subjectMetaFor(c.classId, s) || {};
-          html += '<div class="lp-subject-block">' +
-            '<span class="lp-subject-chip">' +
-            renderColorPicker(c.classId, s) +
+          const key = subjectMenuKey(c.classId, s);
+          const open = openSubjectMenuKey === key;
+          const style = styleForSubject(c.classId, s);
+          html += '<button type="button" class="lp-subject-chip lp-subject-chip-btn' + (open ? ' is-open' : '') +
+            '" data-menu-key="' + escapeHtml(key) +
+            '" data-class="' + escapeHtml(c.classId) +
+            '" data-subject="' + escapeHtml(s) +
+            '" style="--chip-bg:' + escapeHtml(style.bg) + ';--chip-border:' + escapeHtml(style.border) + '">' +
+            '<span class="lp-subject-dot" aria-hidden="true"></span>' +
             '<span class="lp-subject-name">' + escapeHtml(s) + '</span>' +
-            '<button type="button" class="lp-subject-remove" data-class="' + escapeHtml(c.classId) +
-            '" data-subject="' + escapeHtml(s) + '" title="Remove">×</button>' +
-            '</span>' +
+            '<span class="lp-subject-caret" aria-hidden="true">' + (open ? '▾' : '▸') + '</span>' +
+            '</button>';
+        });
+        html += '</div>';
+
+        (c.subjects || []).forEach((s) => {
+          const key = subjectMenuKey(c.classId, s);
+          if (openSubjectMenuKey !== key) return;
+          const meta = (c.subjectMeta && c.subjectMeta[s]) || subjectMetaFor(c.classId, s) || {};
+          html += '<div class="lp-subject-submenu" data-menu-key="' + escapeHtml(key) + '">' +
+            '<div class="lp-subject-submenu-row">' +
+            '<span class="muted small">' + escapeHtml(t('lessons.color', 'Color')) + '</span>' +
+            renderColorPicker(c.classId, s) +
+            '</div>' +
             dayToggleHtml(c.classId, s, meta) +
-            '</div>';
+            '<div class="lp-subject-submenu-actions">' +
+            '<button type="button" class="btn btn-ghost lp-subject-remove" data-class="' + escapeHtml(c.classId) +
+            '" data-subject="' + escapeHtml(s) + '">' + escapeHtml(t('lessons.remove', 'Remove subject')) + '</button>' +
+            '</div></div>';
         });
         html += '</div>';
       });
@@ -345,14 +380,25 @@ window.SaltLesson = (function() {
     bindColorPickers(mount);
     bindDayToggles(mount);
 
+    mount.querySelectorAll('.lp-subject-chip-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = btn.dataset.menuKey || '';
+        openSubjectMenuKey = openSubjectMenuKey === key ? '' : key;
+        renderSubjectsPanels();
+      });
+    });
+
     mount.querySelectorAll('.lp-subject-remove').forEach((btn) => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
         if (!window.confirm(t('lessons.removeConfirm', 'Remove this subject from your lesson list?'))) return;
         try {
           await api('/api/teacher/class-subjects', {
             method: 'DELETE',
             body: { classId: btn.dataset.class, subject: btn.dataset.subject }
           });
+          openSubjectMenuKey = '';
           await loadSubjectGroups();
           await loadCalendar();
         } catch (err) {
@@ -397,6 +443,7 @@ window.SaltLesson = (function() {
             method: 'POST',
             body: Object.assign({ classId, subject }, body)
           });
+          openSubjectMenuKey = subjectMenuKey(classId, subject);
           await loadSubjectGroups();
           await loadCalendar();
         } catch (err) {
@@ -405,7 +452,8 @@ window.SaltLesson = (function() {
       }
 
       row.querySelectorAll('.lp-day-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const days = [];
           row.querySelectorAll('.lp-day-btn').forEach((b) => {
             const day = Number(b.dataset.day);
@@ -419,7 +467,8 @@ window.SaltLesson = (function() {
 
       const syncBtn = row.querySelector('.lp-day-sync');
       if (syncBtn) {
-        syncBtn.addEventListener('click', () => {
+        syncBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           persist({ syncFromTimetable: true });
         });
       }
@@ -505,11 +554,122 @@ window.SaltLesson = (function() {
 
   function formatRange(start, end) {
     if (!start) return '—';
-    if (!end || end === start) return start;
-    return start + ' ~ ' + end;
+    function short(ds) {
+      const p = String(ds).slice(0, 10).split('-');
+      if (p.length !== 3) return ds;
+      return Number(p[1]) + '/' + Number(p[2]);
+    }
+    if (!end || end === start) return short(start);
+    return short(start) + '–' + short(end);
+  }
+
+  function collectSemesterRows(body) {
+    const rows = [];
+    body.querySelectorAll('.lp-semester-row').forEach((tr) => {
+      const contentEl = tr.querySelector('.lp-sem-content');
+      const objectiveEl = tr.querySelector('.lp-sem-objective');
+      if (!contentEl || !contentEl.dataset.week) return;
+      rows.push({
+        weekIndex: Number(contentEl.dataset.week),
+        content: contentEl.value,
+        objective: objectiveEl ? objectiveEl.value : ''
+      });
+    });
+    return rows;
+  }
+
+  async function persistSemesterPlan(body, plan, opts) {
+    opts = opts || {};
+    const msg = body.querySelector('.lp-sem-msg');
+    const seq = ++semesterSaveSeq;
+    if (msg) {
+      msg.style.color = '';
+      msg.textContent = t('lessons.saving', 'Saving…');
+    }
+    try {
+      const result = await api('/api/teacher/semester-plans', {
+        method: 'POST',
+        body: {
+          classId: plan.classId,
+          subject: plan.subject,
+          termLabel: plan.term && plan.term.label,
+          rows: collectSemesterRows(body)
+        }
+      });
+      if (seq !== semesterSaveSeq) return;
+      if (semesterState.plan &&
+          semesterState.plan.classId === plan.classId &&
+          semesterState.plan.subject === plan.subject) {
+        const byWeek = {};
+        (result.rows || []).forEach((r) => { byWeek[r.weekIndex] = r; });
+        semesterState.plan.rows = (semesterState.plan.rows || []).map((row) => {
+          if (row.weekIndex == null) return row;
+          const saved = byWeek[row.weekIndex];
+          if (!saved) return row;
+          return Object.assign({}, row, {
+            content: saved.content,
+            objective: saved.objective,
+            planId: saved.planId
+          });
+        });
+      }
+      if (msg) {
+        msg.style.color = '#16a34a';
+        msg.textContent = t('lessons.autosaved', 'Saved');
+      }
+    } catch (err) {
+      if (seq !== semesterSaveSeq) return;
+      if (msg) {
+        msg.style.color = '#dc2626';
+        msg.textContent = err.message || t('lessons.saveFailed', 'Could not save');
+      }
+      if (opts.rethrow) throw err;
+    }
+  }
+
+  function scheduleSemesterSave(body, plan) {
+    if (semesterSaveTimer) clearTimeout(semesterSaveTimer);
+    const msg = body.querySelector('.lp-sem-msg');
+    if (msg) {
+      msg.style.color = '';
+      msg.textContent = t('lessons.unsaved', 'Saving soon…');
+    }
+    semesterSaveTimer = setTimeout(() => {
+      semesterSaveTimer = null;
+      persistSemesterPlan(body, plan);
+    }, 700);
+  }
+
+  async function flushSemesterSave() {
+    if (semesterSaveTimer) {
+      clearTimeout(semesterSaveTimer);
+      semesterSaveTimer = null;
+    }
+    const plan = semesterState.plan;
+    if (!plan) return;
+    const body = document.querySelector('.lp-semester-body .lp-semester-table')
+      ? document.querySelector('.lp-semester-body .lp-semester-table').closest('.lp-semester-body')
+      : null;
+    // Prefer visible editor body under semester panels
+    const bodies = [
+      $('lpSemesterClass-body'),
+      $('lpSemesterGlobal-body')
+    ].filter(Boolean);
+    const active = bodies.find((el) => el.querySelector('.lp-sem-content')) || body;
+    if (active && plan) await persistSemesterPlan(active, plan);
   }
 
   async function loadSemesterPlanInto(bodyId, classId, subject) {
+    if (semesterSaveTimer) {
+      clearTimeout(semesterSaveTimer);
+      semesterSaveTimer = null;
+      if (semesterState.plan) {
+        const prevBody = $(bodyId);
+        if (prevBody && prevBody.querySelector('.lp-sem-content')) {
+          try { await persistSemesterPlan(prevBody, semesterState.plan); } catch (e) { /* keep going */ }
+        }
+      }
+    }
     const body = $(bodyId);
     if (!body) return;
     body.innerHTML = '<p class="muted small">Loading…</p>';
@@ -537,12 +697,13 @@ window.SaltLesson = (function() {
       escapeHtml(t('lessons.periodsPerWeek', 'periods / week')) + '</span>' +
       (days ? '<span class="muted small">' + escapeHtml(days) + '</span>' : '') +
       (plan.term && plan.term.label ? '<span class="muted small">' + escapeHtml(plan.term.label) + '</span>' : '') +
+      '<span class="muted small lp-sem-msg"></span>' +
       '</div>';
     html += '<div class="lp-semester-table-wrap"><table class="lp-semester-table"><thead><tr>' +
-      '<th>' + escapeHtml(t('lessons.week', 'Week')) + '</th>' +
-      '<th>' + escapeHtml(t('lessons.date', 'Date')) + '</th>' +
-      '<th>' + escapeHtml(t('lessons.content', 'Lesson content')) + '</th>' +
-      '<th>' + escapeHtml(t('lessons.objective', 'Objective')) + '</th>' +
+      '<th class="lp-sem-week">' + escapeHtml(t('lessons.week', 'Week')) + '</th>' +
+      '<th class="lp-sem-date">' + escapeHtml(t('lessons.date', 'Date')) + '</th>' +
+      '<th class="lp-sem-content-col">' + escapeHtml(t('lessons.content', 'Lesson content')) + '</th>' +
+      '<th class="lp-sem-objective-col">' + escapeHtml(t('lessons.objective', 'Objective')) + '</th>' +
       '</tr></thead><tbody>';
     (plan.rows || []).forEach((row, idx) => {
       const isBreak = row.weekIndex == null || row.isBreakWeek;
@@ -554,75 +715,28 @@ window.SaltLesson = (function() {
       if (isBreak && !row.examLabel) {
         html += '<td colspan="2" class="muted small">' + escapeHtml(t('lessons.break', 'Break')) + '</td>';
       } else {
-        html += '<td><textarea class="lp-sem-content" data-week="' + escapeHtml(String(row.weekIndex || '')) +
-          '" rows="2"' + (isBreak && !row.weekIndex ? ' disabled' : '') + '>' +
+        html += '<td class="lp-sem-content-col"><textarea class="lp-sem-content" data-week="' +
+          escapeHtml(String(row.weekIndex || '')) + '" rows="2">' +
           escapeHtml(row.content || '') + '</textarea></td>' +
-          '<td><textarea class="lp-sem-objective" data-week="' + escapeHtml(String(row.weekIndex || '')) +
-          '" rows="2"' + (isBreak && !row.weekIndex ? ' disabled' : '') + '>' +
+          '<td class="lp-sem-objective-col"><textarea class="lp-sem-objective" data-week="' +
+          escapeHtml(String(row.weekIndex || '')) + '" rows="2">' +
           escapeHtml(row.objective || '') + '</textarea></td>';
       }
       html += '</tr>';
     });
     html += '</tbody></table></div>';
-    html += '<div class="lp-semester-actions">' +
-      '<button type="button" class="btn btn-primary lp-sem-save">' +
-      escapeHtml(t('lessons.savePlan', 'Save semester plan')) + '</button>' +
-      '<span class="muted small lp-sem-msg"></span></div>';
     body.innerHTML = html;
 
-    const saveBtn = body.querySelector('.lp-sem-save');
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async () => {
-        const msg = body.querySelector('.lp-sem-msg');
-        const rows = [];
-        body.querySelectorAll('.lp-semester-row').forEach((tr) => {
-          const contentEl = tr.querySelector('.lp-sem-content');
-          const objectiveEl = tr.querySelector('.lp-sem-objective');
-          if (!contentEl || !contentEl.dataset.week) return;
-          rows.push({
-            weekIndex: Number(contentEl.dataset.week),
-            content: contentEl.value,
-            objective: objectiveEl ? objectiveEl.value : ''
-          });
-        });
-        try {
-          saveBtn.disabled = true;
-          const result = await api('/api/teacher/semester-plans', {
-            method: 'POST',
-            body: {
-              classId: plan.classId,
-              subject: plan.subject,
-              termLabel: plan.term && plan.term.label,
-              rows
-            }
-          });
-          semesterState.plan = Object.assign({}, plan, {
-            rows: (result.rows || []).map((r) => ({
-              weekIndex: r.weekIndex,
-              weekStart: r.weekStart,
-              weekEnd: r.weekEnd,
-              weekLabel: r.weekLabel,
-              content: r.content,
-              objective: r.objective,
-              isBreakWeek: false,
-              examLabel: /midterm/i.test(r.weekLabel || '') ? 'Midterm' :
-                (/final/i.test(r.weekLabel || '') ? 'Final' : '')
-            }))
-          });
-          if (msg) {
-            msg.style.color = '#16a34a';
-            msg.textContent = t('lessons.saved', 'Semester plan saved.');
-          }
-        } catch (err) {
-          if (msg) {
-            msg.style.color = '#dc2626';
-            msg.textContent = err.message;
-          }
-        } finally {
-          saveBtn.disabled = false;
+    body.querySelectorAll('.lp-sem-content, .lp-sem-objective').forEach((el) => {
+      el.addEventListener('input', () => scheduleSemesterSave(body, plan));
+      el.addEventListener('blur', () => {
+        if (semesterSaveTimer) {
+          clearTimeout(semesterSaveTimer);
+          semesterSaveTimer = null;
+          persistSemesterPlan(body, plan);
         }
       });
-    }
+    });
   }
 
   async function loadAdminSemesterPlans() {

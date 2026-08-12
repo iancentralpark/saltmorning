@@ -1607,16 +1607,6 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   border: 1px solid rgba(158, 202, 232, 0.35);
   border-radius: var(--radius-sm);
 }
-.lp-subject-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: var(--card);
-  border: 1px solid rgba(158, 202, 232, 0.4);
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem 0.15rem 0.35rem;
-  font-size: 0.78rem;
-}
 .lp-color-opt.is-active { box-shadow: 0 0 0 2px var(--primary); }
 .lp-drawer-meta { font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; }
 .lp-field { margin-bottom: 0.85rem; }
@@ -1630,24 +1620,68 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 
 .lp-subjects-head { margin-bottom: 0.5rem; font-size: 0.9rem; }
-.lp-subject-class { margin-bottom: 0.45rem; }
-.lp-subject-class-name { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.2rem; }
-.lp-subject-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.lp-subject-name { font-weight: 600; }
-.lp-subjects-help { margin: 0 0 0.55rem; }
-.lp-subject-block {
+.lp-subject-class { margin-bottom: 0.55rem; }
+.lp-subject-class-name { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
+.lp-subject-chips {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 0.45rem;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
 }
-.lp-day-row {
+.lp-subject-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--card);
+  border: 1px solid rgba(158, 202, 232, 0.4);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem 0.2rem 0.4rem;
+  font-size: 0.78rem;
+}
+.lp-subject-chip-btn {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-color: var(--chip-border, rgba(158, 202, 232, 0.4));
+  background: var(--chip-bg, var(--card));
+}
+.lp-subject-chip-btn.is-open {
+  box-shadow: 0 0 0 2px var(--primary);
+  font-weight: 650;
+}
+.lp-subject-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--chip-border, #a3b18a);
+  flex-shrink: 0;
+}
+.lp-subject-name { font-weight: 600; }
+.lp-subject-caret { font-size: 0.65rem; color: var(--muted); margin-left: 0.1rem; }
+.lp-subject-submenu {
+  margin: 0.4rem 0 0.55rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--card);
+  border: 1px solid rgba(158, 202, 232, 0.4);
+  border-radius: var(--radius-sm);
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  align-items: center;
+  max-width: 100%;
+}
+.lp-subject-submenu-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lp-subject-submenu-actions { margin-left: auto; }
+.lp-subjects-help { margin: 0 0 0.55rem; }
+.lp-day-row {
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
-  margin-left: 0.15rem;
 }
 .lp-day-label { margin-right: 0.2rem; }
 .lp-day-btn {
@@ -1698,11 +1732,12 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  table-layout: fixed;
 }
 .lp-semester-table th,
 .lp-semester-table td {
   border-bottom: 1px solid rgba(158, 202, 232, 0.28);
-  padding: 0.45rem 0.5rem;
+  padding: 0.4rem 0.45rem;
   vertical-align: top;
   text-align: left;
 }
@@ -1713,7 +1748,7 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .lp-semester-table textarea {
   width: 100%;
-  min-width: 140px;
+  min-width: 0;
   resize: vertical;
   font: inherit;
   border: 1px solid rgba(158, 202, 232, 0.45);
@@ -1726,8 +1761,20 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .lp-semester-table tr.is-midterm { background: #fff7ed; }
 .lp-semester-row.is-final,
 .lp-semester-table tr.is-final { background: #f5f3ff; }
-.lp-sem-week { white-space: nowrap; font-weight: 650; min-width: 7rem; }
-.lp-sem-date { white-space: nowrap; color: var(--muted); font-size: 0.78rem; }
+.lp-sem-week {
+  width: 5.5rem;
+  white-space: nowrap;
+  font-weight: 650;
+  font-size: 0.78rem;
+}
+.lp-sem-date {
+  width: 5.75rem;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.lp-sem-content-col,
+.lp-sem-objective-col { width: auto; }
 .lp-semester-actions {
   display: flex;
   align-items: center;
@@ -1735,6 +1782,7 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   margin-top: 0.65rem;
   flex-wrap: wrap;
 }
+.lp-sem-msg { min-height: 1em; }
 .lp-admin-sem-list {
   display: flex;
   flex-direction: column;
