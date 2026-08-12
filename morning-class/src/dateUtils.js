@@ -16,4 +16,26 @@ function todayStr(tz = TIMEZONE) {
   return formatDateInTz(new Date(), tz);
 }
 
-module.exports = { formatDateInTz, formatSheetDate, todayStr };
+/** Local datetime string for sheet timestamps, e.g. 2026-08-12 13:45:00 */
+function formatDateTimeNow(tz = TIMEZONE) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(new Date());
+  const get = (type) => {
+    const hit = parts.find((p) => p.type === type);
+    return hit ? hit.value : '';
+  };
+  return (
+    get('year') + '-' + get('month') + '-' + get('day') +
+    ' ' + get('hour') + ':' + get('minute') + ':' + get('second')
+  );
+}
+
+module.exports = { formatDateInTz, formatSheetDate, todayStr, formatDateTimeNow };
