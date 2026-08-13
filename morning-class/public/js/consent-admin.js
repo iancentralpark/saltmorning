@@ -1,4 +1,4 @@
-/* Admin Consents — templates, publish, analytics, remind */
+/* Admin Consents — publish formal letters + submission tracker */
 (function (global) {
   let api = null;
   let escapeHtml = null;
@@ -22,6 +22,16 @@
     return (global.SaltI18n && SaltI18n.t) ? SaltI18n.t(key, fallback) : (fallback || key);
   }
 
+  function agreedLabel(v) {
+    const map = {
+      Y: '동의',
+      N: '부동의',
+      Apply: '신청',
+      None: '미신청'
+    };
+    return map[v] || v || '—';
+  }
+
   function setEditorFromTemplate(tpl) {
     editorState.templateId = tpl.templateId || '';
     editorState.category = tpl.category || 'General';
@@ -30,19 +40,26 @@
     editorState.fieldsJson = tpl.fieldsJson || {};
     const titleEl = $('consentTitle');
     const bodyEl = $('consentBody');
-    const catEl = $('consentCategory');
     if (titleEl) titleEl.value = editorState.title;
     if (bodyEl) bodyEl.innerHTML = editorState.contentHtml;
-    if (catEl) catEl.value = editorState.category;
   }
 
   function readEditor() {
     editorState.title = ($('consentTitle') && $('consentTitle').value) || '';
     editorState.contentHtml = ($('consentBody') && $('consentBody').innerHTML) || '';
-    editorState.category = ($('consentCategory') && $('consentCategory').value) || editorState.category;
     editorState.targetGrades = ($('consentTargets') && $('consentTargets').value) || '*';
     editorState.dueDate = ($('consentDue') && $('consentDue').value) || '';
     return editorState;
+  }
+
+  function showCompose(show) {
+    const box = $('consentComposeCard');
+    const btn = $('consentNewBtn');
+    if (box) box.classList.toggle('hidden', !show);
+    if (btn) btn.textContent = show
+      ? t('common.close', 'Close')
+      : t('admin.consents.new', 'New form');
+    if (btn) btn.dataset.open = show ? '1' : '0';
   }
 
   async function loadTemplates() {
@@ -50,7 +67,7 @@
     templates = data.templates || [];
     const sel = $('consentTemplateSelect');
     if (!sel) return;
-    sel.innerHTML = '<option value="">' + escapeHtml(t('consent.pickTemplate', 'Select a template…')) + '</option>' +
+    sel.innerHTML = '<option value="">' + escapeHtml(t('consent.pickTemplate', '양식 선택…')) + '</option>' +
       templates.map((tpl) =>
         '<option value="' + escapeHtml(tpl.templateId) + '">' +
         escapeHtml(tpl.title) + (tpl.isCustomSaved ? ' ★' : '') +
@@ -59,47 +76,60 @@
   }
 
   async function loadForms() {
-    const data = await api('/api/admin/consents', {}, role);
-    forms = data.forms || [];
     const box = $('consentFormsList');
     if (!box) return;
-    if (!forms.length) {
-      box.innerHTML = '<p class="muted">' + escapeHtml(t('consent.noForms', 'No published forms yet.')) + '</p>';
-      return;
-    }
-    box.innerHTML = '<table class="grades-table"><thead><tr>' +
-      '<th>Title</th><th>Category</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody>' +
-      forms.map((f) =>
-        '<tr>' +
-        '<td>' + escapeHtml(f.title) + '</td>' +
-        '<td>' + escapeHtml(f.category) + '</td>' +
-        '<td>' + escapeHtml(f.dueDate || '—') + '</td>' +
-        '<td>' + escapeHtml(f.status) + '</td>' +
-        '<td style="white-space:nowrap">' +
-        '<button type="button" class="btn btn-ghost" data-consent-analytics="' + escapeHtml(f.formId) + '">Track</button> ' +
-        (f.status === 'Active'
-          ? '<button type="button" class="btn btn-ghost" data-consent-close="' + escapeHtml(f.formId) + '">Close</button>'
-          : '') +
-        '</td></tr>'
-      ).join('') +
-      '</tbody></table>';
+    box.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const data = await api('/api/admin/consents', {}, role);
+      forms = data.forms || [];
+      if (!forms.length) {
+        box.innerHTML = '<p class="muted">' +
+          escapeHtml(t('consent.noForms', '발행된 공문이 없습니다. 위에서 양식을 선택해 발행하세요.')) +
+          '</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table"><thead><tr>' +
+        '<th>제목</th><th>마감</th><th>상태</th><th>제출</th><th></th></tr></thead><tbody>' +
+        forms.map((f) => {
+          const total = f.total != null ? f.total : '—';
+          const submitted = f.submittedCount != null ? f.submittedCount : '—';
+          const rate = f.rate != null ? f.rate + '%' : '';
+          return '<tr>' +
+            '<td>' + escapeHtml(f.title) + '</td>' +
+            '<td>' + escapeHtml(f.dueDate || '—') + '</td>' +
+            '<td>' + escapeHtml(f.status === 'Active' ? '진행중' : '마감') + '</td>' +
+            '<td><strong>' + submitted + '</strong> / ' + total +
+            (rate ? ' <span class="muted small">(' + rate + ')</span>' : '') + '</td>' +
+            '<td style="white-space:nowrap">' +
+            '<button type="button" class="btn btn-primary" data-consent-analytics="' +
+            escapeHtml(f.formId) + '">제출 현황</button> ' +
+            (f.status === 'Active'
+              ? '<button type="button" class="btn btn-ghost" data-consent-close="' +
+                escapeHtml(f.formId) + '">마감</button>'
+              : '') +
+            '</td></tr>';
+        }).join('') +
+        '</tbody></table>';
 
-    box.querySelectorAll('[data-consent-analytics]').forEach((btn) => {
-      btn.addEventListener('click', () => openAnalytics(btn.dataset.consentAnalytics));
-    });
-    box.querySelectorAll('[data-consent-close]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Close this form? Parents will no longer be able to submit.')) return;
-        try {
-          await api('/api/admin/consents/' + encodeURIComponent(btn.dataset.consentClose) + '/close', {
-            method: 'POST'
-          }, role);
-          await loadForms();
-        } catch (e) {
-          alert(e.message);
-        }
+      box.querySelectorAll('[data-consent-analytics]').forEach((btn) => {
+        btn.addEventListener('click', () => openAnalytics(btn.dataset.consentAnalytics));
       });
-    });
+      box.querySelectorAll('[data-consent-close]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('이 공문을 마감할까요? 학부모는 더 이상 제출할 수 없습니다.')) return;
+          try {
+            await api('/api/admin/consents/' + encodeURIComponent(btn.dataset.consentClose) + '/close', {
+              method: 'POST'
+            }, role);
+            await loadForms();
+          } catch (e) {
+            alert(e.message);
+          }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message || '목록을 불러오지 못했습니다.') + '</p>';
+    }
   }
 
   async function openAnalytics(formId) {
@@ -107,40 +137,115 @@
     const panel = $('consentAnalytics');
     if (!panel) return;
     panel.classList.remove('hidden');
-    panel.innerHTML = '<p class="muted">Loading…</p>';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    panel.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
       const data = await api('/api/admin/consents/' + encodeURIComponent(formId) + '/analytics', {}, role);
-      const clusters = (data.clusters || []).map((c) =>
-        '<tr><td>' + escapeHtml(c.apartment) + '</td><td>' + c.count + '</td>' +
-        '<td class="muted small">' + escapeHtml((c.students || []).map((s) => s.name).join(', ')) + '</td></tr>'
-      ).join('');
+      const filter = { q: '', only: 'all' };
+
+      function renderTables() {
+        const q = String(filter.q || '').trim().toLowerCase();
+        const match = (row) => {
+          if (!q) return true;
+          return String(row.name || '').toLowerCase().indexOf(q) >= 0 ||
+            String(row.className || row.classId || '').toLowerCase().indexOf(q) >= 0;
+        };
+        let pending = (data.pending || []).filter(match);
+        let submitted = (data.submitted || []).filter(match);
+        if (filter.only === 'pending') submitted = [];
+        if (filter.only === 'submitted') pending = [];
+        if (filter.only === 'agreed') {
+          pending = [];
+          submitted = submitted.filter((s) => s.agreed === 'Y' || s.agreed === 'Apply');
+        }
+        if (filter.only === 'declined') {
+          pending = [];
+          submitted = submitted.filter((s) => s.agreed === 'N' || s.agreed === 'None');
+        }
+
+        const submittedRows = submitted.length
+          ? '<table class="grades-table"><thead><tr>' +
+            '<th>학생</th><th>반</th><th>응답</th><th>사유</th><th>제출시각</th><th>서명</th></tr></thead><tbody>' +
+            submitted.map((s) =>
+              '<tr>' +
+              '<td>' + escapeHtml(s.name) + '</td>' +
+              '<td>' + escapeHtml(s.className || s.classId) + '</td>' +
+              '<td><strong>' + escapeHtml(agreedLabel(s.agreed)) + '</strong></td>' +
+              '<td class="muted small">' + escapeHtml(s.disagreedReason || '—') + '</td>' +
+              '<td>' + escapeHtml(String(s.submittedAt || '').slice(0, 16).replace('T', ' ')) + '</td>' +
+              '<td>' + (s.hasSignature ? '✓' : '—') + '</td>' +
+              '</tr>'
+            ).join('') + '</tbody></table>'
+          : '<p class="muted">해당 조건의 제출 없음</p>';
+
+        const pendingRows = pending.length
+          ? '<table class="grades-table"><thead><tr><th>학생</th><th>반</th><th>상태</th></tr></thead><tbody>' +
+            pending.map((p) =>
+              '<tr>' +
+              '<td>' + escapeHtml(p.name) + '</td>' +
+              '<td>' + escapeHtml(p.className || p.classId) + '</td>' +
+              '<td><span class="error">미제출</span></td>' +
+              '</tr>'
+            ).join('') + '</tbody></table>'
+          : '<p class="muted">미제출자 없음</p>';
+
+        const clusters = (data.clusters || []).map((c) =>
+          '<tr><td>' + escapeHtml(c.apartment) + '</td><td>' + c.count + '</td>' +
+          '<td class="muted small">' + escapeHtml((c.students || []).map((s) => s.name).join(', ')) + '</td></tr>'
+        ).join('');
+
+        $('consentAnalyticsBody').innerHTML =
+          '<div class="consent-stat-row">' +
+          '<div class="consent-stat"><div class="muted small">대상</div><strong>' + data.total + '</strong></div>' +
+          '<div class="consent-stat"><div class="muted small">제출</div><strong>' + data.submittedCount + '</strong></div>' +
+          '<div class="consent-stat"><div class="muted small">미제출</div><strong>' + data.pendingCount + '</strong></div>' +
+          '<div class="consent-stat"><div class="muted small">제출률</div><strong>' + data.rate + '%</strong></div>' +
+          '</div>' +
+          '<div class="table-wrap" style="margin-top:1rem"><h4>제출 완료</h4>' + submittedRows + '</div>' +
+          '<div class="table-wrap" style="margin-top:1rem"><h4>미제출</h4>' + pendingRows + '</div>' +
+          ((data.form.category === 'BusSurvey' || (data.clusters || []).length)
+            ? '<div class="table-wrap" style="margin-top:1rem"><h4>수요 클러스터 (아파트/지역)</h4>' +
+              '<table class="grades-table"><thead><tr><th>단지/지역</th><th>인원</th><th>학생</th></tr></thead><tbody>' +
+              (clusters || '<tr><td colspan="3" class="muted">데이터 없음</td></tr>') +
+              '</tbody></table></div>'
+            : '');
+      }
+
+      // Enrich signature flag for display (analytics already has extraData; signature itself not listed for size)
+      (data.submitted || []).forEach((s) => {
+        if (!s.extraData) s.extraData = {};
+      });
+
       panel.innerHTML =
         '<div class="teacher-panel-head"><div>' +
         '<h3 style="margin:0">' + escapeHtml(data.form.title) + '</h3>' +
-        '<p class="muted small" style="margin:0.35rem 0 0">Submitted ' +
-        data.submittedCount + ' / ' + data.total + ' (' + data.rate + '%)</p></div>' +
+        '<p class="muted small" style="margin:0.35rem 0 0">발행 ' +
+        escapeHtml(String(data.form.publishedAt || '').slice(0, 10)) +
+        (data.form.dueDate ? ' · 마감 ' + escapeHtml(data.form.dueDate) : '') +
+        '</p></div>' +
         '<div style="display:flex;gap:0.5rem;flex-wrap:wrap">' +
-        '<button type="button" class="btn btn-primary" id="consentRemindBtn">Remind pending</button>' +
-        '<a class="btn btn-ghost" target="_blank" href="/api/admin/consents/' + encodeURIComponent(formId) +
-        '/print">Print roster</a>' +
-        '<a class="btn btn-ghost" href="/api/admin/consents/' + encodeURIComponent(formId) +
-        '/clusters.csv">Clusters CSV</a>' +
-        '<button type="button" class="btn btn-ghost" id="consentAnalyticsClose">Close</button>' +
+        '<button type="button" class="btn btn-primary" id="consentRemindBtn">미제출 독촉</button>' +
+        '<a class="btn btn-ghost" href="/api/admin/consents/' + encodeURIComponent(formId) + '/print">인쇄/PDF 명부</a>' +
+        '<a class="btn btn-ghost" href="/api/admin/consents/' + encodeURIComponent(formId) + '/clusters.csv">클러스터 CSV</a>' +
+        '<button type="button" class="btn btn-ghost" id="consentAnalyticsClose">닫기</button>' +
         '</div></div>' +
-        '<div class="table-wrap" style="margin-top:1rem"><h4>Pending</h4>' +
-        ((data.pending || []).length
-          ? '<table class="grades-table"><thead><tr><th>Student</th><th>Class</th></tr></thead><tbody>' +
-            data.pending.map((p) =>
-              '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(p.className || p.classId) + '</td></tr>'
-            ).join('') + '</tbody></table>'
-          : '<p class="muted">None pending.</p>') +
-        '</div>' +
-        ((data.form.category === 'BusSurvey' || (data.clusters || []).length)
-          ? '<div class="table-wrap" style="margin-top:1rem"><h4>Demand clusters</h4>' +
-            '<table class="grades-table"><thead><tr><th>Apartment / area</th><th>Count</th><th>Students</th></tr></thead><tbody>' +
-            (clusters || '<tr><td colspan="3" class="muted">No cluster data</td></tr>') +
-            '</tbody></table></div>'
-          : '');
+        '<div class="admin-toolbar" style="margin-top:0.75rem;gap:0.5rem;flex-wrap:wrap">' +
+        '<input type="search" id="consentFilterQ" placeholder="학생/반 검색" style="min-width:160px">' +
+        '<select id="consentFilterOnly">' +
+        '<option value="all">전체</option>' +
+        '<option value="pending">미제출만</option>' +
+        '<option value="submitted">제출만</option>' +
+        '<option value="agreed">동의/신청만</option>' +
+        '<option value="declined">부동의/미신청만</option>' +
+        '</select></div>' +
+        '<div id="consentAnalyticsBody"></div>';
+
+      renderTables();
+
+      const qEl = $('consentFilterQ');
+      const onlyEl = $('consentFilterOnly');
+      if (qEl) qEl.addEventListener('input', () => { filter.q = qEl.value; renderTables(); });
+      if (onlyEl) onlyEl.addEventListener('change', () => { filter.only = onlyEl.value; renderTables(); });
 
       const remind = $('consentRemindBtn');
       if (remind) {
@@ -149,7 +254,8 @@
             const res = await api('/api/admin/consents/' + encodeURIComponent(formId) + '/remind', {
               method: 'POST'
             }, role);
-            alert('Reminders sent: ' + (res.sent || 0));
+            alert('독촉 알림 발송: ' + (res.sent || 0) +
+              (res.reason ? ' (' + res.reason + ')' : ''));
           } catch (e) {
             alert(e.message);
           }
@@ -158,7 +264,6 @@
       const closeBtn = $('consentAnalyticsClose');
       if (closeBtn) closeBtn.addEventListener('click', () => panel.classList.add('hidden'));
 
-      // Attach auth token for print/csv links via fetch-open
       panel.querySelectorAll('a[href*="/api/admin/consents/"]').forEach((a) => {
         a.addEventListener('click', async (e) => {
           e.preventDefault();
@@ -168,7 +273,7 @@
             const res = await fetch((global.SaltApp.API || '') + path, {
               headers: { Authorization: token ? ('Bearer ' + token) : '' }
             });
-            if (!res.ok) throw new Error('Download failed');
+            if (!res.ok) throw new Error('다운로드 실패');
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             if (path.indexOf('print') >= 0) window.open(url, '_blank');
@@ -204,7 +309,7 @@
           await api('/api/admin/consent-templates', {
             method: 'POST',
             body: {
-              title: ed.title + ' (saved)',
+              title: ed.title + ' (저장본)',
               category: ed.category,
               contentHtml: ed.contentHtml,
               fieldsJson: ed.fieldsJson,
@@ -212,7 +317,7 @@
             }
           }, role);
           await loadTemplates();
-          alert('Saved as custom template.');
+          alert('커스텀 양식으로 저장했습니다. 다음에 목록에서 불러올 수 있습니다.');
         } catch (e) {
           alert(e.message);
         }
@@ -224,8 +329,15 @@
         const ed = readEditor();
         const err = $('consentEditorError');
         if (err) err.textContent = '';
+        if (!ed.title || !ed.contentHtml) {
+          if (err) {
+            err.style.color = '#dc2626';
+            err.textContent = '양식을 선택한 뒤 제목/본문을 확인하세요.';
+          }
+          return;
+        }
         try {
-          await api('/api/admin/consents/publish', {
+          const res = await api('/api/admin/consents/publish', {
             method: 'POST',
             body: {
               templateId: ed.templateId,
@@ -238,9 +350,13 @@
             }
           }, role);
           await loadForms();
+          showCompose(false);
           if (err) {
             err.style.color = '#16a34a';
-            err.textContent = 'Published. Parents will see it under Consents.';
+            err.textContent = '발행 완료. 학부모 Consents 탭에 표시됩니다.';
+          }
+          if (res && res.form && res.form.formId) {
+            openAnalytics(res.form.formId);
           }
         } catch (e) {
           if (err) {
@@ -250,7 +366,6 @@
         }
       });
     }
-    // Basic formatting
     document.querySelectorAll('[data-consent-cmd]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -268,21 +383,22 @@
         document.execCommand('insertText', false, btn.dataset.consentVar || '');
       });
     });
-    const catEl = $('consentCategory');
-    if (catEl) {
-      catEl.addEventListener('change', () => {
-        editorState.category = catEl.value || 'General';
+    const refresh = $('consentRefreshBtn');
+    if (refresh) refresh.addEventListener('click', () => open());
+    const newBtn = $('consentNewBtn');
+    if (newBtn) {
+      newBtn.addEventListener('click', () => {
+        const openNow = newBtn.dataset.open === '1';
+        showCompose(!openNow);
       });
     }
-    const refresh = $('consentRefreshBtn');
-    if (refresh) refresh.addEventListener('click', () => open().catch((e) => alert(e.message)));
   }
 
   function syncClassTargets() {
     const sel = $('consentTargets');
     if (!sel) return;
     const cur = sel.value || '*';
-    sel.innerHTML = '<option value="*">All enrolled students</option>' +
+    sel.innerHTML = '<option value="*">전체 재학생</option>' +
       (classes || []).map((c) =>
         '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name || c.classId) + '</option>'
       ).join('');
@@ -291,7 +407,18 @@
 
   async function open() {
     syncClassTargets();
-    await Promise.all([loadTemplates(), loadForms()]);
+    showCompose(false);
+    const listErr = [];
+    await Promise.all([
+      loadTemplates().catch((e) => { listErr.push(e.message); }),
+      loadForms().catch((e) => { listErr.push(e.message); })
+    ]);
+    if (listErr.length) {
+      const box = $('consentFormsList');
+      if (box && /Loading|불러/.test(box.textContent || '')) {
+        box.innerHTML = '<p class="error">' + escapeHtml(listErr.join(' · ')) + '</p>';
+      }
+    }
   }
 
   function init(opts) {

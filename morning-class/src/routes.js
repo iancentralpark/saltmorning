@@ -3601,7 +3601,12 @@ router.post('/admin/consent-templates', requireRole('admin'), async (req, res) =
 router.get('/admin/consents', requireRole('admin'), async (req, res) => {
   try {
     const consent = require('./services/consentService');
-    res.json({ forms: await consent.listForms({ status: req.query.status || '' }) });
+    res.json({
+      forms: await consent.listForms({
+        status: req.query.status || '',
+        withStats: req.query.stats !== '0'
+      })
+    });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load forms.' });
   }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260813fac1">
+  <link rel="stylesheet" href="/css/app.css?v=20260813cf2">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -438,71 +438,63 @@
     <div id="panelConsents" class="card hidden">
       <div class="teacher-panel-head" style="margin-bottom:1rem">
         <div>
-          <h2 style="margin:0" data-i18n="admin.consents.title">Consent &amp; bus forms</h2>
-          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.consents.hint">
-            Edit official letter / consent templates, publish to parents, track submissions, and remind.
+          <h2 style="margin:0">동의서 · 공문</h2>
+          <p class="muted small" style="margin:0.35rem 0 0">
+            기본 공문 양식을 선택해 문구만 수정한 뒤 발행합니다. 발행 후 <strong>제출 현황</strong>에서
+            동의/미제출을 확인·독촉·인쇄할 수 있습니다.
           </p>
         </div>
-        <button type="button" class="btn btn-ghost" id="consentRefreshBtn" data-i18n="common.refresh">Refresh</button>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost" id="consentRefreshBtn">새로고침</button>
+          <button type="button" class="btn btn-primary" id="consentNewBtn" data-open="0">새 공문 작성</button>
+        </div>
       </div>
 
-      <div class="card" style="margin:0 0 1rem;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
-        <h3 style="margin:0 0 0.75rem" data-i18n="admin.consents.editor">Compose &amp; publish</h3>
+      <div id="consentComposeCard" class="card hidden" style="margin:0 0 1rem;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
+        <h3 style="margin:0 0 0.75rem">공문 작성 · 발행</h3>
         <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
-          <label style="flex:1;min-width:220px">
-            <span class="muted small" data-i18n="admin.consents.template">Template</span>
-            <select id="consentTemplateSelect"><option value="">Select a template…</option></select>
+          <label style="flex:1;min-width:240px">
+            <span class="muted small">기본 양식</span>
+            <select id="consentTemplateSelect"><option value="">양식 선택…</option></select>
           </label>
           <label style="min-width:160px">
-            <span class="muted small" data-i18n="admin.consents.category">Category</span>
-            <select id="consentCategory">
-              <option value="General">General</option>
-              <option value="BusSurvey">BusSurvey</option>
-              <option value="BusApp">BusApp</option>
-              <option value="FieldTrip">FieldTrip</option>
-              <option value="PhotoMedia">PhotoMedia</option>
-              <option value="Health">Health</option>
-            </select>
-          </label>
-          <label style="min-width:160px">
-            <span class="muted small" data-i18n="admin.consents.targets">Target</span>
-            <select id="consentTargets"><option value="*">All enrolled students</option></select>
+            <span class="muted small">대상</span>
+            <select id="consentTargets"><option value="*">전체 재학생</option></select>
           </label>
           <label style="min-width:140px">
-            <span class="muted small" data-i18n="admin.consents.due">Due date</span>
+            <span class="muted small">제출 마감</span>
             <input type="date" id="consentDue">
           </label>
         </div>
         <label style="display:block;margin-bottom:0.75rem">
-          <span class="muted small" data-i18n="admin.consents.formTitle">Title</span>
-          <input id="consentTitle" style="width:100%" maxlength="200" placeholder="Form title">
+          <span class="muted small">제목</span>
+          <input id="consentTitle" style="width:100%" maxlength="200" placeholder="공문 제목">
         </label>
         <div class="admin-toolbar" style="gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap">
           <button type="button" class="btn btn-ghost" data-consent-cmd="bold"><b>B</b></button>
           <button type="button" class="btn btn-ghost" data-consent-cmd="italic"><i>I</i></button>
           <button type="button" class="btn btn-ghost" data-consent-cmd="underline"><u>U</u></button>
           <button type="button" class="btn btn-ghost" data-consent-cmd="insertUnorderedList">• List</button>
-          <span class="muted small" style="margin-left:0.5rem">Variables:</span>
+          <span class="muted small" style="margin-left:0.5rem">변수:</span>
           <button type="button" class="btn btn-ghost" data-consent-var="{student_name}">{student_name}</button>
+          <button type="button" class="btn btn-ghost" data-consent-var="{class_name}">{class_name}</button>
           <button type="button" class="btn btn-ghost" data-consent-var="{due_date}">{due_date}</button>
           <button type="button" class="btn btn-ghost" data-consent-var="{trip_date}">{trip_date}</button>
           <button type="button" class="btn btn-ghost" data-consent-var="{location}">{location}</button>
-          <button type="button" class="btn btn-ghost" data-consent-var="{class_name}">{class_name}</button>
         </div>
-        <div id="consentBody" class="consent-editor-body" contenteditable="true"
-          style="min-height:180px;padding:0.75rem 1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface, #fff);line-height:1.55"
-          data-placeholder="Edit the letter / consent body…"></div>
+        <div id="consentBody" class="consent-editor-body odoc-editor" contenteditable="true"
+          data-placeholder="양식을 선택하면 공문 본문이 여기에 나타납니다. 필요한 부분만 수정하세요."></div>
         <div class="admin-toolbar" style="margin-top:0.75rem;gap:0.5rem;flex-wrap:wrap">
-          <button type="button" class="btn btn-ghost" id="consentSaveTemplateBtn" data-i18n="admin.consents.saveTemplate">Save as new template</button>
-          <button type="button" class="btn btn-primary" id="consentPublishBtn" data-i18n="admin.consents.publish">Publish to parents</button>
+          <button type="button" class="btn btn-ghost" id="consentSaveTemplateBtn">수정본을 새 양식으로 저장</button>
+          <button type="button" class="btn btn-primary" id="consentPublishBtn">학부모에게 발행</button>
         </div>
         <p class="error" id="consentEditorError" style="margin:0.5rem 0 0"></p>
       </div>
 
       <div class="card" style="margin:0;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
-        <h3 style="margin:0 0 0.75rem" data-i18n="admin.consents.published">Published forms</h3>
+        <h3 style="margin:0 0 0.75rem">발행된 공문 · 제출 현황</h3>
         <div id="consentFormsList"><p class="muted">Loading…</p></div>
-        <div id="consentAnalytics" class="hidden" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-soft)"></div>
+        <div id="consentAnalytics" class="hidden consent-analytics" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-soft)"></div>
       </div>
     </div>
 
@@ -633,7 +625,7 @@
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/admin-school-calendar.js?v=20260813fac1"></script>
 <script src="/js/admin-bus.js?v=20260813fac1"></script>
-<script src="/js/consent-admin.js?v=20260813cf1"></script>
+<script src="/js/consent-admin.js?v=20260813cf2"></script>
 <script src="/js/material-requests.js?v=20260813fac1"></script>
 <script>
 (function() {
@@ -780,7 +772,12 @@
     if (name === 'timetables') loadTimetables();
     if (name === 'schoolCal') SaltSchoolCalendar.open();
     if (name === 'bus') SaltAdminBus.open();
-    if (name === 'consents' && window.SaltConsentAdmin) SaltConsentAdmin.open();
+    if (name === 'consents' && window.SaltConsentAdmin) {
+      SaltConsentAdmin.open().catch((e) => {
+        const box = $('consentFormsList');
+        if (box) box.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Failed to load') + '</p>';
+      });
+    }
     if (name === 'announcements') loadAdminAnnouncements();
     if (name === 'reportCards') loadAdminReportCards();
     if (name === 'materials' && typeof SaltMaterialRequests !== 'undefined') SaltMaterialRequests.openAdmin();

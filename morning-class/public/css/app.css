@@ -4605,6 +4605,110 @@ body.buddy-resize-active {
 .pp-consent-choice { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
 .pp-consent-choice { flex-direction: row; align-items: center; gap: 0.5rem; font-weight: 500; }
 .pp-consent-terms { flex-direction: row !important; align-items: flex-start; gap: 0.5rem; font-weight: 500 !important; }
+
+/* Formal official letter (공문) */
+.odoc {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.25rem 1.35rem 1.5rem;
+  border: 1px solid #1e293b;
+  background: #fff;
+  color: #0f172a;
+  font-family: "Noto Serif KR", "Source Han Serif KR", "Batang", "Songti SC", Georgia, serif;
+  line-height: 1.7;
+}
+.odoc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+.odoc-school {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+.odoc-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: #334155;
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+}
+.odoc-title {
+  margin: 0.5rem 0 0.75rem;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.odoc-to {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+}
+.odoc-rule {
+  border: 0;
+  border-top: 2px solid #0f172a;
+  margin: 0.6rem 0 1rem;
+}
+.odoc-body p { margin: 0 0 0.7rem; }
+.odoc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85rem 0 1rem;
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+  font-size: 0.92rem;
+}
+.odoc-table th,
+.odoc-table td {
+  border: 1px solid #334155;
+  padding: 0.45rem 0.65rem;
+  vertical-align: top;
+}
+.odoc-table th {
+  width: 28%;
+  background: #f1f5f9;
+  font-weight: 700;
+  text-align: center;
+}
+.odoc-foot {
+  margin-top: 1.25rem;
+  font-size: 0.95rem;
+}
+.odoc-sign {
+  margin-top: 1.5rem;
+  text-align: right;
+  line-height: 1.5;
+}
+.odoc-editor {
+  min-height: 280px;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  overflow: auto;
+}
+.consent-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+.consent-stat {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+  background: var(--surface, #fff);
+}
+@media (max-width: 640px) {
+  .consent-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .odoc { padding: 1rem; }
+}
+
 .pp-bus-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .pp-bus-current { margin: 0.5rem 0; }
 .pp-bus-hint { color: #b45309; margin: 0.35rem 0 0.75rem; }

@@ -6,7 +6,8 @@ const {
   CONSENT_FORMS_SHEET,
   CONSENT_SUBMISSIONS_SHEET,
   STUDENT_LIST_SHEET,
-  CLASS_LIST_SHEET
+  CLASS_LIST_SHEET,
+  SCHOOL_NAME
 } = require('../config');
 const {
   getSheetRows,
@@ -27,6 +28,9 @@ const SUB_HEADERS = [
   'SubID', 'FormID', 'StudentID', 'ParentID', 'Agreed', 'DisagreedReason',
   'ExtraDataJSON', 'SignatureBase64', 'SubmittedAt'
 ];
+
+/** Bump to force-refresh non-custom builtin template bodies in Sheets. */
+const BUILTIN_TEMPLATE_VERSION = 'v2-formal-odoc';
 
 const CATEGORIES = {
   BusSurvey: 'BusSurvey',
@@ -55,18 +59,54 @@ function parseJson(raw, fallback) {
   }
 }
 
+function todaySeoul() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+function academicYearLabel() {
+  const y = new Date().getFullYear();
+  return y + '–' + String(y + 1).slice(2);
+}
+
+function odocShell(title, bodyHtml) {
+  return (
+    '<article class="odoc" data-builtin-version="' + BUILTIN_TEMPLATE_VERSION + '">' +
+    '<header class="odoc-head">' +
+    '<div class="odoc-school">{school_name}</div>' +
+    '<div class="odoc-meta"><span>문서번호 {doc_no}</span><span>시행일 {issue_date}</span></div>' +
+    '</header>' +
+    '<h1 class="odoc-title">' + title + '</h1>' +
+    '<p class="odoc-to">수신: 학부모님 귀하 &nbsp;|&nbsp; 학생: {student_name} ({class_name})</p>' +
+    '<hr class="odoc-rule">' +
+    '<div class="odoc-body">' + bodyHtml + '</div>' +
+    '<footer class="odoc-foot">' +
+    '<p>끝.</p>' +
+    '<p class="odoc-sign">{school_name}<br>교무행정실</p>' +
+    '</footer>' +
+    '</article>'
+  );
+}
+
 function builtinTemplates() {
   return [
     {
       templateId: 'tpl_bus_survey',
       category: CATEGORIES.BusSurvey,
-      title: '[공문] 셔틀버스 1단계 수요 조사서',
-      contentHtml:
-        '<p>학부모님께,</p>' +
-        '<p><strong>{academic_year}</strong> 셔틀버스 운행을 위한 <strong>1단계 수요 조사</strong>입니다.</p>' +
-        '<p>학생 <strong>{student_name}</strong>의 거주지와 이용 희망 여부를 알려 주세요. ' +
-        '본 조사는 노선 설계용이며, 최종 이용 신청은 2단계에서 별도로 진행됩니다.</p>' +
-        '<p>제출 마감: <strong>{due_date}</strong></p>',
+      title: '셔틀버스 1단계 수요 조사 안내',
+      contentHtml: odocShell(
+        '셔틀버스 이용 수요 조사 안내(1단계)',
+        '<p>1. 귀 가정의 평안을 기원합니다.</p>' +
+        '<p>2. 본교 <strong>{academic_year}</strong> 학년도 셔틀버스 노선 설계를 위하여 아래와 같이 ' +
+        '<strong>수요 조사</strong>를 실시하오니, 확인 후 기한 내 응답하여 주시기 바랍니다.</p>' +
+        '<p>3. 본 조사는 노선 수립을 위한 <strong>1단계</strong>이며, 최종 이용 신청은 노선·시간표 확정 후 ' +
+        '<strong>2단계 신청서</strong>로 별도 진행됩니다.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>대상 학생</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>조사 내용</th><td>거주지(아파트·동), 이용 희망(등하원/등교/하교/자가), 희망 승하차 장소</td></tr>' +
+        '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>4. 아래 응답란에 기재·서명한 후 제출하여 주시기 바랍니다.</p>'
+      ),
       fieldsJson: {
         kind: 'bus_survey',
         requireSignature: true,
@@ -81,13 +121,20 @@ function builtinTemplates() {
     {
       templateId: 'tpl_bus_app',
       category: CATEGORIES.BusApp,
-      title: '[신청서] 셔틀버스 2단계 최종 이용 신청서',
-      contentHtml:
-        '<p>학부모님께,</p>' +
-        '<p>확정된 셔틀 노선·시간표를 확인하신 후, 학생 <strong>{student_name}</strong>의 ' +
-        '<strong>등교/하교 호차 및 정류장</strong>을 선택해 최종 신청해 주세요.</p>' +
-        '<p>신청 완료 시 버스 Daily Board 탑승 명단에 반영됩니다.</p>' +
-        '<p>제출 마감: <strong>{due_date}</strong></p>',
+      title: '셔틀버스 2단계 최종 이용 신청 안내',
+      contentHtml: odocShell(
+        '셔틀버스 최종 이용 신청 안내(2단계)',
+        '<p>1. 귀 가정의 평안을 기원합니다.</p>' +
+        '<p>2. 수요 조사 결과를 반영하여 셔틀버스 노선·시간표가 확정되었사오니, 학생 ' +
+        '<strong>{student_name}</strong>의 <strong>등교·하교 호차</strong>를 선택하여 최종 신청하여 주시기 바랍니다.</p>' +
+        '<p>3. 신청이 완료되면 해당 학생은 버스 Daily Board 탑승 명단에 반영됩니다.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>대상 학생</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>신청 내용</th><td>등교 호차, 하교 호차, 정류장(필요 시)</td></tr>' +
+        '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>4. 아래 항목을 선택한 뒤 약관에 동의하고 서명하여 제출하여 주시기 바랍니다.</p>'
+      ),
       fieldsJson: {
         kind: 'bus_app',
         requireSignature: true,
@@ -102,13 +149,21 @@ function builtinTemplates() {
     {
       templateId: 'tpl_field_trip',
       category: CATEGORIES.FieldTrip,
-      title: '[동의서] 현장 체험학습 및 야외활동 동의서',
-      contentHtml:
-        '<p>학부모님께,</p>' +
-        '<p>학생 <strong>{student_name}</strong>의 현장 체험학습/야외활동에 대한 동의서입니다.</p>' +
-        '<ul><li>일시: <strong>{trip_date}</strong></li>' +
-        '<li>장소: <strong>{location}</strong></li></ul>' +
-        '<p>안전 수칙을 안내하였으며, 응급상황 시 학교의 합리적 조치에 동의합니다.</p>',
+      title: '현장 체험학습·야외활동 동의서',
+      contentHtml: odocShell(
+        '현장 체험학습 및 야외활동 동의서',
+        '<p>1. 귀 가정의 평안을 기원합니다.</p>' +
+        '<p>2. 본교는 아래와 같이 현장 체험학습(야외활동)을 실시하고자 하오니, 학생 ' +
+        '<strong>{student_name}</strong>의 참가에 대한 동의 여부를 알려 주시기 바랍니다.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>대상 학생</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>일 시</th><td><strong>{trip_date}</strong></td></tr>' +
+        '<tr><th>장 소</th><td><strong>{location}</strong></td></tr>' +
+        '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. 활동 중 안전 수칙을 준수하며, 응급상황 발생 시 학교의 합리적 조치(응급처치·의료기관 이송 등)에 동의합니다.</p>' +
+        '<p>4. 동의하지 않으실 경우 사유를 기재하여 제출하여 주시기 바랍니다.</p>'
+      ),
       fieldsJson: {
         kind: 'consent',
         requireSignature: true,
@@ -122,12 +177,19 @@ function builtinTemplates() {
     {
       templateId: 'tpl_photo_media',
       category: CATEGORIES.PhotoMedia,
-      title: '[동의서] 초상권 & 개인정보/학습 결과물 활용 동의서',
-      contentHtml:
-        '<p>학부모님께,</p>' +
-        '<p>학생 <strong>{student_name}</strong>의 사진·영상·학습 결과물을 학교 소식, 포트폴리오, ' +
-        '교육 홍보 목적(교내·공식 채널)으로 활용하는 것에 대한 동의서입니다.</p>' +
-        '<p>동의하지 않으실 경우 해당 학생은 촬영·게시에서 제외됩니다.</p>',
+      title: '초상권·개인정보·학습결과물 활용 동의서',
+      contentHtml: odocShell(
+        '초상권 및 개인정보·학습 결과물 활용 동의서',
+        '<p>1. 귀 가정의 평안을 기원합니다.</p>' +
+        '<p>2. 본교 교육·홍보 활동의 일환으로 학생 <strong>{student_name}</strong>의 사진·영상 및 학습 결과물을 ' +
+        '학교 소식, 포트폴리오, 공식 채널 등에 활용하고자 하오니 동의 여부를 알려 주시기 바랍니다.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>대상 학생</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>활용 범위</th><td>교내 게시, 학교 공식 소식/채널, 학습 포트폴리오(비상업적 교육 목적)</td></tr>' +
+        '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. 동의하지 않으실 경우 해당 학생은 촬영·게시 대상에서 제외됩니다. 부동의 시 사유를 기재해 주세요.</p>'
+      ),
       fieldsJson: {
         kind: 'consent',
         requireSignature: true,
@@ -141,11 +203,20 @@ function builtinTemplates() {
     {
       templateId: 'tpl_health',
       category: CATEGORIES.Health,
-      title: '[동의서] 학생 건강 상태 & 비상 응급처치 동의서',
-      contentHtml:
-        '<p>학부모님께,</p>' +
-        '<p>학생 <strong>{student_name}</strong>의 건강 정보 확인 및 비상 시 응급처치·의료기관 이송에 대한 동의서입니다.</p>' +
-        '<p>알레르기·복용약·특이사항은 학생 프로필/의료 정보에 최신으로 반영해 주세요.</p>',
+      title: '학생 건강 상태 확인 및 비상 응급처치 동의서',
+      contentHtml: odocShell(
+        '학생 건강 상태 확인 및 비상 응급처치 동의서',
+        '<p>1. 귀 가정의 평안을 기원합니다.</p>' +
+        '<p>2. 학생 <strong>{student_name}</strong>의 안전한 학교생활을 위하여 건강 상태 확인 및 비상 시 ' +
+        '응급처치·의료기관 이송에 대한 동의를 받고자 합니다.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>대상 학생</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>동의 내용</th><td>비상 응급처치, 필요 시 의료기관 이송, 보호자 연락</td></tr>' +
+        '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. 알레르기·복용약·특이사항은 학부모 포털의 학생 프로필(의료 정보)에 최신으로 반영해 주시기 바랍니다.</p>' +
+        '<p>4. 동의하지 않으실 경우 사유를 기재하여 제출하여 주시기 바랍니다.</p>'
+      ),
       fieldsJson: {
         kind: 'consent',
         requireSignature: true,
@@ -165,27 +236,52 @@ async function ensureConsentSheets() {
   await ensureSheet(CONSENT_SUBMISSIONS_SHEET, SUB_HEADERS);
 
   const rows = await getSheetRows(CONSENT_TEMPLATES_SHEET, { skipCache: true });
-  const existing = new Set();
+  const byId = {};
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0]) existing.add(String(rows[i][0]));
+    if (rows[i][0]) byId[String(rows[i][0])] = i + 1; // 1-based sheet row
   }
-  const seed = [];
-  builtinTemplates().forEach((t) => {
-    if (existing.has(t.templateId)) return;
-    seed.push([
+  const toAppend = [];
+  for (const t of builtinTemplates()) {
+    const sheetRow = byId[t.templateId];
+    const row = [
       t.templateId,
       t.category,
       t.title,
       t.contentHtml,
       JSON.stringify(t.fieldsJson || {}),
-      t.isCustomSaved ? 'Y' : 'N',
+      'N',
       nowIso()
-    ]);
-  });
-  if (seed.length) {
-    await appendRows(CONSENT_TEMPLATES_SHEET, seed);
-    invalidateSheetRowsCache(CONSENT_TEMPLATES_SHEET);
+    ];
+    if (!sheetRow) {
+      toAppend.push(row);
+      continue;
+    }
+    // Refresh non-custom builtins when version changes (or content missing version marker)
+    const existingHtml = String(rows[sheetRow - 1][3] || '');
+    const isCustom = String(rows[sheetRow - 1][5] || 'N').toUpperCase() === 'Y';
+    if (!isCustom && existingHtml.indexOf(BUILTIN_TEMPLATE_VERSION) < 0) {
+      await updateRange(CONSENT_TEMPLATES_SHEET, `A${sheetRow}:G${sheetRow}`, [row]);
+    }
   }
+  if (toAppend.length) {
+    await appendRows(CONSENT_TEMPLATES_SHEET, toAppend);
+  }
+  invalidateSheetRowsCache(CONSENT_TEMPLATES_SHEET);
+}
+
+function buildFormVars(form, student, classNames) {
+  const published = String((form && form.publishedAt) || '').slice(0, 10);
+  return {
+    student_name: (student && student.name) || '',
+    class_name: (classNames && student && classNames[student.classId]) || (student && student.classId) || '',
+    due_date: (form && form.dueDate) || '—',
+    academic_year: academicYearLabel(),
+    school_name: SCHOOL_NAME,
+    doc_no: (form && form.formId) || '',
+    issue_date: published || todaySeoul(),
+    trip_date: '',
+    location: ''
+  };
 }
 
 function parseTemplateRow(row) {
@@ -285,7 +381,7 @@ async function saveTemplate(payload) {
   return parseTemplateRow(row);
 }
 
-async function listForms({ status } = {}) {
+async function listForms({ status, withStats } = {}) {
   await ensureConsentSheets();
   const rows = await getSheetRows(CONSENT_FORMS_SHEET);
   const out = [];
@@ -296,7 +392,28 @@ async function listForms({ status } = {}) {
     out.push(f);
   }
   out.sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)));
-  return out;
+  if (!withStats || !out.length) return out;
+
+  const [subs, students] = await Promise.all([listSubmissions(), studentClassMap()]);
+  const byForm = {};
+  subs.forEach((s) => {
+    if (!byForm[s.formId]) byForm[s.formId] = new Set();
+    byForm[s.formId].add(s.studentId);
+  });
+  return out.map((f) => {
+    const eligible = Object.keys(students)
+      .map((id) => students[id])
+      .filter((s) => formTargetsStudent(f, s));
+    const submittedCount = eligible.filter((s) => (byForm[f.formId] || new Set()).has(s.studentId)).length;
+    const total = eligible.length;
+    const rate = total ? Math.round((submittedCount / total) * 1000) / 10 : 0;
+    return Object.assign({}, f, {
+      total,
+      submittedCount,
+      pendingCount: Math.max(0, total - submittedCount),
+      rate
+    });
+  });
 }
 
 async function getForm(formId) {
@@ -448,15 +565,7 @@ async function listPendingForParent(session) {
   for (const form of forms) {
     if (submitted.has(form.formId)) continue;
     if (!formTargetsStudent(form, student)) continue;
-    const vars = {
-      student_name: student.name || studentId,
-      class_name: classNames[student.classId] || student.classId || '',
-      due_date: form.dueDate || '—',
-      academic_year: new Date().getFullYear() + '–' + String(new Date().getFullYear() + 1).slice(2),
-      trip_date: '',
-      location: ''
-    };
-    // Allow publishing vars embedded already; still replace remaining tokens
+    const vars = buildFormVars(form, student, classNames);
     pending.push({
       formId: form.formId,
       category: form.category,
@@ -480,14 +589,7 @@ async function getParentFormDetail(session, formId) {
   const students = await studentClassMap();
   const student = students[session.studentId] || { name: session.studentName || '', studentId: session.studentId };
   const classNames = await classNameMap();
-  const vars = {
-    student_name: student.name || '',
-    class_name: classNames[student.classId] || student.classId || '',
-    due_date: form.dueDate || '—',
-    academic_year: new Date().getFullYear() + '–' + String(new Date().getFullYear() + 1).slice(2),
-    trip_date: '',
-    location: ''
-  };
+  const vars = buildFormVars(form, student, classNames);
   const subs = await listSubmissions(formId);
   const mine = subs.find((s) => s.studentId === String(session.studentId));
   return {
@@ -618,11 +720,13 @@ async function getFormAnalytics(formId) {
       className: classNames[s.classId] || s.classId || ''
     };
     if (byStudent[s.studentId]) {
+      const sub = byStudent[s.studentId];
       submitted.push(Object.assign({}, row, {
-        agreed: byStudent[s.studentId].agreed,
-        disagreedReason: byStudent[s.studentId].disagreedReason,
-        submittedAt: byStudent[s.studentId].submittedAt,
-        extraData: byStudent[s.studentId].extraData
+        agreed: sub.agreed,
+        disagreedReason: sub.disagreedReason,
+        submittedAt: sub.submittedAt,
+        extraData: sub.extraData,
+        hasSignature: !!(sub.signatureBase64 && String(sub.signatureBase64).length > 32)
       }));
     } else {
       pending.push(row);
