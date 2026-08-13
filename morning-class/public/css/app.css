@@ -2557,17 +2557,34 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .cr-class-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
 .cr-class-form input { padding: 0.45rem 0.55rem; border: 1px solid var(--border-soft); border-radius: 0.45rem; }
-.cr-form-days { display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; }
+.cr-form-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cr-form-days-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  width: 100%;
+}
+.cr-class-form label.cr-day-chip,
 .cr-day-chip {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.82rem;
-  padding: 0.2rem 0.45rem;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.35rem;
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   background: var(--cream);
+  white-space: nowrap;
 }
+.cr-day-chip input { margin: 0; flex: 0 0 auto; }
 .cr-field-label { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-bottom: 0.25rem; }
 .cr-roster { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1rem; }
 .cr-roster-row, .cr-import-row {

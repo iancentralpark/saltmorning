@@ -44,10 +44,10 @@
 
   function allowedDaysChecked(days) {
     const set = new Set((days || []).map(Number));
-    return DAY_OPTIONS.map((d) =>
+    return '<div class="cr-form-days-row">' + DAY_OPTIONS.map((d) =>
       '<label class="cr-day-chip"><input type="checkbox" value="' + d.value + '"' +
       (set.has(d.value) ? ' checked' : '') + '> ' + d.label + '</label>'
-    ).join('');
+    ).join('') + '</div>';
   }
 
   function collectAllowedDays() {
