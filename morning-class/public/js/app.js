@@ -71,11 +71,18 @@
     if (profileOrPerms && isAdminPortalRole(profileOrPerms.role) && profileOrPerms.role === 'admin') {
       return true;
     }
+    // Principal = full admin portal (Consents and other new tabs stay visible)
+    if (profileOrPerms && profileOrPerms.role === 'principal') return true;
     if (Array.isArray(profileOrPerms)) perms = profileOrPerms;
     else if (profileOrPerms && Array.isArray(profileOrPerms.permissions)) perms = profileOrPerms.permissions;
     if (perms.includes('*')) return true;
     // Legacy principal with empty perms = full access
     if (profileOrPerms && profileOrPerms.role === 'principal' && !perms.length) return true;
+    if (key === 'admin.consents' &&
+        (perms.indexOf('admin.bus') >= 0 || perms.indexOf('admin.announcements') >= 0) &&
+        perms.filter(function (k) { return String(k).indexOf('admin.') === 0; }).length >= 5) {
+      return true;
+    }
     return perms.indexOf(key) >= 0;
   }
 

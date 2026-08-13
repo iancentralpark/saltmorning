@@ -225,7 +225,8 @@ async function loginTeacher(loginId, password) {
     parsePermissions,
     presetsForTitle,
     normalizeTitle,
-    portalRoleForFaculty
+    portalRoleForFaculty,
+    upgradePermissions
   } = require('./staffPermissionService');
 
   const rows = await getSheetRows(TEACHER_LIST_SHEET);
@@ -246,7 +247,7 @@ async function loginTeacher(loginId, password) {
       displayName = fullName;
     }
 
-    let permissions = parsePermissions(rows[i][7]);
+    let permissions = upgradePermissions(staffTitle, parsePermissions(rows[i][7]));
     if (!permissions.length) permissions = presetsForTitle(staffTitle);
     const portalRole = portalRoleForFaculty(staffTitle, permissions);
 

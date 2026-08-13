@@ -219,10 +219,11 @@ function facultyFromListRow(row) {
   const {
     normalizeTitle,
     parsePermissions,
-    presetsForTitle
+    presetsForTitle,
+    upgradePermissions
   } = require('./staffPermissionService');
   const staffTitle = normalizeTitle(row[5], 'Teacher');
-  let permissions = parsePermissions(row[7]);
+  let permissions = upgradePermissions(staffTitle, parsePermissions(row[7]));
   if (!permissions.length) permissions = presetsForTitle(staffTitle);
   return {
     teacherId: String(row[0] || ''),

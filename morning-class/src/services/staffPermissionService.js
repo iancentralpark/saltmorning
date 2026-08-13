@@ -99,7 +99,10 @@ function presetsForTitle(title) {
     return ['teacher.home', 'teacher.students', 'admin.announcements'];
   }
   if (t === 'admin staff') {
-    return ['admin.bus', 'admin.announcements', 'admin.materials', 'admin.monitor'];
+    return [
+      'admin.bus', 'admin.consents', 'admin.announcements',
+      'admin.materials', 'admin.monitor', 'admin.students'
+    ];
   }
   return ['teacher.home', 'teacher.classes'];
 }
@@ -119,13 +122,40 @@ function hasPermission(sessionOrPerms, ...keys) {
   if (!want.length) return true;
   let perms = [];
   if (sessionOrPerms && sessionOrPerms.role === 'admin') return true;
+  // Principal portal = full admin UI/API access (new tabs like Consents must stay visible)
+  if (sessionOrPerms && sessionOrPerms.role === 'principal') return true;
   if (Array.isArray(sessionOrPerms)) perms = sessionOrPerms;
   else if (sessionOrPerms && Array.isArray(sessionOrPerms.permissions)) perms = sessionOrPerms.permissions;
   else if (sessionOrPerms && sessionOrPerms.permissions === '*') return true;
   if (perms.includes('*')) return true;
   // Legacy principal with empty permissions = full admin portal
   if (sessionOrPerms && sessionOrPerms.role === 'principal' && !perms.length) return true;
+  // Soft-upgrade: older saved admin snapshots missing newly added keys
+  if (want.includes('admin.consents') &&
+      (perms.includes('admin.bus') || perms.includes('admin.announcements')) &&
+      perms.filter((k) => String(k).indexOf('admin.') === 0).length >= 5) {
+    return true;
+  }
   return want.some((k) => perms.includes(k));
+}
+
+/** Merge newly added preset keys into stored faculty permissions without wiping custom cuts. */
+function upgradePermissions(title, permissions) {
+  let perms = parsePermissions(permissions);
+  if (perms.includes('*')) return ['*'];
+  const t = String(title || '').trim().toLowerCase();
+  const preset = presetsForTitle(title);
+  if (!perms.length) return preset.slice();
+  if (t === 'principal' || t === 'vice principal' || t === 'head of admin' || t === 'dean') {
+    return uniq(perms.concat(preset));
+  }
+  const adminCount = perms.filter((k) => String(k).indexOf('admin.') === 0).length;
+  if (adminCount >= 8) return uniq(perms.concat(ALL_ADMIN_KEYS));
+  // Ensure ops staff who already have Bus also get Consents
+  if (perms.includes('admin.bus') && !perms.includes('admin.consents')) {
+    return uniq(perms.concat(['admin.consents']));
+  }
+  return perms;
 }
 
 function hasAnyAdminPermission(perms) {
@@ -180,6 +210,7 @@ module.exports = {
   presetsForTitle,
   normalizeTitle,
   hasPermission,
+  upgradePermissions,
   hasAnyAdminPermission,
   hasAnyTeacherPermission,
   portalRoleForFaculty,
