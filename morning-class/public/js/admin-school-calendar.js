@@ -26,6 +26,8 @@ window.SaltSchoolCalendar = (function() {
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
   function api(path, opts) { return deps.api(path, opts, 'admin'); }
+  function show(el) { if (deps.show) deps.show(el); else if (el) el.classList.remove('hidden'); }
+  function hide(el) { if (deps.hide) deps.hide(el); else if (el) el.classList.add('hidden'); }
 
   function init(options) {
     deps = options || {};
@@ -40,28 +42,62 @@ window.SaltSchoolCalendar = (function() {
     $('scViewMonth').addEventListener('click', () => { viewMode = 'month'; refresh(); });
     $('scViewYear').addEventListener('click', () => { viewMode = 'year'; refresh(); });
     $('scPrint').addEventListener('click', () => window.print());
-    $('scClassFilter').addEventListener('change', refresh);
     $('scEntryForm').addEventListener('submit', saveEntry);
     $('scEntryCancel').addEventListener('click', resetForm);
     $('scDayType').addEventListener('change', syncBlocksDefault);
+    if ($('scMultiDay')) {
+      $('scMultiDay').addEventListener('change', syncMultiDayUi);
+    }
+    if ($('scDate')) {
+      $('scDate').addEventListener('change', () => {
+        if (!$('scMultiDay').checked) $('scEndDate').value = $('scDate').value;
+      });
+    }
+    if ($('scSemestersBtn')) {
+      $('scSemestersBtn').addEventListener('click', openSemesterModal);
+    }
+    if ($('scSemesterClose')) {
+      $('scSemesterClose').addEventListener('click', closeSemesterModal);
+    }
+    if ($('scSemesterCancel')) {
+      $('scSemesterCancel').addEventListener('click', closeSemesterModal);
+    }
+    if ($('scSemesterModal')) {
+      $('scSemesterModal').addEventListener('click', (e) => {
+        if (e.target === $('scSemesterModal')) closeSemesterModal();
+      });
+    }
     if ($('scSemesterForm')) {
       $('scSemesterForm').addEventListener('submit', saveSemesters);
     }
     syncBlocksDefault();
+    syncMultiDayUi();
   }
 
+  function syncMultiDayUi() {
+    const multi = $('scMultiDay') && $('scMultiDay').checked;
+    const wrap = $('scEndDateWrap');
+    if (wrap) {
+      if (multi) show(wrap);
+      else hide(wrap);
+    }
+    if (!multi && $('scDate') && $('scEndDate')) {
+      $('scEndDate').value = $('scDate').value || '';
+    }
+  }
+
+  function setMultiDay(enabled) {
+    if ($('scMultiDay')) $('scMultiDay').checked = !!enabled;
+    syncMultiDayUi();
+  }
+
+  /** School-wide calendar only — class filter removed from UI. */
   function classId() {
-    return $('scClassFilter').value || '*';
+    return '*';
   }
 
-  function setClasses(classes) {
-    const sel = $('scClassFilter');
-    const cur = sel.value;
-    sel.innerHTML = '<option value="*">All classes (school-wide)</option>' +
-      (classes || []).map((c) =>
-        '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>'
-      ).join('');
-    if (cur) sel.value = cur;
+  function setClasses() {
+    /* no-op: school calendar is school-wide only */
   }
 
   function syncBlocksDefault() {
@@ -95,6 +131,15 @@ window.SaltSchoolCalendar = (function() {
     await refresh();
   }
 
+  async function openSemesterModal() {
+    await loadSemesters();
+    if ($('scSemesterModal')) show($('scSemesterModal'));
+  }
+
+  function closeSemesterModal() {
+    if ($('scSemesterModal')) hide($('scSemesterModal'));
+  }
+
   async function loadSemesters() {
     if (!$('scSem1Start')) return;
     try {
@@ -110,6 +155,7 @@ window.SaltSchoolCalendar = (function() {
         $('scSemesterMsg').textContent = data.activeSemesterKey
           ? ('Active: ' + (data.activeSemesterKey === 'sem2' ? 'Semester 2' : 'Semester 1'))
           : '';
+        $('scSemesterMsg').style.color = '';
       }
     } catch (err) {
       if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not load semesters.';
@@ -133,6 +179,7 @@ window.SaltSchoolCalendar = (function() {
         $('scSemesterMsg').textContent = 'Semesters saved.';
       }
       await loadSemesters();
+      setTimeout(closeSemesterModal, 450);
     } catch (err) {
       if ($('scSemesterMsg')) $('scSemesterMsg').textContent = '';
       if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not save.';
@@ -235,7 +282,7 @@ window.SaltSchoolCalendar = (function() {
   function renderYear(data) {
     let html = '<div class="sc-year-grid sc-print-root">';
     html += '<header class="sc-print-head"><h2>Annual School Calendar</h2>' +
-      '<p>' + escapeHtml(data.label) + ' · ' + escapeHtml(data.className || 'All classes') +
+      '<p>' + escapeHtml(data.label) + ' · School-wide' +
       ' · ' + data.schoolDayCount + ' school days</p></header>';
     (data.months || []).forEach((mo) => {
       html += '<section class="sc-year-month"><h3>' + MONTH_NAMES[mo.month - 1] + ' ' + mo.year + '</h3>';
@@ -257,14 +304,13 @@ window.SaltSchoolCalendar = (function() {
 
   function renderEntryList(entries) {
     if (!entries.length) return '<p class="muted small">No admin overrides in this range. KR public holidays still apply automatically.</p>';
-    return '<table class="sc-entry-table"><thead><tr><th>Dates</th><th>Type</th><th>Title</th><th>Class</th><th></th></tr></thead><tbody>' +
+    return '<table class="sc-entry-table"><thead><tr><th>Dates</th><th>Type</th><th>Title</th><th></th></tr></thead><tbody>' +
       entries.map((e) => {
         const range = e.date === e.endDate ? e.date : e.date + ' → ' + e.endDate;
         return '<tr>' +
           '<td>' + escapeHtml(range) + '</td>' +
           '<td>' + escapeHtml(TYPE_LABEL[e.dayType] || e.dayType) + '</td>' +
           '<td>' + escapeHtml(e.title) + (e.blocksAttendance ? ' <span class="muted">(no class)</span>' : '') + '</td>' +
-          '<td>' + escapeHtml(e.classId === '*' ? 'All' : e.classId) + '</td>' +
           '<td><button type="button" class="btn btn-ghost" data-edit-id="' + escapeHtml(e.entryId) + '">Edit</button> ' +
           '<button type="button" class="btn btn-ghost" data-del-id="' + escapeHtml(e.entryId) + '">Remove</button></td>' +
           '</tr>';
@@ -277,6 +323,7 @@ window.SaltSchoolCalendar = (function() {
       btn.addEventListener('click', () => {
         $('scDate').value = btn.dataset.date;
         $('scEndDate').value = btn.dataset.date;
+        setMultiDay(false);
         $('scTitle').focus();
       });
     });
@@ -303,11 +350,11 @@ window.SaltSchoolCalendar = (function() {
         $('scEntryId').value = e.entryId;
         $('scDate').value = e.date;
         $('scEndDate').value = e.endDate;
+        setMultiDay(String(e.date) !== String(e.endDate));
         $('scDayType').value = e.dayType;
         $('scTitle').value = e.title;
         $('scBlocksAttendance').checked = !!e.blocksAttendance;
         $('scNotes').value = e.notes || '';
-        $('scEntryClass').value = e.classId || '*';
         $('scFormTitle').textContent = (window.SaltI18n
           ? SaltI18n.t('admin.schoolCal.editTitle', 'Edit calendar entry')
           : 'Edit calendar entry');
@@ -318,6 +365,7 @@ window.SaltSchoolCalendar = (function() {
   function resetForm() {
     $('scEntryId').value = '';
     $('scEntryForm').reset();
+    setMultiDay(false);
     $('scFormTitle').textContent = (window.SaltI18n
       ? SaltI18n.t('admin.schoolCal.addTitle', 'Add to annual plan')
       : 'Add to annual plan');
@@ -327,17 +375,24 @@ window.SaltSchoolCalendar = (function() {
   async function saveEntry(e) {
     e.preventDefault();
     $('scFormError').textContent = '';
+    const start = $('scDate').value;
+    const multi = $('scMultiDay') && $('scMultiDay').checked;
+    const end = multi ? ($('scEndDate').value || start) : start;
+    if (multi && end < start) {
+      $('scFormError').textContent = 'End date must be on or after the start date.';
+      return;
+    }
     try {
       await api('/api/admin/school-calendar', {
         method: 'POST',
         body: {
           entryId: $('scEntryId').value || undefined,
-          date: $('scDate').value,
-          endDate: $('scEndDate').value || $('scDate').value,
+          date: start,
+          endDate: end,
           dayType: $('scDayType').value,
           title: $('scTitle').value,
           blocksAttendance: $('scBlocksAttendance').checked,
-          classId: $('scEntryClass').value || classId() || '*',
+          classId: '*',
           notes: $('scNotes').value
         }
       });
