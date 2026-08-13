@@ -3884,7 +3884,7 @@ body.buddy-resize-active {
     width: 100%;
     background: #fff;
   }
-  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar-actions, .topbar, .tabs, .class-subnav, .no-print { display: none !important; }
+  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar, .sc-toolbar-actions, .topbar, .tabs, .class-subnav, .no-print { display: none !important; }
   .no-print { display: none !important; }
 }
 
