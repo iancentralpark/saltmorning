@@ -121,16 +121,8 @@
   function resolveSignature(requireSig) {
     if (requireSig === false) return { ok: true, dataUrl: '', signerName: '' };
     const name = (($('ppConsentSignerName') && $('ppConsentSignerName').value) || '').trim();
-    const confirmed = !!( $('ppConsentEsignConfirm') && $('ppConsentEsignConfirm').checked );
-    const drawn = !isBlankSignature();
-    if (drawn) {
-      return { ok: true, dataUrl: canvas().toDataURL('image/png'), signerName: name };
-    }
     if (!name) {
       return { ok: false, error: t('parent.consents.nameRequired', '보호자 성명을 입력해 주세요.') };
-    }
-    if (!confirmed) {
-      return { ok: false, error: t('parent.consents.confirmRequired', '전자서명 확인에 체크해 주세요.') };
     }
     return { ok: true, dataUrl: makeTypedSignature(name), signerName: name };
   }
@@ -273,12 +265,7 @@
       renderExtraFields(fields);
 
       const nameEl = $('ppConsentSignerName');
-      if (nameEl && !nameEl.value) nameEl.value = defaultSignerName();
-      const confirmEl = $('ppConsentEsignConfirm');
-      if (confirmEl) confirmEl.checked = false;
-      const drawDetails = $('ppConsentDrawDetails');
-      if (drawDetails) drawDetails.open = false;
-      bindSignature();
+      if (nameEl) nameEl.value = defaultSignerName();
       clearSignature();
 
       if (currentForm.submitted) {
@@ -291,7 +278,6 @@
       if (location.hash.indexOf(formId) < 0) {
         location.hash = '#/consents/' + encodeURIComponent(formId);
       }
-      if (global.SaltI18n) SaltI18n.apply($('ppConsentDetail') || document.body);
     } catch (e) {
       alert(e.message);
     }
