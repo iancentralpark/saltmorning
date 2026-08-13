@@ -45,7 +45,7 @@ window.SaltSchoolCalendar = (function() {
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
-  function api(path, opts) { return deps.api(path, opts, 'admin'); }
+  function api(path, opts) { return deps.api(path, opts, deps.role || 'admin'); }
   function show(el) { if (deps.show) deps.show(el); else if (el) el.classList.remove('hidden'); }
   function hide(el) { if (deps.hide) deps.hide(el); else if (el) el.classList.add('hidden'); }
 

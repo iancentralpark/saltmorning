@@ -9,6 +9,7 @@
 
   let api = null;
   let escapeHtml = null;
+  let role = 'admin';
   let mountEl = null;
   let onClassesChanged = null;
 
@@ -133,7 +134,7 @@
               scheduleType: detail.querySelector('.cr-input-schedule').value.trim(),
               allowedDays: collectAllowedDays()
             }
-          }, 'admin');
+          }, role);
           activeClass = data.class;
           activeClassId = activeClass.classId;
           errEl.style.color = '#16a34a';
@@ -165,7 +166,7 @@
   }
 
   async function loadClasses() {
-    const data = await api('/api/admin/classes?detailed=1', {}, 'admin');
+    const data = await api('/api/admin/classes?detailed=1', {}, role);
     classes = data.classes || [];
     renderList();
   }
@@ -176,14 +177,14 @@
       return;
     }
     const q = importQuery ? '?q=' + encodeURIComponent(importQuery) : '';
-    const data = await api('/api/admin/classes/' + encodeURIComponent(activeClassId) + '/available-students' + q, {}, 'admin');
+    const data = await api('/api/admin/classes/' + encodeURIComponent(activeClassId) + '/available-students' + q, {}, role);
     availableStudents = data.students || [];
   }
 
   async function openClass(classId) {
     activeClassId = classId;
     importQuery = '';
-    const data = await api('/api/admin/classes/' + encodeURIComponent(classId), {}, 'admin');
+    const data = await api('/api/admin/classes/' + encodeURIComponent(classId), {}, role);
     activeClass = data.class;
     await loadAvailable();
     renderList();
@@ -205,7 +206,7 @@
       const data = await api('/api/admin/classes/' + encodeURIComponent(activeClassId) + '/import-student', {
         method: 'POST',
         body: { studentId }
-      }, 'admin');
+      }, role);
       activeClass = data.class;
       await refreshAll();
       renderDetail();
@@ -221,7 +222,7 @@
       const data = await api('/api/admin/classes/' + encodeURIComponent(activeClassId) + '/remove-student', {
         method: 'POST',
         body: { studentId }
-      }, 'admin');
+      }, role);
       activeClass = data.class;
       await refreshAll();
       renderDetail();
@@ -255,6 +256,7 @@
   function init(opts) {
     api = opts.api;
     escapeHtml = opts.escapeHtml;
+    role = opts.role || 'admin';
     mountEl = typeof opts.mount === 'string' ? document.getElementById(opts.mount) : opts.mount;
     onClassesChanged = opts.onClassesChanged || null;
     classes = [];

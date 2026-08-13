@@ -47,10 +47,36 @@
   }
 
   function clearAllAuth() {
-    ['admin', 'principal', 'teacher', 'parent', 'student'].forEach((role) => {
+    ['admin', 'principal', 'staff', 'teacher', 'parent', 'student'].forEach((role) => {
       setToken(role, '');
       setProfile(role, null);
     });
+  }
+
+  function isAdminPortalRole(role) {
+    return role === 'admin' || role === 'principal' || role === 'staff';
+  }
+
+  /** Prefer Admin token, then Principal, then Staff. */
+  function resolveAdminPortalRole() {
+    if (getToken('admin')) return 'admin';
+    if (getToken('principal')) return 'principal';
+    if (getToken('staff')) return 'staff';
+    return '';
+  }
+
+  function hasPermission(profileOrPerms, key) {
+    if (!key) return true;
+    let perms = [];
+    if (profileOrPerms && isAdminPortalRole(profileOrPerms.role) && profileOrPerms.role === 'admin') {
+      return true;
+    }
+    if (Array.isArray(profileOrPerms)) perms = profileOrPerms;
+    else if (profileOrPerms && Array.isArray(profileOrPerms.permissions)) perms = profileOrPerms.permissions;
+    if (perms.includes('*')) return true;
+    // Legacy principal with empty perms = full access
+    if (profileOrPerms && profileOrPerms.role === 'principal' && !perms.length) return true;
+    return perms.indexOf(key) >= 0;
   }
 
   function getSavedLogin() {
@@ -167,6 +193,9 @@
     getProfile,
     setProfile,
     clearAllAuth,
+    isAdminPortalRole,
+    resolveAdminPortalRole,
+    hasPermission,
     authPersistEnabled,
     setAuthPersist,
     getSavedLogin,

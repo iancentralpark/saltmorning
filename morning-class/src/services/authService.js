@@ -15,6 +15,7 @@ const PASSWORD_TARGETS = {
   parent: { sheet: PARENT_LIST_SHEET, idCol: 0, passwordCol: 4, idKey: 'parentId', a1Col: 'E' },
   teacher: { sheet: TEACHER_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'teacherId', a1Col: 'D' },
   principal: { sheet: TEACHER_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'principalId', a1Col: 'D' },
+  staff: { sheet: TEACHER_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'teacherId', a1Col: 'D' },
   admin: { sheet: ADMIN_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'adminId', a1Col: 'D' }
 };
 
@@ -220,45 +221,75 @@ async function loginTeacher(loginId, password) {
   password = String(password || '').trim();
   if (!loginId || !password) throw new Error('Enter login ID and password.');
 
+  const {
+    parsePermissions,
+    presetsForTitle,
+    normalizeTitle,
+    portalRoleForFaculty
+  } = require('./staffPermissionService');
+
   const rows = await getSheetRows(TEACHER_LIST_SHEET);
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][2] || '').trim() !== loginId) continue;
     if (String(rows[i][3] || '').trim() !== password) continue;
-    const staffRole = String(rows[i][5] || 'Teacher').trim();
+    const staffTitle = normalizeTitle(rows[i][5], 'Teacher');
     const teacherId = String(rows[i][0]);
     const fullName = String(rows[i][1] || '');
     let preferredName = '';
     let displayName = fullName;
     try {
       const { getTeacherProfileRecord, teacherDisplayName } = require('./teacherRegistryService');
-      // Read-only: skip sheet ensure/header writes during login (quota-sensitive).
       const tp = await getTeacherProfileRecord(teacherId, { skipEnsure: true });
       preferredName = String((tp && tp.preferredName) || '').trim();
       displayName = teacherDisplayName(fullName, preferredName);
     } catch (_) {
       displayName = fullName;
     }
+
+    let permissions = parsePermissions(rows[i][7]);
+    if (!permissions.length) permissions = presetsForTitle(staffTitle);
+    const portalRole = portalRoleForFaculty(staffTitle, permissions);
+
     const profile = {
       teacherId,
       name: displayName,
       fullName,
       preferredName,
       homeroomClassId: String(rows[i][4] || '').trim(),
-      staffRole,
-      headTeacherId: String(rows[i][6] || '').trim()
+      staffRole: staffTitle,
+      staffTitle,
+      headTeacherId: String(rows[i][6] || '').trim(),
+      permissions,
+      portalRole
     };
 
-    // Principal accounts live on Teacher_List but use the admin portal.
-    if (/^principal$/i.test(staffRole)) {
+    if (portalRole === 'principal') {
       return {
         token: signToken({
           role: 'principal',
           principalId: profile.teacherId,
           teacherId: profile.teacherId,
           name: profile.name,
-          staffRole: 'Principal'
+          staffRole: staffTitle,
+          staffTitle,
+          permissions
         }),
         profile: Object.assign({}, profile, { principalId: profile.teacherId })
+      };
+    }
+
+    if (portalRole === 'staff') {
+      return {
+        token: signToken({
+          role: 'staff',
+          teacherId: profile.teacherId,
+          staffId: profile.teacherId,
+          name: profile.name,
+          staffRole: staffTitle,
+          staffTitle,
+          permissions
+        }),
+        profile
       };
     }
 
@@ -267,8 +298,10 @@ async function loginTeacher(loginId, password) {
         role: 'teacher',
         teacherId: profile.teacherId,
         name: profile.name,
-        staffRole: profile.staffRole,
-        headTeacherId: profile.headTeacherId
+        staffRole: staffTitle,
+        staffTitle,
+        headTeacherId: profile.headTeacherId,
+        permissions
       }),
       profile
     };
@@ -295,9 +328,10 @@ async function loginAdmin(loginId, password) {
       token: signToken({
         role: 'admin',
         adminId: profile.adminId,
-        name: profile.name
+        name: profile.name,
+        permissions: ['*']
       }),
-      profile
+      profile: Object.assign({}, profile, { permissions: ['*'], portalRole: 'admin' })
     };
   }
   throw new Error('Login ID or password is incorrect.');
@@ -369,6 +403,17 @@ async function changePassword(session, currentPassword, newPassword, confirmPass
     if (String(rows[i][target.idCol] || '').trim() === accountId) {
       rowIndex = i;
       break;
+    }
+  }
+  if (rowIndex < 0) {
+    // Principal/staff tokens may carry principalId while the sheet key is teacherId
+    if ((role === 'principal' || role === 'staff') && session.teacherId) {
+      for (let i = 1; i < rows.length; i++) {
+        if (String(rows[i][target.idCol] || '').trim() === String(session.teacherId)) {
+          rowIndex = i;
+          break;
+        }
+      }
     }
   }
   if (rowIndex < 0) throw new Error('Account not found.');

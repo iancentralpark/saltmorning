@@ -215,21 +215,35 @@ async function assertTeacherExists(teacherId) {
   throw new Error('Teacher not found.');
 }
 
+function facultyFromListRow(row) {
+  const {
+    normalizeTitle,
+    parsePermissions,
+    presetsForTitle
+  } = require('./staffPermissionService');
+  const staffTitle = normalizeTitle(row[5], 'Teacher');
+  let permissions = parsePermissions(row[7]);
+  if (!permissions.length) permissions = presetsForTitle(staffTitle);
+  return {
+    teacherId: String(row[0] || ''),
+    name: String(row[1] || ''),
+    loginId: String(row[2] || ''),
+    homeroomClassId: String(row[4] || ''),
+    staffRole: staffTitle,
+    staffTitle,
+    headTeacherId: String(row[6] || '').trim(),
+    permissions,
+    hasPassword: Boolean(String(row[3] || '').trim())
+  };
+}
+
 async function getTeacherDetail(teacherId) {
   teacherId = String(teacherId || '').trim();
   const rows = await getSheetRows(TEACHER_LIST_SHEET);
   let teacher = null;
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) !== teacherId) continue;
-    teacher = {
-      teacherId: String(rows[i][0]),
-      name: String(rows[i][1] || ''),
-      loginId: String(rows[i][2] || ''),
-      homeroomClassId: String(rows[i][4] || ''),
-      staffRole: String(rows[i][5] || 'Teacher'),
-      headTeacherId: String(rows[i][6] || '').trim(),
-      hasPassword: Boolean(String(rows[i][3] || '').trim())
-    };
+    teacher = facultyFromListRow(rows[i]);
     break;
   }
   if (!teacher) throw new Error('Teacher not found.');
@@ -255,17 +269,12 @@ async function listTeachersWithProfiles() {
     if (!listRows[i][0]) continue;
     const teacherId = String(listRows[i][0]);
     const profile = profileMap[teacherId] || emptyProfile(teacherId);
-    const name = String(listRows[i][1] || '');
+    const base = facultyFromListRow(listRows[i]);
     const preferredName = profile.preferredName || '';
     out.push({
-      teacherId,
-      name,
+      ...base,
       preferredName,
-      displayName: teacherDisplayName(name, preferredName),
-      loginId: String(listRows[i][2] || ''),
-      homeroomClassId: String(listRows[i][4] || ''),
-      staffRole: String(listRows[i][5] || 'Teacher'),
-      headTeacherId: String(listRows[i][6] || '').trim(),
+      displayName: teacherDisplayName(base.name, preferredName),
       photoPath: profile.photoPath || '',
       title: profile.title || '',
       phone: profile.phone || '',
@@ -336,7 +345,7 @@ async function deleteTeacherRecord(teacherId) {
     }
   }
   if (found < 0) throw new Error('Teacher not found.');
-  await updateRange(TEACHER_LIST_SHEET, `A${found}:F${found}`, [['', '', '', '', '', '']]);
+  await updateRange(TEACHER_LIST_SHEET, `A${found}:H${found}`, [['', '', '', '', '', '', '', '']]);
   invalidateSheetRowsCache(TEACHER_LIST_SHEET);
 
   const profileRows = await getSheetRows(TEACHER_PROFILE_SHEET, { skipCache: true });

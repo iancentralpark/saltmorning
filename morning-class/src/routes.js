@@ -385,7 +385,7 @@ router.post('/parent/push/unsubscribe', requireRole('parent'), async (req, res) 
 });
 
 /* Unified push for all roles (preferred) */
-router.get('/push/public-key', requireRole('student', 'parent', 'teacher', 'admin', 'principal'), async (req, res) => {
+router.get('/push/public-key', requireRole('student', 'parent', 'teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const push = require('./services/pushService');
     res.json({
@@ -397,7 +397,7 @@ router.get('/push/public-key', requireRole('student', 'parent', 'teacher', 'admi
   }
 });
 
-router.post('/push/subscribe', requireRole('student', 'parent', 'teacher', 'admin', 'principal'), async (req, res) => {
+router.post('/push/subscribe', requireRole('student', 'parent', 'teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const push = require('./services/pushService');
     const role = push.normalizeRole(req.session.role);
@@ -410,7 +410,7 @@ router.post('/push/subscribe', requireRole('student', 'parent', 'teacher', 'admi
   }
 });
 
-router.post('/push/unsubscribe', requireRole('student', 'parent', 'teacher', 'admin', 'principal'), async (req, res) => {
+router.post('/push/unsubscribe', requireRole('student', 'parent', 'teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const push = require('./services/pushService');
     const role = push.normalizeRole(req.session.role);
@@ -484,7 +484,7 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
-router.post('/auth/change-password', requireRole('student', 'parent', 'teacher', 'principal', 'admin'), async (req, res) => {
+router.post('/auth/change-password', requireRole('student', 'parent', 'teacher', 'principal', 'staff', 'admin'), async (req, res) => {
   try {
     const body = req.body || {};
     const result = await changePassword(
@@ -2654,6 +2654,15 @@ router.get('/admin/monitoring', requireRole('admin'), async (req, res) => {
     res.json({ feed });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load monitoring feed.' });
+  }
+});
+
+router.get('/admin/faculty/catalog', requireRole('admin'), async (req, res) => {
+  try {
+    const { catalog } = require('./services/staffPermissionService');
+    res.json(catalog());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load faculty catalog.' });
   }
 });
 

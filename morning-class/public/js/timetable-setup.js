@@ -8,6 +8,7 @@
 
   let api = null;
   let escapeHtml = null;
+  let role = 'admin';
   let classes = [];
   let teachers = [];
   let boardHandle = null;
@@ -80,7 +81,7 @@
         });
       });
       try {
-        await api('/api/admin/timetable/bell-schedule', { method: 'POST', body: { periods: payload } }, 'admin');
+        await api('/api/admin/timetable/bell-schedule', { method: 'POST', body: { periods: payload } }, role);
         errEl.style.color = '#16a34a';
         errEl.textContent = 'Bell schedule saved.';
         setTimeout(() => closeBellModal(), 450);
@@ -132,7 +133,7 @@
     body.innerHTML = '<p class="muted">Loading…</p>';
     modal.classList.remove('hidden');
     try {
-      const bellData = await api('/api/admin/timetable/bell-schedule', {}, 'admin');
+      const bellData = await api('/api/admin/timetable/bell-schedule', {}, role);
       renderBellEditor(body, bellData);
     } catch (e) {
       body.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Could not load bell schedule.') + '</p>';
@@ -159,7 +160,7 @@
     const cls = classes.find((c) => c.classId === classId);
     boardMount.innerHTML = '<p class="muted">Loading class board…</p>';
     try {
-      const tt = await api('/api/admin/timetable/classes/' + encodeURIComponent(classId), {}, 'admin');
+      const tt = await api('/api/admin/timetable/classes/' + encodeURIComponent(classId), {}, role);
       boardHandle = global.SaltTimetable.renderClassBoard(boardMount, {
         classId,
         className: cls ? cls.name : classId,
@@ -253,7 +254,7 @@
         const data = await api('/api/admin/timetable/requirements/import', {
           method: 'POST',
           body: { classId: classSelect.value }
-        }, 'admin');
+        }, role);
         renderRequirements(mountEl, classSelect.value, data.requirements || []);
         errEl.style.color = '#16a34a';
         errEl.textContent = 'Imported from class assignments.';
@@ -352,7 +353,7 @@
     let reqs = requirements;
     if (!reqs) {
       try {
-        const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(cid), {}, 'admin');
+        const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(cid), {}, role);
         reqs = data.requirements || [];
       } catch (_) {
         reqs = [];
@@ -382,7 +383,7 @@
       const data = await api('/api/admin/timetable/requirements', {
         method: 'POST',
         body: { classId, requirements }
-      }, 'admin');
+      }, role);
       errEl.style.color = '#16a34a';
       const linkedCount = (data.requirements || []).filter((r) => (r.linkedClassIds || []).length).length;
       errEl.textContent = linkedCount
@@ -404,13 +405,13 @@
       const data = await api('/api/admin/timetable/generate', {
         method: 'POST',
         body: { classId }
-      }, 'admin');
+      }, role);
       const r = data.result || {};
       resEl.textContent =
         (r.message || 'Done') + ' — kept ' + (r.lockedKept != null ? r.lockedKept : 0) +
         ' locked, added ' + (r.generated != null ? r.generated : r.assignmentCount) +
         ', synced ' + (r.studentsUpdated || 0) + ' students / ' + (r.teachersUpdated || 0) + ' teachers.';
-      const reqData = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, 'admin');
+      const reqData = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, role);
       await refreshMainBoard(classId, reqData.requirements || []);
     } catch (e) {
       resEl.textContent = '';
@@ -420,12 +421,13 @@
   }
 
   async function loadRequirements(mountEl, classId) {
-    const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, 'admin');
+    const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, role);
     renderRequirements(mountEl, classId, data.requirements || []);
   }
 
   async function open(mountEl, opts) {
     api = opts.api;
+    role = opts.role || 'admin';
     escapeHtml = opts.escapeHtml;
     classes = opts.classes || [];
     teachers = opts.teachers || [];
@@ -437,7 +439,7 @@
 
     let solverOk = false;
     try {
-      const h = await api('/api/admin/timetable/solver-health', {}, 'admin');
+      const h = await api('/api/admin/timetable/solver-health', {}, role);
       solverOk = h.ok;
     } catch (e) { /* ignore */ }
 
