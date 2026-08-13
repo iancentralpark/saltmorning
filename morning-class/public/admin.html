@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/app.css?v=20260813ops1">
+  <link rel="stylesheet" href="/css/app.css?v=20260813ops2">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -773,21 +773,20 @@
   document.querySelectorAll('#adminNav .portal-nav-group-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const group = btn.closest('.portal-nav-group');
       const panel = group && group.querySelector('.portal-nav-group-panel');
-      const open = panel && panel.classList.contains('hidden');
-      closeAdminNavGroups(open ? group : null);
-      if (panel) {
-        panel.classList.toggle('hidden', !open);
-        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (group) group.classList.toggle('is-open', open);
-      }
+      if (!panel) return;
+      const willOpen = panel.classList.contains('hidden');
+      closeAdminNavGroups(willOpen ? group : null);
+      panel.classList.toggle('hidden', !willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (group) group.classList.toggle('is-open', willOpen);
     });
   });
   document.addEventListener('click', (e) => {
-    if (!e.target.closest || !e.target.closest('#adminNav .portal-nav-group')) {
-      closeAdminNavGroups();
-    }
+    const inside = e.target && e.target.closest && e.target.closest('#adminNav .portal-nav-group');
+    if (!inside) closeAdminNavGroups();
   });
 
   SaltTimetable.init({ api, escapeHtml, role });
