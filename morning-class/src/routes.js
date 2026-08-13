@@ -143,6 +143,9 @@ const {
   listForTeacher: listTeacherMaterialRequests,
   listForAdmin: listAdminMaterialRequests,
   markPurchased: markMaterialPurchased,
+  unmarkPurchased: unmarkMaterialPurchased,
+  updateRequest: updateMaterialRequest,
+  deleteRequest: deleteMaterialRequest,
   cancelRequest: cancelMaterialRequest
 } = require('./services/materialRequestService');
 const {
@@ -3061,6 +3064,20 @@ router.post('/teacher/material-requests/:requestId/cancel', requireRole('teacher
   }
 });
 
+router.patch('/teacher/material-requests/:requestId', requireRole('teacher'), async (req, res) => {
+  try {
+    const profile = req.session || {};
+    const request = await updateMaterialRequest(
+      req.params.requestId,
+      { teacherId: profile.teacherId, name: profile.name || profile.teacherName || '' },
+      req.body || {}
+    );
+    res.json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update request.' });
+  }
+});
+
 router.get('/admin/material-requests', requireRole('admin', 'principal'), async (req, res) => {
   try {
     const requests = await listAdminMaterialRequests({ status: req.query.status });
@@ -3094,6 +3111,24 @@ router.post('/admin/material-requests/:requestId/cancel', requireRole('admin', '
     res.json({ request });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not cancel request.' });
+  }
+});
+
+router.post('/admin/material-requests/:requestId/unpurchase', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const request = await unmarkMaterialPurchased(req.params.requestId);
+    res.json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not reopen request.' });
+  }
+});
+
+router.delete('/admin/material-requests/:requestId', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const result = await deleteMaterialRequest(req.params.requestId);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete request.' });
   }
 });
 
@@ -4142,9 +4177,68 @@ router.post('/parent/lost-and-found/:id/withdraw', requireRole('parent'), async 
 router.get('/teacher/lost-and-found', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const laf = require('./services/lostFoundService');
-    res.json(await laf.listForTeacher());
+    res.json(await laf.listForBrowse());
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Could not load lost & found.' });
+  }
+});
+
+router.get('/student/lost-and-found', requireRole('student'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json(await laf.listForBrowse());
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load lost & found.' });
+  }
+});
+
+router.get('/admin/lost-and-found', requireRole('admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json(await laf.listForAdmin());
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load lost & found.' });
+  }
+});
+
+router.post('/admin/lost-and-found', requireRole('admin', 'principal', 'staff'), (req, res) => {
+  lostFoundUpload.single('photo')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const laf = require('./services/lostFoundService');
+      const staffId = req.session.adminId || req.session.principalId || req.session.teacherId || 'office';
+      const item = await laf.createItem(staffId, req.body || {}, req.file);
+      res.json({ item });
+    } catch (e) {
+      res.status(e.status || 400).json({ error: e.message || 'Could not create item.' });
+    }
+  });
+});
+
+router.post('/admin/lost-and-found/:id/complete', requireRole('admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.completeClaim(req.session.adminId || req.session.teacherId, req.params.id) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not complete claim.' });
+  }
+});
+
+router.post('/admin/lost-and-found/:id/reject', requireRole('admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.rejectClaim(req.session.adminId || req.session.teacherId, req.params.id, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not reject claim.' });
+  }
+});
+
+router.delete('/admin/lost-and-found/:id', requireRole('admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.deleteItem(req.params.id) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not delete item.' });
   }
 });
 

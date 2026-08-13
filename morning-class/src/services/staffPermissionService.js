@@ -20,6 +20,7 @@ const ADMIN_PERMS = [
   { key: 'admin.announcements', label: 'News' },
   { key: 'admin.reportCards', label: 'Reports' },
   { key: 'admin.materials', label: 'Materials' },
+  { key: 'admin.lostFound', label: 'Lost & Found' },
   { key: 'admin.vocabPlatform', label: 'Vocab' }
 ];
 
@@ -104,7 +105,7 @@ function presetsForTitle(title) {
   if (t === 'admin staff') {
     return [
       'admin.bus', 'admin.consents', 'admin.announcements',
-      'admin.materials', 'admin.monitor', 'admin.students'
+      'admin.materials', 'admin.lostFound', 'admin.monitor', 'admin.students'
     ];
   }
   return ['teacher.home', 'teacher.classes'];
@@ -154,17 +155,19 @@ function upgradePermissions(title, permissions) {
   }
   const adminCount = perms.filter((k) => String(k).indexOf('admin.') === 0).length;
   if (adminCount >= 8) return uniq(perms.concat(ALL_ADMIN_KEYS));
-  // Ensure ops staff who already have Bus also get Consents
+  const add = [];
   if (perms.includes('admin.bus') && !perms.includes('admin.consents')) {
-    return uniq(perms.concat(['admin.consents']));
+    add.push('admin.consents');
   }
-  // Soft-upgrade teacher portals with new school-ops tabs
+  if ((perms.includes('admin.bus') || perms.includes('admin.announcements') || perms.includes('admin.materials')) &&
+      !perms.includes('admin.lostFound')) {
+    add.push('admin.lostFound');
+  }
   if (perms.includes('teacher.home') || perms.includes('teacher.classes') || perms.includes('teacher.students')) {
-    const add = [];
     if (!perms.includes('teacher.conferences')) add.push('teacher.conferences');
     if (!perms.includes('teacher.lostFound')) add.push('teacher.lostFound');
-    if (add.length) return uniq(perms.concat(add));
   }
+  if (add.length) return uniq(perms.concat(add));
   return perms;
 }
 

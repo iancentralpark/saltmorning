@@ -80,6 +80,7 @@ async function listItems(opts) {
   for (let i = 1; i < rows.length; i++) {
     const item = parseRow(rows[i]);
     if (!item) continue;
+    if (item.status === 'Removed' && !opts.includeRemoved) continue;
     if (opts.status) {
       const statuses = String(opts.status).split(',').map((s) => s.trim());
       if (!statuses.includes(item.status)) continue;
@@ -155,20 +156,15 @@ async function claimItem(session, itemId, payload) {
     row[5] = 'ClaimRequested';
     row[6] = studentId;
     row[7] = parentId;
-    row[8] = claimNote || '저희 아이 물품입니다';
+    row[8] = claimNote || 'This is my child’s item';
     await updateRange(LOST_AND_FOUND_SHEET, `A${i + 1}:K${i + 1}`, [row]);
     invalidateSheetRowsCache(LOST_AND_FOUND_SHEET);
 
-    try {
-      const push = require('./pushService');
-      if (push.isPushEnabled() && row[9]) {
-        await push.sendToUser('teacher', String(row[9]), {
-          title: 'Lost & Found claim',
-          body: String(row[1] || 'Item') + ' — claim request',
-          url: '/teacher#/lost-and-found'
-        }).catch(() => null);
-      }
-    } catch (_) { /* optional */ }
+    notifyOffice({
+      title: 'Lost & Found claim',
+      body: String(row[1] || 'Item') + ' — claim request',
+      url: '/admin#/lostFound'
+    }).catch(() => {});
 
     return parseRow(row);
   }
@@ -281,6 +277,15 @@ async function listForParent(session) {
 }
 
 async function listForTeacher() {
+  return listForBrowse();
+}
+
+async function listForBrowse() {
+  const items = await listItems({ excludeClaimed: true, skipCache: true });
+  return { items };
+}
+
+async function listForAdmin() {
   const items = await listItems({ skipCache: true });
   const enriched = [];
   for (const it of items) {
@@ -293,6 +298,41 @@ async function listForTeacher() {
   return { items: enriched };
 }
 
+async function deleteItem(itemId) {
+  await ensureLostFoundSheet();
+  itemId = String(itemId || '').trim();
+  const rows = await getSheetRows(LOST_AND_FOUND_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== itemId) continue;
+    const row = rows[i].slice();
+    while (row.length < 11) row.push('');
+    row[5] = 'Removed';
+    await updateRange(LOST_AND_FOUND_SHEET, `A${i + 1}:K${i + 1}`, [row]);
+    invalidateSheetRowsCache(LOST_AND_FOUND_SHEET);
+    return parseRow(row);
+  }
+  throw Object.assign(new Error('Item not found.'), { status: 404 });
+}
+
+async function notifyOffice(payload) {
+  try {
+    const push = require('./pushService');
+    if (!push.isPushEnabled()) return;
+    const { getSheetRows } = require('../sheets');
+    const { ADMIN_LIST_SHEET } = require('../config');
+    const recipients = [];
+    const adminRows = await getSheetRows(ADMIN_LIST_SHEET).catch(() => []);
+    for (let i = 1; i < adminRows.length; i++) {
+      if (adminRows[i][0]) recipients.push({ role: 'admin', userId: String(adminRows[i][0]) });
+    }
+    if (!recipients.length) return;
+    await push.sendToRecipients(recipients, Object.assign({
+      kind: 'lost_and_found',
+      url: '/admin#/lostFound'
+    }, payload || {}));
+  } catch (_) { /* optional */ }
+}
+
 module.exports = {
   ensureLostFoundSheet,
   createItem,
@@ -300,7 +340,10 @@ module.exports = {
   completeClaim,
   rejectClaim,
   withdrawClaim,
+  deleteItem,
   listForParent,
   listForTeacher,
+  listForBrowse,
+  listForAdmin,
   listItems
 };

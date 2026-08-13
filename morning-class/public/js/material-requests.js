@@ -68,6 +68,33 @@ window.SaltMaterialRequests = (function () {
     if ($('matTotal')) $('matTotal').value = String(Math.round(qty * unit * 100) / 100);
   }
 
+  function editingId() {
+    return ($('matEditId') && $('matEditId').value) || '';
+  }
+
+  function setEditing(request) {
+    if (!$('matEditId')) return;
+    $('matEditId').value = request ? request.requestId : '';
+    const submit = $('matRequestForm') && $('matRequestForm').querySelector('[type="submit"]');
+    const cancelEdit = $('matCancelEditBtn');
+    if (submit) {
+      submit.setAttribute('data-i18n', request ? 'materials.saveChanges' : 'materials.submit');
+      submit.textContent = t(request ? 'materials.saveChanges' : 'materials.submit',
+        request ? 'Save changes' : 'Request purchase');
+    }
+    if (cancelEdit) cancelEdit.classList.toggle('hidden', !request);
+    if (!request) return;
+    if ($('matSubject')) $('matSubject').value = request.subject || '';
+    if ($('matContent')) $('matContent').value = request.content || '';
+    if ($('matItemName')) $('matItemName').value = request.itemName || '';
+    if ($('matQty')) $('matQty').value = request.quantity || 1;
+    if ($('matUnitPrice')) $('matUnitPrice').value = request.unitPrice || 0;
+    if ($('matTotal')) $('matTotal').value = request.totalPrice || 0;
+    if ($('matLink')) $('matLink').value = request.purchaseLink || '';
+    if ($('matClass')) $('matClass').value = request.classId || '';
+    if ($('matRequestForm')) $('matRequestForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function bindTeacherForm() {
     if (!$('matRequestForm') || $('matRequestForm').dataset.bound) return;
     $('matRequestForm').dataset.bound = '1';
@@ -75,6 +102,14 @@ window.SaltMaterialRequests = (function () {
     ['matQty', 'matUnitPrice'].forEach((id) => {
       if ($(id)) $(id).addEventListener('input', syncTotal);
     });
+    if ($('matCancelEditBtn')) {
+      $('matCancelEditBtn').addEventListener('click', () => {
+        $('matRequestForm').reset();
+        if ($('matQty')) $('matQty').value = '1';
+        setEditing(null);
+        syncTotal();
+      });
+    }
     $('matRequestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const err = $('matFormError');
@@ -83,27 +118,39 @@ window.SaltMaterialRequests = (function () {
       if (msg) msg.textContent = '';
       const classId = ($('matClass') && $('matClass').value) || '';
       const cls = teacherClasses.find((c) => String(c.classId) === String(classId));
+      const payload = {
+        classId,
+        className: cls ? (cls.className || cls.name || '') : '',
+        subject: $('matSubject').value,
+        content: $('matContent').value,
+        itemName: $('matItemName').value,
+        quantity: $('matQty').value,
+        unitPrice: $('matUnitPrice').value,
+        totalPrice: $('matTotal').value,
+        purchaseLink: $('matLink').value
+      };
+      const id = editingId();
       try {
-        await api('/api/teacher/material-requests', {
-          method: 'POST',
-          body: {
-            classId,
-            className: cls ? (cls.className || cls.name || '') : '',
-            subject: $('matSubject').value,
-            content: $('matContent').value,
-            itemName: $('matItemName').value,
-            quantity: $('matQty').value,
-            unitPrice: $('matUnitPrice').value,
-            totalPrice: $('matTotal').value,
-            purchaseLink: $('matLink').value
-          }
-        });
+        if (id) {
+          await api('/api/teacher/material-requests/' + encodeURIComponent(id), {
+            method: 'PATCH',
+            body: payload
+          });
+        } else {
+          await api('/api/teacher/material-requests', {
+            method: 'POST',
+            body: payload
+          });
+        }
         $('matRequestForm').reset();
         if ($('matQty')) $('matQty').value = '1';
+        setEditing(null);
         syncTotal();
         if (msg) {
           msg.style.color = '#16a34a';
-          msg.textContent = t('materials.submitted', 'Purchase request submitted.');
+          msg.textContent = id
+            ? t('materials.updated', 'Request updated.')
+            : t('materials.submitted', 'Purchase request submitted.');
         }
         await loadTeacherList();
       } catch (ex) {
@@ -141,8 +188,12 @@ window.SaltMaterialRequests = (function () {
           ': ' + escapeHtml(formatWhen(r.purchasedAt)) + '</p>'
         : '') +
       (r.status === 'requested'
-        ? '<button type="button" class="btn btn-ghost mat-cancel-btn" data-id="' + escapeHtml(r.requestId) + '">' +
-          escapeHtml(t('materials.cancel', 'Cancel request')) + '</button>'
+        ? '<div class="mat-admin-actions">' +
+          '<button type="button" class="btn btn-ghost mat-edit-btn" data-id="' + escapeHtml(r.requestId) + '">' +
+          escapeHtml(t('materials.edit', 'Edit')) + '</button>' +
+          '<button type="button" class="btn btn-ghost mat-cancel-btn" data-id="' + escapeHtml(r.requestId) + '">' +
+          escapeHtml(t('materials.cancel', 'Cancel request')) + '</button>' +
+          '</div>'
         : '') +
       '</article>'
     ).join('') + '</div>';
@@ -154,7 +205,14 @@ window.SaltMaterialRequests = (function () {
     mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
       const data = await api('/api/teacher/material-requests');
-      mount.innerHTML = renderTeacherRows(data.requests || []);
+      const teacherRequests = data.requests || [];
+      mount.innerHTML = renderTeacherRows(teacherRequests);
+      mount.querySelectorAll('.mat-edit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const row = teacherRequests.find((r) => String(r.requestId) === String(btn.dataset.id));
+          if (row) setEditing(row);
+        });
+      });
       mount.querySelectorAll('.mat-cancel-btn').forEach((btn) => {
         btn.addEventListener('click', async () => {
           if (!confirm(t('materials.cancelConfirm', 'Cancel this purchase request?'))) return;
@@ -162,6 +220,10 @@ window.SaltMaterialRequests = (function () {
             await api('/api/teacher/material-requests/' + encodeURIComponent(btn.dataset.id) + '/cancel', {
               method: 'POST'
             });
+            if (editingId() === btn.dataset.id) {
+              $('matRequestForm').reset();
+              setEditing(null);
+            }
             await loadTeacherList();
           } catch (e) {
             alert(e.message || 'Could not cancel.');
@@ -219,6 +281,14 @@ window.SaltMaterialRequests = (function () {
           ': ' + escapeHtml(formatWhen(r.purchasedAt)) +
           (r.purchasedBy ? ' · ' + escapeHtml(r.purchasedBy) : '') + '</p>'
         : '') +
+      '<div class="mat-admin-actions">' +
+      (r.status === 'purchased'
+        ? '<button type="button" class="btn btn-ghost mat-unpurchase-btn" data-id="' + escapeHtml(r.requestId) + '">' +
+          escapeHtml(t('materials.unpurchase', 'Undo purchased')) + '</button>'
+        : '') +
+      '<button type="button" class="btn btn-ghost mat-delete-btn" data-id="' + escapeHtml(r.requestId) + '">' +
+      escapeHtml(t('common.delete', 'Delete')) + '</button>' +
+      '</div>' +
       '</article>'
     ).join('') + '</div>';
   }
@@ -256,6 +326,32 @@ window.SaltMaterialRequests = (function () {
             await loadAdminList();
           } catch (e) {
             alert(e.message || 'Could not cancel.');
+          }
+        });
+      });
+      mount.querySelectorAll('.mat-unpurchase-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(t('materials.unpurchaseConfirm', 'Mark this as not purchased so it can be handled again?'))) return;
+          try {
+            await api('/api/admin/material-requests/' + encodeURIComponent(btn.dataset.id) + '/unpurchase', {
+              method: 'POST'
+            });
+            await loadAdminList();
+          } catch (e) {
+            alert(e.message || 'Could not update.');
+          }
+        });
+      });
+      mount.querySelectorAll('.mat-delete-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(t('materials.deleteConfirm', 'Delete this request permanently?'))) return;
+          try {
+            await api('/api/admin/material-requests/' + encodeURIComponent(btn.dataset.id), {
+              method: 'DELETE'
+            });
+            await loadAdminList();
+          } catch (e) {
+            alert(e.message || 'Could not delete.');
           }
         });
       });

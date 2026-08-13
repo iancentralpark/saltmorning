@@ -83,6 +83,11 @@
         perms.filter(function (k) { return String(k).indexOf('admin.') === 0; }).length >= 5) {
       return true;
     }
+    if (key === 'admin.lostFound' &&
+        (perms.indexOf('admin.bus') >= 0 || perms.indexOf('admin.announcements') >= 0 ||
+         perms.indexOf('admin.materials') >= 0)) {
+      return true;
+    }
     return perms.indexOf(key) >= 0;
   }
 

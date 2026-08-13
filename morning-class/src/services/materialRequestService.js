@@ -153,11 +153,80 @@ async function markPurchased(requestId, admin, note) {
   return req;
 }
 
+async function updateRequest(requestId, teacher, payload) {
+  assertOps();
+  const existing = await getRequest(requestId);
+  if (!existing) throw new Error('Request not found.');
+  if (existing.status !== 'requested') throw new Error('Only open requests can be edited.');
+  if (String(existing.teacherId) !== String((teacher && teacher.teacherId) || '')) {
+    throw new Error('You can only edit your own requests.');
+  }
+
+  const subject = String(payload.subject != null ? payload.subject : existing.subject).trim();
+  const content = String(payload.content != null ? payload.content : existing.content).trim();
+  const itemName = String(payload.itemName != null ? payload.itemName : existing.itemName).trim();
+  if (!subject) throw new Error('Subject is required.');
+  if (!itemName) throw new Error('Item name is required.');
+  if (!content) throw new Error('Content / reason is required.');
+
+  const quantity = Math.max(0.01, toNum(payload.quantity, existing.quantity || 1));
+  const unitPrice = Math.max(0, toNum(payload.unitPrice, existing.unitPrice || 0));
+  let totalPrice = toNum(payload.totalPrice, NaN);
+  if (!Number.isFinite(totalPrice)) totalPrice = Math.round(quantity * unitPrice * 100) / 100;
+  totalPrice = Math.max(0, totalPrice);
+
+  const r = await query(
+    'UPDATE ' + table('material_requests') +
+      ' SET class_id = $2, class_name = $3, subject = $4, content = $5, item_name = $6,' +
+      ' quantity = $7, unit_price = $8, total_price = $9, purchase_link = $10, updated_at = now()' +
+      ' WHERE request_id = $1 RETURNING *',
+    [
+      String(requestId),
+      String(payload.classId != null ? payload.classId : existing.classId || '').trim(),
+      String(payload.className != null ? payload.className : existing.className || '').trim(),
+      subject,
+      content,
+      itemName,
+      quantity,
+      unitPrice,
+      totalPrice,
+      String(payload.purchaseLink != null ? payload.purchaseLink : existing.purchaseLink || '').trim()
+    ]
+  );
+  return mapRow(r.rows[0]);
+}
+
+async function unmarkPurchased(requestId) {
+  assertOps();
+  const existing = await getRequest(requestId);
+  if (!existing) throw new Error('Request not found.');
+  if (existing.status !== 'purchased') throw new Error('Only purchased requests can be reopened.');
+
+  const r = await query(
+    'UPDATE ' + table('material_requests') +
+      ' SET status = $2, purchased_by = $3, purchased_at = NULL, updated_at = now()' +
+      ' WHERE request_id = $1 RETURNING *',
+    [String(requestId), 'requested', '']
+  );
+  return mapRow(r.rows[0]);
+}
+
+async function deleteRequest(requestId) {
+  assertOps();
+  const existing = await getRequest(requestId);
+  if (!existing) throw new Error('Request not found.');
+  await query(
+    'DELETE FROM ' + table('material_requests') + ' WHERE request_id = $1',
+    [String(requestId)]
+  );
+  return { requestId: existing.requestId, deleted: true };
+}
+
 async function cancelRequest(requestId, actor) {
   assertOps();
   const existing = await getRequest(requestId);
   if (!existing) throw new Error('Request not found.');
-  if (existing.status === 'purchased') throw new Error('Purchased requests cannot be cancelled.');
+  if (existing.status === 'purchased') throw new Error('Purchased requests cannot be cancelled. Reopen or delete instead.');
   if (existing.status === 'cancelled') return existing;
 
   const isTeacher = actor && actor.role === 'teacher';
@@ -223,5 +292,8 @@ module.exports = {
   listForAdmin,
   getRequest,
   markPurchased,
+  unmarkPurchased,
+  updateRequest,
+  deleteRequest,
   cancelRequest
 };
