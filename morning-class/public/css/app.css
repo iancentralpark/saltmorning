@@ -2729,8 +2729,30 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   opacity: 0.95;
 }
 .tt-setup-section { margin-bottom: 1.25rem; }
+.tt-setup-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
 .tt-solver-ok { color: #16a34a; }
 .tt-solver-warn code { font-size: 0.78rem; }
+.tt-bell-modal { width: min(720px, 100%); }
+.tt-bell-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.tt-bell-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
 .tt-bell-table input, .tt-bell-table select { width: 100%; padding: 0.35rem; }
 .tt-admin-toolbar {
   display: flex;

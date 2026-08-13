@@ -29,20 +29,27 @@
     ).join('');
 
     mountEl.innerHTML =
-      '<div class="tt-setup-section">' +
-      '<h4>Bell schedule (school day structure)</h4>' +
+      '<div class="tt-bell-editor">' +
       '<p class="muted small">Set each period, recess, and lunch. Only <strong>Lesson</strong> rows are used for scheduling and Auto-Solve.</p>' +
       '<table class="grades-table tt-bell-table"><thead><tr><th>Label</th><th>Type</th><th>Start</th><th>End</th><th></th></tr></thead>' +
       '<tbody>' + (rows || '<tr><td colspan="5" class="muted">No periods</td></tr>') + '</tbody></table>' +
-      '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">' +
+      '<div class="tt-bell-actions">' +
       '<button type="button" class="btn btn-ghost tt-bell-add">+ Add row</button>' +
+      '<button type="button" class="btn btn-ghost tt-bell-cancel">Cancel</button>' +
       '<button type="button" class="btn btn-primary tt-bell-save">Save bell schedule</button>' +
       '</div>' +
       '<div class="tt-bell-error error"></div>' +
       '</div>';
 
+    const cancelBtn = mountEl.querySelector('.tt-bell-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => closeBellModal());
+    }
+
     mountEl.querySelector('.tt-bell-add').addEventListener('click', () => {
       const tbody = mountEl.querySelector('tbody');
+      const empty = tbody.querySelector('td[colspan]');
+      if (empty) tbody.innerHTML = '';
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td><input class="tt-bell-label" value="New period"></td>' +
@@ -61,6 +68,7 @@
       errEl.textContent = '';
       const payload = [];
       mountEl.querySelectorAll('tbody tr').forEach((tr, idx) => {
+        if (!tr.querySelector('.tt-bell-label')) return;
         payload.push({
           label: tr.querySelector('.tt-bell-label').value.trim(),
           periodType: tr.querySelector('.tt-bell-type').value,
@@ -72,7 +80,8 @@
       try {
         await api('/api/admin/timetable/bell-schedule', { method: 'POST', body: { periods: payload } }, 'admin');
         errEl.style.color = '#16a34a';
-        errEl.textContent = 'Bell schedule saved. Reload the class board to pick up new periods.';
+        errEl.textContent = 'Bell schedule saved.';
+        setTimeout(() => closeBellModal(), 450);
       } catch (e) {
         errEl.style.color = '#dc2626';
         errEl.textContent = e.message;
@@ -80,6 +89,52 @@
     });
 
     mountEl.querySelectorAll('tbody tr').forEach((tr) => bindBellRow(tr, mountEl));
+  }
+
+  function ensureBellModal() {
+    let modal = document.getElementById('ttBellModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'ttBellModal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ttBellModalTitle');
+    modal.innerHTML =
+      '<div class="modal-card tt-bell-modal">' +
+      '<div class="tt-bell-modal-head">' +
+      '<div>' +
+      '<h3 id="ttBellModalTitle" style="margin:0">Bell schedule</h3>' +
+      '<p class="muted small" style="margin:0.35rem 0 0">School day structure · rarely needs changes</p>' +
+      '</div>' +
+      '<button type="button" class="btn btn-ghost tt-bell-modal-close">Close</button>' +
+      '</div>' +
+      '<div id="ttBellModalBody"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeBellModal();
+    });
+    modal.querySelector('.tt-bell-modal-close').addEventListener('click', () => closeBellModal());
+    return modal;
+  }
+
+  function closeBellModal() {
+    const modal = document.getElementById('ttBellModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function openBellModal() {
+    const modal = ensureBellModal();
+    const body = modal.querySelector('#ttBellModalBody');
+    body.innerHTML = '<p class="muted">Loading…</p>';
+    modal.classList.remove('hidden');
+    try {
+      const bellData = await api('/api/admin/timetable/bell-schedule', {}, 'admin');
+      renderBellEditor(body, bellData);
+    } catch (e) {
+      body.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Could not load bell schedule.') + '</p>';
+    }
   }
 
   function bindBellRow(tr, mountEl) {
@@ -322,16 +377,21 @@
       solverOk = h.ok;
     } catch (e) { /* ignore */ }
 
-    const bellData = await api('/api/admin/timetable/bell-schedule', {}, 'admin');
     const classId = classes[0] ? classes[0].classId : '';
 
     mountEl.innerHTML =
+      '<div class="tt-setup-toolbar">' +
+      '<button type="button" class="btn btn-ghost tt-bell-open">Bell schedule</button>' +
+      '</div>' +
       (solverOk
         ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
         : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
-      '<div id="ttBellMount"></div><div id="ttReqMount"></div>';
+      '<div id="ttReqMount"></div>';
 
-    renderBellEditor(mountEl.querySelector('#ttBellMount'), bellData);
+    mountEl.querySelector('.tt-bell-open').addEventListener('click', () => {
+      openBellModal().catch((e) => alert(e.message || 'Could not open bell schedule.'));
+    });
+
     if (classId) {
       await loadRequirements(mountEl.querySelector('#ttReqMount'), classId);
     } else {
