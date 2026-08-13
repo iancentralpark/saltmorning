@@ -303,6 +303,72 @@ async function createAnnouncement(payload, files, actor) {
   return rec;
 }
 
+async function updateAnnouncement(announcementId, payload, files, actor) {
+  await ensureAnnouncementsSheet();
+  announcementId = String(announcementId || '').trim();
+  if (!announcementId) throw new Error('Announcement ID required.');
+  const rows = await getSheetRows(ANNOUNCEMENTS_SHEET, { skipCache: true });
+  let found = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === announcementId) {
+      found = i + 1;
+      break;
+    }
+  }
+  if (found < 0) throw new Error('Announcement not found.');
+  if (actor && actor.role === 'teacher') {
+    const role = String(rows[found - 1][13] || '');
+    if (role !== 'teacher') throw new Error('Teachers can only edit their own class posts.');
+  }
+  const existing = rows[found - 1].slice();
+  while (existing.length < HEADERS.length) existing.push('');
+  const scope = payload.scope != null ? normalizeScope(payload.scope) : String(existing[1] || 'school');
+  const audience = payload.audience != null ? normalizeAudience(payload.audience) : String(existing[2] || 'all');
+  const classId = scope === 'class'
+    ? String(payload.classId != null ? payload.classId : existing[3] || '').trim()
+    : '';
+  if (scope === 'class' && !classId) throw new Error('Class is required for class announcements.');
+  const title = payload.title != null ? String(payload.title || '').trim() : String(existing[4] || '');
+  const body = payload.body != null ? String(payload.body || '').trim() : String(existing[5] || '');
+  if (!title) throw new Error('Title is required.');
+
+  let imagePath = String(existing[8] || '');
+  let attachmentPath = String(existing[9] || '');
+  let attachmentName = String(existing[10] || '');
+  if (files && files.image) {
+    const saved = saveUploadFile(announcementId, files.image, 'image');
+    if (saved) imagePath = saved.path;
+  }
+  if (files && files.attachment) {
+    const saved = saveUploadFile(announcementId, files.attachment, 'attachment');
+    if (saved) {
+      attachmentPath = saved.path;
+      attachmentName = saved.name;
+    }
+  }
+
+  const rec = {
+    announcementId,
+    scope,
+    audience,
+    classId,
+    title,
+    body,
+    linkUrl: payload.linkUrl != null ? String(payload.linkUrl || '').trim() : String(existing[6] || ''),
+    linkLabel: payload.linkLabel != null ? String(payload.linkLabel || '').trim() : String(existing[7] || ''),
+    imagePath,
+    attachmentPath,
+    attachmentName,
+    postedAt: String(existing[11] || new Date().toISOString()),
+    postedBy: String(existing[12] || ((actor && (actor.name || actor.id)) || 'Staff')),
+    postedByRole: String(existing[13] || ((actor && actor.role) || 'admin')),
+    active: String(existing[14] || 'true') !== 'false'
+  };
+  await updateRange(ANNOUNCEMENTS_SHEET, `A${found}:O${found}`, [toRow(rec)]);
+  invalidateSheetRowsCache(ANNOUNCEMENTS_SHEET);
+  return rec;
+}
+
 async function deactivateAnnouncement(announcementId, opts) {
   await ensureAnnouncementsSheet();
   announcementId = String(announcementId || '').trim();
@@ -344,6 +410,7 @@ module.exports = {
   listManagedAnnouncements,
   listParentAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
   deactivateAnnouncement,
   normalizeAudience,
   normalizeScope,

@@ -369,6 +369,40 @@ async function unlinkParentFromStudent(parentId, studentId) {
   return { unlinked: true, parentId, studentId };
 }
 
+async function unlinkAllParentsForStudent(studentId) {
+  studentId = String(studentId || '').trim();
+  if (!studentId) return { unlinked: 0 };
+  await ensureParentStudentsSheet();
+  const rows = await getSheetRows(PARENT_STUDENTS_SHEET, { skipCache: true });
+  let unlinked = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]) !== studentId) continue;
+    await updateRange(PARENT_STUDENTS_SHEET, `A${i + 1}:F${i + 1}`, [new Array(6).fill('')]);
+    unlinked += 1;
+  }
+  if (unlinked) invalidateSheetRowsCache(PARENT_STUDENTS_SHEET);
+  return { unlinked, studentId };
+}
+
+async function setParentAccountActive(parentId, active) {
+  parentId = String(parentId || '').trim();
+  if (!parentId) throw new Error('Parent ID required.');
+  const parent = await getParentRecord(parentId);
+  if (!parent) throw new Error('Parent not found.');
+  const { setAccountActive } = require('./accountFlagsService');
+  await setAccountActive('parent', parentId, active !== false);
+  try {
+    const { writeAudit } = require('./auditService');
+    await writeAudit({
+      action: active === false ? 'parent_deactivate' : 'parent_reactivate',
+      entityType: 'parent',
+      entityId: parentId,
+      detail: { loginId: parent.loginId || '' }
+    });
+  } catch (_) { /* optional */ }
+  return { ok: true, parentId, active: active !== false, loginId: parent.loginId || '' };
+}
+
 async function updateParentStudentLink(parentId, studentId, opts) {
   opts = opts || {};
   parentId = String(parentId || '').trim();
@@ -504,6 +538,8 @@ module.exports = {
   saveParentAccount,
   linkParentToStudent,
   unlinkParentFromStudent,
+  unlinkAllParentsForStudent,
+  setParentAccountActive,
   updateParentStudentLink,
   linkOrCreateParentForStudent
 };

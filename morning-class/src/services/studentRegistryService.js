@@ -590,7 +590,43 @@ async function deleteStudent(studentId) {
     invalidateSheetRowsCache(STUDENT_PROFILE_FIELDS_SHEET);
   }
 
-  return { deleted: true, studentId };
+  const cascade = { parents: 0, bus: 0, consents: 0 };
+  try {
+    const { unlinkAllParentsForStudent } = require('./parentRegistryService');
+    const r = await unlinkAllParentsForStudent(studentId);
+    cascade.parents = (r && r.unlinked) || 0;
+  } catch (e) {
+    console.warn('[purge] parent unlink failed:', e.message || e);
+  }
+  try {
+    const busService = require('./busService');
+    const assigns = await busService.listAssignments({ studentId, includeInactive: true });
+    for (const a of assigns || []) {
+      await busService.deleteAssignment(a.assignmentId);
+      cascade.bus += 1;
+    }
+  } catch (e) {
+    console.warn('[purge] bus cleanup failed:', e.message || e);
+  }
+  try {
+    const consent = require('./consentService');
+    const r = await consent.clearSubmissionsForStudent(studentId);
+    cascade.consents = (r && r.cleared) || 0;
+  } catch (e) {
+    console.warn('[purge] consent cleanup failed:', e.message || e);
+  }
+
+  try {
+    const { writeAudit } = require('./auditService');
+    await writeAudit({
+      action: 'student_purge',
+      entityType: 'student',
+      entityId: studentId,
+      detail: cascade
+    });
+  } catch (_) { /* optional */ }
+
+  return { deleted: true, studentId, cascade };
 }
 
 module.exports = {

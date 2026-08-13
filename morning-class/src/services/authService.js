@@ -9,7 +9,11 @@ const { signToken } = require('../auth/tokenAuth');
 const {
   resolveMustChangePassword,
   setMustChange,
-  adminResetPassword
+  adminResetPassword,
+  getTokenVersion,
+  bumpTokenVersion,
+  isAccountActive,
+  normalizeFlagRole
 } = require('./accountFlagsService');
 
 const MIN_PASSWORD_LEN = 4;
@@ -23,6 +27,12 @@ const PASSWORD_TARGETS = {
   staff: { sheet: TEACHER_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'teacherId', a1Col: 'D' },
   admin: { sheet: ADMIN_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'adminId', a1Col: 'D' }
 };
+
+async function issueToken(role, accountId, payload) {
+  const flagRole = normalizeFlagRole(role);
+  const tv = await getTokenVersion(flagRole, accountId).catch(() => 0);
+  return signToken(Object.assign({}, payload, { tv: Number(tv) || 0 }));
+}
 
 async function loginStudent(loginId, password) {
   loginId = String(loginId || '').trim();
@@ -45,7 +55,7 @@ async function loginStudent(loginId, password) {
       'student', profile.studentId, password, loginId
     );
     return {
-      token: signToken({
+      token: await issueToken('student', profile.studentId, {
         role: 'student',
         studentId: profile.studentId,
         classId: profile.classId,
@@ -145,7 +155,7 @@ async function loginParent(loginId, password, opts) {
     'parent', profile.parentId, password, loginId
   );
   return {
-    token: signToken({
+    token: await issueToken('parent', profile.parentId, {
       role: 'parent',
       parentId: profile.parentId,
       studentId: profile.studentId,
@@ -220,7 +230,7 @@ async function switchParentActiveChild(session, studentId) {
     children: childSummaries
   };
   return {
-    token: signToken({
+    token: await issueToken('parent', profile.parentId, {
       role: 'parent',
       parentId: profile.parentId,
       studentId: profile.studentId,
@@ -287,7 +297,7 @@ async function loginTeacher(loginId, password) {
 
     if (portalRole === 'principal') {
       return {
-        token: signToken({
+        token: await issueToken('teacher', profile.teacherId, {
           role: 'principal',
           principalId: profile.teacherId,
           teacherId: profile.teacherId,
@@ -304,7 +314,7 @@ async function loginTeacher(loginId, password) {
 
     if (portalRole === 'staff') {
       return {
-        token: signToken({
+        token: await issueToken('teacher', profile.teacherId, {
           role: 'staff',
           teacherId: profile.teacherId,
           staffId: profile.teacherId,
@@ -320,7 +330,7 @@ async function loginTeacher(loginId, password) {
     }
 
     return {
-      token: signToken({
+      token: await issueToken('teacher', profile.teacherId, {
         role: 'teacher',
         teacherId: profile.teacherId,
         name: profile.name,
@@ -357,7 +367,7 @@ async function loginAdmin(loginId, password) {
     );
     const mcp = !!mustChangePassword;
     return {
-      token: signToken({
+      token: await issueToken('admin', profile.adminId, {
         role: 'admin',
         adminId: profile.adminId,
         name: profile.name,
@@ -457,11 +467,49 @@ async function changePassword(session, currentPassword, newPassword, confirmPass
 
   const sheetRow = rowIndex + 1; // 1-based including header
   await updateRange(target.sheet, target.a1Col + sheetRow, [[next]]);
+  const flagRole = normalizeFlagRole(role);
+  const resolvedId = (role === 'principal' || role === 'staff')
+    ? String(session.teacherId || accountId)
+    : accountId;
+  let newTv = 0;
   try {
-    const flagRole = (role === 'principal' || role === 'staff') ? 'teacher' : role;
-    await setMustChange(flagRole, accountId, false);
+    await setMustChange(flagRole, resolvedId, false);
+    newTv = await bumpTokenVersion(flagRole, resolvedId);
   } catch (_) { /* optional */ }
-  return { ok: true, role, mustChangePassword: false };
+
+  const tokenPayload = Object.assign({}, session, {
+    mustChangePassword: false,
+    tv: newTv,
+    exp: undefined
+  });
+  delete tokenPayload.exp;
+  const token = await issueToken(flagRole === 'teacher' && (role === 'principal' || role === 'staff')
+    ? 'teacher'
+    : role,
+  resolvedId,
+  Object.assign({}, tokenPayload, { role }));
+
+  try {
+    const { writeAuditFromSession } = require('./auditService');
+    await writeAuditFromSession(session, 'password_change', flagRole, resolvedId, {});
+  } catch (_) { /* optional */ }
+
+  return { ok: true, role, mustChangePassword: false, token };
+}
+
+async function logoutSession(session) {
+  if (!session || !session.role) return { ok: true };
+  const role = normalizeFlagRole(session.role);
+  const accountId = session.adminId || session.teacherId || session.parentId ||
+    session.studentId || session.principalId || '';
+  if (accountId) {
+    await bumpTokenVersion(role, accountId).catch(() => 0);
+  }
+  try {
+    const { writeAuditFromSession } = require('./auditService');
+    await writeAuditFromSession(session, 'logout', role, accountId, {});
+  } catch (_) { /* optional */ }
+  return { ok: true };
 }
 
 module.exports = {
@@ -472,5 +520,6 @@ module.exports = {
   loginUnified,
   switchParentActiveChild,
   changePassword,
+  logoutSession,
   adminResetPassword
 };

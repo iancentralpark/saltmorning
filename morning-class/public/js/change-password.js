@@ -133,10 +133,13 @@ window.SaltChangePassword = (function() {
       const confirmPassword = document.getElementById('saltChangePwConfirm').value;
       submit.disabled = true;
       try {
-        await api('/api/auth/change-password', {
+        const result = await api('/api/auth/change-password', {
           method: 'POST',
           body: { currentPassword, newPassword, confirmPassword }
         }, role);
+        if (result && result.token && window.SaltApp && SaltApp.setToken) {
+          SaltApp.setToken(role, result.token);
+        }
         syncSavedLoginPassword(newPassword);
         try {
           const profile = SaltApp.getProfile && SaltApp.getProfile(role);

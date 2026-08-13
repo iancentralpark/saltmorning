@@ -117,6 +117,50 @@ async function listReportCardFields(classId, term) {
   return out;
 }
 
+async function saveReportCardField(payload) {
+  await ensureReportCardSheets();
+  const classId = String(payload.classId || '').trim();
+  const term = String(payload.term || '*').trim() || '*';
+  const subject = String(payload.subject || '').trim();
+  const fieldKey = String(payload.fieldKey || '').trim();
+  const label = String(payload.label || '').trim();
+  if (!classId || !subject || !fieldKey || !label) {
+    throw new Error('classId, subject, fieldKey, and label are required.');
+  }
+  const fieldId = String(payload.fieldId || '').trim() || newId('rcf');
+  const sortOrder = Number(payload.sortOrder) || 0;
+  const maxScore = Number(payload.maxScore) || 100;
+  const row = [fieldId, classId, term, subject, fieldKey, label, sortOrder, maxScore];
+  const rows = await getSheetRows(REPORT_CARD_FIELDS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== fieldId) continue;
+    await updateRange(REPORT_CARD_FIELDS_SHEET, `A${i + 1}:H${i + 1}`, [row]);
+    invalidateSheetRowsCache(REPORT_CARD_FIELDS_SHEET);
+    return {
+      fieldId, classId, term, subject, fieldKey, label, sortOrder, maxScore
+    };
+  }
+  await appendRows(REPORT_CARD_FIELDS_SHEET, [row]);
+  invalidateSheetRowsCache(REPORT_CARD_FIELDS_SHEET);
+  return {
+    fieldId, classId, term, subject, fieldKey, label, sortOrder, maxScore
+  };
+}
+
+async function deleteReportCardField(fieldId) {
+  await ensureReportCardSheets();
+  fieldId = String(fieldId || '').trim();
+  if (!fieldId) throw new Error('Field ID required.');
+  const rows = await getSheetRows(REPORT_CARD_FIELDS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== fieldId) continue;
+    await updateRange(REPORT_CARD_FIELDS_SHEET, `A${i + 1}:H${i + 1}`, [new Array(8).fill('')]);
+    invalidateSheetRowsCache(REPORT_CARD_FIELDS_SHEET);
+    return { deleted: true, fieldId };
+  }
+  throw new Error('Field not found.');
+}
+
 async function listReportCardEntries(classId, term, studentId, subjectFilter) {
   await ensureReportCardSheets();
   const rows = await getSheetRows(REPORT_CARD_ENTRIES_SHEET);
@@ -908,6 +952,8 @@ module.exports = {
   RATING_OPTIONS,
   letterGrade,
   listReportCardFields,
+  saveReportCardField,
+  deleteReportCardField,
   listReportCardEntries,
   saveReportCardEntries,
   buildReportCardSummary,

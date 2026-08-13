@@ -305,7 +305,38 @@ window.SaltAnalytics = (function() {
         source: 'saved',
         learnerProfile: ''
       }, '<h4>Latest AI profile</h4>');
+      appendShareParentButton();
     }
+  }
+
+  function appendShareParentButton() {
+    if (mode === 'school' || !$('laDiagOut')) return;
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '0.75rem';
+    wrap.innerHTML =
+      '<button type="button" class="btn btn-primary" id="laShareParentBtn">' +
+      escapeHtml(t('la.shareParent', 'Share with parent')) + '</button>' +
+      '<span class="muted small" id="laShareParentMsg" style="margin-left:0.5rem"></span>';
+    $('laDiagOut').appendChild(wrap);
+    const btn = wrap.querySelector('#laShareParentBtn');
+    const msg = wrap.querySelector('#laShareParentMsg');
+    btn.addEventListener('click', async () => {
+      const cls = getClass();
+      if (!cls || !selectedId) return;
+      btn.disabled = true;
+      msg.textContent = '';
+      try {
+        await api(
+          '/api/teacher/class/' + encodeURIComponent(cls.classId) +
+          '/analytics/students/' + encodeURIComponent(selectedId) + '/share-parent',
+          { method: 'POST', body: {} }
+        );
+        msg.textContent = t('la.shareParentDone', 'Shared with parent.');
+      } catch (e) {
+        msg.textContent = e.message;
+      }
+      btn.disabled = false;
+    });
   }
 
   async function runDiagnose() {
@@ -329,6 +360,7 @@ window.SaltAnalytics = (function() {
       }
       const d = data.diagnostic || {};
       $('laDiagOut').innerHTML = renderDiagnostic(d);
+      appendShareParentButton();
       loadDashboard();
     } catch (e) {
       $('laDiagOut').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';

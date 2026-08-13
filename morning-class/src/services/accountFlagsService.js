@@ -16,7 +16,10 @@ const {
 } = require('../sheets');
 
 const FLAGS_SHEET = 'Account_Flags';
-const HEADERS = ['AccountKey', 'Role', 'AccountId', 'MustChangePassword', 'UpdatedAt'];
+/** AccountKey, Role, AccountId, MustChangePassword, UpdatedAt, TokenVersion, Active */
+const HEADERS = [
+  'AccountKey', 'Role', 'AccountId', 'MustChangePassword', 'UpdatedAt', 'TokenVersion', 'Active'
+];
 
 const WEAK_PASSWORDS = new Set([
   'changeme123', 'changeme', 'password', 'password1', '1234', '12345', '123456', 'temp', 'tmp'
@@ -28,6 +31,11 @@ function accountKey(role, accountId) {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalizeFlagRole(role) {
+  if (role === 'principal' || role === 'staff') return 'teacher';
+  return String(role || '');
 }
 
 async function ensureFlagsSheet() {
@@ -42,34 +50,109 @@ function isWeakPassword(password, loginId) {
   return false;
 }
 
-async function getMustChange(role, accountId) {
+function parseFlagRow(row) {
+  if (!row || !row[0]) return null;
+  const activeRaw = String(row[6] == null ? 'Y' : row[6]).trim();
+  const active = !(
+    activeRaw.toUpperCase() === 'N' ||
+    activeRaw.toLowerCase() === 'false' ||
+    activeRaw === '0'
+  );
+  return {
+    accountKey: String(row[0]),
+    role: String(row[1] || ''),
+    accountId: String(row[2] || ''),
+    mustChange:
+      String(row[3] || '').toUpperCase() === 'Y' ||
+      String(row[3] || '').toLowerCase() === 'true' ||
+      String(row[3] || '') === '1',
+    updatedAt: String(row[4] || ''),
+    tokenVersion: Number(row[5]) || 0,
+    active
+  };
+}
+
+async function getFlagRecord(role, accountId) {
   await ensureFlagsSheet();
-  const key = accountKey(role, accountId);
+  const key = accountKey(normalizeFlagRole(role), accountId);
   const rows = await getSheetRows(FLAGS_SHEET);
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === key) {
-      return String(rows[i][3] || '').toUpperCase() === 'Y' ||
-        String(rows[i][3] || '').toLowerCase() === 'true' ||
-        String(rows[i][3] || '') === '1';
-    }
+    if (String(rows[i][0]) !== key) continue;
+    return { record: parseFlagRow(rows[i]), rowIndex: i + 1, rows };
   }
-  return false;
+  return { record: null, rowIndex: -1, rows };
+}
+
+async function upsertFlag(role, accountId, patch) {
+  await ensureFlagsSheet();
+  role = normalizeFlagRole(role);
+  const key = accountKey(role, accountId);
+  const { record, rowIndex } = await getFlagRecord(role, accountId);
+  const next = {
+    mustChange: record ? record.mustChange : false,
+    tokenVersion: record ? record.tokenVersion : 0,
+    active: record ? record.active : true
+  };
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'mustChange')) {
+    next.mustChange = !!patch.mustChange;
+  }
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'tokenVersion')) {
+    next.tokenVersion = Number(patch.tokenVersion) || 0;
+  }
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'active')) {
+    next.active = patch.active !== false;
+  }
+  const row = [
+    key,
+    role,
+    String(accountId),
+    next.mustChange ? 'Y' : 'N',
+    nowIso(),
+    String(next.tokenVersion),
+    next.active ? 'Y' : 'N'
+  ];
+  if (rowIndex > 0) {
+    await updateRange(FLAGS_SHEET, `A${rowIndex}:G${rowIndex}`, [row]);
+  } else {
+    await appendRows(FLAGS_SHEET, [row]);
+  }
+  invalidateSheetRowsCache(FLAGS_SHEET);
+  return parseFlagRow(row);
+}
+
+async function getMustChange(role, accountId) {
+  const { record } = await getFlagRecord(role, accountId);
+  return !!(record && record.mustChange);
 }
 
 async function setMustChange(role, accountId, mustChange) {
-  await ensureFlagsSheet();
-  const key = accountKey(role, accountId);
-  const flag = mustChange ? 'Y' : 'N';
-  const rows = await getSheetRows(FLAGS_SHEET, { skipCache: true });
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) !== key) continue;
-    const row = [key, String(role), String(accountId), flag, nowIso()];
-    await updateRange(FLAGS_SHEET, `A${i + 1}:E${i + 1}`, [row]);
-    invalidateSheetRowsCache(FLAGS_SHEET);
-    return;
+  return upsertFlag(role, accountId, { mustChange: !!mustChange });
+}
+
+async function getTokenVersion(role, accountId) {
+  const { record } = await getFlagRecord(role, accountId);
+  return record ? (Number(record.tokenVersion) || 0) : 0;
+}
+
+async function bumpTokenVersion(role, accountId) {
+  const { record } = await getFlagRecord(role, accountId);
+  const next = (record ? Number(record.tokenVersion) || 0 : 0) + 1;
+  await upsertFlag(role, accountId, { tokenVersion: next });
+  return next;
+}
+
+async function isAccountActive(role, accountId) {
+  const { record } = await getFlagRecord(role, accountId);
+  if (!record) return true;
+  return record.active !== false;
+}
+
+async function setAccountActive(role, accountId, active) {
+  const result = await upsertFlag(role, accountId, { active: active !== false });
+  if (active === false) {
+    await bumpTokenVersion(role, accountId);
   }
-  await appendRows(FLAGS_SHEET, [[key, String(role), String(accountId), flag, nowIso()]]);
-  invalidateSheetRowsCache(FLAGS_SHEET);
+  return result;
 }
 
 function generateTempPassword() {
@@ -116,7 +199,21 @@ async function adminResetPassword(payload) {
 
   const sheetRow = rowIndex + 1;
   await updateRange(target.sheet, target.a1Col + sheetRow, [[newPassword]]);
-  await setMustChange(role === 'principal' || role === 'staff' ? 'teacher' : role, accountId, forceChange);
+  const flagRole = normalizeFlagRole(role);
+  await setMustChange(flagRole, accountId, forceChange);
+  await bumpTokenVersion(flagRole, accountId);
+  await setAccountActive(flagRole, accountId, true);
+
+  try {
+    const { writeAudit } = require('./auditService');
+    await writeAudit({
+      actorRole: 'admin',
+      action: 'password_reset',
+      entityType: flagRole,
+      entityId: accountId,
+      detail: { loginId, forceChange }
+    });
+  } catch (_) { /* optional */ }
 
   return {
     ok: true,
@@ -129,9 +226,28 @@ async function adminResetPassword(payload) {
 }
 
 async function resolveMustChangePassword(role, accountId, password, loginId) {
-  const normalizedRole = (role === 'principal' || role === 'staff') ? 'teacher' : role;
+  const normalizedRole = normalizeFlagRole(role);
+  if (!(await isAccountActive(normalizedRole, accountId))) {
+    throw Object.assign(new Error('This account is deactivated.'), { status: 403 });
+  }
   if (isWeakPassword(password, loginId)) return true;
   return getMustChange(normalizedRole, accountId);
+}
+
+async function assertSessionTokenVersion(session) {
+  if (!session || !session.role) return false;
+  const role = normalizeFlagRole(session.role);
+  const accountId = session.adminId || session.teacherId || session.parentId ||
+    session.studentId || session.principalId || '';
+  if (!accountId) return true;
+  if (!(await isAccountActive(role, accountId))) return false;
+  const current = await getTokenVersion(role, accountId);
+  const tokenTv = Number(session.tv);
+  if (!Number.isFinite(tokenTv)) {
+    // Legacy tokens without tv — accept until next password change bumps version to >0
+    return current === 0;
+  }
+  return tokenTv === current;
 }
 
 module.exports = {
@@ -139,7 +255,13 @@ module.exports = {
   isWeakPassword,
   getMustChange,
   setMustChange,
+  getTokenVersion,
+  bumpTokenVersion,
+  isAccountActive,
+  setAccountActive,
   adminResetPassword,
   resolveMustChangePassword,
-  generateTempPassword
+  assertSessionTokenVersion,
+  generateTempPassword,
+  normalizeFlagRole
 };

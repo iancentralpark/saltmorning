@@ -138,6 +138,11 @@
               ? '<button type="button" class="btn btn-ghost" data-consent-close="' +
                 escapeHtml(f.formId) + '">마감</button>'
               : '') +
+            '<button type="button" class="btn btn-ghost" data-consent-edit="' +
+            escapeHtml(f.formId) + '" data-title="' + escapeHtml(f.title) +
+            '" data-due="' + escapeHtml(f.dueDate || '') + '">수정</button> ' +
+            '<button type="button" class="btn btn-ghost" data-consent-delete="' +
+            escapeHtml(f.formId) + '">삭제</button>' +
             '</td></tr>';
         }).join('') +
         '</tbody></table>';
@@ -151,6 +156,37 @@
           try {
             await api('/api/admin/consents/' + encodeURIComponent(btn.dataset.consentClose) + '/close', {
               method: 'POST'
+            }, role);
+            await loadForms();
+          } catch (e) {
+            alert(e.message);
+          }
+        });
+      });
+      box.querySelectorAll('[data-consent-edit]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const formId = btn.dataset.consentEdit;
+          const newTitle = window.prompt('제목', btn.dataset.title || '');
+          if (newTitle == null) return;
+          const newDue = window.prompt('마감일 (YYYY-MM-DD, 비우면 없음)', btn.dataset.due || '');
+          if (newDue == null) return;
+          try {
+            await api('/api/admin/consents/' + encodeURIComponent(formId), {
+              method: 'PATCH',
+              body: { title: newTitle, dueDate: newDue }
+            }, role);
+            await loadForms();
+          } catch (e) {
+            alert(e.message);
+          }
+        });
+      });
+      box.querySelectorAll('[data-consent-delete]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('이 공문을 완전히 삭제할까요? 제출 데이터도 함께 삭제됩니다.')) return;
+          try {
+            await api('/api/admin/consents/' + encodeURIComponent(btn.dataset.consentDelete), {
+              method: 'DELETE'
             }, role);
             await loadForms();
           } catch (e) {
@@ -196,14 +232,15 @@
 
         const submittedRows = submitted.length
           ? '<table class="grades-table"><thead><tr>' +
-            '<th>학생</th><th>반</th><th>응답</th><th>사유</th><th>제출시각</th><th>서명</th></tr></thead><tbody>' +
-            submitted.map((s) =>
-              '<tr>' +
+            '<th>학생</th><th>반</th><th>응답</th><th>사유</th><th>제출시각</th><th>서명</th><th></th></tr></thead><tbody>' +
+            submitted.map((s) => {
+              const isWaiting = (s.extraData && s.extraData.registrationStatus) === 'Waiting';
+              return '<tr>' +
               '<td>' + escapeHtml(s.name) + '</td>' +
               '<td>' + escapeHtml(s.className || s.classId) + '</td>' +
               '<td><strong>' + escapeHtml(agreedLabel(s.agreed)) +
               (s.extraData && s.extraData.registrationStatus
-                ? ' · ' + escapeHtml(s.extraData.registrationStatus === 'Waiting'
+                ? ' · ' + escapeHtml(isWaiting
                   ? ('대기 #' + (s.extraData.waitNumber || ''))
                   : '확정')
                 : '') +
@@ -211,8 +248,19 @@
               '<td class="muted small">' + escapeHtml(s.disagreedReason || (s.extraData && s.extraData.eventNotes) || '—') + '</td>' +
               '<td>' + escapeHtml(String(s.submittedAt || '').slice(0, 16).replace('T', ' ')) + '</td>' +
               '<td>' + (s.hasSignature ? '✓' : '—') + '</td>' +
-              '</tr>'
-            ).join('') + '</tbody></table>'
+              '<td style="white-space:nowrap">' +
+              (isWaiting
+                ? '<button type="button" class="btn btn-ghost consent-promote-btn" data-sub="' +
+                  escapeHtml(s.submissionId || '') + '">확정 전환</button> ' +
+                  '<button type="button" class="btn btn-ghost consent-cancel-reg-btn" data-sub="' +
+                  escapeHtml(s.submissionId || '') + '">취소</button>'
+                : (s.extraData && s.extraData.registrationStatus === 'Confirmed'
+                  ? '<button type="button" class="btn btn-ghost consent-cancel-reg-btn" data-sub="' +
+                    escapeHtml(s.submissionId || '') + '">취소</button>'
+                  : '')) +
+              '</td>' +
+              '</tr>';
+            }).join('') + '</tbody></table>'
           : '<p class="muted">해당 조건의 제출 없음</p>';
 
         const pendingRows = pending.length
@@ -251,6 +299,35 @@
               (clusters || '<tr><td colspan="3" class="muted">데이터 없음</td></tr>') +
               '</tbody></table></div>'
             : '');
+
+        $('consentAnalyticsBody').querySelectorAll('.consent-promote-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 대기 신청을 확정으로 전환할까요?')) return;
+            try {
+              await api('/api/admin/consents/' + encodeURIComponent(formId) + '/promote', {
+                method: 'POST',
+                body: { submissionId: btn.dataset.sub }
+              }, role);
+              openAnalytics(formId);
+            } catch (e) {
+              alert(e.message);
+            }
+          });
+        });
+        $('consentAnalyticsBody').querySelectorAll('.consent-cancel-reg-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 신청/등록을 취소할까요?')) return;
+            try {
+              await api('/api/admin/consents/' + encodeURIComponent(formId) + '/cancel-registration', {
+                method: 'POST',
+                body: { submissionId: btn.dataset.sub }
+              }, role);
+              openAnalytics(formId);
+            } catch (e) {
+              alert(e.message);
+            }
+          });
+        });
       }
 
       // Enrich signature flag for display (analytics already has extraData; signature itself not listed for size)
@@ -341,6 +418,24 @@
       tplSel.addEventListener('change', () => {
         const tpl = templates.find((x) => x.templateId === tplSel.value);
         if (tpl) setEditorFromTemplate(tpl);
+      });
+    }
+    const deleteTpl = $('consentDeleteTemplateBtn');
+    if (deleteTpl) {
+      deleteTpl.addEventListener('click', async () => {
+        const sel = $('consentTemplateSelect');
+        const templateId = sel && sel.value;
+        if (!templateId) {
+          alert('삭제할 양식을 먼저 선택하세요.');
+          return;
+        }
+        if (!confirm('이 양식을 삭제할까요? 이미 발행된 공문에는 영향이 없습니다.')) return;
+        try {
+          await api('/api/admin/consent-templates/' + encodeURIComponent(templateId), { method: 'DELETE' }, role);
+          await loadTemplates();
+        } catch (e) {
+          alert(e.message);
+        }
       });
     }
     const saveTpl = $('consentSaveTemplateBtn');

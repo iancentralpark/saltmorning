@@ -353,6 +353,10 @@
                   ? '<button type="button" class="btn btn-ghost sr-reset-pw" data-role="parent" data-id="' +
                     escapeHtml(p.parentId) + '">' +
                     escapeHtml(t('sr.resetPasswordShort', 'Reset PW')) +
+                    '</button>' +
+                    '<button type="button" class="btn btn-ghost sr-deactivate-parent" data-id="' +
+                    escapeHtml(p.parentId) + '">' +
+                    escapeHtml(t('sr.deactivateParent', 'Deactivate')) +
                     '</button>'
                   : '') +
                 '</div>' +
@@ -678,6 +682,10 @@
 
     mountEl.querySelectorAll('.sr-reset-pw').forEach((btn) => {
       btn.addEventListener('click', () => resetAccountPassword(btn.dataset.role, btn.dataset.id));
+    });
+
+    mountEl.querySelectorAll('.sr-deactivate-parent').forEach((btn) => {
+      btn.addEventListener('click', () => deactivateParentAccount(btn.dataset.id));
     });
 
     mountEl.querySelectorAll('.sr-parent-rel-select').forEach((sel) => {
@@ -1074,6 +1082,20 @@
       );
     } catch (e) {
       window.alert(e.message || 'Could not reset password.');
+    }
+  }
+
+  async function deactivateParentAccount(parentId) {
+    if (!isAdminLike() || !parentId) return;
+    if (!confirm('Deactivate this parent account? They will no longer be able to log in.')) return;
+    try {
+      await api('/api/admin/parents/' + encodeURIComponent(parentId) + '/deactivate', {
+        method: 'POST',
+        body: { active: false }
+      }, role);
+      window.alert('Parent account deactivated.');
+    } catch (e) {
+      window.alert(e.message || 'Could not deactivate parent account.');
     }
   }
 
