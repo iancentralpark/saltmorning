@@ -38,6 +38,8 @@ module.exports = {
   SCHOOL_NAME: process.env.SCHOOL_NAME || 'Salt Academy Morning Class',
   SCHOOL_ADDRESS: process.env.SCHOOL_ADDRESS ||
     '168 Haedoi-ro, Yeonsu-gu, Incheon, Republic of Korea (Hyein Plaza, 7th Floor)',
+  SCHOOL_PHONE: process.env.SCHOOL_PHONE || '',
+  SCHOOL_WEBSITE: process.env.SCHOOL_WEBSITE || 'saltmorning.study',
   ANALYTICS_TEST_REPORTS_SHEET: 'Analytics_TestReports',
   ANALYTICS_DAILY_LOGS_SHEET: 'Analytics_DailyLogs',
   ANALYTICS_INTERVENTIONS_SHEET: 'Analytics_Interventions',

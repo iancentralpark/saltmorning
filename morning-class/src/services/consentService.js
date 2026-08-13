@@ -7,7 +7,10 @@ const {
   CONSENT_SUBMISSIONS_SHEET,
   STUDENT_LIST_SHEET,
   CLASS_LIST_SHEET,
-  SCHOOL_NAME
+  SCHOOL_NAME,
+  SCHOOL_ADDRESS,
+  SCHOOL_PHONE,
+  SCHOOL_WEBSITE
 } = require('../config');
 const {
   getSheetRows,
@@ -30,7 +33,7 @@ const SUB_HEADERS = [
 ];
 
 /** Bump to force-refresh non-custom builtin template bodies in Sheets. */
-const BUILTIN_TEMPLATE_VERSION = 'v2-formal-odoc';
+const BUILTIN_TEMPLATE_VERSION = 'v3-institutional-header';
 
 const CATEGORIES = {
   BusSurvey: 'BusSurvey',
@@ -68,14 +71,47 @@ function academicYearLabel() {
   return y + '–' + String(y + 1).slice(2);
 }
 
-function odocShell(title, bodyHtml) {
+const ODOC_EMBLEM_SVG =
+  '<svg class="odoc-emblem-svg" viewBox="0 0 96 96" role="img" aria-label="Salt Academy emblem">' +
+  '<circle cx="48" cy="48" r="44" fill="#ffffff" stroke="#0f172a" stroke-width="2.8"/>' +
+  '<circle cx="48" cy="48" r="39" fill="none" stroke="#1e3a8a" stroke-width="1"/>' +
+  '<path d="M48 72V34" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>' +
+  '<path d="M48 40c-12-3-21-12-24-21 12 2 21 8 24 15 3-7 12-13 24-15-3 9-12 18-24 21z" fill="#1e3a8a"/>' +
+  '<path d="M48 52c-10 2-18 9-21 18 10-3 17-7 21-13 4 6 11 10 21 13-3-9-11-16-21-18z" fill="#0f172a"/>' +
+  '<circle cx="48" cy="28" r="3.2" fill="#0f172a"/>' +
+  '</svg>';
+
+const ODOC_WATERMARK_SVG =
+  '<svg class="odoc-wm-seal" viewBox="0 0 96 96" aria-hidden="true">' +
+  '<circle cx="48" cy="48" r="44" fill="none" stroke="#0f172a" stroke-width="2.5"/>' +
+  '<circle cx="48" cy="48" r="38" fill="none" stroke="#0f172a" stroke-width="0.8"/>' +
+  '<path d="M48 72V34" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>' +
+  '<path d="M48 40c-12-3-21-12-24-21 12 2 21 8 24 15 3-7 12-13 24-15-3 9-12 18-24 21z" fill="#0f172a"/>' +
+  '<path d="M48 52c-10 2-18 9-21 18 10-3 17-7 21-13 4 6 11 10 21 13-3-9-11-16-21-18z" fill="#0f172a"/>' +
+  '<circle cx="48" cy="28" r="3" fill="#0f172a"/>' +
+  '</svg>';
+
+function odocShell(titleKo, bodyHtml, titleEn) {
+  titleEn = titleEn || 'OFFICIAL SCHOOL NOTICE';
   return (
     '<article class="odoc" data-builtin-version="' + BUILTIN_TEMPLATE_VERSION + '">' +
-    '<header class="odoc-head">' +
+    '<div class="odoc-watermark" aria-hidden="true">' +
+    '<div class="odoc-watermark-inner">' + ODOC_WATERMARK_SVG +
+    '<div class="odoc-watermark-text">Salt Academy</div></div></div>' +
+    '<div class="odoc-content">' +
+    '<header class="odoc-inst">' +
+    '<div class="odoc-emblem">' + ODOC_EMBLEM_SVG + '</div>' +
+    '<div class="odoc-identity">' +
     '<div class="odoc-school">{school_name}</div>' +
-    '<div class="odoc-meta"><span>문서번호 {doc_no}</span><span>시행일 {issue_date}</span></div>' +
-    '</header>' +
-    '<h1 class="odoc-title">' + title + '</h1>' +
+    '<div class="odoc-school-meta">' +
+    '<span class="odoc-meta-line">{school_address}</span>' +
+    '<span class="odoc-meta-line">{school_contact_line}</span>' +
+    '</div></div></header>' +
+    '<div class="odoc-banner">' +
+    '<div class="odoc-title-en">' + titleEn + '</div>' +
+    '<h1 class="odoc-title">' + titleKo + '</h1>' +
+    '<div class="odoc-docmeta"><span>문서번호 {doc_no}</span><span>시행일 {issue_date}</span></div>' +
+    '</div>' +
     '<p class="odoc-to">수신: 학부모님 귀하 &nbsp;|&nbsp; 학생: {student_name} ({class_name})</p>' +
     '<hr class="odoc-rule">' +
     '<div class="odoc-body">' + bodyHtml + '</div>' +
@@ -83,7 +119,7 @@ function odocShell(title, bodyHtml) {
     '<p>끝.</p>' +
     '<p class="odoc-sign">{school_name}<br>교무행정실</p>' +
     '</footer>' +
-    '</article>'
+    '</div></article>'
   );
 }
 
@@ -105,7 +141,8 @@ function builtinTemplates() {
         '<tr><th>조사 내용</th><td>거주지(아파트·동), 이용 희망(등하원/등교/하교/자가), 희망 승하차 장소</td></tr>' +
         '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
         '</tbody></table>' +
-        '<p>4. 아래 응답란에 기재·서명한 후 제출하여 주시기 바랍니다.</p>'
+        '<p>4. 아래 응답란에 기재·서명한 후 제출하여 주시기 바랍니다.</p>',
+        'OFFICIAL NOTICE'
       ),
       fieldsJson: {
         kind: 'bus_survey',
@@ -133,7 +170,8 @@ function builtinTemplates() {
         '<tr><th>신청 내용</th><td>등교 호차, 하교 호차, 정류장(필요 시)</td></tr>' +
         '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
         '</tbody></table>' +
-        '<p>4. 아래 항목을 선택한 뒤 약관에 동의하고 서명하여 제출하여 주시기 바랍니다.</p>'
+        '<p>4. 아래 항목을 선택한 뒤 약관에 동의하고 서명하여 제출하여 주시기 바랍니다.</p>',
+        'OFFICIAL APPLICATION'
       ),
       fieldsJson: {
         kind: 'bus_app',
@@ -162,7 +200,8 @@ function builtinTemplates() {
         '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
         '</tbody></table>' +
         '<p>3. 활동 중 안전 수칙을 준수하며, 응급상황 발생 시 학교의 합리적 조치(응급처치·의료기관 이송 등)에 동의합니다.</p>' +
-        '<p>4. 동의하지 않으실 경우 사유를 기재하여 제출하여 주시기 바랍니다.</p>'
+        '<p>4. 동의하지 않으실 경우 사유를 기재하여 제출하여 주시기 바랍니다.</p>',
+        'OFFICIAL CONSENT FORM'
       ),
       fieldsJson: {
         kind: 'consent',
@@ -188,7 +227,8 @@ function builtinTemplates() {
         '<tr><th>활용 범위</th><td>교내 게시, 학교 공식 소식/채널, 학습 포트폴리오(비상업적 교육 목적)</td></tr>' +
         '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
         '</tbody></table>' +
-        '<p>3. 동의하지 않으실 경우 해당 학생은 촬영·게시 대상에서 제외됩니다. 부동의 시 사유를 기재해 주세요.</p>'
+        '<p>3. 동의하지 않으실 경우 해당 학생은 촬영·게시 대상에서 제외됩니다. 부동의 시 사유를 기재해 주세요.</p>',
+        'OFFICIAL CONSENT FORM'
       ),
       fieldsJson: {
         kind: 'consent',
@@ -215,7 +255,8 @@ function builtinTemplates() {
         '<tr><th>제출 기한</th><td><strong>{due_date}</strong></td></tr>' +
         '</tbody></table>' +
         '<p>3. 알레르기·복용약·특이사항은 학부모 포털의 학생 프로필(의료 정보)에 최신으로 반영해 주시기 바랍니다.</p>' +
-        '<p>4. 동의하지 않으실 경우 사유를 기재하여 제출하여 주시기 바랍니다.</p>'
+        '<p>4. 동의하지 않으실 경우 사유를 기재하여 제출하여 주시기 바랍니다.</p>',
+        'OFFICIAL CONSENT FORM'
       ),
       fieldsJson: {
         kind: 'consent',
@@ -271,12 +312,21 @@ async function ensureConsentSheets() {
 
 function buildFormVars(form, student, classNames) {
   const published = String((form && form.publishedAt) || '').slice(0, 10);
+  const phone = String(SCHOOL_PHONE || '').trim();
+  const website = String(SCHOOL_WEBSITE || 'saltmorning.study').trim();
+  const contactParts = [];
+  if (phone) contactParts.push(phone);
+  if (website) contactParts.push(website);
   return {
     student_name: (student && student.name) || '',
     class_name: (classNames && student && classNames[student.classId]) || (student && student.classId) || '',
     due_date: (form && form.dueDate) || '—',
     academic_year: academicYearLabel(),
     school_name: SCHOOL_NAME,
+    school_address: SCHOOL_ADDRESS || '',
+    school_phone: phone,
+    school_website: website,
+    school_contact_line: contactParts.join(' · ') || website,
     doc_no: (form && form.formId) || '',
     issue_date: published || todaySeoul(),
     trip_date: '',
