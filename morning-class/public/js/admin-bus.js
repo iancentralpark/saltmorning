@@ -12,7 +12,6 @@ window.SaltAdminBus = (function () {
   let deps = {};
   let setup = null;
   let board = null;
-  let sub = 'board';
   let editRun = null;
   let selectedStudents = new Map();
   let setupWeekday = 1; // 1 Mon .. 5 Fri
@@ -118,8 +117,13 @@ window.SaltAdminBus = (function () {
     boardWeekday = jsDowToWeekday(parseISO(today).getDay());
     setupWeekday = boardWeekday;
 
-    if ($('busSubBoard')) $('busSubBoard').addEventListener('click', () => setSub('board'));
-    if ($('busSubSetup')) $('busSubSetup').addEventListener('click', () => setSub('setup'));
+    if ($('busSubSetup')) $('busSubSetup').addEventListener('click', () => openSetupModal());
+    if ($('busSetupClose')) $('busSetupClose').addEventListener('click', closeSetupModal);
+    if ($('busSetupModal')) {
+      $('busSetupModal').addEventListener('click', (e) => {
+        if (e.target === $('busSetupModal')) closeSetupModal();
+      });
+    }
     if ($('busBoardRefresh')) $('busBoardRefresh').addEventListener('click', loadBoard);
     if ($('busBoardPrevWeek')) $('busBoardPrevWeek').addEventListener('click', () => shiftBoardWeek(-7));
     if ($('busBoardNextWeek')) $('busBoardNextWeek').addEventListener('click', () => shiftBoardWeek(7));
@@ -155,20 +159,18 @@ window.SaltAdminBus = (function () {
     }
   }
 
-  function setSub(name) {
-    sub = name;
-    const isSetup = name === 'setup';
-    if ($('busSubSetup')) $('busSubSetup').classList.toggle('active', isSetup);
-    if ($('busSubBoard')) $('busSubBoard').classList.toggle('active', !isSetup);
-    if ($('busSetupPanel')) deps[isSetup ? 'show' : 'hide']($('busSetupPanel'));
-    if ($('busBoardPanel')) deps[isSetup ? 'hide' : 'show']($('busBoardPanel'));
-    if ($('busBoardTools')) $('busBoardTools').classList.toggle('hidden', isSetup);
-    if (isSetup) loadSetup();
-    else loadBoard();
+  function openSetupModal() {
+    if ($('busSetupModal')) deps.show($('busSetupModal'));
+    loadSetup();
+  }
+
+  function closeSetupModal() {
+    if ($('busSetupModal')) deps.hide($('busSetupModal'));
   }
 
   async function open() {
-    setSub(sub || 'board');
+    if ($('busBoardPanel')) deps.show($('busBoardPanel'));
+    await loadBoard();
   }
 
   function shiftBoardWeek(deltaDays) {

@@ -11,6 +11,8 @@
   let classes = [];
   let teachers = [];
   let boardHandle = null;
+  let boardClassId = '';
+  let setupMountEl = null;
 
   function renderBellEditor(mountEl, schedule) {
     const periods = (schedule && schedule.periods) || [];
@@ -29,20 +31,27 @@
     ).join('');
 
     mountEl.innerHTML =
-      '<div class="tt-setup-section">' +
-      '<h4>Bell schedule (school day structure)</h4>' +
+      '<div class="tt-bell-editor">' +
       '<p class="muted small">Set each period, recess, and lunch. Only <strong>Lesson</strong> rows are used for scheduling and Auto-Solve.</p>' +
       '<table class="grades-table tt-bell-table"><thead><tr><th>Label</th><th>Type</th><th>Start</th><th>End</th><th></th></tr></thead>' +
       '<tbody>' + (rows || '<tr><td colspan="5" class="muted">No periods</td></tr>') + '</tbody></table>' +
-      '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">' +
+      '<div class="tt-bell-actions">' +
       '<button type="button" class="btn btn-ghost tt-bell-add">+ Add row</button>' +
+      '<button type="button" class="btn btn-ghost tt-bell-cancel">Cancel</button>' +
       '<button type="button" class="btn btn-primary tt-bell-save">Save bell schedule</button>' +
       '</div>' +
       '<div class="tt-bell-error error"></div>' +
       '</div>';
 
+    const cancelBtn = mountEl.querySelector('.tt-bell-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => closeBellModal());
+    }
+
     mountEl.querySelector('.tt-bell-add').addEventListener('click', () => {
       const tbody = mountEl.querySelector('tbody');
+      const empty = tbody.querySelector('td[colspan]');
+      if (empty) tbody.innerHTML = '';
       const tr = document.createElement('tr');
       tr.innerHTML =
         '<td><input class="tt-bell-label" value="New period"></td>' +
@@ -61,6 +70,7 @@
       errEl.textContent = '';
       const payload = [];
       mountEl.querySelectorAll('tbody tr').forEach((tr, idx) => {
+        if (!tr.querySelector('.tt-bell-label')) return;
         payload.push({
           label: tr.querySelector('.tt-bell-label').value.trim(),
           periodType: tr.querySelector('.tt-bell-type').value,
@@ -72,7 +82,8 @@
       try {
         await api('/api/admin/timetable/bell-schedule', { method: 'POST', body: { periods: payload } }, 'admin');
         errEl.style.color = '#16a34a';
-        errEl.textContent = 'Bell schedule saved. Reload the class board to pick up new periods.';
+        errEl.textContent = 'Bell schedule saved.';
+        setTimeout(() => closeBellModal(), 450);
       } catch (e) {
         errEl.style.color = '#dc2626';
         errEl.textContent = e.message;
@@ -80,6 +91,52 @@
     });
 
     mountEl.querySelectorAll('tbody tr').forEach((tr) => bindBellRow(tr, mountEl));
+  }
+
+  function ensureBellModal() {
+    let modal = document.getElementById('ttBellModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'ttBellModal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ttBellModalTitle');
+    modal.innerHTML =
+      '<div class="modal-card tt-bell-modal">' +
+      '<div class="tt-bell-modal-head">' +
+      '<div>' +
+      '<h3 id="ttBellModalTitle" style="margin:0">Bell schedule</h3>' +
+      '<p class="muted small" style="margin:0.35rem 0 0">School day structure · rarely needs changes</p>' +
+      '</div>' +
+      '<button type="button" class="btn btn-ghost tt-bell-modal-close">Close</button>' +
+      '</div>' +
+      '<div id="ttBellModalBody"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeBellModal();
+    });
+    modal.querySelector('.tt-bell-modal-close').addEventListener('click', () => closeBellModal());
+    return modal;
+  }
+
+  function closeBellModal() {
+    const modal = document.getElementById('ttBellModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function openBellModal() {
+    const modal = ensureBellModal();
+    const body = modal.querySelector('#ttBellModalBody');
+    body.innerHTML = '<p class="muted">Loading…</p>';
+    modal.classList.remove('hidden');
+    try {
+      const bellData = await api('/api/admin/timetable/bell-schedule', {}, 'admin');
+      renderBellEditor(body, bellData);
+    } catch (e) {
+      body.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Could not load bell schedule.') + '</p>';
+    }
   }
 
   function bindBellRow(tr, mountEl) {
@@ -163,10 +220,9 @@
     }).join('');
 
     mountEl.innerHTML =
-      '<div class="tt-setup-section">' +
-      '<h4>Subject requirements</h4>' +
-      '<p class="muted small">Hours per week drive the unassigned palette and Auto-Solve. Use <strong>Also teach with</strong> when one teacher covers multiple classes in the same period — those classes will share that subject timeslot.</p>' +
-      '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">' +
+      '<div class="tt-req-editor">' +
+      '<p class="muted small">Hours per week drive the unassigned palette and Auto-Solve. Use <strong>Also teach with</strong> when one teacher covers multiple classes in the same period.</p>' +
+      '<div class="tt-req-toolbar">' +
       '<select class="tt-req-class">' +
       classes.map((c) =>
         '<option value="' + escapeHtml(c.classId) + '"' + (c.classId === classId ? ' selected' : '') + '>' +
@@ -178,17 +234,13 @@
       '</div>' +
       '<table class="grades-table"><thead><tr><th>Subject</th><th>Teacher</th><th>Periods/wk</th><th>Room</th><th>Also teach with</th><th></th></tr></thead>' +
       '<tbody>' + (rows || '<tr><td colspan="6" class="muted">No requirements yet</td></tr>') + '</tbody></table>' +
-      '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap">' +
+      '<div class="tt-bell-actions">' +
+      '<button type="button" class="btn btn-ghost tt-req-cancel">Close</button>' +
       '<button type="button" class="btn btn-primary tt-req-save">Save requirements</button>' +
       '<button type="button" class="btn btn-primary tt-req-generate">Auto-Solve (fill unlocked)</button>' +
       '</div>' +
       '<div class="tt-req-error error"></div>' +
       '<div class="tt-req-result muted small"></div>' +
-      '</div>' +
-      '<div class="tt-setup-section">' +
-      '<h4>Class timetable board</h4>' +
-      '<p class="muted small">Drag remaining subject chips into the Mon–Fri × period grid. Green = free for that teacher; red = conflict.</p>' +
-      '<div class="tt-setup-board-mount"></div>' +
       '</div>';
 
     const classSelect = mountEl.querySelector('.tt-req-class');
@@ -230,10 +282,83 @@
       btn.addEventListener('click', () => btn.closest('tr').remove());
     });
 
+    const cancelBtn = mountEl.querySelector('.tt-req-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeReqModal);
+
     mountEl.querySelector('.tt-req-save').addEventListener('click', () => saveRequirements(mountEl, classSelect.value));
     mountEl.querySelector('.tt-req-generate').addEventListener('click', () => generateTimetable(mountEl, classSelect.value));
+  }
 
-    openClassBoard(mountEl.querySelector('.tt-setup-board-mount'), classId, requirements);
+  function ensureReqModal() {
+    let modal = document.getElementById('ttReqModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'ttReqModal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ttReqModalTitle');
+    modal.innerHTML =
+      '<div class="modal-card modal-wide tt-req-modal">' +
+      '<div class="tt-bell-modal-head">' +
+      '<div>' +
+      '<h3 id="ttReqModalTitle" style="margin:0">Subject requirements</h3>' +
+      '<p class="muted small" style="margin:0.35rem 0 0">Weekly hours and teachers for Auto-Solve / class board</p>' +
+      '</div>' +
+      '<button type="button" class="btn btn-ghost tt-req-modal-close">Close</button>' +
+      '</div>' +
+      '<div id="ttReqModalBody"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeReqModal();
+    });
+    modal.querySelector('.tt-req-modal-close').addEventListener('click', closeReqModal);
+    return modal;
+  }
+
+  function closeReqModal() {
+    const modal = document.getElementById('ttReqModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  async function openReqModal() {
+    const modal = ensureReqModal();
+    const body = modal.querySelector('#ttReqModalBody');
+    body.innerHTML = '<p class="muted">Loading…</p>';
+    modal.classList.remove('hidden');
+    const classId = boardClassId || (classes[0] && classes[0].classId) || '';
+    if (!classId) {
+      body.innerHTML = '<p class="muted">Create a class first.</p>';
+      return;
+    }
+    try {
+      await loadRequirements(body, classId);
+    } catch (e) {
+      body.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Could not load requirements.') + '</p>';
+    }
+  }
+
+  function mainBoardMount() {
+    return setupMountEl ? setupMountEl.querySelector('.tt-setup-board-mount') : null;
+  }
+
+  async function refreshMainBoard(classId, requirements) {
+    const cid = classId || boardClassId;
+    if (!cid) return;
+    boardClassId = cid;
+    const sel = setupMountEl && setupMountEl.querySelector('.tt-board-class');
+    if (sel && sel.value !== cid) sel.value = cid;
+    let reqs = requirements;
+    if (!reqs) {
+      try {
+        const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(cid), {}, 'admin');
+        reqs = data.requirements || [];
+      } catch (_) {
+        reqs = [];
+      }
+    }
+    await openClassBoard(mainBoardMount(), cid, reqs);
   }
 
   async function saveRequirements(mountEl, classId) {
@@ -263,11 +388,7 @@
       errEl.textContent = linkedCount
         ? 'Requirements saved. Combined-class subjects will share the same period when you Save or Auto-Solve.'
         : 'Requirements saved.';
-      if (boardHandle && boardHandle.setRequirements) {
-        boardHandle.setRequirements(data.requirements || requirements);
-      } else {
-        await openClassBoard(mountEl.querySelector('.tt-setup-board-mount'), classId, data.requirements || requirements);
-      }
+      await refreshMainBoard(classId, data.requirements || requirements);
     } catch (e) {
       errEl.style.color = '#dc2626';
       errEl.textContent = e.message;
@@ -290,11 +411,7 @@
         ' locked, added ' + (r.generated != null ? r.generated : r.assignmentCount) +
         ', synced ' + (r.studentsUpdated || 0) + ' students / ' + (r.teachersUpdated || 0) + ' teachers.';
       const reqData = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, 'admin');
-      await openClassBoard(
-        mountEl.querySelector('.tt-setup-board-mount'),
-        classId,
-        reqData.requirements || []
-      );
+      await refreshMainBoard(classId, reqData.requirements || []);
     } catch (e) {
       resEl.textContent = '';
       errEl.style.color = '#dc2626';
@@ -313,6 +430,8 @@
     classes = opts.classes || [];
     teachers = opts.teachers || [];
     boardHandle = null;
+    setupMountEl = mountEl;
+    boardClassId = classes[0] ? classes[0].classId : '';
 
     mountEl.innerHTML = '<p class="muted">Loading timetable setup…</p>';
 
@@ -322,20 +441,48 @@
       solverOk = h.ok;
     } catch (e) { /* ignore */ }
 
-    const bellData = await api('/api/admin/timetable/bell-schedule', {}, 'admin');
-    const classId = classes[0] ? classes[0].classId : '';
-
     mountEl.innerHTML =
+      '<div class="tt-setup-toolbar">' +
+      '<button type="button" class="btn btn-ghost tt-bell-open">Bell schedule</button>' +
+      '<button type="button" class="btn btn-ghost tt-req-open">Subject requirements</button>' +
+      '</div>' +
       (solverOk
         ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
         : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
-      '<div id="ttBellMount"></div><div id="ttReqMount"></div>';
+      '<div class="tt-setup-section">' +
+      '<div class="tt-board-toolbar">' +
+      '<strong>Class timetable board</strong>' +
+      '<select class="tt-board-class">' +
+      classes.map((c) =>
+        '<option value="' + escapeHtml(c.classId) + '"' +
+        (c.classId === boardClassId ? ' selected' : '') + '>' +
+        escapeHtml(c.name) + '</option>'
+      ).join('') +
+      '</select>' +
+      '</div>' +
+      '<p class="muted small">Drag subject chips into the Mon–Fri × period grid. Green = free for that teacher; red = conflict.</p>' +
+      '<div class="tt-setup-board-mount"></div>' +
+      '</div>';
 
-    renderBellEditor(mountEl.querySelector('#ttBellMount'), bellData);
-    if (classId) {
-      await loadRequirements(mountEl.querySelector('#ttReqMount'), classId);
+    mountEl.querySelector('.tt-bell-open').addEventListener('click', () => {
+      openBellModal().catch((e) => alert(e.message || 'Could not open bell schedule.'));
+    });
+    mountEl.querySelector('.tt-req-open').addEventListener('click', () => {
+      openReqModal().catch((e) => alert(e.message || 'Could not open subject requirements.'));
+    });
+    const boardSel = mountEl.querySelector('.tt-board-class');
+    if (boardSel) {
+      boardSel.addEventListener('change', () => {
+        boardClassId = boardSel.value;
+        refreshMainBoard(boardClassId);
+      });
+    }
+
+    if (boardClassId) {
+      await refreshMainBoard(boardClassId);
     } else {
-      mountEl.querySelector('#ttReqMount').innerHTML = '<p class="muted">Create a class first.</p>';
+      const boardMount = mainBoardMount();
+      if (boardMount) boardMount.innerHTML = '<p class="muted">Create a class first.</p>';
     }
   }
 

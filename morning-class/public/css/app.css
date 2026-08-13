@@ -2557,17 +2557,34 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .cr-class-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
 .cr-class-form input { padding: 0.45rem 0.55rem; border: 1px solid var(--border-soft); border-radius: 0.45rem; }
-.cr-form-days { display: flex; flex-wrap: wrap; gap: 0.35rem 0.6rem; }
+.cr-form-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cr-form-days-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  width: 100%;
+}
+.cr-class-form label.cr-day-chip,
 .cr-day-chip {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.82rem;
-  padding: 0.2rem 0.45rem;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.35rem;
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   background: var(--cream);
+  white-space: nowrap;
 }
+.cr-day-chip input { margin: 0; flex: 0 0 auto; }
 .cr-field-label { display: block; font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-bottom: 0.25rem; }
 .cr-roster { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1rem; }
 .cr-roster-row, .cr-import-row {
@@ -2729,8 +2746,54 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   opacity: 0.95;
 }
 .tt-setup-section { margin-bottom: 1.25rem; }
+.tt-setup-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+.tt-board-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+.tt-board-toolbar select { min-width: 10rem; }
+.tt-req-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.tt-req-modal { width: min(960px, 100%); }
+.bus-setup-modal { max-height: 92vh; }
+.bus-setup-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+}
 .tt-solver-ok { color: #16a34a; }
 .tt-solver-warn code { font-size: 0.78rem; }
+.tt-bell-modal { width: min(720px, 100%); }
+.tt-bell-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.tt-bell-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
 .tt-bell-table input, .tt-bell-table select { width: 100%; padding: 0.35rem; }
 .tt-admin-toolbar {
   display: flex;
@@ -3437,23 +3500,38 @@ body.buddy-resize-active {
   gap: 1rem;
   flex-wrap: wrap;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
-}
-.sc-semester-box {
-  margin: 0 0 1rem;
-  padding: 0.75rem 0.85rem;
-  background: #f7faf8;
-  border: 1px solid rgba(163, 177, 138, 0.35);
-  border-radius: var(--radius-sm);
-}
-.sc-semester-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  align-items: baseline;
   margin-bottom: 0.55rem;
 }
+.sc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.sc-toolbar-left,
+.sc-toolbar-right {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.sc-toolbar .btn.active { background: var(--primary); color: #fff; }
+.sc-semester-modal { width: min(520px, 100%); }
+.sc-semester-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+}
 .sc-semester-form { display: flex; flex-direction: column; gap: 0.45rem; }
+.sc-form .sc-range-toggle {
+  align-self: end;
+  padding-bottom: 0.55rem;
+}
+.sc-form #scEndDateWrap.hidden { display: none; }
 .sc-semester-row {
   display: flex;
   flex-wrap: wrap;
@@ -3489,6 +3567,33 @@ body.buddy-resize-active {
 .lp-semester-term-select { min-width: 220px; }
 .sc-toolbar-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
 .sc-toolbar-actions .btn.active { background: var(--primary); color: #fff; }
+.sc-month-notes {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.sc-month-note {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.sc-month-note-day {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sc-month-note-title { flex: 1 1 auto; }
+.sc-note-holiday .sc-month-note-day,
+.sc-note-kr_holiday .sc-month-note-day { color: #be185d; }
+.sc-note-break .sc-month-note-day { color: #4338ca; }
+.sc-note-event .sc-month-note-day { color: #b45309; }
+.sc-note-school_day .sc-month-note-day { color: #1d4ed8; }
 .sc-nav {
   display: flex;
   align-items: center;
@@ -3796,7 +3901,7 @@ body.buddy-resize-active {
     width: 100%;
     background: #fff;
   }
-  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar-actions, .topbar, .tabs, .class-subnav, .no-print { display: none !important; }
+  .sc-editor, .sc-panel-head, .sc-nav, .sc-toolbar, .sc-toolbar-actions, .topbar, .tabs, .class-subnav, .no-print { display: none !important; }
   .no-print { display: none !important; }
 }
 
