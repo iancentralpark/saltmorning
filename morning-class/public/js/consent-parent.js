@@ -362,7 +362,10 @@
   }
 
   function init(opts) {
-    api = opts.api;
+    const rawApi = opts.api;
+    api = function (path, options) {
+      return rawApi(path, options || {}, 'parent');
+    };
     escapeHtml = opts.escapeHtml;
     $ = opts.$;
     const back = $('ppConsentBack');
