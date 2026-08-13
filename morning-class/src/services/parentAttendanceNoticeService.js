@@ -29,6 +29,7 @@ const {
   parentTeacherThreadId,
   lookupStudentName
 } = require('./messengerService');
+const { isOpsDbEnabled, table, query } = require('../db/pool');
 
 const NOTICE_HEADERS = [
   'NoticeID', 'Date', 'StudentID', 'ParentID', 'NoticeType', 'Note', 'CreatedAt', 'UpdatedAt'
@@ -60,12 +61,36 @@ async function ensureNoticeSheet() {
 }
 
 async function listNotices({ dateStr, studentId, parentId, fromDate, toDate } = {}) {
-  await ensureNoticeSheet();
-  const rows = await getSheetRows(PARENT_ATTENDANCE_NOTICES_SHEET);
-  const out = [];
   const wantDate = dateStr ? formatSheetDate(dateStr) : '';
   const from = fromDate ? formatSheetDate(fromDate) : '';
   const to = toDate ? formatSheetDate(toDate) : '';
+
+  if (isOpsDbEnabled()) {
+    let sql = 'SELECT notice_id, notice_date, student_id, parent_id, notice_type, note, created_at, updated_at FROM ' +
+      table('parent_attendance_notices') + ' WHERE 1=1';
+    const params = [];
+    if (wantDate) { params.push(wantDate); sql += ' AND notice_date = $' + params.length + '::date'; }
+    if (from) { params.push(from); sql += ' AND notice_date >= $' + params.length + '::date'; }
+    if (to) { params.push(to); sql += ' AND notice_date <= $' + params.length + '::date'; }
+    if (studentId) { params.push(String(studentId)); sql += ' AND student_id = $' + params.length; }
+    if (parentId) { params.push(String(parentId)); sql += ' AND parent_id = $' + params.length; }
+    sql += ' ORDER BY notice_date, created_at';
+    const r = await query(sql, params);
+    return r.rows.map((row) => ({
+      noticeId: String(row.notice_id),
+      dateStr: formatSheetDate(row.notice_date),
+      studentId: String(row.student_id),
+      parentId: String(row.parent_id || ''),
+      noticeType: String(row.notice_type || '').trim(),
+      note: String(row.note || '').trim(),
+      createdAt: row.created_at ? new Date(row.created_at).toISOString() : '',
+      updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : ''
+    }));
+  }
+
+  await ensureNoticeSheet();
+  const rows = await getSheetRows(PARENT_ATTENDANCE_NOTICES_SHEET);
+  const out = [];
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     const n = parseNotice(rows[i], i + 1);
@@ -219,6 +244,27 @@ async function buildBusExclusionsForDate(dateStr) {
   dateStr = formatSheetDate(dateStr || todayStr());
   const map = {};
 
+  if (isOpsDbEnabled()) {
+    const [att, notices] = await Promise.all([
+      query(
+        'SELECT student_id, attendance FROM ' + table('attendance_records') +
+          ' WHERE record_date = $1::date',
+        [dateStr]
+      ),
+      listNotices({ dateStr })
+    ]);
+    att.rows.forEach((row) => {
+      const studentId = String(row.student_id || '');
+      const status = String(row.attendance || '').trim();
+      if (!studentId || !status) return;
+      applyNoticeToExclusion(map, studentId, status, status);
+    });
+    for (const n of notices) {
+      applyNoticeToExclusion(map, n.studentId, n.noticeType, n.noticeType + (n.note ? ': ' + n.note : ''));
+    }
+    return map;
+  }
+
   const [attRows, notices] = await Promise.all([
     getSheetRows(ATTENDANCE_SHEET).catch(() => []),
     listNotices({ dateStr })
@@ -262,8 +308,13 @@ async function notifyStaff({ parent, student, noticeType, dateStr, note }) {
     name: parent.name || 'Parent'
   };
 
+  let realtime;
+  try { realtime = require('../realtime'); } catch (_) { realtime = null; }
+
   try {
-    await sendThreadMessage(parentAdminThreadId(parent.parentId), session, body);
+    const tid = parentAdminThreadId(parent.parentId);
+    const msg = await sendThreadMessage(tid, session, body);
+    if (realtime && realtime.notifyNewMessage) realtime.notifyNewMessage(tid, msg);
   } catch (e) {
     console.warn('[parentAttendanceNotice] admin notify failed:', e.message);
   }
@@ -271,11 +322,9 @@ async function notifyStaff({ parent, student, noticeType, dateStr, note }) {
   try {
     const teacherId = await findHomeroomTeacherId(student.classId);
     if (teacherId) {
-      await sendThreadMessage(
-        parentTeacherThreadId(student.studentId, teacherId),
-        session,
-        body
-      );
+      const tid = parentTeacherThreadId(student.studentId, teacherId);
+      const msg = await sendThreadMessage(tid, session, body);
+      if (realtime && realtime.notifyNewMessage) realtime.notifyNewMessage(tid, msg);
     }
   } catch (e) {
     console.warn('[parentAttendanceNotice] teacher notify failed:', e.message);
@@ -324,43 +373,47 @@ async function submitNotice({ parentId, studentId, noticeType, date, note }) {
 
   await validateNoticeDate(student.classId, dateStr);
 
-  await ensureNoticeSheet();
   const now = formatDateTimeNow(TIMEZONE);
   const existing = await getNoticeForStudentDate(studentId, dateStr);
   let notice;
+  const noteText = String(note || '').trim();
 
-  if (existing) {
-    const row = [
-      existing.noticeId,
-      dateStr,
-      studentId,
-      parentId,
-      type,
-      String(note || '').trim(),
-      existing.createdAt || now,
-      now
-    ];
-    await updateRange(
-      PARENT_ATTENDANCE_NOTICES_SHEET,
-      'A' + existing._row + ':H' + existing._row,
-      [row]
+  if (isOpsDbEnabled()) {
+    const noticeId = (existing && existing.noticeId) || newId('pan');
+    const createdAt = (existing && existing.createdAt) || now;
+    await query(
+      'INSERT INTO ' + table('parent_attendance_notices') +
+        ' (notice_id, notice_date, student_id, parent_id, notice_type, note, created_at, updated_at)' +
+        ' VALUES ($1, $2::date, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz)' +
+        ' ON CONFLICT (notice_date, student_id) DO UPDATE SET' +
+        ' notice_type = EXCLUDED.notice_type, note = EXCLUDED.note, parent_id = EXCLUDED.parent_id,' +
+        ' updated_at = EXCLUDED.updated_at',
+      [noticeId, dateStr, studentId, parentId, type, noteText, createdAt, now]
     );
-    invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
-    notice = parseNotice(row, existing._row);
+    notice = {
+      noticeId, dateStr, studentId, parentId, noticeType: type, note: noteText,
+      createdAt, updatedAt: now
+    };
   } else {
-    const row = [
-      newId('pan'),
-      dateStr,
-      studentId,
-      parentId,
-      type,
-      String(note || '').trim(),
-      now,
-      now
-    ];
-    await appendRows(PARENT_ATTENDANCE_NOTICES_SHEET, [row]);
-    invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
-    notice = parseNotice(row, null);
+    await ensureNoticeSheet();
+    if (existing) {
+      const row = [
+        existing.noticeId, dateStr, studentId, parentId, type, noteText,
+        existing.createdAt || now, now
+      ];
+      await updateRange(
+        PARENT_ATTENDANCE_NOTICES_SHEET,
+        'A' + existing._row + ':H' + existing._row,
+        [row]
+      );
+      invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
+      notice = parseNotice(row, existing._row);
+    } else {
+      const row = [newId('pan'), dateStr, studentId, parentId, type, noteText, now, now];
+      await appendRows(PARENT_ATTENDANCE_NOTICES_SHEET, [row]);
+      invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
+      notice = parseNotice(row, null);
+    }
   }
 
   // Same-day only: keep Attendance_Data in sync so bus board rolls with edits.
@@ -416,12 +469,20 @@ async function clearNotice({ parentId, studentId, date }) {
   if (!existing) return { ok: true, cleared: false };
 
   const prevType = existing.noticeType;
-  await updateRange(
-    PARENT_ATTENDANCE_NOTICES_SHEET,
-    'A' + existing._row + ':H' + existing._row,
-    [new Array(8).fill('')]
-  );
-  invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
+  if (isOpsDbEnabled()) {
+    await query(
+      'DELETE FROM ' + table('parent_attendance_notices') +
+        ' WHERE notice_date = $1::date AND student_id = $2',
+      [dateStr, studentId]
+    );
+  } else {
+    await updateRange(
+      PARENT_ATTENDANCE_NOTICES_SHEET,
+      'A' + existing._row + ':H' + existing._row,
+      [new Array(8).fill('')]
+    );
+    invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
+  }
 
   // Roll back same-day attendance written by the notice → bus board includes student again
   if (dateStr === todayStr() && ATTENDANCE_NOTICE_TYPES.has(prevType)) {

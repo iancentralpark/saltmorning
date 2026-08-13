@@ -13,6 +13,7 @@ const {
   getClassMeta
 } = require('./schoolCalendarService');
 const { getHolidaysForRange } = require('../holiday');
+const { isOpsDbEnabled, table, query } = require('../db/pool');
 
 const VALID_STATUS = ['출석', '지각', '결석', '조퇴'];
 
@@ -84,18 +85,33 @@ async function getClassScheduleInfo(classId, dateStr) {
 }
 
 async function getClassWorkData(classId, dateStr) {
-  await ensureAttendanceColumns();
   classId = String(classId);
   dateStr = dateStr || todayStr();
 
   const schedule = await getClassScheduleInfo(classId, dateStr);
   const roster = await getClassRoster(classId);
-  const rows = await getSheetRows(ATTENDANCE_SHEET);
   const existing = {};
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][1]) !== classId) continue;
-    if (formatSheetDate(rows[i][0]) !== dateStr) continue;
-    existing[String(rows[i][2])] = parseAttendanceRow(rows[i]);
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT student_id, attendance, note, excuse FROM ' + table('attendance_records') +
+        ' WHERE class_id = $1 AND record_date = $2::date',
+      [classId, dateStr]
+    );
+    r.rows.forEach((row) => {
+      existing[String(row.student_id)] = {
+        attendance: String(row.attendance || ''),
+        note: normalizeNote(row.note),
+        excuse: String(row.excuse || '').trim()
+      };
+    });
+  } else {
+    await ensureAttendanceColumns();
+    const rows = await getSheetRows(ATTENDANCE_SHEET);
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][1]) !== classId) continue;
+      if (formatSheetDate(rows[i][0]) !== dateStr) continue;
+      existing[String(rows[i][2])] = parseAttendanceRow(rows[i]);
+    }
   }
 
   const plannedMap = schedule.scheduledDay
@@ -130,7 +146,6 @@ async function getClassWorkData(classId, dateStr) {
 }
 
 async function upsertStudentRecord(classId, studentId, dateStr, attendance, note, excuse) {
-  await ensureAttendanceColumns();
   classId = String(classId);
   studentId = String(studentId);
   dateStr = String(dateStr);
@@ -148,21 +163,32 @@ async function upsertStudentRecord(classId, studentId, dateStr, attendance, note
     throw new Error(label + ' — no class. Attendance cannot be recorded (unless Admin marks it as a school day).');
   }
 
-  const data = await getSheetRows(ATTENDANCE_SHEET);
-  let foundRow = -1;
-  for (let i = 1; i < data.length; i++) {
-    if (formatSheetDate(data[i][0]) !== dateStr) continue;
-    if (String(data[i][1]) !== classId) continue;
-    if (String(data[i][2]) !== studentId) continue;
-    foundRow = i + 1;
-    break;
-  }
-
-  const values = [[attendance, note, excuse]];
-  if (foundRow !== -1) {
-    await updateRange(ATTENDANCE_SHEET, `D${foundRow}:F${foundRow}`, values);
+  if (isOpsDbEnabled()) {
+    await query(
+      'INSERT INTO ' + table('attendance_records') +
+        ' (record_date, class_id, student_id, attendance, note, excuse, updated_at)' +
+        ' VALUES ($1::date, $2, $3, $4, $5, $6, now())' +
+        ' ON CONFLICT (record_date, class_id, student_id) DO UPDATE SET' +
+        ' attendance = EXCLUDED.attendance, note = EXCLUDED.note, excuse = EXCLUDED.excuse, updated_at = now()',
+      [dateStr, classId, studentId, attendance, note, excuse]
+    );
   } else {
-    await appendRows(ATTENDANCE_SHEET, [[dateStr, classId, studentId, attendance, note, excuse]]);
+    await ensureAttendanceColumns();
+    const data = await getSheetRows(ATTENDANCE_SHEET, { skipCache: true });
+    let foundRow = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (formatSheetDate(data[i][0]) !== dateStr) continue;
+      if (String(data[i][1]) !== classId) continue;
+      if (String(data[i][2]) !== studentId) continue;
+      foundRow = i + 1;
+      break;
+    }
+    const values = [[attendance, note, excuse]];
+    if (foundRow !== -1) {
+      await updateRange(ATTENDANCE_SHEET, `D${foundRow}:F${foundRow}`, values);
+    } else {
+      await appendRows(ATTENDANCE_SHEET, [[dateStr, classId, studentId, attendance, note, excuse]]);
+    }
   }
 
   return {
@@ -244,19 +270,35 @@ async function getStudentYearAttendance(classId, studentId, startDate, endDate) 
     }
   }
 
-  const [entries, krHolidayMap, attendRows] = await Promise.all([
+  const [entries, krHolidayMap] = await Promise.all([
     listEntries({ from, to, classId, includeInactive: false }),
-    getHolidaysForRange(from, to),
-    getSheetRows(ATTENDANCE_SHEET)
+    getHolidaysForRange(from, to)
   ]);
 
   const recordByDate = {};
-  for (let i = 1; i < attendRows.length; i++) {
-    if (String(attendRows[i][1]) !== classId) continue;
-    if (String(attendRows[i][2]) !== studentId) continue;
-    const ds = formatSheetDate(attendRows[i][0]);
-    if (ds < from || ds > to) continue;
-    recordByDate[ds] = parseAttendanceRow(attendRows[i]);
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT record_date, attendance, note, excuse FROM ' + table('attendance_records') +
+        ' WHERE class_id = $1 AND student_id = $2 AND record_date >= $3::date AND record_date <= $4::date',
+      [classId, studentId, from, to]
+    );
+    r.rows.forEach((row) => {
+      const ds = formatSheetDate(row.record_date);
+      recordByDate[ds] = {
+        attendance: String(row.attendance || ''),
+        note: normalizeNote(row.note),
+        excuse: String(row.excuse || '').trim()
+      };
+    });
+  } else {
+    const attendRows = await getSheetRows(ATTENDANCE_SHEET);
+    for (let i = 1; i < attendRows.length; i++) {
+      if (String(attendRows[i][1]) !== classId) continue;
+      if (String(attendRows[i][2]) !== studentId) continue;
+      const ds = formatSheetDate(attendRows[i][0]);
+      if (ds < from || ds > to) continue;
+      recordByDate[ds] = parseAttendanceRow(attendRows[i]);
+    }
   }
 
   const summary = {

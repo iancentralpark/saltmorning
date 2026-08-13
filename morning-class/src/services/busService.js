@@ -15,6 +15,7 @@ const {
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { formatSheetDate, todayStr, formatDateTimeNow } = require('../dateUtils');
 const { TIMEZONE } = require('../config');
+const { isOpsDbEnabled, table, query } = require('../db/pool');
 
 const BUS_HEADERS = [
   'BusID', 'Name', 'DriverName', 'DriverPhone', 'VehiclePlate', 'VehicleInfo',
@@ -382,8 +383,26 @@ async function saveDuty(payload) {
 }
 
 async function listDutyDailyForDate(dateStr) {
-  await ensureBusSheets();
   dateStr = formatSheetDate(dateStr);
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT id, duty_date, run_id, teacher_id, active, updated_at, actor_role, actor_id FROM ' +
+        table('bus_duty_daily') +
+        ' WHERE duty_date = $1::date AND active = TRUE AND teacher_id <> \'\'',
+      [dateStr]
+    );
+    return r.rows.map((row) => ({
+      dutyDailyId: String(row.id),
+      dateStr,
+      runId: String(row.run_id),
+      teacherId: String(row.teacher_id),
+      active: true,
+      updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : '',
+      actorRole: String(row.actor_role || ''),
+      actorId: String(row.actor_id || '')
+    }));
+  }
+  await ensureBusSheets();
   const rows = await getSheetRows(BUS_DUTY_DAILY_SHEET);
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -400,16 +419,45 @@ async function listDutyDailyForDate(dateStr) {
  * Empty teacherId clears the daily override and falls back to semester duty.
  */
 async function saveDutyDaily(payload, actor) {
-  await ensureBusSheets();
   const dateStr = formatSheetDate(payload.dateStr || payload.date || todayStr());
   const runId = String(payload.runId || '').trim();
   const teacherId = String(payload.teacherId || '').trim();
   if (!runId) throw new Error('Run is required.');
 
+  if (isOpsDbEnabled()) {
+    if (!teacherId) {
+      await query(
+        'UPDATE ' + table('bus_duty_daily') +
+          ' SET active = FALSE, teacher_id = \'\', updated_at = now() WHERE duty_date = $1::date AND run_id = $2',
+        [dateStr, runId]
+      );
+      await appendChangeLog({
+        dateStr, runId, studentId: '', action: 'duty_daily_clear',
+        detail: 'Cleared same-day duty substitute',
+        actorRole: actor && actor.role, actorId: actor && actor.id
+      });
+      return { dateStr, runId, teacherId: '', cleared: true };
+    }
+    await query(
+      'INSERT INTO ' + table('bus_duty_daily') +
+        ' (duty_date, run_id, teacher_id, active, actor_role, actor_id, updated_at)' +
+        ' VALUES ($1::date, $2, $3, TRUE, $4, $5, now())' +
+        ' ON CONFLICT (duty_date, run_id) DO UPDATE SET' +
+        ' teacher_id = EXCLUDED.teacher_id, active = TRUE,' +
+        ' actor_role = EXCLUDED.actor_role, actor_id = EXCLUDED.actor_id, updated_at = now()',
+      [dateStr, runId, teacherId, actor && actor.role || '', actor && actor.id || '']
+    );
+    await appendChangeLog({
+      dateStr, runId, studentId: '', action: 'duty_daily',
+      detail: 'Same-day duty → ' + teacherId,
+      actorRole: actor && actor.role, actorId: actor && actor.id
+    });
+    return { dateStr, runId, teacherId, cleared: false };
+  }
+
+  await ensureBusSheets();
   const now = formatDateTimeNow(TIMEZONE);
   const rows = await getSheetRows(BUS_DUTY_DAILY_SHEET, { skipCache: true });
-
-  // Deactivate existing daily rows for this date+run
   for (let i = 1; i < rows.length; i++) {
     if (formatSheetDate(rows[i][1]) !== dateStr) continue;
     if (String(rows[i][2]) !== runId) continue;
@@ -420,57 +468,51 @@ async function saveDutyDaily(payload, actor) {
     old[5] = now;
     await updateRange(BUS_DUTY_DAILY_SHEET, `A${i + 1}:H${i + 1}`, [old]);
   }
-
   if (!teacherId) {
     invalidateSheetRowsCache(BUS_DUTY_DAILY_SHEET);
     await appendChangeLog({
-      dateStr,
-      runId,
-      studentId: '',
-      action: 'duty_daily_clear',
+      dateStr, runId, studentId: '', action: 'duty_daily_clear',
       detail: 'Cleared same-day duty substitute',
-      actorRole: actor && actor.role,
-      actorId: actor && actor.id
+      actorRole: actor && actor.role, actorId: actor && actor.id
     });
     return { dateStr, runId, teacherId: '', cleared: true };
   }
-
   const row = [
-    newId('dduty'),
-    dateStr,
-    runId,
-    teacherId,
-    'TRUE',
-    now,
-    actor && actor.role || '',
-    actor && actor.id || ''
+    newId('dduty'), dateStr, runId, teacherId, 'TRUE', now,
+    actor && actor.role || '', actor && actor.id || ''
   ];
   await appendRows(BUS_DUTY_DAILY_SHEET, [row]);
   invalidateSheetRowsCache(BUS_DUTY_DAILY_SHEET);
   await appendChangeLog({
-    dateStr,
-    runId,
-    studentId: '',
-    action: 'duty_daily',
+    dateStr, runId, studentId: '', action: 'duty_daily',
     detail: 'Same-day duty → ' + teacherId,
-    actorRole: actor && actor.role,
-    actorId: actor && actor.id
+    actorRole: actor && actor.role, actorId: actor && actor.id
   });
   return parseDutyDaily(row, null);
 }
 
 async function appendChangeLog({ dateStr, runId, studentId, action, detail, actorRole, actorId }) {
+  const logId = newId('blog');
+  const createdAt = formatDateTimeNow(TIMEZONE);
+  const d = formatSheetDate(dateStr);
+  if (isOpsDbEnabled()) {
+    await query(
+      'INSERT INTO ' + table('bus_change_log') +
+        ' (log_id, log_date, run_id, student_id, action, detail, actor_role, actor_id, created_at)' +
+        ' VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9::timestamptz)',
+      [
+        logId, d, String(runId || ''), String(studentId || ''),
+        String(action || ''), String(detail || ''),
+        String(actorRole || ''), String(actorId || ''), createdAt
+      ]
+    );
+    return [logId, d, runId, studentId, action, detail, actorRole, actorId, createdAt];
+  }
   await ensureBusSheets();
   const row = [
-    newId('blog'),
-    formatSheetDate(dateStr),
-    String(runId || ''),
-    String(studentId || ''),
-    String(action || ''),
-    String(detail || ''),
-    String(actorRole || ''),
-    String(actorId || ''),
-    formatDateTimeNow(TIMEZONE)
+    logId, d, String(runId || ''), String(studentId || ''),
+    String(action || ''), String(detail || ''),
+    String(actorRole || ''), String(actorId || ''), createdAt
   ];
   await appendRows(BUS_CHANGE_LOG_SHEET, [row]);
   return row;
@@ -566,7 +608,6 @@ async function listOverridesForDate(dateStr) {
 }
 
 async function reportNoShow(payload, actor) {
-  await ensureBusSheets();
   const dateStr = formatSheetDate(payload.dateStr || payload.date || todayStr());
   const runId = String(payload.runId || '').trim();
   const studentId = String(payload.studentId || '').trim();
@@ -585,17 +626,23 @@ async function reportNoShow(payload, actor) {
   if (existing) return existing;
 
   const note = String(payload.note || '').trim();
-  const row = [
-    newId('bns'),
-    dateStr,
-    runId,
-    studentId,
-    note,
-    actor && actor.id || '',
-    formatDateTimeNow(TIMEZONE)
-  ];
-  await appendRows(BUS_NOSHOWS_SHEET, [row]);
-  invalidateSheetRowsCache(BUS_NOSHOWS_SHEET);
+  const noShowId = newId('bns');
+  const createdAt = formatDateTimeNow(TIMEZONE);
+
+  if (isOpsDbEnabled()) {
+    await query(
+      'INSERT INTO ' + table('bus_noshows') +
+        ' (noshow_id, noshow_date, run_id, student_id, note, reported_by, created_at)' +
+        ' VALUES ($1, $2::date, $3, $4, $5, $6, $7::timestamptz)',
+      [noShowId, dateStr, runId, studentId, note, actor && actor.id || '', createdAt]
+    );
+  } else {
+    await ensureBusSheets();
+    await appendRows(BUS_NOSHOWS_SHEET, [[
+      noShowId, dateStr, runId, studentId, note, actor && actor.id || '', createdAt
+    ]]);
+    invalidateSheetRowsCache(BUS_NOSHOWS_SHEET);
+  }
   await appendChangeLog({
     dateStr,
     runId,
@@ -605,28 +652,38 @@ async function reportNoShow(payload, actor) {
     actorRole: actor && actor.role,
     actorId: actor && actor.id
   });
-  return { noShowId: row[0], dateStr, runId, studentId, note };
+  return { noShowId, dateStr, runId, studentId, note };
 }
 
 async function cancelNoShow(payload, actor) {
-  await ensureBusSheets();
   const dateStr = formatSheetDate(payload.dateStr || payload.date || todayStr());
   const runId = String(payload.runId || '').trim();
   const studentId = String(payload.studentId || '').trim();
   if (!runId || !studentId) throw new Error('Run and student are required.');
 
-  const rows = await getSheetRows(BUS_NOSHOWS_SHEET, { skipCache: true });
   let cleared = 0;
-  for (let i = 1; i < rows.length; i++) {
-    if (formatSheetDate(rows[i][1]) !== dateStr) continue;
-    if (String(rows[i][2]) !== runId) continue;
-    if (String(rows[i][3]) !== studentId) continue;
-    if (!rows[i][0]) continue;
-    await updateRange(BUS_NOSHOWS_SHEET, `A${i + 1}:G${i + 1}`, [new Array(7).fill('')]);
-    cleared += 1;
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'UPDATE ' + table('bus_noshows') +
+        ' SET cancelled_at = now() WHERE noshow_date = $1::date AND run_id = $2 AND student_id = $3' +
+        ' AND cancelled_at IS NULL',
+      [dateStr, runId, studentId]
+    );
+    cleared = r.rowCount || 0;
+  } else {
+    await ensureBusSheets();
+    const rows = await getSheetRows(BUS_NOSHOWS_SHEET, { skipCache: true });
+    for (let i = 1; i < rows.length; i++) {
+      if (formatSheetDate(rows[i][1]) !== dateStr) continue;
+      if (String(rows[i][2]) !== runId) continue;
+      if (String(rows[i][3]) !== studentId) continue;
+      if (!rows[i][0]) continue;
+      await updateRange(BUS_NOSHOWS_SHEET, `A${i + 1}:G${i + 1}`, [new Array(7).fill('')]);
+      cleared += 1;
+    }
+    invalidateSheetRowsCache(BUS_NOSHOWS_SHEET);
   }
   if (!cleared) throw new Error('No-show record not found.');
-  invalidateSheetRowsCache(BUS_NOSHOWS_SHEET);
   await appendChangeLog({
     dateStr,
     runId,
@@ -640,8 +697,25 @@ async function cancelNoShow(payload, actor) {
 }
 
 async function listNoShowsForDate(dateStr) {
-  await ensureBusSheets();
   dateStr = formatSheetDate(dateStr);
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT noshow_id, noshow_date, run_id, student_id, note, reported_by, created_at FROM ' +
+        table('bus_noshows') +
+        ' WHERE noshow_date = $1::date AND cancelled_at IS NULL',
+      [dateStr]
+    );
+    return r.rows.map((row) => ({
+      noShowId: String(row.noshow_id),
+      dateStr,
+      runId: String(row.run_id),
+      studentId: String(row.student_id),
+      note: String(row.note || ''),
+      reportedBy: String(row.reported_by || ''),
+      createdAt: row.created_at ? new Date(row.created_at).toISOString() : ''
+    }));
+  }
+  await ensureBusSheets();
   const rows = await getSheetRows(BUS_NOSHOWS_SHEET);
   const out = [];
   for (let i = 1; i < rows.length; i++) {

@@ -11,6 +11,8 @@
     "solver:install": "pip3 install -r solver/requirements.txt",
     "vocab:sync": "bash scripts/sync-vocab-core.sh",
     "vocab:backfill-sheets": "node scripts/backfill-vocab-sheets-to-supabase.js",
+    "ops:backfill": "node scripts/backfill-sheets-to-ops-db.js",
+    "ops:backfill:apply": "node scripts/backfill-sheets-to-ops-db.js --apply",
     "init-sheets": "node scripts/init-spreadsheet.js",
     "check-setup": "node scripts/check-setup.js"
   },
@@ -24,6 +26,8 @@
     "express": "^4.21.2",
     "googleapis": "^144.0.0",
     "multer": "^1.4.5-lts.1",
-    "socket.io": "^4.8.1"
+    "pg": "^8.23.0",
+    "socket.io": "^4.8.1",
+    "web-push": "^3.6.7"
   }
 }

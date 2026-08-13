@@ -117,6 +117,18 @@
         <p class="ok" id="ppBusOk"></p>
         <p class="error" id="ppBusError"></p>
       </form>
+      <section class="pp-push-card" style="margin:1rem 0;padding:0.75rem 0;border-top:1px solid var(--border-soft)">
+        <h4 style="margin:0 0 0.35rem" data-i18n="parent.push.title">Phone notifications</h4>
+        <p class="muted small" data-i18n="parent.push.help">
+          Add this site to your home screen, then enable notifications to get messenger alerts even when the app is closed.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+          <button type="button" class="btn btn-primary" id="ppPushEnableBtn" data-i18n="parent.push.enable">Enable notifications</button>
+          <button type="button" class="btn btn-ghost" id="ppPushDisableBtn" data-i18n="parent.push.disable">Turn off</button>
+          <span class="muted small" id="ppPushStatus"></span>
+        </div>
+      </section>
+
       <section class="pp-bus-upcoming">
         <h4 data-i18n="parent.bus.upcoming">Upcoming notices</h4>
         <div id="ppBusUpcoming"><p class="muted small" data-i18n="parent.bus.upcomingEmpty">None scheduled.</p></div>
@@ -206,7 +218,8 @@
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/messenger.js?v=20260811kakaotabs"></script>
-<script src="/js/parent.js?v=20260812bus2"></script>
+<script src="/js/parent-push.js?v=20260813ops1"></script>
+<script src="/js/parent.js?v=20260813ops1"></script>
 <script>
 (function() {
   const role = 'parent';

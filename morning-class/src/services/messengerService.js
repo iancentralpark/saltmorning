@@ -9,6 +9,32 @@ const {
 const { getSheetRows, appendRows, updateRange, batchUpdateRanges } = require('../sheets');
 const { getTeacherClasses } = require('./teacherPortalService');
 const { getClassRoster } = require('./teacherPortalService');
+const { isOpsDbEnabled, table, query } = require('../db/pool');
+
+function dbMsgToMessage(row) {
+  if (!row || row.deleted_at) return null;
+  const msg = {
+    messageId: String(row.message_id),
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : '',
+    threadId: String(row.thread_id || ''),
+    threadType: String(row.thread_type || 'student'),
+    classId: String(row.class_id || ''),
+    studentId: String(row.student_id || ''),
+    studentName: String(row.student_name || ''),
+    senderRole: String(row.sender_role || ''),
+    senderId: String(row.sender_id || ''),
+    senderName: String(row.sender_name || ''),
+    body: String(row.body || ''),
+    targetAudience: String(row.target_audience || ''),
+    readAt: row.read_at ? new Date(row.read_at).toISOString() : '',
+    sender: String(row.sender_role || '')
+  };
+  if (!msg.targetAudience) {
+    msg.targetAudience = targetAudienceFor(msg.senderRole, msg.threadType);
+  }
+  msg.read = !!msg.readAt;
+  return msg;
+}
 
 const MAX_BODY = 500;
 const COL = {
@@ -167,6 +193,13 @@ async function ensureMessageSchema() {
 }
 
 async function loadAllMessages() {
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT * FROM ' + table('messenger_messages') +
+        ' WHERE deleted_at IS NULL ORDER BY created_at ASC'
+    );
+    return r.rows.map(dbMsgToMessage).filter(Boolean);
+  }
   await ensureMessageSchema();
   const data = await getSheetRows(MESSAGES_SHEET);
   const out = [];
@@ -208,7 +241,6 @@ async function teacherCanAccessStudent(teacherId, studentId, classId) {
 }
 
 async function appendMessage(payload) {
-  await ensureMessageSchema();
   const body = String(payload.body || '').trim();
   if (!body) throw new Error('Message cannot be empty.');
   if (body.length > MAX_BODY) throw new Error('Message is too long.');
@@ -218,12 +250,58 @@ async function appendMessage(payload) {
     (threadType === 'admin' ? adminThreadId(payload.senderId) : studentThreadId(payload.studentId));
   const senderRole = payload.senderRole || payload.sender || 'student';
   const targetAudience = payload.targetAudience || targetAudienceFor(senderRole, threadType);
+  const messageId = newMessageId();
+  const createdAt = isoNow();
 
+  if (isOpsDbEnabled()) {
+    await query(
+      'INSERT INTO ' + table('messenger_messages') +
+        ' (message_id, created_at, thread_id, thread_type, class_id, student_id, student_name,' +
+        ' sender_role, sender_id, sender_name, body, target_audience)' +
+        ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [
+        messageId, createdAt, threadId, threadType,
+        String(payload.classId || ''),
+        String(payload.studentId || ''),
+        String(payload.studentName || ''),
+        senderRole,
+        String(payload.senderId || ''),
+        String(payload.senderName || ''),
+        body,
+        targetAudience
+      ]
+    );
+    const msg = dbMsgToMessage({
+      message_id: messageId,
+      created_at: createdAt,
+      thread_id: threadId,
+      thread_type: threadType,
+      class_id: payload.classId || '',
+      student_id: payload.studentId || '',
+      student_name: payload.studentName || '',
+      sender_role: senderRole,
+      sender_id: payload.senderId || '',
+      sender_name: payload.senderName || '',
+      body,
+      target_audience: targetAudience,
+      read_at: null,
+      deleted_at: null
+    });
+    // Best-effort web push for parent recipients
+    if (targetAudience === 'family') {
+      try {
+        const { notifyParentsNewMessage } = require('./pushService');
+        notifyParentsNewMessage(msg).catch((e) =>
+          console.warn('[messenger] push failed:', e.message)
+        );
+      } catch (_) { /* push module optional at boot */ }
+    }
+    return msg;
+  }
+
+  await ensureMessageSchema();
   const row = [
-    newMessageId(),
-    isoNow(),
-    threadId,
-    threadType,
+    messageId, createdAt, threadId, threadType,
     String(payload.classId || ''),
     String(payload.studentId || ''),
     String(payload.studentName || ''),
@@ -242,6 +320,15 @@ async function appendMessage(payload) {
 async function markThreadRead(threadId, role) {
   const aud = audienceForRole(role);
   if (!aud) return 0;
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'UPDATE ' + table('messenger_messages') +
+        ' SET read_at = now() WHERE thread_id = $1 AND target_audience = $2' +
+        ' AND read_at IS NULL AND deleted_at IS NULL',
+      [String(threadId), aud]
+    );
+    return r.rowCount || 0;
+  }
   const data = await getSheetRows(MESSAGES_SHEET);
   const now = isoNow();
   const updates = [];

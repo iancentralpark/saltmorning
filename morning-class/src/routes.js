@@ -315,6 +315,7 @@ async function assertHomeroomOfClass(teacherId, classId) {
 router.get('/health', async (req, res) => {
   let vocab = null;
   let engine = null;
+  let opsDb = null;
   try {
     vocab = await getVocabEngineInfo();
   } catch (e) {
@@ -325,13 +326,55 @@ router.get('/health', async (req, res) => {
   } catch (e) {
     engine = { ok: false, error: e.message || String(e) };
   }
+  try {
+    opsDb = await require('./db/pool').healthCheck();
+  } catch (e) {
+    opsDb = { ok: false, reason: e.message || String(e) };
+  }
+  const push = require('./services/pushService');
   res.json({
     ok: true,
     service: 'salt-morning-class',
     gemini: isGeminiConfigured(),
     vocab,
-    vocabEngine: engine
+    vocabEngine: engine,
+    opsDb,
+    webPush: { enabled: push.isPushEnabled() },
+    isolation: 'Salt Morning ops DB is separate from Mr.Park Supabase tables'
   });
+});
+
+router.get('/parent/push/public-key', requireRole('parent'), async (req, res) => {
+  try {
+    const push = require('./services/pushService');
+    res.json({
+      enabled: push.isPushEnabled(),
+      publicKey: push.getPublicKey()
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Push unavailable.' });
+  }
+});
+
+router.post('/parent/push/subscribe', requireRole('parent'), async (req, res) => {
+  try {
+    const push = require('./services/pushService');
+    const parentId = req.session.parentId;
+    await push.saveSubscription(parentId, req.body && req.body.subscription, req.headers['user-agent']);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save subscription.' });
+  }
+});
+
+router.post('/parent/push/unsubscribe', requireRole('parent'), async (req, res) => {
+  try {
+    const push = require('./services/pushService');
+    await push.removeSubscription(req.session.parentId, req.body && req.body.endpoint);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not remove subscription.' });
+  }
 });
 
 router.get('/admin/vocab/engine', requireRole('admin'), async (req, res) => {
