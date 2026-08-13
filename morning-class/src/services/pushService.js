@@ -42,7 +42,7 @@ function getPublicKey() {
 
 function normalizeRole(role) {
   const r = String(role || '').toLowerCase();
-  if (r === 'principal') return 'admin';
+  if (r === 'principal' || r === 'staff') return 'admin';
   if (r === 'student' || r === 'parent' || r === 'teacher' || r === 'admin') return r;
   return '';
 }

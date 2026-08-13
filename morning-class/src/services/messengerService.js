@@ -131,19 +131,33 @@ function rowToMessage(row) {
   return msg;
 }
 
+function isAdminPortalRole(role) {
+  return role === 'admin' || role === 'principal' || role === 'staff';
+}
+
 function audienceForRole(role) {
   if (role === 'student' || role === 'parent') return 'family';
   if (role === 'teacher') return 'teacher';
-  if (role === 'admin') return 'admin';
+  if (isAdminPortalRole(role)) return 'admin';
   return '';
 }
 
 function isIncomingForRole(msg, role) {
   const aud = audienceForRole(role);
   if (!aud) return false;
+  const senderAud = audienceForRole(msg.senderRole);
+  if (senderAud && senderAud === aud && isAdminPortalRole(role) && isAdminPortalRole(msg.senderRole)) {
+    return false;
+  }
   if (msg.senderRole === role) return false;
   if (msg.readAt) return false;
   return msg.targetAudience === aud;
+}
+
+function adminActorId(session) {
+  return String(
+    (session && (session.adminId || session.principalId || session.staffId || session.teacherId)) || ''
+  );
 }
 
 let messageSchemaReady = false;
@@ -497,7 +511,7 @@ async function listThreadsForSession(session) {
       if (b.unread !== a.unread) return b.unread - a.unread;
       return String(b.lastAt).localeCompare(String(a.lastAt));
     });
-  } else if (role === 'admin') {
+  } else if (isAdminPortalRole(role)) {
     const studentThreads = new Map();
     all.forEach((m) => {
       if (m.threadType !== 'student' || !m.studentId) return;
@@ -632,7 +646,7 @@ async function assertThreadAccess(threadId, session) {
     }
     throw new Error('Access denied.');
   }
-  if (role === 'admin') return;
+  if (isAdminPortalRole(role)) return;
   throw new Error('Access denied.');
 }
 
@@ -646,8 +660,8 @@ async function sendThreadMessage(threadId, session, body) {
     return appendMessage({
       threadId,
       threadType: 'admin',
-      senderRole: role === 'admin' ? 'admin' : 'teacher',
-      senderId: role === 'admin' ? session.adminId : session.teacherId,
+      senderRole: isAdminPortalRole(role) ? 'admin' : 'teacher',
+      senderId: isAdminPortalRole(role) ? adminActorId(session) : session.teacherId,
       senderName: session.name,
       body
     });
@@ -662,7 +676,7 @@ async function sendThreadMessage(threadId, session, body) {
       studentId = session.studentId || '';
       classId = session.classId || '';
       studentName = await lookupStudentName(studentId);
-    } else if (role === 'admin') {
+    } else if (isAdminPortalRole(role)) {
       try {
         const {
           listChildrenForParent,
@@ -705,8 +719,8 @@ async function sendThreadMessage(threadId, session, body) {
       classId,
       studentId,
       studentName,
-      senderRole: role === 'admin' ? 'admin' : 'parent',
-      senderId: role === 'admin' ? session.adminId : session.parentId,
+      senderRole: isAdminPortalRole(role) ? 'admin' : 'parent',
+      senderId: isAdminPortalRole(role) ? adminActorId(session) : session.parentId,
       senderName: role === 'parent' ? ((session.name || 'Parent') + ' (parent)') : session.name,
       body
     });
@@ -721,7 +735,7 @@ async function sendThreadMessage(threadId, session, body) {
 
   if (role === 'parent') {
     studentName = await lookupStudentName(studentId);
-  } else if (role === 'teacher' || role === 'admin') {
+  } else if (role === 'teacher' || isAdminPortalRole(role)) {
     const all = await loadAllMessages();
     const sample = all.find((m) => m.threadId === threadId);
     if (sample) {

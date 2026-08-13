@@ -12,8 +12,12 @@
   let role = 'admin';
   let subjects = [];
 
+  function isAdminLike() {
+    return role === 'admin' || role === 'principal' || role === 'staff';
+  }
+
   function apiPath(ownerType, ownerId) {
-    if (role === 'admin') {
+    if (isAdminLike()) {
       const segment = ownerType === 'class'
         ? 'classes'
         : (ownerType === 'student'
@@ -332,7 +336,7 @@
         const data = await api(
           '/api/admin/timetable/teacher-busy?excludeClassId=' + encodeURIComponent(classId),
           {},
-          'admin'
+          role
         );
         busyMap = data.busy || {};
       } catch (e) {
@@ -548,7 +552,7 @@
             const data = await api(apiPath('class', classId), {
               method: 'POST',
               body: { entries }
-            }, 'admin');
+            }, role);
             entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
             lessonPeriods = data.timetable.lessonPeriods || lessonPeriods;
             bellSchedule = data.timetable.bellSchedule || bellSchedule;
@@ -612,7 +616,7 @@
             const data = await api('/api/admin/timetable/generate', {
               method: 'POST',
               body: { classId }
-            }, 'admin');
+            }, role);
             entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
             lessonPeriods = data.timetable.lessonPeriods || lessonPeriods;
             dirty = false;
@@ -640,8 +644,8 @@
 
     async function reload() {
       const [tt, reqData] = await Promise.all([
-        api(apiPath('class', classId), {}, 'admin'),
-        api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, 'admin')
+        api(apiPath('class', classId), {}, role),
+        api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, role)
       ]);
       entries = (tt.timetable.entries || []).filter((e) => !e.isBreak);
       lessonPeriods = tt.timetable.lessonPeriods || [];
@@ -667,7 +671,7 @@
   async function renderMatrix(mountEl, classes) {
     mountEl.innerHTML = '<p class="muted">Loading matrix…</p>';
     try {
-      const data = await api('/api/admin/timetable/matrix', {}, 'admin');
+      const data = await api('/api/admin/timetable/matrix', {}, role);
       const periods = data.lessonPeriods || [];
       const byClass = data.byClass || {};
       const classList = (classes || []).filter((c) => byClass[c.classId]);
@@ -733,7 +737,7 @@
     const ownerType = opts.ownerType;
     const ownerId = opts.ownerId;
     const ownerName = opts.ownerName || '';
-    const readonly = Boolean(opts.readonly || role !== 'admin');
+    const readonly = Boolean(opts.readonly || !isAdminLike());
     const classId = opts.classId || '';
     let lessonPeriods = (opts.timetable && opts.timetable.lessonPeriods) || [];
     let bellSchedule = (opts.timetable && opts.timetable.bellSchedule) || [];
@@ -978,8 +982,8 @@
       if (view === 'class') {
         const cls = classes.find((c) => c.classId === selectedId);
         const [tt, reqData] = await Promise.all([
-          api(apiPath('class', selectedId), {}, 'admin'),
-          api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(selectedId), {}, 'admin')
+          api(apiPath('class', selectedId), {}, role),
+          api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(selectedId), {}, role)
         ]);
         boardHandle = renderClassBoard(editorMount, {
           classId: selectedId,
@@ -993,7 +997,7 @@
 
       if (view === 'teacher') {
         const t = teachers.find((x) => x.teacherId === selectedId);
-        const data = await api(apiPath('teacher', selectedId), {}, 'admin');
+        const data = await api(apiPath('teacher', selectedId), {}, role);
         boardHandle = renderEditor(editorMount, {
           ownerType: 'teacher',
           ownerId: selectedId,
@@ -1005,7 +1009,7 @@
       }
 
       const s = students.find((x) => x.studentId === selectedId);
-      const data = await api(apiPath('student', selectedId), {}, 'admin');
+      const data = await api(apiPath('student', selectedId), {}, role);
       boardHandle = renderEditor(editorMount, {
         ownerType: 'student',
         ownerId: selectedId,
@@ -1085,7 +1089,7 @@
 
   async function loadSubjects() {
     try {
-      const data = await api('/api/admin/timetable/subjects', {}, role === 'admin' ? 'admin' : role);
+      const data = await api('/api/admin/timetable/subjects', {}, role);
       subjects = data.subjects || [];
     } catch (e) {
       subjects = ['English', 'Math', 'Science', 'Reading', 'Writing', 'Grammar'];

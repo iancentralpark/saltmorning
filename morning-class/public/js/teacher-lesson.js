@@ -54,7 +54,7 @@ window.SaltLesson = (function() {
       if (semesterSaveTimer) flushSemesterSave();
     });
     document.addEventListener('click', (e) => {
-      if (readOnly || (deps.role && deps.role === 'admin')) return;
+      if (readOnly || (deps.role && (deps.role === 'admin' || deps.role === 'principal' || deps.role === 'staff'))) return;
       const card = e.target.closest('.lp-slot-card');
       if (!card || !card.closest('#lpCalendarMount')) return;
       e.preventDefault();
@@ -79,7 +79,7 @@ window.SaltLesson = (function() {
     month += delta;
     if (month < 1) { month = 12; year--; }
     if (month > 12) { month = 1; year++; }
-    if (deps.role === 'admin' || readOnly) loadAdminCalendar();
+    if ((deps.role === 'admin' || deps.role === 'principal' || deps.role === 'staff') || readOnly) loadAdminCalendar();
     else loadCalendar();
   }
 
@@ -87,7 +87,7 @@ window.SaltLesson = (function() {
     const now = new Date();
     year = now.getFullYear();
     month = now.getMonth() + 1;
-    if (deps.role === 'admin' || readOnly) loadAdminCalendar();
+    if ((deps.role === 'admin' || deps.role === 'principal' || deps.role === 'staff') || readOnly) loadAdminCalendar();
     else loadCalendar();
   }
 
@@ -148,7 +148,7 @@ window.SaltLesson = (function() {
   }
 
   async function loadSubjectGroups() {
-    if (deps.role === 'admin') return;
+    if ((deps.role === 'admin' || deps.role === 'principal' || deps.role === 'staff')) return;
     try {
       subjectGroups = await api('/api/teacher/class-subjects');
       renderSubjectsPanels();
@@ -478,7 +478,7 @@ window.SaltLesson = (function() {
   let semesterState = { classId: '', subject: '', termLabel: '', plan: null };
 
   function renderSemesterPanels() {
-    if (deps.role === 'admin') return;
+    if ((deps.role === 'admin' || deps.role === 'principal' || deps.role === 'staff')) return;
     if (globalMode) {
       renderSemesterPanel('lpSemesterGlobal', null);
       const classPanel = $('lpSemesterClass');
@@ -807,7 +807,7 @@ window.SaltLesson = (function() {
     try {
       const q = '?teacherId=' + encodeURIComponent(teacherId) +
         '&classId=' + encodeURIComponent(classId);
-      const data = await api('/api/admin/semester-plans' + q, {}, 'admin');
+      const data = await api('/api/admin/semester-plans' + q, {}, (deps.role || 'admin'));
       const plans = data.plans || [];
       if (!plans.length) {
         listEl.innerHTML = '<p class="muted small">' + escapeHtml(t('lessons.noPlans', 'No semester plans saved yet.')) + '</p>';
@@ -898,7 +898,7 @@ window.SaltLesson = (function() {
       (classId ? '&classId=' + encodeURIComponent(classId) : '');
 
     try {
-      calendar = await api('/api/admin/lesson-plans/calendar' + q, {}, 'admin');
+      calendar = await api('/api/admin/lesson-plans/calendar' + q, {}, (deps.role || 'admin'));
       renderCalendar(mount, true);
     } catch (e) {
       mount.innerHTML = '<p class="err">' + escapeHtml(e.message) + '</p>';
@@ -1280,7 +1280,7 @@ window.SaltLesson = (function() {
     if (layout) layout.classList.add('lp-drawer-open');
 
     try {
-      const data = await api('/api/admin/lesson-plans/' + encodeURIComponent(slot.plan.planId), {}, 'admin');
+      const data = await api('/api/admin/lesson-plans/' + encodeURIComponent(slot.plan.planId), {}, (deps.role || 'admin'));
       const p = data.plan;
       $('lpAdminDrawerBody').innerHTML =
         renderReadSection('Title', p.title) +

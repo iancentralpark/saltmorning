@@ -15,6 +15,9 @@
   };
 
   let role = 'admin';
+  function isAdminLike() {
+    return role === 'admin' || role === 'principal' || role === 'staff';
+  }
   let readonly = false;
   let api = null;
   let escapeHtml = null;
@@ -59,7 +62,7 @@
   }
 
   function apiBase() {
-    return role === 'admin' ? '/api/admin/students' : '/api/teacher/students';
+    return isAdminLike() ? '/api/admin/students' : '/api/teacher/students';
   }
 
   function photoUrl(path) {
@@ -136,10 +139,10 @@
     const canEdit = !readonly;
 
     const sectionKeys = Object.keys(SECTION_KEYS).filter((key) => {
-      if (key === 'parents' && role !== 'admin') return false;
+      if (key === 'parents' && !isAdminLike()) return false;
       return true;
     });
-    if (activeSection === 'parents' && role !== 'admin') activeSection = 'basic';
+    if (activeSection === 'parents' && !isAdminLike()) activeSection = 'basic';
 
     let tabs = sectionKeys.map((key) =>
       '<button type="button" class="sr-section-tab' + (activeSection === key ? ' active' : '') +
@@ -398,7 +401,7 @@
 
   async function loadLiveGrades(studentId, term) {
     const mount = mountEl && mountEl.querySelector('#srGradesLive');
-    if (!mount || role !== 'admin') return;
+    if (!mount || !isAdminLike()) return;
     mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
       const q = term ? ('?term=' + encodeURIComponent(term)) : '';
@@ -417,7 +420,7 @@
     if (!ttMount) return;
     if (!readonly) {
       api(
-        (role === 'admin' ? '/api/admin/timetable/students/' : '/api/teacher/timetable/students/') +
+        (isAdminLike() ? '/api/admin/timetable/students/' : '/api/teacher/timetable/students/') +
         encodeURIComponent(activeStudent.studentId),
         {},
         role
@@ -463,7 +466,7 @@
         '<strong>' + escapeHtml(s.name) + '</strong>' +
         '<span class="muted small">' + escapeHtml(s.className || 'Unassigned') +
         (s.gradeLevel ? ' · ' + escapeHtml(s.gradeLevel) : '') + '</span>' +
-        (role === 'admin'
+        (isAdminLike()
           ? '<span class="sr-status-chip sr-status-' + escapeHtml(String(status).toLowerCase()) + '">' +
             escapeHtml(status) + '</span>'
           : '') +
@@ -485,7 +488,7 @@
       '<aside class="sr-sidebar">' +
       '<div class="sr-toolbar">' +
       '<input type="search" class="sr-search" placeholder="Search students…">' +
-      (role === 'admin' ? (
+      (isAdminLike() ? (
         '<select class="sr-filter-class"><option value="">All classes</option></select>' +
         '<select class="sr-filter-status"><option value="Enrolled">Enrolled</option>' +
         '<option value="">All statuses</option>' +
@@ -502,7 +505,7 @@
 
     const classSelect = mountEl.querySelector('.sr-filter-class');
     if (classSelect) {
-      classSelect.innerHTML = '<option value="">' + (role === 'admin' ? 'All classes' : 'All my classes') + '</option>' +
+      classSelect.innerHTML = '<option value="">' + (isAdminLike() ? 'All classes' : 'All my classes') + '</option>' +
         classes.map((c) => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
       classSelect.value = listFilter.classId;
     }
@@ -828,7 +831,7 @@
   }
 
   async function loadLinkedParents(studentId) {
-    if (role !== 'admin' || !studentId) return;
+    if (!isAdminLike() || !studentId) return;
     try {
       const data = await api('/api/admin/students/' + encodeURIComponent(studentId) + '/parents', {}, role);
       linkedParents = Array.isArray(data.parents) ? data.parents : [];
@@ -864,7 +867,7 @@
   }
 
   async function linkParentToActiveStudent() {
-    if (!activeStudent || !activeStudent.studentId || role !== 'admin') return;
+    if (!activeStudent || !activeStudent.studentId || !isAdminLike()) return;
     const errEl = mountEl.querySelector('.sr-parent-error');
     if (errEl) errEl.textContent = '';
     const parentId = String((mountEl.querySelector('.sr-parent-id') || {}).value || '').trim();
@@ -966,7 +969,7 @@
       activeStudent = data.student;
       renderList();
       renderDetail();
-      if (role === 'admin' && activeStudent && activeStudent.studentId) {
+      if (isAdminLike() && activeStudent && activeStudent.studentId) {
         loadLinkedParents(activeStudent.studentId);
       }
     } catch (e) {
@@ -991,13 +994,13 @@
 
   function init(opts) {
     role = opts.role || 'admin';
-    readonly = role !== 'admin';
+    readonly = !isAdminLike();
     api = opts.api;
     escapeHtml = opts.escapeHtml;
     $ = opts.$;
     classes = opts.classes || [];
     mountEl = typeof opts.mount === 'string' ? document.getElementById(opts.mount) : opts.mount;
-    listFilter = { q: '', classId: '', status: role === 'admin' ? 'Enrolled' : '' };
+    listFilter = { q: '', classId: '', status: isAdminLike() ? 'Enrolled' : '' };
     students = [];
     activeId = null;
     activeStudent = null;
@@ -1026,7 +1029,7 @@
     if (mountEl && mountEl.querySelector('.sr-filter-class')) {
       const sel = mountEl.querySelector('.sr-filter-class');
       const val = sel.value;
-      sel.innerHTML = '<option value="">' + (role === 'admin' ? 'All classes' : 'All my classes') + '</option>' +
+      sel.innerHTML = '<option value="">' + (isAdminLike() ? 'All classes' : 'All my classes') + '</option>' +
         classes.map((c) => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
       sel.value = val;
     }

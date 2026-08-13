@@ -1,4 +1,8 @@
 (function (global) {
+  function isAdminPortalRole(r) {
+    return r === 'admin' || r === 'principal' || r === 'staff';
+  }
+
   const { api, escapeHtml, getToken } = global.SaltApp;
 
   let role = '';
@@ -137,14 +141,14 @@
   }
 
   function canAutoTranslateRole() {
-    return role === 'parent' || role === 'teacher' || role === 'admin';
+    return role === 'parent' || role === 'teacher' || isAdminPortalRole(role);
   }
 
   function isTranslatableMessage(m) {
     if (!m || isMine(m)) return false;
     if (!canAutoTranslateRole()) return false;
     if (role === 'parent') return m.senderRole === 'teacher' || m.senderRole === 'admin';
-    if (role === 'teacher' || role === 'admin') {
+    if (role === 'teacher' || isAdminPortalRole(role)) {
       return m.senderRole === 'parent' || m.senderRole === 'student';
     }
     return false;
@@ -155,7 +159,7 @@
   }
 
   function isAdminRole() {
-    return role === 'admin';
+    return isAdminPortalRole(role);
   }
 
   function renderFab(unread) {
@@ -458,7 +462,7 @@
       let emptyHint = 'Say hello — send your first message.';
       if (activeThread.threadType === 'admin' || activeThread.threadType === 'parent_admin') {
         emptyHint = 'Say hello — message the school office.';
-      } else if (role === 'admin') {
+      } else if (isAdminPortalRole(role)) {
         emptyHint = 'Say hello — start the conversation.';
       } else if (role === 'student' || role === 'parent') {
         emptyHint = 'Say hello — your message goes to the teacher.';

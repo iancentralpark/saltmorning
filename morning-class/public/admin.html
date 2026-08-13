@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260813mat1">
+  <link rel="stylesheet" href="/css/app.css?v=20260813fac1">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -30,19 +30,19 @@
 
     <nav class="class-subnav portal-subnav" id="adminNav" aria-label="Admin sections">
       <div class="class-subnav-track">
-        <button class="class-subnav-item active" data-tab="monitor" type="button" data-i18n="nav.monitor">Monitor</button>
-        <button class="class-subnav-item" data-tab="lessons" type="button" data-i18n="nav.lessons">Lessons</button>
-        <button class="class-subnav-item" data-tab="teachers" type="button" data-i18n="nav.teachers">Teachers</button>
-        <button class="class-subnav-item" data-tab="classes" type="button" data-i18n="nav.classes">Classes</button>
-        <button class="class-subnav-item" data-tab="students" type="button" data-i18n="nav.students">Students</button>
-        <button class="class-subnav-item" data-tab="analytics" type="button" data-i18n="nav.analytics">Analytics</button>
-        <button class="class-subnav-item" data-tab="timetables" type="button" data-i18n="nav.timetables">Timetables</button>
-        <button class="class-subnav-item" data-tab="schoolCal" type="button" data-i18n="nav.schoolCal">Calendar</button>
-        <button class="class-subnav-item" data-tab="bus" type="button" data-i18n="nav.bus">Bus</button>
-        <button class="class-subnav-item" data-tab="announcements" type="button" data-i18n="nav.announcements">News</button>
-        <button class="class-subnav-item" data-tab="reportCards" type="button" data-i18n="nav.reportCards">Reports</button>
-        <button class="class-subnav-item" data-tab="materials" type="button" data-i18n="nav.materials">Materials</button>
-        <button class="class-subnav-item" data-tab="vocabPlatform" type="button" data-i18n="nav.vocabPlatform">Vocab</button>
+        <button class="class-subnav-item active" data-tab="monitor" type="button" data-perm="admin.monitor" data-i18n="nav.monitor">Monitor</button>
+        <button class="class-subnav-item" data-tab="lessons" type="button" data-perm="admin.lessons" data-i18n="nav.lessons">Lessons</button>
+        <button class="class-subnav-item" data-tab="teachers" type="button" data-perm="admin.faculty" data-i18n="nav.teachers">Faculty</button>
+        <button class="class-subnav-item" data-tab="classes" type="button" data-perm="admin.classes" data-i18n="nav.classes">Classes</button>
+        <button class="class-subnav-item" data-tab="students" type="button" data-perm="admin.students" data-i18n="nav.students">Students</button>
+        <button class="class-subnav-item" data-tab="analytics" type="button" data-perm="admin.analytics" data-i18n="nav.analytics">Analytics</button>
+        <button class="class-subnav-item" data-tab="timetables" type="button" data-perm="admin.timetables" data-i18n="nav.timetables">Timetables</button>
+        <button class="class-subnav-item" data-tab="schoolCal" type="button" data-perm="admin.schoolCal" data-i18n="nav.schoolCal">Calendar</button>
+        <button class="class-subnav-item" data-tab="bus" type="button" data-perm="admin.bus" data-i18n="nav.bus">Bus</button>
+        <button class="class-subnav-item" data-tab="announcements" type="button" data-perm="admin.announcements" data-i18n="nav.announcements">News</button>
+        <button class="class-subnav-item" data-tab="reportCards" type="button" data-perm="admin.reportCards" data-i18n="nav.reportCards">Reports</button>
+        <button class="class-subnav-item" data-tab="materials" type="button" data-perm="admin.materials" data-i18n="nav.materials">Materials</button>
+        <button class="class-subnav-item" data-tab="vocabPlatform" type="button" data-perm="admin.vocabPlatform" data-i18n="nav.vocabPlatform">Vocab</button>
       </div>
     </nav>
 
@@ -115,10 +115,10 @@
     <div id="panelTeachers" class="card hidden">
       <div class="teacher-panel-head">
         <div>
-          <h3 style="margin:0" data-i18n="admin.teachers.title">Teachers</h3>
-          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.teachers.help">Manage accounts, profiles, and photos.</p>
+          <h3 style="margin:0" data-i18n="admin.teachers.title">Faculty</h3>
+          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.teachers.help">Manage faculty accounts, titles, portal permissions, and photos.</p>
         </div>
-        <button type="button" class="btn btn-primary" id="teacherAddBtn" data-i18n="admin.teachers.add">+ Add teacher</button>
+        <button type="button" class="btn btn-primary" id="teacherAddBtn" data-i18n="admin.teachers.add">+ Add faculty</button>
       </div>
       <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
       <div id="teacherList" class="table-wrap" style="margin:1rem 0"></div>
@@ -151,19 +151,33 @@
             <label>Login ID <input id="teacherLoginId" required></label>
             <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
             <label>Homeroom class ID <input id="teacherHomeroom" placeholder="e.g. C001"></label>
-            <label>Staff role
+            <label>Title
               <select id="teacherRole">
                 <option value="Teacher">Teacher</option>
                 <option value="Head Teacher">Head Teacher</option>
                 <option value="Principal">Principal</option>
-                <option value="Director">Director</option>
+                <option value="Vice Principal">Vice Principal</option>
+                <option value="Dean">Dean</option>
+                <option value="Chaplain">Chaplain</option>
+                <option value="Admin Staff">Admin Staff</option>
+                <option value="Librarian">Librarian</option>
+                <option value="Nurse">Nurse</option>
+                <option value="Head of Admin">Head of Admin</option>
               </select>
             </label>
             <label>Head Teacher ID
               <input id="teacherHeadId" list="headTeacherOptions" placeholder="TeacherID of their Head Teacher">
               <datalist id="headTeacherOptions"></datalist>
             </label>
-            <label>Title / position <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
+            <label>Job note <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
+            <div class="sr-span2" id="teacherPermBox">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                <strong data-i18n="admin.teachers.perms">Portal permissions</strong>
+                <button type="button" class="btn btn-ghost" id="teacherPermPresetBtn">Apply title preset</button>
+              </div>
+              <p class="muted small" style="margin:0.25rem 0 0.5rem" data-i18n="admin.teachers.permsHelp">Checked menus appear after this person signs in. Admin accounts always have everything.</p>
+              <div id="teacherPermChecks" class="faculty-perm-grid"></div>
+            </div>
             <label>Hire date <input id="teacherHireDate" type="date"></label>
             <label>Date of birth <input id="teacherDob" type="date"></label>
             <label>Gender <input id="teacherGender"></label>
@@ -531,30 +545,33 @@
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260810rcsig2"></script>
+<script src="/js/app.js?v=20260813fac1"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
-<script src="/js/i18n.js?v=20260813mat1"></script>
+<script src="/js/i18n.js?v=20260813fac1"></script>
 <script src="/js/push-client.js?v=20260813push3"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
-<script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
-<script src="/js/teacher-analytics.js?v=20260811school"></script>
-<script src="/js/messenger.js?v=20260811kakaotabs"></script>
-<script src="/js/student-registry.js?v=20260811adminux"></script>
-<script src="/js/class-registry.js?v=20260813calux4"></script>
-<script src="/js/timetable.js?v=20260813calux3"></script>
-<script src="/js/timetable-setup.js?v=20260813calux3"></script>
+<script src="/js/teacher-lesson.js?v=20260813fac1"></script>
+<script src="/js/teacher-analytics.js?v=20260813fac1"></script>
+<script src="/js/messenger.js?v=20260813fac1"></script>
+<script src="/js/student-registry.js?v=20260813fac1"></script>
+<script src="/js/class-registry.js?v=20260813fac1"></script>
+<script src="/js/timetable.js?v=20260813fac1"></script>
+<script src="/js/timetable-setup.js?v=20260813fac1"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
-<script src="/js/admin-school-calendar.js?v=20260813calux3"></script>
-<script src="/js/admin-bus.js?v=20260813calux3"></script>
-<script src="/js/material-requests.js?v=20260813mat1"></script>
+<script src="/js/admin-school-calendar.js?v=20260813fac1"></script>
+<script src="/js/admin-bus.js?v=20260813fac1"></script>
+<script src="/js/material-requests.js?v=20260813fac1"></script>
 <script>
 (function() {
-  const role = SaltApp.getToken('principal') ? 'principal' : 'admin';
-  const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+  const role = SaltApp.resolveAdminPortalRole() || 'admin';
+  const {
+    api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml,
+    hasPermission, isAdminPortalRole
+  } = SaltApp;
 
   SaltI18n.bindToggle($('langToggleBtn'));
-  SaltSchoolCalendar.init({ $, api, escapeHtml, show, hide });
+  SaltSchoolCalendar.init({ $, api, escapeHtml, show, hide, role });
   SaltAnalytics.init({ $, api, escapeHtml, role, mode: 'school' });
   SaltAdminBus.init({ $, api, escapeHtml, show, hide, role });
   if (typeof SaltMaterialRequests !== 'undefined') {
@@ -562,6 +579,8 @@
   }
   let classes = [];
   let teachers = [];
+  let facultyCatalog = null;
+  const sessionProfile = getProfile(role) || {};
   const TAB_TITLE_KEYS = {
     monitor: 'admin.page.monitor',
     lessons: 'admin.page.lessons',
@@ -577,11 +596,45 @@
     materials: 'admin.page.materials',
     vocabPlatform: 'admin.page.vocabPlatform'
   };
+  const TAB_PERM = {
+    monitor: 'admin.monitor',
+    lessons: 'admin.lessons',
+    teachers: 'admin.faculty',
+    classes: 'admin.classes',
+    students: 'admin.students',
+    analytics: 'admin.analytics',
+    timetables: 'admin.timetables',
+    schoolCal: 'admin.schoolCal',
+    bus: 'admin.bus',
+    announcements: 'admin.announcements',
+    reportCards: 'admin.reportCards',
+    materials: 'admin.materials',
+    vocabPlatform: 'admin.vocabPlatform'
+  };
+
+  function canAccessTab(tab) {
+    if (role === 'admin') return true;
+    const key = TAB_PERM[tab];
+    if (!key) return true;
+    return hasPermission(Object.assign({ role: role }, sessionProfile), key);
+  }
+
+  function filterAdminNav() {
+    const buttons = Array.from(document.querySelectorAll('#adminNav .class-subnav-item'));
+    let firstAllowed = '';
+    buttons.forEach((btn) => {
+      const tab = btn.dataset.tab;
+      const ok = canAccessTab(tab);
+      btn.classList.toggle('hidden', !ok);
+      if (ok && !firstAllowed) firstAllowed = tab;
+    });
+    return firstAllowed || 'monitor';
+  }
 
   SaltTimetable.init({ api, escapeHtml, role });
 
   SaltLesson.init({
-    $, show, hide, escapeHtml, api, role: 'admin',
+    $, show, hide, escapeHtml, api, role: role,
     getClass: () => null
   });
 
@@ -615,6 +668,7 @@
   function switchTab(name, opts) {
     opts = opts || {};
     if (!TAB_TITLE_KEYS[name]) name = 'monitor';
+    if (!canAccessTab(name)) name = filterAdminNav();
     if (!opts.skipHash) setAdminRoute(name, !!opts.replace);
     if (currentAdminTab === name && !opts.force) return;
     currentAdminTab = name;
@@ -699,7 +753,7 @@
     ]);
     teachers = tData.teachers || [];
     await SaltTimetableSetup.open($('timetableSetupMount'), {
-      api, escapeHtml, classes, teachers
+      api, escapeHtml, classes, teachers, role
     });
     await SaltTimetable.openAdmin($('timetableMount'), {
       students: sData.students || [],
@@ -838,10 +892,95 @@
   $('monitorClass').addEventListener('change', loadMonitor);
   $('monitorType').addEventListener('change', loadMonitor);
 
+  async function ensureFacultyCatalog() {
+    if (facultyCatalog) return facultyCatalog;
+    try {
+      facultyCatalog = await api('/api/admin/faculty/catalog', {}, role);
+    } catch (_) {
+      facultyCatalog = {
+        titles: ['Principal', 'Vice Principal', 'Dean', 'Head Teacher', 'Teacher', 'Chaplain', 'Admin Staff', 'Librarian', 'Nurse', 'Head of Admin'],
+        adminPermissions: [
+          { key: 'admin.monitor', label: 'Monitor' },
+          { key: 'admin.lessons', label: 'Lessons' },
+          { key: 'admin.faculty', label: 'Faculty' },
+          { key: 'admin.classes', label: 'Classes' },
+          { key: 'admin.students', label: 'Students' },
+          { key: 'admin.analytics', label: 'Analytics' },
+          { key: 'admin.timetables', label: 'Timetables' },
+          { key: 'admin.schoolCal', label: 'Calendar' },
+          { key: 'admin.bus', label: 'Bus' },
+          { key: 'admin.announcements', label: 'News' },
+          { key: 'admin.reportCards', label: 'Reports' },
+          { key: 'admin.materials', label: 'Materials' },
+          { key: 'admin.vocabPlatform', label: 'Vocab' }
+        ],
+        teacherPermissions: [
+          { key: 'teacher.home', label: 'Teacher home' },
+          { key: 'teacher.classes', label: 'Class tools' },
+          { key: 'teacher.lessonPlan', label: 'Lesson plan' },
+          { key: 'teacher.materials', label: 'Material requests' },
+          { key: 'teacher.students', label: 'Student registry' },
+          { key: 'teacher.headReports', label: 'Head Teacher reports' }
+        ],
+        presets: {}
+      };
+    }
+    const sel = $('teacherRole');
+    if (sel && facultyCatalog.titles && facultyCatalog.titles.length) {
+      const cur = sel.value;
+      sel.innerHTML = facultyCatalog.titles.map((t) =>
+        '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'
+      ).join('');
+      if (cur) sel.value = cur;
+    }
+    return facultyCatalog;
+  }
+
+  function collectTeacherPermissions() {
+    return Array.from(document.querySelectorAll('#teacherPermChecks input[type=checkbox]:checked'))
+      .map((el) => el.value);
+  }
+
+  function renderTeacherPermChecks(selected) {
+    const box = $('teacherPermChecks');
+    if (!box || !facultyCatalog) return;
+    const selectedSet = new Set(selected || []);
+    const groups = [
+      { title: 'Admin portal', items: facultyCatalog.adminPermissions || [] },
+      { title: 'Teacher portal', items: facultyCatalog.teacherPermissions || [] }
+    ];
+    box.innerHTML = groups.map((g) =>
+      '<div class="faculty-perm-group"><div class="muted small">' + escapeHtml(g.title) + '</div>' +
+      g.items.map((p) =>
+        '<label class="faculty-perm-item"><input type="checkbox" value="' + escapeHtml(p.key) + '"' +
+        (selectedSet.has(p.key) ? ' checked' : '') + '> ' + escapeHtml(p.label) + '</label>'
+      ).join('') + '</div>'
+    ).join('');
+  }
+
+  function applyTitlePreset() {
+    const title = $('teacherRole').value;
+    const preset = (facultyCatalog && facultyCatalog.presets && facultyCatalog.presets[title]) || [];
+    renderTeacherPermChecks(preset);
+  }
+
+  function permSummary(perms) {
+    const list = Array.isArray(perms) ? perms : [];
+    if (!list.length) return '—';
+    if (list.includes('*')) return 'All';
+    const adminCount = list.filter((k) => String(k).indexOf('admin.') === 0).length;
+    const teacherCount = list.filter((k) => String(k).indexOf('teacher.') === 0).length;
+    const parts = [];
+    if (adminCount) parts.push(adminCount + ' admin');
+    if (teacherCount) parts.push(teacherCount + ' teacher');
+    return parts.join(' · ') || String(list.length);
+  }
+
   async function loadTeachers() {
+    await ensureFacultyCatalog();
     const data = await api('/api/admin/teachers', {}, role);
     const teachers = data.teachers || [];
-    let html = '<table class="grades-table"><thead><tr><th></th><th>Name</th><th>Title</th><th>Login</th><th>Contact</th><th>Homeroom</th><th>Role</th><th></th></tr></thead><tbody>';
+    let html = '<table class="grades-table"><thead><tr><th></th><th>Name</th><th>Title</th><th>Login</th><th>Contact</th><th>Homeroom</th><th>Permissions</th><th></th></tr></thead><tbody>';
     teachers.forEach(t => {
       const shown = t.displayName || t.preferredName || t.name || '';
       const initial = (shown || '?').trim().charAt(0).toUpperCase();
@@ -854,23 +993,24 @@
           ? '<div class="muted small">' + escapeHtml(t.name) + '</div>'
           : '');
       html += '<tr><td>' + photo + '</td><td>' + nameCell + '</td>' +
-        '<td>' + escapeHtml(t.title || '—') + '</td>' +
+        '<td>' + escapeHtml(t.staffTitle || t.staffRole || '—') + '</td>' +
         '<td>' + escapeHtml(t.loginId) + '</td>' +
         '<td class="muted small">' + contact + '</td>' +
-        '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td><td>' + escapeHtml(t.staffRole) + '</td>' +
+        '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td>' +
+        '<td class="muted small">' + escapeHtml(permSummary(t.permissions)) + '</td>' +
         '<td style="white-space:nowrap">' +
         '<button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button> ' +
         '<button type="button" class="btn btn-danger" data-del-teacher="' + escapeHtml(t.teacherId) + '" data-del-name="' + escapeHtml(shown || t.name) + '">Delete</button>' +
         '</td></tr>';
     });
     html += '</tbody></table>';
-    $('teacherList').innerHTML = html || '<p class="muted">No teachers.</p>';
+    $('teacherList').innerHTML = html || '<p class="muted">No faculty yet.</p>';
     $('assignTeacher').innerHTML = teachers.map(t =>
       '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
     if ($('headTeacherOptions')) {
       $('headTeacherOptions').innerHTML = teachers
-        .filter((t) => /head\s*teacher/i.test(String(t.staffRole || '')))
+        .filter((t) => /head\s*teacher/i.test(String(t.staffRole || t.staffTitle || '')))
         .map((t) =>
           '<option value="' + escapeHtml(t.teacherId) + '">' +
           escapeHtml((t.displayName || t.name) + ' (' + t.teacherId + ')') + '</option>'
@@ -881,14 +1021,14 @@
     });
     document.querySelectorAll('[data-del-teacher]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const name = btn.dataset.delName || 'this teacher';
-        if (!confirm('Delete teacher "' + name + '"?\n\nThis permanently removes their account from the teacher list.')) return;
+        const name = btn.dataset.delName || 'this faculty member';
+        if (!confirm('Delete "' + name + '"?\n\nThis permanently removes their account from the faculty list.')) return;
         try {
           await api('/api/admin/teachers/' + encodeURIComponent(btn.dataset.delTeacher), {
             method: 'DELETE'
           }, role);
           closeTeacherEditor();
-          showTeacherSaveToast('Teacher deleted.');
+          showTeacherSaveToast('Faculty deleted.');
           loadTeachers();
           loadAssignments();
         } catch (err) {
@@ -952,15 +1092,17 @@
     $('teacherError').textContent = '';
     $('teacherError').style.color = '';
     $('teacherPhotoError').textContent = '';
-    $('teacherFormTitle').textContent = 'Add teacher';
+    $('teacherFormTitle').textContent = 'Add faculty';
     teacherAvatar('', '');
     setTeacherPhotoEnabled(false);
+    ensureFacultyCatalog().then(() => applyTitlePreset());
   }
 
-  function fillTeacherForm(t) {
+  async function fillTeacherForm(t) {
     if (!t) return;
+    await ensureFacultyCatalog();
     const p = t.profile || {};
-    $('teacherFormTitle').textContent = 'Edit teacher';
+    $('teacherFormTitle').textContent = 'Edit faculty';
     $('teacherId').value = t.teacherId;
     $('teacherIdDisplay').value = t.teacherId;
     $('teacherName').value = t.name || '';
@@ -970,7 +1112,7 @@
     $('teacherLoginId').value = t.loginId || '';
     $('teacherPassword').value = '';
     $('teacherHomeroom').value = t.homeroomClassId || '';
-    $('teacherRole').value = t.staffRole || 'Teacher';
+    $('teacherRole').value = t.staffTitle || t.staffRole || 'Teacher';
     if ($('teacherHeadId')) $('teacherHeadId').value = t.headTeacherId || '';
     $('teacherTitle').value = p.title || t.title || '';
     $('teacherHireDate').value = p.hireDate || '';
@@ -987,6 +1129,7 @@
     $('teacherError').textContent = '';
     $('teacherError').style.color = '';
     $('teacherPhotoError').textContent = '';
+    renderTeacherPermChecks(t.permissions || []);
     teacherAvatar(t.name, t.photoPath || p.photoPath || '');
     setTeacherPhotoEnabled(true);
     openTeacherEditor();
@@ -994,10 +1137,23 @@
 
   $('teacherAddBtn').addEventListener('click', () => {
     clearTeacherForm();
-    $('teacherFormTitle').textContent = 'Add teacher';
+    $('teacherFormTitle').textContent = 'Add faculty';
     openTeacherEditor();
     $('teacherName').focus();
   });
+
+  if ($('teacherPermPresetBtn')) {
+    $('teacherPermPresetBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      applyTitlePreset();
+    });
+  }
+  if ($('teacherRole')) {
+    $('teacherRole').addEventListener('change', () => {
+      // Only auto-apply when creating a new account
+      if (!$('teacherId').value.trim()) applyTitlePreset();
+    });
+  }
 
   $('teacherFormResetBtn').addEventListener('click', closeTeacherEditor);
   $('teacherFormCloseBtn').addEventListener('click', closeTeacherEditor);
@@ -1047,7 +1203,9 @@
           password: $('teacherPassword').value,
           homeroomClassId: $('teacherHomeroom').value,
           staffRole: $('teacherRole').value,
+          staffTitle: $('teacherRole').value,
           headTeacherId: $('teacherHeadId') ? $('teacherHeadId').value : '',
+          permissions: collectTeacherPermissions(),
           title: $('teacherTitle').value,
           hireDate: $('teacherHireDate').value,
           dateOfBirth: $('teacherDob').value,
@@ -1063,7 +1221,7 @@
         }
       }, role);
       closeTeacherEditor();
-      showTeacherSaveToast(wasNew ? 'Teacher added.' : 'Teacher saved.');
+      showTeacherSaveToast(wasNew ? 'Faculty added.' : 'Faculty saved.');
       loadTeachers();
     } catch (err) {
       $('teacherError').style.color = '#dc2626';
@@ -1284,15 +1442,25 @@
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView')); show($('adminView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name;
+    const greet = p.preferredName || p.name || 'there';
+    $('welcomeText').textContent = 'Hi, ' + greet;
     $('welcomeText').removeAttribute('data-i18n');
+    const firstTab = filterAdminNav();
     await loadClasses();
     SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
     SaltClassRegistry.init({
-      api, escapeHtml, mount: 'classRegistryMount',
+      api, escapeHtml, role, mount: 'classRegistryMount',
       onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
     });
-    applyAdminRoute();
+    // Land on first allowed tab when current hash is blocked
+    const raw = String(location.hash || '').replace(/^#\/?/, '');
+    let tab = decodeURIComponent(raw.split('/')[0] || firstTab);
+    if (!canAccessTab(tab)) {
+      setAdminRoute(firstTab, true);
+      switchTab(firstTab, { skipHash: true, force: true });
+    } else {
+      applyAdminRoute();
+    }
     SaltMessenger.init(role);
     if (window.SaltPush) {
       SaltPush.bindButtons({

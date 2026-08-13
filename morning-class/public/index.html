@@ -60,7 +60,7 @@
     </div>
   </main>
 
-<script src="/js/app.js?v=20260810rcsig2"></script>
+<script src="/js/app.js?v=20260813fac1"></script>
 <script>
 (function() {
   const {
@@ -72,10 +72,11 @@
     parent: '/parent',
     teacher: '/teacher',
     admin: '/admin',
-    principal: '/admin'
+    principal: '/admin',
+    staff: '/admin'
   };
 
-  ['admin', 'principal', 'teacher', 'parent', 'student'].forEach((role) => {
+  ['admin', 'principal', 'staff', 'teacher', 'parent', 'student'].forEach((role) => {
     if (getToken(role)) {
       location.replace(DEST[role]);
     }
@@ -126,7 +127,7 @@
       });
       const role = data.role;
       if (!role || !DEST[role]) throw new Error('Unknown account type.');
-      ['admin', 'principal', 'teacher', 'parent', 'student'].forEach((r) => {
+      ['admin', 'principal', 'staff', 'teacher', 'parent', 'student'].forEach((r) => {
         setToken(r, '');
         setProfile(r, null);
       });
