@@ -1,4 +1,4 @@
-/* Parent Consents — list, bus fields, canvas signature, submit */
+/* Parent Consents — list, bus fields, typed e-sign (+ optional draw) */
 (function (global) {
   let api = null;
   let escapeHtml = null;
@@ -91,6 +91,50 @@
     if (clearBtn) clearBtn.addEventListener('click', clearSignature);
   }
 
+  function defaultSignerName() {
+    try {
+      const p = global.SaltApp && SaltApp.getProfile && SaltApp.getProfile('parent');
+      return String((p && (p.name || p.parentName || p.displayName)) || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function makeTypedSignature(name) {
+    const c = document.createElement('canvas');
+    c.width = 560;
+    c.height = 140;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'italic 42px "Noto Serif KR", Merriweather, Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(name || '').trim(), c.width / 2, c.height / 2 - 8);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('Electronic signature', c.width / 2, c.height / 2 + 36);
+    return c.toDataURL('image/png');
+  }
+
+  function resolveSignature(requireSig) {
+    if (requireSig === false) return { ok: true, dataUrl: '', signerName: '' };
+    const name = (($('ppConsentSignerName') && $('ppConsentSignerName').value) || '').trim();
+    const confirmed = !!( $('ppConsentEsignConfirm') && $('ppConsentEsignConfirm').checked );
+    const drawn = !isBlankSignature();
+    if (drawn) {
+      return { ok: true, dataUrl: canvas().toDataURL('image/png'), signerName: name };
+    }
+    if (!name) {
+      return { ok: false, error: t('parent.consents.nameRequired', '보호자 성명을 입력해 주세요.') };
+    }
+    if (!confirmed) {
+      return { ok: false, error: t('parent.consents.confirmRequired', '전자서명 확인에 체크해 주세요.') };
+    }
+    return { ok: true, dataUrl: makeTypedSignature(name), signerName: name };
+  }
+
   function showList() {
     const wrap = $('ppConsentListWrap');
     const detail = $('ppConsentDetail');
@@ -110,14 +154,15 @@
     const box = $('ppConsentList');
     if (!box) return;
     if (!pending.length) {
-      box.innerHTML = '<p class="muted">' + escapeHtml(t('parent.consents.empty', 'No pending forms.')) + '</p>';
+      box.innerHTML = '<p class="muted">' + escapeHtml(t('parent.consents.empty', '미제출 양식이 없습니다.')) + '</p>';
       return;
     }
     box.innerHTML = pending.map((f) =>
       '<button type="button" class="pp-consent-card" data-consent-open="' + escapeHtml(f.formId) + '">' +
       '<div class="pp-consent-card-title">' + escapeHtml(f.title) + '</div>' +
-      '<div class="muted small">' + escapeHtml(f.category || '') +
-      (f.dueDate ? ' · due ' + escapeHtml(f.dueDate) : '') + '</div></button>'
+      '<div class="muted small">' +
+      (f.dueDate ? escapeHtml(t('parent.consents.due', '마감') + ': ' + f.dueDate) : '') +
+      '</div></button>'
     ).join('');
     box.querySelectorAll('[data-consent-open]').forEach((btn) => {
       btn.addEventListener('click', () => openForm(btn.dataset.consentOpen));
@@ -142,16 +187,16 @@
     const kind = (fields && fields.kind) || '';
     if (kind === 'bus_survey') {
       host.innerHTML =
-        '<label><span>' + escapeHtml(t('parent.consents.apartment', 'Apartment / dong')) + '</span>' +
-        '<input id="ppConsentApartment" maxlength="120" required></label>' +
-        '<label><span>' + escapeHtml(t('parent.consents.desire', 'Desired use')) + '</span>' +
+        '<label><span>' + escapeHtml(t('parent.consents.apartment', '거주지 (아파트/동)')) + '</span>' +
+        '<input id="ppConsentApartment" maxlength="120"></label>' +
+        '<label><span>' + escapeHtml(t('parent.consents.desire', '이용 희망')) + '</span>' +
         '<select id="ppConsentDesire">' +
-        '<option value="both">등하원 (AM+PM)</option>' +
-        '<option value="pickup">등교 only</option>' +
-        '<option value="dismissal">하교 only</option>' +
-        '<option value="self">자가 (no bus)</option>' +
+        '<option value="both">등하원</option>' +
+        '<option value="pickup">등교만</option>' +
+        '<option value="dismissal">하교만</option>' +
+        '<option value="self">자가 (버스 이용 안 함)</option>' +
         '</select></label>' +
-        '<label><span>' + escapeHtml(t('parent.consents.pickupPlace', 'Preferred pickup place')) + '</span>' +
+        '<label><span>' + escapeHtml(t('parent.consents.pickupPlace', '희망 승하차 장소')) + '</span>' +
         '<input id="ppConsentPickupPlace" maxlength="120"></label>';
       return;
     }
@@ -164,16 +209,16 @@
           (r.startTime ? ' (' + r.startTime + ')' : '')) +
         '</option>';
       host.innerHTML =
-        '<label><span>' + escapeHtml(t('parent.consents.pickupRun', 'Morning pickup (등교)')) + '</span>' +
+        '<label><span>' + escapeHtml(t('parent.consents.pickupRun', '등교 호차')) + '</span>' +
         '<select id="ppConsentPickupRun"><option value="">—</option>' +
         pickup.map(opt).join('') + '</select></label>' +
-        '<label><span>' + escapeHtml(t('parent.consents.dismissalRun', 'Dismissal (하교)')) + '</span>' +
+        '<label><span>' + escapeHtml(t('parent.consents.dismissalRun', '하교 호차')) + '</span>' +
         '<select id="ppConsentDismissalRun"><option value="">—</option>' +
         dismiss.map(opt).join('') + '</select></label>' +
-        '<label><span>' + escapeHtml(t('parent.consents.stopLabel', 'Stop / note')) + '</span>' +
+        '<label><span>' + escapeHtml(t('parent.consents.stopLabel', '정류장 / 메모')) + '</span>' +
         '<input id="ppConsentStopLabel" maxlength="120"></label>' +
         '<label class="pp-consent-terms"><input type="checkbox" id="ppConsentTerms"> ' +
-        escapeHtml(t('parent.consents.terms', 'I agree to the shuttle terms and schedule.')) + '</label>';
+        escapeHtml(t('parent.consents.terms', '셔틀 이용 약관 및 시간표에 동의합니다.')) + '</label>';
       return;
     }
     host.innerHTML = '';
@@ -204,31 +249,40 @@
       const due = $('ppConsentDetailDue');
       if (due) {
         due.textContent = currentForm.dueDate
-          ? (t('parent.consents.due', 'Due') + ': ' + currentForm.dueDate)
+          ? (t('parent.consents.due', '마감') + ': ' + currentForm.dueDate)
           : '';
       }
 
       const fields = currentForm.fieldsJson || {};
       const choices = fields.choices || [
-        { value: 'Y', label: t('parent.consents.agree', 'Agree') },
-        { value: 'N', label: t('parent.consents.disagree', 'Do not agree') }
+        { value: 'Y', label: t('parent.consents.agree', '동의함') },
+        { value: 'N', label: t('parent.consents.disagree', '동의하지 않음') }
       ];
       const choiceHost = $('ppConsentChoices');
       choiceHost.innerHTML = choices.map((c, i) =>
-        '<label class="pp-consent-choice"><input type="radio" name="ppConsentChoice" value="' +
-        escapeHtml(c.value) + '"' + (i === 0 ? ' checked' : '') + '> ' +
-        escapeHtml(c.label) + '</label>'
+        '<label class="pp-consent-choice">' +
+        '<input type="radio" name="ppConsentChoice" value="' + escapeHtml(c.value) + '"' +
+        (i === 0 ? ' checked' : '') + '>' +
+        '<span class="pp-consent-choice-text">' + escapeHtml(c.label) + '</span>' +
+        '</label>'
       ).join('');
       choiceHost.querySelectorAll('input').forEach((el) => {
         el.addEventListener('change', syncReasonVisibility);
       });
       syncReasonVisibility();
       renderExtraFields(fields);
+
+      const nameEl = $('ppConsentSignerName');
+      if (nameEl && !nameEl.value) nameEl.value = defaultSignerName();
+      const confirmEl = $('ppConsentEsignConfirm');
+      if (confirmEl) confirmEl.checked = false;
+      const drawDetails = $('ppConsentDrawDetails');
+      if (drawDetails) drawDetails.open = false;
       bindSignature();
       clearSignature();
 
       if (currentForm.submitted) {
-        if (err) err.textContent = t('parent.consents.already', 'Already submitted for this student.');
+        if (err) err.textContent = t('parent.consents.already', '이미 제출되었습니다.');
         $('ppConsentSubmitBtn').disabled = true;
       } else {
         $('ppConsentSubmitBtn').disabled = false;
@@ -237,6 +291,7 @@
       if (location.hash.indexOf(formId) < 0) {
         location.hash = '#/consents/' + encodeURIComponent(formId);
       }
+      if (global.SaltI18n) SaltI18n.apply($('ppConsentDetail') || document.body);
     } catch (e) {
       alert(e.message);
     }
@@ -271,41 +326,39 @@
 
     const selected = document.querySelector('input[name="ppConsentChoice"]:checked');
     if (!selected) {
-      if (err) err.textContent = t('parent.consents.pickChoice', 'Please select a response.');
+      if (err) err.textContent = t('parent.consents.pickChoice', '응답을 선택해 주세요.');
       return;
     }
     const agreed = selected.value;
     const reason = ($('ppConsentReason') && $('ppConsentReason').value) || '';
     if (choiceIsNegative(agreed) && !String(reason).trim()) {
-      if (err) err.textContent = t('parent.consents.reasonRequired', 'Please enter a reason.');
+      if (err) err.textContent = t('parent.consents.reasonRequired', '사유를 입력해 주세요.');
       return;
     }
 
     const fields = currentForm.fieldsJson || {};
     const extra = collectExtra(fields);
     if (fields.kind === 'bus_survey' && agreed === 'Apply' && !String(extra.apartment || '').trim()) {
-      if (err) err.textContent = t('parent.consents.apartmentRequired', 'Apartment / area is required.');
+      if (err) err.textContent = t('parent.consents.apartmentRequired', '거주지를 입력해 주세요.');
       return;
     }
     if (fields.kind === 'bus_app' && agreed === 'Apply') {
       if (!extra.pickupRunId && !extra.dismissalRunId) {
-        if (err) err.textContent = t('parent.consents.runRequired', 'Select at least one bus run.');
+        if (err) err.textContent = t('parent.consents.runRequired', '등교 또는 하교 호차를 선택해 주세요.');
         return;
       }
       if (!extra.termsAccepted) {
-        if (err) err.textContent = t('parent.consents.termsRequired', 'Please accept the shuttle terms.');
+        if (err) err.textContent = t('parent.consents.termsRequired', '약관에 동의해 주세요.');
         return;
       }
     }
 
-    if (fields.requireSignature !== false && isBlankSignature()) {
-      if (err) err.textContent = t('parent.consents.sigRequired', 'Please sign in the box.');
+    const sig = resolveSignature(fields.requireSignature);
+    if (!sig.ok) {
+      if (err) err.textContent = sig.error;
       return;
     }
-
-    const signatureBase64 = (fields.requireSignature === false)
-      ? ''
-      : canvas().toDataURL('image/png');
+    if (sig.signerName) extra.signerName = sig.signerName;
 
     try {
       $('ppConsentSubmitBtn').disabled = true;
@@ -317,10 +370,10 @@
           agreed,
           disagreedReason: reason,
           extraData: extra,
-          signatureBase64
+          signatureBase64: sig.dataUrl
         }
       });
-      if (ok) ok.textContent = t('parent.consents.submitted', 'Submitted. Thank you.');
+      if (ok) ok.textContent = t('parent.consents.submitted', '제출되었습니다. 감사합니다.');
       await refreshPending();
       setTimeout(() => {
         showList();
