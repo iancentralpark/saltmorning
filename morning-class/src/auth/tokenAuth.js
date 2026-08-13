@@ -38,7 +38,7 @@ function isAdminPortalRole(role) {
 }
 
 function requireRole(...roles) {
-  return function authMiddleware(req, res, next) {
+  return async function authMiddleware(req, res, next) {
     const session = verifyToken(readBearerToken(req));
     if (!session || !session.role) {
       return res.status(401).json({ error: 'Login required.' });
@@ -50,6 +50,14 @@ function requireRole(...roles) {
       return res.status(401).json({ error: 'Login required.' });
     }
     req.session = session;
+
+    try {
+      const { assertSessionTokenVersion } = require('../services/accountFlagsService');
+      const tvOk = await assertSessionTokenVersion(session);
+      if (!tvOk) {
+        return res.status(401).json({ error: 'Session expired. Please log in again.' });
+      }
+    } catch (_) { /* fail open only if flags sheet unavailable */ }
 
     // Path-level permission gate for faculty on admin APIs (Admin superuser bypasses).
     if (roles.includes('admin') && session.role !== 'admin') {
@@ -75,6 +83,8 @@ const ADMIN_PATH_PERMS = [
   { re: /^\/admin\/students\/[^/]+\/transcript/, perm: 'admin.transcript' },
   { re: /^\/admin\/students/, perm: 'admin.students' },
   { re: /^\/admin\/parents/, perm: 'admin.students' },
+  { re: /^\/admin\/audit-log/, perm: 'admin.monitor' },
+  { re: /^\/admin\/report-card-fields/, perm: 'admin.reportCards' },
   { re: /^\/admin\/school-calendar/, perm: 'admin.schoolCal' },
   { re: /^\/admin\/school-semesters/, perm: 'admin.schoolCal' },
   { re: /^\/admin\/terms/, perm: 'admin.schoolCal' },

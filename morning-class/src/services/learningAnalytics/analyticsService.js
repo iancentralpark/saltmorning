@@ -29,7 +29,7 @@ const LOG_HEADERS = [
 ];
 const INT_HEADERS = [
   'InterventionID', 'StudentID', 'ClassID', 'Status', 'RootCausesJSON',
-  'TeacherReport', 'ParentReport', 'RecommendedActionsJSON', 'CreatedAt', 'UpdatedAt'
+  'TeacherReport', 'ParentReport', 'RecommendedActionsJSON', 'CreatedAt', 'UpdatedAt', 'ParentSharedAt'
 ];
 
 function newId(prefix) {
@@ -113,7 +113,8 @@ function parseInterventionRow(row) {
     parentReport: String(row[6] || ''),
     recommendedActions: safeJson(row[7], []),
     createdAt: String(row[8] || ''),
-    updatedAt: String(row[9] || '')
+    updatedAt: String(row[9] || ''),
+    parentSharedAt: String(row[10] || '')
   };
 }
 
@@ -265,12 +266,70 @@ async function saveIntervention(record) {
     String(record.parentReport || ''),
     JSON.stringify(record.recommendedActions || []),
     found > 0 ? String(data[found - 1][8] || now) : now,
-    now
+    now,
+    record.parentSharedAt != null
+      ? String(record.parentSharedAt || '')
+      : (found > 0 ? String(data[found - 1][10] || '') : '')
   ];
-  if (found > 0) await updateRange(ANALYTICS_INTERVENTIONS_SHEET, `A${found}:J${found}`, [row]);
+  if (found > 0) await updateRange(ANALYTICS_INTERVENTIONS_SHEET, `A${found}:K${found}`, [row]);
   else await appendRows(ANALYTICS_INTERVENTIONS_SHEET, [row]);
   invalidateSheetRowsCache(ANALYTICS_INTERVENTIONS_SHEET);
   return parseInterventionRow(row);
+}
+
+async function shareParentReport({ classId, studentId, interventionId }) {
+  classId = String(classId || '').trim();
+  studentId = String(studentId || '').trim();
+  let ints = await listInterventions(classId || undefined, studentId || undefined);
+  let target = null;
+  if (interventionId) {
+    target = ints.find((i) => i.interventionId === String(interventionId));
+  }
+  if (!target) {
+    target = ints.find((i) => i.parentReport && String(i.parentReport).trim()) || ints[0];
+  }
+  if (!target || !String(target.parentReport || '').trim()) {
+    throw new Error('No parent report available to share. Generate a diagnostic first.');
+  }
+  const shared = await saveIntervention(Object.assign({}, target, {
+    parentSharedAt: isoNow()
+  }));
+
+  try {
+    const { listParentsForStudent } = require('../parentRegistryService');
+    const { notifyParentChannels } = require('../consentService');
+    const parents = await listParentsForStudent(shared.studentId).catch(() => []);
+    const body = 'A learning progress note for your child is ready. Open Report cards / Learning notes in the parent portal.';
+    for (const p of parents || []) {
+      const pid = typeof p === 'string' ? p : p.parentId;
+      if (!pid) continue;
+      await notifyParentChannels(pid, shared.studentId, body, {
+        title: 'Learning progress note',
+        body: 'A teacher shared a progress note for your child.',
+        url: '/parent#/reportcards'
+      }).catch(() => null);
+    }
+  } catch (_) { /* optional */ }
+  return shared;
+}
+
+async function listParentSharedReports(session) {
+  const studentId = String(session.studentId || '').trim();
+  if (!studentId) return { reports: [] };
+  const ints = await listInterventions(undefined, studentId);
+  const reports = ints
+    .filter((i) => i.parentSharedAt && String(i.parentReport || '').trim())
+    .map((i) => ({
+      interventionId: i.interventionId,
+      studentId: i.studentId,
+      classId: i.classId,
+      status: i.status,
+      parentReport: i.parentReport,
+      recommendedActions: i.recommendedActions || [],
+      sharedAt: i.parentSharedAt,
+      updatedAt: i.updatedAt
+    }));
+  return { reports, count: reports.length };
 }
 
 function defaultActions(status) {
@@ -497,6 +556,8 @@ module.exports = {
   saveDailyLogs,
   importAssessments,
   saveIntervention,
+  shareParentReport,
+  listParentSharedReports,
   getClassAnalyticsDashboard,
   getStudentAnalytics,
   getSchoolAnalyticsDashboard,

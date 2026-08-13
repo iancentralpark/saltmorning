@@ -2,8 +2,9 @@ const express = require('express');
 const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
-const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, adminResetPassword } = require('./services/authService');
+const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
+const { hasPermission } = require('./services/staffPermissionService');
 const {
   getTeacherClasses,
   getClassRoster,
@@ -51,6 +52,7 @@ const {
   listAnnouncementsForViewer,
   listManagedAnnouncements,
   createAnnouncement,
+  updateAnnouncement,
   deactivateAnnouncement
 } = require('./services/announcementService');
 const {
@@ -80,6 +82,8 @@ const {
 } = require('./services/gradeService');
 const {
   listReportCardFields,
+  saveReportCardField,
+  deleteReportCardField,
   listReportCardEntries,
   saveReportCardEntries,
   buildReportCardSummary,
@@ -170,7 +174,9 @@ const {
   getSchoolStudentAnalytics,
   importAssessments,
   seedLearningAnalyticsMock,
-  generateAiDiagnostic
+  generateAiDiagnostic,
+  shareParentReport,
+  listParentSharedReports
 } = require('./services/learningAnalytics');
 const {
   listStudents,
@@ -224,6 +230,7 @@ const {
 } = require('./services/dollarService');
 const {
   postHomework,
+  updateHomework,
   getClassHomework,
   getStudentHomeworkStatus,
   setHomeworkCompletion,
@@ -507,6 +514,14 @@ router.post('/auth/change-password', requireRole('student', 'parent', 'teacher',
     const msg = e.message || 'Could not change password.';
     const status = /incorrect|match|different|at least|Enter|not found|cannot change/i.test(msg) ? 400 : 500;
     res.status(status).json({ error: msg });
+  }
+});
+
+router.post('/auth/logout', requireRole('student', 'parent', 'teacher', 'principal', 'staff', 'admin'), async (req, res) => {
+  try {
+    res.json(await logoutSession(req.session));
+  } catch (e) {
+    res.json({ ok: true });
   }
 });
 
@@ -1059,8 +1074,8 @@ router.post('/teacher/class/:classId/report-card/workflow', requireRole('teacher
 
 router.get('/teacher/head/report-cards', requireRole('teacher'), async (req, res) => {
   try {
-    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
-      return res.status(403).json({ error: 'Head Teacher access only.' });
+    if (!hasPermission(req.session, 'teacher.headReports')) {
+      return res.status(403).json({ error: 'Head Teacher reports permission required.' });
     }
     await ensureWorkflowSheet();
     const assigned = await listTeachersForHead(req.session.teacherId);
@@ -1086,8 +1101,8 @@ router.get('/teacher/head/report-cards', requireRole('teacher'), async (req, res
 
 router.get('/teacher/head/report-cards/:classId/:studentId', requireRole('teacher'), async (req, res) => {
   try {
-    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
-      return res.status(403).json({ error: 'Head Teacher access only.' });
+    if (!hasPermission(req.session, 'teacher.headReports')) {
+      return res.status(403).json({ error: 'Head Teacher reports permission required.' });
     }
     const term = req.query.term || 'Term1';
     const card = await getFullStudentReportCard(
@@ -1101,8 +1116,8 @@ router.get('/teacher/head/report-cards/:classId/:studentId', requireRole('teache
 
 router.post('/teacher/head/report-cards/workflow', requireRole('teacher'), async (req, res) => {
   try {
-    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
-      return res.status(403).json({ error: 'Head Teacher access only.' });
+    if (!hasPermission(req.session, 'teacher.headReports')) {
+      return res.status(403).json({ error: 'Head Teacher reports permission required.' });
     }
     const { classId, studentId, term, action } = req.body || {};
     if (!classId || !studentId) throw new Error('classId and studentId are required.');
@@ -1214,8 +1229,8 @@ router.post('/admin/ensure-leadership', requireRole('admin', 'principal'), async
 
 router.get('/teacher/head/team', requireRole('teacher'), async (req, res) => {
   try {
-    if (!/head\s*teacher/i.test(String(req.session.staffRole || ''))) {
-      return res.status(403).json({ error: 'Head Teacher access only.' });
+    if (!hasPermission(req.session, 'teacher.headReports')) {
+      return res.status(403).json({ error: 'Head Teacher reports permission required.' });
     }
     const teachers = await listTeachersForHead(req.session.teacherId);
     const enriched = [];
@@ -1312,6 +1327,21 @@ router.post('/teacher/class/:classId/analytics/students/:studentId/diagnose', re
   } catch (e) {
     const status = /homeroom/i.test(e.message || '') ? 403 : 400;
     res.status(status).json({ error: e.message || 'Could not generate diagnostic.' });
+  }
+});
+
+router.post('/teacher/class/:classId/analytics/students/:studentId/share-parent', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    const intervention = await shareParentReport({
+      classId: req.params.classId,
+      studentId: req.params.studentId,
+      interventionId: (req.body && req.body.interventionId) || ''
+    });
+    res.json({ intervention });
+  } catch (e) {
+    const status = /homeroom/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not share parent report.' });
   }
 });
 
@@ -1637,6 +1667,15 @@ router.post('/teacher/class/:classId/homework', requireRole('teacher'), async (r
     res.json(data);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not post homework.' });
+  }
+});
+
+router.patch('/teacher/class/:classId/homework/:homeworkId', requireRole('teacher'), async (req, res) => {
+  try {
+    const data = await updateHomework(req.params.classId, req.params.homeworkId, req.body || {});
+    res.json(data);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update homework.' });
   }
 });
 
@@ -2340,6 +2379,26 @@ router.post('/admin/announcements/:id/deactivate', requireRole('admin'), async (
   }
 });
 
+router.post('/admin/announcements/:id', requireRole('admin'), (req, res) => {
+  announcementUpload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'attachment', maxCount: 1 }
+  ])(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const body = req.body || {};
+      const announcement = await updateAnnouncement(req.params.id, body, parseAnnouncementFiles(req), {
+        role: 'admin',
+        name: (req.session && req.session.name) || 'Admin',
+        id: (req.session && req.session.adminId) || 'admin'
+      });
+      res.json({ announcement });
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not update announcement.' });
+    }
+  });
+});
+
 router.get('/teacher/announcements', requireRole('teacher'), async (req, res) => {
   try {
     const classes = await getTeacherClasses(req.session.teacherId);
@@ -2395,6 +2454,26 @@ router.post('/teacher/announcements/:id/deactivate', requireRole('teacher'), asy
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not remove announcement.' });
   }
+});
+
+router.post('/teacher/announcements/:id', requireRole('teacher'), (req, res) => {
+  announcementUpload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'attachment', maxCount: 1 }
+  ])(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const body = Object.assign({}, req.body || {}, { scope: 'class' });
+      const announcement = await updateAnnouncement(req.params.id, body, parseAnnouncementFiles(req), {
+        role: 'teacher',
+        name: (req.session && req.session.name) || 'Teacher',
+        id: req.session.teacherId
+      });
+      res.json({ announcement });
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not update announcement.' });
+    }
+  });
 });
 
 router.get('/parent/overview', requireRole('parent'), async (req, res) => {
@@ -3643,6 +3722,15 @@ router.post('/admin/consent-templates', requireRole('admin'), async (req, res) =
   }
 });
 
+router.delete('/admin/consent-templates/:templateId', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json(await consent.deleteTemplate(req.params.templateId));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not delete template.' });
+  }
+});
+
 router.get('/admin/consents', requireRole('admin'), async (req, res) => {
   try {
     const consent = require('./services/consentService');
@@ -3677,6 +3765,48 @@ router.post('/admin/consents/:formId/close', requireRole('admin'), async (req, r
     res.json({ form: await consent.closeForm(req.params.formId) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not close form.' });
+  }
+});
+
+router.patch('/admin/consents/:formId', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json({ form: await consent.updatePublishedForm(req.params.formId, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not update form.' });
+  }
+});
+
+router.delete('/admin/consents/:formId', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json(await consent.deleteForm(req.params.formId));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not delete form.' });
+  }
+});
+
+router.post('/admin/consents/:formId/promote', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const submissionId = (req.body && req.body.submissionId) || '';
+    res.json({
+      submission: await consent.promoteWaitingSubmission(req.params.formId, submissionId)
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not promote waiting registration.' });
+  }
+});
+
+router.post('/admin/consents/:formId/cancel-registration', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const body = req.body || {};
+    res.json({
+      submission: await consent.cancelEventRegistration(req.params.formId, body.submissionId, body)
+    });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not cancel registration.' });
   }
 });
 
@@ -4092,6 +4222,78 @@ router.get('/student/timetable', requireRole('student'), async (req, res) => {
     res.json(await getTimetable('student', req.session.studentId));
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load timetable.' });
+  }
+});
+
+router.get('/parent/grades', requireRole('parent'), async (req, res) => {
+  try {
+    const { getStudentGradeSummary } = require('./services/gradeService');
+    const summary = await getStudentGradeSummary(req.session.studentId, {
+      term: req.query.term || ''
+    });
+    res.json(summary);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load grades.' });
+  }
+});
+
+router.get('/parent/analytics-reports', requireRole('parent'), async (req, res) => {
+  try {
+    res.json(await listParentSharedReports(req.session));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load learning notes.' });
+  }
+});
+
+router.get('/admin/report-card-fields', requireRole('admin'), async (req, res) => {
+  try {
+    const fields = await listReportCardFields(req.query.classId || '*', req.query.term || '');
+    res.json({ fields });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load report card fields.' });
+  }
+});
+
+router.post('/admin/report-card-fields', requireRole('admin'), async (req, res) => {
+  try {
+    const field = await saveReportCardField(req.body || {});
+    res.json({ field });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save field.' });
+  }
+});
+
+router.delete('/admin/report-card-fields/:fieldId', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await deleteReportCardField(req.params.fieldId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete field.' });
+  }
+});
+
+router.get('/admin/audit-log', requireRole('admin'), async (req, res) => {
+  try {
+    const audit = require('./services/auditService');
+    res.json(await audit.listAudit({
+      limit: req.query.limit,
+      action: req.query.action,
+      entityType: req.query.entityType,
+      actorId: req.query.actorId
+    }));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load audit log.' });
+  }
+});
+
+router.post('/admin/parents/:parentId/deactivate', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const { setParentAccountActive } = require('./services/parentRegistryService');
+    const active = req.body && Object.prototype.hasOwnProperty.call(req.body, 'active')
+      ? !!req.body.active
+      : false;
+    res.json(await setParentAccountActive(req.params.parentId, active));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not update parent account.' });
   }
 });
 

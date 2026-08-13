@@ -498,10 +498,14 @@ async function saveTeacherNote(teacherId, payload) {
     invalidateSheetRowsCache(CONFERENCE_BOOKINGS_SHEET);
     const updated = parseBookingRow(row);
     try {
-      const push = require('./pushService');
-      if (push.isPushEnabled() && booking.parentId) {
-        await push.sendToParent(booking.parentId, {
-          title: payload.markCompleted ? 'Conference completed' : 'Conference note updated',
+      const { notifyParentChannels } = require('./consentService');
+      if (booking.parentId) {
+        const title = payload.markCompleted ? 'Conference completed' : 'Conference note updated';
+        const body = note
+          ? (title + ': ' + note.slice(0, 200))
+          : (title + '. Open Conferences in the parent portal.');
+        await notifyParentChannels(booking.parentId, booking.studentId, body, {
+          title,
           body: note ? note.slice(0, 120) : 'Your teacher left a conference note.',
           url: '/parent#/conferences'
         }).catch(() => null);

@@ -545,7 +545,7 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260813tr2"></script>
-<script src="/js/change-password.js?v=20260813gap1"></script>
+<script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/material-requests.js?v=20260813mat1"></script>
 <script src="/js/conferences.js?v=20260813gap1"></script>
 <script src="/js/lost-and-found.js?v=20260813gap1"></script>
@@ -554,17 +554,31 @@
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/teacher-reportcard.js?v=20260811rctoolbar"></script>
-<script src="/js/teacher-analytics.js?v=20260811school"></script>
+<script src="/js/teacher-analytics.js?v=20260813gap27"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
-<script src="/js/announcements.js?v=20260811teachnav"></script>
-<script src="/js/student-registry.js?v=20260813gap1"></script>
+<script src="/js/announcements.js?v=20260813gap27"></script>
+<script src="/js/student-registry.js?v=20260813gap27"></script>
 <script src="/js/timetable.js?v=20260813gap1"></script>
 <script>
 (function() {
   const role = 'teacher';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, todayISO, escapeHtml } = SaltApp;
+
+  /** Teachers without explicit permissions (legacy accounts) keep full access. */
+  function teacherHasPerm(key) {
+    const p = getProfile(role) || {};
+    const perms = Array.isArray(p.permissions) ? p.permissions : [];
+    if (!perms.length) return true;
+    if (SaltApp.hasPermission(p, key)) return true;
+    // Legacy Head Teachers may still use title until permissions are re-saved.
+    if (key === 'teacher.headReports' && /head\s*teacher/i.test(String(p.staffRole || p.staffTitle || ''))) {
+      return true;
+    }
+    return false;
+  }
+
   let currentClass = null;
   let lessonScope = 'class';
   let teacherClasses = [];
@@ -747,11 +761,27 @@
       const rows = (data.announcements || []).filter((a) => String(a.classId || '') === cid);
       SaltAnnouncements.renderList(box, rows, {
         canRemove: true,
+        canEdit: true,
         emptyText: 'No announcements for this class yet.',
         onRemove: async (id) => {
           if (!confirm('Remove this announcement?')) return;
           await api('/api/teacher/announcements/' + encodeURIComponent(id) + '/deactivate', { method: 'POST' }, role);
           refreshTeacherAnnList();
+        },
+        onEdit: async (id, current) => {
+          const title = window.prompt('Title', current.title);
+          if (title == null) return;
+          const body = window.prompt('Body', current.body);
+          if (body == null) return;
+          try {
+            await api('/api/teacher/announcements/' + encodeURIComponent(id), {
+              method: 'POST',
+              body: { title, body }
+            }, role);
+            refreshTeacherAnnList();
+          } catch (e) {
+            alert(e.message);
+          }
         }
       });
     } catch (e) {
@@ -781,6 +811,7 @@
   }
 
   function doLogout() {
+    api('/api/auth/logout', { method: 'POST' }, role).catch(() => {});
     setToken(role, '');
     setProfile(role, null);
     location.href = '/';
@@ -958,8 +989,7 @@
     const err = $('headRcError');
     const teamBox = $('headTeamBox');
     if (!section || !box) return;
-    const p = getProfile(role) || {};
-    const isHead = /head\s*teacher/i.test(String(p.staffRole || ''));
+    const isHead = teacherHasPerm('teacher.headReports');
     section.classList.toggle('hidden', !isHead);
     if (!isHead) return;
     if (err) err.textContent = '';
@@ -1434,7 +1464,10 @@
         '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
         '<strong>' + escapeHtml(hw.title || 'Homework') + '</strong>' +
         '<span class="muted small">Assigned ' + escapeHtml(hw.assignedDate || '') +
-        (hw.dueDate ? ' · Due ' + escapeHtml(hw.dueDate) : '') + '</span></div>' +
+        (hw.dueDate ? ' · Due ' + escapeHtml(hw.dueDate) : '') +
+        ' <button type="button" class="btn btn-ghost hw-edit" data-id="' + escapeHtml(hw.homeworkId) +
+        '" data-title="' + escapeHtml(hw.title || '') + '" data-desc="' + escapeHtml(hw.description || '') +
+        '" data-due="' + escapeHtml(hw.dueDate || '') + '">Edit</button></span></div>' +
         (hw.description ? '<p class="muted small">' + escapeHtml(hw.description) + '</p>' : '');
       (hw.items || []).forEach((item) => {
         html += '<div style="margin-top:0.5rem"><div class="muted small">' +
@@ -1466,6 +1499,27 @@
             method: 'POST',
             body: { itemId: btn.dataset.item, studentId: btn.dataset.sid, completed: true }
           }, role);
+          loadHomework(hwCache.selectedDate);
+        } catch (e) {
+          err.textContent = e.message;
+        }
+      });
+    });
+    box.querySelectorAll('.hw-edit').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const title = window.prompt('Title', btn.dataset.title || '');
+        if (title == null) return;
+        const description = window.prompt('Description', btn.dataset.desc || '');
+        if (description == null) return;
+        const dueDate = window.prompt('Due date (YYYY-MM-DD, blank = none)', btn.dataset.due || '');
+        if (dueDate == null) return;
+        err.textContent = '';
+        try {
+          await api(
+            '/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework/' + encodeURIComponent(btn.dataset.id),
+            { method: 'PATCH', body: { title, description, dueDate } },
+            role
+          );
           loadHomework(hwCache.selectedDate);
         } catch (e) {
           err.textContent = e.message;
@@ -1688,6 +1742,23 @@
     if (!applyingRoute) applyRoute();
   });
 
+  function applyNavPermissionGates() {
+    const NAV_PERMS = {
+      home: '', // always show home
+      students: 'teacher.students',
+      lesson: 'teacher.lessonPlan',
+      materials: 'teacher.materials',
+      conferences: 'teacher.conferences',
+      lostFound: 'teacher.lostFound'
+    };
+    document.querySelectorAll('.teacher-nav-btn[data-nav]').forEach((btn) => {
+      const nav = btn.getAttribute('data-nav');
+      const perm = NAV_PERMS[nav];
+      const allowed = !perm || teacherHasPerm(perm);
+      btn.classList.toggle('hidden', !allowed);
+    });
+  }
+
   async function bootApp() {
     const p = getProfile(role);
     if (!p) return;
@@ -1695,6 +1766,7 @@
     show($('appShell'));
     if ($('teacherShellRoot')) $('teacherShellRoot').classList.add('teacher-shell-wide');
     setShellIdentity('Home', 'home');
+    applyNavPermissionGates();
     SaltTimetable.init({ api, escapeHtml, role });
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []

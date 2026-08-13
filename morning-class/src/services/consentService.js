@@ -414,8 +414,10 @@ function parseFormRow(row) {
 
 function parseSubRow(row) {
   if (!row || !row[0]) return null;
+  const id = String(row[0]);
   return {
-    subId: String(row[0]),
+    subId: id,
+    submissionId: id,
     formId: String(row[1] || ''),
     studentId: String(row[2] || ''),
     parentId: String(row[3] || ''),
@@ -479,6 +481,20 @@ async function saveTemplate(payload) {
   return parseTemplateRow(row);
 }
 
+async function deleteTemplate(templateId) {
+  await ensureConsentSheets();
+  templateId = String(templateId || '').trim();
+  if (!templateId) throw Object.assign(new Error('Template ID required.'), { status: 400 });
+  const rows = await getSheetRows(CONSENT_TEMPLATES_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== templateId) continue;
+    await updateRange(CONSENT_TEMPLATES_SHEET, `A${i + 1}:G${i + 1}`, [new Array(7).fill('')]);
+    invalidateSheetRowsCache(CONSENT_TEMPLATES_SHEET);
+    return { deleted: true, templateId };
+  }
+  throw Object.assign(new Error('Template not found.'), { status: 404 });
+}
+
 async function listForms({ status, withStats } = {}) {
   await ensureConsentSheets();
   const rows = await getSheetRows(CONSENT_FORMS_SHEET);
@@ -486,6 +502,7 @@ async function listForms({ status, withStats } = {}) {
   for (let i = 1; i < rows.length; i++) {
     const f = parseFormRow(rows[i]);
     if (!f) continue;
+    if (f.status === 'Deleted') continue;
     if (status && f.status !== String(status)) continue;
     out.push(f);
   }
@@ -635,6 +652,201 @@ async function closeForm(formId) {
     return parseFormRow(row);
   }
   throw Object.assign(new Error('Form not found.'), { status: 404 });
+}
+
+async function updatePublishedForm(formId, payload) {
+  await ensureConsentSheets();
+  formId = String(formId || '').trim();
+  if (!formId) throw Object.assign(new Error('Form ID required.'), { status: 400 });
+  const rows = await getSheetRows(CONSENT_FORMS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== formId) continue;
+    const row = rows[i].slice();
+    while (row.length < 11) row.push('');
+    if (payload.title != null) row[3] = String(payload.title).trim() || row[3];
+    if (payload.contentHtml != null) row[4] = String(payload.contentHtml);
+    if (payload.category != null) row[2] = String(payload.category).trim() || row[2];
+    if (payload.targetGrades != null) row[6] = String(payload.targetGrades || '*');
+    if (payload.dueDate != null) row[7] = String(payload.dueDate || '');
+    if (payload.fieldsJson != null) {
+      const fields = typeof payload.fieldsJson === 'object'
+        ? payload.fieldsJson
+        : parseJson(payload.fieldsJson, {});
+      row[5] = JSON.stringify(fields || {});
+    }
+    if (payload.status === 'Active' || payload.status === 'Closed') row[8] = payload.status;
+    await updateRange(CONSENT_FORMS_SHEET, `A${i + 1}:K${i + 1}`, [row]);
+    invalidateSheetRowsCache(CONSENT_FORMS_SHEET);
+    return parseFormRow(row);
+  }
+  throw Object.assign(new Error('Form not found.'), { status: 404 });
+}
+
+async function deleteForm(formId) {
+  await ensureConsentSheets();
+  formId = String(formId || '').trim();
+  const rows = await getSheetRows(CONSENT_FORMS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== formId) continue;
+    const row = rows[i].slice();
+    while (row.length < 11) row.push('');
+    row[8] = 'Deleted';
+    await updateRange(CONSENT_FORMS_SHEET, `A${i + 1}:K${i + 1}`, [row]);
+    invalidateSheetRowsCache(CONSENT_FORMS_SHEET);
+    return { deleted: true, formId };
+  }
+  throw Object.assign(new Error('Form not found.'), { status: 404 });
+}
+
+async function rewriteSubmissionExtra(submissionId, mutator) {
+  const rows = await getSheetRows(CONSENT_SUBMISSIONS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== String(submissionId)) continue;
+    const row = rows[i].slice();
+    while (row.length < 9) row.push('');
+    const extra = parseJson(row[6], {});
+    const next = mutator(extra, parseSubRow(row)) || extra;
+    row[6] = JSON.stringify(next);
+    await updateRange(CONSENT_SUBMISSIONS_SHEET, `A${i + 1}:I${i + 1}`, [row]);
+    invalidateSheetRowsCache(CONSENT_SUBMISSIONS_SHEET);
+    return parseSubRow(row);
+  }
+  throw Object.assign(new Error('Submission not found.'), { status: 404 });
+}
+
+async function renumberWaitlist(formId) {
+  const subs = await listSubmissions(formId);
+  const waiting = subs
+    .filter((s) => (s.extraData && s.extraData.registrationStatus) === 'Waiting')
+    .sort((a, b) => Number(a.extraData.waitNumber || 9999) - Number(b.extraData.waitNumber || 9999) ||
+      String(a.submittedAt).localeCompare(String(b.submittedAt)));
+  let n = 1;
+  for (const s of waiting) {
+    if (Number(s.extraData.waitNumber) === n) {
+      n += 1;
+      continue;
+    }
+    await rewriteSubmissionExtra(s.submissionId, (extra) => {
+      extra.registrationStatus = 'Waiting';
+      extra.waitNumber = n;
+      return extra;
+    });
+    n += 1;
+  }
+}
+
+async function promoteWaitingSubmission(formId, submissionId) {
+  formId = String(formId || '').trim();
+  submissionId = String(submissionId || '').trim();
+  const form = await getForm(formId);
+  const fields = form.fieldsJson || {};
+  const capacity = Number(fields.capacity) || 0;
+  const subs = await listSubmissions(formId);
+  const target = subs.find((s) => s.submissionId === submissionId);
+  if (!target) throw Object.assign(new Error('Submission not found.'), { status: 404 });
+  if ((target.extraData && target.extraData.registrationStatus) !== 'Waiting') {
+    throw Object.assign(new Error('Only waiting registrations can be promoted.'), { status: 400 });
+  }
+  if (capacity > 0) {
+    const confirmed = subs.filter((s) =>
+      (s.agreed === 'Apply' || s.agreed === 'Y') &&
+      ((s.extraData && s.extraData.registrationStatus) || 'Confirmed') === 'Confirmed'
+    ).length;
+    if (confirmed >= capacity) {
+      throw Object.assign(new Error('No open capacity. Cancel a confirmed spot first.'), { status: 400 });
+    }
+  }
+  const updated = await rewriteSubmissionExtra(submissionId, (extra) => {
+    extra.registrationStatus = 'Confirmed';
+    extra.waitNumber = '';
+    extra.promotedAt = nowIso();
+    return extra;
+  });
+  await renumberWaitlist(formId);
+  try {
+    if (updated.parentId) {
+      await notifyParentChannels(
+        updated.parentId,
+        updated.studentId,
+        'You have been confirmed for 「' + form.title + '」. Open Forms in the parent portal.',
+        {
+          title: 'Camp/event confirmed',
+          body: form.title + ' — your waiting spot was promoted.',
+          url: '/parent#/consents'
+        }
+      );
+    }
+  } catch (_) { /* optional */ }
+  return updated;
+}
+
+async function cancelEventRegistration(formId, submissionId, opts) {
+  opts = opts || {};
+  formId = String(formId || '').trim();
+  submissionId = String(submissionId || '').trim();
+  const form = await getForm(formId);
+  const subs = await listSubmissions(formId);
+  const target = subs.find((s) => s.submissionId === submissionId);
+  if (!target) throw Object.assign(new Error('Submission not found.'), { status: 404 });
+  const wasConfirmed = ((target.extraData && target.extraData.registrationStatus) || 'Confirmed') === 'Confirmed';
+
+  const rows = await getSheetRows(CONSENT_SUBMISSIONS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== submissionId) continue;
+    const row = rows[i].slice();
+    while (row.length < 9) row.push('');
+    const extra = parseJson(row[6], {});
+    extra.registrationStatus = 'Cancelled';
+    extra.waitNumber = '';
+    extra.cancelledAt = nowIso();
+    extra.cancelReason = String(opts.reason || 'Cancelled by school').slice(0, 200);
+    row[4] = 'Cancelled';
+    row[6] = JSON.stringify(extra);
+    await updateRange(CONSENT_SUBMISSIONS_SHEET, `A${i + 1}:I${i + 1}`, [row]);
+    invalidateSheetRowsCache(CONSENT_SUBMISSIONS_SHEET);
+
+    if (wasConfirmed && opts.autoPromote !== false) {
+      const waiting = (await listSubmissions(formId))
+        .filter((s) => (s.extraData && s.extraData.registrationStatus) === 'Waiting')
+        .sort((a, b) => Number(a.extraData.waitNumber || 9999) - Number(b.extraData.waitNumber || 9999));
+      if (waiting[0]) {
+        await promoteWaitingSubmission(formId, waiting[0].submissionId);
+      }
+    } else {
+      await renumberWaitlist(formId);
+    }
+
+    try {
+      if (target.parentId) {
+        await notifyParentChannels(
+          target.parentId,
+          target.studentId,
+          'Registration cancelled for 「' + form.title + '」.',
+          {
+            title: 'Registration cancelled',
+            body: form.title,
+            url: '/parent#/consents'
+          }
+        );
+      }
+    } catch (_) { /* optional */ }
+    return parseSubRow(row);
+  }
+  throw Object.assign(new Error('Submission not found.'), { status: 404 });
+}
+
+async function clearSubmissionsForStudent(studentId) {
+  studentId = String(studentId || '').trim();
+  if (!studentId) return { cleared: 0 };
+  const rows = await getSheetRows(CONSENT_SUBMISSIONS_SHEET, { skipCache: true });
+  let cleared = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]) !== studentId) continue;
+    await updateRange(CONSENT_SUBMISSIONS_SHEET, `A${i + 1}:I${i + 1}`, [new Array(9).fill('')]);
+    cleared += 1;
+  }
+  if (cleared) invalidateSheetRowsCache(CONSENT_SUBMISSIONS_SHEET);
+  return { cleared };
 }
 
 async function listPendingForParent(session) {
@@ -861,6 +1073,7 @@ async function getFormAnalytics(formId) {
     if (byStudent[s.studentId]) {
       const sub = byStudent[s.studentId];
       submitted.push(Object.assign({}, row, {
+        submissionId: sub.submissionId,
         agreed: sub.agreed,
         disagreedReason: sub.disagreedReason,
         submittedAt: sub.submittedAt,
@@ -1057,10 +1270,16 @@ module.exports = {
   ensureConsentSheets,
   listTemplates,
   saveTemplate,
+  deleteTemplate,
   listForms,
   getForm,
   publishForm,
   closeForm,
+  updatePublishedForm,
+  deleteForm,
+  promoteWaitingSubmission,
+  cancelEventRegistration,
+  clearSubmissionsForStudent,
   listPendingForParent,
   listSubmittedForParent,
   getParentFormDetail,
@@ -1069,5 +1288,6 @@ module.exports = {
   remindPending,
   renderSubmissionsPrintHtml,
   applyVariables,
-  builtinTemplates
+  builtinTemplates,
+  notifyParentChannels
 };

@@ -33,6 +33,7 @@ window.SaltParent = (function() {
     lostAndFound: 'nav.lostAndFound',
     timetable: 'nav.timetable',
     homework: 'nav.homework',
+    grades: 'nav.parentGrades',
     reportcards: 'nav.parentReports',
     profile: 'nav.profile'
   };
@@ -220,7 +221,7 @@ window.SaltParent = (function() {
     currentTab = name;
     document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
       btn.classList.toggle('active', btn.dataset.tab === name));
-    ['feed', 'announcements', 'attendance', 'calendar', 'bus', 'consents', 'conferences', 'lostAndFound', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
+    ['feed', 'announcements', 'attendance', 'calendar', 'bus', 'consents', 'conferences', 'lostAndFound', 'timetable', 'homework', 'grades', 'reportcards', 'profile'].forEach((k) => {
       const id = k === 'lostAndFound' ? 'tabLostAndFound' : ('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       const el = $(id);
       if (el) deps.hide(el);
@@ -236,6 +237,7 @@ window.SaltParent = (function() {
       lostAndFound: 'tabLostAndFound',
       timetable: 'tabTimetable',
       homework: 'tabHomework',
+      grades: 'tabGrades',
       reportcards: 'tabReportcards',
       profile: 'tabProfile'
     };
@@ -261,7 +263,8 @@ window.SaltParent = (function() {
     }
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
-    if (name === 'reportcards') loadReportCards();
+    if (name === 'grades') loadGrades();
+    if (name === 'reportcards') { loadReportCards(); loadLearningNotes(); }
     if (name === 'profile') loadProfile();
     if (window.SaltI18n) SaltI18n.apply(document.getElementById('appView'));
   }
@@ -893,6 +896,68 @@ window.SaltParent = (function() {
     } catch (e) {
       list.innerHTML = '';
       err.textContent = e.message;
+    }
+  }
+
+  async function loadGrades() {
+    const box = $('ppGrades');
+    if (!box) return;
+    box.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const data = await api('/api/parent/grades');
+      const subjects = data.subjects || [];
+      if (!subjects.length) {
+        box.innerHTML = '<p class="muted">' + escapeHtml(data.message || 'No graded subjects found yet.') + '</p>';
+        return;
+      }
+      let html = '<p class="muted small">' +
+        escapeHtml((data.className ? data.className + ' · ' : '') + (data.term || '')) + '</p>' +
+        '<table class="grades-table"><thead><tr><th>Subject</th><th>Grade</th><th>Progress</th><th>Recent</th></tr></thead><tbody>';
+      subjects.forEach((s) => {
+        const weights = (s.weights || []).map((w) =>
+          escapeHtml(w.label || w.categoryKey) + ' ' + (w.weightPercent != null ? w.weightPercent + '%' : '')
+        ).join(', ');
+        const recent = (s.recent || []).filter((r) => r.score != null).slice(-3).map((r) =>
+          escapeHtml(r.title || '') + (r.percent != null ? ' (' + Math.round(r.percent) + '%)' : '')
+        ).join('; ');
+        html += '<tr>' +
+          '<td><strong>' + escapeHtml(s.subject) + '</strong>' +
+          (weights ? '<div class="muted small">' + weights + '</div>' : '') + '</td>' +
+          '<td>' + (s.finalGrade != null ? escapeHtml(String(s.finalGrade)) : '—') + '</td>' +
+          '<td>' + (s.gradedWeightPercent != null ? Math.round(s.gradedWeightPercent) + '%' : '—') + '</td>' +
+          '<td class="muted small">' + (recent || '—') + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+      box.innerHTML = html;
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  async function loadLearningNotes() {
+    const box = $('ppLearningNotes');
+    if (!box) return;
+    box.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const data = await api('/api/parent/analytics-reports');
+      const reports = data.reports || [];
+      if (!reports.length) {
+        box.innerHTML = '<p class="muted">No learning notes shared yet.</p>';
+        return;
+      }
+      box.innerHTML = reports.map((r) =>
+        '<div class="card" style="margin-bottom:0.75rem;padding:0.85rem">' +
+        '<div class="muted small">' + escapeHtml(String(r.sharedAt || '').slice(0, 10)) + '</div>' +
+        '<p style="white-space:pre-wrap;margin:0.35rem 0 0">' + escapeHtml(r.parentReport || '') + '</p>' +
+        (r.recommendedActions && r.recommendedActions.length
+          ? '<ul class="muted small" style="margin:0.5rem 0 0">' +
+            r.recommendedActions.map((a) => '<li>' + escapeHtml(a) + '</li>').join('') + '</ul>'
+          : '') +
+        '</div>'
+      ).join('');
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
     }
   }
 
