@@ -78,7 +78,7 @@ const ADMIN_PATH_PERMS = [
   { re: /^\/admin\/bus/, perm: 'admin.bus' },
   { re: /^\/admin\/consents/, perm: 'admin.consents' },
   { re: /^\/admin\/consent-templates/, perm: 'admin.consents' },
-  { re: /^\/admin\/lost-and-found/, perm: 'admin.announcements' },
+  { re: /^\/admin\/lost-and-found/, perm: 'admin.lostFound' },
   { re: /^\/admin\/classes/, perm: 'admin.classes' },
   { re: /^\/admin\/students\/[^/]+\/transcript/, perm: 'admin.transcript' },
   { re: /^\/admin\/students/, perm: 'admin.students' },
