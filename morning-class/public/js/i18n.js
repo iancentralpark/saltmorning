@@ -44,6 +44,7 @@ window.SaltI18n = (function () {
       'admin.page.analytics': 'Learning Analytics',
       'admin.page.vocabPlatform': 'Vocab Booster',
       'admin.bus.setup': 'Semester routes',
+      'admin.bus.setupHelp': 'Fleet, dismissal times, and who rides each bus — set once, adjust rarely.',
       'admin.bus.dailyBoard': 'Daily board',
       'admin.bus.fleet': 'Bus fleet',
       'admin.bus.addBusBtn': '+ Add bus',
