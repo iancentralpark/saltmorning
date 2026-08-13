@@ -4593,6 +4593,18 @@ body.buddy-resize-active {
 .bus-noshow { background: #fff8f8; }
 .pp-bus-form { display: flex; flex-direction: column; gap: 0.65rem; max-width: 420px; margin-top: 0.75rem; }
 .pp-bus-form label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
+.pp-consent-card {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid var(--border-soft); background: var(--surface, #fff);
+  border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin: 0 0 0.65rem;
+  cursor: pointer; font: inherit;
+}
+.pp-consent-card:hover { border-color: var(--accent, #0f766e); }
+.pp-consent-card-title { font-weight: 700; margin-bottom: 0.2rem; }
+.pp-consent-extra label,
+.pp-consent-choice { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
+.pp-consent-choice { flex-direction: row; align-items: center; gap: 0.5rem; font-weight: 500; }
+.pp-consent-terms { flex-direction: row !important; align-items: flex-start; gap: 0.5rem; font-weight: 500 !important; }
 .pp-bus-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .pp-bus-current { margin: 0.5rem 0; }
 .pp-bus-hint { color: #b45309; margin: 0.35rem 0 0.75rem; }

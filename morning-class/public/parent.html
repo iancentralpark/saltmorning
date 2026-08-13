@@ -49,6 +49,10 @@
         </button>
         <button class="class-subnav-item" data-tab="attendance" type="button" data-i18n="nav.attendance">Attendance</button>
         <button class="class-subnav-item" data-tab="bus" type="button" data-i18n="nav.busNotice">Bus / leave</button>
+        <button class="class-subnav-item" data-tab="consents" type="button">
+          <span data-i18n="nav.consents">Consents</span>
+          <span class="pp-nav-badge hidden" data-badge="consents">0</span>
+        </button>
         <button class="class-subnav-item" data-tab="timetable" type="button" data-i18n="nav.timetable">Timetable</button>
         <button class="class-subnav-item" data-tab="homework" type="button">
           <span data-i18n="nav.homework">Homework</span>
@@ -135,6 +139,39 @@
       </section>
     </div>
 
+    <div id="tabConsents" class="card hidden">
+      <div id="ppConsentListWrap">
+        <h3 style="margin-top:0" data-i18n="parent.consents.title">Consent forms</h3>
+        <p class="muted small" data-i18n="parent.consents.help">School letters, consent forms, and shuttle applications for your child.</p>
+        <div id="ppConsentList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+      </div>
+      <div id="ppConsentDetail" class="hidden">
+        <button type="button" class="btn btn-ghost" id="ppConsentBack" data-i18n="common.back">← Back</button>
+        <h3 id="ppConsentDetailTitle" style="margin:0.75rem 0 0.25rem"></h3>
+        <p class="muted small" id="ppConsentDetailDue"></p>
+        <div id="ppConsentDetailBody" class="pp-consent-body" style="margin:1rem 0;line-height:1.55"></div>
+        <div id="ppConsentExtra" class="pp-consent-extra" style="display:grid;gap:0.75rem;margin:1rem 0"></div>
+        <fieldset style="border:0;padding:0;margin:1rem 0">
+          <legend class="muted small" data-i18n="parent.consents.response">Your response</legend>
+          <div id="ppConsentChoices" style="display:grid;gap:0.5rem"></div>
+        </fieldset>
+        <div id="ppConsentReasonWrap" class="hidden" style="margin:0.75rem 0">
+          <label><span data-i18n="parent.consents.reason">Reason</span>
+            <textarea id="ppConsentReason" rows="3" maxlength="500" style="width:100%"></textarea>
+          </label>
+        </div>
+        <div class="pp-consent-sig" style="margin:1rem 0">
+          <div class="muted small" data-i18n="parent.consents.sign">Sign below</div>
+          <canvas id="ppConsentSig" width="560" height="160"
+            style="width:100%;max-width:560px;height:160px;border:1px solid var(--border-soft);border-radius:var(--radius-sm);touch-action:none;background:#fff;display:block;margin-top:0.35rem"></canvas>
+          <button type="button" class="btn btn-ghost" id="ppConsentSigClear" style="margin-top:0.35rem" data-i18n="parent.consents.clearSig">Clear signature</button>
+        </div>
+        <button type="button" class="btn btn-primary" id="ppConsentSubmitBtn" data-i18n="parent.consents.submit">Submit</button>
+        <p class="ok" id="ppConsentOk"></p>
+        <p class="error" id="ppConsentError"></p>
+      </div>
+    </div>
+
     <div id="tabTimetable" class="card hidden">
       <div id="ppTimetable"></div>
     </div>
@@ -219,7 +256,8 @@
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/messenger.js?v=20260811kakaotabs"></script>
 <script src="/js/push-client.js?v=20260813push3"></script>
-<script src="/js/parent.js?v=20260813push3"></script>
+<script src="/js/consent-parent.js?v=20260813cf1"></script>
+<script src="/js/parent.js?v=20260813cf1"></script>
 <script>
 (function() {
   const role = 'parent';
@@ -228,6 +266,9 @@
   SaltI18n.bindToggle($('langToggleBtn'));
   SaltTimetable.init({ api, escapeHtml, role: 'parent' });
   SaltParent.init({ api, $, show, hide, escapeHtml });
+  if (window.SaltConsentParent) {
+    SaltConsentParent.init({ api, $, escapeHtml });
+  }
   SaltChangePassword.mount({ role, api });
 
   $('logoutBtn').addEventListener('click', () => {

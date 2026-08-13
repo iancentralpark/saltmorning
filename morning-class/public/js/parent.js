@@ -15,7 +15,8 @@ window.SaltParent = (function() {
     feed: [],
     announcements: [],
     homework: [],
-    reportcards: []
+    reportcards: [],
+    consents: []
   };
 
   const TAB_TITLE_KEYS = {
@@ -23,6 +24,7 @@ window.SaltParent = (function() {
     announcements: 'nav.parentAnnouncements',
     attendance: 'nav.attendance',
     bus: 'nav.busNotice',
+    consents: 'nav.consents',
     timetable: 'nav.timetable',
     homework: 'nav.homework',
     reportcards: 'nav.parentReports',
@@ -83,6 +85,18 @@ window.SaltParent = (function() {
         el.classList.add('hidden');
       }
     });
+    // Consents badge = pending submissions (not “seen”)
+    const consentBadge = document.querySelector('#parentNav [data-badge="consents"]');
+    if (consentBadge) {
+      const n = (badgeSources.consents || []).length;
+      if (n > 0) {
+        consentBadge.textContent = n > 99 ? '99+' : String(n);
+        consentBadge.classList.remove('hidden');
+      } else {
+        consentBadge.textContent = '0';
+        consentBadge.classList.add('hidden');
+      }
+    }
   }
 
   function init(options) {
@@ -159,21 +173,27 @@ window.SaltParent = (function() {
 
   function applyRoute() {
     const raw = String(location.hash || '').replace(/^#\/?/, '');
-    const tab = decodeURIComponent(raw.split('/')[0] || 'feed');
+    const parts = raw.split('/').filter(Boolean);
+    const tab = decodeURIComponent(parts[0] || 'feed');
     const next = TAB_TITLE_KEYS[tab] ? tab : 'feed';
+    const formId = next === 'consents' && parts[1] ? decodeURIComponent(parts[1]) : '';
+    if (currentTab === next && next === 'consents' && formId && window.SaltConsentParent) {
+      SaltConsentParent.open({ formId: formId });
+      return;
+    }
     if (currentTab === next) return;
-    switchTab(next, { skipHash: true });
+    switchTab(next, { skipHash: true, formId: formId });
   }
 
   function switchTab(name, opts) {
     opts = opts || {};
     if (!TAB_TITLE_KEYS[name]) name = 'feed';
     if (!opts.skipHash) setRoute(name, !!opts.replace);
-    if (currentTab === name && !opts.force) return;
+    if (currentTab === name && !opts.force && !opts.formId) return;
     currentTab = name;
     document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
       btn.classList.toggle('active', btn.dataset.tab === name));
-    ['feed', 'announcements', 'attendance', 'bus', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
+    ['feed', 'announcements', 'attendance', 'bus', 'consents', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
       const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       if (el) deps.hide(el);
     });
@@ -182,6 +202,7 @@ window.SaltParent = (function() {
       announcements: 'tabAnnouncements',
       attendance: 'tabAttendance',
       bus: 'tabBus',
+      consents: 'tabConsents',
       timetable: 'tabTimetable',
       homework: 'tabHomework',
       reportcards: 'tabReportcards',
@@ -192,6 +213,14 @@ window.SaltParent = (function() {
     if (name === 'announcements') loadAnnouncements();
     if (name === 'attendance') loadAttendance();
     if (name === 'bus') loadBusNotice();
+    if (name === 'consents' && window.SaltConsentParent) {
+      SaltConsentParent.open({ formId: opts.formId || '' }).then((info) => {
+        if (info && info.items) {
+          badgeSources.consents = info.items;
+          renderBadges();
+        }
+      }).catch(() => {});
+    }
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
     if (name === 'reportcards') loadReportCards();
@@ -221,12 +250,21 @@ window.SaltParent = (function() {
     const data = await api('/api/parent/overview');
     overview = data;
     badgeSources = Object.assign({
-      feed: [], announcements: [], homework: [], reportcards: []
+      feed: [], announcements: [], homework: [], reportcards: [], consents: []
     }, data.badgeSources || {});
     renderHeader(data);
     renderFeed(data.newsfeed || []);
     if (window.SaltMessenger && SaltMessenger.setQuickContacts) {
       SaltMessenger.setQuickContacts(data.teachers || []);
+    }
+    // Pending consent badge (live count)
+    if (window.SaltConsentParent) {
+      try {
+        const info = await SaltConsentParent.refreshPending();
+        badgeSources.consents = (info && info.items) || [];
+      } catch (_) {
+        badgeSources.consents = badgeSources.consents || [];
+      }
     }
     renderBadges();
     if (!location.hash || location.hash === '#') {

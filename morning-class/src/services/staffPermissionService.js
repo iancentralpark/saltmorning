@@ -16,6 +16,7 @@ const ADMIN_PERMS = [
   { key: 'admin.timetables', label: 'Timetables' },
   { key: 'admin.schoolCal', label: 'Calendar' },
   { key: 'admin.bus', label: 'Bus' },
+  { key: 'admin.consents', label: 'Consents' },
   { key: 'admin.announcements', label: 'News' },
   { key: 'admin.reportCards', label: 'Reports' },
   { key: 'admin.materials', label: 'Materials' },
