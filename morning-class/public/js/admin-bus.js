@@ -814,8 +814,12 @@ window.SaltAdminBus = (function () {
               '<div><strong>' + escapeHtml(r.name) + '</strong>' +
               (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
               (r.noShow ? ' <span class="error">No-show</span>' : '') +
+              (r.source === 'override_include'
+                ? ' <span class="muted small">(' + escapeHtml(t('admin.bus.overrideInclude', '당일 추가')) + ')</span>'
+                : '') +
               '</div>' +
               (contact ? '<div class="muted small">' + escapeHtml(contact) + '</div>' : '') +
+              '<div class="admin-toolbar" style="gap:0.35rem;margin-top:0.25rem">' +
               (row.runType === 'pickup'
                 ? '<button type="button" class="btn btn-ghost bus-ns-btn" data-run="' +
                   escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
@@ -825,8 +829,20 @@ window.SaltAdminBus = (function () {
                     : escapeHtml(t('admin.bus.noShow', 'No-show'))) +
                   '</button>'
                 : '') +
+              '<button type="button" class="btn btn-ghost bus-ov-exclude" data-run="' +
+                escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">' +
+                escapeHtml(t('admin.bus.overrideExclude', '오늘 제외')) +
+              '</button></div>' +
               '</li>';
-          }).join('') + '</ul>';
+          }).join('') + '</ul>' +
+          '<div class="bus-ov-include admin-toolbar" style="margin-top:0.5rem;flex-wrap:wrap;gap:0.35rem">' +
+            '<input class="bus-ov-sid" data-run="' + escapeHtml(run.runId) + '" placeholder="' +
+              escapeHtml(t('admin.bus.overrideStudentId', 'Student ID')) + '" style="max-width:9rem">' +
+            '<button type="button" class="btn btn-ghost bus-ov-include-btn" data-run="' +
+              escapeHtml(run.runId) + '">' +
+              escapeHtml(t('admin.bus.overrideIncludeBtn', '오늘 추가')) +
+            '</button>' +
+          '</div>';
         }
         html += '</div>';
       });
@@ -845,6 +861,51 @@ window.SaltAdminBus = (function () {
           await api(cancel ? '/api/admin/bus/noshow/cancel' : '/api/admin/bus/noshow', {
             method: 'POST',
             body: { dateStr: board.dateStr, runId: btn.dataset.run, studentId: btn.dataset.sid }
+          });
+          await loadBoard();
+        } catch (e) {
+          window.alert(e.message);
+        }
+      });
+    });
+    mount.querySelectorAll('.bus-ov-exclude').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm(t('admin.bus.overrideExcludeConfirm', '오늘만 이 학생을 버스에서 제외할까요?'))) return;
+        try {
+          await api('/api/admin/bus/override', {
+            method: 'POST',
+            body: {
+              dateStr: board.dateStr,
+              runId: btn.dataset.run,
+              studentId: btn.dataset.sid,
+              action: 'exclude',
+              reason: 'Admin same-day exclude'
+            }
+          });
+          await loadBoard();
+        } catch (e) {
+          window.alert(e.message);
+        }
+      });
+    });
+    mount.querySelectorAll('.bus-ov-include-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const input = mount.querySelector('.bus-ov-sid[data-run="' + btn.dataset.run + '"]');
+        const studentId = input && input.value.trim();
+        if (!studentId) {
+          window.alert(t('admin.bus.overrideNeedStudent', 'Student ID를 입력하세요.'));
+          return;
+        }
+        try {
+          await api('/api/admin/bus/override', {
+            method: 'POST',
+            body: {
+              dateStr: board.dateStr,
+              runId: btn.dataset.run,
+              studentId,
+              action: 'include',
+              reason: 'Admin same-day include'
+            }
           });
           await loadBoard();
         } catch (e) {

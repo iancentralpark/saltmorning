@@ -35,13 +35,21 @@
       let html = '';
       if (mine.length) {
         html += '<h4 style="margin:0 0 0.5rem">' + escapeHtml(t('parent.conf.myBookings', '내 예약')) + '</h4>';
-        html += '<ul class="muted" style="margin:0 0 1rem;padding-left:1.1rem">' +
-          mine.map((b) =>
-            '<li><strong>' + escapeHtml(b.teacherName || b.teacherId) + '</strong> · ' +
-            escapeHtml((b.date || '') + ' ' + (b.timeSlot || '')) +
-            (b.parentNote ? ' — ' + escapeHtml(b.parentNote) : '') +
-            '</li>'
-          ).join('') + '</ul>';
+        html += mine.map((b) =>
+          '<div class="card" style="margin:0 0 0.65rem;padding:0.75rem;border:1px solid var(--border-soft)">' +
+          '<strong>' + escapeHtml(b.teacherName || b.teacherId) + '</strong> · ' +
+          escapeHtml((b.date || '') + ' ' + (b.timeSlot || '')) +
+          ' <span class="muted small">(' + escapeHtml(b.status || 'Booked') + ')</span>' +
+          (b.parentNote ? '<div class="muted small">' + escapeHtml(t('parent.conf.note', '사전 질문')) +
+            ': ' + escapeHtml(b.parentNote) + '</div>' : '') +
+          (b.teacherNote ? '<div style="margin-top:0.35rem">' + escapeHtml(t('parent.conf.teacherNote', '상담 메모')) +
+            ': ' + escapeHtml(b.teacherNote) + '</div>' : '') +
+          (b.status === 'Booked'
+            ? '<button type="button" class="btn btn-ghost" style="margin-top:0.4rem" data-conf-cancel="' +
+              escapeHtml(b.bookingId) + '">' + escapeHtml(t('parent.conf.cancel', '예약 취소')) + '</button>'
+            : '') +
+          '</div>'
+        ).join('');
       }
       if (!teachers.length) {
         html += '<p class="muted">' + escapeHtml(t('parent.conf.empty', '열려 있는 상담 일정이 없습니다.')) + '</p>';
@@ -77,6 +85,18 @@
         '<p class="error" id="ppConfErr" style="margin:0.5rem 0 0"></p>' +
         '<p class="ok" id="ppConfOk" style="margin:0.5rem 0 0"></p></div>';
       box.innerHTML = html;
+
+      box.querySelectorAll('[data-conf-cancel]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(t('parent.conf.cancelConfirm', '이 예약을 취소할까요?'))) return;
+          try {
+            await api('/api/parent/conferences/' + encodeURIComponent(btn.dataset.confCancel) + '/cancel', {
+              method: 'POST'
+            });
+            open();
+          } catch (e) { alert(e.message); }
+        });
+      });
 
       box.querySelectorAll('.conf-slot:not([disabled])').forEach((btn) => {
         btn.addEventListener('click', () => {

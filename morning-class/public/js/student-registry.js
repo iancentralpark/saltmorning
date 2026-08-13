@@ -269,6 +269,12 @@
           '<label>Login ID <input class="sr-input" data-key="loginId" value="' + escapeHtml(s.loginId || '') + '"></label>' +
           '<label>Password <input class="sr-input" data-key="password" type="password" placeholder="' +
           (s.hasPassword ? 'Leave blank to keep' : 'Required for new') + '"></label>' +
+          (s.studentId && isAdminLike()
+            ? '<div class="sr-span2"><button type="button" class="btn btn-ghost sr-reset-pw" data-role="student" data-id="' +
+              escapeHtml(s.studentId) + '">' +
+              escapeHtml(t('sr.resetPassword', 'Reset password (temp + force change)')) +
+              '</button></div>'
+            : '') +
           '<label>Date of birth <input class="sr-input" data-key="dateOfBirth" type="date" value="' + escapeHtml(p.dateOfBirth || '') + '"></label>' +
           '<label>Gender <input class="sr-input" data-key="gender" value="' + escapeHtml(p.gender || '') + '"></label>' +
           '<label>Nationality <input class="sr-input" data-key="nationality" value="' + escapeHtml(p.nationality || '') + '"></label>' +
@@ -340,8 +346,16 @@
                 '<select class="sr-parent-rel-select" data-parent-id="' + escapeHtml(p.parentId) + '">' +
                 relOpts + '</select></label>' +
                 '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:0.35rem;align-items:flex-end">' +
                 '<button type="button" class="btn btn-ghost sr-unlink-parent" data-parent-id="' +
                 escapeHtml(p.parentId) + '">Unlink</button>' +
+                (isAdminLike()
+                  ? '<button type="button" class="btn btn-ghost sr-reset-pw" data-role="parent" data-id="' +
+                    escapeHtml(p.parentId) + '">' +
+                    escapeHtml(t('sr.resetPasswordShort', 'Reset PW')) +
+                    '</button>'
+                  : '') +
+                '</div>' +
                 '</div>';
             }).join('')
             : '<p class="muted">No parent accounts linked yet.</p>') +
@@ -660,6 +674,10 @@
 
     mountEl.querySelectorAll('.sr-unlink-parent').forEach((btn) => {
       btn.addEventListener('click', () => unlinkParent(btn.dataset.parentId));
+    });
+
+    mountEl.querySelectorAll('.sr-reset-pw').forEach((btn) => {
+      btn.addEventListener('click', () => resetAccountPassword(btn.dataset.role, btn.dataset.id));
     });
 
     mountEl.querySelectorAll('.sr-parent-rel-select').forEach((sel) => {
@@ -1032,6 +1050,30 @@
       await loadLinkedParents(activeStudent.studentId);
     } catch (e) {
       if (errEl) errEl.textContent = e.message || 'Could not unlink parent.';
+    }
+  }
+
+  async function resetAccountPassword(accountRole, accountId) {
+    if (!isAdminLike() || !accountRole || !accountId) return;
+    const label = accountRole === 'parent' ? 'parent' : 'student';
+    if (!confirm(
+      'Reset ' + label + ' password?\n\nA temporary password will be generated and they must change it on next login.'
+    )) return;
+    try {
+      const res = await api('/api/admin/accounts/reset-password', {
+        method: 'POST',
+        body: { role: accountRole, accountId, forceChange: true }
+      }, role);
+      const temp = (res && res.temporaryPassword) || '';
+      const login = (res && res.loginId) || '';
+      window.alert(
+        'Password reset.\n\n' +
+        (login ? 'Login: ' + login + '\n' : '') +
+        'Temporary password: ' + temp +
+        '\n\nShare this securely. They must change it after login.'
+      );
+    } catch (e) {
+      window.alert(e.message || 'Could not reset password.');
     }
   }
 

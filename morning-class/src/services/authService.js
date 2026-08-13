@@ -6,6 +6,11 @@ const {
 } = require('../config');
 const { getSheetRows, updateRange } = require('../sheets');
 const { signToken } = require('../auth/tokenAuth');
+const {
+  resolveMustChangePassword,
+  setMustChange,
+  adminResetPassword
+} = require('./accountFlagsService');
 
 const MIN_PASSWORD_LEN = 4;
 
@@ -36,14 +41,19 @@ async function loginStudent(loginId, password) {
       name: String(rows[i][1] || ''),
       classId: String(rows[i][2] || '')
     };
+    const mustChangePassword = await resolveMustChangePassword(
+      'student', profile.studentId, password, loginId
+    );
     return {
       token: signToken({
         role: 'student',
         studentId: profile.studentId,
         classId: profile.classId,
-        name: profile.name
+        name: profile.name,
+        mustChangePassword: !!mustChangePassword
       }),
-      profile
+      profile: Object.assign({}, profile, { mustChangePassword: !!mustChangePassword }),
+      mustChangePassword: !!mustChangePassword
     };
   }
   throw new Error('Login ID or password is incorrect.');
@@ -131,15 +141,20 @@ async function loginParent(loginId, password, opts) {
     classId,
     children: childSummaries
   };
+  const mustChangePassword = await resolveMustChangePassword(
+    'parent', profile.parentId, password, loginId
+  );
   return {
     token: signToken({
       role: 'parent',
       parentId: profile.parentId,
       studentId: profile.studentId,
       classId: profile.classId,
-      name: profile.name
+      name: profile.name,
+      mustChangePassword: !!mustChangePassword
     }),
-    profile
+    profile: Object.assign({}, profile, { mustChangePassword: !!mustChangePassword }),
+    mustChangePassword: !!mustChangePassword
   };
 }
 
@@ -264,6 +279,12 @@ async function loginTeacher(loginId, password) {
       portalRole
     };
 
+    const mustChangePassword = await resolveMustChangePassword(
+      'teacher', teacherId, password, loginId
+    );
+    const mcp = !!mustChangePassword;
+    profile.mustChangePassword = mcp;
+
     if (portalRole === 'principal') {
       return {
         token: signToken({
@@ -273,9 +294,11 @@ async function loginTeacher(loginId, password) {
           name: profile.name,
           staffRole: staffTitle,
           staffTitle,
-          permissions
+          permissions,
+          mustChangePassword: mcp
         }),
-        profile: Object.assign({}, profile, { principalId: profile.teacherId })
+        profile: Object.assign({}, profile, { principalId: profile.teacherId }),
+        mustChangePassword: mcp
       };
     }
 
@@ -288,9 +311,11 @@ async function loginTeacher(loginId, password) {
           name: profile.name,
           staffRole: staffTitle,
           staffTitle,
-          permissions
+          permissions,
+          mustChangePassword: mcp
         }),
-        profile
+        profile,
+        mustChangePassword: mcp
       };
     }
 
@@ -302,9 +327,11 @@ async function loginTeacher(loginId, password) {
         staffRole: staffTitle,
         staffTitle,
         headTeacherId: profile.headTeacherId,
-        permissions
+        permissions,
+        mustChangePassword: mcp
       }),
-      profile
+      profile,
+      mustChangePassword: mcp
     };
   }
   throw new Error('Login ID or password is incorrect.');
@@ -325,14 +352,20 @@ async function loginAdmin(loginId, password) {
       adminId: String(rows[i][0]),
       name: String(rows[i][1] || 'Admin')
     };
+    const mustChangePassword = await resolveMustChangePassword(
+      'admin', profile.adminId, password, loginId
+    );
+    const mcp = !!mustChangePassword;
     return {
       token: signToken({
         role: 'admin',
         adminId: profile.adminId,
         name: profile.name,
-        permissions: ['*']
+        permissions: ['*'],
+        mustChangePassword: mcp
       }),
-      profile: Object.assign({}, profile, { permissions: ['*'], portalRole: 'admin' })
+      profile: Object.assign({}, profile, { permissions: ['*'], portalRole: 'admin', mustChangePassword: mcp }),
+      mustChangePassword: mcp
     };
   }
   throw new Error('Login ID or password is incorrect.');
@@ -424,7 +457,11 @@ async function changePassword(session, currentPassword, newPassword, confirmPass
 
   const sheetRow = rowIndex + 1; // 1-based including header
   await updateRange(target.sheet, target.a1Col + sheetRow, [[next]]);
-  return { ok: true, role };
+  try {
+    const flagRole = (role === 'principal' || role === 'staff') ? 'teacher' : role;
+    await setMustChange(flagRole, accountId, false);
+  } catch (_) { /* optional */ }
+  return { ok: true, role, mustChangePassword: false };
 }
 
 module.exports = {
@@ -434,5 +471,6 @@ module.exports = {
   loginAdmin,
   loginUnified,
   switchParentActiveChild,
-  changePassword
+  changePassword,
+  adminResetPassword
 };

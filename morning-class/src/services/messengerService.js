@@ -788,9 +788,12 @@ async function searchMessengerDirectory(query, opts) {
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   const limit = Math.min(40, Number(opts.limit) || 25);
+  const classFilter = opts.classIds
+    ? new Set((opts.classIds || []).map(String).filter(Boolean))
+    : null;
   const results = [];
 
-  if (types.includes('teacher')) {
+  if (types.includes('teacher') && !opts.teacherScoped) {
     const { teacherDisplayNameMap } = require('./teacherRegistryService');
     const displayNames = await teacherDisplayNameMap().catch(() => ({}));
     const rows = await getSheetRows(TEACHER_LIST_SHEET);
@@ -857,13 +860,23 @@ async function searchMessengerDirectory(query, opts) {
         : (child.name || '');
       const blob = [name, parentId, loginId, childNames, studentId].join(' ');
       if (!matchesQuery(blob, q)) continue;
+      if (classFilter) {
+        const classIds = linked.length
+          ? linked.map((c) => c.classId).filter(Boolean)
+          : [child.classId].filter(Boolean);
+        if (!classIds.some((cid) => classFilter.has(String(cid)))) continue;
+      }
+      const teacherId = opts.teacherId ? String(opts.teacherId) : '';
+      const threadId = teacherId && studentId
+        ? parentTeacherThreadId(studentId, teacherId)
+        : parentAdminThreadId(parentId);
       results.push({
         personType: 'parent',
         id: parentId,
         name: name || parentId,
         subtitle: childNames ? ('Parent of ' + childNames) : 'Parent',
-        threadId: parentAdminThreadId(parentId),
-        threadType: 'parent_admin',
+        threadId,
+        threadType: teacherId ? 'parent_teacher' : 'parent_admin',
         studentId,
         studentName: child.name || '',
         classId: child.classId || ''
@@ -882,6 +895,7 @@ async function searchMessengerDirectory(query, opts) {
       const loginId = String(rows[i][4] || '');
       if (!studentId) continue;
       if (status && status !== 'Enrolled') continue;
+      if (classFilter && !classFilter.has(classId)) continue;
       if (!matchesQuery(name + ' ' + studentId + ' ' + loginId + ' ' + classId, q)) continue;
       if (!Object.prototype.hasOwnProperty.call(classLabelCache, classId)) {
         classLabelCache[classId] = classId ? await getClassLabel(classId) : '';

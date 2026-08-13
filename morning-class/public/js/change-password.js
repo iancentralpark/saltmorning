@@ -37,7 +37,8 @@ window.SaltChangePassword = (function() {
     });
   }
 
-  function open() {
+  function open(opts) {
+    opts = opts || {};
     ensureModal();
     const modal = document.getElementById(MODAL_ID);
     modal.classList.remove('hidden');
@@ -48,6 +49,17 @@ window.SaltChangePassword = (function() {
     err.textContent = '';
     ok.classList.add('hidden');
     document.getElementById('saltChangePwSubmit').disabled = false;
+    const title = document.getElementById('saltChangePwTitle');
+    const closeBtn = document.getElementById('saltChangePwClose');
+    if (opts.forced) {
+      if (title) title.textContent = 'Password change required';
+      if (closeBtn) closeBtn.classList.add('hidden');
+      modal.dataset.forced = '1';
+    } else {
+      if (title) title.textContent = 'Change password';
+      if (closeBtn) closeBtn.classList.remove('hidden');
+      modal.dataset.forced = '0';
+    }
     setTimeout(function() {
       const input = document.getElementById('saltChangePwCurrent');
       if (input) input.focus();
@@ -56,6 +68,7 @@ window.SaltChangePassword = (function() {
 
   function close() {
     const modal = document.getElementById(MODAL_ID);
+    if (modal && modal.dataset.forced === '1') return;
     if (modal) modal.classList.add('hidden');
   }
 
@@ -103,7 +116,10 @@ window.SaltChangePassword = (function() {
     });
 
     const form = document.getElementById('saltChangePwForm');
-    if (form.dataset.bound === '1') return;
+    if (form.dataset.bound === '1') {
+      if (options.requireChange) open({ forced: true });
+      return;
+    }
     form.dataset.bound = '1';
     form.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -122,6 +138,17 @@ window.SaltChangePassword = (function() {
           body: { currentPassword, newPassword, confirmPassword }
         }, role);
         syncSavedLoginPassword(newPassword);
+        try {
+          const profile = SaltApp.getProfile && SaltApp.getProfile(role);
+          if (profile) {
+            profile.mustChangePassword = false;
+            SaltApp.setProfile(role, profile);
+          }
+        } catch (_) { /* ignore */ }
+        const modal = document.getElementById(MODAL_ID);
+        if (modal) modal.dataset.forced = '0';
+        const closeBtn = document.getElementById('saltChangePwClose');
+        if (closeBtn) closeBtn.classList.remove('hidden');
         ok.classList.remove('hidden');
         form.reset();
         setTimeout(close, 900);
@@ -132,6 +159,8 @@ window.SaltChangePassword = (function() {
         submit.disabled = false;
       }
     });
+
+    if (options.requireChange) open({ forced: true });
   }
 
   return { mount, open, close };

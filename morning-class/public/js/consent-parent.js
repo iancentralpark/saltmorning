@@ -145,27 +145,53 @@
   function renderList() {
     const box = $('ppConsentList');
     if (!box) return;
+    const histHost = $('ppConsentHistory');
     if (!pending.length) {
       box.innerHTML = '<p class="muted">' + escapeHtml(t('parent.consents.empty', '미제출 양식이 없습니다.')) + '</p>';
-      return;
+    } else {
+      box.innerHTML = pending.map((f) => {
+        const em = f.eventMeta;
+        const badge = em
+          ? (em.isFull
+            ? ' · ' + t('parent.consents.eventFullShort', '대기 가능')
+            : (em.capacity ? ' · ' + em.spotsLeft + '/' + em.capacity : ''))
+          : '';
+        return '<button type="button" class="pp-consent-card" data-consent-open="' + escapeHtml(f.formId) + '">' +
+          '<div class="pp-consent-card-title">' + escapeHtml(f.title) + '</div>' +
+          '<div class="muted small">' +
+          (f.dueDate ? escapeHtml(t('parent.consents.due', '마감') + ': ' + f.dueDate) : '') +
+          escapeHtml(badge) +
+          '</div></button>';
+      }).join('');
+      box.querySelectorAll('[data-consent-open]').forEach((btn) => {
+        btn.addEventListener('click', () => openForm(btn.dataset.consentOpen));
+      });
     }
-    box.innerHTML = pending.map((f) => {
-      const em = f.eventMeta;
-      const badge = em
-        ? (em.isFull
-          ? ' · ' + t('parent.consents.eventFullShort', '대기 가능')
-          : (em.capacity ? ' · ' + em.spotsLeft + '/' + em.capacity : ''))
-        : '';
-      return '<button type="button" class="pp-consent-card" data-consent-open="' + escapeHtml(f.formId) + '">' +
-        '<div class="pp-consent-card-title">' + escapeHtml(f.title) + '</div>' +
-        '<div class="muted small">' +
-        (f.dueDate ? escapeHtml(t('parent.consents.due', '마감') + ': ' + f.dueDate) : '') +
-        escapeHtml(badge) +
-        '</div></button>';
-    }).join('');
-    box.querySelectorAll('[data-consent-open]').forEach((btn) => {
-      btn.addEventListener('click', () => openForm(btn.dataset.consentOpen));
-    });
+    loadHistory(histHost);
+  }
+
+  async function loadHistory(host) {
+    if (!host) return;
+    host.innerHTML = '<p class="muted small">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const data = await api('/api/parent/consents/history');
+      const rows = data.submitted || [];
+      if (!rows.length) {
+        host.innerHTML = '<p class="muted small">' + escapeHtml(t('parent.consents.historyEmpty', '제출 이력이 없습니다.')) + '</p>';
+        return;
+      }
+      host.innerHTML = '<table class="grades-table"><thead><tr><th>제목</th><th>응답</th><th>상태</th><th>제출</th></tr></thead><tbody>' +
+        rows.map((r) => {
+          const st = r.registrationStatus === 'Waiting'
+            ? ('대기' + (r.waitNumber ? ' #' + r.waitNumber : ''))
+            : (r.registrationStatus === 'Confirmed' ? '확정' : '—');
+          return '<tr><td>' + escapeHtml(r.title) + '</td><td>' + escapeHtml(r.agreed) +
+            '</td><td>' + escapeHtml(st) + '</td><td>' +
+            escapeHtml(String(r.submittedAt || '').slice(0, 16).replace('T', ' ')) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    } catch (e) {
+      host.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
   }
 
   function choiceIsNegative(val) {

@@ -390,7 +390,86 @@ async function bookSlot(session, payload) {
     break;
   }
 
-  return parseBookingRow(bookingRow);
+  const booking = parseBookingRow(bookingRow);
+  try {
+    const push = require('./pushService');
+    if (push.isPushEnabled() && schedule.teacherId) {
+      const student = await studentMeta(studentId);
+      await push.sendToUser('teacher', schedule.teacherId, {
+        title: 'Conference booked',
+        body: ((student && student.name) || studentId) + ' · ' + schedule.date + ' ' + schedule.timeSlot,
+        url: '/teacher#/conferences'
+      }).catch(() => null);
+    }
+  } catch (_) { /* optional */ }
+
+  return booking;
+}
+
+async function cancelBooking(session, bookingId) {
+  await ensureConferenceSheets();
+  bookingId = String(bookingId || '').trim();
+  const parentId = String(session.parentId || '').trim();
+  if (!bookingId || !parentId) {
+    throw Object.assign(new Error('Booking and parent are required.'), { status: 400 });
+  }
+
+  const bookings = await listBookings({ skipCache: true });
+  const booking = bookings.find((b) => b.bookingId === bookingId);
+  if (!booking) throw Object.assign(new Error('Booking not found.'), { status: 404 });
+  if (booking.parentId !== parentId) {
+    throw Object.assign(new Error('Not your booking.'), { status: 403 });
+  }
+  if (booking.status === 'Cancelled') return booking;
+  if (booking.status === 'Completed') {
+    throw Object.assign(new Error('Completed conferences cannot be cancelled.'), { status: 400 });
+  }
+
+  const bookRows = await getSheetRows(CONFERENCE_BOOKINGS_SHEET, { skipCache: true });
+  for (let i = 1; i < bookRows.length; i++) {
+    if (String(bookRows[i][0]) !== bookingId) continue;
+    const row = bookRows[i].slice();
+    while (row.length < 8) row.push('');
+    row[6] = 'Cancelled';
+    await updateRange(CONFERENCE_BOOKINGS_SHEET, `A${i + 1}:H${i + 1}`, [row]);
+    invalidateSheetRowsCache(CONFERENCE_BOOKINGS_SHEET);
+    break;
+  }
+
+  // Re-open schedule if no other active booking
+  const stillActive = (await listBookings({ skipCache: true }))
+    .some((b) => b.scheduleId === booking.scheduleId &&
+      b.bookingId !== bookingId &&
+      (b.status === 'Booked' || b.status === 'Completed'));
+  if (!stillActive) {
+    const schedRows = await getSheetRows(CONFERENCE_SCHEDULES_SHEET, { skipCache: true });
+    for (let i = 1; i < schedRows.length; i++) {
+      if (String(schedRows[i][0]) !== booking.scheduleId) continue;
+      const row = schedRows[i].slice();
+      while (row.length < 9) row.push('');
+      if (row[6] === 'Booked') {
+        row[6] = 'Open';
+        await updateRange(CONFERENCE_SCHEDULES_SHEET, `A${i + 1}:I${i + 1}`, [row]);
+        invalidateSheetRowsCache(CONFERENCE_SCHEDULES_SHEET);
+      }
+      break;
+    }
+  }
+
+  try {
+    const schedules = await listSchedules({ skipCache: true });
+    const schedule = schedules.find((s) => s.scheduleId === booking.scheduleId);
+    const push = require('./pushService');
+    if (push.isPushEnabled() && schedule && schedule.teacherId) {
+      await push.sendToUser('teacher', schedule.teacherId, {
+        title: 'Conference cancelled',
+        body: (schedule.date || '') + ' ' + (schedule.timeSlot || '') + ' — parent cancelled',
+        url: '/teacher#/conferences'
+      }).catch(() => null);
+    }
+  } catch (_) { /* optional */ }
+
+  return Object.assign({}, booking, { status: 'Cancelled' });
 }
 
 async function saveTeacherNote(teacherId, payload) {
@@ -417,7 +496,18 @@ async function saveTeacherNote(teacherId, payload) {
     if (payload.markCompleted) row[6] = 'Completed';
     await updateRange(CONFERENCE_BOOKINGS_SHEET, `A${i + 1}:H${i + 1}`, [row]);
     invalidateSheetRowsCache(CONFERENCE_BOOKINGS_SHEET);
-    return parseBookingRow(row);
+    const updated = parseBookingRow(row);
+    try {
+      const push = require('./pushService');
+      if (push.isPushEnabled() && booking.parentId) {
+        await push.sendToParent(booking.parentId, {
+          title: payload.markCompleted ? 'Conference completed' : 'Conference note updated',
+          body: note ? note.slice(0, 120) : 'Your teacher left a conference note.',
+          url: '/parent#/conferences'
+        }).catch(() => null);
+      }
+    } catch (_) { /* optional */ }
+    return updated;
   }
   throw Object.assign(new Error('Booking not found.'), { status: 404 });
 }
@@ -449,6 +539,7 @@ module.exports = {
   listTeacherDashboard,
   listAvailableForParent,
   bookSlot,
+  cancelBooking,
   saveTeacherNote,
   closeSchedule,
   listSchedules,

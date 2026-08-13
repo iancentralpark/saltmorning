@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
-const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword } = require('./services/authService');
+const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
 const {
   getTeacherClasses,
@@ -510,6 +510,15 @@ router.post('/auth/change-password', requireRole('student', 'parent', 'teacher',
   }
 });
 
+router.post('/admin/accounts/reset-password', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const result = await adminResetPassword(req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not reset password.' });
+  }
+});
+
 router.get('/teacher/classes', requireRole('teacher'), async (req, res) => {
   try {
     const [data, subjectGroups] = await Promise.all([
@@ -664,7 +673,7 @@ router.get('/teacher/class/:classId/students/:studentId/year-attendance', requir
   }
 });
 
-router.get('/school-calendar/day', requireRole('teacher', 'admin'), async (req, res) => {
+router.get('/school-calendar/day', requireRole('teacher', 'admin', 'parent'), async (req, res) => {
   try {
     const date = req.query.date;
     const classId = req.query.classId || '*';
@@ -675,7 +684,7 @@ router.get('/school-calendar/day', requireRole('teacher', 'admin'), async (req, 
   }
 });
 
-router.get('/school-calendar/range', requireRole('teacher', 'admin'), async (req, res) => {
+router.get('/school-calendar/range', requireRole('teacher', 'admin', 'parent'), async (req, res) => {
   try {
     const classId = req.query.classId || '*';
     if (req.query.view === 'year' || (req.query.start && req.query.end && !req.query.month)) {
@@ -2240,6 +2249,15 @@ router.get('/parent/consents/bus-options', requireRole('parent'), async (req, re
   }
 });
 
+router.get('/parent/consents/history', requireRole('parent'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json(await consent.listSubmittedForParent(req.session));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load history.' });
+  }
+});
+
 router.get('/parent/consents/:formId', requireRole('parent'), async (req, res) => {
   try {
     const consent = require('./services/consentService');
@@ -2585,9 +2603,27 @@ router.get('/messenger/threads', requireRole('student', 'parent', 'teacher', 'ad
   }
 });
 
-/** Admin people directory — search teachers, parents, students to start a chat. */
-router.get('/messenger/directory', requireRole('admin'), async (req, res) => {
+/** Admin/teacher people directory — search to start a chat. */
+router.get('/messenger/directory', requireRole('admin', 'teacher', 'principal', 'staff'), async (req, res) => {
   try {
+    const role = req.session.role;
+    if (role === 'teacher' || role === 'staff') {
+      const { getTeacherClasses } = require('./services/teacherPortalService');
+      const data = await getTeacherClasses(req.session.teacherId);
+      const classIds = []
+        .concat((data && data.homeroom) || [])
+        .concat((data && data.assigned) || [])
+        .map((c) => c && c.classId)
+        .filter(Boolean);
+      const results = await searchMessengerDirectory(req.query.q, {
+        types: req.query.types || 'parent,student',
+        limit: req.query.limit,
+        classIds,
+        teacherId: req.session.teacherId,
+        teacherScoped: true
+      });
+      return res.json(results);
+    }
     const data = await searchMessengerDirectory(req.query.q, {
       types: req.query.types,
       limit: req.query.limit
@@ -3894,6 +3930,16 @@ router.post('/parent/conferences/book', requireRole('parent'), async (req, res) 
   }
 });
 
+router.post('/parent/conferences/:bookingId/cancel', requireRole('parent'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const booking = await conf.cancelBooking(req.session, req.params.bookingId);
+    res.json({ booking });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Cancel failed.' });
+  }
+});
+
 /* ── Teacher conferences ── */
 router.post('/teacher/conferences/schedules', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
@@ -3954,6 +4000,15 @@ router.post('/parent/lost-and-found/:id/claim', requireRole('parent'), async (re
   }
 });
 
+router.post('/parent/lost-and-found/:id/withdraw', requireRole('parent'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.withdrawClaim(req.session, req.params.id) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Withdraw failed.' });
+  }
+});
+
 router.get('/teacher/lost-and-found', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const laf = require('./services/lostFoundService');
@@ -3983,6 +4038,60 @@ router.post('/teacher/lost-and-found/:id/complete', requireRole('teacher', 'admi
     res.json({ item: await laf.completeClaim(req.session.teacherId, req.params.id) });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not complete claim.' });
+  }
+});
+
+router.post('/teacher/lost-and-found/:id/reject', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.rejectClaim(req.session.teacherId, req.params.id, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not reject claim.' });
+  }
+});
+
+router.get('/parent/bus/assignments', requireRole('parent'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json(await busService.getParentBusAssignments(req.session));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load bus assignments.' });
+  }
+});
+
+router.post('/parent/bus/assignments', requireRole('parent'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    res.json({ assignment: await busService.parentUpdateBusAssignment(req.session, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not update assignment.' });
+  }
+});
+
+router.get('/parent/school-calendar', requireRole('parent'), async (req, res) => {
+  try {
+    const cal = require('./services/schoolCalendarService');
+    const classId = String(req.session.classId || '').trim();
+    const from = String(req.query.from || '').slice(0, 10);
+    const to = String(req.query.to || '').slice(0, 10);
+    if (req.query.month || req.query.year) {
+      const year = Number(req.query.year) || new Date().getFullYear();
+      const month = Number(req.query.month) || (new Date().getMonth() + 1);
+      return res.json(await cal.getMonthCalendar(classId, year, month));
+    }
+    const entries = await cal.listEntries({ from, to, classId, includeInactive: false });
+    res.json({ entries, classId });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load calendar.' });
+  }
+});
+
+router.get('/student/timetable', requireRole('student'), async (req, res) => {
+  try {
+    const { getTimetable } = require('./services/timetableService');
+    res.json(await getTimetable('student', req.session.studentId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load timetable.' });
   }
 });
 

@@ -162,6 +162,10 @@
     return isAdminPortalRole(role);
   }
 
+  function canUseDirectory() {
+    return isAdminRole() || role === 'teacher';
+  }
+
   function renderFab(unread) {
     const fab = root().querySelector('.msg-fab');
     const badge = root().querySelector('.msg-fab-badge');
@@ -172,7 +176,7 @@
 
   function renderDirectoryResults() {
     const box = root() && root().querySelector('.msg-directory-results');
-    if (!box || !isAdminRole()) return;
+    if (!box || !canUseDirectory()) return;
     if (!directoryQuery) {
       box.innerHTML = '';
       box.classList.add('hidden');
@@ -817,9 +821,11 @@
       '<div class="msg-contact-list"></div>' +
       '</div>' +
       '<div class="msg-view-chats">' +
-      (isAdminRole()
+      (canUseDirectory()
         ? '<div class="msg-directory">' +
-          '<input type="search" class="msg-directory-input" placeholder="Search teachers, parents, students…" autocomplete="off">' +
+          '<input type="search" class="msg-directory-input" placeholder="' +
+          (role === 'teacher' ? 'Search parents & students…' : 'Search teachers, parents, students…') +
+          '" autocomplete="off">' +
           '<div class="msg-directory-results hidden"></div>' +
           '</div>'
         : '') +

@@ -10,6 +10,9 @@ window.SaltParent = (function() {
   let overview = null;
   let yearAtt = null;
   let yearAttMonthIdx = 0;
+  let schoolCal = null;
+  let schoolCalYear = 0;
+  let schoolCalMonth = 0;
   let currentTab = '';
   let badgeSources = {
     feed: [],
@@ -23,6 +26,7 @@ window.SaltParent = (function() {
     feed: 'nav.feed',
     announcements: 'nav.parentAnnouncements',
     attendance: 'nav.attendance',
+    calendar: 'nav.schoolCal',
     bus: 'nav.busNotice',
     consents: 'nav.consents',
     conferences: 'nav.conferences',
@@ -138,6 +142,26 @@ window.SaltParent = (function() {
       yearAttMonthIdx = Math.min(yearAtt.months.length - 1, yearAttMonthIdx + 1);
       renderAttMonth();
     });
+    if ($('ppCalPrev')) {
+      $('ppCalPrev').addEventListener('click', () => {
+        schoolCalMonth -= 1;
+        if (schoolCalMonth < 1) {
+          schoolCalMonth = 12;
+          schoolCalYear -= 1;
+        }
+        loadSchoolCalendar();
+      });
+    }
+    if ($('ppCalNext')) {
+      $('ppCalNext').addEventListener('click', () => {
+        schoolCalMonth += 1;
+        if (schoolCalMonth > 12) {
+          schoolCalMonth = 1;
+          schoolCalYear += 1;
+        }
+        loadSchoolCalendar();
+      });
+    }
   }
 
   async function switchActiveChild(studentId) {
@@ -176,7 +200,8 @@ window.SaltParent = (function() {
   function applyRoute() {
     const raw = String(location.hash || '').replace(/^#\/?/, '');
     const parts = raw.split('/').filter(Boolean);
-    const tab = decodeURIComponent(parts[0] || 'feed');
+    let tab = decodeURIComponent(parts[0] || 'feed');
+    if (tab === 'lost-and-found' || tab === 'lost_and_found') tab = 'lostAndFound';
     const next = TAB_TITLE_KEYS[tab] ? tab : 'feed';
     const formId = next === 'consents' && parts[1] ? decodeURIComponent(parts[1]) : '';
     if (currentTab === next && next === 'consents' && formId && window.SaltConsentParent) {
@@ -195,7 +220,7 @@ window.SaltParent = (function() {
     currentTab = name;
     document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
       btn.classList.toggle('active', btn.dataset.tab === name));
-    ['feed', 'announcements', 'attendance', 'bus', 'consents', 'conferences', 'lostAndFound', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
+    ['feed', 'announcements', 'attendance', 'calendar', 'bus', 'consents', 'conferences', 'lostAndFound', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
       const id = k === 'lostAndFound' ? 'tabLostAndFound' : ('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       const el = $(id);
       if (el) deps.hide(el);
@@ -204,6 +229,7 @@ window.SaltParent = (function() {
       feed: 'tabFeed',
       announcements: 'tabAnnouncements',
       attendance: 'tabAttendance',
+      calendar: 'tabCalendar',
       bus: 'tabBus',
       consents: 'tabConsents',
       conferences: 'tabConferences',
@@ -217,6 +243,7 @@ window.SaltParent = (function() {
     markTabSeen(name);
     if (name === 'announcements') loadAnnouncements();
     if (name === 'attendance') loadAttendance();
+    if (name === 'calendar') loadSchoolCalendar();
     if (name === 'bus') loadBusNotice();
     if (name === 'consents' && window.SaltConsentParent) {
       SaltConsentParent.open({ formId: opts.formId || '' }).then((info) => {
@@ -465,6 +492,67 @@ window.SaltParent = (function() {
     $('ppAttCal').innerHTML = html;
   }
 
+  async function loadSchoolCalendar() {
+    const mount = $('ppCalMount');
+    if (!mount) return;
+    const now = new Date();
+    if (!schoolCalYear) schoolCalYear = now.getFullYear();
+    if (!schoolCalMonth) schoolCalMonth = now.getMonth() + 1;
+    mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      schoolCal = await api(
+        '/api/parent/school-calendar?year=' + schoolCalYear + '&month=' + schoolCalMonth
+      );
+      renderSchoolCalendar();
+    } catch (e) {
+      mount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function renderSchoolCalendar() {
+    const mount = $('ppCalMount');
+    const label = $('ppCalMonthLabel');
+    if (!mount || !schoolCal) return;
+    if (label) label.textContent = MONTH_NAMES[schoolCal.month - 1] + ' ' + schoolCal.year;
+    const days = schoolCal.days || [];
+    const firstDow = new Date(schoolCal.year, schoolCal.month - 1, 1).getDay();
+    let html = '<div class="ya-cal-grid">';
+    DAY_NAMES.forEach((d) => { html += '<div class="ya-cal-dow">' + d + '</div>'; });
+    for (let i = 0; i < firstDow; i++) html += '<div class="ya-cal-pad"></div>';
+    days.forEach((day) => {
+      const cls = ['ya-cal-day'];
+      if (!day.isClassDay) cls.push('ya-cal-grey');
+      if (day.dayType === 'holiday' || day.dayType === 'kr_holiday' || day.dayType === 'break') {
+        cls.push('ya-cal-absent');
+      }
+      if (day.dayType === 'event' || (day.events && day.events.length)) cls.push('ya-cal-tardy');
+      if (day.isClassDay) cls.push('ya-cal-present');
+      const tipParts = [day.title || day.dayType].concat(
+        (day.events || []).map((e) => e.title || e.type)
+      ).filter(Boolean);
+      const num = Number(String(day.date || '').slice(-2)) || '';
+      html += '<div class="' + cls.join(' ') + '" title="' + escapeHtml(tipParts.join(' · ') || day.date) + '">' +
+        '<span class="ya-cal-num">' + num + '</span>' +
+        (day.title
+          ? '<span class="muted small" style="display:block;font-size:0.65rem;line-height:1.1">' +
+            escapeHtml(String(day.title).slice(0, 18)) + '</span>'
+          : '') +
+        '</div>';
+    });
+    html += '</div>';
+    const events = (schoolCal.entries || []).filter((e) => e && e.title);
+    if (events.length) {
+      html += '<ul class="pp-bus-upcoming-list" style="margin-top:1rem">' +
+        events.map((e) =>
+          '<li><strong>' + escapeHtml(e.date || e.from || '') + '</strong> — ' +
+          escapeHtml(e.title) +
+          (e.type ? ' <span class="muted">(' + escapeHtml(e.type) + ')</span>' : '') +
+          '</li>'
+        ).join('') + '</ul>';
+    }
+    mount.innerHTML = html;
+  }
+
   function noticeTypeLabel(type) {
     const map = {
       '결석': t('parent.bus.absent', 'Absent (결석)'),
@@ -525,6 +613,81 @@ window.SaltParent = (function() {
     hint.textContent = schoolDay.message || t('parent.bus.notSchoolDay', 'Not a school day — choose another date.');
   }
 
+  async function loadBusAssignments() {
+    const mount = $('ppBusAssignMount');
+    if (!mount) return;
+    mount.innerHTML = '<p class="muted small">…</p>';
+    try {
+      const data = await api('/api/parent/bus/assignments');
+      const assigns = data.assignments || [];
+      const runs = data.availableRuns || [];
+      const pickup = runs.filter((r) => r.runType === 'pickup');
+      const dismiss = runs.filter((r) => r.runType === 'dismissal');
+      const curPickup = assigns.find((a) => a.runType === 'pickup');
+      const curDismiss = assigns.find((a) => a.runType === 'dismissal');
+      const opt = (list, selected) => list.map((r) =>
+        '<option value="' + escapeHtml(r.runId) + '"' +
+        (selected && selected.runId === r.runId ? ' selected' : '') + '>' +
+        escapeHtml((r.label || r.runId) + (r.startTime ? ' (' + r.startTime + ')' : '')) +
+        '</option>'
+      ).join('');
+      mount.innerHTML =
+        '<div class="admin-toolbar" style="flex-wrap:wrap;gap:0.65rem">' +
+        '<label><span class="muted small">등교</span><select id="ppBusPickupRun"><option value="">—</option>' +
+        opt(pickup, curPickup) + '</select></label>' +
+        '<label><span class="muted small">하교</span><select id="ppBusDismissRun"><option value="">—</option>' +
+        opt(dismiss, curDismiss) + '</select></label>' +
+        '<button type="button" class="btn btn-primary" id="ppBusAssignSave">' +
+        escapeHtml(t('parent.bus.assignSave', '배정 저장')) + '</button>' +
+        (curPickup ? '<button type="button" class="btn btn-ghost" data-bus-cancel="' +
+          escapeHtml(curPickup.assignmentId) + '">등교 취소</button>' : '') +
+        (curDismiss ? '<button type="button" class="btn btn-ghost" data-bus-cancel="' +
+          escapeHtml(curDismiss.assignmentId) + '">하교 취소</button>' : '') +
+        '</div>' +
+        '<p class="ok" id="ppBusAssignOk"></p><p class="error" id="ppBusAssignErr"></p>';
+      if ($('ppBusAssignSave')) {
+        $('ppBusAssignSave').addEventListener('click', async () => {
+          const errEl = $('ppBusAssignErr');
+          const okEl = $('ppBusAssignOk');
+          if (errEl) errEl.textContent = '';
+          if (okEl) okEl.textContent = '';
+          try {
+            const pickupId = $('ppBusPickupRun') && $('ppBusPickupRun').value;
+            const dismissId = $('ppBusDismissRun') && $('ppBusDismissRun').value;
+            if (pickupId) {
+              await api('/api/parent/bus/assignments', {
+                method: 'POST', body: { runId: pickupId }
+              });
+            }
+            if (dismissId) {
+              await api('/api/parent/bus/assignments', {
+                method: 'POST', body: { runId: dismissId }
+              });
+            }
+            if (okEl) okEl.textContent = t('parent.bus.assignSaved', '저장되었습니다.');
+            loadBusAssignments();
+          } catch (e) {
+            if (errEl) errEl.textContent = e.message;
+          }
+        });
+      }
+      mount.querySelectorAll('[data-bus-cancel]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(t('parent.bus.assignCancelConfirm', '이 배정을 취소할까요?'))) return;
+          try {
+            await api('/api/parent/bus/assignments', {
+              method: 'POST',
+              body: { action: 'cancel', assignmentId: btn.dataset.busCancel }
+            });
+            loadBusAssignments();
+          } catch (e) { alert(e.message); }
+        });
+      });
+    } catch (e) {
+      mount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
   async function loadBusNotice() {
     const cur = $('ppBusCurrent');
     const ok = $('ppBusOk');
@@ -532,6 +695,7 @@ window.SaltParent = (function() {
     if (ok) ok.textContent = '';
     if (err) err.textContent = '';
     if (cur) cur.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    loadBusAssignments();
     try {
       const studentId = overview && overview.student && overview.student.studentId;
       const date = selectedBusDate();
