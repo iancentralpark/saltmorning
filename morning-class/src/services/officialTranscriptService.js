@@ -9,15 +9,9 @@ const { defaultAcademicYearRange } = require('./schoolCalendarService');
 const { getStudentGradeSummary } = require('./gradeService');
 const { listGradeTerms } = require('./gradeWeightService');
 const { getStudentDollars } = require('./dollarService');
-const { getStudentVocabSummary } = require('./vocabShared');
 const { academicYearLabel, termDisplayLabel } = require('./reportCardPrint');
-const {
-  getFullStudentReportCard
-} = require('./reportCardService');
-const {
-  getTeacherHeadId,
-  loadSignatureAsset
-} = require('./reportCardWorkflowService');
+const { getFullStudentReportCard } = require('./reportCardService');
+const { loadSignatureAsset } = require('./reportCardWorkflowService');
 
 const TEMPLATE_PATH = path.join(__dirname, '..', 'templates', 'official-transcript.html');
 
@@ -44,26 +38,16 @@ const LABELS = {
     lblEarlyLeave: 'Early leave',
     lblSchoolDays: 'School days',
     lblAcademic: 'Academic performance (transcript)',
-    lblVocab: 'Vocab Booster progress',
-    lblPlacement: 'Placement',
-    lblCurrentLevel: 'Current level',
-    lblMastery: 'Mastery / studied',
-    lblStreak: 'Streak',
-    lblObservations: "Teacher's cumulative observations",
-    lblHomeroom: 'Homeroom teacher',
-    lblHeadTeacher: 'Head teacher',
     lblPrincipal: 'Principal',
     thTerm: 'Term',
     thSubject: 'Subject',
     thScore: 'Score',
     thGrade: 'Grade',
-    thComment: 'Comment',
     noGrades: 'No graded subjects recorded for this academic year yet.',
-    notPlaced: 'Placement not completed',
     certification:
       'This document is an official record of Salt Academy Morning Class. ' +
-      'It summarizes attendance, academic performance, vocabulary progress, and teacher observations ' +
-      'for the named student. Alteration or unauthorized reproduction is prohibited.',
+      'It summarizes enrollment, attendance, and academic performance for the named student. ' +
+      'Alteration or unauthorized reproduction is prohibited.',
     na: '—'
   },
   ko: {
@@ -88,25 +72,15 @@ const LABELS = {
     lblEarlyLeave: '조퇴',
     lblSchoolDays: '수업일수',
     lblAcademic: '학업 성적 (Transcript)',
-    lblVocab: 'Vocab Booster 진행',
-    lblPlacement: '배치테스트',
-    lblCurrentLevel: '현재 레벨',
-    lblMastery: '숙달 / 학습량',
-    lblStreak: '연속 학습',
-    lblObservations: '담임 종합 소견',
-    lblHomeroom: '담임교사',
-    lblHeadTeacher: '헤드티처',
     lblPrincipal: '원장',
     thTerm: '학기',
     thSubject: '과목',
     thScore: '점수',
     thGrade: '등급',
-    thComment: '코멘트',
     noGrades: '해당 학년도 성적이 아직 없습니다.',
-    notPlaced: '배치 미완료',
     certification:
       '본 서류는 Salt Academy Morning Class의 공식 학적·성적 기록입니다. ' +
-      '출석, 학업 성적, 어휘 학습, 교사 소견을 요약하며 무단 변조·복제를 금합니다.',
+      '학적, 출석, 학업 성적을 요약하며 무단 변조·복제를 금합니다.',
     na: '—'
   }
 };
@@ -177,8 +151,20 @@ async function loadSigDataUri(personId) {
   }
 }
 
+async function resolvePrincipal(faculty) {
+  const principal = (faculty || []).find((t) =>
+    /^principal$/i.test(String(t.staffTitle || t.staffRole || ''))
+  );
+  return {
+    principalId: principal ? principal.teacherId : 'T_PRINCIPAL',
+    principalName: principal
+      ? (principal.displayName || principal.name || 'Principal')
+      : 'Principal'
+  };
+}
+
 /**
- * Aggregate all transcript source data for one student.
+ * Aggregate official transcript data (objective records only).
  */
 async function getStudentCumulativeData(studentId, opts) {
   opts = opts || {};
@@ -232,13 +218,6 @@ async function getStudentCumulativeData(studentId, opts) {
     };
   } catch (_) { /* optional */ }
 
-  let vocab = null;
-  try {
-    vocab = await getStudentVocabSummary(studentId, classId || '');
-  } catch (_) {
-    vocab = null;
-  }
-
   const termRows = classId
     ? await listGradeTerms(classId).catch(() => [])
     : [];
@@ -246,18 +225,8 @@ async function getStudentCumulativeData(studentId, opts) {
   if (!termLabels.length) termLabels = ['Term1', 'Term2'];
 
   const gradeRows = [];
-  const comments = [];
-  let homeroomTeacherId = '';
-  let homeroomTeacherName = '';
-  let headTeacherId = '';
-  let workflowSigs = {
-    homeroomSigPath: '',
-    headSigPath: '',
-    principalSigPath: '',
-    homeroomSignedAt: '',
-    headSignedAt: '',
-    principalSignedAt: ''
-  };
+  let principalSignedAt = '';
+  let principalSigPersonId = '';
 
   for (const term of termLabels) {
     let usedReportCard = false;
@@ -271,22 +240,12 @@ async function getStudentCumulativeData(studentId, opts) {
           { bypassAccess: true }
         );
         usedReportCard = true;
-        if (!homeroomTeacherId && card.homeroomTeacherId) {
-          homeroomTeacherId = card.homeroomTeacherId;
-          homeroomTeacherName = card.homeroomTeacherName || '';
+        if (card.workflow && card.workflow.principalSignedAt) {
+          principalSignedAt = card.workflow.principalSignedAt;
         }
-        if (card.workflow) {
-          // Prefer the most-signed workflow for seal block
-          if (card.workflow.principalSigPath || card.workflow.headSigPath || card.workflow.homeroomSigPath) {
-            workflowSigs = {
-              homeroomSigPath: card.workflow.homeroomSigPath || workflowSigs.homeroomSigPath,
-              headSigPath: card.workflow.headSigPath || workflowSigs.headSigPath,
-              principalSigPath: card.workflow.principalSigPath || workflowSigs.principalSigPath,
-              homeroomSignedAt: card.workflow.homeroomSignedAt || workflowSigs.homeroomSignedAt,
-              headSignedAt: card.workflow.headSignedAt || workflowSigs.headSignedAt,
-              principalSignedAt: card.workflow.principalSignedAt || workflowSigs.principalSignedAt
-            };
-          }
+        if (card.workflow && card.workflow.principalSigPath) {
+          const parts = String(card.workflow.principalSigPath).split('/');
+          principalSigPersonId = parts[parts.length - 1] || principalSigPersonId;
         }
         (card.subjects || []).forEach((subj) => {
           gradeRows.push({
@@ -294,16 +253,8 @@ async function getStudentCumulativeData(studentId, opts) {
             termLabel: termDisplayLabel(term),
             subject: subj.subject,
             score: subj.percentageGrade,
-            letter: subj.letterGrade || letterGrade(subj.percentageGrade),
-            comment: subj.subjectComment || ''
+            letter: subj.letterGrade || letterGrade(subj.percentageGrade)
           });
-          if (subj.subjectComment) {
-            comments.push({
-              term: termDisplayLabel(term),
-              subject: subj.subject,
-              text: String(subj.subjectComment).trim()
-            });
-          }
         });
       } catch (_) {
         usedReportCard = false;
@@ -318,34 +269,22 @@ async function getStudentCumulativeData(studentId, opts) {
             termLabel: termDisplayLabel(term),
             subject: subj.subject,
             score: subj.finalGrade,
-            letter: letterGrade(subj.finalGrade),
-            comment: ''
+            letter: letterGrade(subj.finalGrade)
           });
         });
       } catch (_) { /* optional */ }
     }
   }
 
-  if (homeroomTeacherId) {
-    headTeacherId = await getTeacherHeadId(homeroomTeacherId).catch(() => '');
-  }
-
-  const { teacherDisplayNameMap } = require('./teacherRegistryService');
-  const names = await teacherDisplayNameMap().catch(() => ({}));
-  const headName = headTeacherId ? (names[headTeacherId] || headTeacherId) : '';
-  let principalName = 'Principal';
+  let faculty = [];
   try {
     const { listTeachersWithProfiles } = require('./teacherRegistryService');
-    const faculty = await listTeachersWithProfiles();
-    const principal = (faculty || []).find((t) =>
-      /^principal$/i.test(String(t.staffTitle || t.staffRole || ''))
-    );
-    if (principal) principalName = principal.displayName || principal.name || principalName;
-  } catch (_) { /* optional */ }
-
-  const teacherComments = comments.length
-    ? comments.map((c) => '[' + c.term + ' · ' + c.subject + ']\n' + c.text).join('\n\n')
-    : '';
+    faculty = await listTeachersWithProfiles();
+  } catch (_) {
+    faculty = [];
+  }
+  const principal = await resolvePrincipal(faculty);
+  if (!principalSigPersonId) principalSigPersonId = principal.principalId;
 
   return {
     schoolName: SCHOOL_NAME,
@@ -369,16 +308,11 @@ async function getStudentCumulativeData(studentId, opts) {
     },
     attendance,
     dollars,
-    vocab,
     grades: gradeRows,
-    teacherComments,
     signatures: {
-      homeroomTeacherId,
-      homeroomTeacherName: homeroomTeacherName || (homeroomTeacherId && names[homeroomTeacherId]) || '',
-      headTeacherId,
-      headTeacherName: headName,
-      principalName,
-      ...workflowSigs
+      principalId: principalSigPersonId || principal.principalId,
+      principalName: principal.principalName,
+      principalSignedAt: principalSignedAt || new Date().toISOString()
     }
   };
 }
@@ -392,7 +326,6 @@ function renderGradesTableHtml(grades, labels) {
     '<th>' + escapeHtml(labels.thSubject) + '</th>' +
     '<th>' + escapeHtml(labels.thScore) + '</th>' +
     '<th>' + escapeHtml(labels.thGrade) + '</th>' +
-    '<th>' + escapeHtml(labels.thComment) + '</th>' +
     '</tr></thead><tbody>';
   grades.forEach((g) => {
     const score = g.score == null || g.score === '' ? labels.na : (Math.round(Number(g.score) * 10) / 10);
@@ -401,7 +334,6 @@ function renderGradesTableHtml(grades, labels) {
       '<td>' + escapeHtml(g.subject) + '</td>' +
       '<td>' + escapeHtml(score) + '</td>' +
       '<td>' + escapeHtml(g.letter || labels.na) + '</td>' +
-      '<td>' + escapeHtml(g.comment || labels.na) + '</td>' +
       '</tr>';
   });
   html += '</tbody></table>';
@@ -432,32 +364,8 @@ async function renderTranscriptHtml(data, lang) {
   const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
   const s = data.student || {};
   const a = data.attendance || {};
-  const v = data.vocab || {};
   const sig = data.signatures || {};
-
-  const [homeroomUri, headUri, principalUri] = await Promise.all([
-    loadSigDataUri(sig.homeroomTeacherId),
-    loadSigDataUri(sig.headTeacherId),
-    // Principal signature is stored under principal / teacher id — try known paths
-    (async () => {
-      if (sig.principalSigPath && String(sig.principalSigPath).startsWith('/api/signatures/')) {
-        const pid = String(sig.principalSigPath).split('/').pop();
-        return loadSigDataUri(pid);
-      }
-      // fall back: leadership principal account
-      return loadSigDataUri('T_PRINCIPAL');
-    })()
-  ]);
-
-  const masteryBits = [];
-  if (v && v.mastery && v.mastery.studiedCount != null) {
-    masteryBits.push(String(v.mastery.studiedCount) + ' words');
-  } else if (v && v.today && v.today.studiedCount != null) {
-    masteryBits.push('today ' + v.today.studiedCount);
-  }
-  if (v && v.promotionPercent != null && v.placementDone) {
-    masteryBits.push(Math.round(v.promotionPercent) + '% to promote');
-  }
+  const principalUri = await loadSigDataUri(sig.principalId);
 
   const map = Object.assign({}, labels, {
     lang,
@@ -482,35 +390,9 @@ async function renderTranscriptHtml(data, lang) {
     dollarsBalance: escapeHtml(String((data.dollars && data.dollars.balance) || 0)),
     dollarTagsHtml: renderDollarTagsHtml((data.dollars && data.dollars.reasonTags) || []),
     gradesTableHtml: renderGradesTableHtml(data.grades || [], labels),
-    vocabPlacement: escapeHtml(
-      v && v.placementDone
-        ? ((v.placementAccuracy != null
-          ? (Number(v.placementAccuracy) <= 1
-            ? Math.round(Number(v.placementAccuracy) * 1000) / 10
-            : Math.round(Number(v.placementAccuracy) * 10) / 10) + '% · '
-          : '') +
-          (v.placementAt ? fmtDate(v.placementAt) : 'Placed'))
-        : labels.notPlaced
-    ),
-    vocabLevel: escapeHtml(
-      (v && (v.tierLabel || v.tierName)) || labels.na
-    ),
-    vocabMastery: escapeHtml(masteryBits.join(' · ') || labels.na),
-    vocabStreak: escapeHtml(
-      v && v.streakDays != null
-        ? (v.streakDays + ' days' + (v.longestStreak ? ' (best ' + v.longestStreak + ')' : ''))
-        : labels.na
-    ),
-    teacherComments: escapeHtml(data.teacherComments || labels.na),
-    homeroomSigHtml: sigImgHtml(homeroomUri),
-    headSigHtml: sigImgHtml(headUri),
     principalSigHtml: sigImgHtml(principalUri),
-    homeroomName: escapeHtml(sig.homeroomTeacherName || labels.na),
-    headName: escapeHtml(sig.headTeacherName || labels.na),
     principalName: escapeHtml(sig.principalName || 'Principal'),
-    homeroomSignedAt: escapeHtml(fmtDate(sig.homeroomSignedAt) || ''),
-    headSignedAt: escapeHtml(fmtDate(sig.headSignedAt) || ''),
-    principalSignedAt: escapeHtml(fmtDate(sig.principalSignedAt) || ''),
+    principalSignedAt: escapeHtml(fmtDate(sig.principalSignedAt) || fmtDate(data.issueDate) || ''),
     generatedAt: escapeHtml('Generated ' + (data.generatedAt || new Date().toISOString()))
   });
 

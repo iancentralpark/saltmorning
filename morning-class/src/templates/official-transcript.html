@@ -126,27 +126,18 @@
       vertical-align: top;
     }
     table.data-table tr:nth-child(even) td { background: #f8fafc; }
-    .comments {
-      border: 1px solid #cbd5e1;
-      padding: 10px 12px;
-      font-size: 9pt;
-      min-height: 54px;
-      white-space: pre-wrap;
-      background: #fff;
-    }
     .signature-section {
-      margin-top: 22px;
+      margin-top: 28px;
       display: flex;
-      justify-content: space-between;
-      gap: 18px;
+      justify-content: flex-end;
       page-break-inside: avoid;
     }
     .sig-block {
-      flex: 1;
+      width: 42%;
       border-top: 1px solid #94a3b8;
       padding-top: 8px;
       text-align: center;
-      min-height: 90px;
+      min-height: 100px;
     }
     .sig-block .role {
       font-size: 8pt;
@@ -156,8 +147,8 @@
       margin-bottom: 6px;
     }
     .sig-block img {
-      max-height: 42px;
-      max-width: 140px;
+      max-height: 48px;
+      max-width: 160px;
       object-fit: contain;
       display: block;
       margin: 0 auto 4px;
@@ -234,46 +225,7 @@
       {{gradesTableHtml}}
     </section>
 
-    <section class="section">
-      <h2 class="section-title">{{lblVocab}}</h2>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>{{lblPlacement}}</th>
-            <th>{{lblCurrentLevel}}</th>
-            <th>{{lblMastery}}</th>
-            <th>{{lblStreak}}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>{{vocabPlacement}}</td>
-            <td>{{vocabLevel}}</td>
-            <td>{{vocabMastery}}</td>
-            <td>{{vocabStreak}}</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section class="section">
-      <h2 class="section-title">{{lblObservations}}</h2>
-      <div class="comments">{{teacherComments}}</div>
-    </section>
-
     <section class="signature-section">
-      <div class="sig-block">
-        <div class="role">{{lblHomeroom}}</div>
-        {{homeroomSigHtml}}
-        <div class="name">{{homeroomName}}</div>
-        <div class="date">{{homeroomSignedAt}}</div>
-      </div>
-      <div class="sig-block">
-        <div class="role">{{lblHeadTeacher}}</div>
-        {{headSigHtml}}
-        <div class="name">{{headName}}</div>
-        <div class="date">{{headSignedAt}}</div>
-      </div>
       <div class="sig-block">
         <div class="role">{{lblPrincipal}}</div>
         {{principalSigHtml}}
