@@ -2199,6 +2199,57 @@ router.get('/parent/announcements', requireRole('parent'), async (req, res) => {
   }
 });
 
+/* —— Consent forms (parent) —— */
+router.get('/parent/consents/pending', requireRole('parent'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json(await consent.listPendingForParent(req.session));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load pending forms.' });
+  }
+});
+
+router.get('/parent/consents/bus-options', requireRole('parent'), async (req, res) => {
+  try {
+    const { listRuns, listBuses } = require('./services/busService');
+    const [runs, buses] = await Promise.all([listRuns({}), listBuses({})]);
+    const busName = {};
+    (buses || []).forEach((b) => { busName[b.busId] = b.name || b.busId; });
+    res.json({
+      runs: (runs || []).map((r) => ({
+        runId: r.runId,
+        busId: r.busId,
+        busName: busName[r.busId] || r.busId,
+        runType: r.runType,
+        label: r.label || r.name || r.runId,
+        startTime: r.startTime || '',
+        stopSummary: r.stopSummary || r.routeLabel || ''
+      }))
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load bus options.' });
+  }
+});
+
+router.get('/parent/consents/:formId', requireRole('parent'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json({ form: await consent.getParentFormDetail(req.session, req.params.formId) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load form.' });
+  }
+});
+
+router.post('/parent/consents/submit', requireRole('parent'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const submission = await consent.submitConsent(req.session, req.body || {});
+    res.json({ submission });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not submit form.' });
+  }
+});
+
 router.get('/student/announcements', requireRole('student'), async (req, res) => {
   try {
     const scope = req.query.scope || '';
@@ -3524,6 +3575,112 @@ router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (re
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not delete exam.' });
+  }
+});
+
+/* ── Consent forms (admin) ──────────────────────────────────── */
+router.get('/admin/consent-templates', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json({ templates: await consent.listTemplates() });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load templates.' });
+  }
+});
+
+router.post('/admin/consent-templates', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const template = await consent.saveTemplate(req.body || {});
+    res.json({ template });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not save template.' });
+  }
+});
+
+router.get('/admin/consents', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json({
+      forms: await consent.listForms({
+        status: req.query.status || '',
+        withStats: req.query.stats !== '0'
+      })
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load forms.' });
+  }
+});
+
+router.post('/admin/consents/publish', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const form = await consent.publishForm(req.body || {}, {
+      adminId: req.session.adminId,
+      teacherId: req.session.teacherId,
+      name: req.session.name
+    });
+    res.json({ form });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not publish form.' });
+  }
+});
+
+router.post('/admin/consents/:formId/close', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json({ form: await consent.closeForm(req.params.formId) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not close form.' });
+  }
+});
+
+router.get('/admin/consents/:formId/analytics', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json(await consent.getFormAnalytics(req.params.formId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load analytics.' });
+  }
+});
+
+router.post('/admin/consents/:formId/remind', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json(await consent.remindPending(req.params.formId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not send reminders.' });
+  }
+});
+
+router.get('/admin/consents/:formId/print', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const html = await consent.renderSubmissionsPrintHtml(req.params.formId);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not build print roster.' });
+  }
+});
+
+router.get('/admin/consents/:formId/clusters.csv', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    const analytics = await consent.getFormAnalytics(req.params.formId);
+    const lines = ['apartment,count,students'];
+    (analytics.clusters || []).forEach((c) => {
+      const names = (c.students || []).map((s) => s.name || s.studentId).join('; ');
+      lines.push(
+        '"' + String(c.apartment || '').replace(/"/g, '""') + '",' +
+        c.count + ',"' + names.replace(/"/g, '""') + '"'
+      );
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="bus_demand_clusters.csv"');
+    res.send(lines.join('\n'));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not export clusters.' });
   }
 });
 

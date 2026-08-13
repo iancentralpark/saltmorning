@@ -4593,6 +4593,334 @@ body.buddy-resize-active {
 .bus-noshow { background: #fff8f8; }
 .pp-bus-form { display: flex; flex-direction: column; gap: 0.65rem; max-width: 420px; margin-top: 0.75rem; }
 .pp-bus-form label { display: flex; flex-direction: column; gap: 0.25rem; font-weight: 600; font-size: 0.9rem; }
+.pp-consent-card {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid var(--border-soft); background: var(--surface, #fff);
+  border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin: 0 0 0.65rem;
+  cursor: pointer; font: inherit;
+}
+.pp-consent-card:hover { border-color: #0f172a; }
+.pp-consent-card-title { font-weight: 700; margin-bottom: 0.2rem; }
+.pp-consent-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+}
+.pp-consent-detail-title {
+  margin: 0.85rem 0 0.25rem;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+.pp-consent-body {
+  margin: 1rem 0 1.25rem;
+  line-height: 1.55;
+}
+.pp-consent-extra {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  width: 100%;
+}
+.pp-consent-extra label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0;
+}
+.pp-consent-extra input,
+.pp-consent-extra select,
+.pp-consent-extra textarea {
+  width: 100%;
+  font: inherit;
+  box-sizing: border-box;
+}
+.pp-consent-response,
+.pp-consent-esign {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pp-consent-response h4,
+.pp-consent-esign h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: #0f172a;
+}
+.pp-consent-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.pp-consent-choice {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 0.7rem !important;
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 500 !important;
+  font-size: 0.95rem !important;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+.pp-consent-choice:has(input:checked) {
+  border-color: #0f172a;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #0f172a;
+}
+.pp-consent-choice input[type="radio"] {
+  flex: 0 0 auto;
+  margin: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.pp-consent-choice-text {
+  flex: 1 1 auto;
+  text-align: left;
+  line-height: 1.35;
+}
+.pp-consent-reason label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-top: 0.85rem;
+}
+.pp-consent-reason textarea {
+  width: 100%;
+  font: inherit;
+  box-sizing: border-box;
+}
+.pp-consent-name-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0.65rem 0 0;
+}
+.pp-consent-name-label input {
+  width: 100%;
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+.pp-consent-terms {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 0.5rem !important;
+  font-weight: 500 !important;
+}
+.pp-consent-actions {
+  margin: 0.35rem 0 0.5rem;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Formal official letter (공문) — institutional header */
+.odoc {
+  --odoc-navy: #0f172a;
+  --odoc-navy-deep: #1e3a8a;
+  --odoc-slate: #475569;
+  --odoc-line: #e2e8f0;
+  --odoc-line-strong: #cbd5e1;
+  position: relative;
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 1.35rem 1.4rem 1.6rem;
+  border: 1px solid var(--odoc-line-strong);
+  background: #ffffff;
+  color: var(--odoc-navy);
+  font-family: Inter, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  line-height: 1.7;
+  overflow: hidden;
+}
+.odoc-watermark {
+  position: absolute;
+  inset: 16% 6% 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+}
+.odoc-watermark-inner {
+  text-align: center;
+  transform: rotate(-18deg);
+}
+.odoc-wm-seal {
+  width: 180px;
+  height: 180px;
+  display: block;
+  margin: 0 auto 0.4rem;
+}
+.odoc-watermark-text {
+  font-family: Cinzel, Merriweather, "Noto Serif KR", serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--odoc-navy);
+}
+.odoc-content { position: relative; z-index: 1; }
+.odoc-inst {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0.85rem 1rem;
+  align-items: center;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--odoc-line);
+}
+.odoc-emblem { width: 72px; height: 72px; }
+.odoc-emblem-svg { width: 100%; height: 100%; display: block; }
+.odoc-school {
+  font-family: Cinzel, Merriweather, "Noto Serif KR", Georgia, serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.03em;
+  color: var(--odoc-navy);
+  line-height: 1.25;
+}
+.odoc-school-meta {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--odoc-slate);
+  line-height: 1.5;
+}
+.odoc-meta-line { display: block; }
+.odoc-banner {
+  margin: 0.95rem 0 0.85rem;
+  padding: 0.85rem 0 0.95rem;
+  border-top: 2px solid var(--odoc-navy);
+  border-bottom: 1px solid var(--odoc-line);
+  text-align: center;
+}
+.odoc-title-en {
+  font-family: Cinzel, Merriweather, "Noto Serif KR", serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--odoc-navy-deep);
+  margin-bottom: 0.4rem;
+}
+.odoc-title {
+  margin: 0;
+  font-family: "Noto Serif KR", Merriweather, Cinzel, Georgia, serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--odoc-navy);
+  line-height: 1.35;
+}
+.odoc-docmeta {
+  margin-top: 0.55rem;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  font-size: 0.75rem;
+  color: var(--odoc-slate);
+  letter-spacing: 0.02em;
+}
+.odoc-to {
+  margin: 0 0 0.55rem;
+  font-size: 0.9rem;
+  color: var(--odoc-navy);
+  font-weight: 500;
+}
+.odoc-rule {
+  border: 0;
+  border-top: 1px solid var(--odoc-line);
+  margin: 0.5rem 0 1rem;
+}
+.odoc-body {
+  font-family: "Noto Serif KR", Merriweather, Georgia, serif;
+  font-size: 0.95rem;
+  color: var(--odoc-navy);
+}
+.odoc-body p { margin: 0 0 0.7rem; }
+.odoc-body strong { color: var(--odoc-navy); font-weight: 700; }
+.odoc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85rem 0 1rem;
+  font-family: Inter, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 0.9rem;
+}
+.odoc-table th,
+.odoc-table td {
+  border: 1px solid var(--odoc-line-strong);
+  padding: 0.5rem 0.7rem;
+  vertical-align: top;
+}
+.odoc-table th {
+  width: 28%;
+  background: #f8fafc;
+  font-weight: 700;
+  text-align: center;
+  color: var(--odoc-navy);
+}
+.odoc-table td { color: var(--odoc-navy); }
+.odoc-foot {
+  margin-top: 1.35rem;
+  font-family: "Noto Serif KR", Merriweather, serif;
+  font-size: 0.95rem;
+}
+.odoc-sign {
+  margin-top: 1.6rem;
+  text-align: right;
+  line-height: 1.55;
+  font-family: Cinzel, Merriweather, "Noto Serif KR", serif;
+  font-weight: 600;
+  color: var(--odoc-navy);
+}
+.odoc-editor {
+  min-height: 320px;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  overflow: auto;
+}
+.consent-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+.consent-stat {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.75rem;
+  background: var(--surface, #fff);
+}
+@media (max-width: 640px) {
+  .consent-stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .odoc { padding: 1rem; }
+  .odoc-inst { grid-template-columns: 56px 1fr; }
+  .odoc-emblem { width: 56px; height: 56px; }
+  .odoc-school { font-size: 1rem; }
+}
+
 .pp-bus-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .pp-bus-current { margin: 0.5rem 0; }
 .pp-bus-hint { color: #b45309; margin: 0.35rem 0 0.75rem; }

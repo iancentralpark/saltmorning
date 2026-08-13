@@ -38,6 +38,8 @@ module.exports = {
   SCHOOL_NAME: process.env.SCHOOL_NAME || 'Salt Academy Morning Class',
   SCHOOL_ADDRESS: process.env.SCHOOL_ADDRESS ||
     '168 Haedoi-ro, Yeonsu-gu, Incheon, Republic of Korea (Hyein Plaza, 7th Floor)',
+  SCHOOL_PHONE: process.env.SCHOOL_PHONE || '',
+  SCHOOL_WEBSITE: process.env.SCHOOL_WEBSITE || 'saltmorning.study',
   ANALYTICS_TEST_REPORTS_SHEET: 'Analytics_TestReports',
   ANALYTICS_DAILY_LOGS_SHEET: 'Analytics_DailyLogs',
   ANALYTICS_INTERVENTIONS_SHEET: 'Analytics_Interventions',
@@ -57,6 +59,9 @@ module.exports = {
   BUS_CHANGE_LOG_SHEET: 'Bus_Change_Log',
   BUS_NOSHOWS_SHEET: 'Bus_NoShows',
   PARENT_ATTENDANCE_NOTICES_SHEET: 'Parent_Attendance_Notices',
+  CONSENT_TEMPLATES_SHEET: 'Consent_Templates',
+  CONSENT_FORMS_SHEET: 'Consent_Forms',
+  CONSENT_SUBMISSIONS_SHEET: 'Consent_Submissions',
   ITEM_BANK_SHEET: 'Item_Bank',
   EXAM_PAPERS_SHEET: 'Exam_Papers',
   TIMETABLE_ENTRIES_SHEET: 'Timetable_Entries',

@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parent — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260812bus2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css?v=20260813cf7">
 </head>
 <body>
 <div class="shell portal-shell-wide">
@@ -49,6 +52,10 @@
         </button>
         <button class="class-subnav-item" data-tab="attendance" type="button" data-i18n="nav.attendance">Attendance</button>
         <button class="class-subnav-item" data-tab="bus" type="button" data-i18n="nav.busNotice">Bus / leave</button>
+        <button class="class-subnav-item" data-tab="consents" type="button">
+          <span data-i18n="nav.consents">Consents</span>
+          <span class="pp-nav-badge hidden" data-badge="consents">0</span>
+        </button>
         <button class="class-subnav-item" data-tab="timetable" type="button" data-i18n="nav.timetable">Timetable</button>
         <button class="class-subnav-item" data-tab="homework" type="button">
           <span data-i18n="nav.homework">Homework</span>
@@ -135,6 +142,57 @@
       </section>
     </div>
 
+    <div id="tabConsents" class="card hidden">
+      <div id="ppConsentListWrap" class="pp-consent-shell">
+        <h3 style="margin-top:0" data-i18n="parent.consents.title">동의서</h3>
+        <p class="muted small" data-i18n="parent.consents.help">자녀의 공문·동의서·셔틀 신청을 확인하세요.</p>
+        <div id="ppConsentList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+      </div>
+      <div id="ppConsentDetail" class="hidden">
+        <div class="pp-consent-shell">
+          <button type="button" class="btn btn-ghost" id="ppConsentBack" data-i18n="parent.consents.back">← 뒤로</button>
+          <h3 id="ppConsentDetailTitle" class="pp-consent-detail-title"></h3>
+          <p class="muted small" id="ppConsentDetailDue"></p>
+          <div id="ppConsentDetailBody" class="pp-consent-body"></div>
+          <div id="ppConsentExtra" class="pp-consent-extra"></div>
+
+          <section class="pp-consent-response">
+            <h4 data-i18n="parent.consents.response">응답 선택</h4>
+            <div id="ppConsentChoices" class="pp-consent-choices" role="radiogroup" aria-label="Response"></div>
+            <div id="ppConsentReasonWrap" class="pp-consent-reason hidden">
+              <label for="ppConsentReason">
+                <span data-i18n="parent.consents.reason">사유</span>
+                <textarea id="ppConsentReason" rows="3" maxlength="500"
+                  data-i18n-placeholder="parent.consents.reasonPlaceholder"
+                  placeholder="미동의/미신청 사유를 적어 주세요"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section class="pp-consent-esign">
+            <h4 data-i18n="parent.consents.signTitle">전자서명</h4>
+            <p class="muted small" data-i18n="parent.consents.signHelp">
+              보호자 성명만 입력하면 됩니다. 손으로 그릴 필요 없습니다.
+            </p>
+            <label class="pp-consent-name-label" for="ppConsentSignerName">
+              <span data-i18n="parent.consents.signerName">보호자 성명</span>
+              <input id="ppConsentSignerName" type="text" maxlength="80" autocomplete="name"
+                data-i18n-placeholder="parent.consents.signerPlaceholder"
+                placeholder="예: 김윤희">
+            </label>
+            <!-- hidden canvas kept for optional internal typed-signature rendering only -->
+            <canvas id="ppConsentSig" class="hidden" width="560" height="140" aria-hidden="true"></canvas>
+          </section>
+
+          <div class="pp-consent-actions">
+            <button type="button" class="btn btn-primary" id="ppConsentSubmitBtn" data-i18n="parent.consents.submit">제출</button>
+          </div>
+          <p class="ok" id="ppConsentOk"></p>
+          <p class="error" id="ppConsentError"></p>
+        </div>
+      </div>
+    </div>
+
     <div id="tabTimetable" class="card hidden">
       <div id="ppTimetable"></div>
     </div>
@@ -219,7 +277,8 @@
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/messenger.js?v=20260811kakaotabs"></script>
 <script src="/js/push-client.js?v=20260813push3"></script>
-<script src="/js/parent.js?v=20260813push3"></script>
+<script src="/js/consent-parent.js?v=20260813cf6"></script>
+<script src="/js/parent.js?v=20260813cf6"></script>
 <script>
 (function() {
   const role = 'parent';
@@ -228,6 +287,9 @@
   SaltI18n.bindToggle($('langToggleBtn'));
   SaltTimetable.init({ api, escapeHtml, role: 'parent' });
   SaltParent.init({ api, $, show, hide, escapeHtml });
+  if (window.SaltConsentParent) {
+    SaltConsentParent.init({ api, $, escapeHtml });
+  }
   SaltChangePassword.mount({ role, api });
 
   $('logoutBtn').addEventListener('click', () => {
