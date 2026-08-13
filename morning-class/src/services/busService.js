@@ -970,6 +970,76 @@ async function getBusSetupBundle() {
   };
 }
 
+async function getParentBusAssignments(session) {
+  const studentId = String(session.studentId || '').trim();
+  if (!studentId) throw Object.assign(new Error('Student required.'), { status: 400 });
+  const [assignments, runs, buses] = await Promise.all([
+    listAssignments({ studentId, includeInactive: false }),
+    listRuns({ includeInactive: false }),
+    listBuses({ includeInactive: true }).catch(() => [])
+  ]);
+  const busMap = {};
+  (buses || []).forEach((b) => { busMap[b.busId] = b; });
+  const runMap = {};
+  runs.forEach((r) => { runMap[r.runId] = r; });
+  const enriched = assignments.map((a) => {
+    const run = runMap[a.runId] || {};
+    const bus = busMap[run.busId] || {};
+    return Object.assign({}, a, {
+      runType: run.runType || '',
+      runLabel: run.label || a.runId,
+      startTime: run.startTime || '',
+      busName: bus.name || bus.busName || run.busId || '',
+      busNo: bus.busNo || bus.number || ''
+    });
+  });
+  return {
+    studentId,
+    assignments: enriched,
+    availableRuns: runs.map((r) => ({
+      runId: r.runId,
+      runType: r.runType,
+      label: r.label || r.runId,
+      startTime: r.startTime || '',
+      busId: r.busId || ''
+    }))
+  };
+}
+
+async function parentUpdateBusAssignment(session, payload) {
+  const studentId = String(session.studentId || '').trim();
+  if (!studentId) throw Object.assign(new Error('Student required.'), { status: 400 });
+  const action = String(payload.action || 'save').trim().toLowerCase();
+  if (action === 'cancel' || action === 'delete') {
+    const assignmentId = String(payload.assignmentId || '').trim();
+    if (!assignmentId) throw Object.assign(new Error('Assignment id required.'), { status: 400 });
+    const mine = await listAssignments({ studentId, includeInactive: true });
+    if (!mine.some((a) => a.assignmentId === assignmentId)) {
+      throw Object.assign(new Error('Not your assignment.'), { status: 403 });
+    }
+    return deleteAssignment(assignmentId);
+  }
+  const runId = String(payload.runId || '').trim();
+  if (!runId) throw Object.assign(new Error('Run required.'), { status: 400 });
+  const runs = await listRuns({ includeInactive: false });
+  const run = runs.find((r) => r.runId === runId);
+  if (!run) throw Object.assign(new Error('Run not found.'), { status: 404 });
+  // Replace same runType assignment for this student
+  const existing = await listAssignments({ studentId, includeInactive: false });
+  for (const a of existing) {
+    const er = runs.find((r) => r.runId === a.runId);
+    if (er && er.runType === run.runType && a.runId !== runId) {
+      await deleteAssignment(a.assignmentId);
+    }
+  }
+  return saveAssignment({
+    studentId,
+    runId,
+    days: payload.days || [1, 2, 3, 4, 5],
+    active: true
+  });
+}
+
 module.exports = {
   RUN_PICKUP,
   RUN_DISMISSAL,
@@ -994,5 +1064,7 @@ module.exports = {
   getDailyManifest,
   getTeacherDutyManifest,
   getAdminBusBoard,
-  getBusSetupBundle
+  getBusSetupBundle,
+  getParentBusAssignments,
+  parentUpdateBusAssignment
 };

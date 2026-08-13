@@ -595,29 +595,27 @@ async function publishForm(payload, actor) {
   invalidateSheetRowsCache(CONSENT_FORMS_SHEET);
   const form = parseFormRow(row);
 
-  // Notify parents (best-effort)
+  // Notify parents (best-effort push + messenger)
   try {
-    const push = require('./pushService');
-    if (push.isPushEnabled()) {
-      const students = await studentClassMap();
-      const parentIds = new Set();
-      const { listParentsForStudent } = require('./parentRegistryService');
-      for (const sid of Object.keys(students)) {
-        if (!formTargetsStudent(form, students[sid])) continue;
-        const parents = await listParentsForStudent(sid).catch(() => []);
-        (parents || []).forEach((p) => {
-          const id = typeof p === 'string' ? p : (p.parentId || p);
-          if (id) parentIds.add(String(id));
-        });
-      }
-      await Promise.all(Array.from(parentIds).map((pid) =>
-        push.sendToParent(pid, {
-          title: 'New school form',
-          body: title,
-          url: '/parent#/consents'
-        }).catch(() => null)
-      ));
+    const students = await studentClassMap();
+    const parentIds = new Set();
+    const { listParentsForStudent } = require('./parentRegistryService');
+    for (const sid of Object.keys(students)) {
+      if (!formTargetsStudent(form, students[sid])) continue;
+      const parents = await listParentsForStudent(sid).catch(() => []);
+      (parents || []).forEach((p) => {
+        const id = typeof p === 'string' ? p : (p.parentId || p);
+        if (id) parentIds.add(String(id));
+      });
     }
+    const body = 'New school form: 「' + title + '」. Please open Consents in the parent portal.';
+    await Promise.all(Array.from(parentIds).map((pid) =>
+      notifyParentChannels(pid, '', body, {
+        title: 'New school form',
+        body: title,
+        url: '/parent#/consents'
+      }).catch(() => null)
+    ));
   } catch (_) { /* optional */ }
 
   return form;
@@ -910,30 +908,109 @@ async function getFormAnalytics(formId) {
   };
 }
 
+async function notifyParentChannels(parentId, studentId, messageBody, pushPayload) {
+  let pushSent = 0;
+  let messengerSent = 0;
+  try {
+    const push = require('./pushService');
+    if (push.isPushEnabled() && parentId) {
+      await push.sendToParent(parentId, pushPayload);
+      pushSent = 1;
+    }
+  } catch (_) { /* optional */ }
+
+  try {
+    const {
+      parentAdminThreadId,
+      sendThreadMessage
+    } = require('./messengerService');
+    const session = {
+      role: 'admin',
+      adminId: 'system',
+      name: 'School Office'
+    };
+    // Use a synthetic admin session for office → parent thread
+    const tid = parentAdminThreadId(parentId);
+    // Parent-admin threads expect parent or admin; send as admin
+    const msg = await sendThreadMessage(tid, Object.assign({}, session, {
+      role: 'admin',
+      adminId: 'office'
+    }), messageBody);
+    let realtime;
+    try { realtime = require('../realtime'); } catch (_) { realtime = null; }
+    if (realtime && realtime.notifyNewMessage) realtime.notifyNewMessage(tid, msg);
+    messengerSent = 1;
+  } catch (e) {
+    console.warn('[consent] messenger notify failed:', e.message || e);
+  }
+  return { pushSent, messengerSent };
+}
+
+async function listSubmittedForParent(session) {
+  const parentId = String(session.parentId || '').trim();
+  const studentId = String(session.studentId || '').trim();
+  if (!parentId || !studentId) return { submitted: [], count: 0 };
+
+  const [forms, subs] = await Promise.all([
+    listForms({}),
+    listSubmissions()
+  ]);
+  const formMap = {};
+  forms.forEach((f) => { formMap[f.formId] = f; });
+  const mine = subs
+    .filter((s) => s.studentId === studentId &&
+      (!s.parentId || String(s.parentId) === parentId))
+    .map((s) => {
+      const form = formMap[s.formId] || {};
+      return {
+        formId: s.formId,
+        title: form.title || s.formId,
+        category: form.category || '',
+        agreed: s.agreed,
+        submittedAt: s.submittedAt,
+        registrationStatus: (s.extraData && s.extraData.registrationStatus) || '',
+        waitNumber: (s.extraData && s.extraData.waitNumber) || '',
+        eventNotes: (s.extraData && s.extraData.eventNotes) || '',
+        status: form.status || ''
+      };
+    })
+    .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+  return { submitted: mine, count: mine.length };
+}
+
 async function remindPending(formId) {
   const analytics = await getFormAnalytics(formId);
-  const push = require('./pushService');
-  if (!push.isPushEnabled()) {
-    return { sent: 0, skipped: analytics.pendingCount, reason: 'Push not configured' };
-  }
   const { listParentsForStudent } = require('./parentRegistryService');
   let sent = 0;
+  let messenger = 0;
+  let skipped = 0;
   for (const p of analytics.pending) {
     const parents = await listParentsForStudent(p.studentId).catch(() => []);
+    if (!parents || !parents.length) {
+      skipped += 1;
+      continue;
+    }
     for (const parent of parents || []) {
       const pid = typeof parent === 'string' ? parent : parent.parentId;
       if (!pid) continue;
-      try {
-        await push.sendToParent(pid, {
-          title: 'Reminder: school form',
-          body: analytics.form.title + ' — please submit for ' + (p.name || p.studentId),
-          url: '/parent#/consents'
-        });
-        sent += 1;
-      } catch (_) { /* continue */ }
+      const body = 'Reminder: please submit 「' + analytics.form.title + '」 for ' +
+        (p.name || p.studentId) + '. Open Consents in the parent portal.';
+      const result = await notifyParentChannels(pid, p.studentId, body, {
+        title: 'Reminder: school form',
+        body: analytics.form.title + ' — please submit for ' + (p.name || p.studentId),
+        url: '/parent#/consents'
+      });
+      sent += result.pushSent;
+      messenger += result.messengerSent;
     }
   }
-  return { sent, pending: analytics.pendingCount };
+  return {
+    sent,
+    messenger,
+    pending: analytics.pendingCount,
+    skipped,
+    reason: (!sent && !messenger) ? 'No push/messenger delivery' : ''
+  };
 }
 
 function escapeHtml(s) {
@@ -985,6 +1062,7 @@ module.exports = {
   publishForm,
   closeForm,
   listPendingForParent,
+  listSubmittedForParent,
   getParentFormDetail,
   submitConsent,
   getFormAnalytics,

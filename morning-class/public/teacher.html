@@ -545,10 +545,10 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260813tr2"></script>
-<script src="/js/change-password.js?v=20260812pw"></script>
+<script src="/js/change-password.js?v=20260813gap1"></script>
 <script src="/js/material-requests.js?v=20260813mat1"></script>
-<script src="/js/conferences.js?v=20260813ops1"></script>
-<script src="/js/lost-and-found.js?v=20260813ops1"></script>
+<script src="/js/conferences.js?v=20260813gap1"></script>
+<script src="/js/lost-and-found.js?v=20260813gap1"></script>
 <script src="/js/push-client.js?v=20260813push3"></script>
 <script src="/js/teacher-attendance.js?v=20260812bus7"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
@@ -557,10 +557,10 @@
 <script src="/js/teacher-analytics.js?v=20260811school"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
-<script src="/js/messenger.js?v=20260811kakaotabs"></script>
+<script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/announcements.js?v=20260811teachnav"></script>
-<script src="/js/student-registry.js?v=20260813tr2"></script>
-<script src="/js/timetable.js?v=20260812ttperiod"></script>
+<script src="/js/student-registry.js?v=20260813gap1"></script>
+<script src="/js/timetable.js?v=20260813gap1"></script>
 <script>
 (function() {
   const role = 'teacher';
@@ -856,8 +856,7 @@
               (run.dutySource === 'daily' ? ' (대타)' : '') + '</div>' : '') +
           '</header>' +
           '<table class="bus-duty-table"><thead><tr>' +
-            '<th>Student</th><th>Contact</th>' +
-            (isPickup ? '<th></th>' : '') +
+            '<th>Student</th><th>Contact</th><th></th><th></th>' +
           '</tr></thead><tbody>' +
             (run.riders || []).map((r) => {
               const contact = [
@@ -875,10 +874,17 @@
                     escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
                     (r.noShow ? '1' : '0') + '">' +
                     (r.noShow ? 'Cancel no-show' : 'No-show') + '</button></td>'
-                  : '') +
+                  : '<td class="bus-duty-action"></td>') +
+                '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ov" data-run="' +
+                  escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">Exclude today</button></td>' +
               '</tr>';
-            }).join('') || '<tr><td colspan="3" class="muted">No riders</td></tr>' +
-          '</tbody></table></section>';
+            }).join('') || '<tr><td colspan="4" class="muted">No riders</td></tr>' +
+          '</tbody></table>' +
+          '<div class="admin-toolbar" style="margin-top:0.5rem;gap:0.35rem;flex-wrap:wrap">' +
+            '<input class="t-bus-ov-sid" data-run="' + escapeHtml(run.runId) + '" placeholder="Student ID" style="max-width:9rem">' +
+            '<button type="button" class="btn btn-ghost t-bus-ov-include" data-run="' +
+              escapeHtml(run.runId) + '">Add today</button>' +
+          '</div></section>';
       }).join('') + '</div>';
 
       body.querySelectorAll('.t-bus-ns').forEach((btn) => {
@@ -888,6 +894,51 @@
             await api(cancel ? '/api/teacher/bus/noshow/cancel' : '/api/teacher/bus/noshow', {
               method: 'POST',
               body: { dateStr, runId: btn.dataset.run, studentId: btn.dataset.sid }
+            }, role);
+            await loadBusDuty();
+          } catch (e) {
+            window.alert(e.message || 'Failed');
+          }
+        });
+      });
+      body.querySelectorAll('.t-bus-ov').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm('Exclude this student from today\'s run?')) return;
+          try {
+            await api('/api/teacher/bus/override', {
+              method: 'POST',
+              body: {
+                dateStr,
+                runId: btn.dataset.run,
+                studentId: btn.dataset.sid,
+                action: 'exclude',
+                reason: 'Teacher same-day exclude'
+              }
+            }, role);
+            await loadBusDuty();
+          } catch (e) {
+            window.alert(e.message || 'Failed');
+          }
+        });
+      });
+      body.querySelectorAll('.t-bus-ov-include').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const input = body.querySelector('.t-bus-ov-sid[data-run="' + btn.dataset.run + '"]');
+          const studentId = input && input.value.trim();
+          if (!studentId) {
+            window.alert('Enter a student ID.');
+            return;
+          }
+          try {
+            await api('/api/teacher/bus/override', {
+              method: 'POST',
+              body: {
+                dateStr,
+                runId: btn.dataset.run,
+                studentId,
+                action: 'include',
+                reason: 'Teacher same-day include'
+              }
             }, role);
             await loadBusDuty();
           } catch (e) {
@@ -1615,7 +1666,11 @@
       window.scrollTo(0, 0);
     });
   }
-  SaltChangePassword.mount({ role, api });
+  SaltChangePassword.mount({
+    role,
+    api,
+    requireChange: !!(getProfile(role) && getProfile(role).mustChangePassword)
+  });
 
   document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

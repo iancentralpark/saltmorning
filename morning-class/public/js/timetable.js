@@ -25,6 +25,7 @@
           : (ownerType === 'teacher' ? 'teachers' : (String(ownerType || '') + 's')));
       return '/api/admin/timetable/' + segment + '/' + encodeURIComponent(ownerId);
     }
+    if (role === 'student' && ownerType === 'student') return '/api/student/timetable';
     if (ownerType === 'teacher') return '/api/teacher/timetable';
     return '/api/teacher/timetable/students/' + encodeURIComponent(ownerId);
   }

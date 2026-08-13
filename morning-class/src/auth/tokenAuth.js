@@ -89,8 +89,7 @@ const ADMIN_PATH_PERMS = [
   { re: /^\/admin\/semester-plans/, perm: 'admin.lessons' },
   { re: /^\/admin\/monitoring/, perm: 'admin.monitor' },
   { re: /^\/admin\/overview/, perm: 'admin.monitor' },
-  { re: /^\/admin\/vocab/, perm: 'admin.vocabPlatform' },
-  { re: /^\/messenger\/directory/, perm: 'admin.monitor' }
+  { re: /^\/admin\/vocab/, perm: 'admin.vocabPlatform' }
 ];
 
 /** After requireRole — Admin always passes; faculty need one of the listed keys. */

@@ -197,11 +197,72 @@ async function completeClaim(teacherId, itemId) {
         await push.sendToParent(String(row[7]), {
           title: 'Lost & Found ready',
           body: (row[1] || 'Item') + ' — pickup confirmed',
-          url: '/parent#/lost-and-found'
+          url: '/parent#/lostAndFound'
         }).catch(() => null);
       }
     } catch (_) { /* optional */ }
 
+    return parseRow(row);
+  }
+  throw Object.assign(new Error('Item not found.'), { status: 404 });
+}
+
+async function rejectClaim(teacherId, itemId, payload) {
+  await ensureLostFoundSheet();
+  itemId = String(itemId || '').trim();
+  const rows = await getSheetRows(LOST_AND_FOUND_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== itemId) continue;
+    const row = rows[i].slice();
+    while (row.length < 11) row.push('');
+    if (String(row[5]) !== 'ClaimRequested') {
+      throw Object.assign(new Error('No claim request to reject.'), { status: 400 });
+    }
+    const parentId = String(row[7] || '');
+    const title = String(row[1] || 'Item');
+    row[5] = 'Unclaimed';
+    row[6] = '';
+    row[7] = '';
+    row[8] = String((payload && payload.reason) || 'Claim rejected by staff').slice(0, 400);
+    await updateRange(LOST_AND_FOUND_SHEET, `A${i + 1}:K${i + 1}`, [row]);
+    invalidateSheetRowsCache(LOST_AND_FOUND_SHEET);
+    try {
+      const push = require('./pushService');
+      if (push.isPushEnabled() && parentId) {
+        await push.sendToParent(parentId, {
+          title: 'Lost & Found claim declined',
+          body: title + ' — please contact the school if this is your item',
+          url: '/parent#/lostAndFound'
+        }).catch(() => null);
+      }
+    } catch (_) { /* optional */ }
+    return parseRow(row);
+  }
+  throw Object.assign(new Error('Item not found.'), { status: 404 });
+}
+
+async function withdrawClaim(session, itemId) {
+  await ensureLostFoundSheet();
+  itemId = String(itemId || '').trim();
+  const studentId = String(session.studentId || '').trim();
+  const parentId = String(session.parentId || '').trim();
+  const rows = await getSheetRows(LOST_AND_FOUND_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== itemId) continue;
+    const row = rows[i].slice();
+    while (row.length < 11) row.push('');
+    if (String(row[5]) !== 'ClaimRequested') {
+      throw Object.assign(new Error('No active claim to withdraw.'), { status: 400 });
+    }
+    if (String(row[6]) !== studentId && String(row[7]) !== parentId) {
+      throw Object.assign(new Error('Not your claim.'), { status: 403 });
+    }
+    row[5] = 'Unclaimed';
+    row[6] = '';
+    row[7] = '';
+    row[8] = 'Claim withdrawn by parent';
+    await updateRange(LOST_AND_FOUND_SHEET, `A${i + 1}:K${i + 1}`, [row]);
+    invalidateSheetRowsCache(LOST_AND_FOUND_SHEET);
     return parseRow(row);
   }
   throw Object.assign(new Error('Item not found.'), { status: 404 });
@@ -213,8 +274,8 @@ async function listForParent(session) {
   return {
     items: items.map((it) => Object.assign({}, it, {
       isMine: it.claimedByStudentId === studentId,
-      canClaim: it.status === 'Unclaimed' ||
-        (it.status === 'ClaimRequested' && it.claimedByStudentId === studentId)
+      canClaim: it.status === 'Unclaimed',
+      canWithdraw: it.status === 'ClaimRequested' && it.claimedByStudentId === studentId
     }))
   };
 }
@@ -237,6 +298,8 @@ module.exports = {
   createItem,
   claimItem,
   completeClaim,
+  rejectClaim,
+  withdrawClaim,
   listForParent,
   listForTeacher,
   listItems

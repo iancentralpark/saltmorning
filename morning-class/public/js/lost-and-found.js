@@ -52,6 +52,10 @@
             ? '<button type="button" class="btn btn-primary" data-laf-claim="' + escapeHtml(it.itemId) + '">' +
               escapeHtml(t('parent.laf.claim', '저희 아이 물품입니다')) + '</button>'
             : '') +
+          (it.canWithdraw
+            ? '<button type="button" class="btn btn-ghost" data-laf-withdraw="' + escapeHtml(it.itemId) + '">' +
+              escapeHtml(t('parent.laf.withdraw', '요청 철회')) + '</button>'
+            : '') +
           '</div></article>';
       }).join('') + '</div>';
 
@@ -69,6 +73,17 @@
             alert(e.message);
             btn.disabled = false;
           }
+        });
+      });
+      box.querySelectorAll('[data-laf-withdraw]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(t('parent.laf.withdrawConfirm', '확인 요청을 철회할까요?'))) return;
+          try {
+            await api('/api/parent/lost-and-found/' + encodeURIComponent(btn.dataset.lafWithdraw) + '/withdraw', {
+              method: 'POST'
+            });
+            open();
+          } catch (e) { alert(e.message); }
         });
       });
     }
@@ -150,8 +165,11 @@
             ? '<p class="muted small">' + escapeHtml(t('teacher.laf.claimBy', '요청')) + ': ' +
               escapeHtml(it.claimedByStudentName || it.claimedByStudentId) +
               (it.claimNote ? ' — ' + escapeHtml(it.claimNote) : '') + '</p>' +
+              '<div style="display:flex;gap:0.4rem;flex-wrap:wrap">' +
               '<button type="button" class="btn btn-primary" data-laf-done="' + escapeHtml(it.itemId) + '">' +
-              escapeHtml(t('teacher.laf.complete', '수령 완료')) + '</button>'
+              escapeHtml(t('teacher.laf.complete', '수령 완료')) + '</button>' +
+              '<button type="button" class="btn btn-ghost" data-laf-reject="' + escapeHtml(it.itemId) + '">' +
+              escapeHtml(t('teacher.laf.reject', '요청 거절')) + '</button></div>'
             : '') +
           '</div></article>'
         ).join('') + '</div>';
@@ -160,6 +178,18 @@
             try {
               await api('/api/teacher/lost-and-found/' + encodeURIComponent(btn.dataset.lafDone) + '/complete', {
                 method: 'POST'
+              });
+              refresh();
+            } catch (e) { alert(e.message); }
+          });
+        });
+        box.querySelectorAll('[data-laf-reject]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm(t('teacher.laf.rejectConfirm', '이 요청을 거절하고 다시 미수령으로 돌릴까요?'))) return;
+            try {
+              await api('/api/teacher/lost-and-found/' + encodeURIComponent(btn.dataset.lafReject) + '/reject', {
+                method: 'POST',
+                body: { reason: 'Claim rejected' }
               });
               refresh();
             } catch (e) { alert(e.message); }
