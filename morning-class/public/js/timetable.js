@@ -931,8 +931,8 @@
     const students = (options && options.students) || [];
     const teachers = (options && options.teachers) || [];
     const classes = (options && options.classes) || [];
-    let view = 'class'; // class | teacher | matrix | student
-    let selectedId = classes[0] ? classes[0].classId : '';
+    let view = 'matrix'; // matrix | class | teacher | student
+    let selectedId = '';
     let boardHandle = null;
 
     function entityOptions() {
@@ -1022,9 +1022,9 @@
         '<div class="tt-admin">' +
         '<div class="tt-admin-toolbar">' +
         '<div class="tt-mode-tabs">' +
+        '<button type="button" class="tt-mode-btn' + (view === 'matrix' ? ' active' : '') + '" data-view="matrix">All-Classes Matrix</button>' +
         '<button type="button" class="tt-mode-btn' + (view === 'class' ? ' active' : '') + '" data-view="class">View by Class</button>' +
         '<button type="button" class="tt-mode-btn' + (view === 'teacher' ? ' active' : '') + '" data-view="teacher">View by Teacher</button>' +
-        '<button type="button" class="tt-mode-btn' + (view === 'matrix' ? ' active' : '') + '" data-view="matrix">All-Classes Matrix</button>' +
         '<button type="button" class="tt-mode-btn' + (view === 'student' ? ' active' : '') + '" data-view="student">Student</button>' +
         '</div>' +
         (showSelect ? '<select class="tt-person-select">' + entityOptions() + '</select>' : '') +

@@ -2736,6 +2736,30 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   align-items: center;
   margin-bottom: 0.65rem;
 }
+.tt-board-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+.tt-board-toolbar select { min-width: 10rem; }
+.tt-req-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.tt-req-modal { width: min(960px, 100%); }
+.bus-setup-modal { max-height: 92vh; }
+.bus-setup-modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+}
 .tt-solver-ok { color: #16a34a; }
 .tt-solver-warn code { font-size: 0.78rem; }
 .tt-bell-modal { width: min(720px, 100%); }
@@ -3459,8 +3483,24 @@ body.buddy-resize-active {
   gap: 1rem;
   flex-wrap: wrap;
   align-items: flex-start;
+  margin-bottom: 0.55rem;
+}
+.sc-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
   margin-bottom: 0.75rem;
 }
+.sc-toolbar-left,
+.sc-toolbar-right {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.sc-toolbar .btn.active { background: var(--primary); color: #fff; }
 .sc-semester-modal { width: min(520px, 100%); }
 .sc-semester-modal-head {
   display: flex;
@@ -3510,6 +3550,33 @@ body.buddy-resize-active {
 .lp-semester-term-select { min-width: 220px; }
 .sc-toolbar-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
 .sc-toolbar-actions .btn.active { background: var(--primary); color: #fff; }
+.sc-month-notes {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.sc-month-note {
+  display: flex;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: var(--muted);
+}
+.sc-month-note-day {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.sc-month-note-title { flex: 1 1 auto; }
+.sc-note-holiday .sc-month-note-day,
+.sc-note-kr_holiday .sc-month-note-day { color: #be185d; }
+.sc-note-break .sc-month-note-day { color: #4338ca; }
+.sc-note-event .sc-month-note-day { color: #b45309; }
+.sc-note-school_day .sc-month-note-day { color: #1d4ed8; }
 .sc-nav {
   display: flex;
   align-items: center;
