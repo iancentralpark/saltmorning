@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260812bus7">
+  <link rel="stylesheet" href="/css/app.css?v=20260813mat1">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -27,6 +27,7 @@
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home">Home</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students">Students</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson">Lesson Plan</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="materials" data-i18n="nav.materials">Materials</button>
       <div class="teacher-nav-dropdown" id="classToolsMenu">
         <button type="button" class="btn btn-ghost teacher-nav-btn" id="classToolsMenuBtn" aria-expanded="false" aria-haspopup="true">Class Tools</button>
         <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
@@ -106,6 +107,46 @@
   <div id="studentsView" class="hidden">
     <div class="card">
       <div id="teacherStudentRegistryMount"></div>
+    </div>
+  </div>
+
+  <div id="materialsView" class="hidden">
+    <div class="card mat-panel">
+      <h3 style="margin-top:0" data-i18n="materials.teacherTitle">Teaching material requests</h3>
+      <p class="muted small" data-i18n="materials.teacherHelp">Ask the school to buy materials you need. Admins will mark requests purchased when done.</p>
+      <form id="matRequestForm" class="mat-form">
+        <label><span data-i18n="materials.subject">Subject</span>
+          <input id="matSubject" required placeholder="e.g. Science, Art">
+        </label>
+        <label><span data-i18n="materials.class">Class</span>
+          <select id="matClass"></select>
+        </label>
+        <label class="mat-span-2"><span data-i18n="materials.content">Content / reason</span>
+          <textarea id="matContent" rows="3" required placeholder="What is it for?"></textarea>
+        </label>
+        <label><span data-i18n="materials.itemName">Item name</span>
+          <input id="matItemName" required placeholder="e.g. A4 colored paper">
+        </label>
+        <label><span data-i18n="materials.quantity">Quantity</span>
+          <input type="number" id="matQty" min="1" step="1" value="1" required>
+        </label>
+        <label><span data-i18n="materials.unitPrice">Unit price</span>
+          <input type="number" id="matUnitPrice" min="0" step="1" value="0" required>
+        </label>
+        <label><span data-i18n="materials.total">Total</span>
+          <input type="number" id="matTotal" min="0" step="1" value="0" required>
+        </label>
+        <label class="mat-span-2"><span data-i18n="materials.link">Purchase link (optional)</span>
+          <input id="matLink" type="url" placeholder="https://…">
+        </label>
+        <div class="mat-form-actions mat-span-2">
+          <button type="submit" class="btn btn-primary" data-i18n="materials.submit">Request purchase</button>
+          <span class="muted small" id="matFormMsg"></span>
+        </div>
+        <div class="error mat-span-2" id="matFormError"></div>
+      </form>
+      <h4 data-i18n="materials.myRequests">My requests</h4>
+      <div id="matTeacherList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
     </div>
   </div>
 
@@ -441,6 +482,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
+<script src="/js/material-requests.js?v=20260813mat1"></script>
 <script src="/js/push-client.js?v=20260813push3"></script>
 <script src="/js/teacher-attendance.js?v=20260812bus7"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
@@ -569,6 +611,9 @@
     SaltStudentRegistry.setClasses(classOpts);
     teacherClasses = classOpts.map((c) => ({ classId: c.classId, className: c.name }));
     teacherClassModels = classes.slice();
+    if (typeof SaltMaterialRequests !== 'undefined') {
+      SaltMaterialRequests.setClasses(teacherClassModels);
+    }
   }
 
 
@@ -579,6 +624,7 @@
     const view = mode || (
       pageTitle === 'Students' ? 'students' :
       pageTitle === 'Lesson Plan' ? 'lesson' :
+      pageTitle === 'Materials' ? 'materials' :
       pageTitle === 'Home' || pageTitle === 'My classes' ? 'home' :
       currentClass ? 'class' : 'home'
     );
@@ -612,6 +658,7 @@
     const parts = raw.split('/').filter(Boolean);
     if (parts[0] === 'students') return { view: 'students' };
     if (parts[0] === 'lesson') return { view: 'lesson' };
+    if (parts[0] === 'materials') return { view: 'materials' };
     if (parts[0] === 'classes') return { view: 'home', focus: 'classes' };
     if (parts[0] === 'class' && parts[1]) {
       return { view: 'class', classId: parts[1], tab: parts[2] || '' };
@@ -669,7 +716,7 @@
   }
 
   function hideAllAppViews() {
-    ['homeView', 'classView', 'studentsView', 'globalLessonView', 'loginView'].forEach((id) => {
+    ['homeView', 'classView', 'studentsView', 'globalLessonView', 'materialsView', 'loginView'].forEach((id) => {
       const node = $(id);
       if (node) hide(node);
     });
@@ -1002,6 +1049,24 @@
     }
   }
 
+  function openMaterials() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('materialsView'));
+    setShellIdentity('Materials', 'materials');
+    if (typeof SaltMaterialRequests !== 'undefined') {
+      SaltMaterialRequests.setClasses(teacherClassModels || teacherClasses || []);
+      SaltMaterialRequests.openTeacher();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/materials');
+      applyingRoute = false;
+    }
+  }
+
   function openClass(cls, tabName, opts) {
     opts = opts || {};
     lessonScope = 'class';
@@ -1074,6 +1139,10 @@
       }
       if (route.view === 'lesson') {
         openGlobalLesson();
+        return;
+      }
+      if (route.view === 'materials') {
+        openMaterials();
         return;
       }
       if (route.view === 'class' && route.classId) {
@@ -1441,6 +1510,7 @@
       if (nav === 'home') openHome({ focus: 'classes' });
       else if (nav === 'students') openStudents();
       else if (nav === 'lesson') openGlobalLesson();
+      else if (nav === 'materials') openMaterials();
     });
   });
 
@@ -1459,6 +1529,9 @@
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
     });
+    if (typeof SaltMaterialRequests !== 'undefined') {
+      SaltMaterialRequests.init({ $, api, escapeHtml, role: 'teacher' });
+    }
     await loadClasses();
     SaltMessenger.init(role);
     if (window.SaltPush) {

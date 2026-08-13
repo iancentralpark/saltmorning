@@ -4591,3 +4591,62 @@ body.buddy-resize-active {
 .att-earlyLeave.active { background: #f3e8ff; border-color: #c4b5fd; color: #6b21a8; }
 .att-status-pill.att-earlyLeave { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
 .sym-early { color: #7c3aed; font-weight: 700; }
+
+/* —— Material purchase requests —— */
+.mat-panel h3 { margin-bottom: 0.35rem; }
+.mat-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.75rem;
+  margin: 1rem 0 1.25rem;
+  max-width: 720px;
+}
+.mat-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.mat-form input,
+.mat-form select,
+.mat-form textarea {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.45rem;
+  font: inherit;
+}
+.mat-span-2 { grid-column: 1 / -1; }
+.mat-form-actions { display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; }
+.mat-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.mat-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+}
+.mat-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.mat-card-meta { margin: 0.25rem 0 0.45rem; }
+.mat-card-body { margin: 0 0 0.45rem; white-space: pre-wrap; }
+.mat-card-price { margin: 0 0 0.35rem; }
+.mat-card-link { margin: 0 0 0.35rem; word-break: break-all; font-size: 0.85rem; }
+.mat-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.mat-status-requested { background: #fff7ed; color: #c2410c; }
+.mat-status-purchased { background: #ecfdf5; color: #047857; }
+.mat-status-cancelled { background: #f3f4f6; color: #6b7280; }
+.mat-admin-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.5rem; }
+@media (max-width: 640px) {
+  .mat-form { grid-template-columns: 1fr; }
+  .mat-span-2 { grid-column: auto; }
+}

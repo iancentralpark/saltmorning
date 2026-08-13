@@ -135,6 +135,13 @@ const {
   getActiveSchoolSemester
 } = require('./services/schoolSemesterService');
 const {
+  createRequest: createMaterialRequest,
+  listForTeacher: listTeacherMaterialRequests,
+  listForAdmin: listAdminMaterialRequests,
+  markPurchased: markMaterialPurchased,
+  cancelRequest: cancelMaterialRequest
+} = require('./services/materialRequestService');
+const {
   getAdminOverview,
   listTeachers,
   getTeacher,
@@ -2832,6 +2839,77 @@ router.put('/admin/school-semesters', requireRole('admin'), async (req, res) => 
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save school semesters.' });
+  }
+});
+
+/* ── Teaching material purchase requests ── */
+router.get('/teacher/material-requests', requireRole('teacher'), async (req, res) => {
+  try {
+    const requests = await listTeacherMaterialRequests(req.session.teacherId);
+    res.json({ requests });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load material requests.' });
+  }
+});
+
+router.post('/teacher/material-requests', requireRole('teacher'), async (req, res) => {
+  try {
+    const profile = req.session || {};
+    const request = await createMaterialRequest(
+      { teacherId: profile.teacherId, name: profile.name || profile.teacherName || '' },
+      req.body || {}
+    );
+    res.json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not submit material request.' });
+  }
+});
+
+router.post('/teacher/material-requests/:requestId/cancel', requireRole('teacher'), async (req, res) => {
+  try {
+    const request = await cancelMaterialRequest(req.params.requestId, {
+      role: 'teacher',
+      teacherId: req.session.teacherId
+    });
+    res.json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not cancel request.' });
+  }
+});
+
+router.get('/admin/material-requests', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const requests = await listAdminMaterialRequests({ status: req.query.status });
+    res.json({ requests });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load material requests.' });
+  }
+});
+
+router.post('/admin/material-requests/:requestId/purchase', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const request = await markMaterialPurchased(
+      req.params.requestId,
+      {
+        adminId: req.session.adminId,
+        principalId: req.session.principalId,
+        teacherId: req.session.teacherId,
+        name: req.session.name
+      },
+      req.body && req.body.adminNote
+    );
+    res.json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not mark purchased.' });
+  }
+});
+
+router.post('/admin/material-requests/:requestId/cancel', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const request = await cancelMaterialRequest(req.params.requestId, { role: 'admin' });
+    res.json({ request });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not cancel request.' });
   }
 });
 
