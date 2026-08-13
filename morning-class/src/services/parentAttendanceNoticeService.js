@@ -363,17 +363,22 @@ async function submitNotice({ parentId, studentId, noticeType, date, note }) {
     notice = parseNotice(row, null);
   }
 
-  // Same-day only: write attendance immediately. Future dates stay on notice sheet until that day.
-  if (ATTENDANCE_NOTICE_TYPES.has(type) && student.classId && dateStr === today) {
+  // Same-day only: keep Attendance_Data in sync so bus board rolls with edits.
+  // pickup_only → reset to 출석 (bus-only exclusion via notice sheet).
+  if (student.classId && dateStr === today) {
     try {
-      await upsertStudentRecord(
-        student.classId,
-        studentId,
-        dateStr,
-        type,
-        String(note || '').trim(),
-        ''
-      );
+      if (ATTENDANCE_NOTICE_TYPES.has(type)) {
+        await upsertStudentRecord(
+          student.classId,
+          studentId,
+          dateStr,
+          type,
+          String(note || '').trim(),
+          ''
+        );
+      } else if (type === 'pickup_only') {
+        await upsertStudentRecord(student.classId, studentId, dateStr, '출석', '', '');
+      }
     } catch (e) {
       console.warn('[parentAttendanceNotice] attendance upsert failed:', e.message);
     }
@@ -410,13 +415,27 @@ async function clearNotice({ parentId, studentId, date }) {
   const existing = await getNoticeForStudentDate(studentId, dateStr);
   if (!existing) return { ok: true, cleared: false };
 
+  const prevType = existing.noticeType;
   await updateRange(
     PARENT_ATTENDANCE_NOTICES_SHEET,
     'A' + existing._row + ':H' + existing._row,
     [new Array(8).fill('')]
   );
   invalidateSheetRowsCache(PARENT_ATTENDANCE_NOTICES_SHEET);
-  return { ok: true, cleared: true };
+
+  // Roll back same-day attendance written by the notice → bus board includes student again
+  if (dateStr === todayStr() && ATTENDANCE_NOTICE_TYPES.has(prevType)) {
+    try {
+      const student = await findStudentMeta(studentId);
+      if (student && student.classId) {
+        await upsertStudentRecord(student.classId, studentId, dateStr, '출석', '', '');
+      }
+    } catch (e) {
+      console.warn('[parentAttendanceNotice] attendance rollback failed:', e.message);
+    }
+  }
+
+  return { ok: true, cleared: true, previousType: prevType };
 }
 
 module.exports = {

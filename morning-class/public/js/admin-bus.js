@@ -12,7 +12,7 @@ window.SaltAdminBus = (function () {
   let deps = {};
   let setup = null;
   let board = null;
-  let sub = 'setup';
+  let sub = 'board';
   let editRun = null;
   let selectedStudents = new Map();
   let setupWeekday = 1; // 1 Mon .. 5 Fri
@@ -168,7 +168,7 @@ window.SaltAdminBus = (function () {
   }
 
   async function open() {
-    setSub(sub || 'setup');
+    setSub(sub || 'board');
   }
 
   function shiftBoardWeek(deltaDays) {
@@ -723,6 +723,16 @@ window.SaltAdminBus = (function () {
     }
   }
 
+  function teacherOptionsHtml(selectedId) {
+    const teachers = (setup && setup.teachers) || [];
+    return '<option value="">' + escapeHtml(t('admin.bus.dutyDefault', 'Semester duty')) + '</option>' +
+      teachers.map((te) =>
+        '<option value="' + escapeHtml(te.teacherId) + '"' +
+        (te.teacherId === selectedId ? ' selected' : '') + '>' +
+        escapeHtml(te.name) + '</option>'
+      ).join('');
+  }
+
   function renderBoardDay() {
     const mount = $('busBoardBody');
     if (!mount || !board) return;
@@ -760,8 +770,35 @@ window.SaltAdminBus = (function () {
         });
         const riders = run ? (run.riders || []) : [];
         const running = riders.length > 0;
+        const driver = (run && run.driverName) || bus.driverName || '';
+        const plate = (run && run.vehiclePlate) || bus.vehiclePlate || '';
+        const dutyList = (run && run.dutyTeachers) || [];
+        const dutyId = dutyList[0] ? dutyList[0].teacherId : '';
+        const dutyLabel = dutyList.map((d) => d.teacherName).filter(Boolean).join(', ');
+        const isSub = run && run.dutySource === 'daily';
+
         html += '<div class="bus-sched-bus bus-sched-static' + (running ? '' : ' bus-sched-off') + '">' +
-          '<div class="bus-sched-bus-name"><strong>' + escapeHtml(bus.name) + '</strong></div>';
+          '<div class="bus-sched-bus-name"><strong>' + escapeHtml(bus.name) + '</strong></div>' +
+          '<div class="bus-sched-meta muted small">' +
+            (driver
+              ? escapeHtml(driver) + escapeHtml(t('admin.bus.driverHonorific', ' 기사님'))
+              : escapeHtml(t('admin.bus.noDriver', '기사 미등록'))) +
+            (plate ? ' · ' + escapeHtml(plate) : '') +
+          '</div>' +
+          (run
+            ? '<label class="bus-duty-daily-label">' +
+                '<span class="muted small">' +
+                  escapeHtml(t('admin.bus.dutyTeacher', 'Duty')) +
+                  (isSub ? ' · ' + escapeHtml(t('admin.bus.substitute', '대타')) : '') +
+                '</span>' +
+                '<select class="bus-duty-daily" data-run="' + escapeHtml(run.runId) + '">' +
+                  teacherOptionsHtml(dutyId) +
+                '</select>' +
+                (dutyLabel && !dutyId
+                  ? '<span class="muted small">' + escapeHtml(dutyLabel) + '</span>'
+                  : '') +
+              '</label>'
+            : '');
         if (!running) {
           html += '<div class="muted small">' + escapeHtml(t('admin.bus.notRunning', '운행 안함')) + '</div>';
         } else {
@@ -779,7 +816,12 @@ window.SaltAdminBus = (function () {
               (contact ? '<div class="muted small">' + escapeHtml(contact) + '</div>' : '') +
               (row.runType === 'pickup'
                 ? '<button type="button" class="btn btn-ghost bus-ns-btn" data-run="' +
-                  escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">No-show</button>'
+                  escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
+                  (r.noShow ? '1' : '0') + '">' +
+                  (r.noShow
+                    ? escapeHtml(t('admin.bus.cancelNoShow', 'Cancel no-show'))
+                    : escapeHtml(t('admin.bus.noShow', 'No-show'))) +
+                  '</button>'
                 : '') +
               '</li>';
           }).join('') + '</ul>';
@@ -797,13 +839,32 @@ window.SaltAdminBus = (function () {
     mount.querySelectorAll('.bus-ns-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         try {
-          await api('/api/admin/bus/noshow', {
+          const cancel = btn.dataset.ns === '1';
+          await api(cancel ? '/api/admin/bus/noshow/cancel' : '/api/admin/bus/noshow', {
             method: 'POST',
             body: { dateStr: board.dateStr, runId: btn.dataset.run, studentId: btn.dataset.sid }
           });
           await loadBoard();
         } catch (e) {
           window.alert(e.message);
+        }
+      });
+    });
+    mount.querySelectorAll('.bus-duty-daily').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        try {
+          await api('/api/admin/bus/duty-daily', {
+            method: 'POST',
+            body: {
+              dateStr: board.dateStr,
+              runId: sel.dataset.run,
+              teacherId: sel.value || ''
+            }
+          });
+          await loadBoard();
+        } catch (e) {
+          window.alert(e.message);
+          await loadBoard();
         }
       });
     });

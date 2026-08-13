@@ -21,8 +21,9 @@ function normalizeNote(val) {
 }
 
 function countsAsPresent(attendance, excuse) {
-  if (attendance === '출석') return true;
-  if ((attendance === '지각' || attendance === '결석' || attendance === '조퇴') &&
+  // 조퇴 = present in the morning + early leave (counts as present)
+  if (attendance === '출석' || attendance === '조퇴') return true;
+  if ((attendance === '지각' || attendance === '결석') &&
       String(excuse || '').trim()) {
     return true;
   }

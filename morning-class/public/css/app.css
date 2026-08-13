@@ -4365,6 +4365,16 @@ body.buddy-resize-active {
 .bus-sched-bus.bus-sched-static:hover { background: transparent; }
 .bus-sched-bus.bus-sched-off { opacity: 0.72; background: #fafbf8; }
 .bus-sched-bus-name { font-size: 0.95rem; }
+.bus-sched-meta { line-height: 1.35; }
+.bus-duty-daily-label {
+  display: flex; flex-direction: column; gap: 0.2rem; width: 100%;
+  font-weight: 600; font-size: 0.8rem;
+}
+.bus-duty-daily {
+  width: 100%; min-height: 2rem; padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+  background: #fff; font: inherit;
+}
 .bus-sched-names {
   margin: 0; padding-left: 1.05rem; font-size: 0.84rem; line-height: 1.35; width: 100%;
 }

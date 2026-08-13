@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260812bus3">
+  <link rel="stylesheet" href="/css/app.css?v=20260812bus7">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -432,7 +432,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
-<script src="/js/teacher-attendance.js?v=20260812bus1"></script>
+<script src="/js/teacher-attendance.js?v=20260812bus7"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/teacher-reportcard.js?v=20260811rctoolbar"></script>
@@ -711,15 +711,21 @@
       }
       body.innerHTML = '<div class="bus-duty-grid">' + runs.map((run) => {
         const isPickup = run.runType === 'pickup';
-        const typeLabel = isPickup ? 'Pickup' : 'Dismissal';
+        const typeLabel = isPickup ? '등교 Duty' : '하교 Duty';
+        const driverLine = [
+          run.driverName ? (run.driverName + ' 기사님') : '',
+          run.vehiclePlate || '',
+          run.driverPhone || ''
+        ].filter(Boolean).join(' · ');
+        const dutyLine = (run.dutyTeachers || []).map((d) => d.teacherName).filter(Boolean).join(', ');
         return '<section class="bus-duty-card">' +
           '<header class="bus-duty-head">' +
             '<div class="bus-duty-title"><strong>' + escapeHtml(run.busName) + '</strong> · ' +
             escapeHtml(typeLabel) + ' <span class="muted">' + escapeHtml(run.startTime || '') + '</span></div>' +
             '<div class="muted small">' + escapeHtml(String(run.riderCount || 0)) + ' riders</div>' +
-            '<div class="muted small">' +
-              escapeHtml([run.driverName, run.driverPhone, run.vehiclePlate].filter(Boolean).join(' · ')) +
-            '</div>' +
+            (driverLine ? '<div class="muted small">' + escapeHtml(driverLine) + '</div>' : '') +
+            (dutyLine ? '<div class="muted small">Duty: ' + escapeHtml(dutyLine) +
+              (run.dutySource === 'daily' ? ' (대타)' : '') + '</div>' : '') +
           '</header>' +
           '<table class="bus-duty-table"><thead><tr>' +
             '<th>Student</th><th>Contact</th>' +
@@ -738,7 +744,9 @@
                 '<td class="muted small">' + escapeHtml(contact) + '</td>' +
                 (isPickup
                   ? '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ns" data-run="' +
-                    escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">No-show</button></td>'
+                    escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
+                    (r.noShow ? '1' : '0') + '">' +
+                    (r.noShow ? 'Cancel no-show' : 'No-show') + '</button></td>'
                   : '') +
               '</tr>';
             }).join('') || '<tr><td colspan="3" class="muted">No riders</td></tr>' +
@@ -748,7 +756,8 @@
       body.querySelectorAll('.t-bus-ns').forEach((btn) => {
         btn.addEventListener('click', async () => {
           try {
-            await api('/api/teacher/bus/noshow', {
+            const cancel = btn.dataset.ns === '1';
+            await api(cancel ? '/api/teacher/bus/noshow/cancel' : '/api/teacher/bus/noshow', {
               method: 'POST',
               body: { dateStr, runId: btn.dataset.run, studentId: btn.dataset.sid }
             }, role);

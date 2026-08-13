@@ -2,7 +2,18 @@
 window.SaltAttendance = (function() {
   const ATT = { present: '출석', tardy: '지각', absent: '결석', earlyLeave: '조퇴' };
   const ATT_REV = { '출석': 'present', '지각': 'tardy', '결석': 'absent', '조퇴': 'earlyLeave' };
-  const ATT_LABEL = { present: 'Present', tardy: 'Tardy', absent: 'Absent', earlyLeave: 'Early leave' };
+  function attLabel(key) {
+    const fallback = {
+      present: 'Present',
+      tardy: 'Tardy',
+      absent: 'Absent',
+      earlyLeave: '출석+조퇴'
+    };
+    if (key === 'earlyLeave' && window.SaltI18n) {
+      return SaltI18n.t('attendance.earlyLeave', fallback.earlyLeave);
+    }
+    return fallback[key] || key;
+  }
   const ATT_MAP = {
     '출석': { sym: 'O', cls: 'sym-present' },
     '지각': { sym: '△', cls: 'sym-tardy' },
@@ -187,7 +198,7 @@ window.SaltAttendance = (function() {
       attBlock =
         '<div class="att-btn-row">' +
           ['present', 'tardy', 'absent', 'earlyLeave'].map((k) =>
-            '<button type="button" class="att-status-btn att-' + k + (attKey === k ? ' active' : '') + '" data-att="' + k + '">' + ATT_LABEL[k] + '</button>'
+            '<button type="button" class="att-status-btn att-' + k + (attKey === k ? ' active' : '') + '" data-att="' + k + '">' + attLabel(k) + '</button>'
           ).join('') +
         '</div>' +
         '<div class="att-excuse-row' + (showExcuse ? '' : ' hidden') + '" data-excuse-row>' +
@@ -197,7 +208,7 @@ window.SaltAttendance = (function() {
     } else {
       attBlock =
         '<div class="att-readonly">' +
-          '<span class="att-status-pill att-' + attKey + '">' + ATT_LABEL[attKey] + '</span>' +
+          '<span class="att-status-pill att-' + attKey + '">' + attLabel(attKey) + '</span>' +
           (excusedBadge || '') +
           (planned || '') +
           '<span class="muted small">Homeroom only</span>' +
@@ -354,7 +365,7 @@ window.SaltAttendance = (function() {
       const tip = [
         day.title,
         ...(day.events || []).map((e) => e.title),
-        day.status ? (ATT_LABEL[ATT_REV[day.status]] || day.status) : '',
+        day.status ? (attLabel(ATT_REV[day.status]) || day.status) : '',
         day.excuse ? 'Excuse: ' + day.excuse : ''
       ].filter(Boolean).join(' · ');
       html += '<div class="' + cls.join(' ') + '" title="' + escapeHtml(tip || day.date) + '">' +
@@ -523,6 +534,7 @@ window.SaltAttendance = (function() {
       if (toggle) toggle.checked = false;
       if (inp) inp.value = '';
     }
+    // 조퇴 (출석+조퇴) always counts present; no excuse needed
     persistStudent(studentId, { attendance, excuse: showExcuse ? readExcuse(card) : '' });
   }
 

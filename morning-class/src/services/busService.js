@@ -4,6 +4,7 @@ const {
   BUS_RUNS_SHEET,
   BUS_ASSIGNMENTS_SHEET,
   BUS_DUTY_SHEET,
+  BUS_DUTY_DAILY_SHEET,
   BUS_OVERRIDES_SHEET,
   BUS_CHANGE_LOG_SHEET,
   BUS_NOSHOWS_SHEET,
@@ -11,7 +12,7 @@ const {
   STUDENT_PROFILE_SHEET,
   TEACHER_LIST_SHEET
 } = require('../config');
-const { getSheetRows, appendRows, updateRange, ensureSheet } = require('../sheets');
+const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { formatSheetDate, todayStr, formatDateTimeNow } = require('../dateUtils');
 const { TIMEZONE } = require('../config');
 
@@ -27,6 +28,9 @@ const ASSIGN_HEADERS = [
 ];
 const DUTY_HEADERS = [
   'DutyID', 'RunID', 'TeacherID', 'Days', 'Active', 'UpdatedAt'
+];
+const DUTY_DAILY_HEADERS = [
+  'DutyDailyID', 'Date', 'RunID', 'TeacherID', 'Active', 'UpdatedAt', 'ActorRole', 'ActorId'
 ];
 const OVERRIDE_HEADERS = [
   'OverrideID', 'Date', 'RunID', 'StudentID', 'Action', 'Reason', 'Source',
@@ -83,6 +87,7 @@ async function ensureBusSheets() {
     ensureSheet(BUS_RUNS_SHEET, RUN_HEADERS),
     ensureSheet(BUS_ASSIGNMENTS_SHEET, ASSIGN_HEADERS),
     ensureSheet(BUS_DUTY_SHEET, DUTY_HEADERS),
+    ensureSheet(BUS_DUTY_DAILY_SHEET, DUTY_DAILY_HEADERS),
     ensureSheet(BUS_OVERRIDES_SHEET, OVERRIDE_HEADERS),
     ensureSheet(BUS_CHANGE_LOG_SHEET, LOG_HEADERS),
     ensureSheet(BUS_NOSHOWS_SHEET, NOSHOW_HEADERS)
@@ -138,6 +143,20 @@ function parseDuty(row, rowIndex) {
     days: parseDays(row[3]),
     active: parseBool(row[4], true),
     updatedAt: String(row[5] || ''),
+    _row: rowIndex
+  };
+}
+
+function parseDutyDaily(row, rowIndex) {
+  return {
+    dutyDailyId: String(row[0] || ''),
+    dateStr: formatSheetDate(row[1]),
+    runId: String(row[2] || ''),
+    teacherId: String(row[3] || ''),
+    active: parseBool(row[4], true),
+    updatedAt: String(row[5] || ''),
+    actorRole: String(row[6] || ''),
+    actorId: String(row[7] || ''),
     _row: rowIndex
   };
 }
@@ -336,16 +355,108 @@ async function saveDuty(payload) {
     now
   ];
   const rows = await getSheetRows(BUS_DUTY_SHEET, { skipCache: true });
+  // Deactivate other active teachers on this run when replacing semester duty
+  if (payload.active !== false) {
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][1]) !== runId) continue;
+      if (!parseBool(rows[i][4], true)) continue;
+      if (String(rows[i][2]) === teacherId) continue;
+      const old = rows[i].slice();
+      old[4] = 'FALSE';
+      old[5] = now;
+      await updateRange(BUS_DUTY_SHEET, `A${i + 1}:F${i + 1}`, [old]);
+    }
+  }
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === dutyId ||
-      (String(rows[i][1]) === runId && String(rows[i][2]) === teacherId && parseBool(rows[i][4], true))) {
+      (String(rows[i][1]) === runId && String(rows[i][2]) === teacherId)) {
       row[0] = String(rows[i][0]) || dutyId;
       await updateRange(BUS_DUTY_SHEET, `A${i + 1}:F${i + 1}`, [row]);
+      invalidateSheetRowsCache(BUS_DUTY_SHEET);
       return parseDuty(row, i + 1);
     }
   }
   await appendRows(BUS_DUTY_SHEET, [row]);
+  invalidateSheetRowsCache(BUS_DUTY_SHEET);
   return parseDuty(row, null);
+}
+
+async function listDutyDailyForDate(dateStr) {
+  await ensureBusSheets();
+  dateStr = formatSheetDate(dateStr);
+  const rows = await getSheetRows(BUS_DUTY_DAILY_SHEET);
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+    const d = parseDutyDaily(rows[i], i + 1);
+    if (d.dateStr !== dateStr || !d.active) continue;
+    out.push(d);
+  }
+  return out;
+}
+
+/**
+ * Same-day duty substitute (or clear). Does not change semester Bus_Duty.
+ * Empty teacherId clears the daily override and falls back to semester duty.
+ */
+async function saveDutyDaily(payload, actor) {
+  await ensureBusSheets();
+  const dateStr = formatSheetDate(payload.dateStr || payload.date || todayStr());
+  const runId = String(payload.runId || '').trim();
+  const teacherId = String(payload.teacherId || '').trim();
+  if (!runId) throw new Error('Run is required.');
+
+  const now = formatDateTimeNow(TIMEZONE);
+  const rows = await getSheetRows(BUS_DUTY_DAILY_SHEET, { skipCache: true });
+
+  // Deactivate existing daily rows for this date+run
+  for (let i = 1; i < rows.length; i++) {
+    if (formatSheetDate(rows[i][1]) !== dateStr) continue;
+    if (String(rows[i][2]) !== runId) continue;
+    if (!parseBool(rows[i][4], true)) continue;
+    const old = rows[i].slice();
+    while (old.length < 8) old.push('');
+    old[4] = 'FALSE';
+    old[5] = now;
+    await updateRange(BUS_DUTY_DAILY_SHEET, `A${i + 1}:H${i + 1}`, [old]);
+  }
+
+  if (!teacherId) {
+    invalidateSheetRowsCache(BUS_DUTY_DAILY_SHEET);
+    await appendChangeLog({
+      dateStr,
+      runId,
+      studentId: '',
+      action: 'duty_daily_clear',
+      detail: 'Cleared same-day duty substitute',
+      actorRole: actor && actor.role,
+      actorId: actor && actor.id
+    });
+    return { dateStr, runId, teacherId: '', cleared: true };
+  }
+
+  const row = [
+    newId('dduty'),
+    dateStr,
+    runId,
+    teacherId,
+    'TRUE',
+    now,
+    actor && actor.role || '',
+    actor && actor.id || ''
+  ];
+  await appendRows(BUS_DUTY_DAILY_SHEET, [row]);
+  invalidateSheetRowsCache(BUS_DUTY_DAILY_SHEET);
+  await appendChangeLog({
+    dateStr,
+    runId,
+    studentId: '',
+    action: 'duty_daily',
+    detail: 'Same-day duty → ' + teacherId,
+    actorRole: actor && actor.role,
+    actorId: actor && actor.id
+  });
+  return parseDutyDaily(row, null);
 }
 
 async function appendChangeLog({ dateStr, runId, studentId, action, detail, actorRole, actorId }) {
@@ -468,6 +579,11 @@ async function reportNoShow(payload, actor) {
     throw new Error('No-show can only be recorded for morning pickup runs.');
   }
 
+  const existing = (await listNoShowsForDate(dateStr)).find(
+    (n) => n.runId === runId && n.studentId === studentId
+  );
+  if (existing) return existing;
+
   const note = String(payload.note || '').trim();
   const row = [
     newId('bns'),
@@ -479,6 +595,7 @@ async function reportNoShow(payload, actor) {
     formatDateTimeNow(TIMEZONE)
   ];
   await appendRows(BUS_NOSHOWS_SHEET, [row]);
+  invalidateSheetRowsCache(BUS_NOSHOWS_SHEET);
   await appendChangeLog({
     dateStr,
     runId,
@@ -491,18 +608,52 @@ async function reportNoShow(payload, actor) {
   return { noShowId: row[0], dateStr, runId, studentId, note };
 }
 
+async function cancelNoShow(payload, actor) {
+  await ensureBusSheets();
+  const dateStr = formatSheetDate(payload.dateStr || payload.date || todayStr());
+  const runId = String(payload.runId || '').trim();
+  const studentId = String(payload.studentId || '').trim();
+  if (!runId || !studentId) throw new Error('Run and student are required.');
+
+  const rows = await getSheetRows(BUS_NOSHOWS_SHEET, { skipCache: true });
+  let cleared = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (formatSheetDate(rows[i][1]) !== dateStr) continue;
+    if (String(rows[i][2]) !== runId) continue;
+    if (String(rows[i][3]) !== studentId) continue;
+    if (!rows[i][0]) continue;
+    await updateRange(BUS_NOSHOWS_SHEET, `A${i + 1}:G${i + 1}`, [new Array(7).fill('')]);
+    cleared += 1;
+  }
+  if (!cleared) throw new Error('No-show record not found.');
+  invalidateSheetRowsCache(BUS_NOSHOWS_SHEET);
+  await appendChangeLog({
+    dateStr,
+    runId,
+    studentId,
+    action: 'no_show_cancel',
+    detail: 'Cancelled no-show',
+    actorRole: actor && actor.role,
+    actorId: actor && actor.id
+  });
+  return { ok: true, cleared, dateStr, runId, studentId };
+}
+
 async function listNoShowsForDate(dateStr) {
   await ensureBusSheets();
   dateStr = formatSheetDate(dateStr);
   const rows = await getSheetRows(BUS_NOSHOWS_SHEET);
   const out = [];
   for (let i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
     if (formatSheetDate(rows[i][1]) !== dateStr) continue;
+    const studentId = String(rows[i][3] || '');
+    if (!studentId) continue;
     out.push({
       noShowId: String(rows[i][0]),
       dateStr,
       runId: String(rows[i][2]),
-      studentId: String(rows[i][3]),
+      studentId,
       note: String(rows[i][4] || ''),
       reportedBy: String(rows[i][5] || ''),
       createdAt: String(rows[i][6] || '')
@@ -563,11 +714,12 @@ async function getDailyManifest(dateStr, exclusionsMap) {
     return { dateStr, runs: [], note: 'Weekend — no regular bus runs.' };
   }
 
-  const [buses, runs, assignments, duties, overrides, noShows, students, teachers] = await Promise.all([
+  const [buses, runs, assignments, duties, dutyDaily, overrides, noShows, students, teachers] = await Promise.all([
     listBuses({ includeInactive: false }),
     listRuns({ includeInactive: false }),
     listAssignments({ includeInactive: false }),
     listDuty({ includeInactive: false }),
+    listDutyDailyForDate(dateStr),
     listOverridesForDate(dateStr),
     listNoShowsForDate(dateStr),
     studentNameMap(),
@@ -584,18 +736,32 @@ async function getDailyManifest(dateStr, exclusionsMap) {
     overrideMap[overrideKey(o.runId, o.studentId)] = o;
   });
   const noShowSet = new Set(noShows.map((n) => overrideKey(n.runId, n.studentId)));
+  const dailyByRun = {};
+  dutyDaily.forEach((d) => {
+    if (!dailyByRun[d.runId]) dailyByRun[d.runId] = [];
+    dailyByRun[d.runId].push(d);
+  });
 
   const resultRuns = [];
   for (const run of runs) {
     const bus = busById[run.busId];
     if (!bus) continue;
 
-    const dutyTeachers = duties
+    const semesterDuty = duties
       .filter((d) => d.runId === run.runId && d.days.includes(dow))
       .map((d) => ({
         teacherId: d.teacherId,
         teacherName: teachers[d.teacherId] || d.teacherId
       }));
+    const dailyForRun = dailyByRun[run.runId] || [];
+    const dutyTeachers = dailyForRun.length
+      ? dailyForRun.map((d) => ({
+        teacherId: d.teacherId,
+        teacherName: teachers[d.teacherId] || d.teacherId,
+        substitute: true
+      }))
+      : semesterDuty.map((d) => Object.assign({}, d, { substitute: false }));
+    const dutySource = dailyForRun.length ? 'daily' : 'semester';
 
     const riders = [];
     for (const a of assignments) {
@@ -672,6 +838,8 @@ async function getDailyManifest(dateStr, exclusionsMap) {
       vehiclePlate: bus.vehiclePlate,
       vehicleInfo: bus.vehicleInfo,
       dutyTeachers,
+      dutySource,
+      semesterDutyTeachers: semesterDuty,
       riders,
       riderCount: riders.length
     });
@@ -741,9 +909,12 @@ module.exports = {
   deleteAssignment,
   listDuty,
   saveDuty,
+  listDutyDailyForDate,
+  saveDutyDaily,
   saveOverride,
   listOverridesForDate,
   reportNoShow,
+  cancelNoShow,
   listNoShowsForDate,
   listChangeLog,
   getDailyManifest,

@@ -52,6 +52,7 @@ module.exports = {
   BUS_RUNS_SHEET: 'Bus_Runs',
   BUS_ASSIGNMENTS_SHEET: 'Bus_Assignments',
   BUS_DUTY_SHEET: 'Bus_Duty',
+  BUS_DUTY_DAILY_SHEET: 'Bus_Duty_Daily',
   BUS_OVERRIDES_SHEET: 'Bus_Overrides',
   BUS_CHANGE_LOG_SHEET: 'Bus_Change_Log',
   BUS_NOSHOWS_SHEET: 'Bus_NoShows',

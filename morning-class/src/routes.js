@@ -3397,6 +3397,26 @@ router.post('/admin/bus/noshow', requireRole('admin', 'principal'), async (req, 
   }
 });
 
+router.post('/admin/bus/noshow/cancel', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: req.session.role, id: req.session.adminId || req.session.principalId || '' };
+    res.json(await busService.cancelNoShow(req.body || {}, actor));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not cancel no-show.' });
+  }
+});
+
+router.post('/admin/bus/duty-daily', requireRole('admin', 'principal'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: req.session.role, id: req.session.adminId || req.session.principalId || '' };
+    res.json({ duty: await busService.saveDutyDaily(req.body || {}, actor) });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save same-day duty.' });
+  }
+});
+
 router.get('/teacher/bus/duty', requireRole('teacher'), async (req, res) => {
   try {
     const busService = require('./services/busService');
@@ -3425,6 +3445,25 @@ router.post('/teacher/bus/noshow', requireRole('teacher'), async (req, res) => {
     res.json(await busService.reportNoShow(body, actor));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not report no-show.' });
+  }
+});
+
+router.post('/teacher/bus/noshow/cancel', requireRole('teacher'), async (req, res) => {
+  try {
+    const busService = require('./services/busService');
+    const actor = { role: 'teacher', id: req.session.teacherId };
+    const body = req.body || {};
+    const dateStr = body.dateStr || body.date;
+    const duty = await busService.getTeacherDutyManifest(
+      req.session.teacherId,
+      dateStr,
+      await busExclusions(dateStr)
+    );
+    const runOk = (duty.runs || []).some((r) => r.runId === String(body.runId || ''));
+    if (!runOk) return res.status(403).json({ error: 'Not on duty for this run.' });
+    res.json(await busService.cancelNoShow(body, actor));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not cancel no-show.' });
   }
 });
 
