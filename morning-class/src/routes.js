@@ -360,7 +360,7 @@ router.post('/parent/push/subscribe', requireRole('parent'), async (req, res) =>
   try {
     const push = require('./services/pushService');
     const parentId = req.session.parentId;
-    await push.saveSubscription(parentId, req.body && req.body.subscription, req.headers['user-agent']);
+    await push.saveSubscription('parent', parentId, req.body && req.body.subscription, req.headers['user-agent']);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save subscription.' });
@@ -370,7 +370,45 @@ router.post('/parent/push/subscribe', requireRole('parent'), async (req, res) =>
 router.post('/parent/push/unsubscribe', requireRole('parent'), async (req, res) => {
   try {
     const push = require('./services/pushService');
-    await push.removeSubscription(req.session.parentId, req.body && req.body.endpoint);
+    await push.removeSubscription('parent', req.session.parentId, req.body && req.body.endpoint);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not remove subscription.' });
+  }
+});
+
+/* Unified push for all roles (preferred) */
+router.get('/push/public-key', requireRole('student', 'parent', 'teacher', 'admin', 'principal'), async (req, res) => {
+  try {
+    const push = require('./services/pushService');
+    res.json({
+      enabled: push.isPushEnabled(),
+      publicKey: push.getPublicKey()
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Push unavailable.' });
+  }
+});
+
+router.post('/push/subscribe', requireRole('student', 'parent', 'teacher', 'admin', 'principal'), async (req, res) => {
+  try {
+    const push = require('./services/pushService');
+    const role = push.normalizeRole(req.session.role);
+    const userId = push.userIdFromSession(req.session);
+    if (!userId) return res.status(400).json({ error: 'Could not resolve user id for push.' });
+    await push.saveSubscription(role, userId, req.body && req.body.subscription, req.headers['user-agent']);
+    res.json({ ok: true, role, userId });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save subscription.' });
+  }
+});
+
+router.post('/push/unsubscribe', requireRole('student', 'parent', 'teacher', 'admin', 'principal'), async (req, res) => {
+  try {
+    const push = require('./services/pushService');
+    const role = push.normalizeRole(req.session.role);
+    const userId = push.userIdFromSession(req.session);
+    await push.removeSubscription(role, userId, req.body && req.body.endpoint);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not remove subscription.' });

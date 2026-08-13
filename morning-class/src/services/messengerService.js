@@ -287,15 +287,13 @@ async function appendMessage(payload) {
       read_at: null,
       deleted_at: null
     });
-    // Best-effort web push for parent recipients
-    if (targetAudience === 'family') {
-      try {
-        const { notifyParentsNewMessage } = require('./pushService');
-        notifyParentsNewMessage(msg).catch((e) =>
-          console.warn('[messenger] push failed:', e.message)
-        );
-      } catch (_) { /* push module optional at boot */ }
-    }
+    // Best-effort web push for all recipients
+    try {
+      const { notifyMessageRecipients } = require('./pushService');
+      notifyMessageRecipients(msg).catch((e) =>
+        console.warn('[messenger] push failed:', e.message)
+      );
+    } catch (_) { /* push module optional at boot */ }
     return msg;
   }
 
@@ -314,7 +312,14 @@ async function appendMessage(payload) {
     ''
   ];
   await appendRows(MESSAGES_SHEET, [row]);
-  return rowToMessage(row);
+  const msg = rowToMessage(row);
+  try {
+    const { notifyMessageRecipients } = require('./pushService');
+    notifyMessageRecipients(msg).catch((e) =>
+      console.warn('[messenger] push failed:', e.message)
+    );
+  } catch (_) { /* ignore */ }
+  return msg;
 }
 
 async function markThreadRead(threadId, role) {

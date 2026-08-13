@@ -22,6 +22,16 @@
       </div>
     </header>
 
+    <div class="card stu-card" id="stuPushCard">
+      <div class="card-title"><i class="fa-solid fa-bell"></i> <span data-i18n="push.title">Notifications</span></div>
+      <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+        <button type="button" class="btn btn-primary" id="stuPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
+        <button type="button" class="btn btn-ghost" id="stuPushDisableBtn" data-i18n="push.disable">Turn off</button>
+        <span class="muted small" id="stuPushStatus"></span>
+      </div>
+    </div>
+
     <div class="stu-summary-grid" id="homeSummary"></div>
 
     <div class="card stu-card" id="announcementsShell">
@@ -124,6 +134,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
+<script src="/js/push-client.js?v=20260813push3"></script>
 <script src="/js/announcements.js?v=20260810ann2"></script>
 <script src="/js/messenger.js?v=20260811kakaotabs"></script>
 <script src="/js/vocab-learn.js?v=20260810teacherux"></script>
@@ -491,6 +502,14 @@
   show($('appView'));
   if (window.MrParkVocabLearn) window.MrParkVocabLearn.init();
   SaltMessenger.init(role);
+  if (window.SaltPush) {
+    SaltPush.bindButtons({
+      api: function(path, opts) { return api(path, opts, role); },
+      enableBtn: $('stuPushEnableBtn'),
+      disableBtn: $('stuPushDisableBtn'),
+      statusEl: $('stuPushStatus')
+    });
+  }
   loadDashboard();
   loadStudentAnnouncements();
 })();

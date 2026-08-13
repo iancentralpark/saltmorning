@@ -294,6 +294,12 @@ async function createAnnouncement(payload, files, actor) {
   };
   await appendRows(ANNOUNCEMENTS_SHEET, [toRow(rec)]);
   invalidateSheetRowsCache(ANNOUNCEMENTS_SHEET);
+  try {
+    const { notifyAnnouncement } = require('./pushService');
+    notifyAnnouncement(rec).catch((e) =>
+      console.warn('[announcement] push failed:', e.message)
+    );
+  } catch (_) { /* ignore */ }
   return rec;
 }
 

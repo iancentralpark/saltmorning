@@ -112,6 +112,13 @@ async function postHomework(classId, payload) {
   invalidateSheetRowsCache(LOG_SHEET);
   invalidateSheetRowsCache(ITEMS_SHEET);
 
+  try {
+    const { notifyHomeworkPosted } = require('./pushService');
+    notifyHomeworkPosted(classId, title).catch((e) =>
+      console.warn('[homework] push failed:', e.message)
+    );
+  } catch (_) { /* ignore */ }
+
   return getClassHomework(classId);
 }
 

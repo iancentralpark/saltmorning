@@ -60,6 +60,15 @@
       </div>
       <div id="teacherBusDutyBody" class="bus-duty-body"><p class="muted">Loading…</p></div>
     </div>
+    <div class="card" id="teacherPushCard">
+      <div class="section-title" data-i18n="push.title">Notifications</div>
+      <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+        <button type="button" class="btn btn-primary" id="teacherPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
+        <button type="button" class="btn btn-ghost" id="teacherPushDisableBtn" data-i18n="push.disable">Turn off</button>
+        <span class="muted small" id="teacherPushStatus"></span>
+      </div>
+    </div>
     <div class="card hidden" id="homeHeadReportSection">
       <div class="section-title">Report cards — Head Teacher</div>
       <p class="muted small">Review cards submitted by your teachers, sign, then submit to the Principal.</p>
@@ -432,6 +441,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260810rcsig2"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
+<script src="/js/push-client.js?v=20260813push3"></script>
 <script src="/js/teacher-attendance.js?v=20260812bus7"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
@@ -1451,6 +1461,14 @@
     });
     await loadClasses();
     SaltMessenger.init(role);
+    if (window.SaltPush) {
+      SaltPush.bindButtons({
+        api: function(path, opts) { return api(path, opts || {}, role); },
+        enableBtn: $('teacherPushEnableBtn'),
+        disableBtn: $('teacherPushDisableBtn'),
+        statusEl: $('teacherPushStatus')
+      });
+    }
     await applyRoute();
   }
 

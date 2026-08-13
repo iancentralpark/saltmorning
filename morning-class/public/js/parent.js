@@ -100,25 +100,12 @@ window.SaltParent = (function() {
     if ($('ppBusClearBtn')) $('ppBusClearBtn').addEventListener('click', clearBusNotice);
     if ($('ppBusDate')) $('ppBusDate').addEventListener('change', loadBusNotice);
     if ($('ppPushEnableBtn')) {
-      $('ppPushEnableBtn').addEventListener('click', async () => {
-        const st = $('ppPushStatus');
-        try {
-          await SaltParentPush.enable(api);
-          if (st) st.textContent = t('parent.push.on', 'Notifications on');
-        } catch (e) {
-          if (st) st.textContent = e.message || 'Failed';
-        }
-      });
-    }
-    if ($('ppPushDisableBtn')) {
-      $('ppPushDisableBtn').addEventListener('click', async () => {
-        const st = $('ppPushStatus');
-        try {
-          await SaltParentPush.disable(api);
-          if (st) st.textContent = t('parent.push.off', 'Notifications off');
-        } catch (e) {
-          if (st) st.textContent = e.message || 'Failed';
-        }
+      SaltPush.bindButtons({
+        api: api,
+        enableBtn: $('ppPushEnableBtn'),
+        disableBtn: $('ppPushDisableBtn'),
+        statusEl: $('ppPushStatus'),
+        t: t
       });
     }
     const childSel = $('ppChildSwitcher');

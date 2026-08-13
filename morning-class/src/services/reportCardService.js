@@ -753,6 +753,12 @@ async function shareReportCardWithParents(actorId, classId, studentId, term, opt
       sharedAt: now
     });
   }
+  try {
+    const { notifyReportCardShared } = require('./pushService');
+    notifyReportCardShared(studentId, term).catch((e) =>
+      console.warn('[reportcard] push failed:', e.message)
+    );
+  } catch (_) { /* ignore */ }
   return { shared: true, sharedAt: now, studentId, term };
 }
 

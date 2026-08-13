@@ -1,6 +1,6 @@
-/* Salt Morning — parent web push service worker */
+/* Salt Morning — web push service worker (all roles) */
 self.addEventListener('push', (event) => {
-  let data = { title: 'Salt Morning', body: 'New message', url: '/parent' };
+  let data = { title: 'Salt Morning', body: 'New update', url: '/' };
   try {
     if (event.data) data = Object.assign(data, event.data.json());
   } catch (_) {
@@ -11,7 +11,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Salt Morning', {
       body: data.body || '',
-      data: { url: data.url || '/parent' },
+      data: { url: data.url || '/' },
       icon: '/favicon.ico'
     })
   );
@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/parent';
+  const url = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
