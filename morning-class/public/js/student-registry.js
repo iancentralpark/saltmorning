@@ -65,6 +65,21 @@
     return isAdminLike() ? '/api/admin/students' : '/api/teacher/students';
   }
 
+  function canIssueTranscript() {
+    // Teachers never issue official transcripts; Admin always can;
+    // Faculty need admin.transcript (plus Students tab access).
+    if (!isAdminLike()) return false;
+    if (role === 'admin') return true;
+    const profile = (global.SaltApp && SaltApp.getProfile)
+      ? (SaltApp.getProfile(role) || {})
+      : {};
+    if (global.SaltApp && typeof SaltApp.hasPermission === 'function') {
+      return SaltApp.hasPermission(Object.assign({ role: role }, profile), 'admin.transcript');
+    }
+    const perms = Array.isArray(profile.permissions) ? profile.permissions : [];
+    return perms.includes('*') || perms.indexOf('admin.transcript') >= 0;
+  }
+
   function uiLang() {
     try {
       return (global.SaltI18n && SaltI18n.getLang && SaltI18n.getLang() === 'ko') ? 'ko' : 'en';
@@ -394,7 +409,7 @@
         escapeHtml(s.status) + '</span>' : '') +
       '</div></div></div>' +
       '<div class="sr-detail-actions">' +
-      (s.studentId
+      (s.studentId && canIssueTranscript()
         ? '<button type="button" class="btn btn-ghost sr-transcript-btn" title="' +
           escapeHtml(t('sr.transcript.title', 'Official Transcript (PDF)')) + '">' +
           escapeHtml(t('sr.transcript.btn', '📄 Official Transcript')) + '</button>'

@@ -3,7 +3,7 @@ const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword } = require('./services/authService');
-const { requireRole } = require('./auth/tokenAuth');
+const { requireRole, requirePerm } = require('./auth/tokenAuth');
 const {
   getTeacherClasses,
   getClassRoster,
@@ -3007,7 +3007,7 @@ async function sendOfficialTranscriptPdf(req, res, studentId) {
   }
 }
 
-router.get('/admin/students/:studentId/transcript', requireRole('admin'), async (req, res) => {
+router.get('/admin/students/:studentId/transcript', requireRole('admin'), requirePerm('admin.transcript'), async (req, res) => {
   try {
     const { getStudentCumulativeData } = require('./services/officialTranscriptService');
     const data = await getStudentCumulativeData(req.params.studentId, {
@@ -3019,7 +3019,7 @@ router.get('/admin/students/:studentId/transcript', requireRole('admin'), async 
   }
 });
 
-router.get('/admin/students/:studentId/transcript/pdf', requireRole('admin'), async (req, res) => {
+router.get('/admin/students/:studentId/transcript/pdf', requireRole('admin'), requirePerm('admin.transcript'), async (req, res) => {
   try {
     await sendOfficialTranscriptPdf(req, res, req.params.studentId);
   } catch (e) {
@@ -3183,18 +3183,6 @@ router.get('/teacher/students/:studentId', requireRole('teacher'), async (req, r
   } catch (e) {
     const code = e.message.includes('access') ? 403 : (e.message === 'Student not found.' ? 404 : 500);
     res.status(code).json({ error: e.message });
-  }
-});
-
-router.get('/teacher/students/:studentId/transcript/pdf', requireRole('teacher'), async (req, res) => {
-  try {
-    await getStudentForTeacher(req.session.teacherId, req.params.studentId);
-    await sendOfficialTranscriptPdf(req, res, req.params.studentId);
-  } catch (e) {
-    const code = e.message && e.message.includes('access')
-      ? 403
-      : (e.status || (e.message === 'Student not found.' ? 404 : 500));
-    res.status(code).json({ error: e.message || 'Could not generate transcript PDF.' });
   }
 });
 
