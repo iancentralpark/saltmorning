@@ -310,6 +310,15 @@ const announcementUpload = multer({
   }
 });
 
+const lostFoundUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype);
+    cb(ok ? null : new Error('Photo must be JPEG, PNG, WebP, or GIF.'), ok);
+  }
+});
+
 const router = express.Router();
 
 async function assertHomeroomOfClass(teacherId, classId) {
@@ -3862,6 +3871,118 @@ router.post('/teacher/bus/override', requireRole('teacher'), async (req, res) =>
     res.json({ override: await busService.saveOverride(body, actor) });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save override.' });
+  }
+});
+
+/* ── Parent conferences ── */
+router.get('/parent/conferences/available', requireRole('parent'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    res.json(await conf.listAvailableForParent(req.session));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load conferences.' });
+  }
+});
+
+router.post('/parent/conferences/book', requireRole('parent'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const booking = await conf.bookSlot(req.session, req.body || {});
+    res.json({ booking });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Booking failed.' });
+  }
+});
+
+/* ── Teacher conferences ── */
+router.post('/teacher/conferences/schedules', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const teacherId = req.session.teacherId || req.body.teacherId;
+    res.json(await conf.createSchedules(teacherId, req.body || {}));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not open schedules.' });
+  }
+});
+
+router.get('/teacher/conferences', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const teacherId = req.session.teacherId;
+    if (!teacherId) return res.status(400).json({ error: 'Teacher session required.' });
+    res.json(await conf.listTeacherDashboard(teacherId));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load conferences.' });
+  }
+});
+
+router.post('/teacher/conferences/notes', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const teacherId = req.session.teacherId;
+    res.json({ booking: await conf.saveTeacherNote(teacherId, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not save note.' });
+  }
+});
+
+router.post('/teacher/conferences/schedules/:scheduleId/close', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    res.json({ schedule: await conf.closeSchedule(req.session.teacherId, req.params.scheduleId) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not close slot.' });
+  }
+});
+
+/* ── Lost & Found ── */
+router.get('/parent/lost-and-found', requireRole('parent'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json(await laf.listForParent(req.session));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load lost & found.' });
+  }
+});
+
+router.post('/parent/lost-and-found/:id/claim', requireRole('parent'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.claimItem(req.session, req.params.id, req.body || {}) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Claim failed.' });
+  }
+});
+
+router.get('/teacher/lost-and-found', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json(await laf.listForTeacher());
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load lost & found.' });
+  }
+});
+
+router.post('/teacher/lost-and-found', requireRole('teacher', 'admin', 'principal', 'staff'), (req, res) => {
+  lostFoundUpload.single('photo')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const laf = require('./services/lostFoundService');
+      const teacherId = req.session.teacherId || req.session.adminId || 'staff';
+      const item = await laf.createItem(teacherId, req.body || {}, req.file);
+      res.json({ item });
+    } catch (e) {
+      res.status(e.status || 400).json({ error: e.message || 'Could not create item.' });
+    }
+  });
+});
+
+router.post('/teacher/lost-and-found/:id/complete', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const laf = require('./services/lostFoundService');
+    res.json({ item: await laf.completeClaim(req.session.teacherId, req.params.id) });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not complete claim.' });
   }
 });
 

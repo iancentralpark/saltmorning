@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260813mat1">
+  <link rel="stylesheet" href="/css/app.css?v=20260813ops1">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -28,6 +28,8 @@
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students">Students</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson">Lesson Plan</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="materials" data-i18n="nav.materials">Materials</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="conferences" data-i18n="nav.conferences">Conferences</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lostFound" data-i18n="nav.lostAndFound">Lost &amp; Found</button>
       <div class="teacher-nav-dropdown" id="classToolsMenu">
         <button type="button" class="btn btn-ghost teacher-nav-btn" id="classToolsMenuBtn" aria-expanded="false" aria-haspopup="true">Class Tools</button>
         <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
@@ -147,6 +149,68 @@
       </form>
       <h4 data-i18n="materials.myRequests">My requests</h4>
       <div id="matTeacherList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
+  </div>
+
+  <div id="conferencesView" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0" data-i18n="teacher.conf.title">학부모 상담 일정</h3>
+      <p class="muted small" data-i18n="teacher.conf.help">날짜·시간 간격·방식을 정해 슬롯을 열면 학부모 포털에 알림이 갑니다.</p>
+      <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.65rem;margin-bottom:0.75rem">
+        <label><span class="muted small">Date</span><input type="date" id="tchConfDate"></label>
+        <label><span class="muted small">Start</span><input type="time" id="tchConfStart" value="09:00"></label>
+        <label><span class="muted small">End</span><input type="time" id="tchConfEnd" value="12:00"></label>
+        <label><span class="muted small">Interval</span>
+          <select id="tchConfMins"><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select>
+        </label>
+        <label><span class="muted small">Type</span>
+          <select id="tchConfType">
+            <option value="InPerson">In person</option>
+            <option value="Phone">Phone</option>
+            <option value="Zoom">Zoom</option>
+          </select>
+        </label>
+        <label style="min-width:140px;flex:1"><span class="muted small">Location / link</span>
+          <input id="tchConfLoc" maxlength="120" placeholder="Room / Zoom URL">
+        </label>
+        <label style="min-width:120px"><span class="muted small">Target class</span>
+          <input id="tchConfTarget" maxlength="40" value="*" placeholder="* or class id">
+        </label>
+        <button type="button" class="btn btn-primary" id="tchConfOpenBtn" data-i18n="teacher.conf.open">Open slots</button>
+      </div>
+      <p class="error" id="tchConfErr" style="margin:0 0 0.75rem"></p>
+      <h4 data-i18n="teacher.conf.openSlots">Open slots</h4>
+      <div id="tchConfOpenList"><p class="muted">…</p></div>
+      <h4 style="margin-top:1.25rem" data-i18n="teacher.conf.booked">Booked</h4>
+      <div id="tchConfBookedList"><p class="muted">…</p></div>
+    </div>
+  </div>
+
+  <div id="lostFoundView" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0" data-i18n="teacher.laf.title">분실물 등록</h3>
+      <p class="muted small" data-i18n="teacher.laf.help">교실·버스에서 습득한 물품을 사진과 함께 게시하세요.</p>
+      <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.65rem;margin-bottom:0.75rem">
+        <label style="min-width:160px;flex:1"><span class="muted small">Title</span>
+          <input id="tchLafTitle" maxlength="120" placeholder="Blue water bottle">
+        </label>
+        <label style="min-width:180px;flex:1"><span class="muted small">Found location</span>
+          <input id="tchLafLoc" maxlength="160" placeholder="Bus 2 seat 3 / Room 301">
+        </label>
+        <label><span class="muted small">Category</span>
+          <select id="tchLafCat">
+            <option value="Clothing">Clothing</option>
+            <option value="Bottle">Bottle</option>
+            <option value="Stationery">Stationery</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Other" selected>Other</option>
+          </select>
+        </label>
+        <label><span class="muted small">Photo</span><input type="file" id="tchLafPhoto" accept="image/*"></label>
+        <button type="button" class="btn btn-primary" id="tchLafPostBtn" data-i18n="teacher.laf.post">Post</button>
+      </div>
+      <p class="error" id="tchLafErr" style="margin:0 0 0.75rem"></p>
+      <div id="tchLafList"><p class="muted">…</p></div>
     </div>
   </div>
 
@@ -483,6 +547,8 @@
 <script src="/js/app.js?v=20260813tr2"></script>
 <script src="/js/change-password.js?v=20260812pw"></script>
 <script src="/js/material-requests.js?v=20260813mat1"></script>
+<script src="/js/conferences.js?v=20260813ops1"></script>
+<script src="/js/lost-and-found.js?v=20260813ops1"></script>
 <script src="/js/push-client.js?v=20260813push3"></script>
 <script src="/js/teacher-attendance.js?v=20260812bus7"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
@@ -621,11 +687,14 @@
     const p = getProfile(role) || {};
     if ($('teacherNameBrand')) $('teacherNameBrand').textContent = p.name || 'Teacher';
     if ($('teacherPageTitle')) $('teacherPageTitle').textContent = pageTitle || '';
+    const title = String(pageTitle || '');
     const view = mode || (
-      pageTitle === 'Students' ? 'students' :
-      pageTitle === 'Lesson Plan' ? 'lesson' :
-      pageTitle === 'Materials' ? 'materials' :
-      pageTitle === 'Home' || pageTitle === 'My classes' ? 'home' :
+      title === 'Students' ? 'students' :
+      title === 'Lesson Plan' ? 'lesson' :
+      title === 'Materials' ? 'materials' :
+      title === 'Conferences' || title.indexOf('상담') >= 0 ? 'conferences' :
+      title === 'Lost & Found' || title.indexOf('분실') >= 0 ? 'lostFound' :
+      title === 'Home' || title === 'My classes' ? 'home' :
       currentClass ? 'class' : 'home'
     );
     document.querySelectorAll('.teacher-nav-btn[data-nav]').forEach((btn) => {
@@ -659,6 +728,8 @@
     if (parts[0] === 'students') return { view: 'students' };
     if (parts[0] === 'lesson') return { view: 'lesson' };
     if (parts[0] === 'materials') return { view: 'materials' };
+    if (parts[0] === 'conferences') return { view: 'conferences' };
+    if (parts[0] === 'lost-and-found' || parts[0] === 'lostFound') return { view: 'lostFound' };
     if (parts[0] === 'classes') return { view: 'home', focus: 'classes' };
     if (parts[0] === 'class' && parts[1]) {
       return { view: 'class', classId: parts[1], tab: parts[2] || '' };
@@ -716,7 +787,7 @@
   }
 
   function hideAllAppViews() {
-    ['homeView', 'classView', 'studentsView', 'globalLessonView', 'materialsView', 'loginView'].forEach((id) => {
+    ['homeView', 'classView', 'studentsView', 'globalLessonView', 'materialsView', 'conferencesView', 'lostFoundView', 'loginView'].forEach((id) => {
       const node = $(id);
       if (node) hide(node);
     });
@@ -1067,6 +1138,40 @@
     }
   }
 
+  function openConferences() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('conferencesView'));
+    setShellIdentity('Conferences', 'conferences');
+    if (window.SaltConferences && SaltConferences.Teacher) {
+      SaltConferences.Teacher.open();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/conferences');
+      applyingRoute = false;
+    }
+  }
+
+  function openLostFound() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('lostFoundView'));
+    setShellIdentity('Lost & Found', 'lostFound');
+    if (window.SaltLostFound && SaltLostFound.Teacher) {
+      SaltLostFound.Teacher.open();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/lost-and-found');
+      applyingRoute = false;
+    }
+  }
+
   function openClass(cls, tabName, opts) {
     opts = opts || {};
     lessonScope = 'class';
@@ -1143,6 +1248,14 @@
       }
       if (route.view === 'materials') {
         openMaterials();
+        return;
+      }
+      if (route.view === 'conferences') {
+        openConferences();
+        return;
+      }
+      if (route.view === 'lostFound') {
+        openLostFound();
         return;
       }
       if (route.view === 'class' && route.classId) {
@@ -1511,6 +1624,8 @@
       else if (nav === 'students') openStudents();
       else if (nav === 'lesson') openGlobalLesson();
       else if (nav === 'materials') openMaterials();
+      else if (nav === 'conferences') openConferences();
+      else if (nav === 'lostFound') openLostFound();
     });
   });
 
@@ -1531,6 +1646,12 @@
     });
     if (typeof SaltMaterialRequests !== 'undefined') {
       SaltMaterialRequests.init({ $, api, escapeHtml, role: 'teacher' });
+    }
+    if (window.SaltConferences && SaltConferences.Teacher) {
+      SaltConferences.Teacher.init({ api, $, escapeHtml, role: 'teacher' });
+    }
+    if (window.SaltLostFound && SaltLostFound.Teacher) {
+      SaltLostFound.Teacher.init({ api, $, escapeHtml, role: 'teacher' });
     }
     await loadClasses();
     SaltMessenger.init(role);

@@ -29,6 +29,8 @@ const TEACHER_PERMS = [
   { key: 'teacher.lessonPlan', label: 'Lesson plan' },
   { key: 'teacher.materials', label: 'Material requests' },
   { key: 'teacher.students', label: 'Student registry' },
+  { key: 'teacher.conferences', label: 'Parent conferences' },
+  { key: 'teacher.lostFound', label: 'Lost & found' },
   { key: 'teacher.headReports', label: 'Head Teacher reports' }
 ];
 
@@ -85,18 +87,19 @@ function presetsForTitle(title) {
   if (t === 'head teacher') {
     return [
       'teacher.home', 'teacher.classes', 'teacher.lessonPlan',
-      'teacher.materials', 'teacher.students', 'teacher.headReports',
+      'teacher.materials', 'teacher.students', 'teacher.conferences', 'teacher.lostFound',
+      'teacher.headReports',
       'admin.reportCards', 'admin.announcements', 'admin.materials'
     ];
   }
   if (t === 'teacher') {
     return [
       'teacher.home', 'teacher.classes', 'teacher.lessonPlan',
-      'teacher.materials', 'teacher.students'
+      'teacher.materials', 'teacher.students', 'teacher.conferences', 'teacher.lostFound'
     ];
   }
   if (t === 'chaplain' || t === 'librarian' || t === 'nurse') {
-    return ['teacher.home', 'teacher.students', 'admin.announcements'];
+    return ['teacher.home', 'teacher.students', 'teacher.lostFound', 'admin.announcements'];
   }
   if (t === 'admin staff') {
     return [
@@ -154,6 +157,13 @@ function upgradePermissions(title, permissions) {
   // Ensure ops staff who already have Bus also get Consents
   if (perms.includes('admin.bus') && !perms.includes('admin.consents')) {
     return uniq(perms.concat(['admin.consents']));
+  }
+  // Soft-upgrade teacher portals with new school-ops tabs
+  if (perms.includes('teacher.home') || perms.includes('teacher.classes') || perms.includes('teacher.students')) {
+    const add = [];
+    if (!perms.includes('teacher.conferences')) add.push('teacher.conferences');
+    if (!perms.includes('teacher.lostFound')) add.push('teacher.lostFound');
+    if (add.length) return uniq(perms.concat(add));
   }
   return perms;
 }

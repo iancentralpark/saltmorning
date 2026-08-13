@@ -149,13 +149,20 @@
       box.innerHTML = '<p class="muted">' + escapeHtml(t('parent.consents.empty', '미제출 양식이 없습니다.')) + '</p>';
       return;
     }
-    box.innerHTML = pending.map((f) =>
-      '<button type="button" class="pp-consent-card" data-consent-open="' + escapeHtml(f.formId) + '">' +
-      '<div class="pp-consent-card-title">' + escapeHtml(f.title) + '</div>' +
-      '<div class="muted small">' +
-      (f.dueDate ? escapeHtml(t('parent.consents.due', '마감') + ': ' + f.dueDate) : '') +
-      '</div></button>'
-    ).join('');
+    box.innerHTML = pending.map((f) => {
+      const em = f.eventMeta;
+      const badge = em
+        ? (em.isFull
+          ? ' · ' + t('parent.consents.eventFullShort', '대기 가능')
+          : (em.capacity ? ' · ' + em.spotsLeft + '/' + em.capacity : ''))
+        : '';
+      return '<button type="button" class="pp-consent-card" data-consent-open="' + escapeHtml(f.formId) + '">' +
+        '<div class="pp-consent-card-title">' + escapeHtml(f.title) + '</div>' +
+        '<div class="muted small">' +
+        (f.dueDate ? escapeHtml(t('parent.consents.due', '마감') + ': ' + f.dueDate) : '') +
+        escapeHtml(badge) +
+        '</div></button>';
+    }).join('');
     box.querySelectorAll('[data-consent-open]').forEach((btn) => {
       btn.addEventListener('click', () => openForm(btn.dataset.consentOpen));
     });
@@ -211,6 +218,21 @@
         '<input id="ppConsentStopLabel" maxlength="120"></label>' +
         '<label class="pp-consent-terms"><input type="checkbox" id="ppConsentTerms"> ' +
         escapeHtml(t('parent.consents.terms', '셔틀 이용 약관 및 시간표에 동의합니다.')) + '</label>';
+      return;
+    }
+    if (kind === 'event') {
+      const meta = (currentForm && currentForm.eventMeta) || {};
+      const capLine = meta.capacity
+        ? (meta.isFull
+          ? t('parent.consents.eventFull', '정원 마감 — 신청 시 대기순번이 부여됩니다.')
+          : t('parent.consents.eventSpots', '남은 자리') + ': ' + meta.spotsLeft + ' / ' + meta.capacity)
+        : '';
+      host.innerHTML =
+        (capLine ? '<p class="muted small" id="ppConsentEventCap">' + escapeHtml(capLine) + '</p>' : '') +
+        '<label><span>' + escapeHtml(t('parent.consents.eventNotes', '학생 특이사항 / 메모')) + '</span>' +
+        '<textarea id="ppConsentEventNotes" rows="3" maxlength="500"></textarea></label>' +
+        '<label class="pp-consent-terms"><input type="checkbox" id="ppConsentSuppliesAck"> ' +
+        escapeHtml(t('parent.consents.suppliesAck', '준비물·참가비 안내를 확인했습니다.')) + '</label>';
       return;
     }
     host.innerHTML = '';
@@ -300,6 +322,12 @@
         termsAccepted: !!( $('ppConsentTerms') && $('ppConsentTerms').checked )
       };
     }
+    if (kind === 'event') {
+      return {
+        eventNotes: ($('ppConsentEventNotes') && $('ppConsentEventNotes').value) || '',
+        suppliesAck: !!( $('ppConsentSuppliesAck') && $('ppConsentSuppliesAck').checked )
+      };
+    }
     return {};
   }
 
@@ -338,6 +366,10 @@
         return;
       }
     }
+    if (fields.kind === 'event' && agreed === 'Apply' && !extra.suppliesAck) {
+      if (err) err.textContent = t('parent.consents.suppliesRequired', '준비물·참가비 안내 확인에 체크해 주세요.');
+      return;
+    }
 
     const sig = resolveSignature(fields.requireSignature);
     if (!sig.ok) {
@@ -348,7 +380,7 @@
 
     try {
       $('ppConsentSubmitBtn').disabled = true;
-      await api('/api/parent/consents/submit', {
+      const res = await api('/api/parent/consents/submit', {
         method: 'POST',
         body: {
           formId: currentForm.formId,
@@ -359,7 +391,15 @@
           signatureBase64: sig.dataUrl
         }
       });
-      if (ok) ok.textContent = t('parent.consents.submitted', '제출되었습니다. 감사합니다.');
+      let msg = t('parent.consents.submitted', '제출되었습니다. 감사합니다.');
+      const st = res && res.submission && res.submission.extraData;
+      if (st && st.registrationStatus === 'Waiting') {
+        msg = t('parent.consents.waitlisted', '정원이 마감되어 대기순번이 부여되었습니다.') +
+          (st.waitNumber ? ' (#' + st.waitNumber + ')' : '');
+      } else if (st && st.registrationStatus === 'Confirmed') {
+        msg = t('parent.consents.eventConfirmed', '참가 신청이 확정되었습니다.');
+      }
+      if (ok) ok.textContent = msg;
       await refreshPending();
       setTimeout(() => {
         showList();
