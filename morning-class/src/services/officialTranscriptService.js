@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { SCHOOL_NAME, SCHOOL_ADDRESS } = require('../config');
+const { SCHOOL_NAME, SCHOOL_ADDRESS, SCHOOL_PHONE, SCHOOL_WEBSITE } = require('../config');
 const { getStudent } = require('./studentRegistryService');
 const { getStudentYearAttendance } = require('./attendanceService');
 const { defaultAcademicYearRange } = require('./schoolCalendarService');
@@ -18,6 +18,7 @@ const TEMPLATE_PATH = path.join(__dirname, '..', 'templates', 'official-transcri
 const LABELS = {
   en: {
     docTitle: 'Official Student Cumulative Record',
+    docSubtitle: 'Official Transcript',
     lblStudentProfile: 'Student profile',
     lblAcademicStanding: 'Academic standing',
     lblName: 'Name',
@@ -51,7 +52,8 @@ const LABELS = {
     na: '—'
   },
   ko: {
-    docTitle: '학생 종합 행정 이력서 (Official Cumulative Record)',
+    docTitle: 'Official Student Cumulative Record',
+    docSubtitle: '학생 종합 행정 이력서 · Official Transcript',
     lblStudentProfile: '학생 기본 정보',
     lblAcademicStanding: '학적 정보',
     lblName: '이름',
@@ -289,6 +291,8 @@ async function getStudentCumulativeData(studentId, opts) {
   return {
     schoolName: SCHOOL_NAME,
     schoolAddress: SCHOOL_ADDRESS,
+    schoolPhone: SCHOOL_PHONE || '',
+    schoolWebsite: SCHOOL_WEBSITE || 'saltmorning.study',
     academicYear: attendance.yearLabel || yearLabel,
     issueDate: new Date().toISOString().slice(0, 10),
     generatedAt: new Date().toISOString(),
@@ -371,6 +375,9 @@ async function renderTranscriptHtml(data, lang) {
     lang,
     schoolName: escapeHtml(data.schoolName || SCHOOL_NAME),
     schoolAddress: escapeHtml(data.schoolAddress || SCHOOL_ADDRESS),
+    schoolPhone: escapeHtml(data.schoolPhone || SCHOOL_PHONE || ''),
+    schoolPhoneSep: (data.schoolPhone || SCHOOL_PHONE) ? ' · ' : '',
+    schoolWebsite: escapeHtml(data.schoolWebsite || SCHOOL_WEBSITE || 'saltmorning.study'),
     studentName: escapeHtml(s.name || ''),
     studentId: escapeHtml(s.studentId || ''),
     dateOfBirth: escapeHtml(s.dateOfBirth || labels.na),
