@@ -1446,12 +1446,21 @@
     $('welcomeText').textContent = 'Hi, ' + greet;
     $('welcomeText').removeAttribute('data-i18n');
     const firstTab = filterAdminNav();
-    await loadClasses();
-    SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
-    SaltClassRegistry.init({
-      api, escapeHtml, role, mount: 'classRegistryMount',
-      onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
-    });
+    try {
+      await loadClasses();
+    } catch (_) {
+      classes = [];
+      syncClassDropdowns();
+    }
+    if (canAccessTab('students')) {
+      SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
+    }
+    if (canAccessTab('classes')) {
+      SaltClassRegistry.init({
+        api, escapeHtml, role, mount: 'classRegistryMount',
+        onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
+      });
+    }
     // Land on first allowed tab when current hash is blocked
     const raw = String(location.hash || '').replace(/^#\/?/, '');
     let tab = decodeURIComponent(raw.split('/')[0] || firstTab);
@@ -1461,7 +1470,7 @@
     } else {
       applyAdminRoute();
     }
-    SaltMessenger.init(role);
+    try { SaltMessenger.init(role); } catch (_) { /* optional for limited staff */ }
     if (window.SaltPush) {
       SaltPush.bindButtons({
         api: function(path, opts) { return api(path, opts || {}, role); },
