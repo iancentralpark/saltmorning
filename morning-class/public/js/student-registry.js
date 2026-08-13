@@ -65,6 +65,93 @@
     return isAdminLike() ? '/api/admin/students' : '/api/teacher/students';
   }
 
+  function canIssueTranscript() {
+    // Teachers never issue official transcripts; Admin always can;
+    // Faculty need admin.transcript (plus Students tab access).
+    if (!isAdminLike()) return false;
+    if (role === 'admin') return true;
+    const profile = (global.SaltApp && SaltApp.getProfile)
+      ? (SaltApp.getProfile(role) || {})
+      : {};
+    if (global.SaltApp && typeof SaltApp.hasPermission === 'function') {
+      return SaltApp.hasPermission(Object.assign({ role: role }, profile), 'admin.transcript');
+    }
+    const perms = Array.isArray(profile.permissions) ? profile.permissions : [];
+    return perms.includes('*') || perms.indexOf('admin.transcript') >= 0;
+  }
+
+  function uiLang() {
+    try {
+      return (global.SaltI18n && SaltI18n.getLang && SaltI18n.getLang() === 'ko') ? 'ko' : 'en';
+    } catch (_) {
+      return 'en';
+    }
+  }
+
+  async function downloadOfficialTranscript() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    const btn = mountEl && mountEl.querySelector('.sr-transcript-btn');
+    const prev = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = t('sr.transcript.working', 'Generating…');
+    }
+    const lang = uiLang();
+    const path = apiBase() + '/' + encodeURIComponent(activeStudent.studentId) +
+      '/transcript/pdf?lang=' + encodeURIComponent(lang);
+    try {
+      const token = global.SaltApp && SaltApp.getToken ? SaltApp.getToken(role) : '';
+      const res = await fetch((global.SaltApp && SaltApp.API ? SaltApp.API : '') + path, {
+        headers: {
+          Accept: 'application/pdf, text/html',
+          Authorization: token ? ('Bearer ' + token) : ''
+        }
+      });
+      const contentType = String(res.headers.get('Content-Type') || '');
+      if (!res.ok) {
+        let msg = 'Could not generate transcript.';
+        try {
+          const err = await res.json();
+          if (err && err.error) msg = err.error;
+        } catch (_) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      if (contentType.indexOf('application/pdf') >= 0 || (blob.type && blob.type.indexOf('pdf') >= 0)) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const safeName = String(activeStudent.name || 'Student').replace(/[^\w.-]+/g, '_');
+        a.href = url;
+        a.download = 'Official_Transcript_' + activeStudent.studentId + '_' + safeName + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showSaveToast(t('sr.transcript.done', 'Transcript downloaded.'));
+      } else {
+        // HTML fallback — open printable official sheet
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        if (!win) {
+          // popup blocked: navigate same tab
+          location.href = url;
+        } else {
+          setTimeout(() => {
+            try { win.focus(); win.print(); } catch (_) { /* ignore */ }
+          }, 600);
+        }
+        showSaveToast(t('sr.transcript.printHint', 'Opened printable transcript — use Save as PDF.'));
+      }
+    } catch (e) {
+      showSaveToast(e.message || t('sr.transcript.fail', 'Could not generate transcript.'), true);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    }
+  }
+
   function photoUrl(path) {
     if (!path) return '';
     return path + (path.includes('?') ? '&' : '?') + 'v=' + Date.now();
@@ -322,6 +409,11 @@
         escapeHtml(s.status) + '</span>' : '') +
       '</div></div></div>' +
       '<div class="sr-detail-actions">' +
+      (s.studentId && canIssueTranscript()
+        ? '<button type="button" class="btn btn-ghost sr-transcript-btn" title="' +
+          escapeHtml(t('sr.transcript.title', 'Official Transcript (PDF)')) + '">' +
+          escapeHtml(t('sr.transcript.btn', '📄 Official Transcript')) + '</button>'
+        : '') +
       (canEdit ? '<button type="button" class="btn btn-primary sr-save-btn">' +
         escapeHtml(t('common.save', 'Save')) + '</button>' : '') +
       (canEdit && s.studentId && s.status !== 'Withdrawn'
@@ -550,6 +642,9 @@
 
     const saveBtn = mountEl.querySelector('.sr-save-btn');
     if (saveBtn) saveBtn.addEventListener('click', saveStudent);
+
+    const transcriptBtn = mountEl.querySelector('.sr-transcript-btn');
+    if (transcriptBtn) transcriptBtn.addEventListener('click', downloadOfficialTranscript);
 
     const withdrawBtn = mountEl.querySelector('.sr-withdraw-btn');
     if (withdrawBtn) withdrawBtn.addEventListener('click', withdrawActiveStudent);

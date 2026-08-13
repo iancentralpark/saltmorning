@@ -3,7 +3,7 @@ const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword } = require('./services/authService');
-const { requireRole } = require('./auth/tokenAuth');
+const { requireRole, requirePerm } = require('./auth/tokenAuth');
 const {
   getTeacherClasses,
   getClassRoster,
@@ -2970,6 +2970,60 @@ router.get('/admin/students/:studentId/grades', requireRole('admin', 'principal'
     res.json(await getStudentGradeSummary(req.params.studentId, { term: req.query.term || '' }));
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load grades.' });
+  }
+});
+
+async function sendOfficialTranscriptPdf(req, res, studentId) {
+  const {
+    getStudentCumulativeData,
+    renderTranscriptHtml,
+    renderTranscriptPdf,
+    transcriptFilename
+  } = require('./services/officialTranscriptService');
+  const lang = String(req.query.lang || 'en').toLowerCase() === 'ko' ? 'ko' : 'en';
+  const format = String(req.query.format || 'pdf').toLowerCase();
+  const data = await getStudentCumulativeData(studentId, {
+    viewerId: req.session.adminId || req.session.principalId || req.session.teacherId || 'admin'
+  });
+  const html = await renderTranscriptHtml(data, lang);
+  if (format === 'html') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  }
+  try {
+    const pdf = await renderTranscriptPdf(html);
+    const filename = transcriptFilename(data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
+    return res.send(pdf);
+  } catch (e) {
+    // Chromium unavailable on some hosts — fall back to printable HTML
+    if (e.code === 'PDF_ENGINE_MISSING' || /PDF engine|executable|browser/i.test(String(e.message || ''))) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('X-Transcript-Fallback', 'html-print');
+      return res.send(html);
+    }
+    throw e;
+  }
+}
+
+router.get('/admin/students/:studentId/transcript', requireRole('admin'), requirePerm('admin.transcript'), async (req, res) => {
+  try {
+    const { getStudentCumulativeData } = require('./services/officialTranscriptService');
+    const data = await getStudentCumulativeData(req.params.studentId, {
+      viewerId: req.session.adminId || req.session.principalId || req.session.teacherId || 'admin'
+    });
+    res.json({ transcript: data });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not build transcript.' });
+  }
+});
+
+router.get('/admin/students/:studentId/transcript/pdf', requireRole('admin'), requirePerm('admin.transcript'), async (req, res) => {
+  try {
+    await sendOfficialTranscriptPdf(req, res, req.params.studentId);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not generate transcript PDF.' });
   }
 });
 

@@ -69,6 +69,7 @@ const ADMIN_PATH_PERMS = [
   { re: /^\/admin\/class-assignments/, perm: 'admin.faculty' },
   { re: /^\/admin\/bus/, perm: 'admin.bus' },
   { re: /^\/admin\/classes/, perm: 'admin.classes' },
+  { re: /^\/admin\/students\/[^/]+\/transcript/, perm: 'admin.transcript' },
   { re: /^\/admin\/students/, perm: 'admin.students' },
   { re: /^\/admin\/parents/, perm: 'admin.students' },
   { re: /^\/admin\/school-calendar/, perm: 'admin.schoolCal' },
