@@ -37,11 +37,41 @@
     editorState.category = tpl.category || 'General';
     editorState.title = tpl.title || '';
     editorState.contentHtml = tpl.contentHtml || '';
-    editorState.fieldsJson = tpl.fieldsJson || {};
+    editorState.fieldsJson = Object.assign({}, tpl.fieldsJson || {});
     const titleEl = $('consentTitle');
     const bodyEl = $('consentBody');
     if (titleEl) titleEl.value = editorState.title;
     if (bodyEl) bodyEl.innerHTML = editorState.contentHtml;
+    syncEventFieldsUI();
+  }
+
+  function syncEventFieldsUI() {
+    const box = $('consentEventFields');
+    const isEvent = editorState.category === 'Event' ||
+      (editorState.fieldsJson && editorState.fieldsJson.kind === 'event');
+    if (box) box.classList.toggle('hidden', !isEvent);
+    if (!isEvent) return;
+    const f = editorState.fieldsJson || {};
+    if ($('consentCapacity')) $('consentCapacity').value = f.capacity != null ? f.capacity : 20;
+    if ($('consentEventDate')) $('consentEventDate').value = f.eventDate || '';
+    if ($('consentEventLocation')) $('consentEventLocation').value = f.location || '';
+    if ($('consentEventFee')) $('consentEventFee').value = f.fee || '';
+    if ($('consentEventSupplies')) $('consentEventSupplies').value = f.supplies || '';
+  }
+
+  function readEventFieldsIntoState() {
+    const isEvent = editorState.category === 'Event' ||
+      (editorState.fieldsJson && editorState.fieldsJson.kind === 'event');
+    if (!isEvent) return;
+    editorState.fieldsJson = Object.assign({}, editorState.fieldsJson || {}, {
+      kind: 'event',
+      capacity: Number(($('consentCapacity') && $('consentCapacity').value) || 0) || 0,
+      eventDate: (($('consentEventDate') && $('consentEventDate').value) || '').trim(),
+      location: (($('consentEventLocation') && $('consentEventLocation').value) || '').trim(),
+      fee: (($('consentEventFee') && $('consentEventFee').value) || '').trim(),
+      supplies: (($('consentEventSupplies') && $('consentEventSupplies').value) || '').trim(),
+      firstCome: true
+    });
   }
 
   function readEditor() {
@@ -49,6 +79,7 @@
     editorState.contentHtml = ($('consentBody') && $('consentBody').innerHTML) || '';
     editorState.targetGrades = ($('consentTargets') && $('consentTargets').value) || '*';
     editorState.dueDate = ($('consentDue') && $('consentDue').value) || '';
+    readEventFieldsIntoState();
     return editorState;
   }
 
@@ -170,8 +201,14 @@
               '<tr>' +
               '<td>' + escapeHtml(s.name) + '</td>' +
               '<td>' + escapeHtml(s.className || s.classId) + '</td>' +
-              '<td><strong>' + escapeHtml(agreedLabel(s.agreed)) + '</strong></td>' +
-              '<td class="muted small">' + escapeHtml(s.disagreedReason || '—') + '</td>' +
+              '<td><strong>' + escapeHtml(agreedLabel(s.agreed)) +
+              (s.extraData && s.extraData.registrationStatus
+                ? ' · ' + escapeHtml(s.extraData.registrationStatus === 'Waiting'
+                  ? ('대기 #' + (s.extraData.waitNumber || ''))
+                  : '확정')
+                : '') +
+              '</strong></td>' +
+              '<td class="muted small">' + escapeHtml(s.disagreedReason || (s.extraData && s.extraData.eventNotes) || '—') + '</td>' +
               '<td>' + escapeHtml(String(s.submittedAt || '').slice(0, 16).replace('T', ' ')) + '</td>' +
               '<td>' + (s.hasSignature ? '✓' : '—') + '</td>' +
               '</tr>'
@@ -200,6 +237,11 @@
           '<div class="consent-stat"><div class="muted small">제출</div><strong>' + data.submittedCount + '</strong></div>' +
           '<div class="consent-stat"><div class="muted small">미제출</div><strong>' + data.pendingCount + '</strong></div>' +
           '<div class="consent-stat"><div class="muted small">제출률</div><strong>' + data.rate + '%</strong></div>' +
+          (data.eventStats
+            ? '<div class="consent-stat"><div class="muted small">확정</div><strong>' + data.eventStats.confirmed +
+              (data.eventStats.capacity ? ' / ' + data.eventStats.capacity : '') + '</strong></div>' +
+              '<div class="consent-stat"><div class="muted small">대기</div><strong>' + data.eventStats.waiting + '</strong></div>'
+            : '') +
           '</div>' +
           '<div class="table-wrap" style="margin-top:1rem"><h4>제출 완료</h4>' + submittedRows + '</div>' +
           '<div class="table-wrap" style="margin-top:1rem"><h4>미제출</h4>' + pendingRows + '</div>' +

@@ -437,6 +437,133 @@ a:hover { color: var(--gold); }
 .shell.portal-shell-wide { max-width: 1100px; }
 .portal-subnav {
   margin: 0 0 1rem;
+  overflow: visible;
+  position: relative;
+  z-index: 30;
+}
+.portal-subnav-track-wrap {
+  flex-wrap: wrap;
+  overflow: visible !important;
+  row-gap: 0.15rem;
+}
+.portal-nav-group {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  z-index: 1;
+}
+.portal-nav-group.is-open {
+  z-index: 80;
+}
+.portal-nav-group.hidden { display: none !important; }
+.portal-nav-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.portal-nav-group-btn::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  opacity: 0.65;
+  margin-left: 0.15rem;
+}
+.portal-nav-group.is-open .portal-nav-group-btn::after {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+.portal-nav-group.has-active .portal-nav-group-btn::after {
+  opacity: 1;
+}
+.portal-nav-group-panel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  min-width: 11.5rem;
+  padding: 0.35rem;
+  border-radius: 0.65rem;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 12px 28px rgba(28, 37, 27, 0.16);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.portal-nav-group-panel.hidden { display: none !important; }
+.portal-nav-group-item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.portal-nav-group-item:hover {
+  background: var(--cream, #f7f4ee);
+  color: var(--olive-deep);
+}
+.portal-nav-group-item.active {
+  color: var(--olive-deep);
+  background: var(--sage-soft, #e8efe4);
+}
+.portal-nav-group-item.hidden { display: none !important; }
+/* Lost & found / conference helper layouts */
+.laf-feed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.laf-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #fff;
+}
+.laf-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+  background: var(--cream, #f7f4ee);
+}
+.laf-card-body { padding: 0.75rem; }
+.laf-card-body h4 { margin: 0 0 0.35rem; font-size: 1rem; }
+.conf-slot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.conf-slot {
+  appearance: none;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.conf-slot:hover { border-color: var(--sage); }
+.conf-slot.is-selected {
+  background: var(--sage-soft, #e8efe4);
+  border-color: var(--sage);
+}
+.conf-slot:disabled,
+.conf-slot.is-taken {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: line-through;
 }
 #langToggleBtn {
   min-width: 4.5rem;

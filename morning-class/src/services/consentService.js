@@ -39,6 +39,7 @@ const CATEGORIES = {
   BusSurvey: 'BusSurvey',
   BusApp: 'BusApp',
   FieldTrip: 'FieldTrip',
+  Event: 'Event',
   PhotoMedia: 'PhotoMedia',
   Health: 'Health',
   General: 'General'
@@ -267,6 +268,45 @@ function builtinTemplates() {
         ]
       },
       isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_event_camp',
+      category: CATEGORIES.Event,
+      title: '특별 캠프·일회성 행사 참가 신청',
+      contentHtml: odocShell(
+        '특별 캠프 및 행사 참가 신청 안내',
+        '<p>1. 귀 가정의 평안을 기원합니다.</p>' +
+        '<p>2. 본교는 아래와 같이 <strong>특별 캠프·일회성 행사</strong>를 진행하오니, 학생 ' +
+        '<strong>{student_name}</strong>의 참가 신청을 받습니다.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>대상 학생</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>행 사 명</th><td><strong>{event_title}</strong></td></tr>' +
+        '<tr><th>일 시</th><td><strong>{event_date}</strong></td></tr>' +
+        '<tr><th>장 소</th><td><strong>{location}</strong></td></tr>' +
+        '<tr><th>참가비·준비물</th><td>{fee_supplies}</td></tr>' +
+        '<tr><th>모집 정원</th><td>{capacity}명 (선착순, 초과 시 대기)</td></tr>' +
+        '<tr><th>신청 마감</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. 정원이 마감되면 자동으로 <strong>대기순번</strong>이 부여됩니다.</p>' +
+        '<p>4. 참가(신청)를 선택하신 뒤 특이사항·준비물 확인 후 서명하여 제출하여 주시기 바랍니다.</p>',
+        'OFFICIAL APPLICATION'
+      ),
+      fieldsJson: {
+        kind: 'event',
+        requireSignature: true,
+        capacity: 20,
+        eventDate: '',
+        location: '',
+        fee: '',
+        supplies: '',
+        firstCome: true,
+        choices: [
+          { value: 'Apply', label: '참가 신청' },
+          { value: 'None', label: '신청하지 않음' }
+        ],
+        extraFields: ['eventNotes', 'suppliesAck']
+      },
+      isCustomSaved: false
     }
   ];
 }
@@ -317,6 +357,10 @@ function buildFormVars(form, student, classNames) {
   const contactParts = [];
   if (phone) contactParts.push(phone);
   if (website) contactParts.push(website);
+  const fields = (form && form.fieldsJson) || {};
+  const fee = String(fields.fee || '').trim();
+  const supplies = String(fields.supplies || '').trim();
+  const feeSupplies = [fee, supplies].filter(Boolean).join(' / ') || '—';
   return {
     student_name: (student && student.name) || '',
     class_name: (classNames && student && classNames[student.classId]) || (student && student.classId) || '',
@@ -327,10 +371,14 @@ function buildFormVars(form, student, classNames) {
     school_phone: phone,
     school_website: website,
     school_contact_line: contactParts.join(' · ') || website,
-    doc_no: (form && form.formId) || '',
-    issue_date: published || todaySeoul(),
-    trip_date: '',
-    location: ''
+    event_title: (form && form.title) || '',
+    event_date: String(fields.eventDate || fields.trip_date || '').trim() || '—',
+    trip_date: String(fields.trip_date || fields.eventDate || '').trim() || '—',
+    location: String(fields.location || '').trim() || '—',
+    fee_supplies: feeSupplies,
+    capacity: fields.capacity != null && fields.capacity !== '' ? String(fields.capacity) : '—',
+    doc_no: 'SM-' + published.replace(/-/g, ''),
+    issue_date: published || todaySeoul()
   };
 }
 
@@ -616,6 +664,25 @@ async function listPendingForParent(session) {
     if (submitted.has(form.formId)) continue;
     if (!formTargetsStudent(form, student)) continue;
     const vars = buildFormVars(form, student, classNames);
+    const fields = form.fieldsJson || {};
+    let eventMeta = null;
+    if (fields.kind === 'event' || form.category === CATEGORIES.Event) {
+      const allSubs = subs.filter((s) => s.formId === form.formId && (s.agreed === 'Apply' || s.agreed === 'Y'));
+      const confirmedCount = allSubs.filter((s) =>
+        ((s.extraData && s.extraData.registrationStatus) || 'Confirmed') === 'Confirmed'
+      ).length;
+      const capacity = Number(fields.capacity) || 0;
+      eventMeta = {
+        capacity,
+        confirmedCount,
+        spotsLeft: capacity > 0 ? Math.max(0, capacity - confirmedCount) : null,
+        isFull: capacity > 0 && confirmedCount >= capacity,
+        eventDate: fields.eventDate || '',
+        location: fields.location || '',
+        fee: fields.fee || '',
+        supplies: fields.supplies || ''
+      };
+    }
     pending.push({
       formId: form.formId,
       category: form.category,
@@ -624,7 +691,8 @@ async function listPendingForParent(session) {
       fieldsJson: form.fieldsJson,
       contentHtml: applyVariables(form.contentHtml, vars),
       studentId,
-      studentName: student.name
+      studentName: student.name,
+      eventMeta
     });
   }
   return { pending, count: pending.length };
@@ -719,6 +787,29 @@ async function submitConsent(session, payload) {
     }
   }
 
+  // Event / camp first-come capacity → Confirmed or Waiting
+  if (kind === 'event' && (agreed === 'Apply' || agreed === 'Y')) {
+    const capacity = Number(fields.capacity);
+    const existingRegs = existing.filter((s) =>
+      (s.agreed === 'Apply' || s.agreed === 'Y')
+    );
+    const confirmed = existingRegs.filter((s) => {
+      const st = (s.extraData && s.extraData.registrationStatus) || 'Confirmed';
+      return st === 'Confirmed';
+    });
+    if (capacity > 0 && confirmed.length >= capacity) {
+      const waitingAhead = existingRegs.filter((s) =>
+        (s.extraData && s.extraData.registrationStatus) === 'Waiting'
+      ).length;
+      extra.registrationStatus = 'Waiting';
+      extra.waitNumber = waitingAhead + 1;
+    } else {
+      extra.registrationStatus = 'Confirmed';
+      extra.waitNumber = '';
+    }
+    extra.eventNotes = String(extra.eventNotes || '').trim().slice(0, 500);
+  }
+
   const subId = newId('csub');
   const row = [
     subId,
@@ -803,7 +894,19 @@ async function getFormAnalytics(formId) {
     rate,
     submitted,
     pending,
-    clusters: Object.keys(clusters).map((k) => clusters[k]).sort((a, b) => b.count - a.count)
+    clusters: Object.keys(clusters).map((k) => clusters[k]).sort((a, b) => b.count - a.count),
+    eventStats: (form.fieldsJson && form.fieldsJson.kind === 'event') || form.category === CATEGORIES.Event
+      ? {
+          capacity: Number(form.fieldsJson && form.fieldsJson.capacity) || 0,
+          confirmed: submitted.filter((s) =>
+            (s.agreed === 'Apply' || s.agreed === 'Y') &&
+            ((s.extraData && s.extraData.registrationStatus) || 'Confirmed') === 'Confirmed'
+          ).length,
+          waiting: submitted.filter((s) =>
+            (s.extraData && s.extraData.registrationStatus) === 'Waiting'
+          ).length
+        }
+      : null
   };
 }
 

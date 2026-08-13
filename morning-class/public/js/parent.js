@@ -25,6 +25,8 @@ window.SaltParent = (function() {
     attendance: 'nav.attendance',
     bus: 'nav.busNotice',
     consents: 'nav.consents',
+    conferences: 'nav.conferences',
+    lostAndFound: 'nav.lostAndFound',
     timetable: 'nav.timetable',
     homework: 'nav.homework',
     reportcards: 'nav.parentReports',
@@ -193,8 +195,9 @@ window.SaltParent = (function() {
     currentTab = name;
     document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
       btn.classList.toggle('active', btn.dataset.tab === name));
-    ['feed', 'announcements', 'attendance', 'bus', 'consents', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
-      const el = $('tab' + k.charAt(0).toUpperCase() + k.slice(1));
+    ['feed', 'announcements', 'attendance', 'bus', 'consents', 'conferences', 'lostAndFound', 'timetable', 'homework', 'reportcards', 'profile'].forEach((k) => {
+      const id = k === 'lostAndFound' ? 'tabLostAndFound' : ('tab' + k.charAt(0).toUpperCase() + k.slice(1));
+      const el = $(id);
       if (el) deps.hide(el);
     });
     const map = {
@@ -203,6 +206,8 @@ window.SaltParent = (function() {
       attendance: 'tabAttendance',
       bus: 'tabBus',
       consents: 'tabConsents',
+      conferences: 'tabConferences',
+      lostAndFound: 'tabLostAndFound',
       timetable: 'tabTimetable',
       homework: 'tabHomework',
       reportcards: 'tabReportcards',
@@ -220,6 +225,12 @@ window.SaltParent = (function() {
           renderBadges();
         }
       }).catch(() => {});
+    }
+    if (name === 'conferences' && window.SaltConferences && SaltConferences.Parent) {
+      SaltConferences.Parent.open();
+    }
+    if (name === 'lostAndFound' && window.SaltLostFound && SaltLostFound.Parent) {
+      SaltLostFound.Parent.open();
     }
     if (name === 'timetable') loadTimetable();
     if (name === 'homework') loadHomework();
