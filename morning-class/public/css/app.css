@@ -1156,6 +1156,15 @@ input, select, textarea {
   color: var(--text);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--olive, #3b4a34);
+}
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--olive);
@@ -3979,16 +3988,29 @@ body.buddy-resize-active {
   gap: 0.25rem;
   font-size: 0.85rem;
 }
-.sc-form.admin-form-grid input,
+.sc-form.admin-form-grid input:not([type="checkbox"]):not([type="hidden"]),
 .sc-form.admin-form-grid select {
   width: 100%;
 }
-.sc-form .sc-check {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+.sc-form.admin-form-grid label.sc-check {
   flex-direction: row;
-  padding-bottom: 0.35rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  min-height: 2.6rem;
+}
+.sc-form.admin-form-grid label.sc-check input[type="checkbox"] {
+  width: 1.05rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--olive, #3b4a34);
+}
+.sc-form.admin-form-grid label.sc-check span {
+  line-height: 1.25;
+  white-space: normal;
 }
 .sc-form .sc-notes,
 .sc-form .sc-form-actions,
@@ -5453,4 +5475,34 @@ body.buddy-resize-active {
     grid-column: 1 / -1;
   }
   .student-home-grid > .stu-card { margin-bottom: 0; }
+}
+
+/* Admin Lessons: teacher + class sit on one compact row with the month nav */
+.lp-admin-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.lp-admin-topbar .lp-cal-toolbar { margin-bottom: 0; }
+.lp-admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: end;
+}
+.lp-admin-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 0;
+}
+.lp-admin-filters select {
+  width: auto;
+  min-width: 10.5rem;
+  max-width: 16rem;
 }
