@@ -2091,7 +2091,28 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   padding: 0.5rem 0.65rem;
   cursor: pointer;
 }
+.lp-admin-sem-item.is-open {
+  border-color: var(--primary);
+  background: var(--sage-soft, #e8efe4);
+}
 .lp-admin-sem-item:hover { border-color: var(--primary); }
+.lp-admin-semester { margin-top: 1.25rem; }
+.la-toolbar-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.lp-semester-term-select {
+  min-width: 8rem !important;
+  max-width: 12rem;
+}
+.pp-cal-legend .ya-cal-present,
+.pp-cal-legend .ya-cal-absent,
+.pp-cal-legend .ya-cal-tardy {
+  display: inline-block;
+}
 .lp-admin-semester { margin-bottom: 1rem; }
 .lp-color-picker { position: relative; display: inline-flex; }
 .lp-color-swatch {
@@ -5228,4 +5249,208 @@ body.buddy-resize-active {
 @media (max-width: 640px) {
   .mat-form { grid-template-columns: 1fr; }
   .mat-span-2 { grid-column: auto; }
+}
+
+/* Faculty assignment — use the row, not a narrow stack */
+.assignment-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
+  gap: 0.55rem 0.75rem;
+  align-items: end;
+  max-width: none !important;
+  margin: 0;
+}
+.assignment-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  font-size: 0.82rem;
+}
+.assignment-form select,
+.assignment-form input {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.45rem;
+  font: inherit;
+}
+.assignment-form .assignment-form-submit { white-space: nowrap; }
+.assignment-form .error { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 900px) {
+  .assignment-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Analytics filters stay on one compact row */
+.la-toolbar { align-items: center; }
+.la-toolbar-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  align-items: flex-end;
+}
+.la-toolbar-actions select {
+  width: auto;
+  min-width: 9.5rem;
+  max-width: 14rem;
+}
+
+/* Teacher subjects: classes sit side by side */
+.lp-subjects-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  align-items: flex-start;
+}
+.lp-subject-class {
+  margin-bottom: 0;
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 420px;
+}
+.lp-semester-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.lp-semester-picker select {
+  width: auto;
+  max-width: 16rem;
+  min-width: 10rem;
+  flex: 0 1 16rem;
+}
+
+/* Material requests use the full panel width */
+.mat-form {
+  max-width: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .mat-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Compact dismissible notification prompt */
+.push-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  margin: 0 0 0.85rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--cream, #f7f4ee);
+}
+.push-prompt-copy { flex: 1 1 220px; min-width: 0; }
+.push-prompt-copy strong { display: block; font-size: 0.9rem; }
+.push-prompt-copy p { margin: 0.15rem 0 0; }
+.push-prompt-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.push-prompt.is-on { display: none !important; }
+
+/* Parent calendar legend */
+.pp-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  margin-top: 0.85rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pp-cal-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.pp-cal-legend .ya-swatch { width: 0.85rem; height: 0.85rem; border-radius: 3px; display: inline-block; }
+
+/* Conference timetable board */
+.conf-board-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.75rem;
+  align-items: end;
+  margin: 0 0 0.75rem;
+}
+.conf-board-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+}
+.conf-board-toolbar select,
+.conf-board-toolbar input {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.45rem;
+  font: inherit;
+  min-width: 7.5rem;
+}
+.conf-weekbar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.65rem;
+}
+.conf-grid-wrap { overflow-x: auto; }
+.conf-grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+  font-size: 0.82rem;
+}
+.conf-grid th, .conf-grid td {
+  border: 1px solid var(--border-soft);
+  padding: 0.3rem;
+  vertical-align: top;
+}
+.conf-grid th { background: var(--cream, #f7f4ee); font-weight: 650; }
+.conf-cell-busy {
+  background: #f3f4f6;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.conf-cell-btn {
+  width: 100%;
+  min-height: 2.4rem;
+  border: 1px dashed var(--border-soft);
+  background: #fff;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  font: inherit;
+  color: var(--olive-deep);
+}
+.conf-cell-btn:hover { background: var(--sage-soft, #e8efe4); }
+.conf-cell-btn.is-open {
+  border-style: solid;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 650;
+}
+.conf-cell-btn.is-booked {
+  border-style: solid;
+  background: #fff7ed;
+  color: #c2410c;
+  cursor: default;
+}
+.conf-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 0.5rem 0;
+}
+
+/* Student desktop: two-column card grid */
+@media (min-width: 960px) {
+  .student-shell { max-width: 1180px; }
+  .student-home-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 0.85rem 1rem;
+    align-items: start;
+  }
+  .student-home-grid > header,
+  .student-home-grid > .stu-summary-grid,
+  .student-home-grid > .vocab-shell,
+  .student-home-grid > .push-prompt {
+    grid-column: 1 / -1;
+  }
+  .student-home-grid > .stu-card { margin-bottom: 0; }
 }

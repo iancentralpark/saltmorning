@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260813ux1">
+  <link rel="stylesheet" href="/css/app.css?v=20260814ux2">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -64,12 +64,14 @@
       </div>
       <div id="teacherBusDutyBody" class="bus-duty-body"><p class="muted">Loading…</p></div>
     </div>
-    <div class="card" id="teacherPushCard">
-      <div class="section-title" data-i18n="push.title">Notifications</div>
-      <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+    <div class="push-prompt" id="teacherPushCard">
+      <div class="push-prompt-copy">
+        <strong data-i18n="push.title">Notifications</strong>
+        <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      </div>
+      <div class="push-prompt-actions">
         <button type="button" class="btn btn-primary" id="teacherPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
-        <button type="button" class="btn btn-ghost" id="teacherPushDisableBtn" data-i18n="push.disable">Turn off</button>
+        <button type="button" class="btn btn-ghost" id="teacherPushLaterBtn" data-i18n="push.later">Not now</button>
         <span class="muted small" id="teacherPushStatus"></span>
       </div>
     </div>
@@ -158,32 +160,8 @@
   <div id="conferencesView" class="hidden">
     <div class="card">
       <h3 style="margin-top:0" data-i18n="teacher.conf.title">Parent conferences</h3>
-      <p class="muted small" data-i18n="teacher.conf.help">Open time slots by date, length, and type. Parents are notified in their portal.</p>
-      <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.65rem;margin-bottom:0.75rem">
-        <label><span class="muted small">Date</span><input type="date" id="tchConfDate"></label>
-        <label><span class="muted small">Start</span><input type="time" id="tchConfStart" value="09:00"></label>
-        <label><span class="muted small">End</span><input type="time" id="tchConfEnd" value="12:00"></label>
-        <label><span class="muted small">Interval</span>
-          <select id="tchConfMins"><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select>
-        </label>
-        <label><span class="muted small">Type</span>
-          <select id="tchConfType">
-            <option value="InPerson">In person</option>
-            <option value="Phone">Phone</option>
-            <option value="Zoom">Zoom</option>
-          </select>
-        </label>
-        <label style="min-width:140px;flex:1"><span class="muted small">Location / link</span>
-          <input id="tchConfLoc" maxlength="120" placeholder="Room / Zoom URL">
-        </label>
-        <label style="min-width:120px"><span class="muted small">Target class</span>
-          <input id="tchConfTarget" maxlength="40" value="*" placeholder="* or class id">
-        </label>
-        <button type="button" class="btn btn-primary" id="tchConfOpenBtn" data-i18n="teacher.conf.open">Open slots</button>
-      </div>
-      <p class="error" id="tchConfErr" style="margin:0 0 0.75rem"></p>
-      <h4 data-i18n="teacher.conf.openSlots">Open slots</h4>
-      <div id="tchConfOpenList"><p class="muted">…</p></div>
+      <p class="muted small" data-i18n="teacher.conf.help">Open slots on free periods in your timetable. After the last lesson, extra rows keep going at the length you choose. Parents pick in person, phone, or Zoom when they book.</p>
+      <div id="tchConfBoard"><p class="muted">…</p></div>
       <h4 style="margin-top:1.25rem" data-i18n="teacher.conf.booked">Booked</h4>
       <div id="tchConfBookedList"><p class="muted">…</p></div>
     </div>
@@ -300,15 +278,16 @@
           <p class="muted small" style="margin:0.25rem 0 0">SR/MAP trends, engagement, early-warning badges, and essay-style AI learning profiles.</p>
         </div>
         <div class="la-toolbar-actions">
-          <select id="laStatusFilter">
-            <option value="">All statuses</option>
-            <option value="on_track">On Track</option>
-            <option value="attention">Attention</option>
-            <option value="warning">Warning</option>
-            <option value="intervention">Intervention Required</option>
-          </select>
+          <label><span data-i18n="la.status">Status</span>
+            <select id="laStatusFilter">
+              <option value="">All statuses</option>
+              <option value="on_track">On Track</option>
+              <option value="attention">Attention</option>
+              <option value="warning">Warning</option>
+              <option value="intervention">Intervention Required</option>
+            </select>
+          </label>
           <button type="button" class="btn btn-ghost" id="laRefresh">Refresh</button>
-          <button type="button" class="btn btn-primary" id="laSeedMock">Load demo data</button>
         </div>
       </div>
       <div id="laCounts" class="la-counts"></div>
@@ -528,19 +507,19 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260813ux1"></script>
-<script src="/js/i18n.js?v=20260813ux1"></script>
+<script src="/js/i18n.js?v=20260814ux2"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/material-requests.js?v=20260813ux1"></script>
-<script src="/js/conferences.js?v=20260813ux1"></script>
+<script src="/js/conferences.js?v=20260814ux2"></script>
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
-<script src="/js/push-client.js?v=20260813push3"></script>
+<script src="/js/push-client.js?v=20260814ux2"></script>
 <script src="/js/teacher-attendance.js?v=20260812bus7"></script>
 <script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
 <script src="/js/report-card-print.js?v=20260810rcsig2"></script>
 <script src="/js/teacher-reportcard.js?v=20260811rctoolbar"></script>
-<script src="/js/teacher-analytics.js?v=20260813gap27"></script>
+<script src="/js/teacher-analytics.js?v=20260814ux2"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
-<script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
+<script src="/js/teacher-lesson.js?v=20260814ux2"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/student-registry.js?v=20260813gap27"></script>
@@ -1771,7 +1750,8 @@
       SaltPush.bindButtons({
         api: function(path, opts) { return api(path, opts || {}, role); },
         enableBtn: $('teacherPushEnableBtn'),
-        disableBtn: $('teacherPushDisableBtn'),
+        dismissBtn: $('teacherPushLaterBtn'),
+        cardEl: $('teacherPushCard'),
         statusEl: $('teacherPushStatus')
       });
     }

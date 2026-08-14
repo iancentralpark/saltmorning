@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20260813ux1">
+  <link rel="stylesheet" href="/css/app.css?v=20260814ux2">
   <link rel="stylesheet" href="/css/vocab-learn.css?v=20260805v1proxy">
 </head>
 <body class="student-body">
 <div class="shell student-shell">
-  <div id="appView" class="hidden">
+  <div id="appView" class="hidden student-home-grid">
     <header class="topbar teacher-topbar teacher-shell-topbar student-topbar">
       <div class="teacher-shell-identity">
         <div class="brand" id="welcomeText">Student</div>
@@ -23,12 +23,14 @@
       </div>
     </header>
 
-    <div class="card stu-card" id="stuPushCard">
-      <div class="card-title"><i class="fa-solid fa-bell"></i> <span data-i18n="push.title">Notifications</span></div>
-      <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+    <div class="push-prompt" id="stuPushCard">
+      <div class="push-prompt-copy">
+        <strong data-i18n="push.title">Notifications</strong>
+        <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      </div>
+      <div class="push-prompt-actions">
         <button type="button" class="btn btn-primary" id="stuPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
-        <button type="button" class="btn btn-ghost" id="stuPushDisableBtn" data-i18n="push.disable">Turn off</button>
+        <button type="button" class="btn btn-ghost" id="stuPushLaterBtn" data-i18n="push.later">Not now</button>
         <span class="muted small" id="stuPushStatus"></span>
       </div>
     </div>
@@ -145,9 +147,9 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260813ux1"></script>
-<script src="/js/i18n.js?v=20260813ux1"></script>
-<script src="/js/change-password.js?v=20260813gap27"></script>
-<script src="/js/push-client.js?v=20260813push3"></script>
+<script src="/js/i18n.js?v=20260814ux2"></script>
+  <script src="/js/change-password.js?v=20260813gap27"></script>
+  <script src="/js/push-client.js?v=20260814ux2"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
@@ -540,7 +542,8 @@
     SaltPush.bindButtons({
       api: function(path, opts) { return api(path, opts, role); },
       enableBtn: $('stuPushEnableBtn'),
-      disableBtn: $('stuPushDisableBtn'),
+      dismissBtn: $('stuPushLaterBtn'),
+      cardEl: $('stuPushCard'),
       statusEl: $('stuPushStatus')
     });
   }

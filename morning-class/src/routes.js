@@ -4116,6 +4116,17 @@ router.post('/teacher/conferences/schedules', requireRole('teacher', 'admin', 'p
   }
 });
 
+router.post('/teacher/conferences/toggle', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const teacherId = req.session.teacherId || req.body.teacherId;
+    if (!teacherId) return res.status(400).json({ error: 'Teacher session required.' });
+    res.json(await conf.togglePeriodSlots(teacherId, req.body || {}));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not toggle slot.' });
+  }
+});
+
 router.get('/teacher/conferences', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const conf = require('./services/conferenceService');
