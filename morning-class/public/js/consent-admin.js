@@ -132,7 +132,8 @@
           const submitted = f.submittedCount != null ? f.submittedCount : '—';
           const rate = f.rate != null ? f.rate + '%' : '';
           return '<tr>' +
-            '<td>' + escapeHtml(f.title) + '</td>' +
+            '<td><button type="button" class="consent-title-link" data-consent-view="' +
+            escapeHtml(f.formId) + '">' + escapeHtml(f.title) + '</button></td>' +
             '<td>' + escapeHtml(f.dueDate || '—') + '</td>' +
             '<td>' + escapeHtml(f.status === 'Active'
               ? t('consent.status.active', 'Open')
@@ -140,6 +141,8 @@
             '<td><strong>' + submitted + '</strong> / ' + total +
             (rate ? ' <span class="muted small">(' + rate + ')</span>' : '') + '</td>' +
             '<td style="white-space:nowrap">' +
+            '<button type="button" class="btn btn-ghost" data-consent-view="' +
+            escapeHtml(f.formId) + '">' + escapeHtml(t('consent.viewLetter', 'View letter')) + '</button> ' +
             '<button type="button" class="btn btn-primary" data-consent-analytics="' +
             escapeHtml(f.formId) + '">' + escapeHtml(t('consent.submissions', 'Submissions')) + '</button> ' +
             (f.status === 'Active'
@@ -156,6 +159,9 @@
         }).join('') +
         '</tbody></table>';
 
+      box.querySelectorAll('[data-consent-view]').forEach((btn) => {
+        btn.addEventListener('click', () => openLetterView(btn.dataset.consentView));
+      });
       box.querySelectorAll('[data-consent-analytics]').forEach((btn) => {
         btn.addEventListener('click', () => openAnalytics(btn.dataset.consentAnalytics));
       });
@@ -208,7 +214,53 @@
     }
   }
 
+  function hideLetterView() {
+    const box = $('consentLetterView');
+    if (box) box.classList.add('hidden');
+    document.documentElement.classList.remove('printing-consent-letter');
+  }
+
+  async function openLetterView(formId) {
+    const box = $('consentLetterView');
+    if (!box) return;
+    const analytics = $('consentAnalytics');
+    if (analytics) analytics.classList.add('hidden');
+    showCompose(false);
+    box.classList.remove('hidden');
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const titleEl = $('consentViewTitle');
+    const metaEl = $('consentViewMeta');
+    const bodyEl = $('consentViewBody');
+    if (titleEl) titleEl.textContent = t('common.loading', 'Loading…');
+    if (metaEl) metaEl.textContent = '';
+    if (bodyEl) bodyEl.innerHTML = '';
+    try {
+      const data = await api('/api/admin/consents/' + encodeURIComponent(formId), {}, role);
+      const form = data.form || (forms || []).find((f) => f.formId === String(formId));
+      if (!form) throw new Error(t('consent.loadFail', 'Could not load the list.'));
+      if (titleEl) titleEl.textContent = form.title || '';
+      const bits = [];
+      bits.push(form.status === 'Active'
+        ? t('consent.status.active', 'Open')
+        : t('consent.status.closed', 'Closed'));
+      if (form.publishedAt) {
+        bits.push(t('consent.publishedOn', 'Published') + ' ' + String(form.publishedAt).slice(0, 10));
+      }
+      if (form.dueDate) bits.push(t('consent.col.due', 'Due') + ' ' + form.dueDate);
+      if (form.targetGrades && form.targetGrades !== '*') {
+        bits.push(t('admin.consents.audience', 'Audience') + ': ' + form.targetGrades);
+      }
+      if (metaEl) metaEl.textContent = bits.join(' · ');
+      if (bodyEl) bodyEl.innerHTML = form.contentHtml || '<p class="muted">—</p>';
+      box.dataset.formId = form.formId;
+    } catch (e) {
+      if (titleEl) titleEl.textContent = '';
+      if (bodyEl) bodyEl.innerHTML = '<p class="error">' + escapeHtml(e.message || '') + '</p>';
+    }
+  }
+
   async function openAnalytics(formId) {
+    hideLetterView();
     activeFormId = formId;
     const panel = $('consentAnalytics');
     if (!panel) return;
@@ -364,6 +416,8 @@
         (data.form.dueDate ? ' · ' + escapeHtml(t('consent.col.due', 'Due')) + ' ' + escapeHtml(data.form.dueDate) : '') +
         '</p></div>' +
         '<div style="display:flex;gap:0.5rem;flex-wrap:wrap">' +
+        '<button type="button" class="btn btn-ghost" id="consentViewFromAnalytics">' +
+        escapeHtml(t('consent.viewLetter', 'View letter')) + '</button>' +
         '<button type="button" class="btn btn-primary" id="consentRemindBtn">' +
         escapeHtml(t('consent.remind', 'Remind pending')) + '</button>' +
         '<a class="btn btn-ghost" href="/api/admin/consents/' + encodeURIComponent(formId) + '/print">' +
@@ -392,6 +446,10 @@
       if (qEl) qEl.addEventListener('input', () => { filter.q = qEl.value; renderTables(); });
       if (onlyEl) onlyEl.addEventListener('change', () => { filter.only = onlyEl.value; renderTables(); });
 
+      const viewFromAn = $('consentViewFromAnalytics');
+      if (viewFromAn) {
+        viewFromAn.addEventListener('click', () => openLetterView(formId));
+      }
       const remind = $('consentRemindBtn');
       if (remind) {
         remind.addEventListener('click', async () => {
@@ -552,7 +610,27 @@
     if (newBtn) {
       newBtn.addEventListener('click', () => {
         const openNow = newBtn.dataset.open === '1';
+        hideLetterView();
         showCompose(!openNow);
+      });
+    }
+    const viewClose = $('consentViewCloseBtn');
+    if (viewClose) viewClose.addEventListener('click', hideLetterView);
+    const viewPrint = $('consentViewPrintBtn');
+    if (viewPrint) {
+      viewPrint.addEventListener('click', () => {
+        document.documentElement.classList.add('printing-consent-letter');
+        window.print();
+      });
+    }
+    window.addEventListener('afterprint', () => {
+      document.documentElement.classList.remove('printing-consent-letter');
+    });
+    const viewSubs = $('consentViewSubsBtn');
+    if (viewSubs) {
+      viewSubs.addEventListener('click', () => {
+        const id = ($('consentLetterView') && $('consentLetterView').dataset.formId) || '';
+        if (id) openAnalytics(id);
       });
     }
   }
@@ -571,6 +649,7 @@
   async function open() {
     syncClassTargets();
     showCompose(false);
+    hideLetterView();
     const listErr = [];
     await Promise.all([
       loadTemplates().catch((e) => { listErr.push(e.message); }),
