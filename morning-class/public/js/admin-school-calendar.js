@@ -519,17 +519,28 @@ window.SaltSchoolCalendar = (function() {
   }
 
   function renderMiniMonth(mo) {
+    const WEEKS = 6;
+    const CELLS = WEEKS * 7;
     let html = '<div class="sc-mini-grid">';
     DOW.forEach((d) => { html += '<div class="sc-mini-dow">' + d.charAt(0) + '</div>'; });
     const firstDow = new Date(mo.year, mo.month - 1, 1).getDay();
-    for (let i = 0; i < firstDow; i++) html += '<div class="sc-mini-pad"></div>';
+    let filled = 0;
+    for (let i = 0; i < firstDow; i++) {
+      html += '<div class="sc-mini-pad"></div>';
+      filled += 1;
+    }
     (mo.days || []).forEach((day) => {
       const num = Number(String(day.date).slice(8, 10));
       const titles = collectDayNoteItems(day, holidayToEnglish).map((n) => n.title);
       const tip = titles.join(', ') || day.date;
       html += '<div class="' + dayClass(day).replace(/\bsc-day\b/g, 'sc-mini') + '" title="' +
         escapeHtml(tip) + '">' + num + '</div>';
+      filled += 1;
     });
+    while (filled < CELLS) {
+      html += '<div class="sc-mini-pad"></div>';
+      filled += 1;
+    }
     html += '</div>';
     return html;
   }
@@ -561,10 +572,15 @@ window.SaltSchoolCalendar = (function() {
       '<p>' + escapeHtml(data.label) + ' · ' + escapeHtml(rangeText) +
       ' · School-wide · ' + data.schoolDayCount + ' school days</p></header>';
     html += '<div class="sc-year-cols">';
-    html += '<div class="sc-year-col sc-year-col-left">' +
-      cols.left.map((mo) => renderYearMonth(mo, 'left')).join('') + '</div>';
-    html += '<div class="sc-year-col sc-year-col-right">' +
-      cols.right.map((mo) => renderYearMonth(mo, 'right')).join('') + '</div>';
+    const rowCount = Math.max(cols.left.length, cols.right.length);
+    for (let i = 0; i < rowCount; i++) {
+      html += cols.left[i]
+        ? renderYearMonth(cols.left[i], 'left')
+        : '<section class="sc-year-month sc-year-month-empty"></section>';
+      html += cols.right[i]
+        ? renderYearMonth(cols.right[i], 'right')
+        : '<section class="sc-year-month sc-year-month-empty"></section>';
+    }
     html += '</div></div>';
     return html;
   }
