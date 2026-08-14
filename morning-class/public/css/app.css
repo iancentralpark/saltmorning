@@ -5446,6 +5446,7 @@ body.buddy-resize-active {
   color: #047857;
   font-weight: 650;
 }
+.conf-cell-btn.is-open:hover { background: #d1fae5; }
 .conf-cell-btn.is-booked {
   border-style: solid;
   background: #fff7ed;

@@ -592,16 +592,24 @@ async function togglePeriodSlots(teacherId, payload) {
     slots = [formatHm(start) + '-' + formatHm(end)];
   }
 
+  const desired = String(payload.desired || payload.action || '').trim().toLowerCase();
+
   const existing = await listSchedules({ teacherId, date, skipCache: true });
   const slotSet = new Set(slots);
   const inWindow = existing.filter((s) => slotSet.has(s.timeSlot));
   const openOnes = inWindow.filter((s) => s.status === 'Open');
-  if (openOnes.length) {
+  const wantClose = desired === 'close' || desired === 'closed' || (!desired && openOnes.length);
+  if (wantClose) {
+    if (!openOnes.length) return { action: 'closed', count: 0, already: true };
     const closed = [];
     for (const s of openOnes) {
       closed.push(await closeSchedule(teacherId, s.scheduleId));
     }
     return { action: 'closed', count: closed.length, schedules: closed };
+  }
+
+  if (desired === 'open' && openOnes.length && openOnes.length >= slots.length) {
+    return { action: 'opened', count: 0, already: true, created: [], reopened: [] };
   }
 
   const created = [];

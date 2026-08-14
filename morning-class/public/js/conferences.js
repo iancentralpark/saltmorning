@@ -202,6 +202,8 @@
     let weekMonday = mondayOf(new Date());
     let slotMinutes = 15;
     let locationText = '';
+    let cachedTt = null;
+    const cellQueue = {};
 
     function init(deps) {
       api = function (path, opts) { return deps.api(path, opts, role); };
@@ -285,22 +287,85 @@
       }) || null;
     }
 
-    async function refresh() {
+    async function refresh(opts) {
+      opts = opts || {};
       const board = $('tchConfBoard');
       const bookBox = $('tchConfBookedList');
-      if (board) board.innerHTML = '<p class="muted">…</p>';
-      if (bookBox) bookBox.innerHTML = '<p class="muted">…</p>';
+      const hasGrid = !!(board && board.querySelector('.conf-grid'));
+      if (board && !hasGrid) board.innerHTML = '<p class="muted">…</p>';
+      if (bookBox && !opts.keepBooked) bookBox.innerHTML = '<p class="muted">…</p>';
       try {
+        const ttPromise = (cachedTt && !opts.reloadTt)
+          ? Promise.resolve({ timetable: cachedTt })
+          : api('/api/teacher/timetable');
         const [ttRes, dash] = await Promise.all([
-          api('/api/teacher/timetable'),
+          ttPromise,
           api('/api/teacher/conferences')
         ]);
         const tt = ttRes.timetable || ttRes;
+        cachedTt = tt;
         renderBoard(board, tt, dash);
-        renderBooked(bookBox, dash);
+        if (!opts.keepBooked) renderBooked(bookBox, dash);
       } catch (e) {
-        if (board) board.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+        if (board && !hasGrid) board.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+        else {
+          const err = $('tchConfErr');
+          if (err) err.textContent = e.message;
+        }
       }
+    }
+
+    function paintCell(btn, open) {
+      if (!btn) return;
+      btn.classList.toggle('is-open', !!open);
+      btn.textContent = open
+        ? t('teacher.conf.openSlot', 'Open')
+        : '+';
+    }
+
+    function cellKey(btn) {
+      return [btn.dataset.date, btn.dataset.start, btn.dataset.end].join('|');
+    }
+
+    function enqueueCell(btn, desiredOpen) {
+      const key = cellKey(btn);
+      if (!cellQueue[key]) cellQueue[key] = { running: false, desired: null, btn: btn };
+      const q = cellQueue[key];
+      q.btn = btn;
+      q.desired = desiredOpen ? 'open' : 'close';
+      paintCell(btn, desiredOpen);
+      drainCell(key);
+    }
+
+    async function drainCell(key) {
+      const q = cellQueue[key];
+      if (!q || q.running) return;
+      q.running = true;
+      const err = $('tchConfErr');
+      while (q.desired) {
+        const want = q.desired;
+        q.desired = null;
+        try {
+          await api('/api/teacher/conferences/toggle', {
+            method: 'POST',
+            body: {
+              date: q.btn.dataset.date,
+              startTime: q.btn.dataset.start,
+              endTime: q.btn.dataset.end,
+              slotMinutes: slotMinutes,
+              location: ($('tchConfLoc') && $('tchConfLoc').value) || locationText,
+              desired: want
+            }
+          });
+          if (err) err.textContent = '';
+        } catch (e) {
+          paintCell(q.btn, want !== 'open');
+          if (err) err.textContent = e.message;
+          break;
+        }
+      }
+      q.running = false;
+      if (q.desired) drainCell(key);
     }
 
     function renderBoard(board, tt, dash) {
@@ -396,26 +461,9 @@
       }
 
       board.querySelectorAll('.conf-cell-btn:not([disabled])').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const err = $('tchConfErr');
-          if (err) err.textContent = '';
-          btn.disabled = true;
-          try {
-            await api('/api/teacher/conferences/toggle', {
-              method: 'POST',
-              body: {
-                date: btn.dataset.date,
-                startTime: btn.dataset.start,
-                endTime: btn.dataset.end,
-                slotMinutes: slotMinutes,
-                location: ($('tchConfLoc') && $('tchConfLoc').value) || locationText
-              }
-            });
-            await refresh();
-          } catch (e) {
-            if (err) err.textContent = e.message;
-            btn.disabled = false;
-          }
+        btn.addEventListener('click', () => {
+          if (btn.classList.contains('is-booked')) return;
+          enqueueCell(btn, !btn.classList.contains('is-open'));
         });
       });
     }
