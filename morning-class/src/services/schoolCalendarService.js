@@ -5,6 +5,7 @@ const {
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { formatSheetDate, todayStr } = require('../dateUtils');
 const { getHolidayName, getHolidaysForMonth, getHolidaysForRange } = require('../holiday');
+const { academicYearFromSemesters } = require('./schoolSemesterService');
 
 const DAY_TYPES = ['holiday', 'break', 'event', 'school_day'];
 const HEADERS = [
@@ -254,9 +255,12 @@ async function getMonthCalendar(classId, year, month) {
 }
 
 async function getYearCalendar(classId, startDate, endDate) {
-  const range = (startDate && endDate)
-    ? { startDate, endDate, label: startDate.slice(0, 4) + '-' + endDate.slice(0, 4) }
-    : defaultAcademicYearRange();
+  let range;
+  if (startDate && endDate) {
+    range = { startDate, endDate, label: startDate.slice(0, 4) + '-' + endDate.slice(0, 4) };
+  } else {
+    range = (await academicYearFromSemesters()) || defaultAcademicYearRange();
+  }
   const from = range.startDate;
   const to = range.endDate;
   const classMeta = await getClassMeta(classId || '*');
