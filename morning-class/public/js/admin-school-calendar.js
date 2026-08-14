@@ -50,6 +50,14 @@ window.SaltSchoolCalendar = (function() {
     '섣달그믐': "New Year's Eve",
     '근로자의 날': 'Labor Day',
     '근로자의날': 'Labor Day',
+    '노동절': 'Labor Day',
+    '식목일': 'Arbor Day',
+    '국군의 날': 'Armed Forces Day',
+    '국군의날': 'Armed Forces Day',
+    '어버이날': "Parents' Day",
+    '어버이 날': "Parents' Day",
+    '스승의날': "Teachers' Day",
+    '스승의 날': "Teachers' Day",
     '대체공휴일': 'Substitute holiday',
     '임시공휴일': 'Temporary holiday',
     '공휴일': 'Public holiday',
@@ -350,6 +358,8 @@ window.SaltSchoolCalendar = (function() {
     title = title.replace(/쉬는\s*날/g, ' ').replace(/\s+/g, ' ').trim();
     if (!title) return 'Public holiday';
     if (KR_HOLIDAY_EN[title]) return KR_HOLIDAY_EN[title];
+    const compact = title.replace(/\s+/g, '');
+    if (KR_HOLIDAY_EN[compact]) return KR_HOLIDAY_EN[compact];
     const keys = Object.keys(KR_HOLIDAY_EN).sort((a, b) => b.length - a.length);
     let out = title;
     keys.forEach((ko) => {
@@ -571,15 +581,17 @@ window.SaltSchoolCalendar = (function() {
     html += '<header class="sc-print-head"><h2>Annual School Calendar</h2>' +
       '<p>' + escapeHtml(data.label) + ' · ' + escapeHtml(rangeText) +
       ' · School-wide · ' + data.schoolDayCount + ' school days</p></header>';
-    html += '<div class="sc-year-cols">';
+    html += '<div class="sc-year-rows">';
     const rowCount = Math.max(cols.left.length, cols.right.length);
     for (let i = 0; i < rowCount; i++) {
+      html += '<div class="sc-year-row">';
       html += cols.left[i]
         ? renderYearMonth(cols.left[i], 'left')
         : '<section class="sc-year-month sc-year-month-empty"></section>';
       html += cols.right[i]
         ? renderYearMonth(cols.right[i], 'right')
         : '<section class="sc-year-month sc-year-month-empty"></section>';
+      html += '</div>';
     }
     html += '</div></div>';
     return html;
