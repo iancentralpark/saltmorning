@@ -136,7 +136,8 @@ const {
 const {
   listSchoolSemesters,
   saveSchoolSemesters,
-  getActiveSchoolSemester
+  getActiveSchoolSemester,
+  academicYearFromSemesters
 } = require('./services/schoolSemesterService');
 const {
   createRequest: createMaterialRequest,
@@ -2963,7 +2964,8 @@ router.get('/admin/school-calendar', requireRole('admin'), async (req, res) => {
       classId: req.query.classId,
       includeInactive: String(req.query.includeInactive || '') === '1'
     });
-    res.json({ entries: items, academicYear: defaultAcademicYearRange() });
+    const academicYear = (await academicYearFromSemesters()) || defaultAcademicYearRange();
+    res.json({ entries: items, academicYear });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load school calendar.' });
   }

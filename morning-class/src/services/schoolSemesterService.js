@@ -92,6 +92,45 @@ async function getSchoolSemester(keyOrLabel) {
   ) || null;
 }
 
+function addYearsToDate(dateStr, years) {
+  const s = String(dateStr || '').slice(0, 10);
+  const n = Number(years) || 0;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || !n) return s;
+  const y = Number(s.slice(0, 4)) + n;
+  const mm = s.slice(5, 7);
+  const dd = s.slice(8, 10);
+  if (mm === '02' && dd === '29') {
+    const leap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+    return y + '-02-' + (leap ? '29' : '28');
+  }
+  return y + '-' + mm + '-' + dd;
+}
+
+/** School-year span from configured Semester 1 + Semester 2 (min start → max end). */
+async function academicYearFromSemesters(offsetYears) {
+  const semesters = await listSchoolSemesters();
+  const starts = [];
+  const ends = [];
+  (semesters || []).forEach((s) => {
+    if (s.startDate && s.endDate) {
+      starts.push(s.startDate);
+      ends.push(s.endDate);
+    }
+  });
+  if (!starts.length) return null;
+  starts.sort();
+  ends.sort();
+  const o = Number(offsetYears) || 0;
+  const startDate = addYearsToDate(starts[0], o);
+  const endDate = addYearsToDate(ends[ends.length - 1], o);
+  return {
+    startDate,
+    endDate,
+    label: startDate.slice(0, 4) + '-' + endDate.slice(0, 4),
+    fromSemesters: true
+  };
+}
+
 async function getActiveSchoolSemester() {
   const semesters = await listSchoolSemesters();
   const configured = semesters.filter((s) => s.startDate && s.endDate);
@@ -180,6 +219,8 @@ async function saveSchoolSemesters(payload) {
 module.exports = {
   ensureSchoolSemestersSheet,
   listSchoolSemesters,
+  academicYearFromSemesters,
+  addYearsToDate,
   getSchoolSemester,
   getActiveSchoolSemester,
   listTermsForClass,
