@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/app.css?v=20260813ux1">
+  <link rel="stylesheet" href="/css/app.css?v=20260814ux3">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -70,12 +70,14 @@
     </nav>
 
     <div id="panelMonitor" class="card">
-      <div class="card" id="adminPushCard" style="margin:0 0 1rem;padding:0.75rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
-        <strong data-i18n="push.title">Notifications</strong>
-        <p class="muted small" data-i18n="push.help">Enable alerts for messenger and school updates when the app is closed.</p>
-        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+      <div class="push-prompt" id="adminPushCard">
+        <div class="push-prompt-copy">
+          <strong data-i18n="push.title">Notifications</strong>
+          <p class="muted small" data-i18n="push.help">Enable alerts for messenger and school updates when the app is closed.</p>
+        </div>
+        <div class="push-prompt-actions">
           <button type="button" class="btn btn-primary" id="adminPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
-          <button type="button" class="btn btn-ghost" id="adminPushDisableBtn" data-i18n="push.disable">Turn off</button>
+          <button type="button" class="btn btn-ghost" id="adminPushLaterBtn" data-i18n="push.later">Not now</button>
           <span class="muted small" id="adminPushStatus"></span>
         </div>
       </div>
@@ -106,23 +108,21 @@
     </div>
 
     <div id="panelLessons" class="card hidden lp-cal-panel">
-      <div class="admin-toolbar">
-        <select id="lpAdminTeacher"><option value="" data-i18n="admin.lessons.allTeachers">All teachers</option></select>
-        <select id="lpAdminClass"><option value="" data-i18n="admin.lessons.allClasses">All classes</option></select>
-      </div>
-      <div id="lpAdminSemester" class="lp-semester-panel lp-admin-semester">
-        <div class="lp-semester-head">
-          <strong data-i18n="lessons.adminSemester">Semester plans</strong>
-          <span class="muted small" data-i18n="lessons.adminSemesterHelp">Review teacher semester lesson plans by class and subject.</span>
+      <div class="lp-admin-topbar">
+        <div class="lp-admin-filters">
+          <label><span data-i18n="admin.lessons.teacher">Teacher</span>
+            <select id="lpAdminTeacher"><option value="" data-i18n="admin.lessons.allTeachers">All teachers</option></select>
+          </label>
+          <label><span data-i18n="admin.lessons.class">Class</span>
+            <select id="lpAdminClass"><option value="" data-i18n="admin.lessons.allClasses">All classes</option></select>
+          </label>
         </div>
-        <div id="lpAdminSemesterList"><p class="muted small" data-i18n="common.loading">Loading…</p></div>
-        <div id="lpAdminSemesterDetail" class="hidden"></div>
-      </div>
-      <div class="lp-cal-toolbar">
+        <div class="lp-cal-toolbar">
         <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
         <strong class="lp-month-label"></strong>
         <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
         <button type="button" class="btn btn-ghost lp-today-btn" data-i18n="admin.lessons.today">Today</button>
+        </div>
       </div>
       <p class="muted small lp-cal-school-note" data-i18n="admin.lessons.note">Day colors follow School calendar (holiday / break / event). Linked with attendance class days.</p>
       <div id="lpAdminLayout" class="lp-cal-layout">
@@ -139,6 +139,14 @@
           </div>
           <div id="lpAdminDrawerBody"></div>
         </aside>
+      </div>
+      <div id="lpAdminSemester" class="lp-semester-panel lp-admin-semester">
+        <div class="lp-semester-head">
+          <strong data-i18n="lessons.adminSemester">Semester plans</strong>
+          <span class="muted small" data-i18n="lessons.adminSemesterHelp">Review teacher semester lesson plans by class and subject. Click a card again to close it.</span>
+        </div>
+        <div id="lpAdminSemesterList"><p class="muted small" data-i18n="common.loading">Loading…</p></div>
+        <div id="lpAdminSemesterDetail" class="hidden"></div>
       </div>
     </div>
 
@@ -232,19 +240,27 @@
       </div>
 
       <h3 style="margin-top:1.5rem">Class &amp; subject assignments</h3>
-      <p class="muted small">Admin 배정은 Class_Teachers에 저장됩니다. 교사가 직접 추가한 과목은 Teacher_Class_Subjects입니다.</p>
+      <p class="muted small" data-i18n="admin.faculty.assignStoreHint">Admin assignments are stored on Class_Teachers. Subjects a teacher adds themselves stay on Teacher_Class_Subjects.</p>
       <div id="assignmentList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3>Add assignment</h3>
-      <form id="assignmentForm" class="form-grid admin-form-grid">
-        <select id="assignTeacher" required></select>
-        <select id="assignClass" required></select>
-        <select id="assignType">
-          <option value="Subject">Subject teacher</option>
-          <option value="Homeroom">Homeroom (sheet row)</option>
-        </select>
-        <input id="assignSubject" placeholder="Subject (e.g. Math)" list="assignSubjectList">
-        <datalist id="assignSubjectList"></datalist>
-        <button type="submit" class="btn btn-primary">Add assignment</button>
+      <h3 data-i18n="admin.faculty.addAssign">Add assignment</h3>
+      <form id="assignmentForm" class="form-grid assignment-form" autocomplete="off">
+        <label><span data-i18n="admin.faculty.teacher">Teacher</span>
+          <select id="assignTeacher" required></select>
+        </label>
+        <label><span data-i18n="admin.faculty.class">Class</span>
+          <select id="assignClass" required></select>
+        </label>
+        <label><span data-i18n="admin.faculty.type">Type</span>
+          <select id="assignType">
+            <option value="Subject" data-i18n="admin.faculty.subjectTeacher">Subject teacher</option>
+            <option value="Homeroom" data-i18n="admin.faculty.homeroom">Homeroom (sheet row)</option>
+          </select>
+        </label>
+        <label><span data-i18n="admin.faculty.subject">Subject</span>
+          <input id="assignSubject" placeholder="Subject (e.g. Math)" list="assignSubjectList">
+          <datalist id="assignSubjectList"></datalist>
+        </label>
+        <button type="submit" class="btn btn-primary assignment-form-submit" data-i18n="admin.faculty.addAssign">Add assignment</button>
         <div class="error" id="assignmentError"></div>
       </form>
     </div>
@@ -484,18 +500,21 @@
           <p class="muted small" style="margin:0.25rem 0 0" data-i18n="admin.analytics.help">School-wide SR/MAP trends, engagement, and early-warning badges for every enrolled student.</p>
         </div>
         <div class="la-toolbar-actions">
-          <select id="laClassFilter">
-            <option value="" data-i18n="admin.analytics.allClasses">All classes</option>
-          </select>
-          <select id="laStatusFilter">
-            <option value="" data-i18n="admin.analytics.allStatuses">All statuses</option>
-            <option value="on_track" data-i18n="la.on_track">On Track</option>
-            <option value="attention" data-i18n="la.attention">Attention</option>
-            <option value="warning" data-i18n="la.warning">Warning</option>
-            <option value="intervention" data-i18n="la.intervention">Intervention</option>
-          </select>
+          <label><span data-i18n="la.class">Class</span>
+            <select id="laClassFilter">
+              <option value="" data-i18n="admin.analytics.allClasses">All classes</option>
+            </select>
+          </label>
+          <label><span data-i18n="la.status">Status</span>
+            <select id="laStatusFilter">
+              <option value="" data-i18n="admin.analytics.allStatuses">All statuses</option>
+              <option value="on_track" data-i18n="la.on_track">On Track</option>
+              <option value="attention" data-i18n="la.attention">Attention</option>
+              <option value="warning" data-i18n="la.warning">Warning</option>
+              <option value="intervention" data-i18n="la.intervention">Intervention</option>
+            </select>
+          </label>
           <button type="button" class="btn btn-ghost" id="laRefresh" data-i18n="admin.analytics.refresh">Refresh</button>
-          <button type="button" class="btn btn-primary" id="laSeedMock" data-i18n="admin.analytics.seed">Load demo data</button>
         </div>
       </div>
       <div id="laCounts" class="la-counts"></div>
@@ -540,64 +559,64 @@
         <div>
           <h2 style="margin:0" data-i18n="admin.consents.title">Forms · Consents · Events</h2>
           <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.consents.hint">
-            기본 공문·동의서·캠프/행사 신청 양식을 선택해 문구만 수정한 뒤 발행합니다. 캠프는 정원·대기순번이 자동 적용됩니다.
+            Publish official letters, consents, bus apps, and camp/event sign-ups. Camps support capacity + waiting list.
           </p>
         </div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-          <button type="button" class="btn btn-ghost" id="consentRefreshBtn">새로고침</button>
-          <button type="button" class="btn btn-primary" id="consentNewBtn" data-open="0">새 공문 작성</button>
+          <button type="button" class="btn btn-ghost" id="consentRefreshBtn" data-i18n="common.refresh">Refresh</button>
+          <button type="button" class="btn btn-primary" id="consentNewBtn" data-open="0" data-i18n="admin.consents.new">New form</button>
         </div>
       </div>
 
       <div id="consentComposeCard" class="card hidden" style="margin:0 0 1rem;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
-        <h3 style="margin:0 0 0.75rem">공문 작성 · 발행</h3>
+        <h3 style="margin:0 0 0.75rem" data-i18n="admin.consents.compose">Write &amp; publish</h3>
         <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
           <label style="flex:1;min-width:240px">
-            <span class="muted small">기본 양식</span>
-            <select id="consentTemplateSelect"><option value="">양식 선택…</option></select>
+            <span class="muted small" data-i18n="admin.consents.template">Template</span>
+            <select id="consentTemplateSelect"><option value="" data-i18n="admin.consents.pickTemplate">Choose a template…</option></select>
           </label>
-          <button type="button" class="btn btn-ghost" id="consentDeleteTemplateBtn" style="align-self:flex-end">양식 삭제</button>
+          <button type="button" class="btn btn-ghost" id="consentDeleteTemplateBtn" style="align-self:flex-end" data-i18n="admin.consents.deleteTemplate">Delete template</button>
           <label style="min-width:160px">
-            <span class="muted small">대상</span>
-            <select id="consentTargets"><option value="*">전체 재학생</option></select>
+            <span class="muted small" data-i18n="admin.consents.audience">Audience</span>
+            <select id="consentTargets"><option value="*" data-i18n="admin.consents.allStudents">All enrolled students</option></select>
           </label>
           <label style="min-width:140px">
-            <span class="muted small">제출 마감</span>
+            <span class="muted small" data-i18n="admin.consents.due">Due date</span>
             <input type="date" id="consentDue">
           </label>
         </div>
         <div id="consentEventFields" class="admin-toolbar hidden" style="flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
           <label style="min-width:120px">
-            <span class="muted small">모집 정원</span>
+            <span class="muted small" data-i18n="admin.consents.capacity">Capacity</span>
             <input type="number" id="consentCapacity" min="1" max="500" placeholder="20">
           </label>
           <label style="min-width:140px">
-            <span class="muted small">행사 일시</span>
+            <span class="muted small" data-i18n="admin.consents.eventDate">Event date / time</span>
             <input type="text" id="consentEventDate" maxlength="80" placeholder="2026-08-20 09:00">
           </label>
           <label style="min-width:160px;flex:1">
-            <span class="muted small">장소</span>
-            <input type="text" id="consentEventLocation" maxlength="120" placeholder="학교 / 캠프장">
+            <span class="muted small" data-i18n="admin.consents.location">Location</span>
+            <input type="text" id="consentEventLocation" maxlength="120" placeholder="School / camp site">
           </label>
           <label style="min-width:120px">
-            <span class="muted small">참가비</span>
+            <span class="muted small" data-i18n="admin.consents.fee">Fee</span>
             <input type="text" id="consentEventFee" maxlength="80" placeholder="₩30,000">
           </label>
           <label style="min-width:160px;flex:1">
-            <span class="muted small">준비물</span>
-            <input type="text" id="consentEventSupplies" maxlength="200" placeholder="수면복, 세면도구">
+            <span class="muted small" data-i18n="admin.consents.supplies">Supplies</span>
+            <input type="text" id="consentEventSupplies" maxlength="200" placeholder="Sleepwear, toiletries">
           </label>
         </div>
         <label style="display:block;margin-bottom:0.75rem">
-          <span class="muted small">제목</span>
-          <input id="consentTitle" style="width:100%" maxlength="200" placeholder="공문 제목">
+          <span class="muted small" data-i18n="admin.consents.formTitle">Title</span>
+          <input id="consentTitle" style="width:100%" maxlength="200" placeholder="Letter title" data-i18n-placeholder="admin.consents.titlePh">
         </label>
         <div class="admin-toolbar" style="gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap">
           <button type="button" class="btn btn-ghost" data-consent-cmd="bold"><b>B</b></button>
           <button type="button" class="btn btn-ghost" data-consent-cmd="italic"><i>I</i></button>
           <button type="button" class="btn btn-ghost" data-consent-cmd="underline"><u>U</u></button>
           <button type="button" class="btn btn-ghost" data-consent-cmd="insertUnorderedList">• List</button>
-          <span class="muted small" style="margin-left:0.5rem">변수:</span>
+          <span class="muted small" style="margin-left:0.5rem" data-i18n="admin.consents.vars">Variables:</span>
           <button type="button" class="btn btn-ghost" data-consent-var="{student_name}">{student_name}</button>
           <button type="button" class="btn btn-ghost" data-consent-var="{class_name}">{class_name}</button>
           <button type="button" class="btn btn-ghost" data-consent-var="{due_date}">{due_date}</button>
@@ -605,16 +624,17 @@
           <button type="button" class="btn btn-ghost" data-consent-var="{location}">{location}</button>
         </div>
         <div id="consentBody" class="consent-editor-body odoc-editor" contenteditable="true"
-          data-placeholder="양식을 선택하면 공문 본문이 여기에 나타납니다. 필요한 부분만 수정하세요."></div>
+          data-placeholder="Choose a template to load the letter. Edit only what you need."
+          data-i18n-placeholder="admin.consents.bodyPh"></div>
         <div class="admin-toolbar" style="margin-top:0.75rem;gap:0.5rem;flex-wrap:wrap">
-          <button type="button" class="btn btn-ghost" id="consentSaveTemplateBtn">수정본을 새 양식으로 저장</button>
-          <button type="button" class="btn btn-primary" id="consentPublishBtn">학부모에게 발행</button>
+          <button type="button" class="btn btn-ghost" id="consentSaveTemplateBtn" data-i18n="admin.consents.saveTemplate">Save as new template</button>
+          <button type="button" class="btn btn-primary" id="consentPublishBtn" data-i18n="admin.consents.publish">Publish to parents</button>
         </div>
         <p class="error" id="consentEditorError" style="margin:0.5rem 0 0"></p>
       </div>
 
       <div class="card" style="margin:0;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
-        <h3 style="margin:0 0 0.75rem">발행된 공문 · 제출 현황</h3>
+        <h3 style="margin:0 0 0.75rem" data-i18n="admin.consents.published">Published letters · submissions</h3>
         <div id="consentFormsList"><p class="muted">Loading…</p></div>
         <div id="consentAnalytics" class="hidden consent-analytics" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-soft)"></div>
       </div>
@@ -733,11 +753,11 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260813ux1"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
-<script src="/js/i18n.js?v=20260813ux1"></script>
-<script src="/js/push-client.js?v=20260813push3"></script>
-<script src="/js/subject-colors.js?v=20260810ttclass"></script>
-<script src="/js/teacher-lesson.js?v=20260813fac1"></script>
-<script src="/js/teacher-analytics.js?v=20260813gap27"></script>
+<script src="/js/i18n.js?v=20260814ux3"></script>
+  <script src="/js/push-client.js?v=20260814ux2"></script>
+  <script src="/js/subject-colors.js?v=20260810ttclass"></script>
+  <script src="/js/teacher-lesson.js?v=20260814ux2"></script>
+  <script src="/js/teacher-analytics.js?v=20260814ux2"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/student-registry.js?v=20260813gap27"></script>
 <script src="/js/class-registry.js?v=20260813fac1"></script>
@@ -747,7 +767,7 @@
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/admin-school-calendar.js?v=20260813fac1"></script>
 <script src="/js/admin-bus.js?v=20260813gap1"></script>
-<script src="/js/consent-admin.js?v=20260813gap27"></script>
+  <script src="/js/consent-admin.js?v=20260814ux2"></script>
 <script src="/js/material-requests.js?v=20260813ux1"></script>
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script>
@@ -1914,7 +1934,8 @@
       SaltPush.bindButtons({
         api: function(path, opts) { return api(path, opts || {}, role); },
         enableBtn: $('adminPushEnableBtn'),
-        disableBtn: $('adminPushDisableBtn'),
+        dismissBtn: $('adminPushLaterBtn'),
+        cardEl: $('adminPushCard'),
         statusEl: $('adminPushStatus'),
         t: function (k, f) { return (window.SaltI18n && SaltI18n.t) ? SaltI18n.t(k) : f; }
       });

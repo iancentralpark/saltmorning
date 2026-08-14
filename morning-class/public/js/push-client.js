@@ -1,5 +1,8 @@
 /* Salt Morning — shared web push client (all roles) */
 window.SaltPush = (function () {
+  const ON_KEY = 'salt_push_on';
+  const DISMISS_KEY = 'salt_push_prompt_dismissed';
+
   function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -7,6 +10,37 @@ window.SaltPush = (function () {
     const arr = new Uint8Array(raw.length);
     for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
     return arr;
+  }
+
+  function isGranted() {
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') return true;
+      if (localStorage.getItem(ON_KEY) === '1') return true;
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+
+  function isDismissed() {
+    try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch (_) { return false; }
+  }
+
+  function findCard(opts) {
+    if (opts.cardEl) return opts.cardEl;
+    const fromBtn = opts.enableBtn && opts.enableBtn.closest
+      && opts.enableBtn.closest('.push-prompt, .pp-push-card, [id$="PushCard"]');
+    return fromBtn || null;
+  }
+
+  function hideCard(card) {
+    if (!card) return;
+    card.classList.add('is-on');
+    card.hidden = true;
+  }
+
+  function showCard(card) {
+    if (!card) return;
+    card.classList.remove('is-on');
+    card.hidden = false;
   }
 
   async function enable(api) {
@@ -33,6 +67,7 @@ window.SaltPush = (function () {
       method: 'POST',
       body: { subscription: sub.toJSON() }
     });
+    try { localStorage.setItem(ON_KEY, '1'); } catch (_) { /* ignore */ }
     return { ok: true };
   }
 
@@ -47,6 +82,7 @@ window.SaltPush = (function () {
       method: 'POST',
       body: { endpoint }
     });
+    try { localStorage.removeItem(ON_KEY); } catch (_) { /* ignore */ }
     return { ok: true };
   }
 
@@ -54,13 +90,24 @@ window.SaltPush = (function () {
     const api = opts.api;
     const enableBtn = opts.enableBtn;
     const disableBtn = opts.disableBtn;
+    const dismissBtn = opts.dismissBtn;
     const statusEl = opts.statusEl;
+    const card = findCard(opts);
     const t = opts.t || function (k, f) { return f || k; };
+    const keepVisibleWhenOn = !!opts.keepVisibleWhenOn;
+
+    function applyHidden() {
+      if (keepVisibleWhenOn) return;
+      if (isGranted() || isDismissed()) hideCard(card);
+    }
+    applyHidden();
+
     if (enableBtn) {
       enableBtn.addEventListener('click', async () => {
         try {
           await enable(api);
           if (statusEl) statusEl.textContent = t('push.on', 'Notifications on');
+          if (!keepVisibleWhenOn) hideCard(card);
         } catch (e) {
           if (statusEl) statusEl.textContent = e.message || 'Failed';
         }
@@ -71,14 +118,21 @@ window.SaltPush = (function () {
         try {
           await disable(api);
           if (statusEl) statusEl.textContent = t('push.off', 'Notifications off');
+          if (keepVisibleWhenOn) showCard(card);
         } catch (e) {
           if (statusEl) statusEl.textContent = e.message || 'Failed';
         }
       });
     }
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        try { localStorage.setItem(DISMISS_KEY, '1'); } catch (_) { /* ignore */ }
+        hideCard(card);
+      });
+    }
   }
 
-  return { enable, disable, bindButtons };
+  return { enable, disable, bindButtons, isGranted };
 })();
 
 /* Back-compat alias used by parent portal */

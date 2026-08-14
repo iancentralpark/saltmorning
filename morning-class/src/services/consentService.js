@@ -33,7 +33,7 @@ const SUB_HEADERS = [
 ];
 
 /** Bump to force-refresh non-custom builtin template bodies in Sheets. */
-const BUILTIN_TEMPLATE_VERSION = 'v3-institutional-header';
+const BUILTIN_TEMPLATE_VERSION = 'v4-bilingual-letters';
 
 const CATEGORIES = {
   BusSurvey: 'BusSurvey',
@@ -124,6 +124,38 @@ function odocShell(titleKo, bodyHtml, titleEn) {
   );
 }
 
+function odocShellEn(titleEn, bodyHtml, bannerEn) {
+  bannerEn = bannerEn || 'OFFICIAL SCHOOL NOTICE';
+  return (
+    '<article class="odoc" data-builtin-version="' + BUILTIN_TEMPLATE_VERSION + '" data-lang="en">' +
+    '<div class="odoc-watermark" aria-hidden="true">' +
+    '<div class="odoc-watermark-inner">' + ODOC_WATERMARK_SVG +
+    '<div class="odoc-watermark-text">Salt Academy</div></div></div>' +
+    '<div class="odoc-content">' +
+    '<header class="odoc-inst">' +
+    '<div class="odoc-emblem">' + ODOC_EMBLEM_SVG + '</div>' +
+    '<div class="odoc-identity">' +
+    '<div class="odoc-school">{school_name}</div>' +
+    '<div class="odoc-school-meta">' +
+    '<span class="odoc-meta-line">{school_address}</span>' +
+    '<span class="odoc-meta-line">{school_contact_line}</span>' +
+    '</div></div></header>' +
+    '<div class="odoc-banner">' +
+    '<div class="odoc-title-en">' + bannerEn + '</div>' +
+    '<h1 class="odoc-title">' + titleEn + '</h1>' +
+    '<div class="odoc-docmeta"><span>Doc. no. {doc_no}</span><span>Issue date {issue_date}</span></div>' +
+    '</div>' +
+    '<p class="odoc-to">To: Parent / Guardian &nbsp;|&nbsp; Student: {student_name} ({class_name})</p>' +
+    '<hr class="odoc-rule">' +
+    '<div class="odoc-body">' + bodyHtml + '</div>' +
+    '<footer class="odoc-foot">' +
+    '<p>End of notice.</p>' +
+    '<p class="odoc-sign">{school_name}<br>School office</p>' +
+    '</footer>' +
+    '</div></article>'
+  );
+}
+
 function builtinTemplates() {
   return [
     {
@@ -146,6 +178,7 @@ function builtinTemplates() {
         'OFFICIAL NOTICE'
       ),
       fieldsJson: {
+        language: 'ko',
         kind: 'bus_survey',
         requireSignature: true,
         choices: [
@@ -175,6 +208,7 @@ function builtinTemplates() {
         'OFFICIAL APPLICATION'
       ),
       fieldsJson: {
+        language: 'ko',
         kind: 'bus_app',
         requireSignature: true,
         choices: [
@@ -205,6 +239,7 @@ function builtinTemplates() {
         'OFFICIAL CONSENT FORM'
       ),
       fieldsJson: {
+        language: 'ko',
         kind: 'consent',
         requireSignature: true,
         choices: [
@@ -232,6 +267,7 @@ function builtinTemplates() {
         'OFFICIAL CONSENT FORM'
       ),
       fieldsJson: {
+        language: 'ko',
         kind: 'consent',
         requireSignature: true,
         choices: [
@@ -260,6 +296,7 @@ function builtinTemplates() {
         'OFFICIAL CONSENT FORM'
       ),
       fieldsJson: {
+        language: 'ko',
         kind: 'consent',
         requireSignature: true,
         choices: [
@@ -292,6 +329,7 @@ function builtinTemplates() {
         'OFFICIAL APPLICATION'
       ),
       fieldsJson: {
+        language: 'ko',
         kind: 'event',
         requireSignature: true,
         capacity: 20,
@@ -303,6 +341,195 @@ function builtinTemplates() {
         choices: [
           { value: 'Apply', label: '참가 신청' },
           { value: 'None', label: '신청하지 않음' }
+        ],
+        extraFields: ['eventNotes', 'suppliesAck']
+      },
+      isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_bus_survey_en',
+      category: CATEGORIES.BusSurvey,
+      title: 'Shuttle bus demand survey (step 1)',
+      contentHtml: odocShellEn(
+        'Shuttle bus demand survey (step 1)',
+        '<p>1. We hope this notice finds your family well.</p>' +
+        '<p>2. To design shuttle routes for the <strong>{academic_year}</strong> school year, we are collecting ' +
+        '<strong>demand information</strong>. Please respond by the due date.</p>' +
+        '<p>3. This is <strong>step 1</strong> for route planning. Final enrolment will follow in a separate ' +
+        '<strong>step 2 application</strong> after routes and times are confirmed.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>Student</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>What we need</th><td>Residence (apartment / area), desired use (both ways / morning / dismissal / none), preferred stop</td></tr>' +
+        '<tr><th>Due date</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>4. Please complete the response below and sign.</p>',
+        'OFFICIAL NOTICE'
+      ),
+      fieldsJson: {
+        language: 'en',
+        kind: 'bus_survey',
+        requireSignature: true,
+        choices: [
+          { value: 'Apply', label: 'Interested (join the survey)' },
+          { value: 'None', label: 'Not interested' }
+        ],
+        extraFields: ['apartment', 'desire', 'pickupPlace']
+      },
+      isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_bus_app_en',
+      category: CATEGORIES.BusApp,
+      title: 'Shuttle bus enrolment (step 2)',
+      contentHtml: odocShellEn(
+        'Shuttle bus enrolment (step 2)',
+        '<p>1. We hope this notice finds your family well.</p>' +
+        '<p>2. Routes and times have been confirmed from the demand survey. Please select the ' +
+        '<strong>morning and dismissal bus</strong> for <strong>{student_name}</strong>.</p>' +
+        '<p>3. Once submitted, the student is added to the daily bus boarding list.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>Student</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>Application</th><td>Morning run, dismissal run, stop (if needed)</td></tr>' +
+        '<tr><th>Due date</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>4. Choose the options below, accept the terms, and sign.</p>',
+        'OFFICIAL APPLICATION'
+      ),
+      fieldsJson: {
+        language: 'en',
+        kind: 'bus_app',
+        requireSignature: true,
+        choices: [
+          { value: 'Apply', label: 'Enrol for the shuttle' },
+          { value: 'None', label: 'Do not enrol' }
+        ],
+        extraFields: ['pickupRunId', 'dismissalRunId', 'stopLabel', 'terms']
+      },
+      isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_field_trip_en',
+      category: CATEGORIES.FieldTrip,
+      title: 'Field trip / outdoor activity consent',
+      contentHtml: odocShellEn(
+        'Field trip and outdoor activity consent',
+        '<p>1. We hope this notice finds your family well.</p>' +
+        '<p>2. The school will run the field trip / outdoor activity below. Please tell us whether ' +
+        '<strong>{student_name}</strong> may take part.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>Student</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>Date / time</th><td><strong>{trip_date}</strong></td></tr>' +
+        '<tr><th>Location</th><td><strong>{location}</strong></td></tr>' +
+        '<tr><th>Due date</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. Participants will follow safety rules. In an emergency you agree to reasonable school action ' +
+        '(first aid, transfer to a medical facility).</p>' +
+        '<p>4. If you do not consent, please give a reason when you submit.</p>',
+        'OFFICIAL CONSENT FORM'
+      ),
+      fieldsJson: {
+        language: 'en',
+        kind: 'consent',
+        requireSignature: true,
+        choices: [
+          { value: 'Y', label: 'I consent' },
+          { value: 'N', label: 'I do not consent' }
+        ]
+      },
+      isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_photo_media_en',
+      category: CATEGORIES.PhotoMedia,
+      title: 'Photo, media, and student work consent',
+      contentHtml: odocShellEn(
+        'Photo, personal information, and student-work consent',
+        '<p>1. We hope this notice finds your family well.</p>' +
+        '<p>2. For education and school communication, we may use photos, video, and learning work of ' +
+        '<strong>{student_name}</strong> in school news, portfolios, and official channels. Please tell us whether you consent.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>Student</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>Use</th><td>On-campus display, official school news/channels, learning portfolios (non-commercial educational use)</td></tr>' +
+        '<tr><th>Due date</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. If you do not consent, the student will be excluded from photos and posts. Please give a reason if you decline.</p>',
+        'OFFICIAL CONSENT FORM'
+      ),
+      fieldsJson: {
+        language: 'en',
+        kind: 'consent',
+        requireSignature: true,
+        choices: [
+          { value: 'Y', label: 'I consent' },
+          { value: 'N', label: 'I do not consent' }
+        ]
+      },
+      isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_health_en',
+      category: CATEGORIES.Health,
+      title: 'Health information and emergency-care consent',
+      contentHtml: odocShellEn(
+        'Student health information and emergency-care consent',
+        '<p>1. We hope this notice finds your family well.</p>' +
+        '<p>2. To keep <strong>{student_name}</strong> safe at school, we ask you to confirm health information and ' +
+        'consent to first aid and transfer to a medical facility in an emergency.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>Student</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>Consent covers</th><td>Emergency first aid, transfer to a medical facility if needed, contacting a guardian</td></tr>' +
+        '<tr><th>Due date</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. Please keep allergies, medicines, and notes up to date in the parent portal (student profile → medical).</p>' +
+        '<p>4. If you do not consent, please give a reason when you submit.</p>',
+        'OFFICIAL CONSENT FORM'
+      ),
+      fieldsJson: {
+        language: 'en',
+        kind: 'consent',
+        requireSignature: true,
+        choices: [
+          { value: 'Y', label: 'I consent' },
+          { value: 'N', label: 'I do not consent' }
+        ]
+      },
+      isCustomSaved: false
+    },
+    {
+      templateId: 'tpl_event_camp_en',
+      category: CATEGORIES.Event,
+      title: 'Camp / special event application',
+      contentHtml: odocShellEn(
+        'Camp and special event application',
+        '<p>1. We hope this notice finds your family well.</p>' +
+        '<p>2. The school is running the <strong>camp / special event</strong> below and is taking applications for ' +
+        '<strong>{student_name}</strong>.</p>' +
+        '<table class="odoc-table"><tbody>' +
+        '<tr><th>Student</th><td>{student_name} ({class_name})</td></tr>' +
+        '<tr><th>Event</th><td><strong>{event_title}</strong></td></tr>' +
+        '<tr><th>Date / time</th><td><strong>{event_date}</strong></td></tr>' +
+        '<tr><th>Location</th><td><strong>{location}</strong></td></tr>' +
+        '<tr><th>Fee / supplies</th><td>{fee_supplies}</td></tr>' +
+        '<tr><th>Capacity</th><td>{capacity} places (first come; waitlist if full)</td></tr>' +
+        '<tr><th>Due date</th><td><strong>{due_date}</strong></td></tr>' +
+        '</tbody></table>' +
+        '<p>3. When capacity is full, a <strong>waitlist number</strong> is assigned automatically.</p>' +
+        '<p>4. Choose Apply, confirm supplies, and sign.</p>',
+        'OFFICIAL APPLICATION'
+      ),
+      fieldsJson: {
+        language: 'en',
+        kind: 'event',
+        requireSignature: true,
+        capacity: 20,
+        eventDate: '',
+        location: '',
+        fee: '',
+        supplies: '',
+        firstCome: true,
+        choices: [
+          { value: 'Apply', label: 'Apply to join' },
+          { value: 'None', label: 'Do not apply' }
         ],
         extraFields: ['eventNotes', 'suppliesAck']
       },
