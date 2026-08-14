@@ -3782,6 +3782,15 @@ router.get('/admin/consents', requireRole('admin'), async (req, res) => {
   }
 });
 
+router.get('/admin/consents/:formId', requireRole('admin'), async (req, res) => {
+  try {
+    const consent = require('./services/consentService');
+    res.json({ form: await consent.getForm(req.params.formId) });
+  } catch (e) {
+    res.status(e.status || 404).json({ error: e.message || 'Form not found.' });
+  }
+});
+
 router.post('/admin/consents/publish', requireRole('admin'), async (req, res) => {
   try {
     const consent = require('./services/consentService');
