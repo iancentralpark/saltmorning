@@ -184,16 +184,7 @@
       '<span class="muted small">Status: <strong>' + escapeHtml(data.status) + '</strong></span>' +
       '</div>';
 
-    html += '<section class="rc-section">' +
-      '<h4>Academic grade (from Gradebook)</h4>' +
-      '<div class="rc-grade-line">' +
-      '<div><span class="muted small">Letter Grade</span><div class="rc-grade-value">' +
-      escapeHtml(data.academic.letterGrade || '—') + '</div></div>' +
-      '<div><span class="muted small">Percentage Grade</span><div class="rc-grade-value">' +
-      (data.academic.percentageGrade != null ? escapeHtml(String(data.academic.percentageGrade)) + '%' : '—') +
-      '</div></div></div>' +
-      '<p class="muted small">These values come from the Grades tab and cannot be edited here.</p>' +
-      '</section>';
+    html += renderAcademicSection(data);
 
     html += '<section class="rc-section">' +
       '<h4>Work Habits &amp; Social-Emotional Learning</h4>' +
@@ -241,6 +232,140 @@
     if ($('rcSaveDraft')) $('rcSaveDraft').addEventListener('click', () => saveEditor(false));
     if ($('rcMarkComplete')) $('rcMarkComplete').addEventListener('click', () => saveEditor(true));
     if ($('rcOpenFull')) $('rcOpenFull').addEventListener('click', () => openFullCard(data.student.studentId));
+    bindAcademicControls(data);
+  }
+
+  function letterFromPercent(pct) {
+    if (pct == null || pct === '' || Number.isNaN(Number(pct))) return '';
+    const p = Number(pct);
+    if (p >= 93) return 'A';
+    if (p >= 90) return 'A-';
+    if (p >= 87) return 'B+';
+    if (p >= 83) return 'B';
+    if (p >= 80) return 'B-';
+    if (p >= 77) return 'C+';
+    if (p >= 73) return 'C';
+    if (p >= 70) return 'C-';
+    if (p >= 67) return 'D+';
+    if (p >= 60) return 'D';
+    return 'F';
+  }
+
+  function formatPercent(value) {
+    return value != null && value !== '' ? String(value) + '%' : '—';
+  }
+
+  function renderAcademicSection(data) {
+    const academic = data.academic || {};
+    const gb = academic.gradebook || academic;
+    const isManual = academic.source === 'manual';
+    const letters = data.letterGrades || ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F'];
+    const letterVal = isManual ? (academic.letterGrade || '') : '';
+    const pctVal = isManual && academic.percentageGrade != null ? academic.percentageGrade : '';
+    const gbLetter = gb.letterGrade || '—';
+    const gbPct = formatPercent(gb.percentageGrade);
+
+    let html = '<section class="rc-section">' +
+      '<h4>Academic grade</h4>';
+
+    if (data.canEdit) {
+      html += '<div class="rc-grade-source" role="radiogroup" aria-label="Academic grade source">' +
+        '<label><input type="radio" name="rcGradeSource" value="gradebook"' +
+        (isManual ? '' : ' checked') + '> Use Gradebook</label>' +
+        '<label><input type="radio" name="rcGradeSource" value="manual"' +
+        (isManual ? ' checked' : '') + '> Enter manually</label>' +
+        '</div>';
+    } else {
+      html += '<p class="muted small">' +
+        (isManual ? 'Manually entered for this report.' : 'From the Grades tab.') +
+        '</p>';
+    }
+
+    html += '<div id="rcGradeGradebook"' + (data.canEdit && isManual ? ' hidden' : '') + '>' +
+      '<div class="rc-grade-line">' +
+      '<div><span class="muted small">Letter Grade</span><div class="rc-grade-value">' +
+      escapeHtml(isManual ? (academic.letterGrade || '—') : gbLetter) + '</div></div>' +
+      '<div><span class="muted small">Percentage Grade</span><div class="rc-grade-value">' +
+      escapeHtml(isManual ? formatPercent(academic.percentageGrade) : gbPct) +
+      '</div></div></div>' +
+      (data.canEdit
+        ? '<p class="muted small">These values come from the Grades tab. Switch to Enter manually to override them on this report.</p>'
+        : '') +
+      '</div>';
+
+    if (data.canEdit) {
+      html += '<div id="rcGradeManual"' + (isManual ? '' : ' hidden') + '>' +
+        '<div class="rc-grade-inputs">' +
+        '<label><span class="muted small">Letter Grade</span>' +
+        '<select id="rcLetterGrade">' +
+        '<option value="">Select…</option>' +
+        letters.map((opt) =>
+          '<option value="' + escapeHtml(opt) + '"' + (letterVal === opt ? ' selected' : '') + '>' +
+          escapeHtml(opt) + '</option>'
+        ).join('') +
+        '</select></label>' +
+        '<label><span class="muted small">Percentage Grade</span>' +
+        '<input id="rcPercentGrade" type="number" min="0" max="100" step="0.1" inputmode="decimal" placeholder="e.g. 92"' +
+        (pctVal === '' ? '' : ' value="' + escapeHtml(String(pctVal)) + '"') + '>' +
+        '</label></div>' +
+        '<p class="muted small">Gradebook reference: <strong>' +
+        escapeHtml(gbLetter) + '</strong> · <strong>' + escapeHtml(gbPct) +
+        '</strong>. Changing the percentage fills the matching letter. Save to apply this report only — Grades stay unchanged.</p>' +
+        '</div>';
+    }
+
+    html += '</section>';
+    return html;
+  }
+
+  function bindAcademicControls(data) {
+    const radios = mount().querySelectorAll('input[name="rcGradeSource"]');
+    if (!radios.length) return;
+    const gb = (data.academic && data.academic.gradebook) || data.academic || {};
+    const letterSel = $('rcLetterGrade');
+    const pctInp = $('rcPercentGrade');
+    const manualBox = $('rcGradeManual');
+    const gbBox = $('rcGradeGradebook');
+
+    function isManual() {
+      const hit = mount().querySelector('input[name="rcGradeSource"]:checked');
+      return !!(hit && hit.value === 'manual');
+    }
+
+    function syncMode() {
+      const manual = isManual();
+      if (manualBox) manualBox.hidden = !manual;
+      if (gbBox) gbBox.hidden = manual;
+      if (manual && letterSel && pctInp && !letterSel.value && pctInp.value === '') {
+        if (gb.letterGrade) letterSel.value = gb.letterGrade;
+        if (gb.percentageGrade != null) pctInp.value = gb.percentageGrade;
+      }
+    }
+
+    radios.forEach((r) => r.addEventListener('change', syncMode));
+    if (pctInp && letterSel) {
+      pctInp.addEventListener('input', () => {
+        if (pctInp.value === '') return;
+        const n = Number(pctInp.value);
+        if (Number.isFinite(n)) letterSel.value = letterFromPercent(n);
+      });
+    }
+    syncMode();
+  }
+
+  function collectAcademicPayload() {
+    const sourceEl = mount().querySelector('input[name="rcGradeSource"]:checked');
+    if (!sourceEl) return null;
+    const source = sourceEl.value === 'manual' ? 'manual' : 'gradebook';
+    if (source !== 'manual') return { source: 'gradebook' };
+    const letterSel = $('rcLetterGrade');
+    const pctInp = $('rcPercentGrade');
+    const rawPct = pctInp ? pctInp.value.trim() : '';
+    return {
+      source: 'manual',
+      letterGrade: letterSel ? letterSel.value : '',
+      percentageGrade: rawPct === '' ? null : Number(rawPct)
+    };
   }
 
   async function saveEditor(markComplete) {
@@ -260,6 +385,7 @@
           studentId: state.selectedStudentId,
           workHabits,
           subjectComment: $('rcSubjectComment').value,
+          academic: collectAcademicPayload(),
           markComplete: !!markComplete
         }
       }, role);

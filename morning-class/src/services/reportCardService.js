@@ -64,9 +64,84 @@ const RATING_SCORE = {
 };
 
 const SUBJECT_COMMENT_KEY = 'subject_comment';
+const ACADEMIC_SOURCE_KEY = 'academic_source';
+const ACADEMIC_LETTER_KEY = 'academic_letter';
+const ACADEMIC_PERCENT_KEY = 'academic_percent';
+const LETTER_GRADES = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F'];
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
+}
+
+function parseAcademicOverride(entries) {
+  const byKey = {};
+  (entries || []).forEach((e) => { byKey[e.fieldKey] = e; });
+  const source = String((byKey[ACADEMIC_SOURCE_KEY] && byKey[ACADEMIC_SOURCE_KEY].comment) || '')
+    .trim().toLowerCase();
+  const letter = String((byKey[ACADEMIC_LETTER_KEY] && byKey[ACADEMIC_LETTER_KEY].comment) || '').trim();
+  const raw = byKey[ACADEMIC_PERCENT_KEY] ? byKey[ACADEMIC_PERCENT_KEY].score : null;
+  const percent = raw == null || raw === '' || Number.isNaN(Number(raw)) ? null : Number(raw);
+  return {
+    source: source === 'manual' ? 'manual' : 'gradebook',
+    letterGrade: letter,
+    percentageGrade: percent
+  };
+}
+
+function resolveAcademic(computedPercent, entries, categories) {
+  const gradebook = {
+    percentageGrade: computedPercent,
+    letterGrade: letterGrade(computedPercent),
+    categories: categories || []
+  };
+  const override = parseAcademicOverride(entries);
+  if (override.source === 'manual') {
+    const pct = override.percentageGrade;
+    return {
+      source: 'manual',
+      percentageGrade: pct,
+      letterGrade: override.letterGrade || letterGrade(pct),
+      categories: gradebook.categories,
+      gradebook
+    };
+  }
+  return {
+    source: 'gradebook',
+    percentageGrade: gradebook.percentageGrade,
+    letterGrade: gradebook.letterGrade,
+    categories: gradebook.categories,
+    gradebook
+  };
+}
+
+function normalizeAcademicSave(academic) {
+  if (!academic || typeof academic !== 'object') return null;
+  const raw = academic.source != null
+    ? academic.source
+    : (academic.useManual ? 'manual' : 'gradebook');
+  const source = String(raw).trim().toLowerCase();
+  if (source !== 'manual') {
+    return { source: 'gradebook', letterGrade: '', percentageGrade: null };
+  }
+  let letter = String(academic.letterGrade || '').trim();
+  if (letter && !LETTER_GRADES.includes(letter)) {
+    throw new Error('Invalid letter grade.');
+  }
+  let percent = academic.percentageGrade;
+  if (percent === '' || percent == null) {
+    percent = null;
+  } else {
+    percent = Number(percent);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      throw new Error('Percentage grade must be between 0 and 100.');
+    }
+    percent = Math.round(percent * 10) / 10;
+  }
+  if (!letter && percent != null) letter = letterGrade(percent);
+  if (!letter && percent == null) {
+    return { source: 'gradebook', letterGrade: '', percentageGrade: null };
+  }
+  return { source: 'manual', letterGrade: letter, percentageGrade: percent };
 }
 
 function letterGrade(pct) {
@@ -536,6 +611,7 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
   const percent = computed && computed.weightedTotal != null ? computed.weightedTotal : null;
   const form = entriesToSubjectForm(entries, subject);
   const statusRow = (statuses || []).find((s) => s.subject === subject);
+  const academic = resolveAcademic(percent, entries, computed ? computed.categories : []);
 
   return {
     classId,
@@ -549,11 +625,8 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
     },
     canEdit: !!access.canEdit,
     isHomeroom: !!access.isHomeroom,
-    academic: {
-      percentageGrade: percent,
-      letterGrade: letterGrade(percent),
-      categories: computed ? computed.categories : []
-    },
+    academic,
+    letterGrades: LETTER_GRADES,
     workHabits: form.workHabits,
     subjectComment: form.subjectComment,
     formComplete: isSubjectFormComplete(form),
@@ -594,6 +667,28 @@ async function saveStudentSubjectReport(teacherId, classId, payload) {
     score: null,
     comment: String(payload.subjectComment || '').trim()
   });
+
+  const academicSave = normalizeAcademicSave(payload.academic);
+  if (academicSave) {
+    entries.push({
+      studentId,
+      fieldKey: ACADEMIC_SOURCE_KEY,
+      score: null,
+      comment: academicSave.source === 'manual' ? 'manual' : ''
+    });
+    entries.push({
+      studentId,
+      fieldKey: ACADEMIC_LETTER_KEY,
+      score: null,
+      comment: academicSave.source === 'manual' ? academicSave.letterGrade : ''
+    });
+    entries.push({
+      studentId,
+      fieldKey: ACADEMIC_PERCENT_KEY,
+      score: academicSave.source === 'manual' ? academicSave.percentageGrade : null,
+      comment: ''
+    });
+  }
 
   await saveReportCardEntries(classId, term, subject, teacherId, entries);
 
@@ -875,12 +970,13 @@ async function listParentReportCards(parentSession) {
       const hit = (computed || []).find((c) => c.studentId === studentId);
       if (hit) percent = hit.weightedTotal;
     } catch (e) { /* ignore */ }
+    const academic = resolveAcademic(percent, entries, []);
     const st = sharedSubjects.find((s) => s.subject === subject);
     subjectBlocks.push({
       subject,
       teacherNames: st && st.teacherId ? [names[st.teacherId] || st.teacherId] : [],
-      letterGrade: letterGrade(percent),
-      percentageGrade: percent,
+      letterGrade: academic.letterGrade,
+      percentageGrade: academic.percentageGrade,
       workHabits: form.workHabits,
       subjectComment: form.subjectComment,
       status: 'Complete',
@@ -950,6 +1046,7 @@ async function listParentReportCards(parentSession) {
 module.exports = {
   WORK_HABITS,
   RATING_OPTIONS,
+  LETTER_GRADES,
   letterGrade,
   listReportCardFields,
   saveReportCardField,

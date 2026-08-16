@@ -987,7 +987,7 @@ router.post('/teacher/class/:classId/report-card', requireRole('teacher'), async
   try {
     const body = req.body || {};
     // New student-subject save (work habits + comment)
-    if (body.studentId && body.subject && (body.workHabits || body.subjectComment != null || body.markComplete != null)) {
+    if (body.studentId && body.subject && (body.workHabits || body.subjectComment != null || body.markComplete != null || body.academic)) {
       const result = await saveStudentSubjectReport(req.session.teacherId, req.params.classId, body);
       return res.json(result);
     }
