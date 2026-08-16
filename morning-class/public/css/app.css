@@ -1509,15 +1509,69 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .grades-table th, .grades-table td { border-bottom: 1px solid var(--border); padding: 0.45rem 0.5rem; text-align: left; }
 .grades-table .name-col { font-weight: 600; }
 .grades-log { font-size: 0.82rem; }
-.gw-editor { display: grid; gap: 0.5rem; margin: 0.75rem 0; }
-.gw-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.gw-add-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.gw-add-row #gradeWeightCustomLabel,
-.gw-row .gw-label {
-  min-width: 10rem;
+.gw-modal { width: min(440px, 100%); }
+.gw-editor { display: grid; gap: 0.45rem; margin: 0.75rem 0 0.55rem; }
+.gw-row {
+  display: flex;
+  gap: 0.4rem 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.65rem;
+  background: var(--cream);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+}
+.gw-row select,
+.gw-row input,
+.gw-add-row select,
+.gw-add-row input {
+  width: auto;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+}
+.gw-row .gw-key { flex: 1 1 9rem; }
+.gw-row .gw-label { flex: 1 1 8rem; min-width: 8rem; }
+.gw-row .gw-agg-sel { min-width: 7rem; flex: 0 0 auto; }
+.gw-row .gw-pct { width: 4.2rem; flex: 0 0 4.2rem; }
+.gw-row .gw-remove { flex: 0 0 auto; padding: 0.25rem 0.5rem; }
+.gw-add-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  margin: 0.15rem 0 0.25rem;
+  padding: 0.7rem 0.75rem;
+  background: var(--sage-soft);
+  border: 1.5px dashed var(--sage);
+  border-radius: var(--radius-sm);
+}
+.gw-add-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sage-dark);
+}
+.gw-add-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+.gw-add-controls select,
+.gw-add-controls input {
+  background: #fff;
+}
+.gw-add-controls #gradeWeightPresetSelect {
   flex: 1 1 10rem;
 }
-.gw-row .gw-agg-sel { min-width: 7.5rem; }
+.gw-add-controls #gradeWeightCustomLabel {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+.gw-add-controls #gradeWeightCustomAgg { flex: 0 1 9rem; }
+.gw-add-controls #gradeWeightAdd { flex: 0 0 auto; }
+.gw-total { font-size: 0.88rem; color: var(--olive); }
 .gw-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .ok { color: #16a34a; font-size: 0.9rem; }
 

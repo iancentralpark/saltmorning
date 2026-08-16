@@ -956,11 +956,20 @@ window.SaltGrades = (function() {
 
   function renderWeightEditor() {
     const presets = categoryPresets;
+    const used = {};
+    weightDraft.forEach((w) => {
+      if (w && w.categoryKey && !isCustomCategory(w)) used[w.categoryKey] = true;
+    });
+    const unused = presets.filter((p) => !used[p.categoryKey]);
+    const prevAdd = $('gradeWeightPresetSelect') && $('gradeWeightPresetSelect').value;
     $('gradeWeightPresetSelect').innerHTML =
-      presets.map((p) =>
+      unused.map((p) =>
         '<option value="' + escapeHtml(p.categoryKey) + '">' + escapeHtml(p.label) + '</option>'
       ).join('') +
       '<option value="__custom__">Custom…</option>';
+    if (prevAdd && (prevAdd === '__custom__' || unused.some((p) => p.categoryKey === prevAdd))) {
+      $('gradeWeightPresetSelect').value = prevAdd;
+    }
     syncCustomAddFields();
 
     $('gradeWeightRows').innerHTML = weightDraft.map((w, i) => {
