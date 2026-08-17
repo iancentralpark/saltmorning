@@ -143,8 +143,7 @@ window.SaltLesson = (function() {
     setMount('lpAdminCalendar');
     globalMode = false;
     readOnly = true;
-    await loadAdminCalendar();
-    await loadAdminSemesterPlans();
+    await Promise.all([loadAdminCalendar(), loadAdminSemesterPlans()]);
   }
 
   async function loadSubjectGroups() {

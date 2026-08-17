@@ -479,10 +479,9 @@ async function getClassReportOverview(teacherId, classId, term) {
     term = (active && (active.label || active.termId)) || 'Term1';
   }
 
-  const [students, subjectData, reportSubjects, statuses, classNames, teacher, names] = await Promise.all([
+  const [students, subjectData, statuses, classNames, teacher, names] = await Promise.all([
     getClassRoster(classId),
     listClassGradeSubjects(teacherId, classId),
-    listReportCardSubjectsForClass(classId),
     listStatusRows(classId, term),
     getClassNameMap(),
     getTeacherProfile(teacherId),
@@ -491,8 +490,11 @@ async function getClassReportOverview(teacherId, classId, term) {
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
   const isHomeroom = !!(subjectData.isHomeroom || (teacher && teacher.homeroomClassId === classId));
-  // Readiness uses report-card subjects only (excluded gradebooks are omitted).
-  const subjectList = (reportSubjects.length ? reportSubjects : (subjectData.subjects || []).filter((s) => !s.excludeFromReport)).map((s) => ({
+  const sourceSubjects = (subjectData.allSubjects && subjectData.allSubjects.length)
+    ? subjectData.allSubjects
+    : (subjectData.subjects || []);
+  const reportSubjects = sourceSubjects.filter((s) => !s.excludeFromReport);
+  const subjectList = reportSubjects.map((s) => ({
     subject: s.subject,
     teacherNames: s.teacherNames || [],
     canEdit: isHomeroom ? false : taughtSet.has(s.subject) || !!(subjectData.subjects || []).find((x) => x.subject === s.subject && x.canEdit)
@@ -569,11 +571,11 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
   const access = await getTeacherGradeAccess(teacherId, classId, subject);
   if (!access.canView) throw new Error('You cannot view this subject report.');
 
-  const [roster, entries, statuses, computedList, meta, classNames, names] = await Promise.all([
-    getClassRoster(classId),
+  const roster = await getClassRoster(classId);
+  const [entries, statuses, computedList, meta, classNames, names] = await Promise.all([
     listReportCardEntries(classId, term, studentId, subject),
     listStatusRows(classId, term, studentId),
-    buildReportCardFromGrades(classId, term, subject, await getClassRoster(classId)),
+    buildReportCardFromGrades(classId, term, subject, roster),
     getStudentMeta(studentId),
     getClassNameMap(),
     teacherNameMap()
@@ -732,12 +734,11 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
     }
   }
 
-  const subjectBlocks = [];
-  for (const subj of overview.subjects) {
+  const subjectBlocks = await Promise.all((overview.subjects || []).map(async (subj) => {
     const block = await getStudentSubjectReport(
       overviewTeacherId, classId, studentId, term, subj.subject
     );
-    subjectBlocks.push({
+    return {
       subject: subj.subject,
       teacherNames: subj.teacherNames && subj.teacherNames.length
         ? subj.teacherNames
@@ -749,8 +750,8 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
       subjectComment: block.subjectComment,
       status: block.status,
       complete: block.status === 'Complete'
-    });
-  }
+    };
+  }));
 
   const reportReady = !!(studentRow && studentRow.reportReady);
   const shared = !!(studentRow && studentRow.sharedWithParents);

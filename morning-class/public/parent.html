@@ -90,7 +90,7 @@
 
     <div id="tabFeed" class="card">
       <h3 style="margin-top:0" data-i18n="parent.feed.title">Updates</h3>
-      <div id="ppFeed"></div>
+      <div id="ppFeed"><p class="muted">Loading…</p></div>
     </div>
 
     <div id="tabAnnouncements" class="card hidden">
@@ -369,9 +369,11 @@
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView')); show($('appView'));
-    SaltMessenger.init(role);
     await SaltParent.boot();
     SaltI18n.apply(document.getElementById('appView'));
+    setTimeout(() => {
+      try { SaltMessenger.init(role); } catch (e) { /* non-blocking */ }
+    }, 0);
   }
 
   if (getToken(role)) bootApp();
