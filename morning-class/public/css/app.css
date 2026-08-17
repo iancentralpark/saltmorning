@@ -454,7 +454,9 @@ a:hover { color: var(--gold); }
     flex-wrap: wrap;
   }
   .teacher-nav-toggle { display: flex; }
-  .teacher-shell-nav {
+  /* Scoped to teacher.html's nav by ID — admin/parent reuse .teacher-shell-nav
+     for a small lang/password/logout row that has no hamburger to reopen it. */
+  #teacherShellNav {
     display: none;
     width: 100%;
     flex-direction: column;
@@ -464,14 +466,14 @@ a:hover { color: var(--gold); }
     padding-top: 0.65rem;
     border-top: 1px solid rgba(247, 243, 234, 0.18);
   }
-  .teacher-shell-nav.is-open { display: flex; }
-  .teacher-shell-nav .btn {
+  #teacherShellNav.is-open { display: flex; }
+  #teacherShellNav .btn {
     width: 100%;
     justify-content: flex-start;
     text-align: left;
   }
-  .teacher-nav-dropdown { width: 100%; }
-  .teacher-nav-dropdown-panel {
+  #teacherShellNav .teacher-nav-dropdown { width: 100%; }
+  #teacherShellNav .teacher-nav-dropdown-panel {
     position: static;
     width: 100%;
     margin-top: 0.3rem;
