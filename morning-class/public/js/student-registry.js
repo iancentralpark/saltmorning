@@ -1065,7 +1065,7 @@
     if (!isAdminLike() || !accountRole || !accountId) return;
     const label = accountRole === 'parent' ? 'parent' : 'student';
     if (!confirm(
-      'Reset ' + label + ' password?\n\nA temporary password will be generated and they must change it on next login.'
+      'Reset ' + label + ' password to the default (password123)?\n\nThey must change it on next login.'
     )) return;
     try {
       const res = await api('/api/admin/accounts/reset-password', {
@@ -1077,7 +1077,7 @@
       window.alert(
         'Password reset.\n\n' +
         (login ? 'Login: ' + login + '\n' : '') +
-        'Temporary password: ' + temp +
+        'New password: ' + temp +
         '\n\nShare this securely. They must change it after login.'
       );
     } catch (e) {

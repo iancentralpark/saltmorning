@@ -198,6 +198,60 @@
     });
   }
 
+  /**
+   * Show/hide toggle for password inputs. Auto-wires every
+   * `input[type="password"]` on the page (including ones added later by
+   * dynamic renders like admin forms or the change-password modal) via a
+   * MutationObserver, so no per-page wiring is needed.
+   */
+  const EYE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 4.22-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+
+  function wirePasswordToggle(input) {
+    if (!input || input.dataset.pwToggled || !input.parentNode) return;
+    input.dataset.pwToggled = '1';
+    const wrap = document.createElement('div');
+    wrap.className = 'pw-field';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pw-toggle-btn';
+    btn.setAttribute('aria-label', 'Show password');
+    btn.innerHTML = EYE_ICON;
+    wrap.appendChild(btn);
+    btn.addEventListener('click', function () {
+      const willShow = input.type === 'password';
+      input.type = willShow ? 'text' : 'password';
+      btn.innerHTML = willShow ? EYE_OFF_ICON : EYE_ICON;
+      btn.setAttribute('aria-label', willShow ? 'Hide password' : 'Show password');
+    });
+  }
+
+  function autoWirePasswordToggles(root) {
+    (root || document).querySelectorAll('input[type="password"]:not([data-pw-toggled])').forEach(wirePasswordToggle);
+  }
+
+  if (typeof document !== 'undefined') {
+    autoWirePasswordToggles(document);
+    if (typeof MutationObserver !== 'undefined') {
+      const pwObserver = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          (m.addedNodes || []).forEach(function (node) {
+            if (node.nodeType !== 1) return;
+            if (node.matches && node.matches('input[type="password"]')) wirePasswordToggle(node);
+            if (node.querySelectorAll) autoWirePasswordToggles(node);
+          });
+        });
+      });
+      const startObserving = function () {
+        pwObserver.observe(document.documentElement || document.body, { childList: true, subtree: true });
+      };
+      if (document.body) startObserving();
+      else document.addEventListener('DOMContentLoaded', startObserving);
+    }
+  }
+
   global.SaltApp = {
     API,
     getToken,
@@ -218,6 +272,8 @@
     hide,
     todayISO,
     escapeHtml,
-    prepareSignatureFile
+    prepareSignatureFile,
+    wirePasswordToggle,
+    autoWirePasswordToggles
   };
 })(window);
