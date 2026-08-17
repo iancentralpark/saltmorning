@@ -4358,7 +4358,7 @@ router.get('/parent/school-calendar', requireRole('parent'), async (req, res) =>
 router.get('/student/timetable', requireRole('student'), async (req, res) => {
   try {
     const { getTimetable } = require('./services/timetableService');
-    res.json(await getTimetable('student', req.session.studentId));
+    res.json({ timetable: await getTimetable('student', req.session.studentId) });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load timetable.' });
   }
