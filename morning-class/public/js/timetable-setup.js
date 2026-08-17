@@ -304,7 +304,7 @@
       '<div class="tt-bell-modal-head">' +
       '<div>' +
       '<h3 id="ttReqModalTitle" style="margin:0">Subject requirements</h3>' +
-      '<p class="muted small" style="margin:0.35rem 0 0">Weekly hours and teachers for Auto-Solve / class board</p>' +
+      '<p class="muted small" style="margin:0.35rem 0 0">Weekly hours and teachers for Auto-Solve, the class board, and teacher Grades / Reports</p>' +
       '</div>' +
       '<button type="button" class="btn btn-ghost tt-req-modal-close">Close</button>' +
       '</div>' +

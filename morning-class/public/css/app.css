@@ -1255,20 +1255,24 @@ textarea { min-height: 100px; resize: vertical; }
 .grade-subject-picker { margin-bottom: 0.5rem; }
 .grade-subject-list {
   display: grid;
-  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fill, minmax(10.75rem, 12.75rem));
+  justify-content: start;
+  gap: 0.65rem;
   margin-top: 0.65rem;
 }
 .grade-subj-card {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.65rem;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0.5rem;
   text-align: left;
   width: 100%;
+  min-height: 6.25rem;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--cream);
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 0.85rem;
   cursor: pointer;
   font: inherit;
   color: inherit;
@@ -1277,6 +1281,18 @@ textarea { min-height: 100px; resize: vertical; }
 .grade-subj-card:hover {
   border-color: var(--sage);
   box-shadow: var(--shadow-sm);
+}
+.grade-subj-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: var(--charcoal);
+}
+.grade-subj-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
 }
 .grade-subj-tag {
   font-size: 0.68rem;
@@ -3104,6 +3120,19 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   margin-bottom: 0.5rem;
 }
 .tt-req-modal { width: min(960px, 100%); }
+.tt-req-editor table.grades-table {
+  width: 100%;
+  table-layout: auto;
+}
+.tt-req-editor .tt-req-subject,
+.tt-req-editor .tt-req-teacher,
+.tt-req-editor .tt-req-room {
+  width: 10.5rem;
+  max-width: 12rem;
+  padding: 0.4rem 0.5rem;
+}
+.tt-req-editor .tt-req-teacher { width: 11.5rem; }
+.tt-req-editor .tt-req-room { width: 7.5rem; }
 .bus-setup-modal { max-height: 92vh; }
 .bus-setup-modal-head {
   display: flex;

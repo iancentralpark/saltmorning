@@ -84,14 +84,18 @@ window.SaltGrades = (function() {
     if (backBtn) backBtn.classList.toggle('hidden', !showSubjectPicker);
   }
 
-  function renderSubjectPicker(subjects, isHomeroom) {
+  function renderSubjectPicker(subjects, isHomeroom, source) {
     const list = $('gradeSubjectList');
     const hint = $('gradeSubjectPickerHint');
     if (!list) return;
     if (hint) {
-      hint.textContent = isHomeroom
-        ? 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit.'
-        : 'Select a subject you teach in this class.';
+      if (isHomeroom && source === 'requirements') {
+        hint.textContent = 'Subjects match this class\'s timetable Subject requirements. You can view all grades; only the subject teacher can edit.';
+      } else if (isHomeroom) {
+        hint.textContent = 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit.';
+      } else {
+        hint.textContent = 'Select a subject you teach in this class.';
+      }
     }
     if (!subjects.length) {
       list.innerHTML = '<p class="muted">No subjects found for this class yet.</p>';
@@ -106,10 +110,10 @@ window.SaltGrades = (function() {
         : '<span class="grade-subj-tag grade-subj-view">View only</span>';
       return '<button type="button" class="grade-subj-card" data-subject="' + escapeHtml(s.subject) +
         '" data-edit="' + (s.canEdit ? '1' : '0') + '">' +
-        '<strong>' + escapeHtml(s.subject) + '</strong>' +
-        editTag +
+        '<span class="grade-subj-name">' + escapeHtml(s.subject) + '</span>' +
+        '<span class="grade-subj-meta">' + editTag +
         (teachers ? '<span class="muted small">' + escapeHtml(teachers) + '</span>' : '') +
-        '</button>';
+        '</span></button>';
     }).join('');
     list.querySelectorAll('.grade-subj-card').forEach((btn) => {
       btn.addEventListener('click', () => openSubject(btn.dataset.subject, btn.dataset.edit === '1'));
@@ -140,7 +144,7 @@ window.SaltGrades = (function() {
       showSubjectPicker = isHomeroom || subjectCatalog.length > 1;
 
       if (showSubjectPicker) {
-        renderSubjectPicker(subjectCatalog, isHomeroom);
+        renderSubjectPicker(subjectCatalog, isHomeroom, data.source);
         showPicker();
         await loadActiveTerm();
         return;

@@ -239,6 +239,36 @@ async function importRequirementsFromAssignments(classId) {
   return saveRequirements(classId, requirements);
 }
 
+const PLACEHOLDER_SUBJECTS = new Set(['Homeroom', 'All', 'All subjects']);
+
+function isCurriculumSubject(name) {
+  const subject = String(name || '').trim();
+  return !!subject && !PLACEHOLDER_SUBJECTS.has(subject);
+}
+
+/**
+ * Unique teachable subjects for a class from Timetable_Requirements.
+ * Duplicate rows (e.g. linked-class Library) collapse to one subject.
+ */
+async function listRequirementCurriculum(classId) {
+  const reqs = await listRequirements(classId);
+  const bySubject = new Map();
+  for (const r of reqs) {
+    const name = String(r.subject || '').trim();
+    if (!isCurriculumSubject(name)) continue;
+    if (!bySubject.has(name)) {
+      bySubject.set(name, { subject: name, teacherIds: [], teacherNames: [] });
+    }
+    const entry = bySubject.get(name);
+    const tid = String(r.teacherId || '').trim();
+    if (tid && !entry.teacherIds.includes(tid)) {
+      entry.teacherIds.push(tid);
+      if (r.teacherName) entry.teacherNames.push(r.teacherName);
+    }
+  }
+  return Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject));
+}
+
 async function listRequirementsWithClassNames(classId) {
   const classNames = await getClassNameMap();
   const reqs = await listRequirements(classId);
@@ -253,6 +283,8 @@ module.exports = {
   ensureRequirementsSheet,
   listRequirements,
   listAllRequirements,
+  listRequirementCurriculum,
+  isCurriculumSubject,
   listRequirementsWithClassNames,
   saveRequirements,
   importRequirementsFromAssignments,
