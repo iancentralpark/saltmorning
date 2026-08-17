@@ -340,6 +340,9 @@ async function assertHomeroomOfClass(teacherId, classId) {
 }
 
 router.get('/health', async (req, res) => {
+  try {
+    await require('./db/boot').ensureOpsDbStarted();
+  } catch (_) { /* still report health below */ }
   let vocab = null;
   let engine = null;
   let opsDb = null;

@@ -72,8 +72,18 @@ async function withStudentLock(studentId, fn) {
 async function healthCheck() {
   if (!isOpsDbEnabled()) return { ok: false, reason: 'DATABASE_URL not set' };
   try {
-    const r = await query('SELECT value FROM ' + table('meta') + " WHERE key = 'schema_version'");
-    return { ok: true, schema: SCHEMA, version: r.rows[0] && r.rows[0].value };
+    const r = await query(
+      'SELECT key, value FROM ' + table('meta') +
+        " WHERE key IN ('schema_version', 'grades_backfilled')"
+    );
+    const meta = {};
+    r.rows.forEach((row) => { meta[row.key] = row.value; });
+    return {
+      ok: true,
+      schema: SCHEMA,
+      version: meta.schema_version,
+      gradesBackfilled: meta.grades_backfilled === '1'
+    };
   } catch (e) {
     return { ok: false, reason: e.message };
   }

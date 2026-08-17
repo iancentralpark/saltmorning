@@ -6,6 +6,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { ensureOpsDbStarted } = require('./db/boot');
 const { PORT } = require('./config');
 const apiRoutes = require('./routes');
 const { initRealtime } = require('./realtime');
@@ -69,6 +70,7 @@ app.get('/', (req, res) => {
 
 const server = http.createServer(app);
 initRealtime(server);
+ensureOpsDbStarted();
 
 server.listen(PORT, () => {
   console.log('Salt Morning Class listening on http://localhost:' + PORT);
