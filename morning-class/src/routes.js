@@ -170,6 +170,7 @@ const {
   getTeacherGradeAccess,
   listClassGradeSubjects
 } = require('./services/subjectAssignmentService');
+const { setExcludeFromReport } = require('./services/classSubjectFlagsService');
 const {
   getClassAnalyticsDashboard,
   getStudentAnalytics,
@@ -759,6 +760,23 @@ router.get('/teacher/class/:classId/grades/subjects', requireRole('teacher'), as
     res.json(data);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not load subjects.' });
+  }
+});
+
+router.post('/teacher/class/:classId/grades/subjects/report-card', requireRole('teacher'), async (req, res) => {
+  try {
+    const classId = req.params.classId;
+    const subject = String((req.body || {}).subject || '').trim();
+    const exclude = !!(req.body || {}).excludeFromReport;
+    if (!subject) return res.status(400).json({ error: 'Subject is required.' });
+    const access = await getTeacherGradeAccess(req.session.teacherId, classId, subject);
+    if (!access.isHomeroom && !access.canEdit) {
+      return res.status(403).json({ error: 'Only the homeroom or subject teacher can change report-card inclusion.' });
+    }
+    const result = await setExcludeFromReport(classId, subject, exclude, req.session.teacherId);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update report-card inclusion.' });
   }
 });
 

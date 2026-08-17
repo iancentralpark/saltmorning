@@ -14,6 +14,7 @@ const {
 } = require('../sheets');
 const { getClassRoster, getTeacherProfile, getClassNameMap } = require('./teacherPortalService');
 const { listClassGradeSubjects, getTeacherGradeAccess, collectClassSubjects } = require('./subjectAssignmentService');
+const { listExcludedReportSubjects } = require('./classSubjectFlagsService');
 const { buildReportCardFromGrades } = require('./gradeService');
 const { getActiveTerm } = require('./gradeWeightService');
 const {
@@ -458,6 +459,14 @@ async function listAllSubjectsForClass(classId) {
   return collected.subjects;
 }
 
+async function listReportCardSubjectsForClass(classId) {
+  const [subjects, excluded] = await Promise.all([
+    listAllSubjectsForClass(classId),
+    listExcludedReportSubjects(classId)
+  ]);
+  return subjects.filter((s) => !excluded.has(s.subject));
+}
+
 /**
  * Class overview for Report Card tab: students + subject completion matrix.
  */
@@ -470,10 +479,10 @@ async function getClassReportOverview(teacherId, classId, term) {
     term = (active && (active.label || active.termId)) || 'Term1';
   }
 
-  const [students, subjectData, allSubjects, statuses, classNames, teacher, names] = await Promise.all([
+  const [students, subjectData, reportSubjects, statuses, classNames, teacher, names] = await Promise.all([
     getClassRoster(classId),
     listClassGradeSubjects(teacherId, classId),
-    listAllSubjectsForClass(classId),
+    listReportCardSubjectsForClass(classId),
     listStatusRows(classId, term),
     getClassNameMap(),
     getTeacherProfile(teacherId),
@@ -482,8 +491,8 @@ async function getClassReportOverview(teacherId, classId, term) {
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
   const isHomeroom = !!(subjectData.isHomeroom || (teacher && teacher.homeroomClassId === classId));
-  // Readiness uses ALL class subjects; canEdit follows the logged-in teacher.
-  const subjectList = (allSubjects.length ? allSubjects : (subjectData.subjects || [])).map((s) => ({
+  // Readiness uses report-card subjects only (excluded gradebooks are omitted).
+  const subjectList = (reportSubjects.length ? reportSubjects : (subjectData.subjects || []).filter((s) => !s.excludeFromReport)).map((s) => ({
     subject: s.subject,
     teacherNames: s.teacherNames || [],
     canEdit: isHomeroom ? false : taughtSet.has(s.subject) || !!(subjectData.subjects || []).find((x) => x.subject === s.subject && x.canEdit)
@@ -920,6 +929,8 @@ async function listParentReportCards(parentSession) {
 
   // Build card without teacher access check — parents only see shared cards
   const overviewSubjects = [...new Set(sharedSubjects.map((s) => s.subject))];
+  const excluded = await listExcludedReportSubjects(classId);
+  const reportSubjects = overviewSubjects.filter((subject) => !excluded.has(subject));
   const meta = await getStudentMeta(studentId);
   const classNames = await getClassNameMap();
   const names = await teacherNameMap();
@@ -927,7 +938,7 @@ async function listParentReportCards(parentSession) {
   const roster = [{ studentId, name: meta.name }];
 
   const subjectBlocks = [];
-  for (const subject of overviewSubjects) {
+  for (const subject of reportSubjects) {
     const entries = await listReportCardEntries(classId, term, studentId, subject);
     const form = entriesToSubjectForm(entries, subject);
     let percent = null;
@@ -1027,6 +1038,7 @@ module.exports = {
   shareReportCardWithParents,
   listParentReportCards,
   listAllSubjectsForClass,
+  listReportCardSubjectsForClass,
   ensureReportCardSheets,
   seedDemoSubjectReports
 };
