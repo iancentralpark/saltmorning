@@ -376,6 +376,10 @@
     mount().querySelectorAll('.rc-habit-select').forEach((sel) => {
       workHabits[sel.dataset.key] = sel.value;
     });
+    const saveBtn = $('rcSaveDraft');
+    const completeBtn = $('rcMarkComplete');
+    if (saveBtn) saveBtn.disabled = true;
+    if (completeBtn) completeBtn.disabled = true;
     try {
       const res = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/report-card', {
         method: 'POST',
@@ -402,6 +406,9 @@
     } catch (e) {
       err.style.color = '#dc2626';
       err.textContent = e.message;
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+      if (completeBtn) completeBtn.disabled = false;
     }
   }
 

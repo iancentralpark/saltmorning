@@ -158,9 +158,10 @@ window.SaltGrades = (function() {
     $('gradeSubject').value = subj;
     setEditMode(editable);
     showGradebookUi();
+    const mount = $('gradebookMount');
+    if (mount) mount.innerHTML = '<p class="muted">Loading gradebook…</p>';
     await loadActiveTerm();
-    await loadGradebook();
-    await loadLessonWeights();
+    await Promise.all([loadGradebook(), loadLessonWeights()]);
   }
 
   async function onClassOpen() {
@@ -170,6 +171,9 @@ window.SaltGrades = (function() {
     subjectCatalog = [];
     showSubjectPicker = false;
     setEditMode(true);
+    const list = $('gradeSubjectList');
+    if (list) list.innerHTML = '<p class="muted">Loading subjects…</p>';
+    showPicker();
 
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects');
@@ -180,7 +184,7 @@ window.SaltGrades = (function() {
       if (showSubjectPicker) {
         renderSubjectPicker(subjectCatalog, isHomeroom, data.source);
         showPicker();
-        await loadActiveTerm();
+        loadActiveTerm();
         return;
       }
 

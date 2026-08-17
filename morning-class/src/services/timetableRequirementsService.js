@@ -42,16 +42,18 @@ function normalizeClassIds(primaryClassId, linkedClassIds) {
   };
 }
 
+let requirementsReady = false;
+
 async function ensureRequirementsSheet() {
   await ensureSheet(TIMETABLE_REQUIREMENTS_SHEET, HEADERS);
+  if (requirementsReady) return;
   try {
-    const rows = await getSheetRows(TIMETABLE_REQUIREMENTS_SHEET, { skipCache: true });
+    const rows = await getSheetRows(TIMETABLE_REQUIREMENTS_SHEET);
     const header = rows[0] || [];
     if (String(header[COL.linkedClassIds] || '') !== 'LinkedClassIDs') {
       const next = header.slice();
       while (next.length < HEADERS.length) next.push('');
       next[COL.linkedClassIds] = 'LinkedClassIDs';
-      // Keep legacy labels for older columns if present
       for (let i = 0; i < HEADERS.length - 1; i++) {
         if (!String(next[i] || '').trim()) next[i] = HEADERS[i];
       }
@@ -61,6 +63,7 @@ async function ensureRequirementsSheet() {
   } catch (e) {
     // non-fatal
   }
+  requirementsReady = true;
 }
 
 function rowToReq(row) {
