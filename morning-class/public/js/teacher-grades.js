@@ -90,11 +90,11 @@ window.SaltGrades = (function() {
     if (!list) return;
     if (hint) {
       if (isHomeroom && source === 'requirements') {
-        hint.textContent = 'Subjects match this class\'s timetable Subject requirements. You can view all grades; only the subject teacher can edit.';
+        hint.textContent = 'Subjects match this class\'s timetable Subject requirements. Gradebooks stay here even if you exclude a subject from the report card.';
       } else if (isHomeroom) {
-        hint.textContent = 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit.';
+        hint.textContent = 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit. Exclude a subject from the report card without removing its gradebook.';
       } else {
-        hint.textContent = 'Select a subject you teach in this class.';
+        hint.textContent = 'Select a subject you teach in this class. You can exclude it from the report card without removing the gradebook.';
       }
     }
     if (!subjects.length) {
@@ -105,19 +105,53 @@ window.SaltGrades = (function() {
       const teachers = (s.teacherNames && s.teacherNames.length)
         ? s.teacherNames.join(', ')
         : '';
+      const excluded = !!s.excludeFromReport;
       const editTag = s.canEdit
         ? '<span class="grade-subj-tag grade-subj-edit">Editable</span>'
         : '<span class="grade-subj-tag grade-subj-view">View only</span>';
-      return '<button type="button" class="grade-subj-card" data-subject="' + escapeHtml(s.subject) +
+      const offTag = excluded
+        ? '<span class="grade-subj-tag grade-subj-off">Off report</span>'
+        : '';
+      const rcBtn = s.canToggleReport
+        ? '<button type="button" class="grade-subj-rc-btn" data-subject="' + escapeHtml(s.subject) +
+          '" data-exclude="' + (excluded ? '0' : '1') + '">' +
+          (excluded ? 'Include on report' : 'Exclude from report') + '</button>'
+        : (excluded ? '<span class="muted small">Off report card</span>' : '');
+      return '<div class="grade-subj-card' + (excluded ? ' grade-subj-off-report' : '') + '">' +
+        '<button type="button" class="grade-subj-open" data-subject="' + escapeHtml(s.subject) +
         '" data-edit="' + (s.canEdit ? '1' : '0') + '">' +
         '<span class="grade-subj-name">' + escapeHtml(s.subject) + '</span>' +
-        '<span class="grade-subj-meta">' + editTag +
+        '<span class="grade-subj-meta">' + editTag + offTag +
         (teachers ? '<span class="muted small">' + escapeHtml(teachers) + '</span>' : '') +
-        '</span></button>';
+        '</span></button>' +
+        rcBtn +
+        '</div>';
     }).join('');
-    list.querySelectorAll('.grade-subj-card').forEach((btn) => {
+    list.querySelectorAll('.grade-subj-open').forEach((btn) => {
       btn.addEventListener('click', () => openSubject(btn.dataset.subject, btn.dataset.edit === '1'));
     });
+    list.querySelectorAll('.grade-subj-rc-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleReportInclude(btn.dataset.subject, btn.dataset.exclude === '1');
+      });
+    });
+  }
+
+  async function toggleReportInclude(subject, exclude) {
+    const cls = getClass();
+    const err = $('gradesError');
+    if (err) err.textContent = '';
+    try {
+      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects/report-card', {
+        method: 'POST',
+        body: { subject: subject, excludeFromReport: !!exclude }
+      });
+      await onClassOpen();
+    } catch (e) {
+      if (err) err.textContent = e.message || 'Could not update report-card inclusion.';
+    }
   }
 
   async function openSubject(subj, editable) {

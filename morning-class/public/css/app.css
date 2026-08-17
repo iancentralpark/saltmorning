@@ -1255,25 +1255,22 @@ textarea { min-height: 100px; resize: vertical; }
 .grade-subject-picker { margin-bottom: 0.5rem; }
 .grade-subject-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10.75rem, 12.75rem));
+  grid-template-columns: repeat(auto-fill, 9.75rem);
   justify-content: start;
-  gap: 0.65rem;
+  gap: 0.55rem;
   margin-top: 0.65rem;
 }
 .grade-subj-card {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.4rem;
   text-align: left;
-  width: 100%;
-  min-height: 6.25rem;
+  width: 9.75rem;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--cream);
-  padding: 0.75rem 0.85rem;
-  cursor: pointer;
+  padding: 0.55rem 0.6rem 0.5rem;
   font: inherit;
   color: inherit;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -1282,28 +1279,66 @@ textarea { min-height: 100px; resize: vertical; }
   border-color: var(--sage);
   box-shadow: var(--shadow-sm);
 }
+.grade-subj-card.grade-subj-off-report {
+  border-style: dashed;
+  opacity: 0.82;
+  background: #f7f4ee;
+}
+.grade-subj-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
 .grade-subj-name {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   line-height: 1.25;
   color: var(--charcoal);
 }
 .grade-subj-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
 }
 .grade-subj-tag {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  padding: 0.15rem 0.45rem;
+  padding: 0.12rem 0.38rem;
   border-radius: 4px;
 }
 .grade-subj-edit { background: var(--sage-soft); color: var(--olive-deep); }
 .grade-subj-view { background: #f0ebe3; color: #6b6358; }
+.grade-subj-off { background: #f3e4d4; color: #8a5a32; }
+.grade-subj-rc-btn {
+  width: 100%;
+  margin: 0;
+  padding: 0.28rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--olive-deep);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.grade-subj-rc-btn:hover {
+  border-color: var(--sage);
+  background: var(--sage-soft);
+}
 .grade-ro-badge {
   display: inline-block;
   font-size: 0.72rem;

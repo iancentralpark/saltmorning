@@ -32,9 +32,9 @@ function addSubjectEntry(bySubject, teacherNames, subject, teacherIdForSubj, tea
 
 /**
  * Class curriculum for Grades / Reports.
- * If the class has timetable Subject requirements, those subjects win
- * (plus any subjects a teacher added themselves). Otherwise the list is
- * Class_Teachers + Teacher_Class_Subjects + existing Grade_Assessments.
+ * If the class has timetable Subject requirements, that list is the
+ * curriculum (exact match). Otherwise the list is Class_Teachers +
+ * Teacher_Class_Subjects + existing Grade_Assessments.
  */
 async function collectClassSubjects(classId) {
   const { listRequirementCurriculum } = require('./timetableRequirementsService');
@@ -59,10 +59,6 @@ async function collectClassSubjects(classId) {
       });
       if (!(s.teacherIds || []).length) add(s.subject, '');
     });
-    for (let i = 1; i < customRows.length; i++) {
-      if (String(customRows[i][1]) !== String(classId)) continue;
-      add(customRows[i][2], customRows[i][0]);
-    }
     return {
       source: 'requirements',
       subjects: Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject))
@@ -313,9 +309,11 @@ async function getTeacherGradeAccess(teacherId, classId, subject) {
 
 async function listClassGradeSubjects(teacherId, classId) {
   await assertTeacherClassAccess(teacherId, classId);
-  const [data, collected] = await Promise.all([
+  const { listExcludedReportSubjects } = require('./classSubjectFlagsService');
+  const [data, collected, excluded] = await Promise.all([
     loadTeacherSubjectData(teacherId),
-    collectClassSubjects(classId)
+    collectClassSubjects(classId),
+    listExcludedReportSubjects(classId)
   ]);
 
   const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
@@ -325,7 +323,9 @@ async function listClassGradeSubjects(teacherId, classId) {
   let subjects = collected.subjects.map((s) => ({
     subject: s.subject,
     canEdit: taughtSet.has(s.subject),
-    teacherNames: s.teacherNames
+    teacherNames: s.teacherNames,
+    excludeFromReport: excluded.has(s.subject),
+    canToggleReport: isHomeroom || taughtSet.has(s.subject)
   }));
 
   if (!isHomeroom) {
