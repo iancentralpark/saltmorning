@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260817perf1">
+  <link rel="stylesheet" href="/css/app.css?v=20260817mobile2">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -19,9 +19,14 @@
 
     <div id="appShell" class="hidden teacher-app-shell">
   <header class="topbar teacher-topbar teacher-shell-topbar">
-    <div class="teacher-shell-identity">
-      <button type="button" class="brand brand-link" id="teacherNameBrand" title="Go to home timetable">Teacher</button>
-      <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
+    <div class="teacher-shell-row">
+      <div class="teacher-shell-identity">
+        <button type="button" class="brand brand-link" id="teacherNameBrand" title="Go to home timetable">Teacher</button>
+        <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
+      </div>
+      <button type="button" class="teacher-nav-toggle" id="teacherNavToggle" aria-label="Menu" aria-expanded="false" aria-controls="teacherShellNav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </div>
     <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home" data-i18n="nav.home">Home</button>
@@ -515,7 +520,7 @@
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260813ux1"></script>
+<script src="/js/app.js?v=20260817mobile1"></script>
 <script src="/js/i18n.js?v=20260817classtt1"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/material-requests.js?v=20260813ux1"></script>
@@ -868,10 +873,10 @@
                 r.emergency && r.emergency.emergencyPhone
               ].filter(Boolean).join(' · ') || '—';
               return '<tr class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
-                '<td><strong>' + escapeHtml(r.name) + '</strong>' +
+                '<td data-label="Student"><strong>' + escapeHtml(r.name) + '</strong>' +
                 (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
                 (r.noShow ? ' <span class="error">No-show</span>' : '') + '</td>' +
-                '<td class="muted small">' + escapeHtml(contact) + '</td>' +
+                '<td class="muted small" data-label="Contact">' + escapeHtml(contact) + '</td>' +
                 (isPickup
                   ? '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ns" data-run="' +
                     escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
@@ -1724,6 +1729,22 @@
       else if (nav === 'lostFound') openLostFound();
     });
   });
+
+  // Mobile hamburger menu: collapse the nav into a toggled drawer.
+  if ($('teacherNavToggle') && $('teacherShellNav')) {
+    const navToggle = $('teacherNavToggle');
+    const shellNav = $('teacherShellNav');
+    navToggle.addEventListener('click', () => {
+      const open = shellNav.classList.toggle('is-open');
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    shellNav.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn || btn.id === 'classToolsMenuBtn') return;
+      shellNav.classList.remove('is-open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  }
 
   window.addEventListener('hashchange', () => {
     if (!applyingRoute) applyRoute();

@@ -1,6 +1,5 @@
 'use strict';
 
-const crypto = require('crypto');
 const {
   STUDENT_LIST_SHEET,
   PARENT_LIST_SHEET,
@@ -22,8 +21,11 @@ const HEADERS = [
 ];
 
 const WEAK_PASSWORDS = new Set([
-  'changeme123', 'changeme', 'password', 'password1', '1234', '12345', '123456', 'temp', 'tmp'
+  'changeme123', 'changeme', 'password', 'password1', 'password123', '1234', '12345', '123456', 'temp', 'tmp'
 ]);
+
+/** Default password an admin reset falls back to when none is supplied. */
+const DEFAULT_RESET_PASSWORD = 'password123';
 
 function accountKey(role, accountId) {
   return String(role || '') + ':' + String(accountId || '');
@@ -156,7 +158,7 @@ async function setAccountActive(role, accountId, active) {
 }
 
 function generateTempPassword() {
-  return 'Tmp-' + crypto.randomBytes(3).toString('hex');
+  return DEFAULT_RESET_PASSWORD;
 }
 
 const PASSWORD_TARGETS = {
@@ -252,6 +254,7 @@ async function assertSessionTokenVersion(session) {
 
 module.exports = {
   FLAGS_SHEET,
+  DEFAULT_RESET_PASSWORD,
   isWeakPassword,
   getMustChange,
   setMustChange,

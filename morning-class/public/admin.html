@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/app.css?v=20260817gs1">
+  <link rel="stylesheet" href="/css/app.css?v=20260817mobile2">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
@@ -751,7 +751,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260813ux1"></script>
+<script src="/js/app.js?v=20260817mobile1"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/i18n.js?v=20260814ux3"></script>
   <script src="/js/push-client.js?v=20260814ux2"></script>
@@ -759,7 +759,7 @@
   <script src="/js/teacher-lesson.js?v=20260817perf1"></script>
   <script src="/js/teacher-analytics.js?v=20260814ux2"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
-<script src="/js/student-registry.js?v=20260813gap27"></script>
+<script src="/js/student-registry.js?v=20260817mobile1"></script>
 <script src="/js/class-registry.js?v=20260813fac1"></script>
 <script src="/js/timetable.js?v=20260813gap1"></script>
 <script src="/js/timetable-setup.js?v=20260817gs1"></script>
@@ -1529,7 +1529,7 @@
         alert('Save the faculty member first.');
         return;
       }
-      if (!confirm('Reset faculty password?\n\nA temporary password will be generated and they must change it on next login.')) {
+      if (!confirm('Reset faculty password to the default (password123)?\n\nThey must change it on next login.')) {
         return;
       }
       try {
@@ -1540,7 +1540,7 @@
         alert(
           'Password reset.\n\n' +
           (res.loginId ? 'Login: ' + res.loginId + '\n' : '') +
-          'Temporary password: ' + (res.temporaryPassword || '') +
+          'New password: ' + (res.temporaryPassword || '') +
           '\n\nShare this securely. They must change it after login.'
         );
       } catch (err) {
