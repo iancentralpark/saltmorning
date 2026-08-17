@@ -186,6 +186,7 @@
     <nav class="class-subnav" id="classTabs" aria-label="Class sections">
       <div class="class-subnav-track">
         <button class="class-subnav-item active" data-tab="attendance" data-homeroom-only="1" type="button" data-i18n="nav.attendance">Attendance</button>
+        <button class="class-subnav-item" data-tab="timetable" type="button" data-i18n="nav.timetable">Timetable</button>
         <button class="class-subnav-item" data-tab="grades" type="button" data-i18n="nav.parentGrades">Grades</button>
         <button class="class-subnav-item" data-tab="dollars" type="button" data-i18n="nav.dollars">Dollars</button>
         <button class="class-subnav-item" data-tab="homework" type="button" data-i18n="nav.homework">Homework</button>
@@ -203,6 +204,11 @@
       </div>
       <div id="attScheduleAlert" class="att-alert"></div>
       <div id="attStudentList" class="att-student-list"></div>
+    </div>
+
+    <div id="panelTimetable" class="card hidden">
+      <p class="muted small" data-i18n="teacher.class.timetableHelp">This class's weekly schedule — subjects, teachers, and rooms.</p>
+      <div id="classTimetableMount"><p class="muted">Loading timetable…</p></div>
     </div>
 
     <div id="panelGrades" class="card hidden grades-panel">
@@ -510,7 +516,7 @@
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260813ux1"></script>
-<script src="/js/i18n.js?v=20260814ux2"></script>
+<script src="/js/i18n.js?v=20260817classtt1"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/material-requests.js?v=20260813ux1"></script>
 <script src="/js/conferences.js?v=20260814ux4"></script>
@@ -526,7 +532,7 @@
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/student-registry.js?v=20260813gap27"></script>
-<script src="/js/timetable.js?v=20260813gap1"></script>
+<script src="/js/timetable.js?v=20260817classtt1"></script>
 <script>
 (function() {
   const role = 'teacher';
@@ -596,8 +602,8 @@
     const roleLabel = c.roleLabel || (c.roles && c.roles.length ? c.roles.join(' / ') : (c.subjects || []).join(' / '));
     const subjectsJson = JSON.stringify(c.subjects || []);
     const quick = isHomeroom
-      ? [['attendance', 'Attendance'], ['grades', 'Grades'], ['homework', 'Homework']]
-      : [['grades', 'Grades'], ['homework', 'Homework'], ['dollars', 'Dollars']];
+      ? [['attendance', 'Attendance'], ['timetable', 'Timetable'], ['grades', 'Grades']]
+      : [['timetable', 'Timetable'], ['grades', 'Grades'], ['homework', 'Homework']];
     const actions = quick.map((pair) =>
       '<button type="button" class="class-card-quick" data-tab="' + pair[0] + '">' + pair[1] + '</button>'
     ).join('') +
@@ -1104,6 +1110,7 @@
   function tabLabel(name) {
     const map = {
       attendance: 'Attendance',
+      timetable: 'Timetable',
       grades: 'Grades',
       dollars: 'Dollars',
       homework: 'Homework',
@@ -1249,11 +1256,12 @@
     }
     currentClassTab = name;
     document.querySelectorAll('#classTabs .class-subnav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
+    ['panelAttendance','panelTimetable','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
       if ($(id)) hide($(id));
     });
     const map = {
       attendance: 'panelAttendance',
+      timetable: 'panelTimetable',
       grades: 'panelGrades',
       dollars: 'panelDollars',
       homework: 'panelHomework',
@@ -1272,6 +1280,7 @@
         setRoute('#/class/' + encodeURIComponent(currentClass.classId) + '/' + encodeURIComponent(name));
       }
     }
+    if (name === 'timetable') loadClassTimetable();
     if (name === 'grades') SaltGrades.onClassOpen();
     if (name === 'dollars') loadDollars();
     if (name === 'homework') loadHomework();
@@ -1331,6 +1340,16 @@
     } finally {
       applyingRoute = false;
     }
+  }
+
+  async function loadClassTimetable() {
+    const mount = $('classTimetableMount');
+    if (!mount || !currentClass) return;
+    if (!window.SaltTimetable || typeof SaltTimetable.renderReadOnly !== 'function') {
+      mount.innerHTML = '<p class="muted">Timetable is unavailable.</p>';
+      return;
+    }
+    await SaltTimetable.renderReadOnly(mount, 'class', currentClass.classId, '');
   }
 
   async function loadDollars() {

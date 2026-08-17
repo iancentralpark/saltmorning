@@ -3464,6 +3464,19 @@ router.post('/admin/timetable/teachers/:teacherId', requireRole('admin'), async 
   }
 });
 
+router.get('/teacher/class/:classId/timetable', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    await ensureTimetableSheet();
+    res.json({
+      timetable: await getTimetable('class', req.params.classId)
+    });
+  } catch (e) {
+    const code = /assign|access/i.test(e.message || '') ? 403 : 500;
+    res.status(code).json({ error: e.message || 'Could not load class timetable.' });
+  }
+});
+
 router.get('/teacher/timetable', requireRole('teacher'), async (req, res) => {
   try {
     await ensureTimetableSheet();
