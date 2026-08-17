@@ -1,0 +1,165 @@
+/* ==========================================================================
+   Teacher portal — redesign preview (v2)
+   Modern, high-saturation, "cool" palette (teal + orange), still organized
+   around the same CSS custom-property system app.css already uses.
+   Scoped to #teacherShellRoot / body.teacher-body so it never touches the
+   Admin / Parent / Student portals, which still load the original app.css
+   palette unchanged.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* ---- Palette overrides (same variable names app.css already uses) ---- */
+#teacherShellRoot {
+  --olive: #0D9488;        /* brand — teal */
+  --olive-deep: #0F766E;   /* brand deep — for gradients / hover */
+  --gold: #FB923C;         /* accent — vivid orange (CTAs, teacher role color) */
+  --gold-soft: #FFE8D1;    /* soft orange tint for badges */
+  --cream: #F1F6F9;        /* app background — cool, crisp light blue-gray */
+  --cream-deep: #E3EDF3;   /* deeper background band */
+  --sage: #2DD4BF;         /* secondary brand — bright aqua */
+  --sage-soft: #E3FBF7;    /* very light aqua tint */
+  --sage-dark: #0F766E;
+  --charcoal: #0F172A;     /* ink — crisp navy-black text */
+  --muted: #5B6B7C;
+  --border: #DCE6EE;
+  --border-soft: #ECF2F6;
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+  --shadow-sm: 0 4px 16px rgba(15, 23, 42, 0.08);
+  --radius: 18px;
+  --radius-sm: 14px;
+
+  --lavender: #A78BFA;
+  --lavender-soft: #F1EBFF;
+  --lavender-dark: #7C3AED;
+  --peach-soft: #FFF1E6;
+  --sky: #38BDF8;
+  --sky-soft: #E3F5FF;
+  --student: #22C55E;
+  --parent: #F59E0B;
+
+  /* Re-declare tokens that app.css derives via var() at :root — custom
+     property substitution resolves using the cascaded value AT THE
+     ELEMENT where the var() appears, so these must be repeated here to
+     pick up the overrides above instead of the original :root values. */
+  --bg: var(--cream);
+  --bg-warm: var(--cream-deep);
+  --text: var(--charcoal);
+  --primary: var(--olive);
+  --primary-dark: var(--olive-deep);
+  --primary-soft: var(--sage-soft);
+  --primary-text: var(--olive);
+  --peach: var(--gold);
+  --teacher: var(--gold);
+  --admin: var(--olive);
+
+  --font-serif: 'Fredoka', 'Baloo 2', var(--font-sans);
+  --font-sans: 'Plus Jakarta Sans', 'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+
+  /* extra accent swatches for colorful, rule-based tagging (chips, class card rotation) */
+  --acc-sun: #FBBF24;
+  --acc-berry: #FB7185;
+  --acc-violet: #A78BFA;
+  --acc-sky: #38BDF8;
+  --acc-grass: #22C55E;
+}
+
+body.teacher-body {
+  background:
+    radial-gradient(ellipse 80% 50% at 8% -5%, rgba(45, 212, 191, 0.20) 0%, transparent 55%),
+    radial-gradient(ellipse 65% 45% at 100% 10%, rgba(251, 146, 60, 0.16) 0%, transparent 52%),
+    linear-gradient(180deg, #E3EDF3 0%, #F1F6F9 55%, #ffffff 100%);
+}
+
+/* ---- Header / topbar ---- */
+#teacherShellRoot .topbar {
+  background: linear-gradient(120deg, #0D9488 0%, #0891B2 60%, #0F766E 100%);
+  box-shadow: 0 12px 32px rgba(13, 148, 136, 0.28);
+}
+#teacherShellRoot .topbar .btn-ghost {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+}
+#teacherShellRoot .topbar .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.26);
+  color: #fff;
+}
+#teacherShellRoot .teacher-nav-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.14);
+}
+#teacherShellRoot .teacher-nav-toggle:hover { background: rgba(255, 255, 255, 0.26); }
+#teacherShellRoot .teacher-nav-btn.is-active {
+  background: rgba(255, 209, 128, 0.32);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #fff;
+}
+#teacherShellRoot .teacher-shell-page { color: rgba(255, 255, 255, 0.82); }
+
+/* ---- Buttons ---- */
+#teacherShellRoot .btn-primary {
+  box-shadow: 0 6px 18px rgba(13, 148, 136, 0.32);
+}
+#teacherShellRoot .btn-primary:hover { box-shadow: 0 10px 24px rgba(13, 148, 136, 0.4); }
+#teacherShellRoot .btn-gold {
+  background: linear-gradient(135deg, #FB923C 0%, #F97316 100%);
+  color: #1a1204;
+  box-shadow: 0 6px 18px rgba(251, 146, 60, 0.38);
+}
+#teacherShellRoot .btn-ghost:hover { background: #D6F7F1; }
+#teacherShellRoot input:focus,
+#teacherShellRoot select:focus,
+#teacherShellRoot textarea:focus {
+  border-color: var(--olive);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.35);
+}
+
+/* ---- Cards ---- */
+#teacherShellRoot .card {
+  border-radius: var(--radius);
+}
+#teacherShellRoot .class-card-homeroom {
+  background: linear-gradient(135deg, #E3FBF7 0%, #D4F5EF 100%);
+  border-color: var(--olive);
+  box-shadow: inset 0 0 0 1px rgba(13, 148, 136, 0.14);
+}
+#teacherShellRoot .class-card-homeroom:hover {
+  background: linear-gradient(135deg, #D4F5EF 0%, #C4EEE5 100%);
+  border-color: var(--olive-deep);
+}
+#teacherShellRoot .class-card {
+  border-width: 1.5px;
+  border-left-width: 5px;
+}
+#teacherShellRoot .class-list .class-card:nth-of-type(6n+1) { border-left-color: var(--sage); }
+#teacherShellRoot .class-list .class-card:nth-of-type(6n+2) { border-left-color: var(--acc-sun); }
+#teacherShellRoot .class-list .class-card:nth-of-type(6n+3) { border-left-color: var(--acc-sky); }
+#teacherShellRoot .class-list .class-card:nth-of-type(6n+4) { border-left-color: var(--acc-berry); }
+#teacherShellRoot .class-list .class-card:nth-of-type(6n+5) { border-left-color: var(--acc-violet); }
+#teacherShellRoot .class-list .class-card:nth-of-type(6n+6) { border-left-color: var(--gold); }
+#teacherShellRoot .class-list .class-card-homeroom { border-left-color: var(--olive) !important; }
+
+/* ---- Nav / tabs ---- */
+#teacherShellRoot .class-subnav { border-bottom-color: var(--border); }
+#teacherShellRoot .tab.active { box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3); }
+
+/* ---- Brand wordmark ---- */
+#teacherShellRoot .teacher-shell-identity .brand,
+#teacherShellRoot .brand-link,
+#teacherShellRoot #teacherNameBrand {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+#teacherShellRoot .section-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--olive-deep);
+}
+
+/* ---- Push prompt / bus duty accents ---- */
+#teacherShellRoot .push-prompt {
+  border-color: var(--border);
+  background: linear-gradient(135deg, #E3FBF7 0%, #FFF6EC 100%);
+}
+#teacherShellRoot .bus-duty-card { border-color: var(--border); }
