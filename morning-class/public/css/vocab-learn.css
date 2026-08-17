@@ -18,7 +18,7 @@
 .vocab-shell {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.6rem;
 }
 
 /* Student portal hides with `.hidden`, not Bootstrap `.d-none`. */
@@ -30,8 +30,8 @@
 .vocab-hero {
   background: var(--vocab-stage);
   border: 1px solid var(--vocab-line);
-  border-radius: 16px;
-  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 14px;
+  padding: 0.85rem 1rem 0.95rem;
   position: relative;
   overflow: hidden;
 }
@@ -57,8 +57,8 @@
 }
 
 .vocab-hero h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.15rem;
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
   color: var(--vocab-ink);
   position: relative;
   z-index: 1;
@@ -67,8 +67,8 @@
 .vocab-hero p {
   margin: 0;
   color: var(--vocab-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.85rem;
+  line-height: 1.4;
   position: relative;
   z-index: 1;
   max-width: 38rem;
@@ -544,8 +544,9 @@
 
 .vocab-shell > .card-title {
   color: #0b6e9e;
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
+  margin: 0 0 0.5rem;
 }
 .vocab-shell > .card-title i {
   color: #e67e22;
@@ -554,13 +555,13 @@
 .vocab-tier-hero {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.15rem 1.2rem;
-  margin-bottom: 1rem;
-  border-radius: 1.15rem;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.65rem;
+  border-radius: 0.9rem;
   border: 2px solid rgba(42, 111, 151, 0.28);
   background: linear-gradient(135deg, #dff3ff 0%, #cfe9fb 42%, #ffe8c8 100%);
-  box-shadow: 0 10px 28px rgba(42, 111, 151, 0.14), inset 0 1px 0 rgba(255,255,255,0.7);
+  box-shadow: 0 6px 16px rgba(42, 111, 151, 0.12), inset 0 1px 0 rgba(255,255,255,0.7);
 }
 .vocab-tier-hero.is-clickable {
   cursor: pointer;
@@ -585,26 +586,26 @@
 }
 .vocab-tier-badge-mark {
   flex: 0 0 auto;
-  width: 4.4rem;
-  height: 4.4rem;
+  width: 2.9rem;
+  height: 2.9rem;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 1.85rem;
+  font-size: 1.2rem;
   color: #fff;
   background: #2a6f97;
-  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.4), 0 8px 18px rgba(0,0,0,0.16);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4), 0 4px 10px rgba(0,0,0,0.14);
 }
-.vocab-tier-hero-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.vocab-tier-hero-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .vocab-tier-hero-label {
-  font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase;
   color: #1f6f9c; font-weight: 750;
 }
 .vocab-tier-hero-name {
-  font-size: clamp(1.85rem, 5vw, 2.55rem); line-height: 1.05;
+  font-size: clamp(1.3rem, 3.2vw, 1.65rem); line-height: 1.1;
   font-weight: 800; color: #0d3550; letter-spacing: -0.02em;
 }
-.vocab-tier-hero-grade { font-size: 0.95rem; color: #2f5f7a; font-weight: 700; }
+.vocab-tier-hero-grade { font-size: 0.8rem; color: #2f5f7a; font-weight: 700; }
 
 .vocab-mastery-wrap {
   margin: 0.65rem 0 0.85rem;

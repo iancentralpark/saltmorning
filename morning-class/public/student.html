@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20260814ux3">
-  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260805v1proxy">
+  <link rel="stylesheet" href="/css/app.css?v=20260817stucln1">
+  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260817stucln1">
 </head>
 <body class="student-body">
 <div class="shell student-shell">
@@ -47,10 +47,20 @@
       <div id="stuAnnList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
     </div>
 
-    <div class="card stu-card" id="sectionLostFound">
-      <div class="card-title"><i class="fa-solid fa-box-open"></i> <span data-i18n="nav.lostAndFound">Lost &amp; Found</span></div>
-      <p class="muted small" data-i18n="student.laf.help">Items turned in to the office. Ask a parent to claim yours, or stop by the office.</p>
-      <div id="stuLafList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    <div class="card stu-card" id="sectionHomework">
+      <div class="card-title"><i class="fa-solid fa-pencil"></i> <span data-i18n="nav.homework">Homework</span></div>
+      <p class="muted small" id="homeworkStatus">Loading…</p>
+      <div id="homeworkList"></div>
+    </div>
+
+    <div class="card stu-card" id="sectionDollars">
+      <div class="card-title"><i class="fa-solid fa-coins"></i> <span data-i18n="student.dollars">My dollars</span></div>
+      <div class="stu-dollar-row">
+        <strong id="dollarBalance" class="stu-dollar-amount">—</strong>
+        <button type="button" class="btn btn-ghost btn-sm hidden" id="dollarHistoryToggle">History</button>
+      </div>
+      <p class="muted small hidden" id="dollarStatus"></p>
+      <div id="dollarTx" class="stu-dollar-history hidden"></div>
     </div>
 
     <div class="card stu-card vocab-shell" id="vocabShell">
@@ -92,23 +102,14 @@
       </div>
     </div>
 
-    <div class="card stu-card" id="sectionHomework">
-      <h3 data-i18n="nav.homework">Homework</h3>
-      <p class="muted small" id="homeworkStatus">Loading…</p>
-      <div id="homeworkList"></div>
-    </div>
-
-    <div class="card stu-card" id="sectionDollars">
-      <h3 data-i18n="student.dollars">My dollars</h3>
-      <p class="muted small" id="dollarStatus">Loading…</p>
-      <div id="dollarBox">
-        <strong id="dollarBalance">—</strong>
-        <div id="dollarTx"></div>
-      </div>
+    <div class="card stu-card" id="sectionLostFound">
+      <div class="card-title"><i class="fa-solid fa-box-open"></i> <span data-i18n="nav.lostAndFound">Lost &amp; Found</span></div>
+      <p class="muted small" data-i18n="student.laf.help">Items turned in to the office. Ask a parent to claim yours, or stop by the office.</p>
+      <div id="stuLafList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
     </div>
 
     <div class="card stu-card" id="sectionAccount">
-      <h3 data-i18n="nav.profile">Account</h3>
+      <div class="card-title"><i class="fa-solid fa-user"></i> <span data-i18n="nav.profile">Account</span></div>
       <p class="muted small" id="moreProfile"></p>
       <p class="muted small" id="moreUnread"></p>
     </div>
@@ -406,22 +407,34 @@
   function renderDollars() {
     const d = (dashboard && dashboard.dollars) || {};
     const p = (dashboard && dashboard.profile) || getProfile(role) || {};
+    const statusEl = $('dollarStatus');
+    const toggleBtn = $('dollarHistoryToggle');
+    const txBox = $('dollarTx');
     if (!d.available) {
-      $('dollarStatus').textContent = 'Balance will appear when ready.';
+      statusEl.textContent = 'Balance will appear when ready.';
+      show(statusEl);
       $('dollarBalance').textContent = '—';
-      $('dollarTx').innerHTML = '';
+      txBox.innerHTML = '';
+      hide(toggleBtn);
+      hide(txBox);
     } else {
-      $('dollarStatus').textContent = 'Current balance';
+      hide(statusEl);
       $('dollarBalance').textContent = '$' + (d.balance || 0);
       const txs = d.transactions || [];
-      $('dollarTx').innerHTML = txs.length
-        ? '<ul class="stu-list">' + txs.map((t) =>
+      if (txs.length) {
+        txBox.innerHTML = '<ul class="stu-list">' + txs.map((t) =>
           '<li><strong>' + (t.amount > 0 ? '+' : '') + escapeHtml(String(t.amount)) + '</strong>' +
           '<div class="muted small">' + escapeHtml(t.reason || '') +
           (t.at ? ' · ' + escapeHtml(String(t.at).slice(0, 16).replace('T', ' ')) : '') +
           '</div></li>'
-        ).join('') + '</ul>'
-        : '<p class="muted small">No transactions yet.</p>';
+        ).join('') + '</ul>';
+        show(toggleBtn);
+        toggleBtn.textContent = 'History';
+      } else {
+        txBox.innerHTML = '';
+        hide(toggleBtn);
+      }
+      hide(txBox);
     }
     $('moreUnread').textContent = dashboard && dashboard.summary
       ? ('Unread messages: ' + (dashboard.summary.unreadMessages || 0) + ' — tap the chat icon (bottom left)')
@@ -471,6 +484,13 @@
       $('buddyInput').value = btn.dataset.prompt || '';
       $('buddyInput').focus();
     });
+  });
+
+  $('dollarHistoryToggle').addEventListener('click', () => {
+    const box = $('dollarTx');
+    const willShow = box.classList.contains('hidden');
+    box.classList.toggle('hidden', !willShow);
+    $('dollarHistoryToggle').textContent = willShow ? 'Hide' : 'History';
   });
 
   $('buddyFloatToggle').addEventListener('click', () => setBuddyOpen(!buddyOpen));

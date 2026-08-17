@@ -3376,6 +3376,30 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .student-panel { margin-bottom: 1rem; }
 .stu-card { margin-bottom: 0.85rem; }
 .stu-card h3 { margin: 0 0 0.5rem; font-size: 1.05rem; }
+.stu-card > .card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink, #1a2332);
+}
+.stu-card > .card-title i {
+  color: var(--sage);
+  font-size: 0.95rem;
+  width: 1.1rem;
+  text-align: center;
+}
+.stu-dollar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+.stu-dollar-amount { font-size: 1.9rem; font-weight: 800; color: var(--ink, #1a2332); }
+.stu-dollar-history { margin-top: 0.75rem; }
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.78rem; }
 .stu-section-label {
   margin: 0.85rem 0 0.35rem;
   font-size: 0.8rem;
@@ -3478,7 +3502,6 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   cursor: pointer;
 }
 .stu-tab.active { color: var(--sage); }
-#dollarBalance { font-size: 1.6rem; display: block; margin-bottom: 0.5rem; }
 @media (min-width: 720px) {
   .stu-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
