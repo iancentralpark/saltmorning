@@ -14,6 +14,78 @@ const {
 } = require('./subjectStyleService');
 
 const DEFAULT_HOMEROOM_SUBJECT = 'English';
+const SKIP_SUBJECTS = new Set(['All', 'All subjects', 'Homeroom']);
+
+function addSubjectEntry(bySubject, teacherNames, subject, teacherIdForSubj, teacherNameHint) {
+  const name = String(subject || '').trim();
+  if (!name || SKIP_SUBJECTS.has(name)) return;
+  if (!bySubject.has(name)) {
+    bySubject.set(name, { subject: name, teacherIds: [], teacherNames: [] });
+  }
+  const entry = bySubject.get(name);
+  const tid = String(teacherIdForSubj || '').trim();
+  if (tid && !entry.teacherIds.includes(tid)) {
+    entry.teacherIds.push(tid);
+    entry.teacherNames.push(teacherNameHint || teacherNames[tid] || tid);
+  }
+}
+
+/**
+ * Class curriculum for Grades / Reports.
+ * If the class has timetable Subject requirements, those subjects win
+ * (plus any subjects a teacher added themselves). Otherwise the list is
+ * Class_Teachers + Teacher_Class_Subjects + existing Grade_Assessments.
+ */
+async function collectClassSubjects(classId) {
+  const { listRequirementCurriculum } = require('./timetableRequirementsService');
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  const [reqSubjects, assignRows, customRows, assessRows, teacherNames] = await Promise.all([
+    listRequirementCurriculum(classId).catch(() => []),
+    getSheetRows(CLASS_TEACHERS_SHEET),
+    getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
+    getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
+    teacherDisplayNameMap()
+  ]);
+
+  const bySubject = new Map();
+  function add(subject, teacherIdForSubj, teacherNameHint) {
+    addSubjectEntry(bySubject, teacherNames, subject, teacherIdForSubj, teacherNameHint);
+  }
+
+  if (reqSubjects.length) {
+    reqSubjects.forEach((s) => {
+      (s.teacherIds || []).forEach((tid, idx) => {
+        add(s.subject, tid, (s.teacherNames && s.teacherNames[idx]) || '');
+      });
+      if (!(s.teacherIds || []).length) add(s.subject, '');
+    });
+    for (let i = 1; i < customRows.length; i++) {
+      if (String(customRows[i][1]) !== String(classId)) continue;
+      add(customRows[i][2], customRows[i][0]);
+    }
+    return {
+      source: 'requirements',
+      subjects: Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject))
+    };
+  }
+
+  for (let i = 1; i < assignRows.length; i++) {
+    if (String(assignRows[i][0]) !== String(classId)) continue;
+    add(assignRows[i][3], assignRows[i][1]);
+  }
+  for (let i = 1; i < customRows.length; i++) {
+    if (String(customRows[i][1]) !== String(classId)) continue;
+    add(customRows[i][2], customRows[i][0]);
+  }
+  for (let i = 1; i < (assessRows || []).length; i++) {
+    if (String(assessRows[i][1]) !== String(classId)) continue;
+    add(assessRows[i][3], assessRows[i][8]);
+  }
+  return {
+    source: 'assignments',
+    subjects: Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject))
+  };
+}
 
 async function ensureTeacherClassSubjectsSheet() {
   await ensureSheet(TEACHER_CLASS_SUBJECTS_SHEET, [
@@ -39,12 +111,14 @@ function parseCustomSubjectRows(rows, teacherId) {
 
 async function loadTeacherSubjectData(teacherId) {
   await ensureTeacherClassSubjectsSheet();
-  const [{ homeroom, assigned }, assignRows, customRows, classNames, catalog] = await Promise.all([
+  const { listAllRequirements } = require('./timetableRequirementsService');
+  const [{ homeroom, assigned }, assignRows, customRows, classNames, catalog, requirements] = await Promise.all([
     getTeacherClasses(teacherId),
     getSheetRows(CLASS_TEACHERS_SHEET),
     getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
     getClassNameMap(),
-    listCatalogSubjects()
+    listCatalogSubjects(),
+    listAllRequirements().catch(() => [])
   ]);
   return {
     homeroom,
@@ -52,7 +126,8 @@ async function loadTeacherSubjectData(teacherId) {
     assignRows,
     custom: parseCustomSubjectRows(customRows, teacherId),
     classNames,
-    catalog
+    catalog,
+    requirements
   };
 }
 
@@ -80,6 +155,14 @@ function subjectsForClassFromData(teacherId, classId, data, opts) {
 
   data.custom.forEach((c) => {
     if (c.classId === classId) subjects.add(c.subject);
+  });
+
+  (data.requirements || []).forEach((r) => {
+    if (String(r.teacherId) !== String(teacherId)) return;
+    const ids = r.classIds || [r.classId];
+    if (!ids.map(String).includes(String(classId))) return;
+    const name = String(r.subject || '').trim();
+    if (name && !SKIP_SUBJECTS.has(name)) subjects.add(name);
   });
 
   if (includeHomeroomDefault && isHomeroom && !subjects.size) {
@@ -230,62 +313,20 @@ async function getTeacherGradeAccess(teacherId, classId, subject) {
 
 async function listClassGradeSubjects(teacherId, classId) {
   await assertTeacherClassAccess(teacherId, classId);
-  const { teacherDisplayNameMap } = require('./teacherRegistryService');
-  const [
-    data,
-    assessRows,
-    teacherNames
-  ] = await Promise.all([
+  const [data, collected] = await Promise.all([
     loadTeacherSubjectData(teacherId),
-    getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
-    teacherDisplayNameMap()
+    collectClassSubjects(classId)
   ]);
 
   const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
   const taught = subjectsForClassFromData(teacherId, classId, data, { includeHomeroomDefault: false });
   const taughtSet = new Set(taught);
 
-  const bySubject = new Map();
-  function addSubject(subject, teacherIdForSubj) {
-    const name = String(subject || '').trim();
-    if (!name || name === 'All' || name === 'All subjects') return;
-    if (!bySubject.has(name)) {
-      bySubject.set(name, { subject: name, teacherIds: [], teacherNames: [] });
-    }
-    const entry = bySubject.get(name);
-    const tid = String(teacherIdForSubj || '').trim();
-    if (tid && !entry.teacherIds.includes(tid)) {
-      entry.teacherIds.push(tid);
-      entry.teacherNames.push(teacherNames[tid] || tid);
-    }
-  }
-
-  for (let i = 1; i < data.assignRows.length; i++) {
-    if (String(data.assignRows[i][0]) !== String(classId)) continue;
-    addSubject(data.assignRows[i][3], data.assignRows[i][1]);
-  }
-
-  const allCustom = await getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET);
-  for (let i = 1; i < allCustom.length; i++) {
-    if (String(allCustom[i][1]) !== String(classId)) continue;
-    addSubject(allCustom[i][2], allCustom[i][0]);
-  }
-
-  for (let i = 1; i < (assessRows || []).length; i++) {
-    if (String(assessRows[i][1]) !== String(classId)) continue;
-    addSubject(assessRows[i][3], assessRows[i][8]);
-  }
-
-  // Ensure the current teacher's assigned subjects appear even with no assessments yet
-  taught.forEach((s) => addSubject(s, teacherId));
-
-  let subjects = Array.from(bySubject.values())
-    .map((s) => ({
-      subject: s.subject,
-      canEdit: taughtSet.has(s.subject),
-      teacherNames: s.teacherNames
-    }))
-    .sort((a, b) => a.subject.localeCompare(b.subject));
+  let subjects = collected.subjects.map((s) => ({
+    subject: s.subject,
+    canEdit: taughtSet.has(s.subject),
+    teacherNames: s.teacherNames
+  }));
 
   if (!isHomeroom) {
     subjects = subjects.filter((s) => s.canEdit);
@@ -294,6 +335,7 @@ async function listClassGradeSubjects(teacherId, classId) {
   return {
     classId: String(classId),
     isHomeroom,
+    source: collected.source,
     taughtSubjects: taught,
     subjects
   };
@@ -483,5 +525,6 @@ module.exports = {
   assertTeacherClassAccess,
   isTeacherHomeroomOf,
   getTeacherGradeAccess,
-  listClassGradeSubjects
+  listClassGradeSubjects,
+  collectClassSubjects
 };

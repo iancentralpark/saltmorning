@@ -13,7 +13,7 @@ const {
   getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache
 } = require('../sheets');
 const { getClassRoster, getTeacherProfile, getClassNameMap } = require('./teacherPortalService');
-const { listClassGradeSubjects, getTeacherGradeAccess } = require('./subjectAssignmentService');
+const { listClassGradeSubjects, getTeacherGradeAccess, collectClassSubjects } = require('./subjectAssignmentService');
 const { buildReportCardFromGrades } = require('./gradeService');
 const { getActiveTerm } = require('./gradeWeightService');
 const {
@@ -454,42 +454,8 @@ function isSubjectFormComplete(form) {
 }
 
 async function listAllSubjectsForClass(classId) {
-  const {
-    CLASS_TEACHERS_SHEET,
-    TEACHER_CLASS_SUBJECTS_SHEET,
-    GRADE_ASSESSMENTS_SHEET
-  } = require('../config');
-  const [assignRows, customRows, assessRows, names] = await Promise.all([
-    getSheetRows(CLASS_TEACHERS_SHEET),
-    getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
-    getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
-    teacherNameMap()
-  ]);
-  const bySubject = new Map();
-  function add(subject, teacherIdForSubj) {
-    const name = String(subject || '').trim();
-    if (!name || name === 'All' || name === 'All subjects') return;
-    if (!bySubject.has(name)) bySubject.set(name, { subject: name, teacherIds: [], teacherNames: [] });
-    const entry = bySubject.get(name);
-    const tid = String(teacherIdForSubj || '').trim();
-    if (tid && !entry.teacherIds.includes(tid)) {
-      entry.teacherIds.push(tid);
-      entry.teacherNames.push(names[tid] || tid);
-    }
-  }
-  for (let i = 1; i < assignRows.length; i++) {
-    if (String(assignRows[i][0]) !== String(classId)) continue;
-    add(assignRows[i][3], assignRows[i][1]);
-  }
-  for (let i = 1; i < customRows.length; i++) {
-    if (String(customRows[i][1]) !== String(classId)) continue;
-    add(customRows[i][2], customRows[i][0]);
-  }
-  for (let i = 1; i < (assessRows || []).length; i++) {
-    if (String(assessRows[i][1]) !== String(classId)) continue;
-    add(assessRows[i][3], assessRows[i][8]);
-  }
-  return Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject));
+  const collected = await collectClassSubjects(classId);
+  return collected.subjects;
 }
 
 /**
