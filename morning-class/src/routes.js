@@ -135,8 +135,12 @@ const {
 } = require('./services/semesterPlanService');
 const {
   listSchoolSemesters,
-  saveSchoolSemesters,
-  getActiveSchoolSemester
+  getActiveSchoolSemester,
+  createSemester,
+  updateSemester,
+  closeSemester,
+  reopenSemester,
+  listTermsForClass
 } = require('./services/schoolSemesterService');
 const {
   createRequest: createMaterialRequest,
@@ -3041,12 +3045,53 @@ router.get('/admin/school-semesters', requireRole('admin'), async (req, res) => 
   }
 });
 
-router.put('/admin/school-semesters', requireRole('admin'), async (req, res) => {
+router.post('/admin/school-semesters', requireRole('admin'), async (req, res) => {
   try {
-    const result = await saveSchoolSemesters(req.body || {});
-    res.json(result);
+    const semester = await createSemester(req.body || {});
+    res.json({ semester });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save school semesters.' });
+    res.status(400).json({ error: e.message || 'Could not create semester.' });
+  }
+});
+
+router.put('/admin/school-semesters/:key', requireRole('admin'), async (req, res) => {
+  try {
+    const semester = await updateSemester(req.params.key, req.body || {});
+    res.json({ semester });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not update semester.' });
+  }
+});
+
+router.post('/admin/school-semesters/:key/close', requireRole('admin'), async (req, res) => {
+  try {
+    const semester = await closeSemester(req.params.key);
+    res.json({ semester });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not close semester.' });
+  }
+});
+
+router.post('/admin/school-semesters/:key/reopen', requireRole('admin'), async (req, res) => {
+  try {
+    const semester = await reopenSemester(req.params.key);
+    res.json({ semester });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not reopen semester.' });
+  }
+});
+
+router.get('/teacher/class/:classId/semesters', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const [semesters, active] = await Promise.all([
+      listTermsForClass(req.params.classId),
+      getActiveSchoolSemester()
+    ]);
+    res.json({ semesters, activeSemesterKey: active ? active.key : '' });
+  } catch (e) {
+    const status = /assign|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load semesters.' });
   }
 });
 

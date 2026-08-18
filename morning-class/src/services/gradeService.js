@@ -320,6 +320,9 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
   if (!subject || !categoryKey) throw new Error('Subject and category are required.');
 
   const termInfo = term ? await getGradeTerm(classId, term) : null;
+  if (termInfo && termInfo.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+  }
   if (termInfo && (dateStr < termInfo.startDate || dateStr > termInfo.endDate)) {
     throw new Error('Date is outside the term range (' + termInfo.startDate + ' – ' + termInfo.endDate + ').');
   }
@@ -558,6 +561,9 @@ async function createAssessment(classId, term, subject, teacherId, payload) {
   if (!weight) throw new Error('Choose a category from your grade weights.');
 
   const termInfo = await getGradeTerm(classId, term);
+  if (termInfo && termInfo.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+  }
   if (termInfo && (dateStr < termInfo.startDate || dateStr > termInfo.endDate)) {
     throw new Error('Date is outside the term range.');
   }
@@ -792,6 +798,12 @@ async function saveAssessmentCellPg(assessmentId, studentId, score, teacherId, o
 }
 
 async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opts) {
+  if (opts && opts.classId && opts.term) {
+    const termInfo = await getGradeTerm(opts.classId, opts.term).catch(() => null);
+    if (termInfo && termInfo.closed) {
+      throw new Error('"' + opts.term + '" is closed. Ask Admin to reopen it before making changes.');
+    }
+  }
   await ensureOpsDbStarted();
   if (isOpsGradesReady()) {
     const result = await saveAssessmentCellPg(assessmentId, studentId, score, teacherId, opts);
@@ -910,6 +922,13 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
   assessmentId = String(assessmentId);
   classId = String(classId);
   if (!assessmentId) throw new Error('Column id is required.');
+
+  if (term) {
+    const termInfo = await getGradeTerm(classId, term).catch(() => null);
+    if (termInfo && termInfo.closed) {
+      throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+    }
+  }
 
   await ensureOpsDbStarted();
   if (isOpsGradesReady()) {

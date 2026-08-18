@@ -195,30 +195,17 @@ async function listAllGradeTerms() {
 }
 
 async function saveGradeTerm(classId, label, startDate, endDate) {
-  // Legacy admin Terms API → school-wide semester slots
-  const { getSchoolSemester, saveSchoolSemesters, listSchoolSemesters } = require('./schoolSemesterService');
+  // Legacy admin Terms API — find-or-create a semester by label.
+  const { getSchoolSemester, createSemester, updateSemester, asTerm } = require('./schoolSemesterService');
   const matched = await getSchoolSemester(label);
-  const key = matched ? matched.key : (/2|term2|2학기/i.test(String(label || '')) ? 'sem2' : 'sem1');
-  const current = await listSchoolSemesters();
-  const payload = {
-    sem1: {
-      startDate: key === 'sem1' ? startDate : (current[0] && current[0].startDate),
-      endDate: key === 'sem1' ? endDate : (current[0] && current[0].endDate)
-    },
-    sem2: {
-      startDate: key === 'sem2' ? startDate : (current[1] && current[1].startDate),
-      endDate: key === 'sem2' ? endDate : (current[1] && current[1].endDate)
-    }
-  };
-  const result = await saveSchoolSemesters(payload);
-  const saved = result.semesters.find((s) => s.key === key);
-  return {
-    termId: key,
-    classId: '*',
-    label: saved ? saved.label : label,
-    startDate: saved ? saved.startDate : startDate,
-    endDate: saved ? saved.endDate : endDate
-  };
+  let saved;
+  if (matched) {
+    if (matched.closed) throw new Error('"' + matched.label + '" is closed and can no longer be edited.');
+    saved = await updateSemester(matched.key, { startDate, endDate });
+  } else {
+    saved = await createSemester({ label, startDate, endDate });
+  }
+  return asTerm(saved, '*');
 }
 
 async function listGradeWeights(classId, term, subject) {
@@ -247,6 +234,11 @@ async function saveGradeWeights(classId, term, subject, weights) {
   if (!term || !subject) throw new Error('Term and subject are required.');
   if (!Array.isArray(weights) || !weights.length) {
     throw new Error('Add at least one grade category weight.');
+  }
+  const { getSchoolSemester } = require('./schoolSemesterService');
+  const sem = await getSchoolSemester(term).catch(() => null);
+  if (sem && sem.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
   }
 
   const normalized = weights.map((w, idx) => {

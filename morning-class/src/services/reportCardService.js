@@ -17,6 +17,17 @@ const { listClassGradeSubjects, getTeacherGradeAccess, collectClassSubjects } = 
 const { listExcludedReportSubjects } = require('./classSubjectFlagsService');
 const { buildReportCardFromGrades } = require('./gradeService');
 const { getActiveTerm } = require('./gradeWeightService');
+const { getSchoolSemester } = require('./schoolSemesterService');
+
+async function isTermClosed(term) {
+  if (!term) return false;
+  try {
+    const sem = await getSchoolSemester(term);
+    return !!(sem && sem.closed);
+  } catch (e) {
+    return false;
+  }
+}
 const {
   SCHOOL_NAME,
   SCHOOL_ADDRESS
@@ -479,13 +490,14 @@ async function getClassReportOverview(teacherId, classId, term) {
     term = (active && (active.label || active.termId)) || 'Term1';
   }
 
-  const [students, subjectData, statuses, classNames, teacher, names] = await Promise.all([
+  const [students, subjectData, statuses, classNames, teacher, names, closed] = await Promise.all([
     getClassRoster(classId),
     listClassGradeSubjects(teacherId, classId),
     listStatusRows(classId, term),
     getClassNameMap(),
     getTeacherProfile(teacherId),
-    teacherNameMap()
+    teacherNameMap(),
+    isTermClosed(term)
   ]);
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
@@ -502,6 +514,7 @@ async function getClassReportOverview(teacherId, classId, term) {
   // Subject teachers can edit their taught subjects; homeroom edits none unless also assigned
   subjectList.forEach((s) => {
     if (taughtSet.has(s.subject)) s.canEdit = true;
+    if (closed) s.canEdit = false;
   });
 
   const statusMap = {};
@@ -543,6 +556,7 @@ async function getClassReportOverview(teacherId, classId, term) {
     classId,
     className: classNames[classId] || classId,
     term,
+    closed,
     isHomeroom,
     workHabitFields: WORK_HABITS,
     ratingOptions: RATING_OPTIONS,
@@ -572,13 +586,14 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
   if (!access.canView) throw new Error('You cannot view this subject report.');
 
   const roster = await getClassRoster(classId);
-  const [entries, statuses, computedList, meta, classNames, names] = await Promise.all([
+  const [entries, statuses, computedList, meta, classNames, names, closed] = await Promise.all([
     listReportCardEntries(classId, term, studentId, subject),
     listStatusRows(classId, term, studentId),
     buildReportCardFromGrades(classId, term, subject, roster),
     getStudentMeta(studentId),
     getClassNameMap(),
-    teacherNameMap()
+    teacherNameMap(),
+    isTermClosed(term)
   ]);
 
   const student = roster.find((s) => s.studentId === String(studentId));
@@ -594,13 +609,14 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
     classId,
     className: classNames[classId] || classId,
     term,
+    closed,
     subject,
     student: {
       studentId: student.studentId,
       name: student.name,
       gradeLevel: meta.gradeLevel || ''
     },
-    canEdit: !!access.canEdit,
+    canEdit: !!access.canEdit && !closed,
     isHomeroom: !!access.isHomeroom,
     academic,
     letterGrades: LETTER_GRADES,
@@ -620,6 +636,10 @@ async function saveStudentSubjectReport(teacherId, classId, payload) {
   const subject = String(payload.subject || '').trim();
   const studentId = String(payload.studentId || '').trim();
   if (!term || !subject || !studentId) throw new Error('Term, subject, and student are required.');
+
+  if (await isTermClosed(term)) {
+    throw Object.assign(new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.'), { status: 400 });
+  }
 
   const access = await getTeacherGradeAccess(teacherId, classId, subject);
   if (!access.canEdit) throw new Error('Only the subject teacher can edit this report section.');

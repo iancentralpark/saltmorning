@@ -3785,7 +3785,28 @@ body.buddy-resize-active {
   margin-bottom: 0.85rem;
 }
 .rc-panel-toolbar input { min-width: 8rem; }
+.rc-panel-toolbar select { min-width: 11rem; }
 .rc-viewing-card .rc-panel-toolbar { display: none; }
+.rc-term-closed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: #f1f5f9;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+}
+.rc-term-closed-note {
+  background: #f1f5f9;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 0 0 0.75rem;
+}
 .rc-overview-head {
   display: flex;
   justify-content: space-between;
@@ -4150,6 +4171,43 @@ body.buddy-resize-active {
   flex-wrap: wrap;
   margin-top: 0.25rem;
 }
+.sc-semester-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.sc-semester-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+}
+.sc-semester-item.is-active { border-color: var(--olive); background: var(--sage-soft); }
+.sc-semester-item-info { min-width: 0; }
+.sc-semester-item-label { font-weight: 700; }
+.sc-semester-item-dates { color: var(--muted); font-size: 0.85rem; margin-top: 0.1rem; }
+.sc-semester-item-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.sc-semester-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+}
+.sc-semester-badge.is-open { background: var(--sage-soft); color: var(--olive-deep); }
+.sc-semester-badge.is-closed { background: #f1f5f9; color: var(--muted); }
+.sc-semester-badge.is-current { background: var(--gold-soft); color: #9a4a0f; }
+.sc-semester-add-title { margin: 0 0 0.5rem; font-size: 0.9rem; }
 .lp-semester-picker {
   display: flex;
   flex-wrap: wrap;
