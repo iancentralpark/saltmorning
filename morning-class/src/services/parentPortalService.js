@@ -436,7 +436,7 @@ async function translateToKorean(text) {
 async function ensureParentDemoData() {
   const { seedDemoSubjectReports, listAllSubjectsForClass } = require('./reportCardService');
   const { saveGradeEntries } = require('./gradeService');
-  const { getActiveTerm, listGradeTerms, saveGradeWeights, saveGradeTerm } = require('./gradeWeightService');
+  const { getActiveTerm, listGradeTerms, saveGradeWeights } = require('./gradeWeightService');
   const { upsertStudentRecord } = require('./attendanceService');
 
   // 1) Student name
@@ -541,27 +541,27 @@ async function ensureParentDemoData() {
     invalidateSheetRowsCache(CLASS_TEACHERS_SHEET);
   }
 
-  // Always seed Term1 (teacher Report card UI default) + active term if different.
-  let activeTerm = 'Term1';
+  // Seed under whichever real school semester is active today. Demo data
+  // must never create or edit semesters itself — that's a real Admin
+  // feature now (Admin → Calendar → School semesters), and doing it here
+  // used to pollute that list with a fake "Term1" entry and even stretch
+  // the real active semester's end date.
+  let activeTerm = '';
   try {
     const active = await getActiveTerm(classId);
     if (active && active.label) activeTerm = active.label;
-    else {
+  } catch (e) { /* ignore */ }
+  if (!activeTerm) {
+    try {
       const terms = await listGradeTerms(classId);
       if (terms && terms[0]) activeTerm = terms[0].label;
-    }
-  } catch (e) { /* default */ }
-
-  try {
-    await saveGradeTerm(classId, 'Term1', '2026-03-01', '2026-08-31');
-  } catch (e) { /* may already exist */ }
-  if (activeTerm && activeTerm !== 'Term1') {
-    try {
-      await saveGradeTerm(classId, activeTerm, '2026-03-01', '2026-12-31');
     } catch (e) { /* ignore */ }
   }
+  if (!activeTerm) {
+    throw new Error('No school semester configured yet. Set one up in Admin → Calendar → School semesters first, then try again.');
+  }
 
-  const termsToSeed = Array.from(new Set(['Term1', activeTerm].filter(Boolean)));
+  const termsToSeed = [activeTerm];
   const today = todayStr();
   let subjectList = subjectsNeeded;
   try {
@@ -637,13 +637,13 @@ async function ensureParentDemoData() {
     parentLogin: { loginId: 'parent', password: 'parent', name: 'Test Parents' },
     student: { studentId, name: 'Test Students', classId },
     teacherId,
-    term: 'Term1',
+    term: activeTerm,
     activeTerm,
     termsSeeded: termsToSeed,
-    subjects: (seededByTerm.Term1 && seededByTerm.Term1.seeded) || subjectList,
+    subjects: (seededByTerm[activeTerm] && seededByTerm[activeTerm].seeded) || subjectList,
     attendanceSeeded,
-    message: 'Parent demo ready. Open Report card with term Term1 (or ' + activeTerm +
-      ') → generate/print. Homeroom signs, then Head → Principal before parent share.'
+    message: 'Parent demo ready. Open Report card with term ' + activeTerm +
+      ' → generate/print. Homeroom signs, then Head → Principal before parent share.'
   };
 }
 
