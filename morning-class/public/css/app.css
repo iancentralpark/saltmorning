@@ -3233,6 +3233,47 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   align-items: center;
   margin-bottom: 0.65rem;
 }
+.tt-plan-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--surface-2, #f7faf8);
+}
+.tt-plan-fields,
+.tt-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+.tt-plan-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tt-plan-label select {
+  min-width: 11rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.tt-plan-banner {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.tt-plan-future {
+  color: #9a3412;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+}
 .tt-board-toolbar {
   display: flex;
   flex-wrap: wrap;

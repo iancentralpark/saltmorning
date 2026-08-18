@@ -162,16 +162,20 @@ function buildPinsAndAdjustedRequirements(classId, requirements, existingEntries
  * Generate a conflict-free timetable for one class using the OR-Tools solver.
  * Preserves locked slots; only fills empty / unlocked periods.
  */
-async function generateClassTimetable(classId) {
+async function generateClassTimetable(classId, semesterKey) {
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
+  const { resolvePlanningScope, stampKey, keysForRead } = require('./timetableScope');
+  const scope = await resolvePlanningScope(semesterKey);
+  const liveKey = stampKey(scope);
 
-  const [{ periods, lessonPeriods }, requirements, allEntries, existingTt] = await Promise.all([
+  const [{ periods, lessonPeriods }, requirements, allRaw, existingTt] = await Promise.all([
     getBellSchedule(),
-    listRequirements(classId),
+    listRequirements(classId, liveKey),
     loadAllEntries(),
-    getTimetable('class', classId)
+    getTimetable('class', classId, { scope })
   ]);
+  const allEntries = keysForRead(allRaw, (e) => e.semesterKey, scope);
 
   if (!requirements.length) {
     throw new Error('No subject requirements for this class. Import from assignments or add manually.');
@@ -221,7 +225,7 @@ async function generateClassTimetable(classId) {
 
   // All requirements already satisfied by locks
   if (!adjusted.length) {
-    const saved = await saveClassTimetable(classId, lockedOut);
+    const saved = await saveClassTimetable(classId, lockedOut, { scope, semesterKey: liveKey });
     return {
       classId,
       assignmentCount: lockedOut.length,
@@ -278,7 +282,7 @@ async function generateClassTimetable(classId) {
   });
 
   const merged = lockedOut.concat(generated);
-  const saved = await saveClassTimetable(classId, merged);
+  const saved = await saveClassTimetable(classId, merged, { scope, semesterKey: liveKey });
 
   return {
     classId,

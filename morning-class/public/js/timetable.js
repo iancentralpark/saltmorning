@@ -16,6 +16,28 @@
     return role === 'admin' || role === 'principal' || role === 'staff';
   }
 
+  function currentPlanKey() {
+    return (global.SaltTimetablePlan && global.SaltTimetablePlan.semesterKey) || '';
+  }
+
+  function currentPlanLive() {
+    return !global.SaltTimetablePlan || global.SaltTimetablePlan.live !== false;
+  }
+
+  function withPlan(url) {
+    if (!isAdminLike()) return url;
+    const key = currentPlanKey();
+    if (!key) return url;
+    return url + (String(url).indexOf('?') >= 0 ? '&' : '?') + 'semesterKey=' + encodeURIComponent(key);
+  }
+
+  function planBody(body) {
+    if (!isAdminLike()) return body;
+    const key = currentPlanKey();
+    if (!key) return body || {};
+    return Object.assign({}, body || {}, { semesterKey: key });
+  }
+
   function apiPath(ownerType, ownerId) {
     if (isAdminLike()) {
       const segment = ownerType === 'class'
@@ -23,7 +45,7 @@
         : (ownerType === 'student'
           ? 'students'
           : (ownerType === 'teacher' ? 'teachers' : (String(ownerType || '') + 's')));
-      return '/api/admin/timetable/' + segment + '/' + encodeURIComponent(ownerId);
+      return withPlan('/api/admin/timetable/' + segment + '/' + encodeURIComponent(ownerId));
     }
     if (role === 'student' && ownerType === 'student') return '/api/student/timetable';
     if (role === 'teacher' && ownerType === 'class') {
@@ -339,7 +361,7 @@
     async function loadBusy() {
       try {
         const data = await api(
-          '/api/admin/timetable/teacher-busy?excludeClassId=' + encodeURIComponent(classId),
+          withPlan('/api/admin/timetable/teacher-busy?excludeClassId=' + encodeURIComponent(classId)),
           {},
           role
         );
@@ -556,7 +578,7 @@
           try {
             const data = await api(apiPath('class', classId), {
               method: 'POST',
-              body: { entries }
+              body: planBody({ entries })
             }, role);
             entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
             lessonPeriods = data.timetable.lessonPeriods || lessonPeriods;
@@ -618,9 +640,9 @@
           }
           setStatus('Running Auto-Solve (OR-Tools)…', true);
           try {
-            const data = await api('/api/admin/timetable/generate', {
+            const data = await api(withPlan('/api/admin/timetable/generate'), {
               method: 'POST',
-              body: { classId }
+              body: planBody({ classId })
             }, role);
             entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
             lessonPeriods = data.timetable.lessonPeriods || lessonPeriods;
@@ -650,7 +672,7 @@
     async function reload() {
       const [tt, reqData] = await Promise.all([
         api(apiPath('class', classId), {}, role),
-        api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, role)
+        api(withPlan('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId)), {}, role)
       ]);
       entries = (tt.timetable.entries || []).filter((e) => !e.isBreak);
       lessonPeriods = tt.timetable.lessonPeriods || [];
@@ -676,7 +698,7 @@
   async function renderMatrix(mountEl, classes) {
     mountEl.innerHTML = '<p class="muted">Loading matrix…</p>';
     try {
-      const data = await api('/api/admin/timetable/matrix', {}, role);
+      const data = await api(withPlan('/api/admin/timetable/matrix'), {}, role);
       const periods = data.lessonPeriods || [];
       const byClass = data.byClass || {};
       const classList = (classes || []).filter((c) => byClass[c.classId]);
@@ -828,7 +850,7 @@
       if (status) status.textContent = '';
       const data = await api(apiPath(ownerType, ownerId), {
         method: 'POST',
-        body: { entries }
+        body: planBody({ entries })
       }, role);
       entries = (data.timetable.entries || []).filter((e) => !e.isBreak);
       if (data.timetable.lessonPeriods) lessonPeriods = data.timetable.lessonPeriods;
@@ -988,7 +1010,7 @@
         const cls = classes.find((c) => c.classId === selectedId);
         const [tt, reqData] = await Promise.all([
           api(apiPath('class', selectedId), {}, role),
-          api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(selectedId), {}, role)
+          api(withPlan('/api/admin/timetable/requirements?classId=' + encodeURIComponent(selectedId)), {}, role)
         ]);
         boardHandle = renderClassBoard(editorMount, {
           classId: selectedId,
@@ -1008,7 +1030,7 @@
           ownerId: selectedId,
           ownerName: t ? (t.displayName || t.name) : selectedId,
           timetable: data.timetable,
-          readonly: false
+          readonly: !currentPlanLive()
         });
         return;
       }
@@ -1021,7 +1043,7 @@
         ownerName: s ? s.name : selectedId,
         classId: s ? s.classId : '',
         timetable: data.timetable,
-        readonly: false
+        readonly: !currentPlanLive()
       });
     }
 
@@ -1063,6 +1085,7 @@
       loadSelected();
     }
 
+    global.SaltTimetable.reloadAdminPlan = () => loadSelected();
     renderShell();
   }
 
@@ -1123,6 +1146,8 @@
     renderReadOnly,
     openAdmin,
     renderWeekGrid,
-    buildPalette
+    buildPalette,
+    withPlan,
+    planBody
   };
 })(window);

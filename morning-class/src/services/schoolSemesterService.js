@@ -56,6 +56,86 @@ function asTerm(sem, classId) {
   };
 }
 
+/** Korean academic year: March–February. 2026-03-01 → 2026 (label 2026–2027). */
+function academicYearOfDate(dateStr) {
+  const s = formatDate(dateStr);
+  if (!s) return 0;
+  const y = Number(s.slice(0, 4));
+  const m = Number(s.slice(5, 7));
+  if (!y || !m) return 0;
+  return m >= 3 ? y : y - 1;
+}
+
+function academicYearOf(sem) {
+  return academicYearOfDate(sem && sem.startDate);
+}
+
+function academicYearLabel(year) {
+  const y = Number(year) || 0;
+  if (!y) return '';
+  return y + '–' + (y + 1);
+}
+
+function semesterSlotOf(sem) {
+  const s = formatDate(sem && sem.startDate);
+  if (!s) return 0;
+  const m = Number(s.slice(5, 7));
+  return m >= 3 && m <= 8 ? 1 : 2;
+}
+
+function endOfFeb(year) {
+  const y = Number(year);
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  return y + '-02-' + (leap ? '29' : '28');
+}
+
+function defaultDatesForSlot(academicYear, slot) {
+  const y = Number(academicYear);
+  if (Number(slot) === 1) {
+    return { startDate: y + '-03-01', endDate: y + '-08-31' };
+  }
+  return { startDate: y + '-09-01', endDate: endOfFeb(y + 1) };
+}
+
+function addDays(isoDate, days) {
+  const s = formatDate(isoDate);
+  if (!s) return '';
+  const d = new Date(s + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + Number(days || 0));
+  return d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate());
+}
+
+function decorateSemester(sem, activeKey) {
+  if (!sem) return null;
+  const academicYear = academicYearOf(sem);
+  return Object.assign({}, sem, {
+    academicYear,
+    academicYearLabel: academicYearLabel(academicYear),
+    slot: semesterSlotOf(sem),
+    isActive: !!(activeKey && sem.key === activeKey),
+    isFuture: !!(sem.startDate && sem.startDate > todayStr()),
+    isPast: !!(sem.endDate && sem.endDate < todayStr())
+  });
+}
+
+function groupSemestersByYear(semesters, activeKey) {
+  const years = [];
+  const byYear = new Map();
+  (semesters || []).forEach((raw) => {
+    const sem = decorateSemester(raw, activeKey);
+    if (!sem || !sem.academicYear) return;
+    if (!byYear.has(sem.academicYear)) {
+      const group = { year: sem.academicYear, label: sem.academicYearLabel, semesters: [] };
+      byYear.set(sem.academicYear, group);
+      years.push(group);
+    }
+    byYear.get(sem.academicYear).semesters.push(sem);
+  });
+  years.sort((a, b) => a.year - b.year);
+  years.forEach((g) => g.semesters.sort((a, b) => (a.startDate || '').localeCompare(b.startDate || '')));
+  return years;
+}
+
 /** Default 1H/2H label suggestion for a new semester starting on `startDate`. */
 function suggestLabel(startDate) {
   const s = formatDate(startDate);
@@ -220,6 +300,114 @@ async function reopenSemester(key) {
   return setSemesterClosed(key, false);
 }
 
+function findOverlapping(list, startDate, endDate) {
+  return (list || []).find((s) => {
+    if (!s.startDate || !s.endDate) return false;
+    return startDate <= s.endDate && s.startDate <= endDate;
+  }) || null;
+}
+
+async function findOrCreateSemester(payload) {
+  const startDate = formatDate(payload && payload.startDate);
+  const endDate = formatDate(payload && payload.endDate);
+  const label = String((payload && payload.label) || '').trim() || suggestLabel(startDate);
+  const existing = await listSchoolSemesters();
+  const hit = findOverlapping(existing, startDate, endDate);
+  if (hit) return hit;
+  return createSemester({ label, startDate, endDate });
+}
+
+/**
+ * Next semester after `fromKey` (or the active semester). Creates default
+ * 1H/2H dates when that slot does not exist yet.
+ */
+async function ensureNextSemester(fromKey) {
+  const list = await listSchoolSemesters();
+  const configured = list.filter((s) => s.startDate && s.endDate);
+  const from = (fromKey && configured.find((s) => s.key === String(fromKey)))
+    || await getActiveSchoolSemester()
+    || configured[configured.length - 1]
+    || null;
+
+  if (from) {
+    const later = configured
+      .filter((s) => s.startDate > from.startDate)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    if (later.length) return later[0];
+  }
+
+  const fromYear = from ? academicYearOf(from) : academicYearOfDate(todayStr());
+  const fromSlot = from ? semesterSlotOf(from) : (Number(todayStr().slice(5, 7)) >= 3 && Number(todayStr().slice(5, 7)) <= 8 ? 1 : 2);
+  const nextYear = fromSlot === 1 ? fromYear : fromYear + 1;
+  const nextSlot = fromSlot === 1 ? 2 : 1;
+  let dates = defaultDatesForSlot(nextYear, nextSlot);
+  if (from && dates.startDate <= from.endDate) {
+    const startDate = addDays(from.endDate, 1);
+    const endGuess = addDays(startDate, 180);
+    dates = { startDate, endDate: endGuess };
+  }
+  return findOrCreateSemester({
+    label: suggestLabel(dates.startDate),
+    startDate: dates.startDate,
+    endDate: dates.endDate
+  });
+}
+
+/**
+ * Create (or reuse) both semesters of the next academic year.
+ * Returns the year group with `focus` = Semester 1 of that year.
+ */
+async function ensureNextSchoolYear(fromKey) {
+  const list = await listSchoolSemesters();
+  const configured = list.filter((s) => s.startDate && s.endDate);
+  const from = (fromKey && configured.find((s) => s.key === String(fromKey)))
+    || await getActiveSchoolSemester()
+    || configured[configured.length - 1]
+    || null;
+  const fromYear = from ? academicYearOf(from) : academicYearOfDate(todayStr());
+  const nextYear = (fromYear || academicYearOfDate(todayStr())) + 1;
+
+  const s1dates = defaultDatesForSlot(nextYear, 1);
+  const s2dates = defaultDatesForSlot(nextYear, 2);
+  const s1 = await findOrCreateSemester({
+    label: nextYear + ' Semester 1',
+    startDate: s1dates.startDate,
+    endDate: s1dates.endDate
+  });
+  let s2 = null;
+  try {
+    s2 = await findOrCreateSemester({
+      label: nextYear + ' Semester 2',
+      startDate: s2dates.startDate,
+      endDate: s2dates.endDate
+    });
+  } catch (_) {
+    s2 = null;
+  }
+  const semesters = [s1, s2].filter(Boolean);
+  return {
+    year: nextYear,
+    label: academicYearLabel(nextYear),
+    semesters,
+    focus: s1
+  };
+}
+
+async function getPlanningContext() {
+  const [semesters, active] = await Promise.all([
+    listSchoolSemesters(),
+    getActiveSchoolSemester()
+  ]);
+  const activeKey = active ? active.key : '';
+  const decorated = semesters.map((s) => decorateSemester(s, activeKey));
+  return {
+    semesters: decorated,
+    years: groupSemestersByYear(semesters, activeKey),
+    activeSemesterKey: activeKey,
+    activeSemester: decorateSemester(active, activeKey)
+  };
+}
+
 module.exports = {
   ensureSchoolSemestersSheet,
   listSchoolSemesters,
@@ -233,5 +421,15 @@ module.exports = {
   closeSemester,
   reopenSemester,
   asTerm,
-  suggestLabel
+  suggestLabel,
+  academicYearOf,
+  academicYearOfDate,
+  academicYearLabel,
+  semesterSlotOf,
+  decorateSemester,
+  groupSemestersByYear,
+  ensureNextSemester,
+  ensureNextSchoolYear,
+  getPlanningContext,
+  defaultDatesForSlot
 };
