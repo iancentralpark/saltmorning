@@ -1486,6 +1486,7 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .att-badge { font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 999px; font-weight: 600; }
 .att-badge-planned { background: var(--peach-soft); color: #a66b42; border: 1px solid rgba(232, 184, 154, 0.5); }
 .att-badge-excused { background: var(--sky-soft); color: var(--primary-text); border: 1px solid rgba(158, 202, 232, 0.45); }
+.att-badge-parent-notice { background: #fef3c7; color: #92400e; border: 1px solid rgba(217, 165, 63, 0.45); cursor: help; }
 .att-save-status { font-size: 0.75rem; color: var(--muted); }
 .att-save-status.ok { color: #16a34a; }
 .att-save-status.err { color: #dc2626; }

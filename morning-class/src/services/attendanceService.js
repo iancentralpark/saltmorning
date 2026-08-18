@@ -118,20 +118,39 @@ async function getClassWorkData(classId, dateStr) {
     ? await getPlannedByClassAndDate(classId, dateStr)
     : {};
 
+  // A parent may pre-notify about a FUTURE absence/lateness. It's only
+  // written into Attendance immediately if submitted for today — for a
+  // notice submitted ahead of time, nothing lands here until the teacher
+  // opens attendance for that date, so surface it as a hint (like a planned
+  // notice) instead of silently defaulting everyone to "present".
+  let parentNoticeMap = {};
+  if (schedule.scheduledDay) {
+    try {
+      const { listNotices } = require('./parentAttendanceNoticeService');
+      const notices = await listNotices({ dateStr });
+      notices.forEach((n) => { parentNoticeMap[n.studentId] = n; });
+    } catch (e) { /* optional hint only */ }
+  }
+
   const students = roster.map((s) => {
     const rec = existing[s.studentId] || {};
     const planned = plannedMap[s.studentId];
+    const parentNotice = parentNoticeMap[s.studentId] || null;
     let attendance = rec.attendance || (schedule.scheduledDay ? '출석' : '');
     let excuse = rec.excuse || '';
     if (!rec.attendance && planned) {
       attendance = planned.type;
+    } else if (!rec.attendance && parentNotice && parentNotice.noticeType) {
+      attendance = parentNotice.noticeType;
     }
     return {
       studentId: s.studentId,
       name: s.name,
       attendance,
       excuse,
+      note: rec.note || '',
       plannedNotice: planned || null,
+      parentNotice,
       countsAsPresent: attendance ? countsAsPresent(attendance, excuse) : false,
       attendanceEditable: !!schedule.scheduledDay
     };
@@ -143,6 +162,35 @@ async function getClassWorkData(classId, dateStr) {
     ...schedule,
     students
   };
+}
+
+/**
+ * Read back just the currently-stored note for one student/date, so callers
+ * that only mean to change status/excuse (e.g. the teacher attendance-record
+ * route) can preserve an existing note — such as a parent's pre-submitted
+ * absence reason — instead of blanking it with a hardcoded ''.
+ */
+async function getAttendanceNote(classId, studentId, dateStr) {
+  classId = String(classId);
+  studentId = String(studentId);
+  dateStr = String(dateStr);
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT note FROM ' + table('attendance_records') +
+        ' WHERE class_id = $1 AND student_id = $2 AND record_date = $3::date',
+      [classId, studentId, dateStr]
+    );
+    return r.rows[0] ? normalizeNote(r.rows[0].note) : '';
+  }
+  await ensureAttendanceColumns();
+  const rows = await getSheetRows(ATTENDANCE_SHEET);
+  for (let i = 1; i < rows.length; i++) {
+    if (formatSheetDate(rows[i][0]) !== dateStr) continue;
+    if (String(rows[i][1]) !== classId) continue;
+    if (String(rows[i][2]) !== studentId) continue;
+    return normalizeNote(rows[i][4]);
+  }
+  return '';
 }
 
 async function upsertStudentRecord(classId, studentId, dateStr, attendance, note, excuse) {
@@ -418,6 +466,7 @@ module.exports = {
   getClassScheduleInfo,
   getClassWorkData,
   upsertStudentRecord,
+  getAttendanceNote,
   getAttendanceForDate,
   saveAttendance,
   getStudentYearAttendance,

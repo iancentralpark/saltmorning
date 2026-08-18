@@ -191,6 +191,11 @@ window.SaltAttendance = (function() {
     const excusedBadge = hasExcuse && showExcuse
       ? '<span class="att-badge att-badge-excused">Excused → counts Present</span>'
       : '';
+    const parentNoticeBadge = (std.parentNotice && !std.plannedNotice)
+      ? '<span class="att-badge att-badge-parent-notice" title="' +
+        escapeHtml('Parent: ' + (std.parentNotice.noticeType || '') + (std.parentNotice.note ? ' — ' + std.parentNotice.note : '')) +
+        '">👪 Parent notice</span>'
+      : '';
     const extra = boardExtras[key] || { dollars: 0 };
     const hr = isHomeroom();
 
@@ -214,6 +219,7 @@ window.SaltAttendance = (function() {
           '<span class="att-status-pill att-' + attKey + '">' + attLabel(attKey) + '</span>' +
           (excusedBadge || '') +
           (planned || '') +
+          (parentNoticeBadge || '') +
           '<span class="muted small">Homeroom only</span>' +
         '</div>';
     }
@@ -259,7 +265,7 @@ window.SaltAttendance = (function() {
         '<strong class="att-student-name">' + escapeHtml(std.name) + '</strong>' +
         '<div class="att-head-right">' +
           '<div class="att-badges">' +
-            (hr ? planned + excusedBadge : '') +
+            (hr ? planned + excusedBadge + parentNoticeBadge : '') +
             '<span class="att-save-status" data-status></span>' +
           '</div>' +
           '<button type="button" class="btn btn-ghost att-year-btn" data-year-att data-student-id="' + escapeHtml(key) + '" data-student-name="' + escapeHtml(std.name) + '">Year attendance</button>' +
