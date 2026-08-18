@@ -1,12 +1,16 @@
 const crypto = require('crypto');
 const {
   MESSAGES_SHEET,
+  MESSENGER_HIDES_SHEET,
   STUDENT_LIST_SHEET,
   CLASS_LIST_SHEET,
   TEACHER_LIST_SHEET,
   PARENT_LIST_SHEET
 } = require('../config');
-const { getSheetRows, appendRows, updateRange, batchUpdateRanges } = require('../sheets');
+const {
+  getSheetRows, appendRows, updateRange, batchUpdateRanges,
+  ensureSheet, deleteRows, invalidateSheetRowsCache
+} = require('../sheets');
 const { getTeacherClasses } = require('./teacherPortalService');
 const { getClassRoster } = require('./teacherPortalService');
 const { isOpsDbEnabled, table, query } = require('../db/pool');
@@ -158,6 +162,114 @@ function adminActorId(session) {
   return String(
     (session && (session.adminId || session.principalId || session.staffId || session.teacherId)) || ''
   );
+}
+
+function viewerKey(session) {
+  const role = session && session.role;
+  if (role === 'student') return 'student:' + String(session.studentId || '');
+  if (role === 'parent') return 'parent:' + String(session.parentId || session.studentId || '');
+  if (role === 'teacher') return 'teacher:' + String(session.teacherId || '');
+  if (isAdminPortalRole(role)) return 'admin:' + (adminActorId(session) || role);
+  return String(role || 'unknown') + ':';
+}
+
+const HIDE_HEADERS = ['ViewerKey', 'ThreadId', 'HiddenAt'];
+
+async function ensureHideSheet() {
+  await ensureSheet(MESSENGER_HIDES_SHEET, HIDE_HEADERS);
+}
+
+async function loadHideMap(session) {
+  const key = viewerKey(session);
+  const map = new Map();
+  if (!key || key.endsWith(':')) return map;
+  if (isOpsDbEnabled()) {
+    try {
+      const r = await query(
+        'SELECT thread_id, hidden_at FROM ' + table('messenger_thread_hides') +
+          ' WHERE viewer_key = $1',
+        [key]
+      );
+      r.rows.forEach((row) => {
+        const tid = String(row.thread_id || '');
+        if (!tid) return;
+        map.set(tid, row.hidden_at ? new Date(row.hidden_at).toISOString() : '');
+      });
+    } catch (e) {
+      if (!/does not exist|relation/i.test(String(e.message || e))) throw e;
+    }
+    return map;
+  }
+  await ensureHideSheet();
+  const data = await getSheetRows(MESSENGER_HIDES_SHEET);
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '') !== key) continue;
+    const tid = String(data[i][1] || '').trim();
+    if (tid) map.set(tid, String(data[i][2] || '').trim());
+  }
+  return map;
+}
+
+function isThreadVisible(thread, hideAt) {
+  if (!hideAt) return true;
+  return String(thread.lastAt || '') > String(hideAt);
+}
+
+async function leaveThread(threadId, session) {
+  await assertThreadAccess(threadId, session);
+  threadId = String(threadId);
+  const key = viewerKey(session);
+  const now = isoNow();
+  if (isOpsDbEnabled()) {
+    await query(
+      'INSERT INTO ' + table('messenger_thread_hides') +
+        ' (viewer_key, thread_id, hidden_at) VALUES ($1, $2, $3)' +
+        ' ON CONFLICT (viewer_key, thread_id) DO UPDATE SET hidden_at = EXCLUDED.hidden_at',
+      [key, threadId, now]
+    );
+    return { ok: true, threadId, hiddenAt: now };
+  }
+  await ensureHideSheet();
+  const data = await getSheetRows(MESSENGER_HIDES_SHEET);
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '') === key && String(data[i][1] || '') === threadId) {
+      await updateRange(MESSENGER_HIDES_SHEET, 'C' + (i + 1), [[now]]);
+      invalidateSheetRowsCache(MESSENGER_HIDES_SHEET);
+      return { ok: true, threadId, hiddenAt: now };
+    }
+  }
+  await appendRows(MESSENGER_HIDES_SHEET, [[key, threadId, now]]);
+  return { ok: true, threadId, hiddenAt: now };
+}
+
+async function unhideThread(threadId, session) {
+  threadId = String(threadId || '');
+  if (!threadId) return 0;
+  const key = viewerKey(session);
+  if (isOpsDbEnabled()) {
+    try {
+      const r = await query(
+        'DELETE FROM ' + table('messenger_thread_hides') +
+          ' WHERE viewer_key = $1 AND thread_id = $2',
+        [key, threadId]
+      );
+      return r.rowCount || 0;
+    } catch (e) {
+      if (!/does not exist|relation/i.test(String(e.message || e))) throw e;
+      return 0;
+    }
+  }
+  await ensureHideSheet();
+  const data = await getSheetRows(MESSENGER_HIDES_SHEET);
+  const indexes = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || '') === key && String(data[i][1] || '') === threadId) {
+      indexes.push(i + 1);
+    }
+  }
+  if (!indexes.length) return 0;
+  await deleteRows(MESSENGER_HIDES_SHEET, indexes);
+  return indexes.length;
 }
 
 let messageSchemaReady = false;
@@ -597,12 +709,15 @@ async function listThreadsForSession(session) {
     });
   }
 
-  const unreadTotal = threads.reduce((s, t) => s + (t.unread || 0), 0);
-  return { threads, unreadTotal };
+  const hides = await loadHideMap(session);
+  const visible = threads.filter((t) => isThreadVisible(t, hides.get(t.threadId)));
+  const unreadTotal = visible.reduce((s, t) => s + (t.unread || 0), 0);
+  return { threads: visible, unreadTotal };
 }
 
 async function getThreadMessages(threadId, session) {
   await assertThreadAccess(threadId, session);
+  unhideThread(threadId, session).catch(() => { /* leave-state is best-effort */ });
   const all = await loadAllMessages();
   const messages = all
     .filter((m) => m.threadId === String(threadId))
@@ -652,6 +767,7 @@ async function assertThreadAccess(threadId, session) {
 
 async function sendThreadMessage(threadId, session, body) {
   await assertThreadAccess(threadId, session);
+  unhideThread(threadId, session).catch(() => { /* ignore */ });
   threadId = String(threadId);
   const role = session.role;
 
@@ -978,6 +1094,7 @@ module.exports = {
   getThreadMessages,
   sendThreadMessage,
   markThreadRead,
+  leaveThread,
   getUnreadCount,
   searchMessengerDirectory,
   threadMetaFromDirectoryHit,
