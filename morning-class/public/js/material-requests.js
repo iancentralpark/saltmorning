@@ -351,6 +351,18 @@ window.SaltMaterialRequests = (function () {
             });
             await loadAdminList();
           } catch (e) {
+            if (e.needsConfirm) {
+              if (!confirm((e.message || '') + '\n\n' + t('materials.deleteConfirmForce', 'Delete anyway?'))) return;
+              try {
+                await api('/api/admin/material-requests/' + encodeURIComponent(btn.dataset.id) + '?force=1', {
+                  method: 'DELETE'
+                });
+                await loadAdminList();
+              } catch (e2) {
+                alert(e2.message || 'Could not delete.');
+              }
+              return;
+            }
             alert(e.message || 'Could not delete.');
           }
         });

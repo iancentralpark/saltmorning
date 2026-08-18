@@ -136,7 +136,16 @@
     try { data = text ? JSON.parse(text) : {}; } catch (e) { /* ignore */ }
     if (!res.ok) {
       const detail = data.error || data.message || data.detail;
-      throw new Error(detail || (res.statusText ? (res.statusText + ' (' + res.status + ')') : ('Request failed (' + res.status + ')')));
+      const err = new Error(detail || (res.statusText ? (res.statusText + ' (' + res.status + ')') : ('Request failed (' + res.status + ')')));
+      err.status = res.status;
+      err.data = data;
+      // Surface any extra structured flags from the API error payload (e.g.
+      // needsConfirm, mustChangePassword) directly on the Error for callers
+      // that want to branch on them without re-parsing err.data.
+      Object.keys(data || {}).forEach((k) => {
+        if (k !== 'error' && k !== 'message' && !(k in err)) err[k] = data[k];
+      });
+      throw err;
     }
     return data;
   }

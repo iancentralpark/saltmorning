@@ -211,10 +211,16 @@ async function unmarkPurchased(requestId) {
   return mapRow(r.rows[0]);
 }
 
-async function deleteRequest(requestId) {
+async function deleteRequest(requestId, opts) {
   assertOps();
   const existing = await getRequest(requestId);
   if (!existing) throw new Error('Request not found.');
+  if (existing.status === 'purchased' && !(opts && opts.force)) {
+    throw Object.assign(
+      new Error('This request was already purchased. Deleting it permanently erases the purchase record (who bought it, when, for how much). Confirm to proceed.'),
+      { status: 409, needsConfirm: true }
+    );
+  }
   await query(
     'DELETE FROM ' + table('material_requests') + ' WHERE request_id = $1',
     [String(requestId)]
