@@ -2525,6 +2525,17 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   border-bottom: 1px solid var(--border-soft);
 }
 .msg-back-btn { font-size: 1.4rem; line-height: 1; padding: 0.2rem 0.5rem; }
+.msg-leave-btn {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.25rem 0.45rem;
+  white-space: nowrap;
+}
+.msg-leave-btn:hover { color: #b45309; }
+.msg-auto-tr + .msg-leave-btn { margin-left: 0.15rem; }
 .msg-chat-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .msg-chat-title span { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .msg-auto-tr {

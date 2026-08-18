@@ -26,6 +26,7 @@ module.exports = {
   SCHOOL_SEMESTERS_SHEET: 'School_Semesters',
   STUDENT_PLANNED_ATTENDANCE_SHEET: 'Student_Planned_Attendance',
   MESSAGES_SHEET: 'Student_Messages',
+  MESSENGER_HIDES_SHEET: 'Messenger_Thread_Hides',
   GRADES_DAILY_SHEET: 'Grades_Daily',
   GRADE_ASSESSMENTS_SHEET: 'Grade_Assessments',
   GRADE_WEIGHTS_SHEET: 'Grade_Weights',

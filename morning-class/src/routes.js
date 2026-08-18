@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
-const { notifyNewMessage, notifyThreadRead } = require('./realtime');
+const { notifyNewMessage, notifyThreadRead, broadcastThreadsChanged } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
 const { hasPermission } = require('./services/staffPermissionService');
@@ -44,6 +44,7 @@ const {
   getThreadMessages,
   sendThreadMessage,
   markThreadRead,
+  leaveThread,
   getUnreadCount,
   searchMessengerDirectory
 } = require('./services/messageService');
@@ -2776,6 +2777,16 @@ router.post('/messenger/threads/:threadId/read', requireRole('student', 'parent'
     res.json({ marked });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not mark read.' });
+  }
+});
+
+router.post('/messenger/threads/:threadId/leave', requireRole('student', 'parent', 'teacher', 'admin'), async (req, res) => {
+  try {
+    const result = await leaveThread(req.params.threadId, req.session);
+    broadcastThreadsChanged();
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not leave chat.' });
   }
 });
 

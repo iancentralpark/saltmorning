@@ -36,7 +36,11 @@
       schoolOffice: ko ? '학교 사무실' : 'School office',
       homeroom: ko ? '담임' : 'Homeroom',
       teacher: ko ? '교사' : 'Teacher',
-      messages: ko ? '메시지' : 'Messages'
+      messages: ko ? '메시지' : 'Messages',
+      leave: ko ? '나가기' : 'Leave',
+      leaveConfirm: ko
+        ? '이 채팅방을 나갈까요?\n상대방 대화 기록은 그대로 남고, 내 목록에서만 사라집니다. 새 메시지가 오면 다시 나타납니다.'
+        : 'Leave this chat?\nThe other person keeps the history. It only disappears from your list, and a new message will bring it back.'
     };
   }
 
@@ -434,7 +438,9 @@
           '<input type="checkbox" class="msg-auto-tr-input" ' + (autoOn ? 'checked' : '') + '>' +
           '<span class="msg-auto-tr-switch" aria-hidden="true"></span>' +
           '</label>'
-        : '');
+        : '') +
+      '<button type="button" class="btn btn-ghost msg-leave-btn">' +
+        escapeHtml(tabLabels().leave) + '</button>';
 
     head.querySelector('.msg-back-btn').addEventListener('click', () => {
       leaveThreadRoom();
@@ -446,6 +452,9 @@
       updatePanel();
       refreshThreads();
     });
+
+    const leaveBtn = head.querySelector('.msg-leave-btn');
+    if (leaveBtn) leaveBtn.addEventListener('click', () => leaveActiveChat());
 
     const autoInput = head.querySelector('.msg-auto-tr-input');
     if (autoInput) {
@@ -789,6 +798,29 @@
     } finally {
       input.disabled = false;
       input.focus();
+    }
+  }
+
+  async function leaveActiveChat() {
+    if (!activeThread || !activeThread.threadId) return;
+    const L = tabLabels();
+    if (!window.confirm(L.leaveConfirm)) return;
+    try {
+      await api(
+        '/api/messenger/threads/' + encodeURIComponent(activeThread.threadId) + '/leave',
+        { method: 'POST' },
+        role
+      );
+      leaveThreadRoom();
+      view = 'threads';
+      activeThread = null;
+      messages = [];
+      showOriginalIds.clear();
+      manualShowTranslated.clear();
+      updatePanel();
+      refreshThreads();
+    } catch (e) {
+      window.alert(e.message || (L.leave + ' failed'));
     }
   }
 
