@@ -4,22 +4,76 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Student — Salt Morning Class</title>
+  <meta name="theme-color" content="#0D2748">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Salt Morning">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260818">
+  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
+  <link rel="shortcut icon" href="/favicon.ico?v=20260818">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20260803buddyui">
-  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260803vocab2">
+  <link rel="stylesheet" href="/css/app.css?v=20260818sem1">
+  <link rel="stylesheet" href="/css/vocab-learn.css?v=20260817stucln1">
 </head>
 <body class="student-body">
 <div class="shell student-shell">
-  <div id="appView" class="hidden">
-    <div class="topbar student-topbar">
-      <div>
+  <div id="appView" class="hidden student-home-grid">
+    <header class="topbar teacher-topbar teacher-shell-topbar student-topbar">
+      <div class="teacher-shell-identity">
         <div class="brand" id="welcomeText">Student</div>
-        <div class="muted small" id="classLabel"></div>
+        <div class="teacher-shell-page muted small" id="classLabel"></div>
       </div>
-      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+      <div class="teacher-shell-nav">
+        <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
+        <button class="btn btn-ghost" id="changePasswordBtn" type="button" data-change-password data-i18n="nav.password">Password</button>
+        <button class="btn btn-ghost teacher-nav-logout" id="logoutBtn" type="button" data-i18n="nav.logout">Log out</button>
+      </div>
+    </header>
+
+    <div class="push-prompt" id="stuPushCard">
+      <div class="push-prompt-copy">
+        <strong data-i18n="push.title">Notifications</strong>
+        <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      </div>
+      <div class="push-prompt-actions">
+        <button type="button" class="btn btn-primary" id="stuPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
+        <button type="button" class="btn btn-ghost" id="stuPushLaterBtn" data-i18n="push.later">Not now</button>
+        <span class="muted small" id="stuPushStatus"></span>
+      </div>
     </div>
 
     <div class="stu-summary-grid" id="homeSummary"></div>
+
+    <div class="card stu-card" id="sectionTimetable">
+      <div class="card-title"><i class="fa-solid fa-calendar-week"></i> <span data-i18n="nav.timetable">Timetable</span></div>
+      <div id="stuTimetableMount"><p class="muted">Loading…</p></div>
+    </div>
+
+    <div class="card stu-card" id="announcementsShell">
+      <div class="card-title"><i class="fa-solid fa-bullhorn"></i> <span data-i18n="nav.parentAnnouncements">Announcements</span></div>
+      <div id="stuAnnList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
+
+    <div class="card stu-card" id="sectionHomework">
+      <div class="card-title"><i class="fa-solid fa-pencil"></i> <span data-i18n="nav.homework">Homework</span></div>
+      <p class="muted small" id="homeworkStatus">Loading…</p>
+      <div id="homeworkList"></div>
+    </div>
+
+    <div class="card stu-card" id="sectionDollars">
+      <div class="card-title"><i class="fa-solid fa-coins"></i> <span data-i18n="student.dollars">My dollars</span></div>
+      <div class="stu-dollar-row">
+        <strong id="dollarBalance" class="stu-dollar-amount">—</strong>
+        <button type="button" class="btn btn-ghost btn-sm hidden" id="dollarHistoryToggle">History</button>
+      </div>
+      <p class="muted small hidden" id="dollarStatus"></p>
+      <div id="dollarTx" class="stu-dollar-history hidden"></div>
+    </div>
 
     <div class="card stu-card vocab-shell" id="vocabShell">
       <div class="card-title"><i class="fa-solid fa-rocket"></i> Vocab Booster</div>
@@ -60,23 +114,14 @@
       </div>
     </div>
 
-    <div class="card stu-card" id="sectionHomework">
-      <h3>Homework</h3>
-      <p class="muted small" id="homeworkStatus">Loading…</p>
-      <div id="homeworkList"></div>
-    </div>
-
-    <div class="card stu-card" id="sectionDollars">
-      <h3>My dollars</h3>
-      <p class="muted small" id="dollarStatus">Loading…</p>
-      <div id="dollarBox">
-        <strong id="dollarBalance">—</strong>
-        <div id="dollarTx"></div>
-      </div>
+    <div class="card stu-card" id="sectionLostFound">
+      <div class="card-title"><i class="fa-solid fa-box-open"></i> <span data-i18n="nav.lostAndFound">Lost &amp; Found</span></div>
+      <p class="muted small" data-i18n="student.laf.help">Items turned in to the office. Ask a parent to claim yours, or stop by the office.</p>
+      <div id="stuLafList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
     </div>
 
     <div class="card stu-card" id="sectionAccount">
-      <h3>Account</h3>
+      <div class="card-title"><i class="fa-solid fa-user"></i> <span data-i18n="nav.profile">Account</span></div>
       <p class="muted small" id="moreProfile"></p>
       <p class="muted small" id="moreUnread"></p>
     </div>
@@ -114,20 +159,54 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/messenger.js?v=20260803vocab2"></script>
-<script src="/js/vocab-learn.js?v=20260803vocab2"></script>
+<script src="/js/app.js?v=20260817mobile1"></script>
+<script src="/js/i18n.js?v=20260818sem1"></script>
+  <script src="/js/change-password.js?v=20260813gap27"></script>
+  <script src="/js/push-client.js?v=20260814ux2"></script>
+<script src="/js/announcements.js?v=20260813gap27"></script>
+<script src="/js/lost-and-found.js?v=20260813ux1"></script>
+<script src="/js/messenger.js?v=20260813gap1"></script>
+<script src="/js/subject-colors.js?v=20260812pastel"></script>
+<script src="/js/timetable.js?v=20260813gap1"></script>
+<script src="/js/vocab-learn.js?v=20260810teacherux"></script>
 <script>
 (function() {
   const role = 'student';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+  if (window.SaltI18n) SaltI18n.bindToggle($('langToggleBtn'));
   let buddyHistory = [];
   let dashboard = null;
   let buddyOpen = false;
 
+  async function loadStudentAnnouncements() {
+    const box = $('stuAnnList');
+    if (!box) return;
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/student/announcements', {}, role);
+      if (window.SaltAnnouncements) {
+        SaltAnnouncements.renderGroupedList(box, data.announcements || [], {
+          emptyText: 'No announcements yet.'
+        });
+      }
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
   if (!getToken(role)) {
     location.replace('/');
     return;
+  }
+
+  SaltChangePassword.mount({
+    role,
+    api,
+    requireChange: !!(getProfile(role) && getProfile(role).mustChangePassword)
+  });
+
+  if (window.SaltTimetable) {
+    SaltTimetable.init({ api, escapeHtml, role: 'student' });
   }
 
   // Bridge for Mr.Park vocab-learn.js
@@ -292,7 +371,7 @@
       chip('Messages', s.unreadMessages || 0) +
       chip('Homework', s.pendingHomework || 0) +
       chip('Dollars', s.dollars == null ? '—' : s.dollars) +
-      chip('Vocab', v.placementDone ? (v.tierName || v.tier || 'Ready') : 'Place first');
+      chip('Vocab Booster', v.placementDone ? (v.tierLabel || v.tierName || v.tier || 'Ready') : 'Place first');
   }
 
   function renderHomework() {
@@ -340,22 +419,34 @@
   function renderDollars() {
     const d = (dashboard && dashboard.dollars) || {};
     const p = (dashboard && dashboard.profile) || getProfile(role) || {};
+    const statusEl = $('dollarStatus');
+    const toggleBtn = $('dollarHistoryToggle');
+    const txBox = $('dollarTx');
     if (!d.available) {
-      $('dollarStatus').textContent = 'Balance will appear when ready.';
+      statusEl.textContent = 'Balance will appear when ready.';
+      show(statusEl);
       $('dollarBalance').textContent = '—';
-      $('dollarTx').innerHTML = '';
+      txBox.innerHTML = '';
+      hide(toggleBtn);
+      hide(txBox);
     } else {
-      $('dollarStatus').textContent = 'Current balance';
+      hide(statusEl);
       $('dollarBalance').textContent = '$' + (d.balance || 0);
       const txs = d.transactions || [];
-      $('dollarTx').innerHTML = txs.length
-        ? '<ul class="stu-list">' + txs.map((t) =>
+      if (txs.length) {
+        txBox.innerHTML = '<ul class="stu-list">' + txs.map((t) =>
           '<li><strong>' + (t.amount > 0 ? '+' : '') + escapeHtml(String(t.amount)) + '</strong>' +
           '<div class="muted small">' + escapeHtml(t.reason || '') +
           (t.at ? ' · ' + escapeHtml(String(t.at).slice(0, 16).replace('T', ' ')) : '') +
           '</div></li>'
-        ).join('') + '</ul>'
-        : '<p class="muted small">No transactions yet.</p>';
+        ).join('') + '</ul>';
+        show(toggleBtn);
+        toggleBtn.textContent = 'History';
+      } else {
+        txBox.innerHTML = '';
+        hide(toggleBtn);
+      }
+      hide(txBox);
     }
     $('moreUnread').textContent = dashboard && dashboard.summary
       ? ('Unread messages: ' + (dashboard.summary.unreadMessages || 0) + ' — tap the chat icon (bottom left)')
@@ -374,10 +465,26 @@
       renderHome();
       renderHomework();
       renderDollars();
+      if (window.SaltTimetable && $('stuTimetableMount')) {
+        SaltTimetable.renderReadOnly(
+          $('stuTimetableMount'),
+          'student',
+          p.studentId || (getProfile(role) || {}).studentId || 'self',
+          p.name || ''
+        );
+      }
       if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
       show($('buddyFloat'));
       if (window.MrParkVocabLearn) {
-        window.MrParkVocabLearn.onLogin();
+        // Apply dashboard vocab immediately so Placement UI cannot flash/stuck as "not done".
+        if (dashboard.vocab && typeof window.MrParkVocabLearn.applyServerSummary === 'function') {
+          window.MrParkVocabLearn.applyServerSummary(dashboard.vocab);
+        }
+        if (typeof window.MrParkVocabLearn.onLogin === 'function') {
+          window.MrParkVocabLearn.onLogin();
+        } else if (typeof window.MrParkVocabLearn.refreshServerSummary === 'function') {
+          window.MrParkVocabLearn.refreshServerSummary();
+        }
       }
     } catch (e) {
       $('homeworkStatus').textContent = e.message || 'Could not load dashboard.';
@@ -389,6 +496,13 @@
       $('buddyInput').value = btn.dataset.prompt || '';
       $('buddyInput').focus();
     });
+  });
+
+  $('dollarHistoryToggle').addEventListener('click', () => {
+    const box = $('dollarTx');
+    const willShow = box.classList.contains('hidden');
+    box.classList.toggle('hidden', !willShow);
+    $('dollarHistoryToggle').textContent = willShow ? 'Hide' : 'History';
   });
 
   $('buddyFloatToggle').addEventListener('click', () => setBuddyOpen(!buddyOpen));
@@ -447,6 +561,7 @@
 
   $('logoutBtn').addEventListener('click', () => {
     if (window.MrParkVocabLearn) window.MrParkVocabLearn.onLogout();
+    api('/api/auth/logout', { method: 'POST' }, role).catch(() => {});
     setToken(role, '');
     setProfile(role, null);
     location.href = '/';
@@ -455,7 +570,21 @@
   show($('appView'));
   if (window.MrParkVocabLearn) window.MrParkVocabLearn.init();
   SaltMessenger.init(role);
+  if (window.SaltPush) {
+    SaltPush.bindButtons({
+      api: function(path, opts) { return api(path, opts, role); },
+      enableBtn: $('stuPushEnableBtn'),
+      dismissBtn: $('stuPushLaterBtn'),
+      cardEl: $('stuPushCard'),
+      statusEl: $('stuPushStatus')
+    });
+  }
   loadDashboard();
+  loadStudentAnnouncements();
+  if (window.SaltLostFound && SaltLostFound.Student) {
+    SaltLostFound.Student.init({ api, $, escapeHtml });
+    SaltLostFound.Student.open();
+  }
 })();
 </script>
 </body>

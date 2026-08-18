@@ -2,7 +2,7 @@ const {
   CLASS_TEACHERS_SHEET,
   TEACHER_CLASS_SUBJECTS_SHEET,
   SUBJECTS_SHEET,
-  TEACHER_LIST_SHEET
+  GRADE_ASSESSMENTS_SHEET
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet } = require('../sheets');
 const { getTeacherClasses, getClassNameMap } = require('./teacherPortalService');
@@ -14,6 +14,77 @@ const {
 } = require('./subjectStyleService');
 
 const DEFAULT_HOMEROOM_SUBJECT = 'English';
+const SKIP_SUBJECTS = new Set(['All', 'All subjects', 'Homeroom']);
+
+function addSubjectEntry(bySubject, teacherNames, subject, teacherIdForSubj, teacherNameHint) {
+  const name = String(subject || '').trim();
+  if (!name || SKIP_SUBJECTS.has(name)) return;
+  if (!bySubject.has(name)) {
+    bySubject.set(name, { subject: name, teacherIds: [], teacherNames: [] });
+  }
+  const entry = bySubject.get(name);
+  const tid = String(teacherIdForSubj || '').trim();
+  if (tid && !entry.teacherIds.includes(tid)) {
+    entry.teacherIds.push(tid);
+    entry.teacherNames.push(teacherNameHint || teacherNames[tid] || tid);
+  }
+}
+
+/**
+ * Class curriculum for Grades / Reports.
+ * If the class has timetable Subject requirements, that list is the
+ * curriculum (exact match). Otherwise the list is Class_Teachers +
+ * Teacher_Class_Subjects + existing Grade_Assessments.
+ */
+async function collectClassSubjects(classId) {
+  const { listRequirementCurriculum } = require('./timetableRequirementsService');
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  const [reqSubjects, assignRows, customRows, assessRows, teacherNames] = await Promise.all([
+    listRequirementCurriculum(classId).catch(() => []),
+    getSheetRows(CLASS_TEACHERS_SHEET),
+    getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
+    getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
+    teacherDisplayNameMap()
+  ]);
+
+  const bySubject = new Map();
+  function add(subject, teacherIdForSubj, teacherNameHint, teacherNamesMap) {
+    addSubjectEntry(bySubject, teacherNamesMap || {}, subject, teacherIdForSubj, teacherNameHint);
+  }
+
+  reqSubjects.forEach((s) => {
+    (s.teacherIds || []).forEach((tid, idx) => {
+      add(s.subject, tid, (s.teacherNames && s.teacherNames[idx]) || '', {});
+    });
+    if (!(s.teacherIds || []).length) add(s.subject, '', '', {});
+  });
+
+  // Timetable Requirements is the admin-authored curriculum, but it can
+  // drift from what's actually assigned/taught/graded (e.g. a subject
+  // removed from the requirements sheet after grades were already entered
+  // for it, or a custom subject a teacher added that was never added to
+  // requirements). Always union in the real assignment/grade data too, so
+  // an already-taught subject with real grade history never silently
+  // disappears from Grades / Report Cards just because it's missing from
+  // requirements.
+  for (let i = 1; i < assignRows.length; i++) {
+    if (String(assignRows[i][0]) !== String(classId)) continue;
+    add(assignRows[i][3], assignRows[i][1], '', teacherNames);
+  }
+  for (let i = 1; i < customRows.length; i++) {
+    if (String(customRows[i][1]) !== String(classId)) continue;
+    add(customRows[i][2], customRows[i][0], '', teacherNames);
+  }
+  for (let i = 1; i < (assessRows || []).length; i++) {
+    if (String(assessRows[i][1]) !== String(classId)) continue;
+    add(assessRows[i][3], assessRows[i][8], '', teacherNames);
+  }
+
+  return {
+    source: reqSubjects.length ? 'requirements+assignments' : 'assignments',
+    subjects: Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject))
+  };
+}
 
 async function ensureTeacherClassSubjectsSheet() {
   await ensureSheet(TEACHER_CLASS_SUBJECTS_SHEET, [
@@ -37,14 +108,33 @@ function parseCustomSubjectRows(rows, teacherId) {
   return out;
 }
 
+const teacherDataMemo = new Map();
+const TEACHER_DATA_MEMO_MS = 8000;
+
 async function loadTeacherSubjectData(teacherId) {
+  const key = String(teacherId || '');
+  const hit = teacherDataMemo.get(key);
+  if (hit && Date.now() < hit.expires) return hit.promise;
+  const promise = loadTeacherSubjectDataFresh(teacherId);
+  teacherDataMemo.set(key, { expires: Date.now() + TEACHER_DATA_MEMO_MS, promise });
+  try {
+    return await promise;
+  } catch (e) {
+    teacherDataMemo.delete(key);
+    throw e;
+  }
+}
+
+async function loadTeacherSubjectDataFresh(teacherId) {
   await ensureTeacherClassSubjectsSheet();
-  const [{ homeroom, assigned }, assignRows, customRows, classNames, catalog] = await Promise.all([
+  const { listAllRequirements } = require('./timetableRequirementsService');
+  const [{ homeroom, assigned }, assignRows, customRows, classNames, catalog, requirements] = await Promise.all([
     getTeacherClasses(teacherId),
     getSheetRows(CLASS_TEACHERS_SHEET),
     getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
     getClassNameMap(),
-    listCatalogSubjects()
+    listCatalogSubjects(),
+    listAllRequirements().catch(() => [])
   ]);
   return {
     homeroom,
@@ -52,32 +142,53 @@ async function loadTeacherSubjectData(teacherId) {
     assignRows,
     custom: parseCustomSubjectRows(customRows, teacherId),
     classNames,
-    catalog
+    catalog,
+    requirements
   };
 }
 
-function subjectsForClassFromData(teacherId, classId, data) {
+function subjectsForClassFromData(teacherId, classId, data, opts) {
+  const includeHomeroomDefault = !opts || opts.includeHomeroomDefault !== false;
   const subjects = new Set();
   const isHomeroom = data.homeroom.some((e) => e.classId === classId);
 
   data.assigned.forEach((e) => {
     if (e.classId !== classId) return;
-    (e.subjects || []).forEach((s) => { if (s) subjects.add(s); });
+    (e.subjects || []).forEach((s) => {
+      if (s && s !== 'All' && s !== 'All subjects') subjects.add(s);
+    });
   });
 
   for (let i = 1; i < data.assignRows.length; i++) {
     if (String(data.assignRows[i][1]) !== String(teacherId)) continue;
     if (String(data.assignRows[i][0]) !== String(classId)) continue;
+    const assignmentType = String(data.assignRows[i][2] || 'Subject');
     const subject = String(data.assignRows[i][3] || '').trim();
     if (subject) subjects.add(subject);
+    // Homeroom row without a subject is a role, not a teachable subject
+    if (assignmentType === 'Homeroom' && !subject) continue;
   }
 
   data.custom.forEach((c) => {
     if (c.classId === classId) subjects.add(c.subject);
   });
 
-  if (isHomeroom && !subjects.size) subjects.add(DEFAULT_HOMEROOM_SUBJECT);
+  (data.requirements || []).forEach((r) => {
+    if (String(r.teacherId) !== String(teacherId)) return;
+    const ids = r.classIds || [r.classId];
+    if (!ids.map(String).includes(String(classId))) return;
+    const name = String(r.subject || '').trim();
+    if (name && !SKIP_SUBJECTS.has(name)) subjects.add(name);
+  });
+
+  if (includeHomeroomDefault && isHomeroom && !subjects.size) {
+    subjects.add(DEFAULT_HOMEROOM_SUBJECT);
+  }
   return Array.from(subjects).sort((a, b) => a.localeCompare(b));
+}
+
+function isHomeroomOfFromData(teacherId, classId, data) {
+  return data.homeroom.some((e) => e.classId === String(classId));
 }
 
 function buildLessonSlotsFromData(teacherId, filterClassId, data) {
@@ -142,16 +253,12 @@ async function listTeacherCustomSubjects(teacherId) {
 }
 
 async function listAdminClassAssignments() {
-  const [classNames, teachers, assignRows] = await Promise.all([
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
+  const [classNames, teacherNames, assignRows] = await Promise.all([
     getClassNameMap(),
-    getSheetRows(TEACHER_LIST_SHEET),
+    teacherDisplayNameMap(),
     getSheetRows(CLASS_TEACHERS_SHEET)
   ]);
-
-  const teacherNames = {};
-  for (let i = 1; i < teachers.length; i++) {
-    teacherNames[String(teachers[i][0])] = String(teachers[i][1] || '');
-  }
 
   const out = [];
   for (let i = 1; i < assignRows.length; i++) {
@@ -197,9 +304,73 @@ async function listAdminClassAssignments() {
   return out;
 }
 
-async function getSubjectsForClass(teacherId, classId) {
+async function getSubjectsForClass(teacherId, classId, opts) {
   const data = await loadTeacherSubjectData(teacherId);
-  return subjectsForClassFromData(teacherId, classId, data);
+  return subjectsForClassFromData(teacherId, classId, data, opts);
+}
+
+async function isTeacherHomeroomOf(teacherId, classId) {
+  const data = await loadTeacherSubjectData(teacherId);
+  return isHomeroomOfFromData(teacherId, classId, data);
+}
+
+async function getTeacherGradeAccess(teacherId, classId, subject) {
+  const data = await loadTeacherSubjectData(teacherId);
+  const allowed = new Set();
+  data.homeroom.forEach((e) => allowed.add(String(e.classId)));
+  data.assigned.forEach((e) => allowed.add(String(e.classId)));
+  if (!allowed.has(String(classId))) {
+    throw new Error('You are not assigned to this class.');
+  }
+  const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
+  const taught = subjectsForClassFromData(teacherId, classId, data, { includeHomeroomDefault: false });
+  const subj = String(subject || '').trim();
+  const canEdit = Boolean(subj && taught.includes(subj));
+  const canView = canEdit || isHomeroom;
+  if (subj && !canView) {
+    throw new Error('You can only view grades for subjects you teach, or all subjects as Homeroom teacher.');
+  }
+  return { canView: !subj || canView, canEdit, isHomeroom, taughtSubjects: taught };
+}
+
+async function listClassGradeSubjects(teacherId, classId) {
+  await assertTeacherClassAccess(teacherId, classId);
+  const { listExcludedReportSubjects } = require('./classSubjectFlagsService');
+  const [data, collected, excluded] = await Promise.all([
+    loadTeacherSubjectData(teacherId),
+    collectClassSubjects(classId),
+    listExcludedReportSubjects(classId)
+  ]);
+
+  const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
+  const taught = subjectsForClassFromData(teacherId, classId, data, { includeHomeroomDefault: false });
+  const taughtSet = new Set(taught);
+
+  let subjects = collected.subjects.map((s) => ({
+    subject: s.subject,
+    canEdit: taughtSet.has(s.subject),
+    teacherNames: s.teacherNames,
+    excludeFromReport: excluded.has(s.subject),
+    canToggleReport: isHomeroom || taughtSet.has(s.subject)
+  }));
+
+  if (!isHomeroom) {
+    subjects = subjects.filter((s) => s.canEdit);
+  }
+
+  return {
+    classId: String(classId),
+    isHomeroom,
+    source: collected.source,
+    taughtSubjects: taught,
+    subjects,
+    allSubjects: collected.subjects.map((s) => ({
+      subject: s.subject,
+      canEdit: taughtSet.has(s.subject),
+      teacherNames: s.teacherNames,
+      excludeFromReport: excluded.has(s.subject)
+    }))
+  };
 }
 
 async function getTeacherLessonSlots(teacherId, filterClassId) {
@@ -208,10 +379,14 @@ async function getTeacherLessonSlots(teacherId, filterClassId) {
 }
 
 async function listTeacherSubjectGroups(teacherId) {
-  const [data, customStyles] = await Promise.all([
+  const { getTimetable } = require('./timetableService');
+  const [data, customStyles, prefs, timetable] = await Promise.all([
     loadTeacherSubjectData(teacherId),
-    listTeacherSubjectStyles(teacherId)
+    listTeacherSubjectStyles(teacherId),
+    require('./subjectPrefsService').listTeacherSubjectPrefs(teacherId),
+    getTimetable('teacher', teacherId).catch(() => ({ entries: [] }))
   ]);
+  const { isHidden, resolveTeachingDays, DAY_LABELS } = require('./subjectPrefsService');
   const groups = {};
 
   data.homeroom.forEach((e) => {
@@ -234,18 +409,47 @@ async function listTeacherSubjectGroups(teacherId) {
   });
 
   for (const classId of Object.keys(groups)) {
-    groups[classId].subjects = subjectsForClassFromData(teacherId, classId, data);
+    let subjects = subjectsForClassFromData(teacherId, classId, data);
+    subjects = subjects.filter((s) => !isHidden(prefs, classId, s));
+    groups[classId].subjects = subjects;
+    const subjectMeta = {};
+    for (const s of subjects) {
+      const days = await resolveTeachingDays(teacherId, classId, s, prefs, timetable);
+      const custom = data.custom.some((c) => c.classId === classId && c.subject === s);
+      subjectMeta[s] = {
+        teachingDays: days,
+        dayLabels: days.map((d) => DAY_LABELS[d] || String(d)),
+        removable: true,
+        isCustom: custom,
+        syncFromTimetable: !(prefs[classId + '|' + s] && prefs[classId + '|' + s].syncFromTimetable === false)
+      };
+    }
+    groups[classId].subjectMeta = subjectMeta;
+    const roles = [];
+    if (groups[classId].isHomeroom) roles.push('Homeroom');
+    subjects.forEach((s) => {
+      if (s && !roles.includes(s)) roles.push(s);
+    });
+    groups[classId].roles = roles;
+    groups[classId].roleLabel = roles.join(' / ');
   }
 
-  const classSlots = buildLessonSlotsFromData(teacherId, '', data);
+  const classSlots = buildLessonSlotsFromData(teacherId, '', data).filter(
+    (s) => !isHidden(prefs, s.classId, s.subject)
+  );
   const styleBundle = buildStyleLookup(classSlots, customStyles);
+  const classes = Object.values(groups).sort((a, b) => {
+    if (a.isHomeroom !== b.isHomeroom) return a.isHomeroom ? -1 : 1;
+    return a.className.localeCompare(b.className);
+  });
   return {
     catalog: data.catalog,
-    classes: Object.values(groups).sort((a, b) => a.className.localeCompare(b.className)),
+    classes,
     custom: data.custom,
     styles: customStyles,
     stylePalette: SUBJECT_PALETTE,
-    resolvedStyles: styleBundle.byKey
+    resolvedStyles: styleBundle.byKey,
+    prefs
   };
 }
 
@@ -255,6 +459,13 @@ async function addTeacherSubject(teacherId, classId, subject) {
   subject = String(subject || '').trim();
   if (!subject) throw new Error('Subject name is required.');
   if (subject.length > 40) throw new Error('Subject name is too long.');
+
+  const { isHidden, saveSubjectPref, listTeacherSubjectPrefs } = require('./subjectPrefsService');
+  const prefs = await listTeacherSubjectPrefs(teacherId);
+  if (isHidden(prefs, classId, subject)) {
+    await saveSubjectPref(teacherId, { classId, subject, hidden: false });
+    return { added: true, subject, classId, mode: 'unhidden' };
+  }
 
   const existing = await getSubjectsForClass(teacherId, classId);
   if (existing.includes(subject)) {
@@ -278,6 +489,7 @@ async function addTeacherSubject(teacherId, classId, subject) {
 async function removeTeacherSubject(teacherId, classId, subject) {
   await ensureTeacherClassSubjectsSheet();
   subject = String(subject || '').trim();
+  classId = String(classId || '').trim();
   const data = await getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET, { skipCache: true });
   let found = -1;
   for (let i = 1; i < data.length; i++) {
@@ -287,9 +499,14 @@ async function removeTeacherSubject(teacherId, classId, subject) {
     found = i + 1;
     break;
   }
-  if (found < 0) throw new Error('Custom subject not found.');
-  await updateRange(TEACHER_CLASS_SUBJECTS_SHEET, `A${found}:D${found}`, [['', '', '', '']]);
-  return { removed: true };
+  if (found > 0) {
+    await updateRange(TEACHER_CLASS_SUBJECTS_SHEET, `A${found}:D${found}`, [['', '', '', '']]);
+    return { removed: true, mode: 'custom' };
+  }
+  // Admin-assigned / homeroom default: hide via prefs instead of deleting source assignment.
+  const { saveSubjectPref } = require('./subjectPrefsService');
+  await saveSubjectPref(teacherId, { classId, subject, hidden: true });
+  return { removed: true, mode: 'hidden' };
 }
 
 async function saveAdminClassAssignment(payload) {
@@ -339,5 +556,9 @@ module.exports = {
   saveAdminClassAssignment,
   deleteAdminClassAssignment,
   styleKey,
-  assertTeacherClassAccess
+  assertTeacherClassAccess,
+  isTeacherHomeroomOf,
+  getTeacherGradeAccess,
+  listClassGradeSubjects,
+  collectClassSubjects
 };

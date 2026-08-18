@@ -1,6 +1,8 @@
 const { GRADE_WEIGHTS_SHEET, GRADE_TERMS_SHEET } = require('../config');
 const { getSheetRows, appendRows, updateRange } = require('../sheets');
 const { formatSheetDate } = require('../dateUtils');
+const { query, table, withTransaction } = require('../db/pool');
+const { ensureOpsDbStarted, isOpsGradesReady } = require('../db/boot');
 const crypto = require('crypto');
 
 const GRADE_CATEGORY_PRESETS = [
@@ -9,8 +11,6 @@ const GRADE_CATEGORY_PRESETS = [
   { categoryKey: 'homework', label: 'Homework', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'midterm', label: 'Midterm Exam', aggregation: 'single', defaultMaxScore: 100 },
   { categoryKey: 'final', label: 'Final Exam', aggregation: 'single', defaultMaxScore: 100 },
-  { categoryKey: 'performance', label: '수행평가', aggregation: 'average', defaultMaxScore: 100 },
-  { categoryKey: 'notebook', label: '노트체크', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'participation', label: 'Participation', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'project', label: 'Project', aggregation: 'single', defaultMaxScore: 100 },
   { categoryKey: 'unit_test', label: 'Unit Test', aggregation: 'average', defaultMaxScore: 100 },
@@ -19,6 +19,15 @@ const GRADE_CATEGORY_PRESETS = [
   { categoryKey: 'vocabulary', label: 'Vocabulary Test', aggregation: 'average', defaultMaxScore: 100 },
   { categoryKey: 'writing', label: 'Writing', aggregation: 'average', defaultMaxScore: 100 }
 ];
+
+function slugCategoryKey(label) {
+  const base = String(label || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return 'custom_' + (base || crypto.randomBytes(3).toString('hex'));
+}
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -50,7 +59,78 @@ function parseTermRow(row) {
   };
 }
 
+function mapWeightRow(row) {
+  return {
+    weightId: String(row.weight_id),
+    classId: String(row.class_id),
+    term: String(row.term),
+    subject: String(row.subject),
+    categoryKey: String(row.category_key),
+    label: String(row.label || ''),
+    weightPercent: Number(row.weight_percent) || 0,
+    aggregation: String(row.aggregation || 'average'),
+    sortOrder: Number(row.sort_order) || 0,
+    defaultMaxScore: Number(row.default_max_score) || 100,
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : ''
+  };
+}
+
+async function listGradeWeightsPg(classId, term, subject) {
+  const params = [String(classId)];
+  let sql = 'SELECT * FROM ' + table('grade_weights') + ' WHERE class_id = $1';
+  if (term) {
+    params.push(String(term));
+    sql += ' AND term = $' + params.length;
+  }
+  if (subject) {
+    params.push(String(subject));
+    sql += ' AND subject = $' + params.length;
+  }
+  sql += ' ORDER BY sort_order ASC, label ASC';
+  const r = await query(sql, params);
+  return r.rows.map(mapWeightRow);
+}
+
+async function saveGradeWeightsPg(classId, term, subject, normalized) {
+  await withTransaction(async (client) => {
+    const existing = await client.query(
+      'SELECT weight_id, category_key FROM ' + table('grade_weights') +
+        ' WHERE class_id = $1 AND term = $2 AND subject = $3',
+      [classId, term, subject]
+    );
+    const byKey = {};
+    existing.rows.forEach((row) => {
+      byKey[String(row.category_key)] = String(row.weight_id);
+    });
+    const keep = [];
+    for (const w of normalized) {
+      const weightId = byKey[w.categoryKey] || newId('gw');
+      keep.push(w.categoryKey);
+      await client.query(
+        'INSERT INTO ' + table('grade_weights') +
+          ' (weight_id, class_id, term, subject, category_key, label, weight_percent, aggregation, sort_order, default_max_score, updated_at)' +
+          ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())' +
+          ' ON CONFLICT (class_id, term, subject, category_key) DO UPDATE SET' +
+          ' label = EXCLUDED.label, weight_percent = EXCLUDED.weight_percent,' +
+          ' aggregation = EXCLUDED.aggregation, sort_order = EXCLUDED.sort_order,' +
+          ' default_max_score = EXCLUDED.default_max_score, updated_at = now()',
+        [
+          weightId, classId, term, subject, w.categoryKey, w.label,
+          w.weightPercent, w.aggregation, w.sortOrder, w.defaultMaxScore
+        ]
+      );
+    }
+    await client.query(
+      'DELETE FROM ' + table('grade_weights') +
+        ' WHERE class_id = $1 AND term = $2 AND subject = $3 AND NOT (category_key = ANY($4::text[]))',
+      [classId, term, subject, keep]
+    );
+  });
+}
+
 async function ensureGradeSheets() {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) return;
   const { getSheetsApi, getSheetIdMap } = require('../sheets');
   const sheets = await getSheetsApi();
   const { SPREADSHEET_ID } = require('../config');
@@ -92,67 +172,47 @@ async function ensureGradeSheets() {
 }
 
 async function listGradeTerms(classId) {
-  await ensureGradeSheets();
-  const rows = await getSheetRows(GRADE_TERMS_SHEET);
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][1]) !== String(classId)) continue;
-    out.push(parseTermRow(rows[i]));
-  }
-  out.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  return out;
+  const { listTermsForClass } = require('./schoolSemesterService');
+  return listTermsForClass(classId);
 }
 
 async function getGradeTerm(classId, termLabel) {
-  const terms = await listGradeTerms(classId);
-  return terms.find((t) => t.label === termLabel) || null;
+  const { getTermForClass } = require('./schoolSemesterService');
+  return getTermForClass(classId, termLabel);
 }
 
 async function getActiveTerm(classId) {
-  const terms = await listGradeTerms(classId);
-  if (!terms.length) return null;
-  const { todayStr } = require('../dateUtils');
-  const today = todayStr();
-  const current = terms.find((t) => t.startDate <= today && today <= t.endDate);
-  if (current) return current;
-  const past = terms.filter((t) => t.startDate <= today);
-  if (past.length) return past[past.length - 1];
-  return terms[0];
+  const { getActiveTermForClass } = require('./schoolSemesterService');
+  return getActiveTermForClass(classId);
 }
 
 async function listAllGradeTerms() {
-  await ensureGradeSheets();
-  const rows = await getSheetRows(GRADE_TERMS_SHEET);
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue;
-    out.push(parseTermRow(rows[i]));
-  }
-  out.sort((a, b) => a.classId.localeCompare(b.classId) || a.startDate.localeCompare(b.startDate));
-  return out;
+  const { listSchoolSemesters, asTerm } = require('./schoolSemesterService');
+  const semesters = await listSchoolSemesters();
+  return semesters
+    .filter((s) => s.startDate && s.endDate)
+    .map((s) => asTerm(s, '*'));
 }
 
 async function saveGradeTerm(classId, label, startDate, endDate) {
-  await ensureGradeSheets();
-  classId = String(classId);
-  label = String(label || '').trim();
-  startDate = formatSheetDate(startDate);
-  endDate = formatSheetDate(endDate);
-  if (!label || !startDate || !endDate) throw new Error('Term label and dates are required.');
-  if (endDate < startDate) throw new Error('End date must be on or after start date.');
-
-  const data = await getSheetRows(GRADE_TERMS_SHEET, { skipCache: true });
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][1]) !== classId || String(data[i][2]) !== label) continue;
-    await updateRange(GRADE_TERMS_SHEET, `D${i + 1}:E${i + 1}`, [[startDate, endDate]]);
-    return { termId: String(data[i][0]), classId, label, startDate, endDate };
+  // Legacy admin Terms API — find-or-create a semester by label.
+  const { getSchoolSemester, createSemester, updateSemester, asTerm } = require('./schoolSemesterService');
+  const matched = await getSchoolSemester(label);
+  let saved;
+  if (matched) {
+    if (matched.closed) throw new Error('"' + matched.label + '" is closed and can no longer be edited.');
+    saved = await updateSemester(matched.key, { startDate, endDate });
+  } else {
+    saved = await createSemester({ label, startDate, endDate });
   }
-  const termId = newId('gt');
-  await appendRows(GRADE_TERMS_SHEET, [[termId, classId, label, startDate, endDate]]);
-  return { termId, classId, label, startDate, endDate };
+  return asTerm(saved, '*');
 }
 
 async function listGradeWeights(classId, term, subject) {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    return listGradeWeightsPg(classId, term, subject);
+  }
   await ensureGradeSheets();
   const rows = await getSheetRows(GRADE_WEIGHTS_SHEET);
   const out = [];
@@ -175,21 +235,41 @@ async function saveGradeWeights(classId, term, subject, weights) {
   if (!Array.isArray(weights) || !weights.length) {
     throw new Error('Add at least one grade category weight.');
   }
+  const { getSchoolSemester } = require('./schoolSemesterService');
+  const sem = await getSchoolSemester(term).catch(() => null);
+  if (sem && sem.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+  }
 
   const normalized = weights.map((w, idx) => {
-    const preset = GRADE_CATEGORY_PRESETS.find((p) => p.categoryKey === w.categoryKey);
-    const label = String(w.label || (preset && preset.label) || w.categoryKey).trim();
-    const categoryKey = String(w.categoryKey || '').trim();
+    const label = String(w.label || w.categoryKey || '').trim();
+    if (!label) throw new Error('Each category needs a name.');
+    let categoryKey = String(w.categoryKey || '').trim();
+    const preset = GRADE_CATEGORY_PRESETS.find((p) => p.categoryKey === categoryKey);
+    // Custom categories: accept any key, or generate one from the label
+    if (!preset) {
+      if (!categoryKey || categoryKey === '__custom__' || categoryKey === 'custom') {
+        categoryKey = slugCategoryKey(label);
+      }
+    } else {
+      // Keep preset label unless teacher renamed it intentionally via custom flow
+      // Prefer teacher-provided label when present
+    }
     const weightPercent = Number(w.weightPercent);
-    if (!categoryKey || !label) throw new Error('Each category needs a key and label.');
     if (!Number.isFinite(weightPercent) || weightPercent <= 0 || weightPercent > 100) {
       throw new Error('Weight for ' + label + ' must be between 1 and 100.');
     }
+    const aggregation = String(
+      w.aggregation || (preset && preset.aggregation) || 'average'
+    );
+    if (aggregation !== 'average' && aggregation !== 'single') {
+      throw new Error('Aggregation for ' + label + ' must be average or single.');
+    }
     return {
-      categoryKey,
-      label,
+      categoryKey: preset ? preset.categoryKey : categoryKey,
+      label: preset && !String(w.label || '').trim() ? preset.label : label,
       weightPercent,
-      aggregation: String(w.aggregation || (preset && preset.aggregation) || 'average'),
+      aggregation,
       sortOrder: Number(w.sortOrder) || idx + 1,
       defaultMaxScore: Number(w.defaultMaxScore) || (preset && preset.defaultMaxScore) || 100
     };
@@ -204,6 +284,18 @@ async function saveGradeWeights(classId, term, subject, weights) {
   const total = normalized.reduce((s, w) => s + w.weightPercent, 0);
   if (Math.abs(total - 100) > 0.01) {
     throw new Error('Weights must add up to 100% (currently ' + Math.round(total * 10) / 10 + '%).');
+  }
+
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    await saveGradeWeightsPg(classId, term, subject, normalized);
+    try {
+      const { clearGradebookCache } = require('./gradeService');
+      clearGradebookCache(classId, term, subject);
+    } catch (e) {
+      // ignore cache clear failures
+    }
+    return { saved: normalized.length, weights: await listGradeWeights(classId, term, subject), totalPercent: total };
   }
 
   const data = await getSheetRows(GRADE_WEIGHTS_SHEET, { skipCache: true });
@@ -244,6 +336,13 @@ async function saveGradeWeights(classId, term, subject, weights) {
     }
   }
   if (appends.length) await appendRows(GRADE_WEIGHTS_SHEET, appends);
+
+  try {
+    const { clearGradebookCache } = require('./gradeService');
+    clearGradebookCache(classId, term, subject);
+  } catch (e) {
+    // ignore cache clear failures
+  }
 
   return { saved: normalized.length, weights: await listGradeWeights(classId, term, subject), totalPercent: total };
 }

@@ -1,6 +1,11 @@
 """
 OR-Tools CP-SAT school timetable solver for Salt Morning Class.
 Run: python main.py  (port 8791)
+
+Supports:
+  - forbidden teacher slots (busy in other classes)
+  - occupiedClassSlots (already filled / locked periods for this class)
+  - pinned assignments (mandatory constraints for locked slots)
 """
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ortools.sat.python import cp_model
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Salt Timetable Solver", version="1.0.0")
+app = FastAPI(title="Salt Timetable Solver", version="1.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,11 +50,26 @@ class ForbiddenSlot(BaseModel):
     lessonSlotIndex: int
 
 
+class OccupiedClassSlot(BaseModel):
+    day: int
+    lessonSlotIndex: int
+
+
+class PinnedSlot(BaseModel):
+    activityId: Optional[str] = None
+    teacherId: str = ""
+    subject: str = ""
+    day: int
+    lessonSlotIndex: int
+
+
 class SolveRequest(BaseModel):
     days: List[int] = [1, 2, 3, 4, 5]
     periods: List[Period]
     activities: List[Activity]
     forbidden: List[ForbiddenSlot] = []
+    occupiedClassSlots: List[OccupiedClassSlot] = []
+    pinned: List[PinnedSlot] = []
     timeLimitSeconds: int = 30
 
 
@@ -74,7 +94,7 @@ class SolveResponse(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": "salt-timetable-solver"}
+    return {"ok": True, "service": "salt-timetable-solver", "version": "1.1.0"}
 
 
 @app.post("/solve", response_model=SolveResponse)
@@ -93,14 +113,21 @@ def solve(req: SolveRequest):
     if not days:
         raise HTTPException(status_code=400, detail="No school days configured.")
 
+    occupied = {
+        (o.day, o.lessonSlotIndex)
+        for o in req.occupiedClassSlots
+        if 0 <= o.lessonSlotIndex < len(lesson_slots)
+    }
+
     total_needed = sum(a.periodsPerWeek for a in req.activities)
-    total_capacity = len(days) * len(lesson_slots)
+    total_capacity = len(days) * len(lesson_slots) - len(occupied)
     if total_needed > total_capacity:
         return SolveResponse(
             status="INFEASIBLE",
             message=(
-                f"Need {total_needed} lesson slots but only {total_capacity} available "
-                f"({len(days)} days × {len(lesson_slots)} periods)."
+                f"Need {total_needed} open lesson slots but only {total_capacity} available "
+                f"after locked/occupied periods "
+                f"({len(days)} days × {len(lesson_slots)} periods − {len(occupied)} locked)."
             ),
         )
 
@@ -124,12 +151,18 @@ def solve(req: SolveRequest):
             == act.periodsPerWeek
         )
 
-    # One subject per class slot
+    # One subject per class slot; occupied/locked slots stay empty for solver
+    day_to_idx = {day: i for i, day in enumerate(days)}
     for d in range(n_day):
         for s in range(n_slot):
-            model.Add(sum(assign[(a, d, s)] for a in range(n_act)) <= 1)
+            day_val = days[d]
+            if (day_val, s) in occupied:
+                for a in range(n_act):
+                    model.Add(assign[(a, d, s)] == 0)
+            else:
+                model.Add(sum(assign[(a, d, s)] for a in range(n_act)) <= 1)
 
-    # Teacher no clash
+    # Teacher no clash within this solve
     teachers = sorted(set(act.teacherId for act in acts))
     teacher_indices: dict[str, list[int]] = {t: [] for t in teachers}
     for a, act in enumerate(acts):
@@ -143,7 +176,6 @@ def solve(req: SolveRequest):
                     model.Add(sum(assign[(a, d, s)] for a in idxs) <= 1)
 
     # Forbidden slots (other classes already using teacher)
-    day_to_idx = {day: i for i, day in enumerate(days)}
     for f in req.forbidden:
         d_idx = day_to_idx.get(f.day)
         if d_idx is None:
@@ -153,6 +185,33 @@ def solve(req: SolveRequest):
         for a, act in enumerate(acts):
             if act.teacherId == f.teacherId:
                 model.Add(assign[(a, d_idx, f.lessonSlotIndex)] == 0)
+
+    # Pinned slots: if activityId matches a remaining activity, force placement
+    # (normally pins are already deducted from periodsPerWeek and in occupiedClassSlots;
+    #  this path supports callers that still want mandatory placement.)
+    act_by_id = {act.id: i for i, act in enumerate(acts)}
+    for pin in req.pinned:
+        d_idx = day_to_idx.get(pin.day)
+        if d_idx is None:
+            continue
+        if pin.lessonSlotIndex < 0 or pin.lessonSlotIndex >= n_slot:
+            continue
+        # If slot is occupied (deducted lock), skip force — already reserved
+        if (pin.day, pin.lessonSlotIndex) in occupied:
+            continue
+        a_idx = act_by_id.get(pin.activityId or "")
+        if a_idx is None:
+            # Match by subject+teacher among remaining activities
+            for i, act in enumerate(acts):
+                if pin.subject and act.subject != pin.subject:
+                    continue
+                if pin.teacherId and act.teacherId != pin.teacherId:
+                    continue
+                a_idx = i
+                break
+        if a_idx is None:
+            continue
+        model.Add(assign[(a_idx, d_idx, pin.lessonSlotIndex)] == 1)
 
     # Spread subjects: minimize same activity on consecutive slots same day
     penalties = []
@@ -177,7 +236,7 @@ def solve(req: SolveRequest):
             status="INFEASIBLE",
             message=(
                 "Could not find a valid timetable. Check periods/week, teacher clashes, "
-                "or bell schedule capacity."
+                "locked slots, or bell schedule capacity."
             ),
         )
 
@@ -186,7 +245,7 @@ def solve(req: SolveRequest):
         for d in range(n_day):
             for s in range(n_slot):
                 if solver.Value(assign[(a, d, s)]):
-                    slot_idx, period = lesson_slots[s]
+                    _slot_idx, period = lesson_slots[s]
                     assignments.append(
                         Assignment(
                             activityId=act.id,
@@ -203,7 +262,12 @@ def solve(req: SolveRequest):
                     )
 
     assignments.sort(key=lambda x: (x.day, x.startTime, x.subject))
-    return SolveResponse(status="OK", assignments=assignments, message="Timetable generated.")
+    locked_note = f" ({len(occupied)} locked slot(s) reserved)" if occupied else ""
+    return SolveResponse(
+        status="OK",
+        assignments=assignments,
+        message=f"Timetable generated{locked_note}.",
+    )
 
 
 if __name__ == "__main__":

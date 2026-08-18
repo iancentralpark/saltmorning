@@ -3,7 +3,7 @@ const { getBuddyStatus } = require('./englishBuddyService');
 const { getUnreadCount } = require('./messageService');
 const { getStudentDollars } = require('./dollarService');
 const { getStudentHomeworkStatus } = require('./homeworkService');
-const { getStudentVocabSummary } = require('./vocabService');
+const { getStudentVocabSummary } = require('./vocabShared');
 
 /**
  * Student home dashboard.
@@ -57,6 +57,7 @@ async function getStudentDashboard(session) {
 
   try {
     vocab = await getStudentVocabSummary(studentId, classId);
+    if (vocab && vocab.available == null) vocab.available = true;
   } catch (e) {
     vocab = { available: false, message: 'Vocab Booster unavailable.' };
   }
@@ -72,7 +73,7 @@ async function getStudentDashboard(session) {
       unreadMessages: Number(unreadMessages) || 0,
       pendingHomework: (homework.pending || []).length,
       dollars: dollars.available ? dollars.balance : null,
-      vocabReady: !!(vocab && vocab.available)
+      vocabReady: !!(vocab && vocab.available !== false)
     },
     homework,
     dollars,

@@ -11,6 +11,8 @@ const {
   getGradeTerm,
   ensureGradeSheets
 } = require('./gradeWeightService');
+const { query, table } = require('../db/pool');
+const { ensureOpsDbStarted, isOpsGradesReady } = require('../db/boot');
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -54,13 +56,116 @@ function parseAssessmentRow(row) {
   };
 }
 
+function pgDate(val) {
+  if (val == null || val === '') return '';
+  if (typeof val === 'string') {
+    const m = val.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : formatSheetDate(val);
+  }
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const y = val.getUTCFullYear();
+    const m = String(val.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(val.getUTCDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+  }
+  return formatSheetDate(val);
+}
+
+function mapEntryRow(row) {
+  const entry = {
+    recordId: String(row.record_id),
+    classId: String(row.class_id),
+    studentId: String(row.student_id),
+    subject: String(row.subject),
+    date: pgDate(row.entry_date),
+    score: Number(row.score) || 0,
+    maxScore: Number(row.max_score) || 100,
+    categoryKey: String(row.category_key || 'daily_quiz').trim() || 'daily_quiz',
+    teacherId: String(row.teacher_id || ''),
+    note: String(row.note || ''),
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : '',
+    assessmentId: String(row.assessment_id || '').trim()
+  };
+  entry.percent = pctScore(entry.score, entry.maxScore);
+  return entry;
+}
+
+function mapAssessmentRow(row) {
+  return {
+    assessmentId: String(row.assessment_id),
+    classId: String(row.class_id),
+    term: String(row.term),
+    subject: String(row.subject),
+    categoryKey: String(row.category_key),
+    title: String(row.title || ''),
+    date: pgDate(row.assess_date),
+    maxScore: Number(row.max_score) || 100,
+    teacherId: String(row.teacher_id || ''),
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : ''
+  };
+}
+
+async function listGradeEntriesPg(classId, options) {
+  const { term, subject, categoryKey, studentId, limit } = options || {};
+  const termInfo = term ? await getGradeTerm(classId, term) : null;
+  const params = [String(classId)];
+  let sql = 'SELECT * FROM ' + table('grade_entries') + ' WHERE class_id = $1';
+  if (subject) {
+    params.push(String(subject));
+    sql += ' AND subject = $' + params.length;
+  }
+  if (categoryKey) {
+    params.push(String(categoryKey));
+    sql += ' AND category_key = $' + params.length;
+  }
+  if (studentId) {
+    params.push(String(studentId));
+    sql += ' AND student_id = $' + params.length;
+  }
+  if (termInfo && termInfo.startDate && termInfo.endDate) {
+    params.push(termInfo.startDate);
+    sql += ' AND entry_date >= $' + params.length + '::date';
+    params.push(termInfo.endDate);
+    sql += ' AND entry_date <= $' + params.length + '::date';
+  }
+  sql += ' ORDER BY created_at DESC, record_id DESC';
+  if (limit) {
+    params.push(Number(limit));
+    sql += ' LIMIT $' + params.length;
+  }
+  const r = await query(sql, params);
+  return r.rows.map(mapEntryRow);
+}
+
+async function listAssessmentsPg(classId, term, subject) {
+  const r = await query(
+    'SELECT * FROM ' + table('grade_assessments') +
+      ' WHERE class_id = $1 AND term = $2 AND subject = $3' +
+      ' ORDER BY assess_date ASC, created_at ASC',
+    [String(classId), String(term), String(subject)]
+  );
+  return r.rows.map(mapAssessmentRow);
+}
+
+async function getAssessmentByIdPg(assessmentId) {
+  const r = await query(
+    'SELECT * FROM ' + table('grade_assessments') + ' WHERE assessment_id = $1',
+    [String(assessmentId)]
+  );
+  return r.rows[0] ? mapAssessmentRow(r.rows[0]) : null;
+}
+
 async function ensureAssessmentSheet() {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) return;
   await ensureSheet(GRADE_ASSESSMENTS_SHEET, [
     'AssessmentID', 'ClassID', 'Term', 'Subject', 'CategoryKey', 'Title', 'Date', 'MaxScore', 'TeacherID', 'CreatedAt'
   ]);
 }
 
 async function ensureGradesColumns() {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) return;
   await ensureGradeSheets();
   const data = await getSheetRows(GRADES_DAILY_SHEET);
   if (!data.length) return;
@@ -77,6 +182,10 @@ async function ensureGradesColumns() {
 }
 
 async function listGradeEntries(classId, options) {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    return listGradeEntriesPg(classId, options);
+  }
   await ensureGradesColumns();
   const { term, subject, categoryKey, studentId, limit } = options || {};
   const termInfo = term ? await getGradeTerm(classId, term) : null;
@@ -202,8 +311,23 @@ async function getGradesDashboard(classId, term, subject, students) {
   };
 }
 
+/**
+ * A Head/Principal signature should never stand against grade data edited
+ * after the signature was made. Reset any in-flight (already-signed) report
+ * card workflow for every affected student back to draft.
+ */
+async function invalidateWorkflowsForEntries(classId, term, subject, entries) {
+  if (!term) return;
+  try {
+    const { invalidateWorkflowForDataChange } = require('./reportCardWorkflowService');
+    const studentIds = Array.from(new Set((entries || []).map((e) => String(e.studentId || '')).filter(Boolean)));
+    for (const sid of studentIds) {
+      await invalidateWorkflowForDataChange(classId, sid, term, subject + ' grades were edited after signing.');
+    }
+  } catch (e) { /* best-effort; never block the grade save itself */ }
+}
+
 async function saveGradeEntries(classId, term, subject, teacherId, dateStr, categoryKey, maxScoreDefault, entries) {
-  await ensureGradesColumns();
   if (!Array.isArray(entries) || !entries.length) throw new Error('No grades to save.');
   classId = String(classId);
   subject = String(subject || '').trim();
@@ -212,10 +336,54 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
   if (!subject || !categoryKey) throw new Error('Subject and category are required.');
 
   const termInfo = term ? await getGradeTerm(classId, term) : null;
+  if (termInfo && termInfo.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+  }
   if (termInfo && (dateStr < termInfo.startDate || dateStr > termInfo.endDate)) {
     throw new Error('Date is outside the term range (' + termInfo.startDate + ' – ' + termInfo.endDate + ').');
   }
 
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    let saved = 0;
+    for (const e of entries) {
+      const studentId = String(e.studentId);
+      const score = Number(e.score);
+      if (e.score === '' || e.score == null || Number.isNaN(score)) continue;
+      const maxScore = Number(e.maxScore) || Number(maxScoreDefault) || 100;
+      const found = await query(
+        'SELECT record_id, created_at, assessment_id FROM ' + table('grade_entries') +
+          ' WHERE class_id = $1 AND student_id = $2 AND subject = $3 AND entry_date = $4::date AND category_key = $5' +
+          ' LIMIT 1',
+        [classId, studentId, subject, dateStr, categoryKey]
+      );
+      const assessmentId = String(e.assessmentId || (found.rows[0] && found.rows[0].assessment_id) || '');
+      if (found.rows[0]) {
+        await query(
+          'UPDATE ' + table('grade_entries') +
+            ' SET score = $1, max_score = $2, teacher_id = $3, note = $4, assessment_id = $5' +
+            ' WHERE record_id = $6',
+          [score, maxScore, teacherId, String(e.note || ''), assessmentId, found.rows[0].record_id]
+        );
+      } else {
+        await query(
+          'INSERT INTO ' + table('grade_entries') +
+            ' (record_id, class_id, student_id, subject, entry_date, score, max_score, category_key, teacher_id, note, created_at, assessment_id)' +
+            ' VALUES ($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,now(),$11)',
+          [
+            newId('gd'), classId, studentId, subject, dateStr, score, maxScore,
+            categoryKey, teacherId, String(e.note || ''), assessmentId
+          ]
+        );
+      }
+      saved++;
+    }
+    if (!saved) throw new Error('Enter at least one score.');
+    await invalidateWorkflowsForEntries(classId, term, subject, entries);
+    return { saved };
+  }
+
+  await ensureGradesColumns();
   const data = await getSheetRows(GRADES_DAILY_SHEET);
   const now = new Date().toISOString();
   const appends = [];
@@ -266,6 +434,7 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
   }
   if (appends.length) await appendRows(GRADES_DAILY_SHEET, appends);
 
+  await invalidateWorkflowsForEntries(classId, term, subject, entries);
   return { saved };
 }
 
@@ -376,6 +545,10 @@ async function buildReportCardFromGrades(classId, term, subject, students) {
 }
 
 async function listAssessments(classId, term, subject) {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    return listAssessmentsPg(classId, term, subject);
+  }
   await ensureAssessmentSheet();
   const rows = await getSheetRows(GRADE_ASSESSMENTS_SHEET);
   const out = [];
@@ -390,8 +563,6 @@ async function listAssessments(classId, term, subject) {
 }
 
 async function createAssessment(classId, term, subject, teacherId, payload) {
-  await ensureAssessmentSheet();
-  await ensureGradesColumns();
   classId = String(classId);
   term = String(term || '').trim();
   subject = String(subject || '').trim();
@@ -408,6 +579,9 @@ async function createAssessment(classId, term, subject, teacherId, payload) {
   if (!weight) throw new Error('Choose a category from your grade weights.');
 
   const termInfo = await getGradeTerm(classId, term);
+  if (termInfo && termInfo.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+  }
   if (termInfo && (dateStr < termInfo.startDate || dateStr > termInfo.endDate)) {
     throw new Error('Date is outside the term range.');
   }
@@ -415,9 +589,21 @@ async function createAssessment(classId, term, subject, teacherId, payload) {
   const now = new Date().toISOString();
   const assessmentId = newId('ga');
   const label = title || weight.label;
-  await appendRows(GRADE_ASSESSMENTS_SHEET, [[
-    assessmentId, classId, term, subject, categoryKey, label, dateStr, maxScore, teacherId, now
-  ]]);
+
+  if (isOpsGradesReady()) {
+    await query(
+      'INSERT INTO ' + table('grade_assessments') +
+        ' (assessment_id, class_id, term, subject, category_key, title, assess_date, max_score, teacher_id, created_at)' +
+        ' VALUES ($1,$2,$3,$4,$5,$6,$7::date,$8,$9,now())',
+      [assessmentId, classId, term, subject, categoryKey, label, dateStr, maxScore, teacherId]
+    );
+  } else {
+    await ensureAssessmentSheet();
+    await ensureGradesColumns();
+    await appendRows(GRADE_ASSESSMENTS_SHEET, [[
+      assessmentId, classId, term, subject, categoryKey, label, dateStr, maxScore, teacherId, now
+    ]]);
+  }
 
   clearGradebookCache(classId, term, subject);
 
@@ -537,7 +723,126 @@ async function getGradebook(classId, term, subject, students) {
   return result;
 }
 
+async function saveAssessmentCellPg(assessmentId, studentId, score, teacherId, opts) {
+  assessmentId = String(assessmentId);
+  studentId = String(studentId);
+  let assessment = null;
+  if (assessmentId.startsWith('legacy:')) {
+    const parts = assessmentId.split(':');
+    assessment = {
+      assessmentId,
+      classId: opts && opts.classId ? String(opts.classId) : '',
+      subject: opts && opts.subject ? String(opts.subject) : '',
+      categoryKey: parts[2] || '',
+      date: parts[1] || '',
+      maxScore: Number(parts[3]) || 100,
+      title: parts[2] || ''
+    };
+  } else {
+    assessment = await getAssessmentByIdPg(assessmentId);
+  }
+  if (!assessment) throw new Error('Assessment not found.');
+
+  let found = null;
+  const byAid = await query(
+    'SELECT * FROM ' + table('grade_entries') +
+      ' WHERE assessment_id = $1 AND student_id = $2 LIMIT 1',
+    [assessmentId, studentId]
+  );
+  if (byAid.rows[0]) found = byAid.rows[0];
+  if (!found && assessmentId.startsWith('legacy:')) {
+    const r = await query(
+      'SELECT * FROM ' + table('grade_entries') +
+        ' WHERE student_id = $1 AND entry_date = $2::date AND category_key = $3 AND max_score = $4' +
+        " AND (assessment_id = '' OR assessment_id = $5) LIMIT 1",
+      [studentId, assessment.date, assessment.categoryKey, assessment.maxScore, assessmentId]
+    );
+    if (r.rows[0]) {
+      found = r.rows[0];
+      assessment.classId = assessment.classId || String(found.class_id);
+      assessment.subject = assessment.subject || String(found.subject);
+    }
+  }
+  if (found) {
+    if (!assessment.classId) assessment.classId = String(found.class_id);
+    if (!assessment.subject) assessment.subject = String(found.subject);
+  }
+  if (!assessment.classId && opts && opts.classId) {
+    assessment.classId = String(opts.classId);
+    assessment.subject = String(opts.subject || assessment.subject || '');
+  }
+
+  const empty = score === '' || score == null || Number.isNaN(Number(score));
+  if (empty) {
+    if (found) {
+      await query(
+        'DELETE FROM ' + table('grade_entries') + ' WHERE record_id = $1',
+        [found.record_id]
+      );
+    }
+    return { cleared: true };
+  }
+  if (!assessment.classId || !assessment.subject) {
+    throw new Error('Could not resolve class for this score.');
+  }
+
+  const numScore = Number(score);
+  const subject = found ? String(found.subject) : assessment.subject;
+  if (found) {
+    await query(
+      'UPDATE ' + table('grade_entries') +
+        ' SET score = $1, max_score = $2, teacher_id = $3, assessment_id = $4, category_key = $5, entry_date = $6::date' +
+        ' WHERE record_id = $7',
+      [
+        numScore, assessment.maxScore, teacherId, assessmentId,
+        assessment.categoryKey, assessment.date, found.record_id
+      ]
+    );
+  } else {
+    await query(
+      'INSERT INTO ' + table('grade_entries') +
+        ' (record_id, class_id, student_id, subject, entry_date, score, max_score, category_key, teacher_id, note, created_at, assessment_id)' +
+        ' VALUES ($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,now(),$11)',
+      [
+        newId('gd'), assessment.classId, studentId, subject, assessment.date,
+        numScore, assessment.maxScore, assessment.categoryKey, teacherId, '', assessmentId
+      ]
+    );
+  }
+  return {
+    saved: true,
+    percent: pctScore(numScore, assessment.maxScore)
+  };
+}
+
+async function invalidateWorkflowForCell(opts, studentId) {
+  if (!opts || !opts.classId || !opts.term || !studentId) return;
+  try {
+    const { invalidateWorkflowForDataChange } = require('./reportCardWorkflowService');
+    await invalidateWorkflowForDataChange(
+      opts.classId, studentId, opts.term, (opts.subject || 'A') + ' grade was edited after signing.'
+    );
+  } catch (e) { /* best-effort; never block the grade save itself */ }
+}
+
 async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opts) {
+  if (opts && opts.classId && opts.term) {
+    const termInfo = await getGradeTerm(opts.classId, opts.term).catch(() => null);
+    if (termInfo && termInfo.closed) {
+      throw new Error('"' + opts.term + '" is closed. Ask Admin to reopen it before making changes.');
+    }
+  }
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    const result = await saveAssessmentCellPg(assessmentId, studentId, score, teacherId, opts);
+    if (opts && opts.classId && opts.term && opts.subject) {
+      clearGradebookCache(opts.classId, opts.term, opts.subject);
+    } else {
+      clearGradebookCache();
+    }
+    await invalidateWorkflowForCell(opts, studentId);
+    return result;
+  }
   await ensureGradesColumns();
   await ensureAssessmentSheet();
   assessmentId = String(assessmentId);
@@ -599,6 +904,7 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
   if (empty) {
     if (foundRow > 0) {
       await updateRange(GRADES_DAILY_SHEET, `A${foundRow}:L${foundRow}`, [['', '', '', '', '', '', '', '', '', '', '', '']]);
+      await invalidateWorkflowForCell(opts, studentId);
     }
     return { cleared: true };
   }
@@ -635,6 +941,7 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
   } else {
     clearGradebookCache();
   }
+  await invalidateWorkflowForCell(opts, studentId);
 
   return {
     saved: true,
@@ -642,12 +949,64 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
   };
 }
 
+/**
+ * Deleting a grade column can affect any number of students, and by the
+ * time the entries are gone we no longer know exactly which ones had a
+ * score — so invalidate every in-flight report-card workflow for the whole
+ * class+term rather than risk leaving a stale signature standing.
+ */
+async function invalidateWorkflowsForDeletedColumn(classId, term) {
+  if (!term) return;
+  try {
+    const { invalidateWorkflowsForClassTerm } = require('./reportCardWorkflowService');
+    await invalidateWorkflowsForClassTerm(classId, term, 'A grade column was deleted after signing.');
+  } catch (e) { /* best-effort; never block the delete itself */ }
+}
+
 async function deleteAssessment(assessmentId, classId, term, subject) {
-  await ensureGradesColumns();
-  await ensureAssessmentSheet();
   assessmentId = String(assessmentId);
   classId = String(classId);
   if (!assessmentId) throw new Error('Column id is required.');
+
+  if (term) {
+    const termInfo = await getGradeTerm(classId, term).catch(() => null);
+    if (termInfo && termInfo.closed) {
+      throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
+    }
+  }
+
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    if (assessmentId.startsWith('legacy:')) {
+      const parts = assessmentId.split(':');
+      await query(
+        'DELETE FROM ' + table('grade_entries') +
+          ' WHERE class_id = $1 AND entry_date = $2::date AND category_key = $3 AND max_score = $4' +
+          " AND (assessment_id = '' OR assessment_id = $5)",
+        [classId, parts[1] || '', parts[2] || '', Number(parts[3]) || 100, assessmentId]
+      );
+    } else {
+      const assessment = await getAssessmentByIdPg(assessmentId);
+      if (!assessment || assessment.classId !== classId) throw new Error('Column not found.');
+      term = assessment.term || term;
+      subject = assessment.subject || subject;
+      await query(
+        'DELETE FROM ' + table('grade_assessments') + ' WHERE assessment_id = $1 AND class_id = $2',
+        [assessmentId, classId]
+      );
+      await query(
+        'DELETE FROM ' + table('grade_entries') + ' WHERE assessment_id = $1',
+        [assessmentId]
+      );
+    }
+    if (term && subject) clearGradebookCache(classId, term, subject);
+    else clearGradebookCache();
+    await invalidateWorkflowsForDeletedColumn(classId, term);
+    return { deleted: true };
+  }
+
+  await ensureGradesColumns();
+  await ensureAssessmentSheet();
 
   const blankGrade = [['', '', '', '', '', '', '', '', '', '', '', '']];
 
@@ -663,6 +1022,7 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
     if (updates.length) await batchUpdateRanges(updates);
     if (term && subject) clearGradebookCache(classId, term, subject);
     else clearGradebookCache();
+    await invalidateWorkflowsForDeletedColumn(classId, term);
     return { deleted: true };
   }
 
@@ -691,6 +1051,7 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
   if (updates.length) await batchUpdateRanges(updates);
 
   clearGradebookCache(classId, rowTerm, rowSubject);
+  await invalidateWorkflowsForDeletedColumn(classId, rowTerm);
   return { deleted: true };
 }
 
@@ -711,5 +1072,122 @@ module.exports = {
   aggregateCategoryPercent,
   pctScore,
   ensureGradesColumns,
-  ensureAssessmentSheet
+  ensureAssessmentSheet,
+  clearGradebookCache,
+  getStudentGradeSummary
 };
+
+/**
+ * Admin/parent-facing compact grade summary for one student (all subjects).
+ */
+async function getStudentGradeSummary(studentId, opts) {
+  opts = opts || {};
+  const { CLASS_TEACHERS_SHEET, GRADE_ASSESSMENTS_SHEET } = require('../config');
+  const { getStudent } = require('./studentRegistryService');
+  const { getActiveTerm, listGradeTerms } = require('./gradeWeightService');
+
+  const student = await getStudent(studentId);
+  if (!student) throw new Error('Student not found.');
+  if (!student.classId) {
+    return {
+      studentId,
+      name: student.name || '',
+      classId: '',
+      className: '',
+      term: '',
+      terms: [],
+      subjects: [],
+      message: 'Student is not assigned to a class yet.'
+    };
+  }
+
+  let termLabel = String(opts.term || '').trim();
+  if (!termLabel) {
+    const active = await getActiveTerm(student.classId).catch(() => null);
+    termLabel = (active && active.label) || 'Term1';
+  }
+
+  const subjectSet = new Set();
+  try {
+    const assignRows = await getSheetRows(CLASS_TEACHERS_SHEET);
+    for (let i = 1; i < assignRows.length; i++) {
+      if (String(assignRows[i][0]) !== String(student.classId)) continue;
+      const subj = String(assignRows[i][3] || '').trim();
+      if (subj && subj !== 'All' && subj !== 'All subjects') subjectSet.add(subj);
+    }
+  } catch (_) { /* optional */ }
+  try {
+    await ensureOpsDbStarted();
+    if (isOpsGradesReady()) {
+      const r = await query(
+        'SELECT DISTINCT subject FROM ' + table('grade_assessments') + ' WHERE class_id = $1' +
+          ' UNION SELECT DISTINCT subject FROM ' + table('grade_entries') + ' WHERE class_id = $1' +
+          ' UNION SELECT DISTINCT subject FROM ' + table('grade_weights') + ' WHERE class_id = $1',
+        [student.classId]
+      );
+      r.rows.forEach((row) => {
+        const subj = String(row.subject || '').trim();
+        if (subj) subjectSet.add(subj);
+      });
+    } else {
+      const assessRows = await getSheetRows(GRADE_ASSESSMENTS_SHEET);
+      for (let i = 1; i < assessRows.length; i++) {
+        if (String(assessRows[i][1]) !== String(student.classId)) continue;
+        const subj = String(assessRows[i][3] || '').trim();
+        if (subj) subjectSet.add(subj);
+      }
+    }
+  } catch (_) { /* optional */ }
+
+  const subjects = Array.from(subjectSet).sort((a, b) => a.localeCompare(b));
+  const roster = [{ studentId: student.studentId, name: student.name || student.studentId }];
+  const out = [];
+  for (const subject of subjects) {
+    try {
+      const gb = await getGradebook(student.classId, termLabel, subject, roster);
+      const row = (gb.students || [])[0] || null;
+      const columns = gb.columns || [];
+      out.push({
+        subject,
+        finalGrade: row && row.finalGrade != null ? row.finalGrade : null,
+        gradedWeightPercent: row ? row.gradedWeightPercent : 0,
+        weights: (gb.weights || []).map((w) => ({
+          categoryKey: w.categoryKey,
+          label: w.label,
+          weightPercent: w.weightPercent
+        })),
+        recent: columns.slice(-6).map((c) => {
+          const cell = row && row.cells ? row.cells[c.assessmentId] : null;
+          return {
+            title: c.title || c.categoryLabel || c.assessmentId,
+            date: c.date || '',
+            categoryLabel: c.categoryLabel || c.categoryKey || '',
+            score: cell ? cell.score : null,
+            maxScore: cell ? cell.maxScore : (c.maxScore || null),
+            percent: cell ? cell.percent : null
+          };
+        })
+      });
+    } catch (_) {
+      out.push({
+        subject,
+        finalGrade: null,
+        gradedWeightPercent: 0,
+        weights: [],
+        recent: []
+      });
+    }
+  }
+
+  const terms = await listGradeTerms(student.classId).catch(() => []);
+  return {
+    studentId: student.studentId,
+    name: student.name || '',
+    classId: student.classId,
+    className: student.className || '',
+    term: termLabel,
+    terms: terms.map((t) => t.label).filter(Boolean),
+    subjects: out,
+    message: subjects.length ? '' : 'No graded subjects found for this class yet.'
+  };
+}

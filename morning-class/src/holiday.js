@@ -88,4 +88,33 @@ async function getHolidaysForMonth(year, month) {
   return map;
 }
 
-module.exports = { getHolidayName, getHolidaysForMonth };
+async function getHolidaysForRange(fromDate, toDate) {
+  const from = String(fromDate || '').slice(0, 10);
+  const to = String(toDate || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
+    return {};
+  }
+  const map = {};
+  const start = new Date(from + 'T12:00:00');
+  const end = new Date(to + 'T12:00:00');
+  let y = start.getFullYear();
+  let m = start.getMonth() + 1;
+  const endY = end.getFullYear();
+  const endM = end.getMonth() + 1;
+  while (y < endY || (y === endY && m <= endM)) {
+    const monthMap = await getHolidaysForMonth(y, m);
+    Object.assign(map, monthMap);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  const filtered = {};
+  Object.keys(map).forEach((ds) => {
+    if (ds >= from && ds <= to) filtered[ds] = map[ds];
+  });
+  return filtered;
+}
+
+module.exports = { getHolidayName, getHolidaysForMonth, getHolidaysForRange };
