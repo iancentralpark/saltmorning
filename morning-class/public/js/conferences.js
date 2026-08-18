@@ -202,7 +202,6 @@
     let weekMonday = mondayOf(new Date());
     let slotMinutes = 15;
     let locationText = '';
-    let cachedTt = null;
     const cellQueue = {};
 
     function init(deps) {
@@ -295,15 +294,15 @@
       if (board && !hasGrid) board.innerHTML = '<p class="muted">…</p>';
       if (bookBox && !opts.keepBooked) bookBox.innerHTML = '<p class="muted">…</p>';
       try {
-        const ttPromise = (cachedTt && !opts.reloadTt)
-          ? Promise.resolve({ timetable: cachedTt })
-          : api('/api/teacher/timetable');
+        // Always refetch the teacher's timetable rather than reusing
+        // cachedTt indefinitely — a class timetable edited by Admin (or
+        // Auto-Solve) while this tab stays open must be reflected in the
+        // busy/available grid without requiring a full page reload.
         const [ttRes, dash] = await Promise.all([
-          ttPromise,
+          api('/api/teacher/timetable'),
           api('/api/teacher/conferences')
         ]);
         const tt = ttRes.timetable || ttRes;
-        cachedTt = tt;
         renderBoard(board, tt, dash);
         if (!opts.keepBooked) renderBooked(bookBox, dash);
       } catch (e) {
