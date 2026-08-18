@@ -1,0 +1,30 @@
+{
+  "name": "Salt Morning Class",
+  "short_name": "Salt Morning",
+  "description": "Salt Academy Morning Class portal for students, families, and teachers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F3F0",
+  "theme_color": "#0D2748",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
