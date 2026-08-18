@@ -12,7 +12,7 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title || 'Salt Morning', {
       body: data.body || '',
       data: { url: data.url || '/' },
-      icon: '/favicon.ico'
+      icon: '/apple-touch-icon.png'
     })
   );
 });

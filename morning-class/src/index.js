@@ -17,6 +17,7 @@ const { ensureTimetableSheet } = require('./services/timetableService');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+express.static.mime.define({ 'application/manifest+json': ['webmanifest'] });
 
 // Legacy signature URLs → durable API (old cards pointed at ephemeral /uploads/)
 app.get('/uploads/signatures/:file', (req, res) => {
