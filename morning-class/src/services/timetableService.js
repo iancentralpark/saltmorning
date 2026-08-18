@@ -135,7 +135,13 @@ function enrichWithBellBreaks(entries, bell) {
   const byDay = groupByDay(entries);
   breaks.forEach((br) => {
     [1, 2, 3, 4, 5].forEach((day) => {
-      if (!byDay[day]) return;
+      // groupByDay() always pre-seeds every weekday with an (possibly empty)
+      // array, so a plain truthiness check here never skips a day. Only
+      // inject a break into days that actually have a lesson that day —
+      // otherwise a teacher/student whose personal schedule has an empty day
+      // (e.g. only teaches Mon/Wed/Fri) gets "Lunch"/"Recess" blocks on
+      // days they have nothing scheduled at all.
+      if (!byDay[day] || !byDay[day].length) return;
       byDay[day].push({
         entryId: 'bell_' + br.periodId,
         ownerType: 'bell',
