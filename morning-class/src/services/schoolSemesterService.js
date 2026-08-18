@@ -252,13 +252,12 @@ async function createSemester(payload) {
   return (await listSchoolSemesters()).find((s) => s.key === key);
 }
 
-/** Edit label/dates on a semester that is still open. */
+/** Edit label/dates. Closed only locks teacher gradebooks, not admin dates. */
 async function updateSemester(key, payload) {
   await ensureSchoolSemestersSheet();
   const existing = await listSchoolSemesters();
   const sem = existing.find((s) => s.key === String(key || '').trim());
   if (!sem) throw Object.assign(new Error('Semester not found.'), { status: 404 });
-  if (sem.closed) throw Object.assign(new Error('This semester is closed and can no longer be edited.'), { status: 400 });
 
   const startDate = formatDate((payload && payload.startDate) || sem.startDate);
   const endDate = formatDate((payload && payload.endDate) || sem.endDate);
@@ -274,6 +273,20 @@ async function updateSemester(key, payload) {
   );
   invalidateSheetRowsCache(SCHOOL_SEMESTERS_SHEET);
   return (await listSchoolSemesters()).find((s) => s.key === sem.key);
+}
+
+async function deleteSemester(key) {
+  await ensureSchoolSemestersSheet();
+  const existing = await listSchoolSemesters();
+  const sem = existing.find((s) => s.key === String(key || '').trim());
+  if (!sem) throw Object.assign(new Error('Semester not found.'), { status: 404 });
+  await updateRange(
+    SCHOOL_SEMESTERS_SHEET,
+    `A${sem._row}:F${sem._row}`,
+    [new Array(6).fill('')]
+  );
+  invalidateSheetRowsCache(SCHOOL_SEMESTERS_SHEET);
+  return { deleted: true, key: sem.key, label: sem.label };
 }
 
 async function setSemesterClosed(key, closed) {
@@ -418,6 +431,7 @@ module.exports = {
   getTermForClass,
   createSemester,
   updateSemester,
+  deleteSemester,
   closeSemester,
   reopenSemester,
   asTerm,

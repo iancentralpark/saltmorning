@@ -138,6 +138,7 @@ const {
   getActiveSchoolSemester,
   createSemester,
   updateSemester,
+  deleteSemester,
   closeSemester,
   reopenSemester,
   listTermsForClass,
@@ -3079,6 +3080,14 @@ router.put('/admin/school-semesters/:key', requireRole('admin'), async (req, res
     res.json({ semester });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not update semester.' });
+  }
+});
+
+router.delete('/admin/school-semesters/:key', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await deleteSemester(req.params.key));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not delete semester.' });
   }
 });
 
