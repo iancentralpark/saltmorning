@@ -16,6 +16,7 @@ const { ensureTimetableSheet } = require('./services/timetableService');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+express.static.mime.define({ 'application/manifest+json': ['webmanifest'] });
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use('/api', apiRoutes);
