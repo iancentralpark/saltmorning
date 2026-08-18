@@ -514,46 +514,120 @@
         '</p>';
     }
     if (plan.live) {
-      return '<p class="tt-plan-banner tt-plan-live muted small">' +
+      return '<p class="muted small" style="margin:0.5rem 0 0">' +
         escapeHtml(t('admin.timetables.editingCurrent', 'Editing the current timetable. Students and teachers see this one.')) +
         '</p>';
     }
     if (sem && sem.isPast) {
-      return '<p class="tt-plan-banner muted small">' +
+      return '<p class="muted small" style="margin:0.5rem 0 0">' +
         escapeHtml(t('admin.timetables.editingPast', 'Viewing a past semester timetable. Students see the current semester.')) +
         '</p>';
     }
-    return '<p class="tt-plan-banner tt-plan-future">' +
+    return '<p class="muted small" style="margin:0.5rem 0 0">' +
       escapeHtml(t('admin.timetables.editingFuture', 'Planning a future timetable. Students still see the current semester until this one starts.')) +
       '</p>';
   }
 
-  function renderPlanBar() {
-    const bar = setupMountEl && setupMountEl.querySelector('.tt-plan-bar');
-    if (!bar) return;
+  function ensurePlanModal() {
+    let modal = document.getElementById('ttPlanModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'ttPlanModal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ttPlanModalTitle');
+    modal.innerHTML =
+      '<div class="modal-card tt-plan-modal">' +
+      '<div class="tt-bell-modal-head">' +
+      '<div>' +
+      '<h3 id="ttPlanModalTitle" style="margin:0">' + escapeHtml(t('admin.timetables.planTitle', 'Plan a future timetable')) + '</h3>' +
+      '<p class="muted small" style="margin:0.35rem 0 0">' +
+      escapeHtml(t('admin.timetables.planHelp', 'Used a couple of times a year. Pick a semester, or create the next one.')) +
+      '</p>' +
+      '</div>' +
+      '<button type="button" class="btn btn-ghost tt-plan-modal-close">Close</button>' +
+      '</div>' +
+      '<div id="ttPlanModalBody"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closePlanModal();
+    });
+    modal.querySelector('.tt-plan-modal-close').addEventListener('click', closePlanModal);
+    return modal;
+  }
+
+  function closePlanModal() {
+    const modal = document.getElementById('ttPlanModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openPlanModal() {
+    const modal = ensurePlanModal();
+    renderPlanModalBody();
+    modal.classList.remove('hidden');
+  }
+
+  function renderPlanModalBody() {
+    const modal = document.getElementById('ttPlanModal');
+    const body = modal && modal.querySelector('#ttPlanModalBody');
+    if (!body) return;
     const plan = global.SaltTimetablePlan || {};
-    bar.innerHTML =
-      '<div class="tt-plan-head">' +
-      '<strong>' + escapeHtml(t('admin.timetables.planTitle', 'Plan a future timetable')) + '</strong>' +
-      '</div>' +
-      '<div class="tt-plan-actions">' +
-      '<button type="button" class="btn btn-primary tt-plan-next-sem">' +
-      '+ ' + escapeHtml(t('admin.timetables.nextSemester', 'Create next semester')) + '</button>' +
-      '<button type="button" class="btn btn-primary tt-plan-next-year">' +
-      '+ ' + escapeHtml(t('admin.timetables.nextYear', 'Create next school year')) + '</button>' +
-      (!plan.live && plan.semesterKey && !(selectedSemester() && selectedSemester().isPast)
-        ? '<button type="button" class="btn btn-ghost tt-plan-copy">' +
-          escapeHtml(t('admin.timetables.copyCurrent', 'Copy current timetable')) + '</button>'
-        : '') +
-      '</div>' +
+    const canCopy = !plan.live && plan.semesterKey && !(selectedSemester() && selectedSemester().isPast);
+    body.innerHTML =
       '<div class="tt-plan-fields">' +
       '<label class="tt-plan-label">' + escapeHtml(t('admin.timetables.schoolYear', 'School year')) +
       '<select class="tt-plan-year">' + yearOptionsHtml() + '</select></label>' +
       '<label class="tt-plan-label">' + escapeHtml(t('admin.timetables.semester', 'Semester')) +
       '<select class="tt-plan-semester">' + semesterOptionsHtml() + '</select></label>' +
       '</div>' +
-      planBannerHtml();
-    bindPlanBar(bar);
+      '<div class="tt-plan-actions" style="margin-top:0.75rem">' +
+      '<button type="button" class="btn btn-ghost tt-plan-next-sem">' +
+      escapeHtml(t('admin.timetables.nextSemester', 'Create next semester')) + '</button>' +
+      '<button type="button" class="btn btn-ghost tt-plan-next-year">' +
+      escapeHtml(t('admin.timetables.nextYear', 'Create next school year')) + '</button>' +
+      (canCopy
+        ? '<button type="button" class="btn btn-ghost tt-plan-copy">' +
+          escapeHtml(t('admin.timetables.copyCurrent', 'Copy current timetable')) + '</button>'
+        : '') +
+      '</div>' +
+      planBannerHtml() +
+      '<div class="tt-bell-actions" style="margin-top:1rem">' +
+      '<button type="button" class="btn btn-primary tt-plan-done">' +
+      escapeHtml(t('admin.timetables.planDone', 'Use this semester')) + '</button>' +
+      '</div>';
+    bindPlanBar(body);
+    const done = body.querySelector('.tt-plan-done');
+    if (done) done.addEventListener('click', () => closePlanModal());
+  }
+
+  function renderPlanChip() {
+    const chip = setupMountEl && setupMountEl.querySelector('.tt-plan-chip');
+    if (!chip) return;
+    const plan = global.SaltTimetablePlan || {};
+    const sem = selectedSemester();
+    if (plan.live || !plan.semesterKey) {
+      chip.innerHTML = '';
+      chip.classList.add('hidden');
+      return;
+    }
+    chip.classList.remove('hidden');
+    chip.innerHTML =
+      '<span>' + escapeHtml(t('admin.timetables.planningChip', 'Planning')) + ': ' +
+      escapeHtml((sem && sem.label) || plan.label || '') + '</span>' +
+      '<button type="button" class="btn btn-ghost tt-plan-back">' +
+      escapeHtml(t('admin.timetables.planBack', 'Back to current')) + '</button>';
+    const back = chip.querySelector('.tt-plan-back');
+    if (back) {
+      back.addEventListener('click', async () => {
+        const current = (planContext.semesters || []).find((s) => s.key === planContext.activeSemesterKey);
+        if (current) setPlan(current);
+        else setPlan(null);
+        renderPlanChip();
+        await afterPlanChange();
+      });
+    }
   }
 
   function bindPlanBar(bar) {
@@ -567,7 +641,8 @@
         const prefer = (group.semesters || []).find((s) => s.isActive) || group.semesters[0];
         if (prefer) {
           setPlan(prefer);
-          renderPlanBar();
+          renderPlanModalBody();
+          renderPlanChip();
           await afterPlanChange();
         }
       });
@@ -577,7 +652,8 @@
         const sem = ((planContext && planContext.semesters) || []).find((s) => s.key === semSel.value);
         if (sem) {
           setPlan(sem);
-          renderPlanBar();
+          renderPlanModalBody();
+          renderPlanChip();
           await afterPlanChange();
         }
       });
@@ -609,7 +685,8 @@
       const sem = (data.semesters || []).find((s) => s.key === focusKey) || (data.created && data.created.focus);
       if (sem) setPlan(sem);
       else if (data.semester) setPlan(data.semester);
-      renderPlanBar();
+      renderPlanModalBody();
+      renderPlanChip();
       await afterPlanChange();
       const label = (sem && sem.label) || (data.semester && data.semester.label) || '';
       alert(kind === 'schoolYear'
@@ -645,6 +722,8 @@
         }, role);
       }
       await afterPlanChange();
+      renderPlanModalBody();
+      renderPlanChip();
       alert(t('admin.timetables.copyDone', 'Copied.') +
         ' ' + (result.classesCopied || 0) + ' classes, ' +
         (result.slotsCopied || 0) + ' slots, ' +
@@ -687,11 +766,13 @@
     setPlan(initial);
 
     mountEl.innerHTML =
-      '<div class="tt-plan-bar"></div>' +
       '<div class="tt-setup-toolbar">' +
       '<button type="button" class="btn btn-ghost tt-bell-open">Bell schedule</button>' +
       '<button type="button" class="btn btn-ghost tt-req-open">Subject requirements</button>' +
+      '<button type="button" class="btn btn-ghost tt-plan-open">' +
+      escapeHtml(t('admin.timetables.planTitle', 'Plan a future timetable')) + '</button>' +
       '</div>' +
+      '<div class="tt-plan-chip hidden"></div>' +
       (solverOk
         ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
         : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
@@ -710,7 +791,7 @@
       '<div class="tt-setup-board-mount"></div>' +
       '</div>';
 
-    renderPlanBar();
+    renderPlanChip();
 
     mountEl.querySelector('.tt-bell-open').addEventListener('click', () => {
       openBellModal().catch((e) => alert(e.message || 'Could not open bell schedule.'));
@@ -718,6 +799,7 @@
     mountEl.querySelector('.tt-req-open').addEventListener('click', () => {
       openReqModal().catch((e) => alert(e.message || 'Could not open subject requirements.'));
     });
+    mountEl.querySelector('.tt-plan-open').addEventListener('click', () => openPlanModal());
     const boardSel = mountEl.querySelector('.tt-board-class');
     if (boardSel) {
       boardSel.addEventListener('change', () => {
