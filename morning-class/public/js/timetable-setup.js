@@ -533,21 +533,24 @@
     if (!bar) return;
     const plan = global.SaltTimetablePlan || {};
     bar.innerHTML =
+      '<div class="tt-plan-head">' +
+      '<strong>' + escapeHtml(t('admin.timetables.planTitle', 'Plan a future timetable')) + '</strong>' +
+      '</div>' +
+      '<div class="tt-plan-actions">' +
+      '<button type="button" class="btn btn-primary tt-plan-next-sem">' +
+      '+ ' + escapeHtml(t('admin.timetables.nextSemester', 'Create next semester')) + '</button>' +
+      '<button type="button" class="btn btn-primary tt-plan-next-year">' +
+      '+ ' + escapeHtml(t('admin.timetables.nextYear', 'Create next school year')) + '</button>' +
+      (!plan.live && plan.semesterKey && !(selectedSemester() && selectedSemester().isPast)
+        ? '<button type="button" class="btn btn-ghost tt-plan-copy">' +
+          escapeHtml(t('admin.timetables.copyCurrent', 'Copy current timetable')) + '</button>'
+        : '') +
+      '</div>' +
       '<div class="tt-plan-fields">' +
       '<label class="tt-plan-label">' + escapeHtml(t('admin.timetables.schoolYear', 'School year')) +
       '<select class="tt-plan-year">' + yearOptionsHtml() + '</select></label>' +
       '<label class="tt-plan-label">' + escapeHtml(t('admin.timetables.semester', 'Semester')) +
       '<select class="tt-plan-semester">' + semesterOptionsHtml() + '</select></label>' +
-      '</div>' +
-      '<div class="tt-plan-actions">' +
-      '<button type="button" class="btn btn-ghost tt-plan-next-sem">' +
-      escapeHtml(t('admin.timetables.nextSemester', 'Next semester')) + '</button>' +
-      '<button type="button" class="btn btn-ghost tt-plan-next-year">' +
-      escapeHtml(t('admin.timetables.nextYear', 'Next school year')) + '</button>' +
-      (!plan.live && plan.semesterKey && !(selectedSemester() && selectedSemester().isPast)
-        ? '<button type="button" class="btn btn-primary tt-plan-copy">' +
-          escapeHtml(t('admin.timetables.copyCurrent', 'Copy current timetable')) + '</button>'
-        : '') +
       '</div>' +
       planBannerHtml();
     bindPlanBar(bar);
@@ -608,6 +611,10 @@
       else if (data.semester) setPlan(data.semester);
       renderPlanBar();
       await afterPlanChange();
+      const label = (sem && sem.label) || (data.semester && data.semester.label) || '';
+      alert(kind === 'schoolYear'
+        ? t('admin.timetables.createdYear', 'Next school year is ready.') + (label ? ' — ' + label : '')
+        : t('admin.timetables.createdSem', 'Next semester is ready.') + (label ? ' — ' + label : ''));
     } catch (e) {
       alert(e.message || 'Could not create the next term.');
     }
