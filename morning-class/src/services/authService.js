@@ -13,7 +13,8 @@ const {
   getTokenVersion,
   bumpTokenVersion,
   isAccountActive,
-  normalizeFlagRole
+  normalizeFlagRole,
+  isWeakPassword
 } = require('./accountFlagsService');
 
 const MIN_PASSWORD_LEN = 4;
@@ -221,13 +222,15 @@ async function switchParentActiveChild(session, studentId) {
     });
   }
 
+  const mustChangePassword = !!session.mustChangePassword;
   const profile = {
     parentId: parent.parentId,
     name: parent.name || session.name || 'Parent',
     studentId: active.studentId,
     studentName,
     classId,
-    children: childSummaries
+    children: childSummaries,
+    mustChangePassword
   };
   return {
     token: await issueToken('parent', profile.parentId, {
@@ -235,9 +238,11 @@ async function switchParentActiveChild(session, studentId) {
       parentId: profile.parentId,
       studentId: profile.studentId,
       classId: profile.classId,
-      name: profile.name
+      name: profile.name,
+      mustChangePassword
     }),
-    profile
+    profile,
+    mustChangePassword
   };
 }
 
@@ -464,6 +469,11 @@ async function changePassword(session, currentPassword, newPassword, confirmPass
 
   const stored = String(rows[rowIndex][target.passwordCol] || '').trim();
   if (stored !== current) throw new Error('Current password is incorrect.');
+
+  const loginId = String(rows[rowIndex][target.loginCol] || '').trim();
+  if (isWeakPassword(next, loginId)) {
+    throw new Error('That password is too common or easy to guess. Please choose a different one.');
+  }
 
   const sheetRow = rowIndex + 1; // 1-based including header
   await updateRange(target.sheet, target.a1Col + sheetRow, [[next]]);

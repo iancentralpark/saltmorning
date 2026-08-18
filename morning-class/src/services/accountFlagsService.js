@@ -21,7 +21,10 @@ const HEADERS = [
 ];
 
 const WEAK_PASSWORDS = new Set([
-  'changeme123', 'changeme', 'password', 'password1', 'password123', '1234', '12345', '123456', 'temp', 'tmp'
+  'changeme123', 'changeme', 'password', 'password1', 'password123', '1234', '12345', '123456', 'temp', 'tmp',
+  // Hardcoded seed defaults for leadership/admin accounts (see adminService.js) — never
+  // let these persist past first login, since they're visible in this repo's source.
+  'admin123', 'principal123', 'head123'
 ]);
 
 /** Default password an admin reset falls back to when none is supplied. */

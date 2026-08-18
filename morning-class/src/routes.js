@@ -3,7 +3,7 @@ const multer = require('multer');
 const { isGeminiConfigured } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
-const { requireRole, requirePerm } = require('./auth/tokenAuth');
+const { requireRole, requirePerm, requireExactRole } = require('./auth/tokenAuth');
 const { hasPermission } = require('./services/staffPermissionService');
 const {
   getTeacherClasses,
@@ -16,6 +16,7 @@ const {
   saveAttendance,
   getClassWorkData,
   upsertStudentRecord,
+  getAttendanceNote,
   getStudentYearAttendance
 } = require('./services/attendanceService');
 const {
@@ -343,6 +344,22 @@ async function assertHomeroomOfClass(teacherId, classId) {
   }
 }
 
+/**
+ * Resolve a request's ?term=/body.term to a real semester label when the
+ * caller omitted it. The old hardcoded 'Term1' fallback matched no semester
+ * under the new open-ended School Semesters list (labels look like
+ * "2025 Semester 1"), so it silently resolved to empty/no-match data instead
+ * of the currently active semester.
+ */
+async function defaultTermLabel() {
+  try {
+    const active = await getActiveSchoolSemester();
+    return (active && active.label) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
 router.get('/health', async (req, res) => {
   try {
     await require('./db/boot').ensureOpsDbStarted();
@@ -536,7 +553,7 @@ router.post('/auth/logout', requireRole('student', 'parent', 'teacher', 'princip
   }
 });
 
-router.post('/admin/accounts/reset-password', requireRole('admin', 'principal'), async (req, res) => {
+router.post('/admin/accounts/reset-password', requireRole('admin', 'principal'), requireExactRole('admin', 'principal'), async (req, res) => {
   try {
     const result = await adminResetPassword(req.body || {});
     res.json(result);
@@ -601,12 +618,16 @@ router.post('/teacher/class/:classId/attendance/record', requireRole('teacher'),
     if (!studentId || !date || !attendance) {
       return res.status(400).json({ error: 'studentId, date, and attendance are required.' });
     }
+    // Preserve any existing note (e.g. a parent's pre-submitted absence
+    // reason) instead of blanking it just because the teacher only meant to
+    // change the status/excuse for this student today.
+    const existingNote = await getAttendanceNote(req.params.classId, studentId, date).catch(() => '');
     const result = await upsertStudentRecord(
       req.params.classId,
       studentId,
       date,
       attendance,
-      '',
+      existingNote,
       excuse
     );
     res.json(result);
@@ -819,7 +840,7 @@ router.post('/teacher/class/:classId/grades/weights', requireRole('teacher'), as
 router.get('/teacher/class/:classId/grades/gradebook', requireRole('teacher'), async (req, res) => {
   try {
     const classId = req.params.classId;
-    const term = req.query.term || 'Term1';
+    const term = req.query.term || (await defaultTermLabel());
     const subject = req.query.subject || '';
     if (!subject) return res.status(400).json({ error: 'subject is required.' });
     const access = await getTeacherGradeAccess(req.session.teacherId, classId, subject);
@@ -864,6 +885,9 @@ router.delete('/teacher/class/:classId/grades/gradebook/column/:assessmentId', r
     if (!access.canEdit) {
       return res.status(403).json({ error: 'Only the subject teacher can delete grade columns.' });
     }
+    if (!req.query.term) {
+      return res.status(400).json({ error: 'term is required.' });
+    }
     const result = await deleteAssessment(
       req.params.assessmentId,
       req.params.classId,
@@ -883,6 +907,9 @@ router.post('/teacher/class/:classId/grades/gradebook/cell', requireRole('teache
     if (!access.canEdit) {
       return res.status(403).json({ error: 'Only the subject teacher can edit scores. Homeroom teachers can view only.' });
     }
+    if (!term) {
+      return res.status(400).json({ error: 'term is required.' });
+    }
     const result = await saveAssessmentCell(
       assessmentId,
       studentId,
@@ -899,7 +926,7 @@ router.post('/teacher/class/:classId/grades/gradebook/cell', requireRole('teache
 router.get('/teacher/class/:classId/grades', requireRole('teacher'), async (req, res) => {
   try {
     const classId = req.params.classId;
-    const term = req.query.term || 'Term1';
+    const term = req.query.term || (await defaultTermLabel());
     const subject = req.query.subject || '';
     if (!subject) return res.status(400).json({ error: 'subject is required.' });
     const students = await getClassRoster(classId);
@@ -987,7 +1014,7 @@ router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async 
     // Full printable card
     if (studentId && req.query.full === '1') {
       const card = await getFullStudentReportCard(
-        req.session.teacherId, classId, studentId, term || 'Term1'
+        req.session.teacherId, classId, studentId, term
       );
       return res.json({ card });
     }
@@ -995,7 +1022,7 @@ router.get('/teacher/class/:classId/report-card', requireRole('teacher'), async 
     // Student × subject editor
     if (studentId && subject) {
       const data = await getStudentSubjectReport(
-        req.session.teacherId, classId, studentId, term || 'Term1', subject
+        req.session.teacherId, classId, studentId, term, subject
       );
       return res.json(data);
     }
@@ -1083,10 +1110,13 @@ router.post('/teacher/class/:classId/report-card/workflow', requireRole('teacher
     const classId = req.params.classId;
     const { studentId, term, action } = req.body || {};
     if (!studentId) throw new Error('studentId is required.');
-    const t = term || 'Term1';
+    const t = term || (await defaultTermLabel());
     await assertHomeroomOfClass(req.session.teacherId, classId);
     const card = await getFullStudentReportCard(req.session.teacherId, classId, studentId, t);
     if (!card.reportReady) throw new Error('All subjects must be complete before signing.');
+    if (action === 'sign' && card.closed) {
+      throw new Error('"' + t + '" is closed. Ask Admin to reopen it before starting a new sign-off.');
+    }
     let wf = await getOrCreateWorkflow(classId, studentId, t, {
       homeroomTeacherId: req.session.teacherId,
       headTeacherId: req.session.headTeacherId || ''
@@ -1132,7 +1162,7 @@ router.get('/teacher/head/report-cards/:classId/:studentId', requireRole('teache
     if (!hasPermission(req.session, 'teacher.headReports')) {
       return res.status(403).json({ error: 'Head Teacher reports permission required.' });
     }
-    const term = req.query.term || 'Term1';
+    const term = req.query.term || (await defaultTermLabel());
     const card = await getFullStudentReportCard(
       req.session.teacherId, req.params.classId, req.params.studentId, term, { bypassAccess: true }
     );
@@ -1149,7 +1179,7 @@ router.post('/teacher/head/report-cards/workflow', requireRole('teacher'), async
     }
     const { classId, studentId, term, action } = req.body || {};
     if (!classId || !studentId) throw new Error('classId and studentId are required.');
-    const t = term || 'Term1';
+    const t = term || (await defaultTermLabel());
     let wf = await getOrCreateWorkflow(classId, studentId, t, {
       headTeacherId: req.session.teacherId
     });
@@ -1180,7 +1210,7 @@ router.get('/admin/report-cards', requireRole('admin', 'principal'), async (req,
 
 router.get('/admin/report-cards/:classId/:studentId', requireRole('admin', 'principal'), async (req, res) => {
   try {
-    const term = req.query.term || 'Term1';
+    const term = req.query.term || (await defaultTermLabel());
     const viewerId = req.session.principalId || req.session.teacherId || req.session.adminId;
     const card = await getFullStudentReportCard(
       viewerId, req.params.classId, req.params.studentId, term, { bypassAccess: true }
@@ -1195,7 +1225,7 @@ router.post('/admin/report-cards/workflow', requireRole('admin', 'principal'), a
   try {
     const { classId, studentId, term, action, scheduledShareAt } = req.body || {};
     if (!classId || !studentId) throw new Error('classId and studentId are required.');
-    const t = term || 'Term1';
+    const t = term || (await defaultTermLabel());
     const principalId = req.session.principalId || req.session.teacherId || req.session.adminId;
     let wf = await getOrCreateWorkflow(classId, studentId, t, {});
     if (action === 'sign') {
@@ -2647,7 +2677,7 @@ router.post('/messenger/translate', requireRole('parent', 'teacher', 'admin'), a
   }
 });
 
-router.post('/admin/seed-parent-demo', requireRole('admin'), async (req, res) => {
+router.post('/admin/seed-parent-demo', requireRole('admin'), requireExactRole('admin', 'principal'), async (req, res) => {
   try {
     res.json(await ensureParentDemoData());
   } catch (e) {
@@ -2898,7 +2928,7 @@ router.post('/admin/teachers', requireRole('admin'), async (req, res) => {
 
 router.delete('/admin/teachers/:teacherId', requireRole('admin'), async (req, res) => {
   try {
-    const result = await deleteTeacher(req.params.teacherId);
+    const result = await deleteTeacher(req.params.teacherId, req.session);
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not delete teacher.' });
@@ -3065,7 +3095,7 @@ router.put('/admin/school-semesters/:key', requireRole('admin'), async (req, res
 
 router.post('/admin/school-semesters/:key/close', requireRole('admin'), async (req, res) => {
   try {
-    const semester = await closeSemester(req.params.key);
+    const semester = await closeSemester(req.params.key, req.session);
     res.json({ semester });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not close semester.' });
@@ -3074,7 +3104,7 @@ router.post('/admin/school-semesters/:key/close', requireRole('admin'), async (r
 
 router.post('/admin/school-semesters/:key/reopen', requireRole('admin'), async (req, res) => {
   try {
-    const semester = await reopenSemester(req.params.key);
+    const semester = await reopenSemester(req.params.key, req.session);
     res.json({ semester });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not reopen semester.' });
@@ -3191,10 +3221,11 @@ router.post('/admin/material-requests/:requestId/unpurchase', requireRole('admin
 
 router.delete('/admin/material-requests/:requestId', requireRole('admin', 'principal'), async (req, res) => {
   try {
-    const result = await deleteMaterialRequest(req.params.requestId);
+    const force = String(req.query.force || '') === '1' || (req.body && req.body.force === true);
+    const result = await deleteMaterialRequest(req.params.requestId, { force });
     res.json(result);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not delete request.' });
+    res.status(e.status || 400).json({ error: e.message || 'Could not delete request.', needsConfirm: !!e.needsConfirm });
   }
 });
 

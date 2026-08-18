@@ -59,6 +59,18 @@ function requireRole(...roles) {
       }
     } catch (_) { /* fail open only if flags sheet unavailable */ }
 
+    // A forced password change (weak/reset default password) must be enforced
+    // server-side, not just via the client-side modal — otherwise a stolen or
+    // guessed token can keep using the account indefinitely without ever
+    // rotating off the known/weak password.
+    if (session.mustChangePassword) {
+      const path = String(req.path || '');
+      const allowed = path === '/auth/change-password' || path === '/auth/logout';
+      if (!allowed) {
+        return res.status(403).json({ error: 'You must change your password before continuing.', mustChangePassword: true });
+      }
+    }
+
     // Path-level permission gate for faculty on admin APIs (Admin superuser bypasses).
     if (roles.includes('admin') && session.role !== 'admin') {
       const path = String(req.path || '');
@@ -102,6 +114,22 @@ const ADMIN_PATH_PERMS = [
   { re: /^\/admin\/vocab/, perm: 'admin.vocabPlatform' }
 ];
 
+/**
+ * Strict role check for highly sensitive actions (password resets, account
+ * deactivation) where the isAdminPortalRole('staff') auto-inclusion in
+ * requireRole('admin', ...) is NOT acceptable — a staff account with only
+ * e.g. admin.lostFound should never reach these regardless of the generic
+ * ADMIN_PATH_PERMS table. Use as a second middleware after requireRole.
+ */
+function requireExactRole(...roles) {
+  return function exactRoleMiddleware(req, res, next) {
+    if (!req.session || !roles.includes(req.session.role)) {
+      return res.status(403).json({ error: 'You do not have permission for this action.' });
+    }
+    next();
+  };
+}
+
 /** After requireRole — Admin always passes; faculty need one of the listed keys. */
 function requirePerm(...permKeys) {
   return function permMiddleware(req, res, next) {
@@ -119,5 +147,6 @@ module.exports = {
   readBearerToken,
   requireRole,
   requirePerm,
+  requireExactRole,
   isAdminPortalRole
 };
