@@ -39,33 +39,34 @@ function addSubjectEntry(bySubject, teacherNames, subject, teacherIdForSubj, tea
 async function collectClassSubjects(classId) {
   const { listRequirementCurriculum } = require('./timetableRequirementsService');
   const { teacherDisplayNameMap } = require('./teacherRegistryService');
-  const reqSubjects = await listRequirementCurriculum(classId).catch(() => []);
-
-  const bySubject = new Map();
-  function add(subject, teacherIdForSubj, teacherNameHint, teacherNames) {
-    addSubjectEntry(bySubject, teacherNames || {}, subject, teacherIdForSubj, teacherNameHint);
-  }
-
-  if (reqSubjects.length) {
-    reqSubjects.forEach((s) => {
-      (s.teacherIds || []).forEach((tid, idx) => {
-        add(s.subject, tid, (s.teacherNames && s.teacherNames[idx]) || '', {});
-      });
-      if (!(s.teacherIds || []).length) add(s.subject, '', '', {});
-    });
-    return {
-      source: 'requirements',
-      subjects: Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject))
-    };
-  }
-
-  const [assignRows, customRows, assessRows, teacherNames] = await Promise.all([
+  const [reqSubjects, assignRows, customRows, assessRows, teacherNames] = await Promise.all([
+    listRequirementCurriculum(classId).catch(() => []),
     getSheetRows(CLASS_TEACHERS_SHEET),
     getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
     getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
     teacherDisplayNameMap()
   ]);
 
+  const bySubject = new Map();
+  function add(subject, teacherIdForSubj, teacherNameHint, teacherNamesMap) {
+    addSubjectEntry(bySubject, teacherNamesMap || {}, subject, teacherIdForSubj, teacherNameHint);
+  }
+
+  reqSubjects.forEach((s) => {
+    (s.teacherIds || []).forEach((tid, idx) => {
+      add(s.subject, tid, (s.teacherNames && s.teacherNames[idx]) || '', {});
+    });
+    if (!(s.teacherIds || []).length) add(s.subject, '', '', {});
+  });
+
+  // Timetable Requirements is the admin-authored curriculum, but it can
+  // drift from what's actually assigned/taught/graded (e.g. a subject
+  // removed from the requirements sheet after grades were already entered
+  // for it, or a custom subject a teacher added that was never added to
+  // requirements). Always union in the real assignment/grade data too, so
+  // an already-taught subject with real grade history never silently
+  // disappears from Grades / Report Cards just because it's missing from
+  // requirements.
   for (let i = 1; i < assignRows.length; i++) {
     if (String(assignRows[i][0]) !== String(classId)) continue;
     add(assignRows[i][3], assignRows[i][1], '', teacherNames);
@@ -78,8 +79,9 @@ async function collectClassSubjects(classId) {
     if (String(assessRows[i][1]) !== String(classId)) continue;
     add(assessRows[i][3], assessRows[i][8], '', teacherNames);
   }
+
   return {
-    source: 'assignments',
+    source: reqSubjects.length ? 'requirements+assignments' : 'assignments',
     subjects: Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject))
   };
 }
