@@ -194,8 +194,10 @@ async function listAnnouncementsForViewer({ role, classId, scope }) {
   const filtered = merged.filter((a) => {
     if (wantScope && a.scope !== wantScope) return false;
     if (a.scope === 'school') return !wantScope || wantScope === 'school';
-    // class-scoped
-    if (!cid) return !wantScope || wantScope === 'class';
+    // class-scoped: a viewer with no classId (not yet assigned to a class,
+    // mid-transfer, or withdrawn) must never see every other class's
+    // announcements — show none rather than everything.
+    if (!cid) return false;
     return !a.classId || a.classId === '*' || a.classId === cid;
   });
 
