@@ -311,6 +311,22 @@ async function getGradesDashboard(classId, term, subject, students) {
   };
 }
 
+/**
+ * A Head/Principal signature should never stand against grade data edited
+ * after the signature was made. Reset any in-flight (already-signed) report
+ * card workflow for every affected student back to draft.
+ */
+async function invalidateWorkflowsForEntries(classId, term, subject, entries) {
+  if (!term) return;
+  try {
+    const { invalidateWorkflowForDataChange } = require('./reportCardWorkflowService');
+    const studentIds = Array.from(new Set((entries || []).map((e) => String(e.studentId || '')).filter(Boolean)));
+    for (const sid of studentIds) {
+      await invalidateWorkflowForDataChange(classId, sid, term, subject + ' grades were edited after signing.');
+    }
+  } catch (e) { /* best-effort; never block the grade save itself */ }
+}
+
 async function saveGradeEntries(classId, term, subject, teacherId, dateStr, categoryKey, maxScoreDefault, entries) {
   if (!Array.isArray(entries) || !entries.length) throw new Error('No grades to save.');
   classId = String(classId);
@@ -363,6 +379,7 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
       saved++;
     }
     if (!saved) throw new Error('Enter at least one score.');
+    await invalidateWorkflowsForEntries(classId, term, subject, entries);
     return { saved };
   }
 
@@ -417,6 +434,7 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
   }
   if (appends.length) await appendRows(GRADES_DAILY_SHEET, appends);
 
+  await invalidateWorkflowsForEntries(classId, term, subject, entries);
   return { saved };
 }
 
@@ -797,6 +815,16 @@ async function saveAssessmentCellPg(assessmentId, studentId, score, teacherId, o
   };
 }
 
+async function invalidateWorkflowForCell(opts, studentId) {
+  if (!opts || !opts.classId || !opts.term || !studentId) return;
+  try {
+    const { invalidateWorkflowForDataChange } = require('./reportCardWorkflowService');
+    await invalidateWorkflowForDataChange(
+      opts.classId, studentId, opts.term, (opts.subject || 'A') + ' grade was edited after signing.'
+    );
+  } catch (e) { /* best-effort; never block the grade save itself */ }
+}
+
 async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opts) {
   if (opts && opts.classId && opts.term) {
     const termInfo = await getGradeTerm(opts.classId, opts.term).catch(() => null);
@@ -812,6 +840,7 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
     } else {
       clearGradebookCache();
     }
+    await invalidateWorkflowForCell(opts, studentId);
     return result;
   }
   await ensureGradesColumns();
@@ -875,6 +904,7 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
   if (empty) {
     if (foundRow > 0) {
       await updateRange(GRADES_DAILY_SHEET, `A${foundRow}:L${foundRow}`, [['', '', '', '', '', '', '', '', '', '', '', '']]);
+      await invalidateWorkflowForCell(opts, studentId);
     }
     return { cleared: true };
   }
@@ -911,11 +941,26 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
   } else {
     clearGradebookCache();
   }
+  await invalidateWorkflowForCell(opts, studentId);
 
   return {
     saved: true,
     percent: pctScore(numScore, assessment.maxScore)
   };
+}
+
+/**
+ * Deleting a grade column can affect any number of students, and by the
+ * time the entries are gone we no longer know exactly which ones had a
+ * score — so invalidate every in-flight report-card workflow for the whole
+ * class+term rather than risk leaving a stale signature standing.
+ */
+async function invalidateWorkflowsForDeletedColumn(classId, term) {
+  if (!term) return;
+  try {
+    const { invalidateWorkflowsForClassTerm } = require('./reportCardWorkflowService');
+    await invalidateWorkflowsForClassTerm(classId, term, 'A grade column was deleted after signing.');
+  } catch (e) { /* best-effort; never block the delete itself */ }
 }
 
 async function deleteAssessment(assessmentId, classId, term, subject) {
@@ -956,6 +1001,7 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
     }
     if (term && subject) clearGradebookCache(classId, term, subject);
     else clearGradebookCache();
+    await invalidateWorkflowsForDeletedColumn(classId, term);
     return { deleted: true };
   }
 
@@ -976,6 +1022,7 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
     if (updates.length) await batchUpdateRanges(updates);
     if (term && subject) clearGradebookCache(classId, term, subject);
     else clearGradebookCache();
+    await invalidateWorkflowsForDeletedColumn(classId, term);
     return { deleted: true };
   }
 
@@ -1004,6 +1051,7 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
   if (updates.length) await batchUpdateRanges(updates);
 
   clearGradebookCache(classId, rowTerm, rowSubject);
+  await invalidateWorkflowsForDeletedColumn(classId, rowTerm);
   return { deleted: true };
 }
 

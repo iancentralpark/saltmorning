@@ -128,7 +128,13 @@
         : 'In progress';
       html += '<tr>' +
         '<td><button type="button" class="btn btn-ghost rc-open-student" data-sid="' +
-        escapeHtml(st.studentId) + '">' + escapeHtml(st.name) + '</button></td>' +
+        escapeHtml(st.studentId) + '">' + escapeHtml(st.name) + '</button>' +
+        (st.sentBack
+          ? '<span class="rc-sentback-badge" title="' +
+            escapeHtml('Sent back by ' + (st.rejectedFromState || 'reviewer') + ': ' + (st.rejectReason || '')) +
+            '">↩ Sent back</span>'
+          : '') +
+        '</td>' +
         '<td class="muted small">' + escapeHtml(prog) + '</td>' +
         '<td>' + (st.reportReady
           ? '<span class="rc-ready-badge rc-ready-badge-sm">' + escapeHtml(status) + '</span>'
@@ -137,6 +143,11 @@
           ? '<button type="button" class="btn btn-primary rc-open-card" data-sid="' +
             escapeHtml(st.studentId) + '">Open report card</button>'
           : '') + '</td></tr>';
+      if (st.sentBack) {
+        html += '<tr class="rc-sentback-row"><td colspan="4"><p class="rc-sentback-note">↩ ' +
+          escapeHtml('Sent back — ' + (st.rejectReason || 'ask the reviewer for details.')) +
+          '</p></td></tr>';
+      }
     });
     html += '</tbody></table></div></div>';
     box.innerHTML = html;

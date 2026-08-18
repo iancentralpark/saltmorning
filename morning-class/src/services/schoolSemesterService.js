@@ -242,7 +242,26 @@ async function setSemesterClosed(key, closed, session) {
 }
 
 async function closeSemester(key, session) {
-  return setSemesterClosed(key, true, session);
+  const sem = await setSemesterClosed(key, true, session);
+  // Closing only freezes NEW edits (via the closed flag) — it's decoupled
+  // from any report-card approval already mid-flight for this semester.
+  // That's intentional (an in-flight submission should still be allowed to
+  // finish), but flag it so the admin isn't surprised later.
+  let inFlightReportCards = 0;
+  try {
+    const { listWorkflows, STATES } = require('./reportCardWorkflowService');
+    const all = await listWorkflows({});
+    inFlightReportCards = all.filter((w) =>
+      String(w.term) === String(sem && sem.label) &&
+      w.state !== STATES.draft &&
+      w.state !== STATES.shared_parent
+    ).length;
+  } catch (e) { /* optional */ }
+  return Object.assign({}, sem, {
+    warnings: inFlightReportCards
+      ? { inFlightReportCards }
+      : null
+  });
 }
 
 async function reopenSemester(key, session) {

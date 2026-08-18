@@ -493,15 +493,20 @@ async function getClassReportOverview(teacherId, classId, term) {
     term = (active && (active.label || active.termId)) || 'Term1';
   }
 
-  const [students, subjectData, statuses, classNames, teacher, names, closed] = await Promise.all([
+  const [students, subjectData, statuses, classNames, teacher, names, closed, workflows] = await Promise.all([
     getClassRoster(classId),
     listClassGradeSubjects(teacherId, classId),
     listStatusRows(classId, term),
     getClassNameMap(),
     getTeacherProfile(teacherId),
     teacherNameMap(),
-    isTermClosed(term)
+    isTermClosed(term),
+    require('./reportCardWorkflowService').listWorkflows({ classId }).catch(() => [])
   ]);
+  const workflowByStudent = {};
+  workflows.forEach((w) => {
+    if (String(w.term) === String(term)) workflowByStudent[w.studentId] = w;
+  });
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
   const isHomeroom = !!(subjectData.isHomeroom || (teacher && teacher.homeroomClassId === classId));
@@ -542,6 +547,7 @@ async function getClassReportOverview(teacherId, classId, term) {
     const completeCount = subjectStatuses.filter((x) => x.complete).length;
     const reportReady = requiredSubjects.length > 0 && completeCount === requiredSubjects.length;
     const shared = subjectStatuses.some((x) => x.sharedWithParents);
+    const wf = workflowByStudent[st.studentId];
     return {
       studentId: st.studentId,
       name: st.name,
@@ -549,7 +555,13 @@ async function getClassReportOverview(teacherId, classId, term) {
       completeCount,
       requiredCount: requiredSubjects.length,
       reportReady,
-      sharedWithParents: shared
+      sharedWithParents: shared,
+      workflowState: wf ? wf.state : '',
+      // A recent reject only matters to show as a banner while the card is
+      // still sitting in draft, unedited since being sent back.
+      sentBack: !!(wf && wf.state === 'draft' && wf.rejectedAt),
+      rejectReason: (wf && wf.state === 'draft') ? (wf.rejectReason || '') : '',
+      rejectedFromState: (wf && wf.state === 'draft') ? (wf.rejectedFromState || '') : ''
     };
   });
 
@@ -720,6 +732,15 @@ async function saveStudentSubjectReport(teacherId, classId, payload) {
   if (payload.markComplete === false) status = 'Draft';
 
   const statusRow = await upsertStatus(classId, studentId, term, subject, teacherId, { status });
+
+  // A Head/Principal signature should never stand against data that was
+  // edited after they signed it — reset any in-flight (already-signed)
+  // workflow back to draft so the chain re-confirms the corrected content.
+  const { invalidateWorkflowForDataChange } = require('./reportCardWorkflowService');
+  await invalidateWorkflowForDataChange(
+    classId, studentId, term, subject + ' report was edited after signing.'
+  );
+
   return {
     saved: true,
     status: statusRow.status,
@@ -866,7 +887,11 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
         headSignedAt: workflow.headSignedAt,
         principalSignedAt: workflow.principalSignedAt,
         sharedAt: workflow.sharedAt,
-        scheduledShareAt: workflow.scheduledShareAt
+        scheduledShareAt: workflow.scheduledShareAt,
+        rejectedAt: workflow.rejectedAt || '',
+        rejectedByRole: workflow.rejectedByRole || '',
+        rejectedFromState: workflow.rejectedFromState || '',
+        rejectReason: workflow.rejectReason || ''
       }
       : null,
     reportReady,

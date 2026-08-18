@@ -109,6 +109,7 @@ const {
   signAsHead,
   submitToPrincipal,
   signAsPrincipal,
+  rejectWorkflow,
   stateLabel,
   processDueScheduledShares,
   STATES: RC_WF_STATES
@@ -1177,7 +1178,7 @@ router.post('/teacher/head/report-cards/workflow', requireRole('teacher'), async
     if (!hasPermission(req.session, 'teacher.headReports')) {
       return res.status(403).json({ error: 'Head Teacher reports permission required.' });
     }
-    const { classId, studentId, term, action } = req.body || {};
+    const { classId, studentId, term, action, reason } = req.body || {};
     if (!classId || !studentId) throw new Error('classId and studentId are required.');
     const t = term || (await defaultTermLabel());
     let wf = await getOrCreateWorkflow(classId, studentId, t, {
@@ -1185,7 +1186,8 @@ router.post('/teacher/head/report-cards/workflow', requireRole('teacher'), async
     });
     if (action === 'sign') wf = await signAsHead(wf, req.session.teacherId);
     else if (action === 'submit') wf = await submitToPrincipal(wf, req.session.teacherId);
-    else throw new Error('action must be sign or submit.');
+    else if (action === 'reject') wf = await rejectWorkflow(wf, 'head', req.session.teacherId, reason);
+    else throw new Error('action must be sign, submit, or reject.');
     res.json({ workflow: wf, stateLabel: stateLabel(wf.state) });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Head Teacher workflow failed.' });
@@ -1223,13 +1225,17 @@ router.get('/admin/report-cards/:classId/:studentId', requireRole('admin', 'prin
 
 router.post('/admin/report-cards/workflow', requireRole('admin', 'principal'), async (req, res) => {
   try {
-    const { classId, studentId, term, action, scheduledShareAt } = req.body || {};
+    const { classId, studentId, term, action, scheduledShareAt, reason } = req.body || {};
     if (!classId || !studentId) throw new Error('classId and studentId are required.');
     const t = term || (await defaultTermLabel());
     const principalId = req.session.principalId || req.session.teacherId || req.session.adminId;
     let wf = await getOrCreateWorkflow(classId, studentId, t, {});
     if (action === 'sign') {
       wf = await signAsPrincipal(wf, principalId);
+      return res.json({ workflow: wf, stateLabel: stateLabel(wf.state) });
+    }
+    if (action === 'reject') {
+      wf = await rejectWorkflow(wf, req.session.role === 'principal' ? 'principal' : 'admin', principalId, reason);
       return res.json({ workflow: wf, stateLabel: stateLabel(wf.state) });
     }
     if (action === 'share' || action === 'schedule') {
@@ -1249,7 +1255,7 @@ router.post('/admin/report-cards/workflow', requireRole('admin', 'principal'), a
       }
       return res.json({ signed: signed.length, workflows: signed });
     }
-    throw new Error('action must be sign, share, schedule, or batch-sign.');
+    throw new Error('action must be sign, reject, share, schedule, or batch-sign.');
   } catch (e) {
     res.status(400).json({ error: e.message || 'Principal workflow failed.' });
   }

@@ -225,8 +225,15 @@ window.SaltSchoolCalendar = (function() {
   async function closeSemesterByKey(key, label) {
     if (!window.confirm('Close "' + label + '"?\n\nTeachers will no longer be able to edit grades or report cards for this semester.')) return;
     try {
-      await api('/api/admin/school-semesters/' + encodeURIComponent(key) + '/close', { method: 'POST' });
+      const res = await api('/api/admin/school-semesters/' + encodeURIComponent(key) + '/close', { method: 'POST' });
       await loadSemesters();
+      const warn = res && res.semester && res.semester.warnings;
+      if (warn && warn.inFlightReportCards && $('scSemesterMsg')) {
+        $('scSemesterMsg').style.color = '#a66b42';
+        $('scSemesterMsg').textContent =
+          warn.inFlightReportCards + ' report card(s) for this semester are still mid-approval (not yet shared). ' +
+          'They can still finish their sign-off, but no new edits are allowed.';
+      }
     } catch (err) {
       if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not close semester.';
     }

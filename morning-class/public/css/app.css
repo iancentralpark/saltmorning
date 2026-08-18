@@ -3808,6 +3808,28 @@ body.buddy-resize-active {
   font-size: 0.88rem;
   margin: 0 0 0.75rem;
 }
+.rc-sentback-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid rgba(217, 165, 63, 0.45);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  cursor: help;
+}
+.rc-sentback-row td { padding-top: 0 !important; }
+.rc-sentback-note {
+  margin: 0 0 0.4rem;
+  padding: 0.4rem 0.7rem;
+  background: #fef3c7;
+  border: 1px solid rgba(217, 165, 63, 0.45);
+  border-radius: var(--radius-sm);
+  color: #92400e;
+  font-size: 0.82rem;
+}
 .rc-overview-head {
   display: flex;
   justify-content: space-between;

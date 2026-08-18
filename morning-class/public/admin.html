@@ -1622,7 +1622,11 @@
             ? '<button type="button" class="btn btn-primary admin-rc-share" data-cid="' + escapeHtml(w.classId) +
               '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Share now</button> ' +
               '<button type="button" class="btn btn-ghost admin-rc-schedule" data-cid="' + escapeHtml(w.classId) +
-              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Schedule</button>'
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Schedule</button> '
+            : '') +
+          ((w.state === 'submitted_principal' || w.state === 'signed_principal')
+            ? '<button type="button" class="btn btn-ghost admin-rc-reject" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Send back</button>'
             : '') +
           (w.scheduledShareAt
             ? ' <span class="muted small">Scheduled ' + escapeHtml(String(w.scheduledShareAt).slice(0, 16)) + '</span>'
@@ -1659,6 +1663,27 @@
                 classId: btn.dataset.cid,
                 studentId: btn.dataset.sid,
                 term: btn.dataset.term
+              }
+            }, role);
+            loadAdminReportCards();
+          } catch (e) {
+            err.textContent = e.message;
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-reject').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const reason = prompt('Send this report card back to the Homeroom teacher. Why?');
+          if (reason == null || !reason.trim()) return;
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'reject',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term,
+                reason: reason.trim()
               }
             }, role);
             loadAdminReportCards();

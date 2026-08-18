@@ -28,7 +28,8 @@ const WORKFLOW_HEADERS = [
   'HomeroomSignedAt', 'HeadSignedAt', 'PrincipalSignedAt',
   'HomeroomSigPath', 'HeadSigPath', 'PrincipalSigPath',
   'SubmittedToHeadAt', 'SubmittedToPrincipalAt', 'SharedAt',
-  'ScheduledShareAt', 'UpdatedAt'
+  'ScheduledShareAt', 'UpdatedAt',
+  'RejectedAt', 'RejectedByRole', 'RejectedFromState', 'RejectReason'
 ];
 
 const SIG_HEADERS = ['PersonID', 'MimeType', 'Base64', 'UpdatedAt'];
@@ -45,8 +46,26 @@ function isoNow() {
   return new Date().toISOString();
 }
 
+/**
+ * ensureSheet() only writes headers when CREATING a brand-new sheet, so an
+ * already-deployed spreadsheet's header row won't automatically grow when we
+ * add columns to WORKFLOW_HEADERS. Backfill the header row (values only —
+ * old data rows are untouched and just read back as blank for new columns).
+ */
+async function ensureWorkflowColumns() {
+  const rows = await getSheetRows(REPORT_CARD_WORKFLOW_SHEET);
+  if (!rows.length) return;
+  const header = (rows[0] || []).map((c) => String(c || '').trim());
+  if (header[0] !== 'WorkflowID') return;
+  if (header[18] !== 'RejectedAt') {
+    await updateRange(REPORT_CARD_WORKFLOW_SHEET, 'S1:V1', [WORKFLOW_HEADERS.slice(18)]);
+    invalidateSheetRowsCache(REPORT_CARD_WORKFLOW_SHEET);
+  }
+}
+
 async function ensureWorkflowSheet() {
   await ensureSheet(REPORT_CARD_WORKFLOW_SHEET, WORKFLOW_HEADERS);
+  await ensureWorkflowColumns();
   await ensureSheet(REPORT_CARD_SIGNATURES_SHEET, SIG_HEADERS);
   if (!fs.existsSync(SIG_DIR)) fs.mkdirSync(SIG_DIR, { recursive: true });
 }
@@ -208,7 +227,11 @@ function parseWorkflowRow(row) {
     submittedToPrincipalAt: String(row[14] || ''),
     sharedAt: String(row[15] || ''),
     scheduledShareAt: String(row[16] || ''),
-    updatedAt: String(row[17] || '')
+    updatedAt: String(row[17] || ''),
+    rejectedAt: String(row[18] || ''),
+    rejectedByRole: String(row[19] || ''),
+    rejectedFromState: String(row[20] || ''),
+    rejectReason: String(row[21] || '')
   };
 }
 
@@ -219,7 +242,8 @@ function workflowToRow(w) {
     w.homeroomSignedAt, w.headSignedAt, w.principalSignedAt,
     w.homeroomSigPath, w.headSigPath, w.principalSigPath,
     w.submittedToHeadAt, w.submittedToPrincipalAt, w.sharedAt,
-    w.scheduledShareAt, w.updatedAt
+    w.scheduledShareAt, w.updatedAt,
+    w.rejectedAt || '', w.rejectedByRole || '', w.rejectedFromState || '', w.rejectReason || ''
   ];
 }
 
@@ -258,7 +282,11 @@ async function getOrCreateWorkflow(classId, studentId, term, extras) {
     submittedToPrincipalAt: '',
     sharedAt: '',
     scheduledShareAt: '',
-    updatedAt: now
+    updatedAt: now,
+    rejectedAt: '',
+    rejectedByRole: '',
+    rejectedFromState: '',
+    rejectReason: ''
   };
   await appendRows(REPORT_CARD_WORKFLOW_SHEET, [workflowToRow(workflow)]);
   invalidateSheetRowsCache(REPORT_CARD_WORKFLOW_SHEET);
@@ -271,7 +299,7 @@ async function saveWorkflow(workflow) {
   const hit = await findWorkflow(workflow.classId, workflow.studentId, workflow.term);
   const row = workflowToRow(workflow);
   if (hit) {
-    await updateRange(REPORT_CARD_WORKFLOW_SHEET, `A${hit.rowIndex}:R${hit.rowIndex}`, [row]);
+    await updateRange(REPORT_CARD_WORKFLOW_SHEET, `A${hit.rowIndex}:V${hit.rowIndex}`, [row]);
   } else {
     await appendRows(REPORT_CARD_WORKFLOW_SHEET, [row]);
   }
@@ -418,6 +446,126 @@ async function markShared(workflow, scheduledShareAt) {
   return saveWorkflow(workflow);
 }
 
+/**
+ * Send a submitted report card back to the Homeroom teacher for correction.
+ * Always resets all the way to draft (clearing every signature) rather than
+ * a partial rollback — if a reviewer found a problem, the safest rule is to
+ * make the whole chain re-confirm the corrected data rather than trust a
+ * signature made before the fix.
+ */
+async function rejectWorkflow(workflow, actorRole, actorId, reason) {
+  reason = String(reason || '').trim();
+  if (!reason) throw new Error('A reason is required when sending a report card back.');
+
+  const fromState = workflow.state;
+  if (fromState === STATES.draft) {
+    throw new Error('Nothing to send back — this report card has not been submitted yet.');
+  }
+  if (fromState === STATES.shared_parent) {
+    throw new Error('This report card was already shared with parents and cannot be sent back here.');
+  }
+
+  if (actorRole === 'head') {
+    if (fromState !== STATES.submitted_head && fromState !== STATES.signed_head) {
+      throw new Error('The Head Teacher can only send back a report card that is waiting on their review.');
+    }
+    if (workflow.headTeacherId && String(workflow.headTeacherId) !== String(actorId)) {
+      throw new Error('This report card is assigned to another Head Teacher.');
+    }
+  } else if (actorRole !== 'principal' && actorRole !== 'admin') {
+    throw new Error('Only the Head Teacher, Principal, or Admin can send a report card back.');
+  }
+
+  workflow.state = STATES.draft;
+  workflow.homeroomSignedAt = '';
+  workflow.homeroomSigPath = '';
+  workflow.headSignedAt = '';
+  workflow.headSigPath = '';
+  workflow.principalSignedAt = '';
+  workflow.principalSigPath = '';
+  workflow.submittedToHeadAt = '';
+  workflow.submittedToPrincipalAt = '';
+  workflow.scheduledShareAt = '';
+  workflow.rejectedAt = isoNow();
+  workflow.rejectedByRole = actorRole;
+  workflow.rejectedFromState = fromState;
+  workflow.rejectReason = reason;
+  const saved = await saveWorkflow(workflow);
+
+  try {
+    const { writeAudit } = require('./auditService');
+    await writeAudit({
+      actorRole,
+      actorId: String(actorId || ''),
+      action: 'report_card_rejected',
+      entityType: 'report_card_workflow',
+      entityId: workflow.workflowId,
+      detail: { classId: workflow.classId, studentId: workflow.studentId, term: workflow.term, fromState, reason }
+    });
+  } catch (e) { /* optional */ }
+
+  return saved;
+}
+
+/**
+ * Reset an in-flight (non-draft, non-shared) workflow back to draft because
+ * the underlying grade/report content changed after a signature was made.
+ * A Principal's (or Head's) signature should never be trusted against data
+ * that was edited after they signed it — silently letting the signature
+ * stand while the numbers drift underneath it defeats the point of signing.
+ */
+async function invalidateWorkflowForDataChange(classId, studentId, term, reason) {
+  try {
+    const hit = await findWorkflow(classId, studentId, term);
+    if (!hit || !hit.workflow) return null;
+    const w = hit.workflow;
+    if (w.state === STATES.draft || w.state === STATES.shared_parent) return null;
+    const fromState = w.state;
+    w.state = STATES.draft;
+    w.homeroomSignedAt = '';
+    w.homeroomSigPath = '';
+    w.headSignedAt = '';
+    w.headSigPath = '';
+    w.principalSignedAt = '';
+    w.principalSigPath = '';
+    w.submittedToHeadAt = '';
+    w.submittedToPrincipalAt = '';
+    w.scheduledShareAt = '';
+    w.rejectedAt = isoNow();
+    w.rejectedByRole = 'system';
+    w.rejectedFromState = fromState;
+    w.rejectReason = reason || 'Report data changed after signing — re-sign required.';
+    const saved = await saveWorkflow(w);
+    try {
+      const { writeAudit } = require('./auditService');
+      await writeAudit({
+        actorRole: 'system',
+        action: 'report_card_auto_invalidated',
+        entityType: 'report_card_workflow',
+        entityId: w.workflowId,
+        detail: { classId, studentId, term, fromState, reason }
+      });
+    } catch (e) { /* optional */ }
+    return saved;
+  } catch (e) {
+    console.warn('[reportCardWorkflow] auto-invalidate failed:', e.message);
+    return null;
+  }
+}
+
+/** Same as invalidateWorkflowForDataChange, but for every student in a class+term (e.g. a shared grade column was deleted and we don't know which students it affected). */
+async function invalidateWorkflowsForClassTerm(classId, term, reason) {
+  try {
+    const rows = await listWorkflows({ classId: String(classId) });
+    for (const w of rows) {
+      if (String(w.term) !== String(term)) continue;
+      await invalidateWorkflowForDataChange(classId, w.studentId, term, reason);
+    }
+  } catch (e) {
+    console.warn('[reportCardWorkflow] bulk auto-invalidate failed:', e.message);
+  }
+}
+
 function stateLabel(state) {
   const map = {
     draft: 'Draft',
@@ -453,6 +601,24 @@ async function processDueScheduledShares(shareFn) {
       shared += 1;
     } catch (e) {
       console.warn('Scheduled report-card share failed:', w.workflowId, e.message);
+      try {
+        const { writeAudit } = require('./auditService');
+        await writeAudit({
+          actorRole: 'system',
+          action: 'scheduled_share_failed',
+          entityType: 'report_card_workflow',
+          entityId: w.workflowId,
+          detail: { classId: w.classId, studentId: w.studentId, term: w.term, error: e.message }
+        });
+      } catch (e2) { /* optional */ }
+      // Don't silently retry every 5 minutes forever — clear the schedule so
+      // the card just sits in signed_principal (still visible in the Admin
+      // queue, ready for a manual "Share now"/"Schedule" retry) instead of
+      // spamming logs indefinitely with no admin-visible signal.
+      try {
+        w.scheduledShareAt = '';
+        await saveWorkflow(w);
+      } catch (e3) { /* optional */ }
     }
   }
   return shared;
@@ -480,6 +646,9 @@ module.exports = {
   submitToPrincipal,
   signAsPrincipal,
   markShared,
+  rejectWorkflow,
+  invalidateWorkflowForDataChange,
+  invalidateWorkflowsForClassTerm,
   processDueScheduledShares,
   signaturePathFor
 };

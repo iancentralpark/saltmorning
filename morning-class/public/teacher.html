@@ -1016,7 +1016,11 @@
             : '') +
           (w.state === 'signed_head'
             ? '<button type="button" class="btn btn-primary head-rc-submit" data-cid="' + escapeHtml(w.classId) +
-              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Submit to Principal</button>'
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Submit to Principal</button> '
+            : '') +
+          ((w.state === 'submitted_head' || w.state === 'signed_head')
+            ? '<button type="button" class="btn btn-ghost head-rc-reject" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Send back</button>'
             : '') +
           '</td></tr>'
         ).join('') + '</tbody></table>';
@@ -1039,16 +1043,16 @@
           }
         });
       });
-      async function headAction(action, btn) {
+      async function headAction(action, btn, extra) {
         try {
           await api('/api/teacher/head/report-cards/workflow', {
             method: 'POST',
-            body: {
+            body: Object.assign({
               action,
               classId: btn.dataset.cid,
               studentId: btn.dataset.sid,
               term: btn.dataset.term
-            }
+            }, extra || {})
           }, role);
           loadHeadReportQueue();
         } catch (e) {
@@ -1057,6 +1061,13 @@
       }
       box.querySelectorAll('.head-rc-sign').forEach((btn) => {
         btn.addEventListener('click', () => headAction('sign', btn));
+      });
+      box.querySelectorAll('.head-rc-reject').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const reason = prompt('Send this report card back to the Homeroom teacher. Why?');
+          if (reason == null || !reason.trim()) return;
+          headAction('reject', btn, { reason: reason.trim() });
+        });
       });
       box.querySelectorAll('.head-rc-submit').forEach((btn) => {
         btn.addEventListener('click', () => {
