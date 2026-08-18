@@ -180,7 +180,8 @@ async function buildSemesterWeeks(classId, term) {
       classId: term.classId,
       label: term.label,
       startDate: term.startDate,
-      endDate: term.endDate
+      endDate: term.endDate,
+      closed: !!term.closed
     },
     totalWeeks: weekIndex,
     weeks: numbered
@@ -285,6 +286,9 @@ async function saveSemesterPlan(teacherId, payload) {
 
   const meta = await getSemesterPlanMeta(teacherId, classId, subject, payload.termLabel);
   const termLabel = meta.term.label;
+  if (meta.term.closed) {
+    throw new Error('"' + termLabel + '" is closed. Ask Admin to reopen it before making changes.');
+  }
   const incoming = Array.isArray(payload.rows) ? payload.rows : [];
   const byWeek = {};
   incoming.forEach((r) => {

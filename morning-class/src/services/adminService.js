@@ -67,8 +67,8 @@ async function getTeacher(teacherId) {
   return getTeacherDetail(teacherId);
 }
 
-async function deleteTeacher(teacherId) {
-  return deleteTeacherRecord(teacherId);
+async function deleteTeacher(teacherId, session) {
+  return deleteTeacherRecord(teacherId, session);
 }
 
 async function saveTeacher(payload) {

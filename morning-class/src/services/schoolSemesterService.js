@@ -152,6 +152,21 @@ function assertNoOverlap(existing, startDate, endDate, ignoreKey) {
 }
 
 /**
+ * Grades, report cards, lesson plans, and workflow rows are all keyed by the
+ * semester LABEL (not the immutable key), so two semesters sharing a label
+ * would make getSchoolSemester()/getGradeTerm() etc. silently resolve to the
+ * wrong one. Must stay unique (case-insensitive) across the whole list.
+ */
+function assertUniqueLabel(existing, label, ignoreKey) {
+  const q = String(label || '').trim().toLowerCase();
+  if (!q) return;
+  const dup = existing.find((s) => s.key !== ignoreKey && s.label.trim().toLowerCase() === q);
+  if (dup) {
+    throw new Error('A semester named "' + dup.label + '" already exists. Choose a different label.');
+  }
+}
+
+/**
  * Create a new semester. Label defaults to a "{year} Semester {1|2}" guess
  * from the start date, but admins may type any label (e.g. "2025 Fall").
  */
@@ -164,6 +179,7 @@ async function createSemester(payload) {
 
   const existing = await listSchoolSemesters();
   assertNoOverlap(existing, startDate, endDate);
+  assertUniqueLabel(existing, label);
 
   const key = newSemesterKey();
   const now = new Date().toISOString();
@@ -185,6 +201,7 @@ async function updateSemester(key, payload) {
   const label = String((payload && payload.label) != null ? payload.label : sem.label).trim() || sem.label;
   validateDates(label, startDate, endDate);
   assertNoOverlap(existing, startDate, endDate, sem.key);
+  assertUniqueLabel(existing, label, sem.key);
 
   const now = new Date().toISOString();
   await updateRange(
@@ -196,7 +213,7 @@ async function updateSemester(key, payload) {
   return (await listSchoolSemesters()).find((s) => s.key === sem.key);
 }
 
-async function setSemesterClosed(key, closed) {
+async function setSemesterClosed(key, closed, session) {
   await ensureSchoolSemestersSheet();
   const existing = await listSchoolSemesters();
   const sem = existing.find((s) => s.key === String(key || '').trim());
@@ -209,15 +226,27 @@ async function setSemesterClosed(key, closed) {
     [[sem.key, sem.label, sem.startDate, sem.endDate, closed ? 'Y' : 'N', now]]
   );
   invalidateSheetRowsCache(SCHOOL_SEMESTERS_SHEET);
+
+  try {
+    const { writeAuditFromSession } = require('./auditService');
+    await writeAuditFromSession(
+      session,
+      closed ? 'semester_close' : 'semester_reopen',
+      'semester',
+      sem.key,
+      { label: sem.label, startDate: sem.startDate, endDate: sem.endDate }
+    );
+  } catch (_) { /* optional */ }
+
   return (await listSchoolSemesters()).find((s) => s.key === sem.key);
 }
 
-async function closeSemester(key) {
-  return setSemesterClosed(key, true);
+async function closeSemester(key, session) {
+  return setSemesterClosed(key, true, session);
 }
 
-async function reopenSemester(key) {
-  return setSemesterClosed(key, false);
+async function reopenSemester(key, session) {
+  return setSemesterClosed(key, false, session);
 }
 
 module.exports = {

@@ -718,7 +718,8 @@ window.SaltLesson = (function() {
         termSelect.innerHTML = semesters.map((s) =>
           '<option value="' + escapeHtml(s.label) + '"' +
           (plan.term && plan.term.label === s.label ? ' selected' : '') +
-          '>' + escapeHtml(s.label) + ' (' + escapeHtml(s.startDate) + '–' + escapeHtml(s.endDate) + ')</option>'
+          '>' + escapeHtml(s.label) + ' (' + escapeHtml(s.startDate) + '–' + escapeHtml(s.endDate) + ')' +
+          (s.closed ? ' — ' + escapeHtml(t('lessons.closed', 'closed')) : '') + '</option>'
         ).join('');
         semesterState.termLabel = termSelect.value;
       }
@@ -730,6 +731,7 @@ window.SaltLesson = (function() {
   }
 
   function renderSemesterEditor(body, plan) {
+    const closed = !!(plan.term && plan.term.closed);
     const days = (plan.teachingDays || []).map((d) => {
       const map = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri' };
       return map[d] || d;
@@ -743,6 +745,11 @@ window.SaltLesson = (function() {
       (plan.term && plan.term.label ? '<span class="muted small">' + escapeHtml(plan.term.label) + '</span>' : '') +
       '<span class="muted small lp-sem-msg"></span>' +
       '</div>';
+    if (closed) {
+      html += '<p class="rc-term-closed-note">🔒 ' +
+        escapeHtml(t('lessons.termClosed', 'This semester is closed. You can still view the plan, but it can no longer be edited.')) +
+        '</p>';
+    }
     html += '<div class="lp-semester-table-wrap"><table class="lp-semester-table"><thead><tr>' +
       '<th class="lp-sem-week">' + escapeHtml(t('lessons.week', 'Week')) + '</th>' +
       '<th class="lp-sem-date">' + escapeHtml(t('lessons.date', 'Date')) + '</th>' +
@@ -759,11 +766,12 @@ window.SaltLesson = (function() {
       if (isBreak && !row.examLabel) {
         html += '<td colspan="2" class="muted small">' + escapeHtml(t('lessons.break', 'Break')) + '</td>';
       } else {
+        const ro = closed ? ' readonly disabled' : '';
         html += '<td class="lp-sem-content-col"><textarea class="lp-sem-content" data-week="' +
-          escapeHtml(String(row.weekIndex || '')) + '" rows="1">' +
+          escapeHtml(String(row.weekIndex || '')) + '" rows="1"' + ro + '>' +
           escapeHtml(row.content || '') + '</textarea></td>' +
           '<td class="lp-sem-objective-col"><textarea class="lp-sem-objective" data-week="' +
-          escapeHtml(String(row.weekIndex || '')) + '" rows="1">' +
+          escapeHtml(String(row.weekIndex || '')) + '" rows="1"' + ro + '>' +
           escapeHtml(row.objective || '') + '</textarea></td>';
       }
       html += '</tr>';

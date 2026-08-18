@@ -274,6 +274,9 @@ async function listReportCardEntries(classId, term, studentId, subjectFilter) {
 }
 
 async function saveReportCardEntries(classId, term, subject, teacherId, entries) {
+  if (await isTermClosed(term)) {
+    throw Object.assign(new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.'), { status: 400 });
+  }
   await ensureReportCardSheets();
   const data = await getSheetRows(REPORT_CARD_ENTRIES_SHEET, { skipCache: true });
   const now = new Date().toISOString();
@@ -585,6 +588,12 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
   const access = await getTeacherGradeAccess(teacherId, classId, subject);
   if (!access.canView) throw new Error('You cannot view this subject report.');
 
+  term = String(term || '').trim();
+  if (!term) {
+    const active = await getActiveTerm(classId).catch(() => null);
+    term = (active && (active.label || active.termId)) || 'Term1';
+  }
+
   const roster = await getClassRoster(classId);
   const [entries, statuses, computedList, meta, classNames, names, closed] = await Promise.all([
     listReportCardEntries(classId, term, studentId, subject),
@@ -728,7 +737,11 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
   opts = opts || {};
   classId = String(classId);
   studentId = String(studentId);
-  term = String(term || '').trim() || 'Term1';
+  term = String(term || '').trim();
+  if (!term) {
+    const active = await getActiveTerm(classId).catch(() => null);
+    term = (active && (active.label || active.termId)) || 'Term1';
+  }
 
   const homeroomIdEarly = await getHomeroomTeacherId(classId);
   const overviewTeacherId = opts.bypassAccess
@@ -809,7 +822,11 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
   }
 
   const wfState = workflow ? workflow.state : WF_STATES.draft;
-  const canHomeroomSign = !!(access.isHomeroom && reportReady &&
+  // Once a semester is closed, a homeroom teacher can no longer START a new
+  // sign-off (moving out of draft) — but an already-in-flight submission is
+  // allowed to keep advancing through Head/Principal so a mistake found
+  // right before closing doesn't get stuck.
+  const canHomeroomSign = !!(access.isHomeroom && reportReady && !overview.closed &&
     (wfState === WF_STATES.draft || wfState === WF_STATES.signed_homeroom));
   const canSubmitHead = !!(access.isHomeroom && wfState === WF_STATES.signed_homeroom);
   // Parents receive cards only after Principal signs + shares
@@ -820,6 +837,7 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
     schoolAddress: SCHOOL_ADDRESS,
     term,
     termLabel: termDisplayLabel(term),
+    closed: !!overview.closed,
     academicYear: academicYearLabel(),
     classId,
     className: classNames[classId] || classId,

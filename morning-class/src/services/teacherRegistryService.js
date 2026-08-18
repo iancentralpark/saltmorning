@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const {
   TEACHER_LIST_SHEET,
-  TEACHER_PROFILE_SHEET
+  TEACHER_PROFILE_SHEET,
+  CLASS_TEACHERS_SHEET
 } = require('../config');
 const {
   getSheetRows,
@@ -332,20 +333,37 @@ async function saveTeacherPhoto(teacherId, file) {
   return { teacherId, photoPath: profile.photoPath };
 }
 
-async function deleteTeacherRecord(teacherId) {
+async function deleteTeacherRecord(teacherId, session) {
   teacherId = String(teacherId || '').trim();
   if (!teacherId) throw new Error('Teacher ID is required.');
   await ensureTeacherProfileSheet();
 
   const listRows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
   let found = -1;
+  let homeroomClassId = '';
   for (let i = 1; i < listRows.length; i++) {
     if (String(listRows[i][0]) === teacherId) {
       found = i + 1;
+      homeroomClassId = String(listRows[i][4] || '').trim();
       break;
     }
   }
   if (found < 0) throw new Error('Teacher not found.');
+
+  if (homeroomClassId) {
+    throw new Error('This teacher is the homeroom teacher of class ' + homeroomClassId + '. Reassign the homeroom before deleting.');
+  }
+  try {
+    const assignRows = await getSheetRows(CLASS_TEACHERS_SHEET, { skipCache: true });
+    const stillAssigned = assignRows.some((row, i) => i > 0 && String(row[1] || '').trim() === teacherId);
+    if (stillAssigned) {
+      throw new Error('This teacher still has active class/subject assignments. Remove those assignments before deleting.');
+    }
+  } catch (e) {
+    if (e && /still has active class/.test(e.message || '')) throw e;
+    /* ignore sheet read errors here — best-effort guard, not authoritative */
+  }
+
   await updateRange(TEACHER_LIST_SHEET, `A${found}:H${found}`, [['', '', '', '', '', '', '', '']]);
   invalidateSheetRowsCache(TEACHER_LIST_SHEET);
 
@@ -356,6 +374,12 @@ async function deleteTeacherRecord(teacherId) {
     break;
   }
   invalidateSheetRowsCache(TEACHER_PROFILE_SHEET);
+
+  try {
+    const { writeAuditFromSession } = require('./auditService');
+    await writeAuditFromSession(session, 'staff_delete', 'teacher', teacherId, {});
+  } catch (_) { /* optional */ }
+
   return { deleted: true, teacherId };
 }
 
