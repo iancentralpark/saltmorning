@@ -79,16 +79,20 @@ window.SaltSchoolCalendar = (function() {
     if ($('scSemesterClose')) {
       $('scSemesterClose').addEventListener('click', closeSemesterModal);
     }
-    if ($('scSemesterCancel')) {
-      $('scSemesterCancel').addEventListener('click', closeSemesterModal);
-    }
     if ($('scSemesterModal')) {
       $('scSemesterModal').addEventListener('click', (e) => {
         if (e.target === $('scSemesterModal')) closeSemesterModal();
       });
     }
     if ($('scSemesterForm')) {
-      $('scSemesterForm').addEventListener('submit', saveSemesters);
+      $('scSemesterForm').addEventListener('submit', addSemester);
+    }
+    if ($('scNewStart')) {
+      $('scNewStart').addEventListener('change', () => {
+        if ($('scNewLabel') && !$('scNewLabel').value.trim()) {
+          $('scNewLabel').value = suggestSemesterLabel($('scNewStart').value);
+        }
+      });
     }
     syncBlocksDefault();
     syncMultiDayUi();
@@ -167,49 +171,100 @@ window.SaltSchoolCalendar = (function() {
     if ($('scSemesterModal')) hide($('scSemesterModal'));
   }
 
+  function suggestSemesterLabel(startDate) {
+    if (!startDate) return '';
+    const year = Number(startDate.slice(0, 4));
+    const month = Number(startDate.slice(5, 7));
+    if (!year || !month) return '';
+    const slot = (month >= 3 && month <= 8) ? 1 : 2;
+    return year + ' Semester ' + slot;
+  }
+
   async function loadSemesters() {
-    if (!$('scSem1Start')) return;
+    const list = $('scSemesterList');
+    if (!list) return;
+    list.innerHTML = '<p class="muted">Loading…</p>';
     try {
       const data = await api('/api/admin/school-semesters');
-      const byKey = {};
-      (data.semesters || []).forEach((s) => { byKey[s.key] = s; });
-      $('scSem1Start').value = (byKey.sem1 && byKey.sem1.startDate) || '';
-      $('scSem1End').value = (byKey.sem1 && byKey.sem1.endDate) || '';
-      $('scSem2Start').value = (byKey.sem2 && byKey.sem2.startDate) || '';
-      $('scSem2End').value = (byKey.sem2 && byKey.sem2.endDate) || '';
-      if ($('scSemesterError')) $('scSemesterError').textContent = '';
-      if ($('scSemesterMsg')) {
-        $('scSemesterMsg').textContent = data.activeSemesterKey
-          ? ('Active: ' + (data.activeSemesterKey === 'sem2' ? 'Semester 2' : 'Semester 1'))
-          : '';
-        $('scSemesterMsg').style.color = '';
+      const semesters = (data.semesters || []).slice().sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+      if (!semesters.length) {
+        list.innerHTML = '<p class="muted small">No semesters yet — add one below.</p>';
+        return;
       }
+      list.innerHTML = semesters.map((s) => {
+        const isActive = s.key === data.activeSemesterKey;
+        const badge = s.closed
+          ? '<span class="sc-semester-badge is-closed">Closed</span>'
+          : (isActive ? '<span class="sc-semester-badge is-current">Current</span>' : '<span class="sc-semester-badge is-open">Open</span>');
+        const action = s.closed
+          ? '<button type="button" class="btn btn-ghost sc-semester-reopen" data-key="' + escapeHtml(s.key) + '">Reopen</button>'
+          : '<button type="button" class="btn btn-ghost sc-semester-close-btn" data-key="' + escapeHtml(s.key) + '" data-label="' + escapeHtml(s.label) + '">Close</button>';
+        return '<div class="sc-semester-item' + (isActive ? ' is-active' : '') + '">' +
+          '<div class="sc-semester-item-info">' +
+          '<div class="sc-semester-item-label">' + escapeHtml(s.label) + ' ' + badge + '</div>' +
+          '<div class="sc-semester-item-dates">' + escapeHtml(s.startDate) + ' – ' + escapeHtml(s.endDate) + '</div>' +
+          '</div>' +
+          '<div class="sc-semester-item-actions">' + action + '</div>' +
+          '</div>';
+      }).join('');
+
+      list.querySelectorAll('.sc-semester-close-btn').forEach((btn) => {
+        btn.addEventListener('click', () => closeSemesterByKey(btn.dataset.key, btn.dataset.label));
+      });
+      list.querySelectorAll('.sc-semester-reopen').forEach((btn) => {
+        btn.addEventListener('click', () => reopenSemesterByKey(btn.dataset.key));
+      });
+
+      if ($('scSemesterError')) $('scSemesterError').textContent = '';
     } catch (err) {
+      list.innerHTML = '';
       if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not load semesters.';
     }
   }
 
-  async function saveSemesters(e) {
+  async function closeSemesterByKey(key, label) {
+    if (!window.confirm('Close "' + label + '"?\n\nTeachers will no longer be able to edit grades or report cards for this semester.')) return;
+    try {
+      await api('/api/admin/school-semesters/' + encodeURIComponent(key) + '/close', { method: 'POST' });
+      await loadSemesters();
+    } catch (err) {
+      if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not close semester.';
+    }
+  }
+
+  async function reopenSemesterByKey(key) {
+    if (!window.confirm('Reopen this semester for editing?')) return;
+    try {
+      await api('/api/admin/school-semesters/' + encodeURIComponent(key) + '/reopen', { method: 'POST' });
+      await loadSemesters();
+    } catch (err) {
+      if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not reopen semester.';
+    }
+  }
+
+  async function addSemester(e) {
     e.preventDefault();
     if ($('scSemesterError')) $('scSemesterError').textContent = '';
     if ($('scSemesterMsg')) $('scSemesterMsg').textContent = 'Saving…';
     try {
       await api('/api/admin/school-semesters', {
-        method: 'PUT',
+        method: 'POST',
         body: {
-          sem1: { startDate: $('scSem1Start').value, endDate: $('scSem1End').value },
-          sem2: { startDate: $('scSem2Start').value, endDate: $('scSem2End').value }
+          label: $('scNewLabel').value.trim(),
+          startDate: $('scNewStart').value,
+          endDate: $('scNewEnd').value
         }
       });
       if ($('scSemesterMsg')) {
         $('scSemesterMsg').style.color = '#16a34a';
-        $('scSemesterMsg').textContent = 'Semesters saved.';
+        $('scSemesterMsg').textContent = 'Semester added.';
       }
+      $('scSemesterForm').reset();
       await loadSemesters();
-      setTimeout(closeSemesterModal, 450);
+      setTimeout(() => { if ($('scSemesterMsg')) $('scSemesterMsg').textContent = ''; }, 1500);
     } catch (err) {
       if ($('scSemesterMsg')) $('scSemesterMsg').textContent = '';
-      if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not save.';
+      if ($('scSemesterError')) $('scSemesterError').textContent = err.message || 'Could not add semester.';
     }
   }
 

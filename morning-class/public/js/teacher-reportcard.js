@@ -10,6 +10,7 @@
   let state = {
     overview: null,
     term: 'Term1',
+    closed: false,
     selectedStudentId: '',
     selectedSubject: '',
     editor: null,
@@ -29,6 +30,33 @@
   function mount() { return $('reportBody'); }
   function errBox() { return $('reportError'); }
 
+  async function loadSemesters() {
+    const cls = getClass();
+    const sel = $('reportTerm');
+    if (!cls || !sel) return;
+    const keepLabel = sel.value || state.term;
+    try {
+      const data = await api(
+        '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/semesters',
+        {}, role
+      );
+      const semesters = data.semesters || [];
+      if (!semesters.length) {
+        sel.innerHTML = '<option value="">No semesters — ask Admin</option>';
+        return;
+      }
+      const active = semesters.find((s) => s.semesterKey === data.activeSemesterKey);
+      sel.innerHTML = semesters.map((s) =>
+        '<option value="' + escapeHtml(s.label) + '">' +
+        escapeHtml(s.label) + (s.closed ? ' (closed)' : '') + '</option>'
+      ).join('');
+      const stillValid = semesters.some((s) => s.label === keepLabel);
+      sel.value = stillValid ? keepLabel : ((active && active.label) || semesters[semesters.length - 1].label);
+    } catch (e) {
+      sel.innerHTML = '<option value="">' + escapeHtml(state.term || 'Term1') + '</option>';
+    }
+  }
+
   async function onClassOpen() {
     const cls = getClass();
     if (!cls) return;
@@ -36,9 +64,8 @@
     state.selectedSubject = '';
     state.editor = null;
     state.card = null;
-    const termInput = $('reportTerm');
-    if (termInput && !termInput.value) termInput.value = 'Term1';
-    state.term = (termInput && termInput.value.trim()) || 'Term1';
+    await loadSemesters();
+    state.term = ($('reportTerm') && $('reportTerm').value) || state.term || 'Term1';
     await loadOverview();
   }
 
@@ -59,7 +86,8 @@
         role
       );
       state.overview = data;
-      if ($('reportTerm') && data.term) $('reportTerm').value = data.term;
+      state.closed = !!data.closed;
+      if ($('reportTermClosedBadge')) $('reportTermClosedBadge').classList.toggle('hidden', !state.closed);
       renderOverview();
     } catch (e) {
       box.innerHTML = '';
@@ -80,6 +108,9 @@
         ? '<span class="rc-ready-badge">Report Ready</span>'
         : '<span class="muted small">Waiting for subject teachers to finish</span>') +
       '</div>';
+    if (state.closed) {
+      html += '<p class="rc-term-closed-note">🔒 This semester is closed. You can still view everything, but grades and report cards can no longer be edited. Ask Admin to reopen it if you need to make a change.</p>';
+    }
     html += '<p class="muted small">Select a student to enter Work Habits &amp; Social-Emotional Learning, review gradebook grades, and write your subject comment. Homeroom can generate and share when every subject is complete.</p>';
 
     if (!(data.students || []).length) {
@@ -552,10 +583,16 @@
     return renderPrintableCard(card);
   }
 
+  async function refresh() {
+    await loadSemesters();
+    await loadOverview();
+  }
+
   global.SaltReportCard = {
     init,
     onClassOpen,
     loadOverview,
+    refresh,
     renderCardHtml
   };
 })(window);
