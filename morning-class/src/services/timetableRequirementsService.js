@@ -6,15 +6,17 @@ const {
 } = require('../config');
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { getClassNameMap } = require('./teacherPortalService');
+const { resolvePlanningScope, stampKey, keysForRead, keyShouldReplace } = require('./timetableScope');
 
 const HEADERS = [
   'ReqID', 'ClassID', 'Subject', 'TeacherID', 'TeacherName',
-  'PeriodsPerWeek', 'Room', 'Notes', 'LinkedClassIDs'
+  'PeriodsPerWeek', 'Room', 'Notes', 'LinkedClassIDs', 'SemesterKey'
 ];
 const COL = {
   reqId: 0, classId: 1, subject: 2, teacherId: 3, teacherName: 4,
-  periodsPerWeek: 5, room: 6, notes: 7, linkedClassIds: 8
+  periodsPerWeek: 5, room: 6, notes: 7, linkedClassIds: 8, semesterKey: 9
 };
+const RANGE_WIDTH = 'J';
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -50,14 +52,17 @@ async function ensureRequirementsSheet() {
   try {
     const rows = await getSheetRows(TIMETABLE_REQUIREMENTS_SHEET);
     const header = rows[0] || [];
-    if (String(header[COL.linkedClassIds] || '') !== 'LinkedClassIDs') {
+    if (String(header[COL.linkedClassIds] || '') !== 'LinkedClassIDs'
+      || String(header[COL.semesterKey] || '') !== 'SemesterKey'
+      || header.length < HEADERS.length) {
       const next = header.slice();
       while (next.length < HEADERS.length) next.push('');
       next[COL.linkedClassIds] = 'LinkedClassIDs';
-      for (let i = 0; i < HEADERS.length - 1; i++) {
+      next[COL.semesterKey] = 'SemesterKey';
+      for (let i = 0; i < HEADERS.length; i++) {
         if (!String(next[i] || '').trim()) next[i] = HEADERS[i];
       }
-      await updateRange(TIMETABLE_REQUIREMENTS_SHEET, 'A1:I1', [next.slice(0, HEADERS.length)]);
+      await updateRange(TIMETABLE_REQUIREMENTS_SHEET, 'A1:' + RANGE_WIDTH + '1', [next.slice(0, HEADERS.length)]);
       invalidateSheetRowsCache(TIMETABLE_REQUIREMENTS_SHEET);
     }
   } catch (e) {
@@ -81,7 +86,8 @@ function rowToReq(row) {
     room: String(row[COL.room] || ''),
     notes: String(row[COL.notes] || ''),
     linkedClassIds,
-    classIds
+    classIds,
+    semesterKey: String(row[COL.semesterKey] || '').trim()
   };
 }
 
@@ -95,8 +101,9 @@ async function teacherNameMap() {
   return teacherDisplayNameMap();
 }
 
-async function listRequirements(classId) {
+async function listRequirements(classId, semesterKey) {
   await ensureRequirementsSheet();
+  const scope = await resolvePlanningScope(semesterKey);
   const rows = await getSheetRows(TIMETABLE_REQUIREMENTS_SHEET);
   const out = [];
   for (let i = 1; i < rows.length; i++) {
@@ -105,12 +112,13 @@ async function listRequirements(classId) {
     if (classId && !reqInvolvesClass(r, classId)) continue;
     out.push(r);
   }
-  out.sort((a, b) => a.classId.localeCompare(b.classId) || a.subject.localeCompare(b.subject));
-  return out;
+  const scoped = keysForRead(out, (r) => r.semesterKey, scope);
+  scoped.sort((a, b) => a.classId.localeCompare(b.classId) || a.subject.localeCompare(b.subject));
+  return scoped;
 }
 
-async function listAllRequirements() {
-  return listRequirements('');
+async function listAllRequirements(semesterKey) {
+  return listRequirements('', semesterKey);
 }
 
 /**
@@ -132,10 +140,12 @@ function linkedClassesFor(requirements, classId, teacherId, subject) {
   return linked;
 }
 
-async function saveRequirements(classId, requirements) {
+async function saveRequirements(classId, requirements, semesterKey) {
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
   if (!Array.isArray(requirements)) throw new Error('Requirements array is required.');
+  const scope = await resolvePlanningScope(semesterKey);
+  const stamped = stampKey(scope);
 
   const names = await teacherNameMap();
   const normalized = requirements.map((r) => {
@@ -155,7 +165,8 @@ async function saveRequirements(classId, requirements) {
       String(ppw),
       String(r.room || '').trim(),
       String(r.notes || '').trim(),
-      ids.linkedClassIds.join(',')
+      ids.linkedClassIds.join(','),
+      stamped
     ];
   });
 
@@ -164,8 +175,7 @@ async function saveRequirements(classId, requirements) {
   for (let i = 1; i < allRows.length; i++) {
     const existing = rowToReq(allRows[i]);
     if (!existing) continue;
-    // Replace any requirement that involves this class
-    if (reqInvolvesClass(existing, classId)) continue;
+    if (reqInvolvesClass(existing, classId) && keyShouldReplace(existing.semesterKey, scope)) continue;
     const row = allRows[i].slice();
     while (row.length < HEADERS.length) row.push('');
     kept.push(row.slice(0, HEADERS.length));
@@ -174,7 +184,7 @@ async function saveRequirements(classId, requirements) {
   const oldCount = Math.max(0, allRows.length - 1);
   const width = HEADERS.length;
 
-  if (!combined.length && !oldCount) return listRequirements(classId);
+  if (!combined.length && !oldCount) return listRequirements(classId, stamped);
   if (!oldCount && combined.length) {
     await appendRows(TIMETABLE_REQUIREMENTS_SHEET, combined);
   } else {
@@ -183,13 +193,13 @@ async function saveRequirements(classId, requirements) {
     for (let i = 0; i < maxRows; i++) {
       toWrite.push(i < combined.length ? combined[i] : new Array(width).fill(''));
     }
-    await updateRange(TIMETABLE_REQUIREMENTS_SHEET, `A2:I${maxRows + 1}`, toWrite);
+    await updateRange(TIMETABLE_REQUIREMENTS_SHEET, `A2:${RANGE_WIDTH}${maxRows + 1}`, toWrite);
   }
   invalidateSheetRowsCache(TIMETABLE_REQUIREMENTS_SHEET);
-  return listRequirements(classId);
+  return listRequirements(classId, stamped);
 }
 
-async function importRequirementsFromAssignments(classId) {
+async function importRequirementsFromAssignments(classId, semesterKey) {
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
 
@@ -239,7 +249,7 @@ async function importRequirementsFromAssignments(classId) {
     throw new Error('No teacher assignments found for this class. Add assignments first.');
   }
 
-  return saveRequirements(classId, requirements);
+  return saveRequirements(classId, requirements, semesterKey);
 }
 
 const PLACEHOLDER_SUBJECTS = new Set(['Homeroom', 'All', 'All subjects']);
@@ -272,9 +282,9 @@ async function listRequirementCurriculum(classId) {
   return Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject));
 }
 
-async function listRequirementsWithClassNames(classId) {
+async function listRequirementsWithClassNames(classId, semesterKey) {
   const classNames = await getClassNameMap();
-  const reqs = await listRequirements(classId);
+  const reqs = await listRequirements(classId, semesterKey);
   return reqs.map((r) => ({
     ...r,
     className: classNames[r.classId] || r.classId,

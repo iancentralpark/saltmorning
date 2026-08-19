@@ -14,6 +14,53 @@
   let boardHandle = null;
   let boardClassId = '';
   let setupMountEl = null;
+  let planContext = null;
+
+  function t(key, fallback) {
+    return (global.SaltI18n && typeof global.SaltI18n.t === 'function')
+      ? global.SaltI18n.t(key, fallback)
+      : (fallback || key);
+  }
+
+  function withPlan(url) {
+    if (global.SaltTimetable && typeof global.SaltTimetable.withPlan === 'function') {
+      return global.SaltTimetable.withPlan(url);
+    }
+    const key = (global.SaltTimetablePlan && global.SaltTimetablePlan.semesterKey) || '';
+    if (!key) return url;
+    return url + (String(url).indexOf('?') >= 0 ? '&' : '?') + 'semesterKey=' + encodeURIComponent(key);
+  }
+
+  function planBody(body) {
+    if (global.SaltTimetable && typeof global.SaltTimetable.planBody === 'function') {
+      return global.SaltTimetable.planBody(body);
+    }
+    const key = (global.SaltTimetablePlan && global.SaltTimetablePlan.semesterKey) || '';
+    if (!key) return body || {};
+    return Object.assign({}, body || {}, { semesterKey: key });
+  }
+
+  function setPlan(semester) {
+    const activeKey = planContext && planContext.activeSemesterKey;
+    const key = semester && semester.key ? semester.key : (activeKey || '');
+    const live = !key || !activeKey || key === activeKey;
+    global.SaltTimetablePlan = {
+      semesterKey: key,
+      live,
+      label: (semester && semester.label) || '',
+      yearLabel: (semester && semester.academicYearLabel) || '',
+      isFuture: !!(semester && semester.isFuture) || (!live && semester && !semester.isPast)
+    };
+    try {
+      if (key) sessionStorage.setItem('saltTtSemesterKey', key);
+    } catch (_) { /* ignore */ }
+  }
+
+  function selectedSemester() {
+    const key = global.SaltTimetablePlan && global.SaltTimetablePlan.semesterKey;
+    const list = (planContext && planContext.semesters) || [];
+    return list.find((s) => s.key === key) || list.find((s) => s.key === (planContext && planContext.activeSemesterKey)) || null;
+  }
 
   function renderBellEditor(mountEl, schedule) {
     const periods = (schedule && schedule.periods) || [];
@@ -160,7 +207,7 @@
     const cls = classes.find((c) => c.classId === classId);
     boardMount.innerHTML = '<p class="muted">Loading class board…</p>';
     try {
-      const tt = await api('/api/admin/timetable/classes/' + encodeURIComponent(classId), {}, role);
+      const tt = await api(withPlan('/api/admin/timetable/classes/' + encodeURIComponent(classId)), {}, role);
       boardHandle = global.SaltTimetable.renderClassBoard(boardMount, {
         classId,
         className: cls ? cls.name : classId,
@@ -251,9 +298,9 @@
       const errEl = mountEl.querySelector('.tt-req-error');
       errEl.textContent = '';
       try {
-        const data = await api('/api/admin/timetable/requirements/import', {
+        const data = await api(withPlan('/api/admin/timetable/requirements/import'), {
           method: 'POST',
-          body: { classId: classSelect.value }
+          body: planBody({ classId: classSelect.value })
         }, role);
         renderRequirements(mountEl, classSelect.value, data.requirements || []);
         errEl.style.color = '#16a34a';
@@ -353,7 +400,7 @@
     let reqs = requirements;
     if (!reqs) {
       try {
-        const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(cid), {}, role);
+        const data = await api(withPlan('/api/admin/timetable/requirements?classId=' + encodeURIComponent(cid)), {}, role);
         reqs = data.requirements || [];
       } catch (_) {
         reqs = [];
@@ -380,9 +427,9 @@
       });
     });
     try {
-      const data = await api('/api/admin/timetable/requirements', {
+      const data = await api(withPlan('/api/admin/timetable/requirements'), {
         method: 'POST',
-        body: { classId, requirements }
+        body: planBody({ classId, requirements })
       }, role);
       errEl.style.color = '#16a34a';
       const linkedCount = (data.requirements || []).filter((r) => (r.linkedClassIds || []).length).length;
@@ -402,16 +449,16 @@
     errEl.textContent = '';
     resEl.textContent = 'Generating… locked slots stay; OR-Tools fills the rest.';
     try {
-      const data = await api('/api/admin/timetable/generate', {
+      const data = await api(withPlan('/api/admin/timetable/generate'), {
         method: 'POST',
-        body: { classId }
+        body: planBody({ classId })
       }, role);
       const r = data.result || {};
       resEl.textContent =
         (r.message || 'Done') + ' — kept ' + (r.lockedKept != null ? r.lockedKept : 0) +
         ' locked, added ' + (r.generated != null ? r.generated : r.assignmentCount) +
         ', synced ' + (r.studentsUpdated || 0) + ' students / ' + (r.teachersUpdated || 0) + ' teachers.';
-      const reqData = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, role);
+      const reqData = await api(withPlan('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId)), {}, role);
       await refreshMainBoard(classId, reqData.requirements || []);
     } catch (e) {
       resEl.textContent = '';
@@ -421,8 +468,269 @@
   }
 
   async function loadRequirements(mountEl, classId) {
-    const data = await api('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId), {}, role);
+    const data = await api(withPlan('/api/admin/timetable/requirements?classId=' + encodeURIComponent(classId)), {}, role);
     renderRequirements(mountEl, classId, data.requirements || []);
+  }
+
+  function yearOptionsHtml() {
+    const years = (planContext && planContext.years) || [];
+    const selected = selectedSemester();
+    const selectedYear = selected ? selected.academicYear : (years[0] && years[0].year);
+    if (!years.length) {
+      return '<option value="">' + escapeHtml(t('admin.timetables.noYears', 'No school years yet')) + '</option>';
+    }
+    return years.map((y) =>
+      '<option value="' + y.year + '"' + (Number(y.year) === Number(selectedYear) ? ' selected' : '') + '>' +
+      escapeHtml(y.label) + '</option>'
+    ).join('');
+  }
+
+  function semesterOptionsHtml() {
+    const selected = selectedSemester();
+    const selectedYear = selected ? selected.academicYear : '';
+    const group = ((planContext && planContext.years) || []).find((y) => Number(y.year) === Number(selectedYear));
+    const list = (group && group.semesters) || (planContext && planContext.semesters) || [];
+    if (!list.length) {
+      return '<option value="">' + escapeHtml(t('admin.timetables.noSemesters', 'No semesters yet')) + '</option>';
+    }
+    return list.map((s) => {
+      const bits = [];
+      if (s.isActive) bits.push(t('admin.timetables.badgeCurrent', 'Current'));
+      else if (s.isFuture) bits.push(t('admin.timetables.badgeFuture', 'Future'));
+      else if (s.closed) bits.push(t('admin.timetables.badgeClosed', 'Closed'));
+      const extra = bits.length ? ' (' + bits.join(', ') + ')' : '';
+      return '<option value="' + escapeHtml(s.key) + '"' +
+        (selected && s.key === selected.key ? ' selected' : '') + '>' +
+        escapeHtml(s.label || s.key) + extra + '</option>';
+    }).join('');
+  }
+
+  function planBannerHtml() {
+    const plan = global.SaltTimetablePlan || {};
+    const sem = selectedSemester();
+    if (!plan.semesterKey) {
+      return '<p class="tt-plan-banner muted small">' +
+        escapeHtml(t('admin.timetables.needSemester', 'Add a school semester in Calendar first, then you can plan the next term here.')) +
+        '</p>';
+    }
+    if (plan.live) {
+      return '<p class="muted small" style="margin:0.5rem 0 0">' +
+        escapeHtml(t('admin.timetables.editingCurrent', 'Editing the current timetable. Students and teachers see this one.')) +
+        '</p>';
+    }
+    if (sem && sem.isPast) {
+      return '<p class="muted small" style="margin:0.5rem 0 0">' +
+        escapeHtml(t('admin.timetables.editingPast', 'Viewing a past semester timetable. Students see the current semester.')) +
+        '</p>';
+    }
+    return '<p class="muted small" style="margin:0.5rem 0 0">' +
+      escapeHtml(t('admin.timetables.editingFuture', 'Planning a future timetable. Students still see the current semester until this one starts.')) +
+      '</p>';
+  }
+
+  function ensurePlanModal() {
+    let modal = document.getElementById('ttPlanModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'ttPlanModal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'ttPlanModalTitle');
+    modal.innerHTML =
+      '<div class="modal-card tt-plan-modal">' +
+      '<div class="tt-bell-modal-head">' +
+      '<div>' +
+      '<h3 id="ttPlanModalTitle" style="margin:0">' + escapeHtml(t('admin.timetables.planTitle', 'Plan a future timetable')) + '</h3>' +
+      '<p class="muted small" style="margin:0.35rem 0 0">' +
+      escapeHtml(t('admin.timetables.planHelp', 'Used a couple of times a year. Pick a semester, or create the next one.')) +
+      '</p>' +
+      '</div>' +
+      '<button type="button" class="btn btn-ghost tt-plan-modal-close">Close</button>' +
+      '</div>' +
+      '<div id="ttPlanModalBody"></div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closePlanModal();
+    });
+    modal.querySelector('.tt-plan-modal-close').addEventListener('click', closePlanModal);
+    return modal;
+  }
+
+  function closePlanModal() {
+    const modal = document.getElementById('ttPlanModal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function openPlanModal() {
+    const modal = ensurePlanModal();
+    renderPlanModalBody();
+    modal.classList.remove('hidden');
+  }
+
+  function renderPlanModalBody() {
+    const modal = document.getElementById('ttPlanModal');
+    const body = modal && modal.querySelector('#ttPlanModalBody');
+    if (!body) return;
+    const plan = global.SaltTimetablePlan || {};
+    const canCopy = !plan.live && plan.semesterKey && !(selectedSemester() && selectedSemester().isPast);
+    body.innerHTML =
+      '<div class="tt-plan-fields">' +
+      '<label class="tt-plan-label">' + escapeHtml(t('admin.timetables.schoolYear', 'School year')) +
+      '<select class="tt-plan-year">' + yearOptionsHtml() + '</select></label>' +
+      '<label class="tt-plan-label">' + escapeHtml(t('admin.timetables.semester', 'Semester')) +
+      '<select class="tt-plan-semester">' + semesterOptionsHtml() + '</select></label>' +
+      '</div>' +
+      '<div class="tt-plan-actions" style="margin-top:0.75rem">' +
+      '<button type="button" class="btn btn-ghost tt-plan-next-sem">' +
+      escapeHtml(t('admin.timetables.nextSemester', 'Create next semester')) + '</button>' +
+      '<button type="button" class="btn btn-ghost tt-plan-next-year">' +
+      escapeHtml(t('admin.timetables.nextYear', 'Create next school year')) + '</button>' +
+      (canCopy
+        ? '<button type="button" class="btn btn-ghost tt-plan-copy">' +
+          escapeHtml(t('admin.timetables.copyCurrent', 'Copy current timetable')) + '</button>'
+        : '') +
+      '</div>' +
+      planBannerHtml() +
+      '<div class="tt-bell-actions" style="margin-top:1rem">' +
+      '<button type="button" class="btn btn-primary tt-plan-done">' +
+      escapeHtml(t('admin.timetables.planDone', 'Use this semester')) + '</button>' +
+      '</div>';
+    bindPlanBar(body);
+    const done = body.querySelector('.tt-plan-done');
+    if (done) done.addEventListener('click', () => closePlanModal());
+  }
+
+  function renderPlanChip() {
+    const chip = setupMountEl && setupMountEl.querySelector('.tt-plan-chip');
+    if (!chip) return;
+    const plan = global.SaltTimetablePlan || {};
+    const sem = selectedSemester();
+    if (plan.live || !plan.semesterKey) {
+      chip.innerHTML = '';
+      chip.classList.add('hidden');
+      return;
+    }
+    chip.classList.remove('hidden');
+    chip.innerHTML =
+      '<span>' + escapeHtml(t('admin.timetables.planningChip', 'Planning')) + ': ' +
+      escapeHtml((sem && sem.label) || plan.label || '') + '</span>' +
+      '<button type="button" class="btn btn-ghost tt-plan-back">' +
+      escapeHtml(t('admin.timetables.planBack', 'Back to current')) + '</button>';
+    const back = chip.querySelector('.tt-plan-back');
+    if (back) {
+      back.addEventListener('click', async () => {
+        const current = (planContext.semesters || []).find((s) => s.key === planContext.activeSemesterKey);
+        if (current) setPlan(current);
+        else setPlan(null);
+        renderPlanChip();
+        await afterPlanChange();
+      });
+    }
+  }
+
+  function bindPlanBar(bar) {
+    const yearSel = bar.querySelector('.tt-plan-year');
+    const semSel = bar.querySelector('.tt-plan-semester');
+    if (yearSel) {
+      yearSel.addEventListener('change', async () => {
+        const year = Number(yearSel.value);
+        const group = ((planContext && planContext.years) || []).find((y) => Number(y.year) === year);
+        if (!group) return;
+        const prefer = (group.semesters || []).find((s) => s.isActive) || group.semesters[0];
+        if (prefer) {
+          setPlan(prefer);
+          renderPlanModalBody();
+          renderPlanChip();
+          await afterPlanChange();
+        }
+      });
+    }
+    if (semSel) {
+      semSel.addEventListener('change', async () => {
+        const sem = ((planContext && planContext.semesters) || []).find((s) => s.key === semSel.value);
+        if (sem) {
+          setPlan(sem);
+          renderPlanModalBody();
+          renderPlanChip();
+          await afterPlanChange();
+        }
+      });
+    }
+    const nextSem = bar.querySelector('.tt-plan-next-sem');
+    if (nextSem) nextSem.addEventListener('click', () => createNext('semester'));
+    const nextYear = bar.querySelector('.tt-plan-next-year');
+    if (nextYear) nextYear.addEventListener('click', () => createNext('schoolYear'));
+    const copyBtn = bar.querySelector('.tt-plan-copy');
+    if (copyBtn) copyBtn.addEventListener('click', () => copyFromCurrent());
+  }
+
+  async function afterPlanChange() {
+    if (boardClassId) await refreshMainBoard(boardClassId);
+    if (global.SaltTimetable && typeof global.SaltTimetable.reloadAdminPlan === 'function') {
+      global.SaltTimetable.reloadAdminPlan();
+    }
+  }
+
+  async function createNext(kind) {
+    try {
+      const from = global.SaltTimetablePlan && global.SaltTimetablePlan.semesterKey;
+      const data = await api('/api/admin/school-semesters/next', {
+        method: 'POST',
+        body: { kind, fromSemesterKey: from }
+      }, role);
+      planContext = data;
+      const focusKey = data.focusSemesterKey;
+      const sem = (data.semesters || []).find((s) => s.key === focusKey) || (data.created && data.created.focus);
+      if (sem) setPlan(sem);
+      else if (data.semester) setPlan(data.semester);
+      renderPlanModalBody();
+      renderPlanChip();
+      await afterPlanChange();
+      const label = (sem && sem.label) || (data.semester && data.semester.label) || '';
+      alert(kind === 'schoolYear'
+        ? t('admin.timetables.createdYear', 'Next school year is ready.') + (label ? ' — ' + label : '')
+        : t('admin.timetables.createdSem', 'Next semester is ready.') + (label ? ' — ' + label : ''));
+    } catch (e) {
+      alert(e.message || 'Could not create the next term.');
+    }
+  }
+
+  async function copyFromCurrent() {
+    const toKey = global.SaltTimetablePlan && global.SaltTimetablePlan.semesterKey;
+    const fromKey = planContext && planContext.activeSemesterKey;
+    if (!toKey || !fromKey || toKey === fromKey) {
+      alert(t('admin.timetables.copyNeedFuture', 'Select a future semester first.'));
+      return;
+    }
+    if (!confirm(t('admin.timetables.copyConfirm', 'Copy the current timetable (subjects, teachers, and slots) into this semester? Existing future slots will be replaced if you confirm again.'))) {
+      return;
+    }
+    try {
+      let result = await api('/api/admin/timetable/copy-plan', {
+        method: 'POST',
+        body: { fromSemesterKey: fromKey, toSemesterKey: toKey }
+      }, role);
+      if (result.needsOverwrite) {
+        if (!confirm(t('admin.timetables.copyOverwrite', 'This semester already has a timetable. Replace it with the current one?'))) {
+          return;
+        }
+        result = await api('/api/admin/timetable/copy-plan', {
+          method: 'POST',
+          body: { fromSemesterKey: fromKey, toSemesterKey: toKey, overwrite: true }
+        }, role);
+      }
+      await afterPlanChange();
+      renderPlanModalBody();
+      renderPlanChip();
+      alert(t('admin.timetables.copyDone', 'Copied.') +
+        ' ' + (result.classesCopied || 0) + ' classes, ' +
+        (result.slotsCopied || 0) + ' slots, ' +
+        (result.requirementsCopied || 0) + ' subject rows.');
+    } catch (e) {
+      alert(e.message || 'Could not copy timetable.');
+    }
   }
 
   async function open(mountEl, opts) {
@@ -443,11 +751,28 @@
       solverOk = h.ok;
     } catch (e) { /* ignore */ }
 
+    try {
+      planContext = await api('/api/admin/school-semesters', {}, role);
+    } catch (e) {
+      planContext = { semesters: [], years: [], activeSemesterKey: '' };
+    }
+
+    let stored = '';
+    try { stored = sessionStorage.getItem('saltTtSemesterKey') || ''; } catch (_) { stored = ''; }
+    const initial = (planContext.semesters || []).find((s) => s.key === stored)
+      || (planContext.semesters || []).find((s) => s.key === planContext.activeSemesterKey)
+      || (planContext.semesters || [])[0]
+      || null;
+    setPlan(initial);
+
     mountEl.innerHTML =
       '<div class="tt-setup-toolbar">' +
       '<button type="button" class="btn btn-ghost tt-bell-open">Bell schedule</button>' +
       '<button type="button" class="btn btn-ghost tt-req-open">Subject requirements</button>' +
+      '<button type="button" class="btn btn-ghost tt-plan-open">' +
+      escapeHtml(t('admin.timetables.planTitle', 'Plan a future timetable')) + '</button>' +
       '</div>' +
+      '<div class="tt-plan-chip hidden"></div>' +
       (solverOk
         ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
         : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
@@ -462,9 +787,11 @@
       ).join('') +
       '</select>' +
       '</div>' +
-      '<p class="muted small">Drag subject chips into the Mon–Fri × period grid. Green = free for that teacher; red = conflict.</p>' +
+      '<p class="muted small">Drag subject chips into the Mon–Fri × period grid. Green = free for that teacher; red = conflict. Use <strong>Subject requirements</strong> to set who teaches each subject.</p>' +
       '<div class="tt-setup-board-mount"></div>' +
       '</div>';
+
+    renderPlanChip();
 
     mountEl.querySelector('.tt-bell-open').addEventListener('click', () => {
       openBellModal().catch((e) => alert(e.message || 'Could not open bell schedule.'));
@@ -472,6 +799,7 @@
     mountEl.querySelector('.tt-req-open').addEventListener('click', () => {
       openReqModal().catch((e) => alert(e.message || 'Could not open subject requirements.'));
     });
+    mountEl.querySelector('.tt-plan-open').addEventListener('click', () => openPlanModal());
     const boardSel = mountEl.querySelector('.tt-board-class');
     if (boardSel) {
       boardSel.addEventListener('change', () => {

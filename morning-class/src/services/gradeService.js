@@ -239,15 +239,18 @@ function aggregateCategoryPercent(entries, aggregation) {
 
 function computeStudentGrades(studentId, weights, entriesByCategory) {
   const categories = [];
-  let weightedTotal = 0;
-  let gradedWeight = 0;
+  let weightedSum = 0; // sum(categoryPercent * weightPercent)
+  let gradedWeight = 0; // sum(weightPercent for categories that have scores)
 
   for (const w of weights) {
     const catEntries = (entriesByCategory[w.categoryKey] || []).filter((e) => e.studentId === studentId);
     const categoryPercent = aggregateCategoryPercent(catEntries, w.aggregation);
     const weightedPoints = categoryPercent == null ? null : Math.round(categoryPercent * w.weightPercent) / 100;
     if (categoryPercent != null) {
-      weightedTotal += weightedPoints;
+      // weightedPoints is (categoryPercent * weightPercent) / 100.
+      // We accumulate weightedSum in "percent * weightPercent" space
+      // so we can renormalize by gradedWeight (e.g. missing future exams).
+      weightedSum += categoryPercent * w.weightPercent;
       gradedWeight += w.weightPercent;
     }
     categories.push({
@@ -264,7 +267,8 @@ function computeStudentGrades(studentId, weights, entriesByCategory) {
 
   return {
     studentId,
-    weightedTotal: weights.length ? Math.round(weightedTotal * 10) / 10 : null,
+    // Normalize to 100% based only on categories that currently have scores.
+    weightedTotal: gradedWeight ? Math.round((weightedSum / gradedWeight) * 10) / 10 : null,
     gradedWeightPercent: gradedWeight,
     categories
   };

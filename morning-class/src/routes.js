@@ -138,9 +138,13 @@ const {
   getActiveSchoolSemester,
   createSemester,
   updateSemester,
+  deleteSemester,
   closeSemester,
   reopenSemester,
-  listTermsForClass
+  listTermsForClass,
+  getPlanningContext,
+  ensureNextSemester,
+  ensureNextSchoolYear
 } = require('./services/schoolSemesterService');
 const {
   createRequest: createMaterialRequest,
@@ -218,7 +222,8 @@ const {
   saveClassTimetable,
   getTeacherBusyMap,
   getAllClassesMatrix,
-  getStudentTimetableForTeacher
+  getStudentTimetableForTeacher,
+  copyTimetablePlan
 } = require('./services/timetableService');
 const { getBellSchedule, saveBellSchedule } = require('./services/bellScheduleService');
 const {
@@ -3035,13 +3040,28 @@ router.delete('/admin/school-calendar/:entryId', requireRole('admin'), async (re
 
 router.get('/admin/school-semesters', requireRole('admin'), async (req, res) => {
   try {
-    const [semesters, active] = await Promise.all([
-      listSchoolSemesters(),
-      getActiveSchoolSemester()
-    ]);
-    res.json({ semesters, activeSemesterKey: active ? active.key : '' });
+    res.json(await getPlanningContext());
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load school semesters.' });
+  }
+});
+
+router.post('/admin/school-semesters/next', requireRole('admin'), async (req, res) => {
+  try {
+    const kind = String((req.body && req.body.kind) || 'semester').trim();
+    const fromKey = String((req.body && req.body.fromSemesterKey) || '').trim();
+    if (kind === 'schoolYear' || kind === 'year') {
+      const created = await ensureNextSchoolYear(fromKey);
+      const context = await getPlanningContext();
+      return res.json(Object.assign({ created }, context, { focusSemesterKey: created.focus && created.focus.key }));
+    }
+    const semester = await ensureNextSemester(fromKey);
+    const context = await getPlanningContext();
+    res.json(Object.assign({ semester, created: { focus: semester } }, context, {
+      focusSemesterKey: semester.key
+    }));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not create next semester.' });
   }
 });
 
@@ -3060,6 +3080,31 @@ router.put('/admin/school-semesters/:key', requireRole('admin'), async (req, res
     res.json({ semester });
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not update semester.' });
+  }
+});
+
+router.delete('/admin/school-semesters/:key', requireRole('admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const password = String(body.password || '').trim();
+    if (!password) return res.status(400).json({ error: 'Enter admin password.' });
+    const adminId = req.session && req.session.adminId;
+    if (!adminId) return res.status(401).json({ error: 'Admin session missing.' });
+
+    const { ADMIN_LIST_SHEET } = require('./config');
+    const { getSheetRows } = require('./sheets');
+    const rows = await getSheetRows(ADMIN_LIST_SHEET, { skipCache: true });
+    let ok = false;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== String(adminId).trim()) continue;
+      ok = String(rows[i][3] || '').trim() === password;
+      break;
+    }
+    if (!ok) throw new Error('Admin password is incorrect.');
+
+    res.json(await deleteSemester(req.params.key));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not delete semester.' });
   }
 });
 
@@ -3471,10 +3516,14 @@ router.get('/admin/timetable/subjects', requireRole('admin'), async (req, res) =
   }
 });
 
+function reqSemesterKey(req) {
+  return String((req.query && req.query.semesterKey) || (req.body && req.body.semesterKey) || '').trim();
+}
+
 router.get('/admin/timetable/students/:studentId', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    res.json({ timetable: await getTimetable('student', req.params.studentId) });
+    res.json({ timetable: await getTimetable('student', req.params.studentId, { semesterKey: reqSemesterKey(req) }) });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load timetable.' });
   }
@@ -3483,7 +3532,9 @@ router.get('/admin/timetable/students/:studentId', requireRole('admin'), async (
 router.post('/admin/timetable/students/:studentId', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    const timetable = await saveTimetable('student', req.params.studentId, req.body.entries || []);
+    const timetable = await saveTimetable('student', req.params.studentId, req.body.entries || [], {
+      semesterKey: reqSemesterKey(req)
+    });
     res.json({ timetable });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save timetable.' });
@@ -3493,7 +3544,7 @@ router.post('/admin/timetable/students/:studentId', requireRole('admin'), async 
 router.get('/admin/timetable/teachers/:teacherId', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    res.json({ timetable: await getTimetable('teacher', req.params.teacherId) });
+    res.json({ timetable: await getTimetable('teacher', req.params.teacherId, { semesterKey: reqSemesterKey(req) }) });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load timetable.' });
   }
@@ -3502,7 +3553,9 @@ router.get('/admin/timetable/teachers/:teacherId', requireRole('admin'), async (
 router.post('/admin/timetable/teachers/:teacherId', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    const timetable = await saveTimetable('teacher', req.params.teacherId, req.body.entries || []);
+    const timetable = await saveTimetable('teacher', req.params.teacherId, req.body.entries || [], {
+      semesterKey: reqSemesterKey(req)
+    });
     res.json({ timetable });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save timetable.' });
@@ -3564,7 +3617,7 @@ router.post('/admin/timetable/bell-schedule', requireRole('admin'), async (req, 
 
 router.get('/admin/timetable/requirements', requireRole('admin'), async (req, res) => {
   try {
-    const requirements = await listRequirementsWithClassNames(req.query.classId);
+    const requirements = await listRequirementsWithClassNames(req.query.classId, reqSemesterKey(req));
     res.json({ requirements });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load requirements.' });
@@ -3574,7 +3627,7 @@ router.get('/admin/timetable/requirements', requireRole('admin'), async (req, re
 router.post('/admin/timetable/requirements', requireRole('admin'), async (req, res) => {
   try {
     const { classId, requirements } = req.body || {};
-    const saved = await saveRequirements(classId, requirements || []);
+    const saved = await saveRequirements(classId, requirements || [], reqSemesterKey(req));
     res.json({ requirements: saved });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save requirements.' });
@@ -3584,7 +3637,7 @@ router.post('/admin/timetable/requirements', requireRole('admin'), async (req, r
 router.post('/admin/timetable/requirements/import', requireRole('admin'), async (req, res) => {
   try {
     const { classId } = req.body || {};
-    const requirements = await importRequirementsFromAssignments(classId);
+    const requirements = await importRequirementsFromAssignments(classId, reqSemesterKey(req));
     res.json({ requirements });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not import requirements.' });
@@ -3594,7 +3647,7 @@ router.post('/admin/timetable/requirements/import', requireRole('admin'), async 
 router.get('/admin/timetable/classes/:classId', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    res.json({ timetable: await getTimetable('class', req.params.classId) });
+    res.json({ timetable: await getTimetable('class', req.params.classId, { semesterKey: reqSemesterKey(req) }) });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load class timetable.' });
   }
@@ -3603,7 +3656,9 @@ router.get('/admin/timetable/classes/:classId', requireRole('admin'), async (req
 router.post('/admin/timetable/classes/:classId', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    const timetable = await saveClassTimetable(req.params.classId, req.body.entries || []);
+    const timetable = await saveClassTimetable(req.params.classId, req.body.entries || [], {
+      semesterKey: reqSemesterKey(req)
+    });
     res.json({
       timetable,
       studentsUpdated: timetable.studentsUpdated || 0,
@@ -3619,7 +3674,7 @@ router.post('/admin/timetable/classes/:classId', requireRole('admin'), async (re
 router.get('/admin/timetable/teacher-busy', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    const data = await getTeacherBusyMap(req.query.excludeClassId || '');
+    const data = await getTeacherBusyMap(req.query.excludeClassId || '', reqSemesterKey(req));
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load teacher busy map.' });
@@ -3629,17 +3684,28 @@ router.get('/admin/timetable/teacher-busy', requireRole('admin'), async (req, re
 router.get('/admin/timetable/matrix', requireRole('admin'), async (req, res) => {
   try {
     await ensureTimetableSheet();
-    res.json(await getAllClassesMatrix());
+    res.json(await getAllClassesMatrix(reqSemesterKey(req)));
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load timetable matrix.' });
+  }
+});
+
+router.post('/admin/timetable/copy-plan', requireRole('admin'), async (req, res) => {
+  try {
+    await ensureTimetableSheet();
+    const result = await copyTimetablePlan(req.body || {});
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not copy timetable.' });
   }
 });
 
 router.post('/admin/timetable/generate', requireRole('admin'), async (req, res) => {
   try {
     const { classId } = req.body || {};
-    const result = await generateClassTimetable(classId);
-    const timetable = await getTimetable('class', classId);
+    const semesterKey = reqSemesterKey(req);
+    const result = await generateClassTimetable(classId, semesterKey);
+    const timetable = await getTimetable('class', classId, { semesterKey });
     res.json({ result, timetable });
   } catch (e) {
     const code = e.message && /solver|not running|timed out/i.test(e.message) ? 503 : 400;

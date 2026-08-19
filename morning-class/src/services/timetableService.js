@@ -8,18 +8,26 @@ const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsC
 const { getTeacherStudentIds } = require('./studentRegistryService');
 const { getBellSchedule } = require('./bellScheduleService');
 const { getClassRoster, getClassNameMap } = require('./teacherPortalService');
+const {
+  resolvePlanningScope,
+  stampKey,
+  keysForRead,
+  keyShouldReplace
+} = require('./timetableScope');
 
 const HEADERS = [
   'EntryID', 'OwnerType', 'OwnerID', 'ClassID', 'DayOfWeek',
   'StartTime', 'EndTime', 'Subject', 'TeacherID', 'Room', 'Notes',
-  'SortOrder', 'UpdatedAt', 'Locked', 'PeriodID'
+  'SortOrder', 'UpdatedAt', 'Locked', 'PeriodID', 'SemesterKey'
 ];
 
 const COL = {
   entryId: 0, ownerType: 1, ownerId: 2, classId: 3, dayOfWeek: 4,
   startTime: 5, endTime: 6, subject: 7, teacherId: 8, room: 9, notes: 10,
-  sortOrder: 11, updatedAt: 12, locked: 13, periodId: 14
+  sortOrder: 11, updatedAt: 12, locked: 13, periodId: 14, semesterKey: 15
 };
+
+const RANGE_WIDTH = 'P';
 
 const DAY_LABELS = {
   1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday',
@@ -65,7 +73,17 @@ function rowToEntry(row) {
   let locked = false;
   let periodId = '';
 
-  if (row.length >= 15) {
+  let semesterKey = '';
+  if (row.length >= 16) {
+    teacherId = String(row[COL.teacherId] || '');
+    room = String(row[COL.room] || '');
+    notes = String(row[COL.notes] || '');
+    sortOrder = Number(row[COL.sortOrder]) || 0;
+    updatedAt = String(row[COL.updatedAt] || '');
+    locked = truthyLocked(row[COL.locked]);
+    periodId = String(row[COL.periodId] || '').trim();
+    semesterKey = String(row[COL.semesterKey] || '').trim();
+  } else if (row.length >= 15) {
     teacherId = String(row[COL.teacherId] || '');
     room = String(row[COL.room] || '');
     notes = String(row[COL.notes] || '');
@@ -102,7 +120,8 @@ function rowToEntry(row) {
     sortOrder,
     updatedAt,
     locked,
-    periodId
+    periodId,
+    semesterKey
   };
 }
 
@@ -172,12 +191,16 @@ function enrichWithBellBreaks(entries, bell) {
 
 async function ensureTimetableSheet() {
   await ensureSheet(TIMETABLE_ENTRIES_SHEET, HEADERS);
-  // Migrate legacy header row to include Locked + PeriodID when needed
+  // Migrate legacy header row to include Locked + PeriodID + SemesterKey
   try {
     const rows = await getSheetRows(TIMETABLE_ENTRIES_SHEET, { skipCache: true });
     const header = rows[0] || [];
-    if (header.length < HEADERS.length || String(header[13] || '') !== 'Locked') {
-      await updateRange(TIMETABLE_ENTRIES_SHEET, 'A1:O1', [HEADERS]);
+    if (
+      header.length < HEADERS.length ||
+      String(header[13] || '') !== 'Locked' ||
+      String(header[COL.semesterKey] || '') !== 'SemesterKey'
+    ) {
+      await updateRange(TIMETABLE_ENTRIES_SHEET, 'A1:' + RANGE_WIDTH + '1', [HEADERS]);
       invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
     }
   } catch (e) {
@@ -222,30 +245,41 @@ async function loadAllEntries() {
   return out;
 }
 
-async function resolveTimetableEntries(ownerType, ownerId) {
+async function resolveTimetableEntries(ownerType, ownerId, scope) {
   ownerType = String(ownerType || '').trim();
   ownerId = String(ownerId || '').trim();
   const all = await loadAllEntries();
-  let entries = all.filter((e) => e.ownerType === ownerType && e.ownerId === ownerId);
+  const scoped = (list) => keysForRead(list, (e) => e.semesterKey, scope);
+
+  if (ownerType === 'teacher' && scope && !scope.live) {
+    return sortEntries(scoped(
+      all.filter((e) => e.ownerType === 'class' && e.teacherId === ownerId)
+    ));
+  }
+
+  let entries = scoped(all.filter((e) => e.ownerType === ownerType && e.ownerId === ownerId));
 
   if (!entries.length && ownerType === 'student') {
     const classId = await getStudentClassId(ownerId);
     if (classId) {
-      entries = all.filter((e) => e.ownerType === 'class' && e.ownerId === classId);
+      entries = scoped(all.filter((e) => e.ownerType === 'class' && e.ownerId === classId));
     }
   }
 
   if (!entries.length && ownerType === 'teacher') {
-    entries = all.filter((e) => e.ownerType === 'class' && e.teacherId === ownerId);
+    entries = scoped(all.filter((e) => e.ownerType === 'class' && e.teacherId === ownerId));
   }
 
   return sortEntries(entries);
 }
 
-async function getTimetable(ownerType, ownerId) {
+async function getTimetable(ownerType, ownerId, options) {
   if (!ownerType || !ownerId) throw new Error('Owner is required.');
+  const scope = options && options.scope
+    ? options.scope
+    : await resolvePlanningScope(options && options.semesterKey);
 
-  const entries = await resolveTimetableEntries(ownerType, ownerId);
+  const entries = await resolveTimetableEntries(ownerType, ownerId, scope);
   const bell = await getBellSchedule().catch(() => ({ periods: [], lessonPeriods: [] }));
   const enriched = enrichWithBellBreaks(entries, bell);
   const names = await teacherNameMap().catch(() => ({}));
@@ -269,6 +303,8 @@ async function getTimetable(ownerType, ownerId) {
   return {
     ownerType,
     ownerId,
+    semesterKey: stampKey(scope),
+    live: !!scope.live,
     entries: enriched.entries,
     byDay: enriched.byDay,
     breaks: enriched.breaks,
@@ -339,7 +375,8 @@ function validateEntryPayload(entry, ownerType, ownerId, bell) {
       sortOrder: aligned.sortOrder,
       updatedAt: entry.updatedAt || isoNow(),
       locked: truthyLocked(entry.locked),
-      periodId: aligned.periodId
+      periodId: aligned.periodId,
+      semesterKey: String(entry.semesterKey || '').trim()
     };
   });
 }
@@ -351,7 +388,8 @@ function entryToRow(entry) {
     entry.subject, entry.teacherId, entry.room, entry.notes,
     String(entry.sortOrder), entry.updatedAt,
     entry.locked ? 'true' : 'false',
-    entry.periodId || ''
+    entry.periodId || '',
+    entry.semesterKey || ''
   ];
 }
 
@@ -374,14 +412,16 @@ function assertNoInternalConflicts(entries) {
   });
 }
 
-async function assertNoExternalTeacherConflicts(entries, excludeClassId) {
+async function assertNoExternalTeacherConflicts(entries, excludeClassId, scope) {
   const all = await loadAllEntries();
+  const scopedAll = keysForRead(all, (e) => e.semesterKey, scope);
   const { listAllRequirements, linkedClassesFor } = require('./timetableRequirementsService');
-  const requirements = await listAllRequirements().catch(() => []);
+  const semesterKey = stampKey(scope);
+  const requirements = await listAllRequirements(semesterKey).catch(() => []);
   // teacherId|slotKey -> [{ classId, subject }]
   const busy = new Map();
 
-  all.forEach((e) => {
+  scopedAll.forEach((e) => {
     if (e.ownerType !== 'class') return;
     if (excludeClassId && e.ownerId === String(excludeClassId)) return;
     if (!e.teacherId) return;
@@ -417,15 +457,15 @@ async function assertNoExternalTeacherConflicts(entries, excludeClassId) {
   });
 }
 
-async function writeOwnerRows(ownerType, ownerId, normalized) {
+async function writeOwnerRows(ownerType, ownerId, normalized, scope) {
   await ensureTimetableSheet();
   const allRows = await getSheetRows(TIMETABLE_ENTRIES_SHEET, { skipCache: true });
   const kept = [];
   for (let i = 1; i < allRows.length; i++) {
     const type = String(allRows[i][COL.ownerType] || '');
     const id = String(allRows[i][COL.ownerId] || '');
-    if (type === ownerType && id === ownerId) continue;
-    // Pad legacy rows to new width when rewriting
+    const rowKey = String(allRows[i][COL.semesterKey] || '').trim();
+    if (type === ownerType && id === ownerId && keyShouldReplace(rowKey, scope)) continue;
     const row = allRows[i].slice();
     while (row.length < HEADERS.length) row.push('');
     kept.push(row.slice(0, HEADERS.length));
@@ -445,7 +485,7 @@ async function writeOwnerRows(ownerType, ownerId, normalized) {
     for (let i = 0; i < maxRows; i++) {
       toWrite.push(i < combined.length ? combined[i] : new Array(rowWidth).fill(''));
     }
-    await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:O${maxRows + 1}`, toWrite);
+    await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:${RANGE_WIDTH}${maxRows + 1}`, toWrite);
   }
   invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
 }
@@ -456,6 +496,8 @@ async function saveTimetable(ownerType, ownerId, entries, options) {
   ownerId = String(ownerId || '').trim();
   if (!ownerType || !ownerId) throw new Error('Owner is required.');
   if (!Array.isArray(entries)) throw new Error('Entries array is required.');
+  const scope = options.scope || await resolvePlanningScope(options.semesterKey);
+  const semesterKey = stampKey(scope);
 
   const bell = await getBellSchedule().catch(() => ({ periods: [], lessonPeriods: [] }));
   const filtered = entries.filter((e) => e && !e.isBreak && e.ownerType !== 'bell');
@@ -464,12 +506,16 @@ async function saveTimetable(ownerType, ownerId, entries, options) {
   for (let idx = 0; idx < filtered.length; idx++) {
     const e = filtered[idx];
     const row = await validateEntryPayload(
-      Object.assign({}, e, { sortOrder: e.sortOrder != null ? e.sortOrder : idx }),
+      Object.assign({}, e, {
+        sortOrder: e.sortOrder != null ? e.sortOrder : idx,
+        semesterKey
+      }),
       ownerType,
       ownerId,
       bell
     );
     if (!row.subject) throw new Error('Subject is required for each slot.');
+    row.semesterKey = semesterKey;
     normalized.push(row);
   }
 
@@ -477,11 +523,11 @@ async function saveTimetable(ownerType, ownerId, entries, options) {
 
   if (!options.skipConflictCheck && (ownerType === 'class' || options.checkTeacherConflicts)) {
     const excludeClassId = ownerType === 'class' ? ownerId : (options.excludeClassId || '');
-    await assertNoExternalTeacherConflicts(normalized, excludeClassId);
+    await assertNoExternalTeacherConflicts(normalized, excludeClassId, scope);
   }
 
-  await writeOwnerRows(ownerType, ownerId, normalized);
-  return getTimetable(ownerType, ownerId);
+  await writeOwnerRows(ownerType, ownerId, normalized, scope);
+  return getTimetable(ownerType, ownerId, { scope });
 }
 
 /**
@@ -492,7 +538,8 @@ async function propagateCombinedSlots(sourceClassId, sourceEntries, options) {
   options = options || {};
   if (options.skipCombinedPropagate) return { linkedClassesUpdated: 0 };
   const { listRequirements } = require('./timetableRequirementsService');
-  const reqs = await listRequirements(sourceClassId).catch(() => []);
+  const scope = options.scope || await resolvePlanningScope(options.semesterKey);
+  const reqs = await listRequirements(sourceClassId, stampKey(scope)).catch(() => []);
   const combined = (reqs || []).filter((r) => (r.classIds || []).length > 1);
   if (!combined.length) return { linkedClassesUpdated: 0 };
 
@@ -511,7 +558,7 @@ async function propagateCombinedSlots(sourceClassId, sourceEntries, options) {
     );
 
     for (const targetClassId of targets) {
-      const tt = await getTimetable('class', targetClassId);
+      const tt = await getTimetable('class', targetClassId, { scope });
       const other = (tt.entries || []).filter((e) => !e.isBreak && !(
         String(e.teacherId || '') === String(req.teacherId || '') &&
         String(e.subject || '').toLowerCase() === String(req.subject || '').toLowerCase()
@@ -532,7 +579,9 @@ async function propagateCombinedSlots(sourceClassId, sourceEntries, options) {
       await saveClassTimetable(targetClassId, other.concat(mirrored), {
         skipConflictCheck: true,
         skipCombinedPropagate: true,
-        syncDependents: true
+        syncDependents: !!scope.live,
+        scope,
+        semesterKey: stampKey(scope)
       });
       linkedClassesUpdated += 1;
     }
@@ -545,9 +594,10 @@ async function saveClassTimetable(classId, entries, options) {
   options = options || {};
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
+  const scope = options.scope || await resolvePlanningScope(options.semesterKey);
 
   const previous = await loadAllEntries();
-  const previousTeacherIds = previous
+  const previousTeacherIds = keysForRead(previous, (e) => e.semesterKey, scope)
     .filter((e) => e.ownerType === 'class' && e.ownerId === classId && e.teacherId)
     .map((e) => e.teacherId);
 
@@ -556,25 +606,27 @@ async function saveClassTimetable(classId, entries, options) {
     classId: e.classId || classId
   })), {
     checkTeacherConflicts: true,
-    skipConflictCheck: !!options.skipConflictCheck
+    skipConflictCheck: !!options.skipConflictCheck,
+    scope,
+    semesterKey: stampKey(scope)
   });
 
   const classOnly = (result.entries || []).filter((e) => !e.isBreak);
   let sync = { studentsUpdated: 0, teachersUpdated: 0, linkedClassesUpdated: 0 };
-  if (options.syncDependents !== false) {
+  if (options.syncDependents !== false && scope.live) {
     const teacherIds = [...new Set(
       previousTeacherIds.concat(classOnly.map((e) => e.teacherId).filter(Boolean))
     )];
-    sync = await syncClassDependents(classId, classOnly, teacherIds);
+    sync = await syncClassDependents(classId, classOnly, teacherIds, scope);
   }
   if (!options.skipCombinedPropagate) {
-    const prop = await propagateCombinedSlots(classId, classOnly, options);
+    const prop = await propagateCombinedSlots(classId, classOnly, Object.assign({}, options, { scope }));
     sync.linkedClassesUpdated = prop.linkedClassesUpdated || 0;
   }
   return Object.assign({}, result, sync);
 }
 
-function teacherEntriesFromClassRows(allClassEntries, teacherId, now) {
+function teacherEntriesFromClassRows(allClassEntries, teacherId, now, semesterKey) {
   return sortEntries(
     allClassEntries
       .filter((e) => e.teacherId === teacherId)
@@ -593,16 +645,22 @@ function teacherEntriesFromClassRows(allClassEntries, teacherId, now) {
         sortOrder: e.sortOrder,
         updatedAt: now,
         locked: !!e.locked,
-        periodId: e.periodId || ''
+        periodId: e.periodId || '',
+        semesterKey: semesterKey || ''
       }))
   );
 }
 
 async function rebuildTeacherTimetable(teacherId) {
+  const scope = await resolvePlanningScope('');
   const all = await loadAllEntries();
-  const classEntries = all.filter((e) => e.ownerType === 'class');
-  const entries = teacherEntriesFromClassRows(classEntries, teacherId, isoNow());
-  await writeOwnerRows('teacher', teacherId, entries);
+  const classEntries = keysForRead(
+    all.filter((e) => e.ownerType === 'class'),
+    (e) => e.semesterKey,
+    scope
+  );
+  const entries = teacherEntriesFromClassRows(classEntries, teacherId, isoNow(), stampKey(scope));
+  await writeOwnerRows('teacher', teacherId, entries, scope);
 }
 
 /**
@@ -610,8 +668,10 @@ async function rebuildTeacherTimetable(teacherId) {
  * Students inherit the class timetable via getTimetable() fallback when they
  * have no personal rows — avoids N full-sheet writes that timed out Save & sync.
  */
-async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
+async function syncClassDependents(classId, classEntries, teacherIdsOverride, scope) {
   classId = String(classId);
+  scope = scope || await resolvePlanningScope('');
+  const liveKey = stampKey(scope);
   const roster = await getClassRoster(classId);
   const rosterIds = new Set(roster.map((s) => String(s.studentId)));
   const teacherIds = [...new Set(
@@ -631,20 +691,23 @@ async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
     while (row.length < HEADERS.length) row.push('');
     const type = String(row[COL.ownerType] || '');
     const id = String(row[COL.ownerId] || '');
+    const rowKey = String(row[COL.semesterKey] || '').trim();
 
-    if (type === 'student' && rosterIds.has(id)) continue; // clear materializations
-    if (type === 'teacher' && teacherIdSet.has(id)) continue; // rebuild below
+    if (type === 'student' && rosterIds.has(id) && keyShouldReplace(rowKey, scope)) continue;
+    if (type === 'teacher' && teacherIdSet.has(id) && keyShouldReplace(rowKey, scope)) continue;
 
     if (type === 'class') {
       const parsed = rowToEntry(row);
-      if (parsed) classEntriesAll.push(parsed);
+      if (parsed && keysForRead([parsed], (e) => e.semesterKey, scope).length) {
+        classEntriesAll.push(parsed);
+      }
     }
     kept.push(row.slice(0, HEADERS.length));
   }
 
   const teacherRows = [];
   teacherIds.forEach((teacherId) => {
-    teacherEntriesFromClassRows(classEntriesAll, teacherId, now).forEach((e) => {
+    teacherEntriesFromClassRows(classEntriesAll, teacherId, now, liveKey).forEach((e) => {
       teacherRows.push(entryToRow(e));
     });
   });
@@ -662,7 +725,7 @@ async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
   for (let i = 0; i < maxRows; i++) {
     toWrite.push(i < combined.length ? combined[i] : new Array(rowWidth).fill(''));
   }
-  await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:O${maxRows + 1}`, toWrite);
+  await updateRange(TIMETABLE_ENTRIES_SHEET, `A2:${RANGE_WIDTH}${maxRows + 1}`, toWrite);
   invalidateSheetRowsCache(TIMETABLE_ENTRIES_SHEET);
 
   return {
@@ -671,17 +734,17 @@ async function syncClassDependents(classId, classEntries, teacherIdsOverride) {
   };
 }
 
-async function getTeacherBusyMap(excludeClassId) {
-  const all = await loadAllEntries();
+async function getTeacherBusyMap(excludeClassId, semesterKey) {
+  const scope = await resolvePlanningScope(semesterKey);
+  const all = keysForRead(await loadAllEntries(), (e) => e.semesterKey, scope);
   const names = await teacherNameMap();
   const { listAllRequirements, linkedClassesFor } = require('./timetableRequirementsService');
-  const requirements = await listAllRequirements().catch(() => []);
+  const requirements = await listAllRequirements(stampKey(scope)).catch(() => []);
   const busy = {};
   all.forEach((e) => {
     if (e.ownerType !== 'class') return;
     if (excludeClassId && e.ownerId === String(excludeClassId)) return;
     if (!e.teacherId) return;
-    // Combined classes sharing this subject may occupy the same period.
     if (excludeClassId) {
       const linked = linkedClassesFor(
         requirements,
@@ -710,8 +773,9 @@ async function getStudentTimetableForTeacher(teacherId, studentId) {
   return getTimetable('student', studentId);
 }
 
-async function getAllClassesMatrix() {
-  const all = await loadAllEntries();
+async function getAllClassesMatrix(semesterKey) {
+  const scope = await resolvePlanningScope(semesterKey);
+  const all = keysForRead(await loadAllEntries(), (e) => e.semesterKey, scope);
   const bell = await getBellSchedule();
   const names = await teacherNameMap();
   const classNames = await getClassNameMap().catch(() => ({}));
@@ -729,10 +793,102 @@ async function getAllClassesMatrix() {
   });
   return {
     byClass,
+    semesterKey: stampKey(scope),
+    live: !!scope.live,
     lessonPeriods: bell.lessonPeriods || [],
     bellSchedule: bell.periods || [],
     teacherNames: names,
     classNames
+  };
+}
+
+async function copyTimetablePlan(payload) {
+  const fromScope = await resolvePlanningScope(payload && payload.fromSemesterKey);
+  const toScope = await resolvePlanningScope(payload && payload.toSemesterKey);
+  if (stampKey(fromScope) === stampKey(toScope) && fromScope.live === toScope.live) {
+    throw new Error('Pick a different semester to copy into.');
+  }
+  const classId = String((payload && payload.classId) || '').trim();
+  const overwrite = !!(payload && payload.overwrite);
+
+  const all = await loadAllEntries();
+  const fromEntries = keysForRead(all, (e) => e.semesterKey, fromScope)
+    .filter((e) => e.ownerType === 'class' && (!classId || e.ownerId === classId));
+  const destEntries = keysForRead(all, (e) => e.semesterKey, toScope)
+    .filter((e) => e.ownerType === 'class' && (!classId || e.ownerId === classId));
+
+  if (destEntries.length && !overwrite) {
+    return {
+      needsOverwrite: true,
+      destSlots: destEntries.length,
+      fromSlots: fromEntries.length
+    };
+  }
+
+  const { listRequirements, saveRequirements } = require('./timetableRequirementsService');
+  const fromKey = stampKey(fromScope);
+  const byClass = {};
+  fromEntries.forEach((e) => {
+    const id = String(e.ownerId || e.classId);
+    if (!byClass[id]) byClass[id] = [];
+    byClass[id].push(e);
+  });
+  if (classId && !byClass[classId]) byClass[classId] = [];
+  if (!classId && overwrite) {
+    destEntries.forEach((e) => {
+      const id = String(e.ownerId || e.classId);
+      if (id && !byClass[id]) byClass[id] = [];
+    });
+  }
+
+  let classesCopied = 0;
+  let slotsCopied = 0;
+  let reqsCopied = 0;
+  for (const cid of Object.keys(byClass)) {
+    const cloned = byClass[cid].map((e) => ({
+      dayOfWeek: e.dayOfWeek,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      subject: e.subject,
+      teacherId: e.teacherId,
+      room: e.room,
+      notes: e.notes,
+      sortOrder: e.sortOrder,
+      locked: !!e.locked,
+      periodId: e.periodId || '',
+      classId: cid
+    }));
+    await saveClassTimetable(cid, cloned, {
+      scope: toScope,
+      semesterKey: stampKey(toScope),
+      skipCombinedPropagate: true,
+      syncDependents: !!toScope.live
+    });
+    classesCopied += 1;
+    slotsCopied += cloned.length;
+
+    const reqs = await listRequirements(cid, fromKey).catch(() => []);
+    if (reqs.length) {
+      await saveRequirements(cid, reqs.map((r) => ({
+        subject: r.subject,
+        teacherId: r.teacherId,
+        teacherName: r.teacherName,
+        periodsPerWeek: r.periodsPerWeek,
+        room: r.room,
+        notes: r.notes,
+        linkedClassIds: r.linkedClassIds || []
+      })), stampKey(toScope));
+      reqsCopied += reqs.length;
+    }
+  }
+
+  return {
+    needsOverwrite: false,
+    classesCopied,
+    slotsCopied,
+    requirementsCopied: reqsCopied,
+    toSemesterKey: stampKey(toScope),
+    live: !!toScope.live
   };
 }
 
@@ -749,6 +905,7 @@ module.exports = {
   getTeacherBusyMap,
   getAllClassesMatrix,
   getStudentTimetableForTeacher,
+  copyTimetablePlan,
   groupByDay,
   sortEntries,
   loadAllEntries,
