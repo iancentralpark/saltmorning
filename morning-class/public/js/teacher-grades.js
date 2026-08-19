@@ -236,15 +236,18 @@ window.SaltGrades = (function() {
   }
 
   function computeStudentFinal(studentId, weights, entriesByCategory) {
-    let weightedTotal = 0;
+    let weightedSum = 0; // sum(categoryPercent * weightPercent)
+    let gradedWeight = 0; // sum(weightPercent for categories that have scores)
     for (const w of weights) {
       const catEntries = (entriesByCategory[w.categoryKey] || []).filter((e) => e.studentId === studentId);
       const categoryPercent = aggregateCategoryPercent(catEntries, w.aggregation);
       if (categoryPercent != null) {
-        weightedTotal += Math.round(categoryPercent * w.weightPercent) / 100;
+        weightedSum += categoryPercent * w.weightPercent;
+        gradedWeight += w.weightPercent;
       }
     }
-    return weights.length ? Math.round(weightedTotal * 10) / 10 : null;
+    // Normalize to 100% based only on categories that currently have scores.
+    return gradedWeight ? Math.round((weightedSum / gradedWeight) * 10) / 10 : null;
   }
 
   function buildEntriesFromGradebook() {

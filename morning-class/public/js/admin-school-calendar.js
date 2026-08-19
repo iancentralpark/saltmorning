@@ -258,9 +258,14 @@ window.SaltSchoolCalendar = (function() {
   }
 
   async function deleteSemesterByKey(key, label) {
-    if (!window.confirm('Delete "' + label + '"?\n\nThis removes the semester from the list. Gradebooks or report cards already saved under it are not erased.')) return;
+    if (!window.confirm('정말 삭제하시겠습니까?\n\n"' + label + '" 세미스터를 목록에서 제거합니다. (저장된 성적/리포트카드는 삭제되지 않습니다.)')) return;
+    const password = window.prompt('관리자 비밀번호를 입력하세요:');
+    if (!password) return;
     try {
-      await api('/api/admin/school-semesters/' + encodeURIComponent(key), { method: 'DELETE' });
+      await api('/api/admin/school-semesters/' + encodeURIComponent(key), {
+        method: 'DELETE',
+        body: { password }
+      });
       if (editingSemesterKey === key) cancelSemesterEdit();
       await loadSemesters();
     } catch (err) {
@@ -279,9 +284,15 @@ window.SaltSchoolCalendar = (function() {
     if ($('scSemesterMsg')) $('scSemesterMsg').textContent = '';
     const title = $('scSemesterForm') && $('scSemesterForm').previousElementSibling;
     if (title && title.classList.contains('sc-semester-add-title')) {
-      title.textContent = 'Edit semester';
+      title.textContent = (window.SaltI18n
+        ? SaltI18n.t('admin.semesters.edit', 'Edit')
+        : 'Edit') + ' semester';
     }
-    if ($('scSemesterSubmit')) $('scSemesterSubmit').textContent = 'Save changes';
+    if ($('scSemesterSubmit')) {
+      $('scSemesterSubmit').textContent = (window.SaltI18n
+        ? SaltI18n.t('admin.semesters.saveChanges', 'Save changes')
+        : 'Save changes');
+    }
     if ($('scSemesterCancelEdit')) $('scSemesterCancelEdit').classList.remove('hidden');
     if ($('scNewLabel')) $('scNewLabel').focus();
   }

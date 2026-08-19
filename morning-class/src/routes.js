@@ -3085,6 +3085,23 @@ router.put('/admin/school-semesters/:key', requireRole('admin'), async (req, res
 
 router.delete('/admin/school-semesters/:key', requireRole('admin'), async (req, res) => {
   try {
+    const body = req.body || {};
+    const password = String(body.password || '').trim();
+    if (!password) return res.status(400).json({ error: 'Enter admin password.' });
+    const adminId = req.session && req.session.adminId;
+    if (!adminId) return res.status(401).json({ error: 'Admin session missing.' });
+
+    const { ADMIN_LIST_SHEET } = require('./config');
+    const { getSheetRows } = require('./sheets');
+    const rows = await getSheetRows(ADMIN_LIST_SHEET, { skipCache: true });
+    let ok = false;
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim() !== String(adminId).trim()) continue;
+      ok = String(rows[i][3] || '').trim() === password;
+      break;
+    }
+    if (!ok) throw new Error('Admin password is incorrect.');
+
     res.json(await deleteSemester(req.params.key));
   } catch (e) {
     res.status(e.status || 400).json({ error: e.message || 'Could not delete semester.' });
