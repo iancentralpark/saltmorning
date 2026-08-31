@@ -5,6 +5,7 @@
  * when TIMETABLE_SOLVER_URL is unset / points at loopback.
  */
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 function solverUrl() {
@@ -18,10 +19,23 @@ function shouldSpawnLocalSolver() {
   return /127\.0\.0\.1|localhost/.test(url);
 }
 
+function resolvePythonBinary() {
+  if (process.env.TIMETABLE_SOLVER_PYTHON) {
+    return process.env.TIMETABLE_SOLVER_PYTHON;
+  }
+  const venvPy = path.join(__dirname, '..', 'solver', '.venv', 'bin', 'python');
+  if (fs.existsSync(venvPy)) return venvPy;
+  return 'python3';
+}
+
 function tryStartSolver() {
   if (!shouldSpawnLocalSolver()) return;
-  const py = process.env.TIMETABLE_SOLVER_PYTHON || 'python3';
+  const py = resolvePythonBinary();
   const script = path.join(__dirname, '..', 'solver', 'main.py');
+  if (!fs.existsSync(script)) {
+    console.warn('[solver] main.py not found — skipping local solver');
+    return;
+  }
   try {
     const child = spawn(py, [script], {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -36,6 +50,7 @@ function tryStartSolver() {
     });
     child.on('error', (err) => {
       console.warn('[solver] not started:', err.message);
+      console.warn('[solver] Auto-Solve needs Python + ortools (solver/.venv on Railway).');
     });
     child.on('exit', (code) => {
       if (code && code !== 0) {

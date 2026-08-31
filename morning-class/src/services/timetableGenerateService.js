@@ -30,9 +30,10 @@ async function callSolver(payload) {
       body: JSON.stringify(payload)
     });
   } catch (e) {
-    throw new Error(
-      'Timetable solver is not running. Start it with: cd morning-class/solver && pip install -r requirements.txt && python main.py'
-    );
+    const localHint = /127\.0\.0\.1|localhost/.test(TIMETABLE_SOLVER_URL || 'http://127.0.0.1:8791')
+      ? ' Start it with: cd morning-class/solver && pip install -r requirements.txt && python main.py'
+      : ' Check that TIMETABLE_SOLVER_URL is reachable.';
+    throw new Error('Timetable solver is not running.' + localHint);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
