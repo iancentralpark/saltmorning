@@ -1,8 +1,8 @@
-const { LESSON_PLANS_SHEET, CLASS_LIST_SHEET } = require('../config');
+const crypto = require('crypto');
+const { LESSON_PLANS_SHEET } = require('../config');
 const { getSheetRows, appendRows, updateRange } = require('../sheets');
-const { formatSheetDate } = require('../dateUtils');
 const { getHolidaysForMonth } = require('../holiday');
-const { getTeacherClasses, getClassNameMap } = require('./teacherPortalService');
+const { getClassNameMap } = require('./teacherPortalService');
 const { getTeacherLessonSlots } = require('./subjectAssignmentService');
 const {
   listTeacherSubjectStyles,
@@ -10,21 +10,71 @@ const {
   resolveStyle,
   styleKey: subjectStyleKey
 } = require('./subjectStyleService');
+const {
+  listEntries,
+  resolveDay,
+  getClassMeta
+} = require('./schoolCalendarService');
 
 function newPlanId() {
   return 'lp_' + crypto.randomBytes(6).toString('hex');
 }
 
-function normalizeAllowedDays(raw) {
-  if (!raw && raw !== 0) return [1, 2, 3, 4, 5];
-  const out = String(raw).split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n));
-  return out.length ? out : [1, 2, 3, 4, 5];
+function pad2(n) {
+  return String(n).padStart(2, '0');
 }
 
-function isClassDay(dateStr, allowedDays, holiday) {
-  if (holiday) return false;
-  const dow = new Date(dateStr + 'T12:00:00').getDay();
-  return normalizeAllowedDays(allowedDays).includes(dow);
+/**
+ * Load School_Calendar + KR holidays once for a month (shared with attendance).
+ */
+async function loadSchoolMonthContext(year, month, classIds) {
+  const y = Number(year);
+  const m = Number(month);
+  const last = new Date(y, m, 0).getDate();
+  const from = y + '-' + pad2(m) + '-01';
+  const to = y + '-' + pad2(m) + '-' + pad2(last);
+  const ids = Array.from(new Set((classIds || []).map(String).filter(Boolean)));
+  const [entries, krHolidayMap, ...metas] = await Promise.all([
+    listEntries({ from, to, includeInactive: false }),
+    getHolidaysForMonth(y, m),
+    ...ids.map((id) => getClassMeta(id))
+  ]);
+  const metaByClass = { '*': { allowedDays: [1, 2, 3, 4, 5], className: 'All' } };
+  ids.forEach((id, i) => { metaByClass[id] = metas[i]; });
+  return { entries, krHolidayMap, metaByClass, from, to };
+}
+
+async function resolveSchoolDay(ctx, classId, dateStr) {
+  const id = String(classId || '*') || '*';
+  const classMeta = ctx.metaByClass[id] || ctx.metaByClass['*'];
+  return resolveDay(id, dateStr, {
+    classMeta,
+    entries: ctx.entries,
+    krHolidayMap: ctx.krHolidayMap
+  });
+}
+
+function schoolCellMeta(resolved) {
+  const eventTitles = (resolved.events || []).map((e) => e.title).filter(Boolean);
+  const blockingTitle = !resolved.isClassDay ? (resolved.title || '') : '';
+  const holidayCompat = blockingTitle || resolved.krHoliday || '';
+  let schoolCaption = holidayCompat;
+  if (resolved.dayType === 'school_day' && resolved.title) {
+    schoolCaption = resolved.title;
+  } else if (resolved.isClassDay && eventTitles.length) {
+    schoolCaption = eventTitles.join(', ');
+  } else if (!schoolCaption && eventTitles.length) {
+    schoolCaption = eventTitles.join(', ');
+  }
+  return {
+    holiday: holidayCompat,
+    schoolCaption: schoolCaption || '',
+    dayType: resolved.dayType || '',
+    isClassDay: !!resolved.isClassDay,
+    schoolTitle: resolved.title || '',
+    events: eventTitles,
+    reason: resolved.reason || ''
+  };
 }
 
 function planLessonDate(plan) {
@@ -95,22 +145,24 @@ async function ensureLessonPlanColumns() {
 }
 ensureLessonPlanColumns.done = false;
 
-async function getClassScheduleMap() {
-  const rows = await getSheetRows(CLASS_LIST_SHEET);
-  const map = {};
-  for (let i = 1; i < rows.length; i++) {
-    const classId = String(rows[i][0] || '').trim();
-    if (!classId) continue;
-    map[classId] = normalizeAllowedDays(rows[i][3]);
-  }
-  return map;
-}
-
 async function getTeacherClassSlots(teacherId, filterClassId) {
-  return getTeacherLessonSlots(teacherId, filterClassId || '');
+  const slots = await getTeacherLessonSlots(teacherId, filterClassId || '');
+  const {
+    listTeacherSubjectPrefs,
+    isHidden,
+    resolveTeachingDays
+  } = require('./subjectPrefsService');
+  const prefs = await listTeacherSubjectPrefs(teacherId);
+  const out = [];
+  for (const slot of slots) {
+    if (isHidden(prefs, slot.classId, slot.subject)) continue;
+    const teachingDays = await resolveTeachingDays(teacherId, slot.classId, slot.subject, prefs);
+    out.push(Object.assign({}, slot, { teachingDays }));
+  }
+  return out;
 }
 
-function buildMonthWeeks(year, month, holidays) {
+function buildMonthWeeks(year, month) {
   const y = Number(year);
   const m = Number(month);
   const first = new Date(y, m - 1, 1);
@@ -137,12 +189,10 @@ function buildMonthWeeks(year, month, holidays) {
       const dateStr = inMonth
         ? y + '-' + String(m).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
         : '';
-      const holiday = dateStr ? (holidays[dateStr] || '') : '';
       weekCells.push({
         dateStr,
         dayNum: d.getDate(),
         inMonth,
-        holiday,
         month: d.getMonth() + 1
       });
     }
@@ -276,10 +326,11 @@ async function saveLessonPlan(teacherId, payload) {
   return rowToPlan(row);
 }
 
-async function buildCalendarDays(year, month, classSlots, scheduleMap, holidays, planMap, opts) {
-  const { includeEmptySlots, teacherMeta, styleLookup } = opts || {};
-  const weeks = buildMonthWeeks(year, month, holidays);
+async function buildCalendarDays(year, month, classSlots, planMap, opts) {
+  const { includeEmptySlots, teacherMeta, styleLookup, schoolCtx, badgeClassId } = opts || {};
+  const weeks = buildMonthWeeks(year, month);
   const subjectStyles = {};
+  const badgeId = badgeClassId || '*';
 
   for (const slot of classSlots) {
     subjectStyles[styleLookup
@@ -287,41 +338,66 @@ async function buildCalendarDays(year, month, classSlots, scheduleMap, holidays,
       : slot.subject] = subjectStyle(slot.subject, slot.classId, styleLookup);
   }
 
-  const outWeeks = weeks.map((week) => week.map((cell) => {
-    const daySlots = [];
-    if (!cell.inMonth || !cell.dateStr) {
-      return { ...cell, slots: daySlots };
+  const outWeeks = [];
+  for (const week of weeks) {
+    const outWeek = [];
+    for (const cell of week) {
+      if (!cell.inMonth || !cell.dateStr) {
+        outWeek.push({
+          ...cell,
+          holiday: '',
+          schoolCaption: '',
+          dayType: '',
+          isClassDay: false,
+          events: [],
+          slots: []
+        });
+        continue;
+      }
+
+      const badgeResolved = await resolveSchoolDay(schoolCtx, badgeId, cell.dateStr);
+      const meta = schoolCellMeta(badgeResolved);
+      const daySlots = [];
+
+      for (const slot of classSlots) {
+        const resolved = await resolveSchoolDay(schoolCtx, slot.classId, cell.dateStr);
+        const key = slotKey(slot.classId, slot.subject, cell.dateStr);
+        const plan = planMap[key] || null;
+        // Hide empty slots on non-class days; keep existing plans visible for edit.
+        if (!resolved.isClassDay && !plan) continue;
+        if (!includeEmptySlots && !plan) continue;
+
+        // Teaching weekdays filter (Mon=1 … Fri=5). Keep existing plans visible.
+        const dow = new Date(cell.dateStr + 'T12:00:00').getDay();
+        const dayNum = dow === 0 ? 7 : dow; // convert Sun=0 → skip; Mon=1
+        const teachDays = Array.isArray(slot.teachingDays) ? slot.teachingDays : null;
+        if (teachDays && teachDays.length && !teachDays.includes(dayNum) && !plan) continue;
+
+        daySlots.push({
+          slotKey: key,
+          classId: slot.classId,
+          className: slot.className,
+          subject: slot.subject,
+          lessonDate: cell.dateStr,
+          style: subjectStyle(slot.subject, slot.classId, styleLookup),
+          isClassDay: !!resolved.isClassDay,
+          teachingDays: teachDays || [1, 2, 3, 4, 5],
+          plan: plan ? {
+            planId: plan.planId,
+            title: plan.title,
+            status: plan.status,
+            hasContent: !!(plan.title || plan.objectives || plan.procedure || plan.homework || plan.etc)
+          } : null,
+          teacherId: teacherMeta ? teacherMeta.teacherId : undefined,
+          teacherName: teacherMeta ? teacherMeta.teacherName : undefined
+        });
+      }
+
+      daySlots.sort((a, b) => a.className.localeCompare(b.className) || a.subject.localeCompare(b.subject));
+      outWeek.push({ ...cell, ...meta, slots: daySlots });
     }
-
-    for (const slot of classSlots) {
-      const allowed = scheduleMap[slot.classId] || [1, 2, 3, 4, 5];
-      if (!isClassDay(cell.dateStr, allowed, cell.holiday)) continue;
-
-      const key = slotKey(slot.classId, slot.subject, cell.dateStr);
-      const plan = planMap[key] || null;
-      if (!includeEmptySlots && !plan) continue;
-
-      daySlots.push({
-        slotKey: key,
-        classId: slot.classId,
-        className: slot.className,
-        subject: slot.subject,
-        lessonDate: cell.dateStr,
-        style: subjectStyle(slot.subject, slot.classId, styleLookup),
-        plan: plan ? {
-          planId: plan.planId,
-          title: plan.title,
-          status: plan.status,
-          hasContent: !!(plan.title || plan.objectives || plan.procedure || plan.homework || plan.etc)
-        } : null,
-        teacherId: teacherMeta ? teacherMeta.teacherId : undefined,
-        teacherName: teacherMeta ? teacherMeta.teacherName : undefined
-      });
-    }
-
-    daySlots.sort((a, b) => a.className.localeCompare(b.className) || a.subject.localeCompare(b.subject));
-    return { ...cell, slots: daySlots };
-  }));
+    outWeeks.push(outWeek);
+  }
 
   return { weeks: outWeeks, subjectStyles };
 }
@@ -331,8 +407,6 @@ async function getLessonCalendar(teacherId, year, month, classId) {
   const m = Number(month);
   if (!y || !m) throw new Error('year and month are required.');
 
-  const holidays = await getHolidaysForMonth(y, m);
-  const scheduleMap = await getClassScheduleMap();
   const classSlots = await getTeacherClassSlots(teacherId, classId || '');
   const plans = await listLessonPlans(teacherId, classId || '');
   const planMap = indexPlans(plans);
@@ -343,6 +417,12 @@ async function getLessonCalendar(teacherId, year, month, classId) {
     defaultIndexMap: styleBundle.defaultIndexMap
   };
 
+  const schoolCtx = await loadSchoolMonthContext(
+    y,
+    m,
+    classSlots.map((s) => s.classId).concat(classId ? [classId] : [])
+  );
+
   const subjectsByClass = {};
   classSlots.forEach((slot) => {
     if (!subjectsByClass[slot.classId]) subjectsByClass[slot.classId] = [];
@@ -352,8 +432,13 @@ async function getLessonCalendar(teacherId, year, month, classId) {
   });
 
   const { weeks, subjectStyles } = await buildCalendarDays(
-    y, m, classSlots, scheduleMap, holidays, planMap,
-    { includeEmptySlots: true, styleLookup }
+    y, m, classSlots, planMap,
+    {
+      includeEmptySlots: true,
+      styleLookup,
+      schoolCtx,
+      badgeClassId: classId || '*'
+    }
   );
 
   return {
@@ -364,7 +449,8 @@ async function getLessonCalendar(teacherId, year, month, classId) {
     classSlots,
     subjectsByClass,
     subjectStylePalette: styleBundle.palette,
-    customSubjectStyles: customStyles
+    customSubjectStyles: customStyles,
+    schoolCalendarLinked: true
   };
 }
 
@@ -374,8 +460,6 @@ async function getAdminLessonCalendar(year, month, filters) {
   if (!y || !m) throw new Error('year and month are required.');
 
   const { teacherId, classId } = filters || {};
-  const holidays = await getHolidaysForMonth(y, m);
-  const scheduleMap = await getClassScheduleMap();
   const classNames = await getClassNameMap();
 
   const { listTeachers } = require('./adminService');
@@ -401,7 +485,7 @@ async function getAdminLessonCalendar(year, month, filters) {
       }
       slotRegistry.get(regKey).teachers.push({
         teacherId: tid,
-        teacherName: teacher.name
+        teacherName: teacher.displayName || teacher.name
       });
     }
   }
@@ -415,49 +499,76 @@ async function getAdminLessonCalendar(year, month, filters) {
       subjectStyle(slot.subject, slot.classId, styleLookup);
   });
 
-  const weeks = buildMonthWeeks(y, m, holidays);
-  const outWeeks = weeks.map((week) => week.map((cell) => {
-    const daySlots = [];
-    if (!cell.inMonth || !cell.dateStr) {
-      return { ...cell, slots: daySlots };
+  const schoolCtx = await loadSchoolMonthContext(
+    y,
+    m,
+    adminSlots.map((s) => s.classId).concat(classId ? [classId] : [])
+      .concat(allPlans.map((p) => p.classId))
+  );
+
+  const weeks = buildMonthWeeks(y, m);
+  const outWeeks = [];
+  for (const week of weeks) {
+    const outWeek = [];
+    for (const cell of week) {
+      if (!cell.inMonth || !cell.dateStr) {
+        outWeek.push({
+          ...cell,
+          holiday: '',
+          schoolCaption: '',
+          dayType: '',
+          isClassDay: false,
+          events: [],
+          slots: []
+        });
+        continue;
+      }
+
+      const badgeResolved = await resolveSchoolDay(schoolCtx, classId || '*', cell.dateStr);
+      const meta = schoolCellMeta(badgeResolved);
+      const daySlots = [];
+
+      for (const plan of allPlans) {
+        const date = planLessonDate(plan);
+        if (date !== cell.dateStr) continue;
+        if (teacherId && plan.teacherId !== teacherId) continue;
+        if (classId && plan.classId !== classId) continue;
+
+        const teacher = teacherMap[plan.teacherId];
+        const classResolved = await resolveSchoolDay(schoolCtx, plan.classId, cell.dateStr);
+        daySlots.push({
+          slotKey: slotKey(plan.classId, plan.subject, date),
+          classId: plan.classId,
+          className: classNames[plan.classId] || plan.classId,
+          subject: plan.subject,
+          lessonDate: date,
+          isClassDay: !!classResolved.isClassDay,
+          style: subjectStyles[subjectStyleKey(plan.classId, plan.subject)] ||
+            subjectStyle(plan.subject, plan.classId, styleLookup),
+          teacherId: plan.teacherId,
+          teacherName: teacher ? (teacher.displayName || teacher.name) : plan.teacherId,
+          plan: {
+            planId: plan.planId,
+            title: plan.title,
+            status: plan.status,
+            hasContent: !!(plan.title || plan.objectives || plan.procedure || plan.homework || plan.etc)
+          }
+        });
+      }
+
+      daySlots.sort((a, b) => a.teacherName.localeCompare(b.teacherName) || a.className.localeCompare(b.className));
+      outWeek.push({ ...cell, ...meta, slots: daySlots });
     }
-
-    for (const plan of allPlans) {
-      const date = planLessonDate(plan);
-      if (date !== cell.dateStr) continue;
-      if (teacherId && plan.teacherId !== teacherId) continue;
-      if (classId && plan.classId !== classId) continue;
-
-      const teacher = teacherMap[plan.teacherId];
-      daySlots.push({
-        slotKey: slotKey(plan.classId, plan.subject, date),
-        classId: plan.classId,
-        className: classNames[plan.classId] || plan.classId,
-        subject: plan.subject,
-        lessonDate: date,
-        style: subjectStyles[subjectStyleKey(plan.classId, plan.subject)] ||
-          subjectStyle(plan.subject, plan.classId, styleLookup),
-        teacherId: plan.teacherId,
-        teacherName: teacher ? teacher.name : plan.teacherId,
-        plan: {
-          planId: plan.planId,
-          title: plan.title,
-          status: plan.status,
-          hasContent: !!(plan.title || plan.objectives || plan.procedure || plan.homework || plan.etc)
-        }
-      });
-    }
-
-    daySlots.sort((a, b) => a.teacherName.localeCompare(b.teacherName) || a.className.localeCompare(b.className));
-    return { ...cell, slots: daySlots };
-  }));
+    outWeeks.push(outWeek);
+  }
 
   return {
     year: y,
     month: m,
     weeks: outWeeks,
     subjectStyles,
-    teachers: teachers.map((t) => ({ teacherId: t.teacherId, name: t.name }))
+    teachers: teachers.map((t) => ({ teacherId: t.teacherId, name: t.name })),
+    schoolCalendarLinked: true
   };
 }
 

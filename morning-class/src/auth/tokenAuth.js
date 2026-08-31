@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { AUTH_SECRET } = require('../config');
+const { hasPermission } = require('../services/staffPermissionService');
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -32,15 +33,91 @@ function readBearerToken(req) {
   return '';
 }
 
+function isAdminPortalRole(role) {
+  return role === 'admin' || role === 'principal' || role === 'staff';
+}
+
 function requireRole(...roles) {
-  return function authMiddleware(req, res, next) {
+  return async function authMiddleware(req, res, next) {
     const session = verifyToken(readBearerToken(req));
-    if (!session || !roles.includes(session.role)) {
+    if (!session || !session.role) {
+      return res.status(401).json({ error: 'Login required.' });
+    }
+    // Principal + staff inherit Admin-gated portal APIs; permission keys gate finer access.
+    const ok = roles.includes(session.role) ||
+      (isAdminPortalRole(session.role) && roles.includes('admin'));
+    if (!ok) {
       return res.status(401).json({ error: 'Login required.' });
     }
     req.session = session;
+
+    try {
+      const { assertSessionTokenVersion } = require('../services/accountFlagsService');
+      const tvOk = await assertSessionTokenVersion(session);
+      if (!tvOk) {
+        return res.status(401).json({ error: 'Session expired. Please log in again.' });
+      }
+    } catch (_) { /* fail open only if flags sheet unavailable */ }
+
+    // Path-level permission gate for faculty on admin APIs (Admin superuser bypasses).
+    if (roles.includes('admin') && session.role !== 'admin') {
+      const path = String(req.path || '');
+      const rule = ADMIN_PATH_PERMS.find((r) => r.re.test(path));
+      if (rule && !hasPermission(session, rule.perm)) {
+        return res.status(403).json({ error: 'You do not have permission for this action.' });
+      }
+    }
     next();
   };
 }
 
-module.exports = { signToken, verifyToken, readBearerToken, requireRole };
+const ADMIN_PATH_PERMS = [
+  { re: /^\/admin\/teachers/, perm: 'admin.faculty' },
+  { re: /^\/admin\/faculty/, perm: 'admin.faculty' },
+  { re: /^\/admin\/class-assignments/, perm: 'admin.faculty' },
+  { re: /^\/admin\/bus/, perm: 'admin.bus' },
+  { re: /^\/admin\/consents/, perm: 'admin.consents' },
+  { re: /^\/admin\/consent-templates/, perm: 'admin.consents' },
+  { re: /^\/admin\/lost-and-found/, perm: 'admin.lostFound' },
+  { re: /^\/admin\/classes/, perm: 'admin.classes' },
+  { re: /^\/admin\/students\/[^/]+\/transcript/, perm: 'admin.transcript' },
+  { re: /^\/admin\/students/, perm: 'admin.students' },
+  { re: /^\/admin\/parents/, perm: 'admin.students' },
+  { re: /^\/admin\/audit-log/, perm: 'admin.monitor' },
+  { re: /^\/admin\/report-card-fields/, perm: 'admin.reportCards' },
+  { re: /^\/admin\/school-calendar/, perm: 'admin.schoolCal' },
+  { re: /^\/admin\/school-semesters/, perm: 'admin.schoolCal' },
+  { re: /^\/admin\/terms/, perm: 'admin.schoolCal' },
+  { re: /^\/admin\/timetable/, perm: 'admin.timetables' },
+  { re: /^\/admin\/announcements/, perm: 'admin.announcements' },
+  { re: /^\/admin\/report-cards/, perm: 'admin.reportCards' },
+  { re: /^\/admin\/signature/, perm: 'admin.reportCards' },
+  { re: /^\/admin\/ensure-leadership/, perm: 'admin.reportCards' },
+  { re: /^\/admin\/material-requests/, perm: 'admin.materials' },
+  { re: /^\/admin\/analytics/, perm: 'admin.analytics' },
+  { re: /^\/admin\/lesson-plans/, perm: 'admin.lessons' },
+  { re: /^\/admin\/semester-plans/, perm: 'admin.lessons' },
+  { re: /^\/admin\/monitoring/, perm: 'admin.monitor' },
+  { re: /^\/admin\/overview/, perm: 'admin.monitor' },
+  { re: /^\/admin\/vocab/, perm: 'admin.vocabPlatform' }
+];
+
+/** After requireRole — Admin always passes; faculty need one of the listed keys. */
+function requirePerm(...permKeys) {
+  return function permMiddleware(req, res, next) {
+    if (!req.session) {
+      return res.status(401).json({ error: 'Login required.' });
+    }
+    if (hasPermission(req.session, ...permKeys)) return next();
+    return res.status(403).json({ error: 'You do not have permission for this action.' });
+  };
+}
+
+module.exports = {
+  signToken,
+  verifyToken,
+  readBearerToken,
+  requireRole,
+  requirePerm,
+  isAdminPortalRole
+};

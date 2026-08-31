@@ -15,7 +15,13 @@ const { formatSheetDate } = require('../dateUtils');
 const { listAllGradeTerms, saveGradeTerm, ensureGradeSheets } = require('./gradeWeightService');
 const { TRANSACTIONS_SHEET } = require('./dollarService');
 const { getRecentBuddyActivity } = require('./englishBuddyService');
-const { getRecentVocabActivity } = require('./vocabService');
+const { getRecentVocabActivity } = require('./vocabShared');
+const {
+  listTeachersWithProfiles,
+  upsertTeacherProfile,
+  getTeacherDetail,
+  deleteTeacherRecord
+} = require('./teacherRegistryService');
 const crypto = require('crypto');
 
 function newId(prefix) {
@@ -54,31 +60,51 @@ async function listClasses() {
 }
 
 async function listTeachers() {
-  const rows = await getSheetRows(TEACHER_LIST_SHEET);
-  const out = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (!rows[i][0]) continue;
-    out.push({
-      teacherId: String(rows[i][0]),
-      name: String(rows[i][1] || ''),
-      loginId: String(rows[i][2] || ''),
-      homeroomClassId: String(rows[i][4] || ''),
-      staffRole: String(rows[i][5] || 'Teacher')
-    });
-  }
-  return out;
+  return listTeachersWithProfiles();
+}
+
+async function getTeacher(teacherId) {
+  return getTeacherDetail(teacherId);
+}
+
+async function deleteTeacher(teacherId) {
+  return deleteTeacherRecord(teacherId);
 }
 
 async function saveTeacher(payload) {
+  const {
+    normalizeTitle,
+    parsePermissions,
+    serializePermissions,
+    presetsForTitle,
+    STAFF_TITLES
+  } = require('./staffPermissionService');
+  const { invalidateSheetRowsCache } = require('../sheets');
+
   const teacherId = String(payload.teacherId || '').trim() || newId('T');
   const name = String(payload.name || '').trim();
   const loginId = String(payload.loginId || '').trim();
   const password = String(payload.password || '').trim();
   const homeroomClassId = String(payload.homeroomClassId || '').trim();
-  const staffRole = String(payload.staffRole || 'Teacher').trim();
+  const staffTitle = normalizeTitle(payload.staffTitle || payload.staffRole || 'Teacher');
+  const staffRole = staffTitle;
+  const headTeacherId = String(payload.headTeacherId || '').trim();
   if (!name || !loginId) throw new Error('Name and login ID are required.');
+  if (!STAFF_TITLES.some((t) => t.toLowerCase() === staffTitle.toLowerCase())) {
+    throw new Error('Invalid staff title.');
+  }
 
   const data = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  // Ensure Permissions column header exists (col H)
+  if (data[0] && String(data[0][7] || '') !== 'Permissions') {
+    const headers = (data[0] || []).slice();
+    while (headers.length < 8) headers.push('');
+    headers[5] = headers[5] || 'StaffRole';
+    headers[6] = headers[6] || 'HeadTeacherID';
+    headers[7] = 'Permissions';
+    await updateRange(TEACHER_LIST_SHEET, 'A1:H1', [headers.slice(0, 8)]);
+  }
+
   let found = -1;
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]) === teacherId) { found = i + 1; break; }
@@ -87,14 +113,68 @@ async function saveTeacher(payload) {
     }
   }
   const existingPwd = found > 0 ? String(data[found - 1][3] || '') : '';
-  const row = [teacherId, name, loginId, password || existingPwd || 'changeme123', homeroomClassId, staffRole];
+  const existingHead = found > 0 ? String(data[found - 1][6] || '') : '';
+  const existingPerms = found > 0 ? String(data[found - 1][7] || '') : '';
+  let permissions;
+  if (payload.permissions != null) {
+    permissions = parsePermissions(payload.permissions);
+    if (!permissions.length) permissions = presetsForTitle(staffTitle);
+  } else if (existingPerms) {
+    permissions = parsePermissions(existingPerms);
+    if (!permissions.length) permissions = presetsForTitle(staffTitle);
+  } else {
+    permissions = presetsForTitle(staffTitle);
+  }
+  const row = [
+    teacherId,
+    name,
+    loginId,
+    password || existingPwd || 'changeme123',
+    homeroomClassId,
+    staffRole,
+    headTeacherId || existingHead || '',
+    serializePermissions(permissions)
+  ];
   if (found > 0) {
-    await updateRange(TEACHER_LIST_SHEET, `A${found}:F${found}`, [row]);
+    await updateRange(TEACHER_LIST_SHEET, `A${found}:H${found}`, [row]);
   } else {
     if (!password) throw new Error('Password required for new teacher.');
     await appendRows(TEACHER_LIST_SHEET, [row]);
   }
-  return { teacherId, name, loginId, homeroomClassId, staffRole };
+  invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+
+  const profile = await upsertTeacherProfile(teacherId, {
+    dateOfBirth: payload.dateOfBirth,
+    gender: payload.gender,
+    nationality: payload.nationality,
+    phone: payload.phone,
+    email: payload.email,
+    address: payload.address,
+    emergencyContact: payload.emergencyContact,
+    emergencyPhone: payload.emergencyPhone,
+    title: payload.title,
+    hireDate: payload.hireDate,
+    education: payload.education,
+    notes: payload.notes,
+    preferredName: payload.preferredName
+  }, { keepPhoto: true });
+
+  const { teacherDisplayName } = require('./teacherRegistryService');
+  const preferredName = profile.preferredName || '';
+  return {
+    teacherId,
+    name,
+    preferredName,
+    displayName: teacherDisplayName(name, preferredName),
+    loginId,
+    homeroomClassId,
+    staffRole,
+    staffTitle,
+    headTeacherId: headTeacherId || existingHead || '',
+    permissions,
+    profile,
+    photoPath: profile.photoPath || ''
+  };
 }
 
 async function getMonitoringFeed(options) {
@@ -103,14 +183,12 @@ async function getMonitoringFeed(options) {
   const limit = Number(options && options.limit) || 80;
 
   const nameMaps = { student: {}, teacher: {}, class: {} };
+  const { teacherDisplayNameMap } = require('./teacherRegistryService');
   const students = await getSheetRows(STUDENT_LIST_SHEET);
   for (let i = 1; i < students.length; i++) {
     nameMaps.student[String(students[i][0])] = String(students[i][1] || '');
   }
-  const teachers = await getSheetRows(TEACHER_LIST_SHEET);
-  for (let i = 1; i < teachers.length; i++) {
-    nameMaps.teacher[String(teachers[i][0])] = String(teachers[i][1] || '');
-  }
+  nameMaps.teacher = await teacherDisplayNameMap().catch(() => ({}));
   const classes = await getSheetRows(CLASS_LIST_SHEET);
   for (let i = 1; i < classes.length; i++) {
     nameMaps.class[String(classes[i][0])] = String(classes[i][1] || '');
@@ -321,11 +399,125 @@ async function getAdminOverview() {
   return { classes, teachers, terms, feed };
 }
 
+/**
+ * Ensure demo Principal + Head Teacher accounts exist on Teacher_List.
+ * Also backfills HeadTeacherID on regular teachers that have none assigned.
+ */
+async function ensureLeadershipAccounts() {
+  await ensureAdminSheet();
+  const { invalidateSheetRowsCache } = require('../sheets');
+  const { presetsForTitle, serializePermissions } = require('./staffPermissionService');
+  const rows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  const desiredHeaders = [
+    'TeacherID', 'Name', 'LoginID', 'LoginPassword',
+    'HomeroomClassID', 'StaffRole', 'HeadTeacherID', 'Permissions'
+  ];
+  if (!rows.length) {
+    await appendRows(TEACHER_LIST_SHEET, [desiredHeaders]);
+  } else {
+    const headers = rows[0].slice();
+    while (headers.length < 8) headers.push('');
+    let dirty = false;
+    desiredHeaders.forEach((h, i) => {
+      if (String(headers[i] || '').trim() !== h) {
+        headers[i] = h;
+        dirty = true;
+      }
+    });
+    if (dirty) {
+      await updateRange(TEACHER_LIST_SHEET, 'A1:H1', [headers.slice(0, 8)]);
+    }
+  }
+
+  const data = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  const byLogin = {};
+  const byRole = {};
+  for (let i = 1; i < data.length; i++) {
+    const login = String(data[i][2] || '').trim().toLowerCase();
+    const role = String(data[i][5] || 'Teacher').trim();
+    if (login) byLogin[login] = { rowIndex: i + 1, row: data[i] };
+    const rk = role.toLowerCase();
+    if (!byRole[rk]) byRole[rk] = [];
+    byRole[rk].push({ rowIndex: i + 1, row: data[i] });
+  }
+
+  async function upsertAccount(spec) {
+    const existing = byLogin[spec.loginId.toLowerCase()] ||
+      (byRole[spec.staffRole.toLowerCase()] && byRole[spec.staffRole.toLowerCase()][0]);
+    const permJson = serializePermissions(presetsForTitle(spec.staffRole));
+    if (existing) {
+      const r = existing.row;
+      const teacherId = String(r[0]);
+      const row = [
+        teacherId,
+        String(r[1] || spec.name),
+        String(r[2] || spec.loginId),
+        String(r[3] || spec.password),
+        String(r[4] || ''),
+        spec.staffRole,
+        String(r[6] || ''),
+        String(r[7] || '').trim() || permJson
+      ];
+      await updateRange(TEACHER_LIST_SHEET, `A${existing.rowIndex}:H${existing.rowIndex}`, [row]);
+      return teacherId;
+    }
+    const teacherId = spec.teacherId;
+    await appendRows(TEACHER_LIST_SHEET, [[
+      teacherId, spec.name, spec.loginId, spec.password, '', spec.staffRole, '', permJson
+    ]]);
+    return teacherId;
+  }
+
+  const principalId = await upsertAccount({
+    teacherId: 'T_PRINCIPAL',
+    name: 'Salt Principal',
+    loginId: 'principal',
+    password: 'principal123',
+    staffRole: 'Principal'
+  });
+
+  const headId = await upsertAccount({
+    teacherId: 'T_HEAD',
+    name: 'Salt Head Teacher',
+    loginId: 'head',
+    password: 'head123',
+    staffRole: 'Head Teacher'
+  });
+
+  // Assign Head Teacher to teachers that have none (skip Principal / Head themselves).
+  invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+  const fresh = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true });
+  for (let i = 1; i < fresh.length; i++) {
+    const tid = String(fresh[i][0] || '');
+    const role = String(fresh[i][5] || 'Teacher').trim();
+    if (!tid || tid === headId || tid === principalId) continue;
+    if (/^principal$/i.test(role) || /head\s*teacher/i.test(role)) continue;
+    const currentHead = String(fresh[i][6] || '').trim();
+    if (currentHead) continue;
+    const row = [
+      tid,
+      String(fresh[i][1] || ''),
+      String(fresh[i][2] || ''),
+      String(fresh[i][3] || ''),
+      String(fresh[i][4] || ''),
+      role || 'Teacher',
+      headId,
+      String(fresh[i][7] || '')
+    ];
+    await updateRange(TEACHER_LIST_SHEET, `A${i + 1}:H${i + 1}`, [row]);
+  }
+  invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+  return { principalId, headId };
+}
+
 module.exports = {
   ensureAdminSheet,
+  ensureLeadershipAccounts,
   listClasses,
   listTeachers,
+  getTeacher,
   saveTeacher,
+  deleteTeacher,
   listAllGradeTerms,
   saveGradeTerm,
   getMonitoringFeed,

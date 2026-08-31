@@ -504,6 +504,131 @@ async function saveStudentPhoto(studentId, file) {
   return { studentId, photoPath: webPath };
 }
 
+async function withdrawStudent(studentId) {
+  studentId = String(studentId || '').trim();
+  if (!studentId) throw new Error('Student ID is required.');
+  const existing = await getStudent(studentId);
+  return saveStudent({
+    studentId,
+    name: existing.name,
+    classId: '',
+    status: 'Withdrawn',
+    loginId: existing.loginId,
+    password: '',
+    profile: existing.profile || {},
+    fields: existing.fields || undefined
+  });
+}
+
+async function restoreStudent(studentId) {
+  studentId = String(studentId || '').trim();
+  if (!studentId) throw new Error('Student ID is required.');
+  const existing = await getStudent(studentId);
+  return saveStudent({
+    studentId,
+    name: existing.name,
+    classId: existing.classId || '',
+    status: 'Enrolled',
+    loginId: existing.loginId,
+    password: '',
+    profile: existing.profile || {},
+    fields: existing.fields || undefined
+  });
+}
+
+async function deleteStudent(studentId) {
+  studentId = String(studentId || '').trim();
+  if (!studentId) throw new Error('Student ID is required.');
+  await ensureRegistrySheets();
+
+  const listRows = await getSheetRows(STUDENT_LIST_SHEET, { skipCache: true });
+  let listFound = -1;
+  for (let i = 1; i < listRows.length; i++) {
+    if (String(listRows[i][LIST_COL.studentId]) === studentId) {
+      listFound = i + 1;
+      break;
+    }
+  }
+  if (listFound < 0) throw new Error('Student not found.');
+  await updateRange(STUDENT_LIST_SHEET, `A${listFound}:F${listFound}`, [['', '', '', '', '', '']]);
+  invalidateSheetRowsCache(STUDENT_LIST_SHEET);
+
+  const profileRows = await getSheetRows(STUDENT_PROFILE_SHEET, { skipCache: true });
+  for (let i = 1; i < profileRows.length; i++) {
+    if (String(profileRows[i][PROFILE_COL.studentId]) !== studentId) continue;
+    await updateRange(
+      STUDENT_PROFILE_SHEET,
+      `A${i + 1}:R${i + 1}`,
+      [new Array(PROFILE_HEADERS.length).fill('')]
+    );
+    invalidateSheetRowsCache(STUDENT_PROFILE_SHEET);
+    break;
+  }
+
+  const fieldRows = await getSheetRows(STUDENT_PROFILE_FIELDS_SHEET, { skipCache: true });
+  const kept = [];
+  let changed = false;
+  for (let i = 1; i < fieldRows.length; i++) {
+    if (String(fieldRows[i][FIELD_COL.studentId]) === studentId) {
+      changed = true;
+      continue;
+    }
+    if (fieldRows[i][FIELD_COL.fieldId] || fieldRows[i][FIELD_COL.studentId]) {
+      kept.push(fieldRows[i]);
+    }
+  }
+  if (changed) {
+    const rowWidth = FIELD_HEADERS.length;
+    const maxRows = Math.max(fieldRows.length - 1, kept.length);
+    const toWrite = [];
+    for (let i = 0; i < maxRows; i++) {
+      toWrite.push(i < kept.length ? kept[i] : new Array(rowWidth).fill(''));
+    }
+    if (toWrite.length) {
+      await updateRange(STUDENT_PROFILE_FIELDS_SHEET, `A2:F${toWrite.length + 1}`, toWrite);
+    }
+    invalidateSheetRowsCache(STUDENT_PROFILE_FIELDS_SHEET);
+  }
+
+  const cascade = { parents: 0, bus: 0, consents: 0 };
+  try {
+    const { unlinkAllParentsForStudent } = require('./parentRegistryService');
+    const r = await unlinkAllParentsForStudent(studentId);
+    cascade.parents = (r && r.unlinked) || 0;
+  } catch (e) {
+    console.warn('[purge] parent unlink failed:', e.message || e);
+  }
+  try {
+    const busService = require('./busService');
+    const assigns = await busService.listAssignments({ studentId, includeInactive: true });
+    for (const a of assigns || []) {
+      await busService.deleteAssignment(a.assignmentId);
+      cascade.bus += 1;
+    }
+  } catch (e) {
+    console.warn('[purge] bus cleanup failed:', e.message || e);
+  }
+  try {
+    const consent = require('./consentService');
+    const r = await consent.clearSubmissionsForStudent(studentId);
+    cascade.consents = (r && r.cleared) || 0;
+  } catch (e) {
+    console.warn('[purge] consent cleanup failed:', e.message || e);
+  }
+
+  try {
+    const { writeAudit } = require('./auditService');
+    await writeAudit({
+      action: 'student_purge',
+      entityType: 'student',
+      entityId: studentId,
+      detail: cascade
+    });
+  } catch (_) { /* optional */ }
+
+  return { deleted: true, studentId, cascade };
+}
+
 module.exports = {
   SECTION_TEMPLATES,
   ensureRegistrySheets,
@@ -515,5 +640,8 @@ module.exports = {
   getStudentForTeacher,
   teacherCanViewStudent,
   saveStudentPhoto,
-  getTeacherStudentIds
+  getTeacherStudentIds,
+  withdrawStudent,
+  restoreStudent,
+  deleteStudent
 };

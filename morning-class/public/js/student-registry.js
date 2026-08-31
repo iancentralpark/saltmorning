@@ -1,12 +1,23 @@
 (function (global) {
-  const SECTION_LABELS = {
+  const SECTION_KEYS = {
+    basic: 'sr.section.basic',
+    parents: 'sr.section.parents',
+    gradebook: 'sr.section.gradebook',
+    schedule: 'sr.section.schedule',
+    medical: 'sr.section.medical'
+  };
+  const SECTION_FALLBACK = {
     basic: 'Basic info',
+    parents: 'Parents',
     gradebook: 'Gradebook',
     schedule: 'Schedule & attendance',
     medical: 'Medical'
   };
 
   let role = 'admin';
+  function isAdminLike() {
+    return role === 'admin' || role === 'principal' || role === 'staff';
+  }
   let readonly = false;
   let api = null;
   let escapeHtml = null;
@@ -18,10 +29,127 @@
   let activeId = null;
   let activeStudent = null;
   let activeSection = 'basic';
+  let linkedParents = [];
+  let liveGrades = null;
   let listFilter = { q: '', classId: '', status: '' };
 
+  function t(key, fallback) {
+    return global.SaltI18n ? SaltI18n.t(key, fallback) : (fallback || key);
+  }
+
+  function sectionLabel(key) {
+    return t(SECTION_KEYS[key] || key, SECTION_FALLBACK[key] || key);
+  }
+
+  function showSaveToast(message, isError) {
+    let toast = document.getElementById('srSaveToast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'srSaveToast';
+      toast.className = 'sr-save-toast hidden';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message || t('common.saved', 'Saved.');
+    toast.classList.toggle('is-error', !!isError);
+    toast.classList.remove('hidden');
+    clearTimeout(showSaveToast._timer);
+    showSaveToast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+    const errEl = mountEl && mountEl.querySelector('.sr-save-error');
+    if (errEl) {
+      errEl.style.color = isError ? '#dc2626' : '#16a34a';
+      errEl.textContent = message || '';
+    }
+  }
+
   function apiBase() {
-    return role === 'admin' ? '/api/admin/students' : '/api/teacher/students';
+    return isAdminLike() ? '/api/admin/students' : '/api/teacher/students';
+  }
+
+  function canIssueTranscript() {
+    // Teachers never issue official transcripts; Admin always can;
+    // Faculty need admin.transcript (plus Students tab access).
+    if (!isAdminLike()) return false;
+    if (role === 'admin') return true;
+    const profile = (global.SaltApp && SaltApp.getProfile)
+      ? (SaltApp.getProfile(role) || {})
+      : {};
+    if (global.SaltApp && typeof SaltApp.hasPermission === 'function') {
+      return SaltApp.hasPermission(Object.assign({ role: role }, profile), 'admin.transcript');
+    }
+    const perms = Array.isArray(profile.permissions) ? profile.permissions : [];
+    return perms.includes('*') || perms.indexOf('admin.transcript') >= 0;
+  }
+
+  function uiLang() {
+    try {
+      return (global.SaltI18n && SaltI18n.getLang && SaltI18n.getLang() === 'ko') ? 'ko' : 'en';
+    } catch (_) {
+      return 'en';
+    }
+  }
+
+  async function downloadOfficialTranscript() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    const btn = mountEl && mountEl.querySelector('.sr-transcript-btn');
+    const prev = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = t('sr.transcript.working', 'Generating…');
+    }
+    const lang = uiLang();
+    const path = apiBase() + '/' + encodeURIComponent(activeStudent.studentId) +
+      '/transcript/pdf?lang=' + encodeURIComponent(lang);
+    try {
+      const token = global.SaltApp && SaltApp.getToken ? SaltApp.getToken(role) : '';
+      const res = await fetch((global.SaltApp && SaltApp.API ? SaltApp.API : '') + path, {
+        headers: {
+          Accept: 'application/pdf, text/html',
+          Authorization: token ? ('Bearer ' + token) : ''
+        }
+      });
+      const contentType = String(res.headers.get('Content-Type') || '');
+      if (!res.ok) {
+        let msg = 'Could not generate transcript.';
+        try {
+          const err = await res.json();
+          if (err && err.error) msg = err.error;
+        } catch (_) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      if (contentType.indexOf('application/pdf') >= 0 || (blob.type && blob.type.indexOf('pdf') >= 0)) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const safeName = String(activeStudent.name || 'Student').replace(/[^\w.-]+/g, '_');
+        a.href = url;
+        a.download = 'Official_Transcript_' + activeStudent.studentId + '_' + safeName + '.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showSaveToast(t('sr.transcript.done', 'Transcript downloaded.'));
+      } else {
+        // HTML fallback — open printable official sheet
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        if (!win) {
+          // popup blocked: navigate same tab
+          location.href = url;
+        } else {
+          setTimeout(() => {
+            try { win.focus(); win.print(); } catch (_) { /* ignore */ }
+          }, 600);
+        }
+        showSaveToast(t('sr.transcript.printHint', 'Opened printable transcript — use Save as PDF.'));
+      }
+    } catch (e) {
+      showSaveToast(e.message || t('sr.transcript.fail', 'Could not generate transcript.'), true);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    }
   }
 
   function photoUrl(path) {
@@ -97,9 +225,15 @@
     const p = s.profile || {};
     const canEdit = !readonly;
 
-    let tabs = Object.keys(SECTION_LABELS).map((key) =>
+    const sectionKeys = Object.keys(SECTION_KEYS).filter((key) => {
+      if (key === 'parents' && !isAdminLike()) return false;
+      return true;
+    });
+    if (activeSection === 'parents' && !isAdminLike()) activeSection = 'basic';
+
+    let tabs = sectionKeys.map((key) =>
       '<button type="button" class="sr-section-tab' + (activeSection === key ? ' active' : '') +
-      '" data-section="' + key + '">' + SECTION_LABELS[key] + '</button>'
+      '" data-section="' + key + '">' + escapeHtml(sectionLabel(key)) + '</button>'
     ).join('');
 
     let body = '';
@@ -135,6 +269,12 @@
           '<label>Login ID <input class="sr-input" data-key="loginId" value="' + escapeHtml(s.loginId || '') + '"></label>' +
           '<label>Password <input class="sr-input" data-key="password" type="password" placeholder="' +
           (s.hasPassword ? 'Leave blank to keep' : 'Required for new') + '"></label>' +
+          (s.studentId && isAdminLike()
+            ? '<div class="sr-span2"><button type="button" class="btn btn-ghost sr-reset-pw" data-role="student" data-id="' +
+              escapeHtml(s.studentId) + '">' +
+              escapeHtml(t('sr.resetPassword', 'Reset password (temp + force change)')) +
+              '</button></div>'
+            : '') +
           '<label>Date of birth <input class="sr-input" data-key="dateOfBirth" type="date" value="' + escapeHtml(p.dateOfBirth || '') + '"></label>' +
           '<label>Gender <input class="sr-input" data-key="gender" value="' + escapeHtml(p.gender || '') + '"></label>' +
           '<label>Nationality <input class="sr-input" data-key="nationality" value="' + escapeHtml(p.nationality || '') + '"></label>' +
@@ -173,6 +313,94 @@
           '</div>'
         )) +
         '</div>';
+    } else if (activeSection === 'parents') {
+      if (!s.studentId) {
+        body = '<p class="muted">Save the student first, then link parent accounts.</p>';
+      } else if (readonly) {
+        body = linkedParents.length
+          ? '<div class="sr-parent-list">' + linkedParents.map((p) =>
+            '<div class="sr-parent-card">' +
+            '<strong>' + escapeHtml(p.name || p.parentId) + '</strong>' +
+            '<div class="muted small">' + escapeHtml(p.relationship || 'Guardian') +
+            (p.loginId ? ' · ' + escapeHtml(p.loginId) : '') + '</div>' +
+            '</div>'
+          ).join('') + '</div>'
+          : '<p class="muted">No parent accounts linked.</p>';
+      } else {
+        body =
+          '<div class="sr-parent-list" id="srParentList">' +
+          (linkedParents.length
+            ? linkedParents.map((p) => {
+              const rel = p.relationship || 'Guardian';
+              const relOpts = ['Guardian', 'Mother', 'Father', 'Other'].map((r) =>
+                '<option value="' + r + '"' + (rel === r ? ' selected' : '') + '>' + r + '</option>'
+              ).join('');
+              return '<div class="sr-parent-card" data-parent-id="' + escapeHtml(p.parentId) + '">' +
+                '<div class="sr-parent-card-main">' +
+                '<strong>' + escapeHtml(p.name || p.parentId) + '</strong>' +
+                '<div class="muted small">' +
+                (p.loginId ? 'login ' + escapeHtml(p.loginId) : escapeHtml(p.parentId)) +
+                (p.phone ? ' · ' + escapeHtml(p.phone) : '') +
+                '</div>' +
+                '<label class="sr-parent-rel-edit muted small">Relationship ' +
+                '<select class="sr-parent-rel-select" data-parent-id="' + escapeHtml(p.parentId) + '">' +
+                relOpts + '</select></label>' +
+                '</div>' +
+                '<div style="display:flex;flex-direction:column;gap:0.35rem;align-items:flex-end">' +
+                '<button type="button" class="btn btn-ghost sr-unlink-parent" data-parent-id="' +
+                escapeHtml(p.parentId) + '">Unlink</button>' +
+                (isAdminLike()
+                  ? '<button type="button" class="btn btn-ghost sr-reset-pw" data-role="parent" data-id="' +
+                    escapeHtml(p.parentId) + '">' +
+                    escapeHtml(t('sr.resetPasswordShort', 'Reset PW')) +
+                    '</button>' +
+                    '<button type="button" class="btn btn-ghost sr-deactivate-parent" data-id="' +
+                    escapeHtml(p.parentId) + '">' +
+                    escapeHtml(t('sr.deactivateParent', 'Deactivate')) +
+                    '</button>'
+                  : '') +
+                '</div>' +
+                '</div>';
+            }).join('')
+            : '<p class="muted">No parent accounts linked yet.</p>') +
+          '</div>' +
+          '<h4 class="sr-subsection-title">Link or create parent</h4>' +
+          '<p class="muted small">Already have a parent login (e.g. sibling)? Search and link below — do not create again. ' +
+          'New family: fill Name + Login ID + Password, then Link parent.</p>' +
+          '<div class="sr-form-grid sr-parent-link-form" autocomplete="off">' +
+          '<label class="sr-span2">Find existing parent <input class="sr-parent-search" type="search" ' +
+          'placeholder="Name / login / phone" list="srParentOptions" autocomplete="off" ' +
+          'autocapitalize="off" spellcheck="false">' +
+          '<datalist id="srParentOptions"></datalist></label>' +
+          '<input type="hidden" class="sr-parent-id" value="" autocomplete="off">' +
+          '<label>Name (new only) <input class="sr-parent-name" placeholder="Required if creating" ' +
+          'autocomplete="off" name="salt_parent_name"></label>' +
+          '<label>Login ID (new only) <input class="sr-parent-login" placeholder="e.g. onyumom" ' +
+          'autocomplete="off" name="salt_parent_login" autocapitalize="off" spellcheck="false"></label>' +
+          '<label>Password (new only) <input class="sr-parent-password" type="password" ' +
+          'placeholder="Required for new" autocomplete="new-password" name="salt_parent_password"></label>' +
+          '<label>Relationship <select class="sr-parent-rel" autocomplete="off">' +
+          '<option value="Guardian">Guardian</option>' +
+          '<option value="Mother">Mother</option>' +
+          '<option value="Father">Father</option>' +
+          '<option value="Other">Other</option>' +
+          '</select></label>' +
+          '<label>Phone <input class="sr-parent-phone" type="tel" autocomplete="off" name="salt_parent_phone"></label>' +
+          '<label>Email <input class="sr-parent-email" type="email" autocomplete="off" name="salt_parent_email"></label>' +
+          '</div>' +
+          '<div style="margin-top:0.75rem">' +
+          '<button type="button" class="btn btn-primary sr-link-parent-btn">Link parent</button>' +
+          '</div>' +
+          '<div class="error sr-parent-error" style="margin-top:0.5rem"></div>';
+      }
+    } else if (activeSection === 'gradebook') {
+      body =
+        '<div class="sr-grades-live" id="srGradesLive"><p class="muted">' +
+        escapeHtml(t('common.loading', 'Loading…')) + '</p></div>' +
+        '<h4 class="sr-subsection-title">' + escapeHtml(t('sr.gradebook.notesTitle', 'Placement / admin notes')) + '</h4>' +
+        '<p class="muted small">' + escapeHtml(t('sr.gradebook.notesHelp',
+          'Optional notes (placement, ESL level). Live class grades are shown above from the teacher gradebook.')) + '</p>' +
+        renderSectionFields('gradebook');
     } else if (activeSection === 'schedule') {
       if (!activeStudent.studentId) {
         body = '<p class="muted">Save the student first to add a weekly timetable.</p>' + renderSectionFields('schedule');
@@ -194,8 +422,24 @@
       '<div class="sr-detail-title">' + avatarHtml(s, 'sr-photo-sm') +
       '<div><strong>' + escapeHtml(s.name || 'New student') + '</strong>' +
       '<div class="muted small">' + escapeHtml(s.studentId || 'Not saved yet') +
-      (s.className ? ' · ' + escapeHtml(s.className) : '') + '</div></div></div>' +
-      (canEdit ? '<button type="button" class="btn btn-primary sr-save-btn">Save</button>' : '') +
+      (s.className ? ' · ' + escapeHtml(s.className) : '') +
+      (s.status ? ' · <span class="sr-status-chip sr-status-' + escapeHtml(String(s.status).toLowerCase()) + '">' +
+        escapeHtml(s.status) + '</span>' : '') +
+      '</div></div></div>' +
+      '<div class="sr-detail-actions">' +
+      (s.studentId && canIssueTranscript()
+        ? '<button type="button" class="btn btn-ghost sr-transcript-btn" title="' +
+          escapeHtml(t('sr.transcript.title', 'Official Transcript (PDF)')) + '">' +
+          escapeHtml(t('sr.transcript.btn', '📄 Official Transcript')) + '</button>'
+        : '') +
+      (canEdit ? '<button type="button" class="btn btn-primary sr-save-btn">' +
+        escapeHtml(t('common.save', 'Save')) + '</button>' : '') +
+      (canEdit && s.studentId && s.status !== 'Withdrawn'
+        ? '<button type="button" class="btn btn-danger sr-withdraw-btn">Delete</button>' : '') +
+      (canEdit && s.studentId && s.status === 'Withdrawn'
+        ? '<button type="button" class="btn btn-ok sr-restore-btn">Restore</button>' +
+          '<button type="button" class="btn btn-danger sr-purge-btn">Permanently delete</button>' : '') +
+      '</div>' +
       '</div>' +
       '<div class="sr-section-tabs">' + tabs + '</div>' +
       '<div class="sr-section-body">' + body + '</div>' +
@@ -203,6 +447,80 @@
 
     bindDetailEvents();
     mountScheduleTimetable();
+    if (activeSection === 'gradebook' && activeStudent && activeStudent.studentId) {
+      loadLiveGrades(activeStudent.studentId);
+    }
+  }
+
+  function renderLiveGrades(mount) {
+    if (!mount) return;
+    if (!liveGrades) {
+      mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+      return;
+    }
+    if (liveGrades.message && !(liveGrades.subjects || []).length) {
+      mount.innerHTML = '<p class="muted">' + escapeHtml(liveGrades.message) + '</p>';
+      return;
+    }
+    const terms = liveGrades.terms || [];
+    const termOpts = (terms.length ? terms : [liveGrades.term || 'Term1']).map((term) =>
+      '<option value="' + escapeHtml(term) + '"' +
+      (term === liveGrades.term ? ' selected' : '') + '>' + escapeHtml(term) + '</option>'
+    ).join('');
+    let html =
+      '<div class="sr-grades-live-head">' +
+      '<div><strong>' + escapeHtml(t('sr.gradebook.liveTitle', 'Class gradebook')) + '</strong>' +
+      '<div class="muted small">' + escapeHtml(liveGrades.className || liveGrades.classId || '') + '</div></div>' +
+      '<label class="muted small">' + escapeHtml(t('sr.gradebook.term', 'Term')) + ' ' +
+      '<select class="sr-grades-term" id="srGradesTerm">' + termOpts + '</select></label>' +
+      '</div>';
+    const subjects = liveGrades.subjects || [];
+    if (!subjects.length) {
+      html += '<p class="muted">' + escapeHtml(t('sr.gradebook.empty', 'No grades recorded yet.')) + '</p>';
+    } else {
+      html += subjects.map((subj) => {
+        const final = subj.finalGrade == null || subj.finalGrade === ''
+          ? '—'
+          : (Number(subj.finalGrade).toFixed(1) + '%');
+        const chips = (subj.recent || []).filter((r) => r.score != null && r.score !== '').map((r) =>
+          '<span class="sr-grade-chip" title="' + escapeHtml(r.date || '') + '">' +
+          escapeHtml(r.title) + ': ' + escapeHtml(String(r.score)) +
+          (r.maxScore != null ? '/' + escapeHtml(String(r.maxScore)) : '') +
+          '</span>'
+        ).join('');
+        return '<div class="sr-grade-subject">' +
+          '<div class="sr-grade-subject-head">' +
+          '<strong>' + escapeHtml(subj.subject) + '</strong>' +
+          '<span class="sr-grade-final">' + escapeHtml(final) + '</span>' +
+          '</div>' +
+          (chips ? '<div class="sr-grade-recent">' + chips + '</div>' :
+            '<div class="muted small">' + escapeHtml(t('sr.gradebook.noScores', 'No scored assessments yet.')) + '</div>') +
+          '</div>';
+      }).join('');
+    }
+    mount.innerHTML = html;
+    const sel = mount.querySelector('#srGradesTerm');
+    if (sel) {
+      sel.addEventListener('change', () => {
+        if (activeStudent && activeStudent.studentId) {
+          loadLiveGrades(activeStudent.studentId, sel.value);
+        }
+      });
+    }
+  }
+
+  async function loadLiveGrades(studentId, term) {
+    const mount = mountEl && mountEl.querySelector('#srGradesLive');
+    if (!mount || !isAdminLike()) return;
+    mount.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    try {
+      const q = term ? ('?term=' + encodeURIComponent(term)) : '';
+      liveGrades = await api('/api/admin/students/' + encodeURIComponent(studentId) + '/grades' + q, {}, role);
+      if (activeSection === 'gradebook') renderLiveGrades(mount);
+    } catch (e) {
+      liveGrades = null;
+      mount.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Failed to load grades') + '</p>';
+    }
   }
 
   function mountScheduleTimetable() {
@@ -212,7 +530,7 @@
     if (!ttMount) return;
     if (!readonly) {
       api(
-        (role === 'admin' ? '/api/admin/timetable/students/' : '/api/teacher/timetable/students/') +
+        (isAdminLike() ? '/api/admin/timetable/students/' : '/api/teacher/timetable/students/') +
         encodeURIComponent(activeStudent.studentId),
         {},
         role
@@ -250,6 +568,7 @@
     let html = '<div class="sr-list-items">';
     students.forEach((s) => {
       const active = s.studentId === activeId ? ' active' : '';
+      const status = s.status || 'Enrolled';
       html +=
         '<button type="button" class="sr-list-item' + active + '" data-id="' + escapeHtml(s.studentId) + '">' +
         avatarHtml(s, 'sr-photo-xs') +
@@ -257,6 +576,10 @@
         '<strong>' + escapeHtml(s.name) + '</strong>' +
         '<span class="muted small">' + escapeHtml(s.className || 'Unassigned') +
         (s.gradeLevel ? ' · ' + escapeHtml(s.gradeLevel) : '') + '</span>' +
+        (isAdminLike()
+          ? '<span class="sr-status-chip sr-status-' + escapeHtml(String(status).toLowerCase()) + '">' +
+            escapeHtml(status) + '</span>'
+          : '') +
         '</div></button>';
     });
     html += '</div>';
@@ -275,10 +598,11 @@
       '<aside class="sr-sidebar">' +
       '<div class="sr-toolbar">' +
       '<input type="search" class="sr-search" placeholder="Search students…">' +
-      (role === 'admin' ? (
+      (isAdminLike() ? (
         '<select class="sr-filter-class"><option value="">All classes</option></select>' +
-        '<select class="sr-filter-status"><option value="">All statuses</option>' +
-        '<option value="Enrolled">Enrolled</option><option value="Inactive">Inactive</option><option value="Withdrawn">Withdrawn</option></select>'
+        '<select class="sr-filter-status"><option value="Enrolled">Enrolled</option>' +
+        '<option value="">All statuses</option>' +
+        '<option value="Inactive">Inactive</option><option value="Withdrawn">Withdrawn</option></select>'
       ) : (
         '<select class="sr-filter-class"><option value="">All my classes</option></select>'
       )) +
@@ -291,7 +615,7 @@
 
     const classSelect = mountEl.querySelector('.sr-filter-class');
     if (classSelect) {
-      classSelect.innerHTML = '<option value="">' + (role === 'admin' ? 'All classes' : 'All my classes') + '</option>' +
+      classSelect.innerHTML = '<option value="">' + (isAdminLike() ? 'All classes' : 'All my classes') + '</option>' +
         classes.map((c) => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
       classSelect.value = listFilter.classId;
     }
@@ -325,11 +649,88 @@
       btn.addEventListener('click', () => {
         activeSection = btn.dataset.section;
         renderDetail();
+        if (activeSection === 'parents' && activeStudent && activeStudent.studentId) {
+          loadLinkedParents(activeStudent.studentId);
+        }
+        if (activeSection === 'gradebook' && activeStudent && activeStudent.studentId) {
+          loadLiveGrades(activeStudent.studentId);
+        }
       });
     });
 
     const saveBtn = mountEl.querySelector('.sr-save-btn');
     if (saveBtn) saveBtn.addEventListener('click', saveStudent);
+
+    const transcriptBtn = mountEl.querySelector('.sr-transcript-btn');
+    if (transcriptBtn) transcriptBtn.addEventListener('click', downloadOfficialTranscript);
+
+    const withdrawBtn = mountEl.querySelector('.sr-withdraw-btn');
+    if (withdrawBtn) withdrawBtn.addEventListener('click', withdrawActiveStudent);
+
+    const restoreBtn = mountEl.querySelector('.sr-restore-btn');
+    if (restoreBtn) restoreBtn.addEventListener('click', restoreActiveStudent);
+
+    const purgeBtn = mountEl.querySelector('.sr-purge-btn');
+    if (purgeBtn) purgeBtn.addEventListener('click', purgeActiveStudent);
+
+    const linkBtn = mountEl.querySelector('.sr-link-parent-btn');
+    if (linkBtn) linkBtn.addEventListener('click', linkParentToActiveStudent);
+
+    mountEl.querySelectorAll('.sr-unlink-parent').forEach((btn) => {
+      btn.addEventListener('click', () => unlinkParent(btn.dataset.parentId));
+    });
+
+    mountEl.querySelectorAll('.sr-reset-pw').forEach((btn) => {
+      btn.addEventListener('click', () => resetAccountPassword(btn.dataset.role, btn.dataset.id));
+    });
+
+    mountEl.querySelectorAll('.sr-deactivate-parent').forEach((btn) => {
+      btn.addEventListener('click', () => deactivateParentAccount(btn.dataset.id));
+    });
+
+    mountEl.querySelectorAll('.sr-parent-rel-select').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        updateParentRelationship(sel.dataset.parentId, sel.value);
+      });
+    });
+
+    const searchInput = mountEl.querySelector('.sr-parent-search');
+    if (searchInput) {
+      let timer = null;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => searchParents(searchInput.value), 250);
+      });
+      searchInput.addEventListener('change', () => {
+        const val = searchInput.value.trim();
+        const opts = Array.from(mountEl.querySelectorAll('#srParentOptions option'));
+        const hit = opts.find((o) => o.value === val);
+        const pid = (hit && hit.dataset.parentId) || '';
+        const idInput = mountEl.querySelector('.sr-parent-id');
+        if (pid && idInput) {
+          idInput.value = pid;
+          // Linking existing — clear create fields so browser autofill cannot overwrite
+          ['sr-parent-name', 'sr-parent-login', 'sr-parent-password', 'sr-parent-phone', 'sr-parent-email']
+            .forEach((cls) => {
+              const el = mountEl.querySelector('.' + cls);
+              if (el) el.value = '';
+            });
+        }
+      });
+      // Browsers often autofill admin credentials into the first password field — wipe after paint
+      setTimeout(() => {
+        const login = mountEl.querySelector('.sr-parent-login');
+        const pass = mountEl.querySelector('.sr-parent-password');
+        if (login && !login.dataset.userTyped) login.value = '';
+        if (pass && !pass.dataset.userTyped) pass.value = '';
+      }, 100);
+      mountEl.querySelector('.sr-parent-login')?.addEventListener('input', (e) => {
+        e.target.dataset.userTyped = '1';
+      });
+      mountEl.querySelector('.sr-parent-password')?.addEventListener('input', (e) => {
+        e.target.dataset.userTyped = '1';
+      });
+    }
 
     mountEl.querySelectorAll('.sr-add-field').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -405,6 +806,70 @@
     return out;
   }
 
+  async function withdrawActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    if (!confirm('Delete "' + activeStudent.name + '" from the active student list?\n\nThey will be marked Withdrawn and removed from their class. You can restore them later from the Withdrawn filter.')) {
+      return;
+    }
+    const errEl = mountEl.querySelector('.sr-save-error');
+    errEl.textContent = '';
+    try {
+      await api(apiBase() + '/' + encodeURIComponent(activeStudent.studentId) + '/withdraw', {
+        method: 'POST',
+        body: {}
+      }, role);
+      activeStudent = null;
+      activeId = '';
+      await loadList();
+      renderDetail();
+    } catch (e) {
+      errEl.style.color = '#dc2626';
+      errEl.textContent = e.message;
+    }
+  }
+
+  async function restoreActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    const errEl = mountEl.querySelector('.sr-save-error');
+    errEl.textContent = '';
+    try {
+      const data = await api(apiBase() + '/' + encodeURIComponent(activeStudent.studentId) + '/restore', {
+        method: 'POST',
+        body: {}
+      }, role);
+      activeStudent = data.student;
+      activeId = activeStudent.studentId;
+      listFilter.status = 'Enrolled';
+      const statusSelect = mountEl.querySelector('.sr-filter-status');
+      if (statusSelect) statusSelect.value = 'Enrolled';
+      await loadList();
+      renderDetail();
+    } catch (e) {
+      errEl.style.color = '#dc2626';
+      errEl.textContent = e.message;
+    }
+  }
+
+  async function purgeActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId) return;
+    if (!confirm('Permanently delete "' + activeStudent.name + '"?\n\nThis cannot be undone.')) return;
+    if (!confirm('Final confirmation: permanently erase this student record?')) return;
+    const errEl = mountEl.querySelector('.sr-save-error');
+    errEl.textContent = '';
+    try {
+      await api(apiBase() + '/' + encodeURIComponent(activeStudent.studentId), {
+        method: 'DELETE'
+      }, role);
+      activeStudent = null;
+      activeId = '';
+      await loadList();
+      renderDetail();
+    } catch (e) {
+      errEl.style.color = '#dc2626';
+      errEl.textContent = e.message;
+    }
+  }
+
   async function saveStudent() {
     const errEl = mountEl.querySelector('.sr-save-error');
     errEl.textContent = '';
@@ -438,13 +903,11 @@
       const data = await api(apiBase(), { method: 'POST', body: payload }, role);
       activeStudent = data.student;
       activeId = activeStudent.studentId;
-      errEl.style.color = '#16a34a';
-      errEl.textContent = 'Saved.';
       await loadList();
       renderDetail();
+      showSaveToast(t('common.saved', 'Saved.'), false);
     } catch (e) {
-      errEl.style.color = '#dc2626';
-      errEl.textContent = e.message;
+      showSaveToast(e.message || 'Save failed', true);
     }
   }
 
@@ -488,14 +951,186 @@
     renderDetail();
   }
 
+  async function loadLinkedParents(studentId) {
+    if (!isAdminLike() || !studentId) return;
+    try {
+      const data = await api('/api/admin/students/' + encodeURIComponent(studentId) + '/parents', {}, role);
+      linkedParents = Array.isArray(data.parents) ? data.parents : [];
+    } catch (_) {
+      linkedParents = [];
+    }
+    if (activeSection === 'parents' && activeStudent && activeStudent.studentId === studentId) {
+      renderDetail();
+    }
+  }
+
+  async function searchParents(query) {
+    const q = String(query || '').trim();
+    const list = mountEl && mountEl.querySelector('#srParentOptions');
+    if (!list) return;
+    if (q.length < 1) {
+      list.innerHTML = '';
+      return;
+    }
+    try {
+      const data = await api('/api/admin/parents?q=' + encodeURIComponent(q), {}, role);
+      const parents = Array.isArray(data.parents) ? data.parents : [];
+      list.innerHTML = parents.map((p) => {
+        const label = (p.name || p.parentId) +
+          (p.loginId ? ' (' + p.loginId + ')' : '') +
+          ' · ' + p.parentId;
+        return '<option value="' + escapeHtml(label) + '" data-parent-id="' +
+          escapeHtml(p.parentId) + '"></option>';
+      }).join('');
+    } catch (_) {
+      list.innerHTML = '';
+    }
+  }
+
+  async function linkParentToActiveStudent() {
+    if (!activeStudent || !activeStudent.studentId || !isAdminLike()) return;
+    const errEl = mountEl.querySelector('.sr-parent-error');
+    if (errEl) errEl.textContent = '';
+    const parentId = String((mountEl.querySelector('.sr-parent-id') || {}).value || '').trim();
+    const searchVal = String((mountEl.querySelector('.sr-parent-search') || {}).value || '').trim();
+    // Resolve parent id from datalist if search selected but hidden id empty
+    let resolvedId = parentId;
+    if (!resolvedId && searchVal) {
+      const hit = Array.from(mountEl.querySelectorAll('#srParentOptions option'))
+        .find((o) => o.value === searchVal);
+      resolvedId = (hit && hit.dataset.parentId) || '';
+    }
+    const name = String((mountEl.querySelector('.sr-parent-name') || {}).value || '').trim();
+    const loginId = String((mountEl.querySelector('.sr-parent-login') || {}).value || '').trim();
+    const password = String((mountEl.querySelector('.sr-parent-password') || {}).value || '');
+    const relationship = String((mountEl.querySelector('.sr-parent-rel') || {}).value || 'Guardian').trim() || 'Guardian';
+    const phone = String((mountEl.querySelector('.sr-parent-phone') || {}).value || '').trim();
+    const email = String((mountEl.querySelector('.sr-parent-email') || {}).value || '').trim();
+
+    let payload;
+    if (resolvedId) {
+      // Existing parent → link only (do not send autofilled login/password)
+      payload = {
+        parentId: resolvedId,
+        relationship,
+        isPrimary: linkedParents.length === 0
+      };
+    } else {
+      if (!name || !loginId) {
+        if (errEl) {
+          errEl.textContent = 'Search an existing parent above, or enter Name + Login ID to create a new one.';
+        }
+        return;
+      }
+      payload = {
+        name,
+        loginId,
+        password: password || undefined,
+        relationship,
+        phone: phone || undefined,
+        email: email || undefined,
+        isPrimary: linkedParents.length === 0
+      };
+    }
+    try {
+      await api('/api/admin/students/' + encodeURIComponent(activeStudent.studentId) + '/parents', {
+        method: 'POST',
+        body: payload
+      }, role);
+      await loadLinkedParents(activeStudent.studentId);
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || 'Could not link parent.';
+    }
+  }
+
+  async function unlinkParent(parentId) {
+    if (!activeStudent || !activeStudent.studentId || !parentId) return;
+    if (!confirm('Unlink this parent from the student?')) return;
+    const errEl = mountEl.querySelector('.sr-parent-error');
+    if (errEl) errEl.textContent = '';
+    try {
+      await api(
+        '/api/admin/students/' + encodeURIComponent(activeStudent.studentId) +
+        '/parents/' + encodeURIComponent(parentId),
+        { method: 'DELETE' },
+        role
+      );
+      await loadLinkedParents(activeStudent.studentId);
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || 'Could not unlink parent.';
+    }
+  }
+
+  async function resetAccountPassword(accountRole, accountId) {
+    if (!isAdminLike() || !accountRole || !accountId) return;
+    const label = accountRole === 'parent' ? 'parent' : 'student';
+    if (!confirm(
+      'Reset ' + label + ' password?\n\nA temporary password will be generated and they must change it on next login.'
+    )) return;
+    try {
+      const res = await api('/api/admin/accounts/reset-password', {
+        method: 'POST',
+        body: { role: accountRole, accountId, forceChange: true }
+      }, role);
+      const temp = (res && res.temporaryPassword) || '';
+      const login = (res && res.loginId) || '';
+      window.alert(
+        'Password reset.\n\n' +
+        (login ? 'Login: ' + login + '\n' : '') +
+        'Temporary password: ' + temp +
+        '\n\nShare this securely. They must change it after login.'
+      );
+    } catch (e) {
+      window.alert(e.message || 'Could not reset password.');
+    }
+  }
+
+  async function deactivateParentAccount(parentId) {
+    if (!isAdminLike() || !parentId) return;
+    if (!confirm('Deactivate this parent account? They will no longer be able to log in.')) return;
+    try {
+      await api('/api/admin/parents/' + encodeURIComponent(parentId) + '/deactivate', {
+        method: 'POST',
+        body: { active: false }
+      }, role);
+      window.alert('Parent account deactivated.');
+    } catch (e) {
+      window.alert(e.message || 'Could not deactivate parent account.');
+    }
+  }
+
+  async function updateParentRelationship(parentId, relationship) {
+    if (!activeStudent || !activeStudent.studentId || !parentId) return;
+    const errEl = mountEl.querySelector('.sr-parent-error');
+    if (errEl) errEl.textContent = '';
+    try {
+      await api(
+        '/api/admin/students/' + encodeURIComponent(activeStudent.studentId) +
+        '/parents/' + encodeURIComponent(parentId),
+        { method: 'PATCH', body: { relationship: relationship || 'Guardian' } },
+        role
+      );
+      const hit = linkedParents.find((p) => p.parentId === parentId);
+      if (hit) hit.relationship = relationship || 'Guardian';
+    } catch (e) {
+      if (errEl) errEl.textContent = e.message || 'Could not update relationship.';
+      await loadLinkedParents(activeStudent.studentId);
+    }
+  }
+
   async function openStudent(studentId) {
     activeId = studentId;
     activeSection = 'basic';
+    linkedParents = [];
+    liveGrades = null;
     try {
       const data = await api(apiBase() + '/' + encodeURIComponent(studentId), {}, role);
       activeStudent = data.student;
       renderList();
       renderDetail();
+      if (isAdminLike() && activeStudent && activeStudent.studentId) {
+        loadLinkedParents(activeStudent.studentId);
+      }
     } catch (e) {
       activeStudent = null;
       renderDetail();
@@ -518,18 +1153,29 @@
 
   function init(opts) {
     role = opts.role || 'admin';
-    readonly = role !== 'admin';
+    readonly = !isAdminLike();
     api = opts.api;
     escapeHtml = opts.escapeHtml;
     $ = opts.$;
     classes = opts.classes || [];
     mountEl = typeof opts.mount === 'string' ? document.getElementById(opts.mount) : opts.mount;
-    listFilter = { q: '', classId: '', status: '' };
+    listFilter = { q: '', classId: '', status: isAdminLike() ? 'Enrolled' : '' };
     students = [];
     activeId = null;
     activeStudent = null;
     activeSection = 'basic';
+    linkedParents = [];
+    liveGrades = null;
     renderShell();
+    if (!init._langBound) {
+      init._langBound = true;
+      window.addEventListener('salt:langchange', () => {
+        if (!mountEl) return;
+        renderShell();
+        renderList();
+        renderDetail();
+      });
+    }
   }
 
   async function open() {
@@ -542,7 +1188,7 @@
     if (mountEl && mountEl.querySelector('.sr-filter-class')) {
       const sel = mountEl.querySelector('.sr-filter-class');
       const val = sel.value;
-      sel.innerHTML = '<option value="">' + (role === 'admin' ? 'All classes' : 'All my classes') + '</option>' +
+      sel.innerHTML = '<option value="">' + (isAdminLike() ? 'All classes' : 'All my classes') + '</option>' +
         classes.map((c) => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
       sel.value = val;
     }

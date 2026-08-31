@@ -4,99 +4,248 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708ag2">
+  <link rel="stylesheet" href="/css/app.css?v=20260813ux1">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
-<div class="shell">
+<div class="shell" id="teacherShellRoot">
   <div id="loginView" class="card">
     <h2>Teacher</h2>
     <p class="muted">Redirecting to sign in…</p>
     <p><a href="/">Go to login</a></p>
   </div>
 
-  <div id="classesView" class="hidden">
-    <div class="topbar">
-      <div class="brand" id="welcomeText">My Classes</div>
-      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
+    <div id="appShell" class="hidden teacher-app-shell">
+  <header class="topbar teacher-topbar teacher-shell-topbar">
+    <div class="teacher-shell-identity">
+      <button type="button" class="brand brand-link" id="teacherNameBrand" title="Go to home timetable">Teacher</button>
+      <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
     </div>
-    <div class="card">
-      <div class="section-title">Homeroom</div>
-      <div class="class-list" id="homeroomList"></div>
-      <div class="section-title">Assigned classes</div>
-      <div class="class-list" id="assignedList"></div>
-      <div style="margin-top:1.25rem;display:flex;flex-wrap:wrap;gap:0.5rem">
-        <button type="button" class="btn btn-primary" id="openStudentsBtn">Student directory</button>
-        <button type="button" class="btn btn-ghost" id="openTimetableBtn">My timetable</button>
+    <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home" data-i18n="nav.home">Home</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="students" data-i18n="nav.students">Students</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lesson" data-i18n="nav.lessonPlan">Lesson plan</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="materials" data-i18n="nav.materials">Materials</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="conferences" data-i18n="nav.conferences">Conferences</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lostFound" data-i18n="nav.lostAndFound">Lost &amp; Found</button>
+      <div class="teacher-nav-dropdown" id="classToolsMenu">
+        <button type="button" class="btn btn-ghost teacher-nav-btn" id="classToolsMenuBtn" aria-expanded="false" aria-haspopup="true" data-i18n="nav.classTools">Class tools</button>
+        <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
+          <button type="button" class="teacher-nav-dropdown-item" id="openJeopardyBtn" role="menuitem">AI Jeopardy</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
+        </div>
       </div>
-      <p class="muted small" style="margin-top:0.35rem">View student records and your weekly teaching schedule.</p>
+      <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
+      <button class="btn btn-ghost" id="changePasswordBtn" type="button" data-change-password data-i18n="nav.password">Password</button>
+      <button class="btn btn-ghost teacher-nav-logout" id="shellLogoutBtn" type="button" data-i18n="nav.logout">Log out</button>
+    </nav>
+  </header>
+
+  <div id="homeView" class="hidden teacher-home">
+    <div class="teacher-home-grid">
+      <div class="card teacher-home-tt">
+        <div class="section-title" data-i18n="teacher.home.timetable">My timetable</div>
+        <div id="teacherTimetableMount" class="teacher-home-tt-scroll"></div>
+      </div>
+      <div class="card teacher-home-classes" id="homeClassesSection">
+        <div class="section-title" data-i18n="teacher.home.classes">My classes</div>
+        <p class="muted small teacher-home-classes-help" data-i18n="teacher.home.classesHelp">Pick a shortcut, or open the class for all tools.</p>
+        <div class="class-list" id="assignedList"></div>
+      </div>
+    </div>
+    <div class="card bus-duty-section" id="homeBusDutySection">
+      <div class="section-title" data-i18n="teacher.home.busDuty">Bus duty today</div>
+      <p class="muted small" data-i18n="teacher.home.busDutyHelp">Your assigned runs. No-show is for morning pickup only.</p>
+      <div class="bus-duty-toolbar">
+        <label class="att-date-label">Date <input type="date" id="teacherBusDutyDate"></label>
+        <button type="button" class="btn btn-ghost" id="teacherBusDutyRefresh">Refresh</button>
+      </div>
+      <div id="teacherBusDutyBody" class="bus-duty-body"><p class="muted">Loading…</p></div>
+    </div>
+    <div class="card" id="teacherPushCard">
+      <div class="section-title" data-i18n="push.title">Notifications</div>
+      <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+        <button type="button" class="btn btn-primary" id="teacherPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
+        <button type="button" class="btn btn-ghost" id="teacherPushDisableBtn" data-i18n="push.disable">Turn off</button>
+        <span class="muted small" id="teacherPushStatus"></span>
+      </div>
+    </div>
+    <div class="card hidden" id="homeHeadReportSection">
+      <div class="section-title">Report cards — Head Teacher</div>
+      <p class="muted small">Review cards submitted by your teachers, sign, then submit to the Principal.</p>
+      <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+        <label class="btn btn-ghost">Upload Head Teacher signature
+          <input type="file" id="headRcSigFile" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <button type="button" class="btn btn-ghost" id="headRcRefresh">Refresh</button>
+      </div>
+      <div id="headTeamBox" style="margin-bottom:1rem"></div>
+      <div id="headRcQueue"><p class="muted">Loading…</p></div>
+      <div id="headRcPreview" class="hidden" style="margin-top:1rem"></div>
+      <div class="error" id="headRcError"></div>
+    </div>
+  </div>
+
+  <div id="globalLessonView" class="hidden">
+    <div class="card lp-cal-panel">
+      <div id="lpSubjectsGlobal" class="lp-subjects-panel"></div>
+      <div id="lpSemesterGlobal" class="lp-semester-panel"></div>
+      <div class="lp-cal-toolbar">
+        <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
+        <strong class="lp-month-label"></strong>
+        <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
+        <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
+      </div>
+      <div id="lpCalLayoutGlobal" class="lp-cal-layout">
+        <div class="lp-cal-main">
+          <div id="lpCalendarGlobal"><p class="muted">Loading calendar…</p></div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div id="studentsView" class="hidden">
-    <div class="topbar">
-      <div>
-        <button class="btn btn-ghost" id="studentsBackBtn" type="button">← Classes</button>
-        <div class="brand">Student directory</div>
-      </div>
-      <button class="btn btn-ghost" id="studentsLogoutBtn" type="button">Log out</button>
-    </div>
     <div class="card">
       <div id="teacherStudentRegistryMount"></div>
     </div>
   </div>
 
-  <div id="timetableView" class="hidden">
-    <div class="topbar">
-      <div>
-        <button class="btn btn-ghost" id="timetableBackBtn" type="button">← Classes</button>
-        <div class="brand">My timetable</div>
-      </div>
-      <button class="btn btn-ghost" id="timetableLogoutBtn" type="button">Log out</button>
+  <div id="materialsView" class="hidden">
+    <div class="card mat-panel">
+      <h3 style="margin-top:0" data-i18n="materials.teacherTitle">Teaching material requests</h3>
+      <p class="muted small" data-i18n="materials.teacherHelp">Ask the school to buy materials you need. Admins will mark requests purchased when done.</p>
+      <form id="matRequestForm" class="mat-form">
+        <label><span data-i18n="materials.subject">Subject</span>
+          <input id="matSubject" required placeholder="e.g. Science, Art">
+        </label>
+        <label><span data-i18n="materials.class">Class</span>
+          <select id="matClass"></select>
+        </label>
+        <label class="mat-span-2"><span data-i18n="materials.content">Content / reason</span>
+          <textarea id="matContent" rows="3" required placeholder="What is it for?"></textarea>
+        </label>
+        <label><span data-i18n="materials.itemName">Item name</span>
+          <input id="matItemName" required placeholder="e.g. A4 colored paper">
+        </label>
+        <label><span data-i18n="materials.quantity">Quantity</span>
+          <input type="number" id="matQty" min="1" step="1" value="1" required>
+        </label>
+        <label><span data-i18n="materials.unitPrice">Unit price</span>
+          <input type="number" id="matUnitPrice" min="0" step="1" value="0" required>
+        </label>
+        <label><span data-i18n="materials.total">Total</span>
+          <input type="number" id="matTotal" min="0" step="1" value="0" required>
+        </label>
+        <label class="mat-span-2"><span data-i18n="materials.link">Purchase link (optional)</span>
+          <input id="matLink" type="url" placeholder="https://…">
+        </label>
+        <div class="mat-form-actions mat-span-2">
+          <input type="hidden" id="matEditId" value="">
+          <button type="submit" class="btn btn-primary" data-i18n="materials.submit">Request purchase</button>
+          <button type="button" class="btn btn-ghost hidden" id="matCancelEditBtn" data-i18n="common.cancel">Cancel</button>
+          <span class="muted small" id="matFormMsg"></span>
+        </div>
+        <div class="error mat-span-2" id="matFormError"></div>
+      </form>
+      <h4 data-i18n="materials.myRequests">My requests</h4>
+      <div id="matTeacherList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
     </div>
-    <div class="card" id="teacherTimetableMount"></div>
+  </div>
+
+  <div id="conferencesView" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0" data-i18n="teacher.conf.title">Parent conferences</h3>
+      <p class="muted small" data-i18n="teacher.conf.help">Open time slots by date, length, and type. Parents are notified in their portal.</p>
+      <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.65rem;margin-bottom:0.75rem">
+        <label><span class="muted small">Date</span><input type="date" id="tchConfDate"></label>
+        <label><span class="muted small">Start</span><input type="time" id="tchConfStart" value="09:00"></label>
+        <label><span class="muted small">End</span><input type="time" id="tchConfEnd" value="12:00"></label>
+        <label><span class="muted small">Interval</span>
+          <select id="tchConfMins"><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select>
+        </label>
+        <label><span class="muted small">Type</span>
+          <select id="tchConfType">
+            <option value="InPerson">In person</option>
+            <option value="Phone">Phone</option>
+            <option value="Zoom">Zoom</option>
+          </select>
+        </label>
+        <label style="min-width:140px;flex:1"><span class="muted small">Location / link</span>
+          <input id="tchConfLoc" maxlength="120" placeholder="Room / Zoom URL">
+        </label>
+        <label style="min-width:120px"><span class="muted small">Target class</span>
+          <input id="tchConfTarget" maxlength="40" value="*" placeholder="* or class id">
+        </label>
+        <button type="button" class="btn btn-primary" id="tchConfOpenBtn" data-i18n="teacher.conf.open">Open slots</button>
+      </div>
+      <p class="error" id="tchConfErr" style="margin:0 0 0.75rem"></p>
+      <h4 data-i18n="teacher.conf.openSlots">Open slots</h4>
+      <div id="tchConfOpenList"><p class="muted">…</p></div>
+      <h4 style="margin-top:1.25rem" data-i18n="teacher.conf.booked">Booked</h4>
+      <div id="tchConfBookedList"><p class="muted">…</p></div>
+    </div>
+  </div>
+
+  <div id="lostFoundView" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0" data-i18n="teacher.laf.title">Lost &amp; Found</h3>
+      <p class="muted small" data-i18n="teacher.laf.help">Items turned in to the office. Photos are shown below — ask the office if one belongs to a student.</p>
+      <div id="tchLafList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
   </div>
 
   <div id="classView" class="hidden">
-    <div class="topbar">
-      <div>
-        <button class="btn btn-ghost" id="backBtn" type="button">← Classes</button>
-        <div class="brand" id="classTitle"></div>
+    <div class="teacher-class-context" id="classContextBar">
+      <button type="button" class="btn btn-ghost teacher-back-home" id="classBackHomeBtn">← Home</button>
+      <div class="teacher-class-context-meta">
+        <strong id="classContextName">Class</strong>
+        <span class="muted small" id="classContextRole"></span>
       </div>
     </div>
-    <div class="tabs">
-      <button class="tab active" data-tab="attendance" type="button">Attendance</button>
-      <button class="tab" data-tab="grades" type="button">Grades</button>
-      <button class="tab" data-tab="dollars" type="button">Dollars</button>
-      <button class="tab" data-tab="homework" type="button">Homework</button>
-      <button class="tab" data-tab="buddy" type="button">English Buddy</button>
-      <button class="tab" data-tab="vocab" type="button">Vocab</button>
-      <button class="tab" data-tab="report" type="button">Report card</button>
-      <button class="tab" data-tab="lesson" type="button">Lesson plan</button>
-    </div>
-
-    <div id="panelAttendance" class="card att-panel">
+    <nav class="class-subnav" id="classTabs" aria-label="Class sections">
+      <div class="class-subnav-track">
+        <button class="class-subnav-item active" data-tab="attendance" data-homeroom-only="1" type="button" data-i18n="nav.attendance">Attendance</button>
+        <button class="class-subnav-item" data-tab="grades" type="button" data-i18n="nav.parentGrades">Grades</button>
+        <button class="class-subnav-item" data-tab="dollars" type="button" data-i18n="nav.dollars">Dollars</button>
+        <button class="class-subnav-item" data-tab="homework" type="button" data-i18n="nav.homework">Homework</button>
+        <button class="class-subnav-item" data-tab="announcements" type="button" data-i18n="nav.parentAnnouncements">Announcements</button>
+        <button class="class-subnav-item" data-tab="vocab" data-homeroom-only="1" type="button" data-i18n="nav.vocabShort">Vocab</button>
+        <button class="class-subnav-item" data-tab="report" type="button" data-i18n="nav.report">Report</button>
+        <button class="class-subnav-item" data-tab="analytics" data-homeroom-only="1" type="button" data-i18n="nav.analytics">Analytics</button>
+        <button class="class-subnav-item" data-tab="lesson" data-homeroom-only="1" type="button" data-i18n="nav.lessons">Lessons</button>
+      </div>
+    </nav>
+<div id="panelAttendance" class="card att-panel">
       <div class="att-toolbar">
-        <label class="att-date-label">Date <input type="date" id="attDate"></label>
-        <button type="button" class="btn btn-primary" id="monthlyReportBtn">Monthly Report</button>
+        <label class="att-date-label"><span data-i18n="teacher.att.date">Date</span> <input type="date" id="attDate"></label>
+        <button type="button" class="btn btn-primary" id="monthlyReportBtn" data-i18n="teacher.att.monthly">Monthly report</button>
       </div>
       <div id="attScheduleAlert" class="att-alert"></div>
       <div id="attStudentList" class="att-student-list"></div>
     </div>
 
     <div id="panelGrades" class="card hidden grades-panel">
-      <div class="grades-toolbar-minimal">
-        <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
-        <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
-        <span id="gradeContextLabel" class="muted small"></span>
+      <div id="gradeSubjectPicker" class="grade-subject-picker hidden">
+        <p class="muted small" id="gradeSubjectPickerHint">Select a subject to view the gradebook.</p>
+        <div id="gradeSubjectList" class="grade-subject-list"></div>
       </div>
-      <input type="hidden" id="gradeTerm">
-      <input type="hidden" id="gradeSubject">
-      <div id="gradeWeightSummary" class="grade-weight-summary"></div>
-      <div id="gradebookWrap" class="gb-wrap">
-        <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
+      <div id="gradebookSection" class="hidden">
+        <div class="grades-toolbar-minimal">
+          <button type="button" class="btn btn-ghost hidden" id="gradeBackToSubjectsBtn">← Subjects</button>
+          <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
+          <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
+          <span id="gradeContextLabel" class="muted small"></span>
+          <span id="gradeReadOnlyBadge" class="grade-ro-badge hidden">View only</span>
+        </div>
+        <input type="hidden" id="gradeTerm">
+        <input type="hidden" id="gradeSubject">
+        <div id="gradeWeightSummary" class="grade-weight-summary"></div>
+        <div id="gradebookWrap" class="gb-wrap">
+          <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
+        </div>
       </div>
       <div class="error" id="gradesError"></div>
     </div>
@@ -108,29 +257,23 @@
     </div>
 
     <div id="panelHomework" class="card hidden">
-      <form id="hwPostForm" class="form-grid" style="margin-bottom:1rem">
-        <h3 style="margin:0">Post homework</h3>
-        <input id="hwTitle" placeholder="Title" required maxlength="120">
-        <textarea id="hwDesc" placeholder="Description (optional)" rows="2" maxlength="500"></textarea>
-        <label class="muted small">Date <input type="date" id="hwDate"></label>
-        <button class="btn btn-primary" type="submit">Post</button>
-        <div class="error" id="hwPostError"></div>
-      </form>
+      <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem">
+        <p class="muted small" style="margin:0">Homework by assigned date. Open a day to mark student work done.</p>
+        <button type="button" class="btn btn-primary" id="hwOpenPostBtn">Post Homework</button>
+      </div>
+      <div id="hwDateList" class="hw-date-list"></div>
       <div id="hwTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="hwTeacherError"></div>
     </div>
 
-    <div id="panelBuddy" class="card hidden">
-      <p class="muted small">Monitor English Buddy usage, unlock students, and review chats.</p>
-      <div id="buddyTeacherList"><p class="muted">Loading…</p></div>
-      <div id="buddyTeacherChat" class="hidden" style="margin-top:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
-          <strong id="buddyChatTitle">Chat</strong>
-          <button type="button" class="btn btn-ghost" id="buddyChatClose">Close</button>
-        </div>
-        <div id="buddyChatBody" class="buddy-chat" style="max-height:280px;margin-top:0.5rem"></div>
+    
+    <div id="panelAnnouncements" class="card hidden">
+      <p class="muted small" style="margin:0 0 0.75rem">Post to this class's students and/or their parents. Add a link, photo, or file.</p>
+      <div id="teacherAnnCompose"></div>
+      <div style="margin:0.85rem 0 0.5rem">
+        <button type="button" class="btn btn-ghost" id="teacherAnnRefresh">Refresh</button>
       </div>
-      <div class="error" id="buddyTeacherError"></div>
+      <div id="teacherAnnList"><p class="muted">Loading…</p></div>
     </div>
 
     <div id="panelVocab" class="card hidden">
@@ -140,24 +283,74 @@
     </div>
 
     <div id="panelReport" class="card hidden">
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
-        <input id="reportTerm" value="Term1" placeholder="Term">
-        <input id="reportSubject" placeholder="Subject filter">
-        <button class="btn btn-primary" id="loadReportBtn" type="button">Load</button>
+      <div class="rc-panel-toolbar">
+        <label class="muted small">Term
+          <input id="reportTerm" value="Term1" placeholder="Term1">
+        </label>
+        <button class="btn btn-ghost" id="loadReportBtn" type="button">Refresh</button>
       </div>
-      <div id="reportBody"></div>
+      <div id="reportBody"><p class="muted">Loading report card…</p></div>
       <div class="error" id="reportError"></div>
+    </div>
+
+    <div id="panelAnalytics" class="card hidden la-panel">
+      <div class="la-toolbar">
+        <div>
+          <h3 style="margin:0">Learning Analytics</h3>
+          <p class="muted small" style="margin:0.25rem 0 0">SR/MAP trends, engagement, early-warning badges, and essay-style AI learning profiles.</p>
+        </div>
+        <div class="la-toolbar-actions">
+          <select id="laStatusFilter">
+            <option value="">All statuses</option>
+            <option value="on_track">On Track</option>
+            <option value="attention">Attention</option>
+            <option value="warning">Warning</option>
+            <option value="intervention">Intervention Required</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="laRefresh">Refresh</button>
+          <button type="button" class="btn btn-primary" id="laSeedMock">Load demo data</button>
+        </div>
+      </div>
+      <div id="laCounts" class="la-counts"></div>
+      <div id="laRoster"></div>
+
+      <details class="la-import">
+        <summary>Import Star Reading / MAP (PDF or scan)</summary>
+        <p class="muted small">Upload the official report PDF or a clear photo/scan. AI reads the scores and matches students in this class.</p>
+        <div class="la-import-row">
+          <select id="laImportSource">
+            <option value="star_reading">Star Reading</option>
+            <option value="map">NWEA MAP</option>
+          </select>
+          <input type="file" id="laImportFile" accept="application/pdf,image/*">
+          <button type="button" class="btn btn-primary" id="laImportBtn">Analyze &amp; import</button>
+        </div>
+        <p class="muted small" id="laImportMsg"></p>
+      </details>
+
+      <div id="laDetail" class="la-detail hidden">
+        <div class="la-detail-head">
+          <h3 id="laDetailTitle" style="margin:0">Student analysis</h3>
+          <div>
+            <button type="button" class="btn btn-primary" id="laDiagnoseBtn">Generate AI learning profile</button>
+            <button type="button" class="btn btn-ghost" id="laDetailClose">Close</button>
+          </div>
+        </div>
+        <div id="laDetailBody"></div>
+      </div>
     </div>
 
     <div id="panelLesson" class="card hidden lp-cal-panel">
       <div id="lpGradeWeights" class="lp-weights-box"></div>
       <div id="lpSubjectsClass" class="lp-subjects-panel"></div>
+      <div id="lpSemesterClass" class="lp-semester-panel"></div>
       <div class="lp-cal-toolbar">
         <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
         <strong class="lp-month-label"></strong>
         <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
         <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
       </div>
+      <p class="muted small lp-cal-school-note">Slots follow the school calendar (holidays, breaks, events). Empty days mean no class that day.</p>
       <div id="lpCalLayout" class="lp-cal-layout">
         <div class="lp-cal-main">
           <div id="lpCalendarMount"><p class="muted">Loading calendar…</p></div>
@@ -179,7 +372,7 @@
   <div class="lp-field">
     <div class="lp-field-label">Subject</div>
     <select id="lpSubjectSelect"></select>
-    <p class="muted small" id="lpSubjectHint">My subjects에서 과목을 추가할 수 있습니다.</p>
+    <p class="muted small" id="lpSubjectHint">Add subjects under My subjects to grow this list.</p>
   </div>
   <div class="lp-field">
     <div class="lp-field-label">Title</div>
@@ -231,6 +424,11 @@
     <div id="gradeWeightRows" class="gw-editor"></div>
     <div class="gw-add-row">
       <select id="gradeWeightPresetSelect"></select>
+      <input id="gradeWeightCustomLabel" class="hidden" type="text" maxlength="60" placeholder="Custom category name">
+      <select id="gradeWeightCustomAgg" class="hidden" title="How scores combine">
+        <option value="average">Average of entries</option>
+        <option value="single">Single score</option>
+      </select>
       <button type="button" class="btn btn-ghost" id="gradeWeightAdd">Add category</button>
       <strong id="gradeWeightTotal"></strong>
     </div>
@@ -239,6 +437,30 @@
       <button type="button" class="btn btn-ghost" id="gradeWeightsClose">Close</button>
     </div>
     <div class="error" id="gradeWeightsError"></div>
+  </div>
+</div>
+
+<div id="hwPostModal" class="modal hidden hw-modal" role="dialog">
+  <div class="modal-card modal-wide">
+    <h3>Post Homework</h3>
+    <p class="muted small">Add one or more homework items for the assigned date. Each item can have its own due date.</p>
+    <form id="hwPostForm" class="form-grid">
+      <label>Assigned date <input type="date" id="hwDate" required></label>
+      <input id="hwTitle" placeholder="Post title (optional summary)" maxlength="120">
+      <textarea id="hwDesc" placeholder="Overall description (optional)" rows="2" maxlength="500"></textarea>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.35rem">
+          <strong>Homework items</strong>
+          <button type="button" class="btn btn-ghost" id="hwAddItemBtn">+ Add Homework</button>
+        </div>
+        <div id="hwItemsMount"></div>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="btn btn-primary" type="submit">Post</button>
+        <button type="button" class="btn btn-ghost" id="hwPostClose">Cancel</button>
+      </div>
+      <div class="error" id="hwPostError"></div>
+    </form>
   </div>
 </div>
 
@@ -277,21 +499,76 @@
   </div>
 </div>
 
+<div id="yearAttModal" class="modal hidden" role="dialog">
+  <div class="modal-card modal-wide ya-modal">
+    <div class="ya-modal-head">
+      <h3 id="yearAttTitle" style="margin:0">Year-Long Attendance</h3>
+      <button type="button" class="btn btn-ghost" id="yearAttClose">Close</button>
+    </div>
+    <div id="yearAttBody">
+      <div class="ya-top">
+        <div class="ya-meta" id="yearAttMeta"></div>
+        <div class="ya-pie-wrap">
+          <div class="ya-pie" id="yearAttPie" aria-hidden="true"></div>
+          <div class="ya-legend" id="yearAttLegend"></div>
+        </div>
+      </div>
+      <div class="ya-month-nav">
+        <button type="button" class="btn btn-ghost" id="yearAttPrev" aria-label="Previous month">‹</button>
+        <strong id="yearAttMonthLabel"></strong>
+        <button type="button" class="btn btn-ghost" id="yearAttNext" aria-label="Next month">›</button>
+      </div>
+      <div id="yearAttCal"></div>
+    </div>
+  </div>
+</div>
+  </div><!-- /appShell -->
+
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260708ag"></script>
-<script src="/js/teacher-attendance.js?v=20260708ag"></script>
-<script src="/js/teacher-grades.js?v=20260708quota"></script>
-<script src="/js/teacher-lesson.js?v=20260708ag"></script>
-<script src="/js/messenger.js?v=20260708ag"></script>
-<script src="/js/student-registry.js?v=20260709registry"></script>
-<script src="/js/timetable.js?v=20260709tt"></script>
+<script src="/js/app.js?v=20260813ux1"></script>
+<script src="/js/i18n.js?v=20260813ux1"></script>
+<script src="/js/change-password.js?v=20260813gap27"></script>
+<script src="/js/material-requests.js?v=20260813ux1"></script>
+<script src="/js/conferences.js?v=20260813ux1"></script>
+<script src="/js/lost-and-found.js?v=20260813ux1"></script>
+<script src="/js/push-client.js?v=20260813push3"></script>
+<script src="/js/teacher-attendance.js?v=20260812bus7"></script>
+<script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
+<script src="/js/report-card-print.js?v=20260810rcsig2"></script>
+<script src="/js/teacher-reportcard.js?v=20260811rctoolbar"></script>
+<script src="/js/teacher-analytics.js?v=20260813gap27"></script>
+<script src="/js/subject-colors.js?v=20260810ttclass"></script>
+<script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
+<script src="/js/messenger.js?v=20260813gap1"></script>
+<script src="/js/announcements.js?v=20260813gap27"></script>
+<script src="/js/student-registry.js?v=20260813gap27"></script>
+<script src="/js/timetable.js?v=20260813gap1"></script>
 <script>
 (function() {
   const role = 'teacher';
   const { api, getToken, setToken, getProfile, setProfile, $, show, hide, todayISO, escapeHtml } = SaltApp;
+
+  /** Teachers without explicit permissions (legacy accounts) keep full access. */
+  function teacherHasPerm(key) {
+    const p = getProfile(role) || {};
+    const perms = Array.isArray(p.permissions) ? p.permissions : [];
+    if (!perms.length) return true;
+    if (SaltApp.hasPermission(p, key)) return true;
+    // Legacy Head Teachers may still use title until permissions are re-saved.
+    if (key === 'teacher.headReports' && /head\s*teacher/i.test(String(p.staffRole || p.staffTitle || ''))) {
+      return true;
+    }
+    return false;
+  }
+
   let currentClass = null;
+  let lessonScope = 'class';
+  let teacherClasses = [];
+  let teacherClassModels = [];
+  let applyingRoute = false;
+  let currentClassTab = '';
 
   SaltAttendance.init({
     $, show, hide, escapeHtml, todayISO, api,
@@ -304,108 +581,772 @@
     switchTab
   });
 
+  SaltReportCard.init({
+    $, show, hide, escapeHtml, api, role,
+    getClass: () => currentClass
+  });
+
+  SaltAnalytics.init({
+    $, show, hide, escapeHtml, api, role,
+    getClass: () => currentClass
+  });
+
   SaltLesson.init({
     $, show, hide, escapeHtml, api, role,
-    getClass: () => currentClass,
+    getClass: () => (lessonScope === 'global' ? null : currentClass),
     onClassOpenExtra: async () => {
       await SaltGrades.loadActiveTerm();
       SaltGrades.loadLessonWeights();
     }
   });
 
-  function classCard(c, isHomeroom) {
-    const subj = (c.subjects && c.subjects.length) ? c.subjects.join(', ') : (isHomeroom ? 'All subjects' : '');
-    return '<div class="class-card" data-id="' + escapeHtml(c.classId) + '" data-name="' + escapeHtml(c.className) + '" data-subjects="' + escapeHtml(subj) + '">' +
-      '<strong>' + escapeHtml(c.className) + '</strong><br><small>' + escapeHtml(c.classId) + ' · ' + escapeHtml(subj) + '</small></div>';
+  function parseClassFromCard(el) {
+    let subjects = [];
+    try { subjects = JSON.parse(el.dataset.subjects || '[]'); } catch (e) { subjects = []; }
+    return {
+      classId: el.dataset.id,
+      className: el.dataset.name,
+      isHomeroom: el.dataset.homeroom === '1',
+      subjects: subjects,
+      roleLabel: el.dataset.roles || ''
+    };
+  }
+
+  function classCard(c) {
+    const isHomeroom = !!c.isHomeroom;
+    const roleLabel = c.roleLabel || (c.roles && c.roles.length ? c.roles.join(' / ') : (c.subjects || []).join(' / '));
+    const subjectsJson = JSON.stringify(c.subjects || []);
+    const quick = isHomeroom
+      ? [['attendance', 'Attendance'], ['grades', 'Grades'], ['homework', 'Homework']]
+      : [['grades', 'Grades'], ['homework', 'Homework'], ['dollars', 'Dollars']];
+    const actions = quick.map((pair) =>
+      '<button type="button" class="class-card-quick" data-tab="' + pair[0] + '">' + pair[1] + '</button>'
+    ).join('') +
+      '<button type="button" class="class-card-quick class-card-quick-more" data-tab="">Open</button>';
+    return '<div class="class-card' + (isHomeroom ? ' class-card-homeroom' : '') +
+      '" data-id="' + escapeHtml(c.classId) +
+      '" data-name="' + escapeHtml(c.className) +
+      '" data-homeroom="' + (isHomeroom ? '1' : '0') +
+      '" data-subjects="' + escapeHtml(subjectsJson) +
+      '" data-roles="' + escapeHtml(roleLabel) + '">' +
+      (isHomeroom ? '<span class="class-homeroom-badge">Homeroom</span>' : '') +
+      '<strong>' + escapeHtml(c.className) + '</strong>' +
+      (roleLabel ? '<div class="class-card-roles">' + escapeHtml(roleLabel) + '</div>' : '') +
+      '<div class="class-card-actions">' + actions + '</div>' +
+      '</div>';
   }
 
   async function loadClasses() {
     const data = await api('/api/teacher/classes', {}, role);
-    $('homeroomList').innerHTML = (data.homeroom || []).map(c => classCard(c, true)).join('') ||
-      '<p style="color:var(--muted)">No homeroom assigned.</p>';
-    $('assignedList').innerHTML = (data.assigned || []).map(c => classCard(c, false)).join('') ||
-      '<p style="color:var(--muted)">No other classes assigned.</p>';
-    document.querySelectorAll('.class-card').forEach(el => {
-      el.addEventListener('click', () => openClass({
-        classId: el.dataset.id,
-        className: el.dataset.name,
-        subjects: el.dataset.subjects
-      }));
+    const classes = data.classes && data.classes.length
+      ? data.classes
+      : [].concat(
+          (data.homeroom || []).map((c) => Object.assign({}, c, { isHomeroom: true, subjects: [], roles: ['Homeroom'], roleLabel: 'Homeroom' })),
+          (data.assigned || []).map((c) => Object.assign({}, c, {
+            isHomeroom: false,
+            subjects: c.subjects || [],
+            roles: c.subjects || [],
+            roleLabel: (c.subjects || []).join(' / ')
+          }))
+        );
+    $('assignedList').innerHTML = classes.map(classCard).join('') ||
+      '<p style="color:var(--muted)">No classes assigned.</p>';
+    document.querySelectorAll('.class-card').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        const quick = e.target.closest('.class-card-quick');
+        const cls = parseClassFromCard(el);
+        if (quick) {
+          e.preventDefault();
+          e.stopPropagation();
+          const tab = quick.getAttribute('data-tab') || '';
+          navigateToClass(cls, tab || defaultClassTabFor(cls));
+          return;
+        }
+        navigateToClass(cls);
+      });
     });
-    const teacherClasses = [].concat(data.homeroom || [], data.assigned || []);
     const seen = new Set();
     const classOpts = [];
-    teacherClasses.forEach((c) => {
+    classes.forEach((c) => {
       if (!c.classId || seen.has(c.classId)) return;
       seen.add(c.classId);
       classOpts.push({ classId: c.classId, name: c.className });
     });
     SaltStudentRegistry.setClasses(classOpts);
+    teacherClasses = classOpts.map((c) => ({ classId: c.classId, className: c.name }));
+    teacherClassModels = classes.slice();
+    if (typeof SaltMaterialRequests !== 'undefined') {
+      SaltMaterialRequests.setClasses(teacherClassModels);
+    }
   }
 
-  $('openStudentsBtn').addEventListener('click', () => {
-    hide($('classesView'));
+
+  function setShellIdentity(pageTitle, mode) {
+    const p = getProfile(role) || {};
+    if ($('teacherNameBrand')) $('teacherNameBrand').textContent = p.name || 'Teacher';
+    if ($('teacherPageTitle')) $('teacherPageTitle').textContent = pageTitle || '';
+    const title = String(pageTitle || '');
+    const view = mode || (
+      title === 'Students' ? 'students' :
+      title === 'Lesson Plan' ? 'lesson' :
+      title === 'Materials' ? 'materials' :
+      title === 'Conferences' || title.indexOf('상담') >= 0 ? 'conferences' :
+      title === 'Lost & Found' || title.indexOf('분실') >= 0 ? 'lostFound' :
+      title === 'Home' || title === 'My classes' ? 'home' :
+      currentClass ? 'class' : 'home'
+    );
+    document.querySelectorAll('.teacher-nav-btn[data-nav]').forEach((btn) => {
+      const nav = btn.getAttribute('data-nav');
+      btn.classList.toggle('is-active', nav === view);
+    });
+  }
+
+  function updateClassContextBar(cls) {
+    if ($('classContextName')) {
+      $('classContextName').textContent = (cls && (cls.className || cls.classId)) || 'Class';
+    }
+    if ($('classContextRole')) {
+      const bits = [];
+      if (cls && cls.isHomeroom) bits.push('Homeroom');
+      if (cls && cls.roleLabel && !/homeroom/i.test(cls.roleLabel)) bits.push(cls.roleLabel);
+      $('classContextRole').textContent = bits.join(' · ');
+    }
+  }
+
+  function setRoute(hash, replace) {
+    const next = hash.charAt(0) === '#' ? hash : ('#' + hash);
+    if (replace) history.replaceState(null, '', next);
+    else if (location.hash !== next) location.hash = next;
+  }
+
+  function parseRoute() {
+    const raw = String(location.hash || '').replace(/^#\/?/, '').trim();
+    if (!raw) return { view: 'home' };
+    const parts = raw.split('/').filter(Boolean);
+    if (parts[0] === 'students') return { view: 'students' };
+    if (parts[0] === 'lesson') return { view: 'lesson' };
+    if (parts[0] === 'materials') return { view: 'materials' };
+    if (parts[0] === 'conferences') return { view: 'conferences' };
+    if (parts[0] === 'lost-and-found' || parts[0] === 'lostFound') return { view: 'lostFound' };
+    if (parts[0] === 'classes') return { view: 'home', focus: 'classes' };
+    if (parts[0] === 'class' && parts[1]) {
+      return { view: 'class', classId: parts[1], tab: parts[2] || '' };
+    }
+    return { view: 'home' };
+  }
+
+  async function refreshTeacherAnnList() {
+    const box = $('teacherAnnList');
+    if (!box || !currentClass) return;
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/teacher/announcements', {}, role);
+      const cid = String(currentClass.classId);
+      const rows = (data.announcements || []).filter((a) => String(a.classId || '') === cid);
+      SaltAnnouncements.renderList(box, rows, {
+        canRemove: true,
+        canEdit: true,
+        emptyText: 'No announcements for this class yet.',
+        onRemove: async (id) => {
+          if (!confirm('Remove this announcement?')) return;
+          await api('/api/teacher/announcements/' + encodeURIComponent(id) + '/deactivate', { method: 'POST' }, role);
+          refreshTeacherAnnList();
+        },
+        onEdit: async (id, current) => {
+          const title = window.prompt('Title', current.title);
+          if (title == null) return;
+          const body = window.prompt('Body', current.body);
+          if (body == null) return;
+          try {
+            await api('/api/teacher/announcements/' + encodeURIComponent(id), {
+              method: 'POST',
+              body: { title, body }
+            }, role);
+            refreshTeacherAnnList();
+          } catch (e) {
+            alert(e.message);
+          }
+        }
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function setupClassAnnouncements() {
+    if (!$('teacherAnnCompose') || !currentClass) return;
+    SaltAnnouncements.bindComposer($('teacherAnnCompose'), {
+      mode: 'teacher',
+      formId: 'teacherAnnComposeForm',
+      classes: teacherClasses,
+      fixedClassId: currentClass.classId,
+      onSubmit: async (fd) => {
+        if (!fd.get('classId')) fd.set('classId', currentClass.classId);
+        fd.set('scope', 'class');
+        await api('/api/teacher/announcements', { method: 'POST', body: fd }, role);
+      },
+      onPosted: () => refreshTeacherAnnList()
+    });
+    refreshTeacherAnnList();
+  }
+
+  if ($('teacherAnnRefresh')) {
+    $('teacherAnnRefresh').addEventListener('click', refreshTeacherAnnList);
+  }
+
+  function doLogout() {
+    api('/api/auth/logout', { method: 'POST' }, role).catch(() => {});
+    setToken(role, '');
+    setProfile(role, null);
+    location.href = '/';
+  }
+
+  function hideAllAppViews() {
+    ['homeView', 'classView', 'studentsView', 'globalLessonView', 'materialsView', 'conferencesView', 'lostFoundView', 'loginView'].forEach((id) => {
+      const node = $(id);
+      if (node) hide(node);
+    });
+  }
+
+  function openHome(opts) {
+    opts = opts || {};
+    lessonScope = 'class';
+    currentClass = null;
+    currentClassTab = '';
+    hideAllAppViews();
+    show($('homeView'));
+    setShellIdentity('Home', 'home');
+    const p = getProfile(role);
+    SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', 'self', p ? p.name : '');
+    loadBusDuty();
+    loadHeadReportQueue();
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/home');
+      applyingRoute = false;
+    }
+    if (opts.focus === 'classes' && $('homeClassesSection')) {
+      setTimeout(() => {
+        $('homeClassesSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 40);
+    }
+  }
+
+  function todayISOLocal() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  async function loadBusDuty() {
+    const body = $('teacherBusDutyBody');
+    const dateEl = $('teacherBusDutyDate');
+    if (!body) return;
+    if (dateEl && !dateEl.value) dateEl.value = todayISOLocal();
+    const dateStr = (dateEl && dateEl.value) || todayISOLocal();
+    body.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/teacher/bus/duty?date=' + encodeURIComponent(dateStr), {}, role);
+      const runs = data.runs || [];
+      if (!runs.length) {
+        body.innerHTML = '<p class="muted">No bus duty assigned for this day.</p>';
+        return;
+      }
+      body.innerHTML = '<div class="bus-duty-grid">' + runs.map((run) => {
+        const isPickup = run.runType === 'pickup';
+        const typeLabel = isPickup ? 'Pickup duty' : 'Dismissal duty';
+        const driverLine = [
+          run.driverName ? (run.driverName + ' (driver)') : '',
+          run.vehiclePlate || '',
+          run.driverPhone || ''
+        ].filter(Boolean).join(' · ');
+        const dutyLine = (run.dutyTeachers || []).map((d) => d.teacherName).filter(Boolean).join(', ');
+        return '<section class="bus-duty-card">' +
+          '<header class="bus-duty-head">' +
+            '<div class="bus-duty-title"><strong>' + escapeHtml(run.busName) + '</strong> · ' +
+            escapeHtml(typeLabel) + ' <span class="muted">' + escapeHtml(run.startTime || '') + '</span></div>' +
+            '<div class="muted small">' + escapeHtml(String(run.riderCount || 0)) + ' riders</div>' +
+            (driverLine ? '<div class="muted small">' + escapeHtml(driverLine) + '</div>' : '') +
+            (dutyLine ? '<div class="muted small">Duty: ' + escapeHtml(dutyLine) +
+              (run.dutySource === 'daily' ? ' (substitute)' : '') + '</div>' : '') +
+          '</header>' +
+          '<table class="bus-duty-table"><thead><tr>' +
+            '<th>Student</th><th>Contact</th><th></th><th></th>' +
+          '</tr></thead><tbody>' +
+            (run.riders || []).map((r) => {
+              const contact = [
+                r.emergency && r.emergency.parentPhone,
+                r.emergency && r.emergency.emergencyContact,
+                r.emergency && r.emergency.emergencyPhone
+              ].filter(Boolean).join(' · ') || '—';
+              return '<tr class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
+                '<td><strong>' + escapeHtml(r.name) + '</strong>' +
+                (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
+                (r.noShow ? ' <span class="error">No-show</span>' : '') + '</td>' +
+                '<td class="muted small">' + escapeHtml(contact) + '</td>' +
+                (isPickup
+                  ? '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ns" data-run="' +
+                    escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
+                    (r.noShow ? '1' : '0') + '">' +
+                    (r.noShow ? 'Cancel no-show' : 'No-show') + '</button></td>'
+                  : '<td class="bus-duty-action"></td>') +
+                '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ov" data-run="' +
+                  escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '">Exclude today</button></td>' +
+              '</tr>';
+            }).join('') || '<tr><td colspan="4" class="muted">No riders</td></tr>' +
+          '</tbody></table>' +
+          '<div class="admin-toolbar" style="margin-top:0.5rem;gap:0.35rem;flex-wrap:wrap">' +
+            '<input class="t-bus-ov-sid" data-run="' + escapeHtml(run.runId) + '" placeholder="Student ID" style="max-width:9rem">' +
+            '<button type="button" class="btn btn-ghost t-bus-ov-include" data-run="' +
+              escapeHtml(run.runId) + '">Add today</button>' +
+          '</div></section>';
+      }).join('') + '</div>';
+
+      body.querySelectorAll('.t-bus-ns').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          try {
+            const cancel = btn.dataset.ns === '1';
+            await api(cancel ? '/api/teacher/bus/noshow/cancel' : '/api/teacher/bus/noshow', {
+              method: 'POST',
+              body: { dateStr, runId: btn.dataset.run, studentId: btn.dataset.sid }
+            }, role);
+            await loadBusDuty();
+          } catch (e) {
+            window.alert(e.message || 'Failed');
+          }
+        });
+      });
+      body.querySelectorAll('.t-bus-ov').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!window.confirm('Exclude this student from today\'s run?')) return;
+          try {
+            await api('/api/teacher/bus/override', {
+              method: 'POST',
+              body: {
+                dateStr,
+                runId: btn.dataset.run,
+                studentId: btn.dataset.sid,
+                action: 'exclude',
+                reason: 'Teacher same-day exclude'
+              }
+            }, role);
+            await loadBusDuty();
+          } catch (e) {
+            window.alert(e.message || 'Failed');
+          }
+        });
+      });
+      body.querySelectorAll('.t-bus-ov-include').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const input = body.querySelector('.t-bus-ov-sid[data-run="' + btn.dataset.run + '"]');
+          const studentId = input && input.value.trim();
+          if (!studentId) {
+            window.alert('Enter a student ID.');
+            return;
+          }
+          try {
+            await api('/api/teacher/bus/override', {
+              method: 'POST',
+              body: {
+                dateStr,
+                runId: btn.dataset.run,
+                studentId,
+                action: 'include',
+                reason: 'Teacher same-day include'
+              }
+            }, role);
+            await loadBusDuty();
+          } catch (e) {
+            window.alert(e.message || 'Failed');
+          }
+        });
+      });
+    } catch (e) {
+      body.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Failed') + '</p>';
+    }
+  }
+
+  async function loadHeadReportQueue() {
+    const section = $('homeHeadReportSection');
+    const box = $('headRcQueue');
+    const preview = $('headRcPreview');
+    const err = $('headRcError');
+    const teamBox = $('headTeamBox');
+    if (!section || !box) return;
+    const isHead = teacherHasPerm('teacher.headReports');
+    section.classList.toggle('hidden', !isHead);
+    if (!isHead) return;
+    if (err) err.textContent = '';
+    if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    if (teamBox) {
+      teamBox.innerHTML = '<p class="muted small">Loading team…</p>';
+      try {
+        const team = await api('/api/teacher/head/team', {}, role);
+        const teachers = team.teachers || [];
+        if (!teachers.length) {
+          teamBox.innerHTML = '<p class="muted small">No teachers assigned to you yet. Ask Admin to set Head Teacher ID on teacher accounts.</p>';
+        } else {
+          teamBox.innerHTML = '<div class="section-title" style="font-size:1rem;margin-bottom:0.35rem">My teachers</div>' +
+            '<table class="grades-table"><thead><tr><th>Teacher</th><th>Homeroom</th><th>Classes / subjects</th></tr></thead><tbody>' +
+            teachers.map((t) =>
+              '<tr><td>' + escapeHtml(t.name || t.teacherId) + '</td>' +
+              '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td>' +
+              '<td class="small">' + escapeHtml(
+                (t.classes || []).map((c) =>
+                  (c.className || c.classId) + (c.roleLabel ? ' (' + c.roleLabel + ')' : '')
+                ).join('; ') || '—'
+              ) + '</td></tr>'
+            ).join('') + '</tbody></table>';
+        }
+      } catch (e) {
+        teamBox.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      }
+    }
+    try {
+      const data = await api('/api/teacher/head/report-cards', {}, role);
+      const rows = data.workflows || [];
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No submitted report cards yet.</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table"><thead><tr><th>Class</th><th>Student</th><th>Term</th><th>State</th><th></th></tr></thead><tbody>' +
+        rows.map((w) =>
+          '<tr><td>' + escapeHtml(w.classId) + '</td><td>' + escapeHtml(w.studentId) +
+          '</td><td>' + escapeHtml(w.term) + '</td><td>' + escapeHtml(w.state) + '</td><td>' +
+          '<button type="button" class="btn btn-ghost head-rc-view" data-cid="' + escapeHtml(w.classId) +
+          '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">View</button> ' +
+          (w.state === 'submitted_head'
+            ? '<button type="button" class="btn btn-primary head-rc-sign" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Sign</button> '
+            : '') +
+          (w.state === 'signed_head'
+            ? '<button type="button" class="btn btn-primary head-rc-submit" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Submit to Principal</button>'
+            : '') +
+          '</td></tr>'
+        ).join('') + '</tbody></table>';
+      box.querySelectorAll('.head-rc-view').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          preview.classList.remove('hidden');
+          preview.innerHTML = '<p class="muted">Loading…</p>';
+          try {
+            const res = await api(
+              '/api/teacher/head/report-cards/' + encodeURIComponent(btn.dataset.cid) + '/' +
+              encodeURIComponent(btn.dataset.sid) + '?term=' + encodeURIComponent(btn.dataset.term),
+              {},
+              role
+            );
+            preview.innerHTML = SaltReportCardPrint
+              ? SaltReportCardPrint.renderPrintableCard(res.card)
+              : '<p class="error">Renderer missing.</p>';
+          } catch (e) {
+            preview.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+          }
+        });
+      });
+      async function headAction(action, btn) {
+        try {
+          await api('/api/teacher/head/report-cards/workflow', {
+            method: 'POST',
+            body: {
+              action,
+              classId: btn.dataset.cid,
+              studentId: btn.dataset.sid,
+              term: btn.dataset.term
+            }
+          }, role);
+          loadHeadReportQueue();
+        } catch (e) {
+          if (err) err.textContent = e.message;
+        }
+      }
+      box.querySelectorAll('.head-rc-sign').forEach((btn) => {
+        btn.addEventListener('click', () => headAction('sign', btn));
+      });
+      box.querySelectorAll('.head-rc-submit').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (!confirm('Submit to Principal?')) return;
+          headAction('submit', btn);
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  if ($('headRcRefresh')) $('headRcRefresh').addEventListener('click', loadHeadReportQueue);
+  if ($('teacherBusDutyRefresh')) $('teacherBusDutyRefresh').addEventListener('click', loadBusDuty);
+  if ($('teacherBusDutyDate')) $('teacherBusDutyDate').addEventListener('change', loadBusDuty);
+  if ($('headRcSigFile')) {
+    $('headRcSigFile').addEventListener('change', async () => {
+      const file = $('headRcSigFile').files && $('headRcSigFile').files[0];
+      if (!file) return;
+      const fd = new FormData();
+      try {
+        const prepared = (SaltApp.prepareSignatureFile
+          ? await SaltApp.prepareSignatureFile(file)
+          : file);
+        fd.append('signature', prepared);
+        await api('/api/teacher/signature', { method: 'POST', body: fd }, role);
+        if ($('headRcError')) {
+          $('headRcError').style.color = '#16a34a';
+          $('headRcError').textContent = 'Head Teacher signature saved permanently. Sign again on any card if needed.';
+        }
+      } catch (e) {
+        if ($('headRcError')) {
+          $('headRcError').style.color = '#dc2626';
+          $('headRcError').textContent = e.message;
+        }
+      }
+    });
+  }
+
+
+  function isHomeroomClass(cls) {
+    return !!(cls && cls.isHomeroom);
+  }
+
+  function syncClassTabs() {
+    const hr = isHomeroomClass(currentClass);
+    document.querySelectorAll('#classTabs .class-subnav-item').forEach((btn) => {
+      const homeroomOnly = btn.getAttribute('data-homeroom-only') === '1';
+      btn.classList.toggle('hidden', homeroomOnly && !hr);
+    });
+  }
+
+  function defaultClassTab() {
+    return isHomeroomClass(currentClass) ? 'attendance' : 'grades';
+  }
+
+  function tabLabel(name) {
+    const map = {
+      attendance: 'Attendance',
+      grades: 'Grades',
+      dollars: 'Dollars',
+      homework: 'Homework',
+      announcements: 'Announce',
+      vocab: 'Vocab',
+      report: 'Report',
+      analytics: 'Analytics',
+      lesson: 'Lessons'
+    };
+    return map[name] || name;
+  }
+
+  function findClassModel(classId) {
+    return (teacherClassModels || []).find((c) => String(c.classId) === String(classId)) || null;
+  }
+
+  function navigateToClass(cls, tab) {
+    const t = tab || defaultClassTabFor(cls);
+    applyingRoute = true;
+    try {
+      setRoute('#/class/' + encodeURIComponent(cls.classId) + '/' + encodeURIComponent(t));
+      openClass(cls, t, { fromRoute: true });
+    } finally {
+      applyingRoute = false;
+    }
+  }
+
+  function defaultClassTabFor(cls) {
+    return isHomeroomClass(cls) ? 'attendance' : 'grades';
+  }
+
+  function openStudents() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
     show($('studentsView'));
-    SaltStudentRegistry.open();
-  });
-
-  $('openTimetableBtn').addEventListener('click', () => {
-    hide($('classesView'));
-    show($('timetableView'));
-    SaltTimetable.renderReadOnly($('teacherTimetableMount'), 'teacher', '', '');
-  });
-
-  $('timetableBackBtn').addEventListener('click', () => {
-    hide($('timetableView'));
-    show($('classesView'));
-  });
-
-  $('timetableLogoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
-  });
-
-  $('studentsBackBtn').addEventListener('click', () => {
-    hide($('studentsView'));
-    show($('classesView'));
-  });
-
-  $('studentsLogoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.reload();
-  });
-
-  function openClass(cls) {
-    currentClass = cls;
-    hide($('classesView')); show($('classView'));
-    $('classTitle').textContent = cls.className;
-    $('attDate').value = todayISO();
-    $('gradeSubject').value = (cls.subjects && cls.subjects !== 'All subjects') ? cls.subjects.split(',')[0].trim() : 'English';
-    $('reportTerm').value = $('gradeTerm').value || 'Term1';
-    switchTab('attendance');
-    SaltAttendance.onClassOpen();
+    setShellIdentity('Students', 'students');
+    if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.open) {
+      SaltStudentRegistry.open();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/students');
+      applyingRoute = false;
+    }
   }
 
-  function switchTab(name) {
-    document.querySelectorAll('#classView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelBuddy','panelVocab','panelReport','panelLesson'].forEach(id => hide($(id)));
+  function openGlobalLesson() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'global';
+    hideAllAppViews();
+    show($('globalLessonView'));
+    setShellIdentity('Lesson Plan', 'lesson');
+    SaltLesson.onGlobalOpen();
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/lesson');
+      applyingRoute = false;
+    }
+  }
+
+  function openMaterials() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('materialsView'));
+    setShellIdentity('Materials', 'materials');
+    if (typeof SaltMaterialRequests !== 'undefined') {
+      SaltMaterialRequests.setClasses(teacherClassModels || teacherClasses || []);
+      SaltMaterialRequests.openTeacher();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/materials');
+      applyingRoute = false;
+    }
+  }
+
+  function openConferences() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('conferencesView'));
+    setShellIdentity('Conferences', 'conferences');
+    if (window.SaltConferences && SaltConferences.Teacher) {
+      SaltConferences.Teacher.open();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/conferences');
+      applyingRoute = false;
+    }
+  }
+
+  function openLostFound() {
+    currentClass = null;
+    currentClassTab = '';
+    lessonScope = 'class';
+    hideAllAppViews();
+    show($('lostFoundView'));
+    setShellIdentity('Lost & Found', 'lostFound');
+    if (window.SaltLostFound && SaltLostFound.Teacher) {
+      SaltLostFound.Teacher.open();
+    }
+    if (!applyingRoute) {
+      applyingRoute = true;
+      setRoute('#/lost-and-found');
+      applyingRoute = false;
+    }
+  }
+
+  function openClass(cls, tabName, opts) {
+    opts = opts || {};
+    lessonScope = 'class';
+    currentClass = cls;
+    hideAllAppViews();
+    show($('classView'));
+    updateClassContextBar(cls);
+    $('attDate').value = todayISO();
+    const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
+    if ($('gradeSubject')) $('gradeSubject').value = firstSubject;
+    if ($('reportTerm')) $('reportTerm').value = ($('gradeTerm') && $('gradeTerm').value) || 'Term1';
+    syncClassTabs();
+    const tab = tabName || defaultClassTab();
+    switchTab(tab, { skipRoute: true });
+    if (isHomeroomClass(cls)) SaltAttendance.onClassOpen();
+    if (!opts.fromRoute && !applyingRoute) {
+      setRoute('#/class/' + encodeURIComponent(cls.classId) + '/' + encodeURIComponent(tab));
+    }
+  }
+
+  function switchTab(name, opts) {
+    opts = opts || {};
+    const homeroomOnly = { attendance: 1, vocab: 1, analytics: 1, lesson: 1 };
+    if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
+      name = defaultClassTab();
+    }
+    currentClassTab = name;
+    document.querySelectorAll('#classTabs .class-subnav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
+      if ($(id)) hide($(id));
+    });
     const map = {
       attendance: 'panelAttendance',
       grades: 'panelGrades',
       dollars: 'panelDollars',
       homework: 'panelHomework',
-      buddy: 'panelBuddy',
+      announcements: 'panelAnnouncements',
       vocab: 'panelVocab',
       report: 'panelReport',
+      analytics: 'panelAnalytics',
       lesson: 'panelLesson'
     };
-    show($(map[name]));
+    if ($(map[name])) show($(map[name]));
+    if (currentClass) {
+      const title = (currentClass.className || currentClass.classId) + ' · ' + tabLabel(name);
+      setShellIdentity(title, 'class');
+      updateClassContextBar(currentClass);
+      if (!opts.skipRoute && !applyingRoute) {
+        setRoute('#/class/' + encodeURIComponent(currentClass.classId) + '/' + encodeURIComponent(name));
+      }
+    }
     if (name === 'grades') SaltGrades.onClassOpen();
     if (name === 'dollars') loadDollars();
     if (name === 'homework') loadHomework();
-    if (name === 'buddy') loadBuddyMonitor();
+    if (name === 'announcements') setupClassAnnouncements();
     if (name === 'vocab') loadVocabOverview();
-    if (name === 'report') loadReport();
+    if (name === 'report') SaltReportCard.onClassOpen();
+    if (name === 'analytics') SaltAnalytics.onClassOpen();
     if (name === 'lesson') SaltLesson.onClassOpen();
     if (name === 'attendance') SaltAttendance.loadWork();
+  }
+
+  async function applyRoute() {
+    applyingRoute = true;
+    try {
+      const route = parseRoute();
+      if (route.view === 'students') {
+        openStudents();
+        return;
+      }
+      if (route.view === 'lesson') {
+        openGlobalLesson();
+        return;
+      }
+      if (route.view === 'materials') {
+        openMaterials();
+        return;
+      }
+      if (route.view === 'conferences') {
+        openConferences();
+        return;
+      }
+      if (route.view === 'lostFound') {
+        openLostFound();
+        return;
+      }
+      if (route.view === 'class' && route.classId) {
+        let cls = findClassModel(route.classId);
+        if (!cls && !teacherClassModels.length) {
+          await loadClasses();
+          cls = findClassModel(route.classId);
+        }
+        if (!cls) {
+          openHome();
+          return;
+        }
+        const model = {
+          classId: cls.classId,
+          className: cls.className,
+          isHomeroom: !!cls.isHomeroom,
+          subjects: cls.subjects || [],
+          roleLabel: cls.roleLabel || ''
+        };
+        openClass(model, route.tab || defaultClassTabFor(model), { fromRoute: true });
+        return;
+      }
+      openHome({ focus: route.focus === 'classes' ? 'classes' : '' });
+    } finally {
+      applyingRoute = false;
+    }
   }
 
   async function loadDollars() {
@@ -457,176 +1398,195 @@
     }
   }
 
-  async function loadHomework() {
+  let hwCache = { dates: [], byDate: {}, selectedDate: '' };
+
+  function addHwItemRow(prefill) {
+    const mount = $('hwItemsMount');
+    if (!mount) return;
+    const row = document.createElement('div');
+    row.className = 'hw-item-row';
+    row.innerHTML =
+      '<input class="hw-item-title" placeholder="Homework title" required maxlength="120" value="' +
+      escapeHtml((prefill && prefill.title) || '') + '">' +
+      '<textarea class="hw-item-desc" placeholder="Description (optional)" rows="2" maxlength="500">' +
+      escapeHtml((prefill && prefill.description) || '') + '</textarea>' +
+      '<label class="muted small">Due date <input type="date" class="hw-item-due" value="' +
+      escapeHtml((prefill && prefill.dueDate) || '') + '"></label>' +
+      '<button type="button" class="btn btn-ghost hw-item-remove">Remove</button>';
+    mount.appendChild(row);
+    row.querySelector('.hw-item-remove').addEventListener('click', () => {
+      if (mount.querySelectorAll('.hw-item-row').length <= 1) return;
+      row.remove();
+    });
+  }
+
+  function openHwPostModal() {
     if (!currentClass) return;
+    $('hwPostError').textContent = '';
+    $('hwTitle').value = '';
+    $('hwDesc').value = '';
+    $('hwDate').value = todayISO();
+    $('hwItemsMount').innerHTML = '';
+    addHwItemRow({ title: '', dueDate: todayISO() });
+    show($('hwPostModal'));
+  }
+
+  function renderHomeworkForDate(dateKey) {
     const box = $('hwTeacherList');
     const err = $('hwTeacherError');
+    const list = (hwCache.byDate && hwCache.byDate[dateKey]) || [];
+    hwCache.selectedDate = dateKey;
+    document.querySelectorAll('.hw-date-chip').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.date === dateKey);
+    });
+    if (!list.length) {
+      box.innerHTML = '<p class="muted">No homework on this date.</p>';
+      return;
+    }
+    box.innerHTML = list.map((hw) => {
+      let html = '<div class="card" style="margin-bottom:0.75rem">' +
+        '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
+        '<strong>' + escapeHtml(hw.title || 'Homework') + '</strong>' +
+        '<span class="muted small">Assigned ' + escapeHtml(hw.assignedDate || '') +
+        (hw.dueDate ? ' · Due ' + escapeHtml(hw.dueDate) : '') +
+        ' <button type="button" class="btn btn-ghost hw-edit" data-id="' + escapeHtml(hw.homeworkId) +
+        '" data-title="' + escapeHtml(hw.title || '') + '" data-desc="' + escapeHtml(hw.description || '') +
+        '" data-due="' + escapeHtml(hw.dueDate || '') + '">Edit</button></span></div>' +
+        (hw.description ? '<p class="muted small">' + escapeHtml(hw.description) + '</p>' : '');
+      (hw.items || []).forEach((item) => {
+        html += '<div style="margin-top:0.5rem"><div class="muted small">' +
+          escapeHtml(item.title) +
+          (item.dueDate ? ' · due ' + escapeHtml(item.dueDate) : '') +
+          ' · ' + item.completedCount + '/' + item.totalCount + ' done</div>';
+        html += '<div class="table-wrap"><table class="grades-table"><thead><tr><th>Student</th><th>Status</th><th></th></tr></thead><tbody>';
+        (item.completions || []).forEach((c) => {
+          html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' +
+            (c.completed ? '<span class="muted">Done</span>' : '<span>Pending</span>') +
+            '</td><td>' +
+            (c.completed
+              ? ''
+              : '<button type="button" class="btn btn-ghost hw-mark" data-item="' +
+                escapeHtml(item.itemId) + '" data-sid="' + escapeHtml(c.studentId) +
+                '">Mark done</button>') +
+            '</td></tr>';
+        });
+        html += '</tbody></table></div></div>';
+      });
+      html += '</div>';
+      return html;
+    }).join('');
+    box.querySelectorAll('.hw-mark').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        err.textContent = '';
+        try {
+          await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework/complete', {
+            method: 'POST',
+            body: { itemId: btn.dataset.item, studentId: btn.dataset.sid, completed: true }
+          }, role);
+          loadHomework(hwCache.selectedDate);
+        } catch (e) {
+          err.textContent = e.message;
+        }
+      });
+    });
+    box.querySelectorAll('.hw-edit').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const title = window.prompt('Title', btn.dataset.title || '');
+        if (title == null) return;
+        const description = window.prompt('Description', btn.dataset.desc || '');
+        if (description == null) return;
+        const dueDate = window.prompt('Due date (YYYY-MM-DD, blank = none)', btn.dataset.due || '');
+        if (dueDate == null) return;
+        err.textContent = '';
+        try {
+          await api(
+            '/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework/' + encodeURIComponent(btn.dataset.id),
+            { method: 'PATCH', body: { title, description, dueDate } },
+            role
+          );
+          loadHomework(hwCache.selectedDate);
+        } catch (e) {
+          err.textContent = e.message;
+        }
+      });
+    });
+  }
+
+  async function loadHomework(preferredDate) {
+    if (!currentClass) return;
+    const box = $('hwTeacherList');
+    const dateList = $('hwDateList');
+    const err = $('hwTeacherError');
     err.textContent = '';
-    if (!$('hwDate').value) $('hwDate').value = todayISO();
     box.innerHTML = '<p class="muted">Loading…</p>';
+    dateList.innerHTML = '';
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework', {}, role);
-      const homeworks = data.homeworks || [];
-      if (!homeworks.length) {
-        box.innerHTML = '<p class="muted">No homework posted yet.</p>';
+      hwCache = {
+        dates: data.dates || [],
+        byDate: data.byDate || {},
+        selectedDate: preferredDate || ''
+      };
+      if (!hwCache.dates.length) {
+        box.innerHTML = '<p class="muted">No homework posted yet. Click <strong>Post Homework</strong> to add some.</p>';
         return;
       }
-      box.innerHTML = homeworks.map((hw) => {
-        let html = '<div class="card" style="margin-bottom:0.75rem">' +
-          '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
-          '<strong>' + escapeHtml(hw.title) + '</strong>' +
-          '<span class="muted small">' + escapeHtml(hw.assignedDate || '') + '</span></div>' +
-          (hw.description ? '<p class="muted small">' + escapeHtml(hw.description) + '</p>' : '');
-        (hw.items || []).forEach((item) => {
-          html += '<div style="margin-top:0.5rem"><div class="muted small">' +
-            escapeHtml(item.title) + ' · ' + item.completedCount + '/' + item.totalCount + ' done</div>';
-          html += '<div class="table-wrap"><table class="grades-table"><thead><tr><th>Student</th><th>Status</th><th></th></tr></thead><tbody>';
-          (item.completions || []).forEach((c) => {
-            html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' +
-              (c.completed ? '<span class="muted">Done</span>' : '<span>Pending</span>') +
-              '</td><td>' +
-              (c.completed
-                ? ''
-                : '<button type="button" class="btn btn-ghost hw-mark" data-item="' +
-                  escapeHtml(item.itemId) + '" data-sid="' + escapeHtml(c.studentId) +
-                  '">Mark done</button>') +
-              '</td></tr>';
-          });
-          html += '</tbody></table></div></div>';
-        });
-        html += '</div>';
-        return html;
-      }).join('');
-      box.querySelectorAll('.hw-mark').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          err.textContent = '';
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework/complete', {
-              method: 'POST',
-              body: { itemId: btn.dataset.item, studentId: btn.dataset.sid, completed: true }
-            }, role);
-            loadHomework();
-          } catch (e) {
-            err.textContent = e.message;
-          }
-        });
+      dateList.innerHTML = hwCache.dates.map((d) =>
+        '<button type="button" class="hw-date-chip" data-date="' + escapeHtml(d) + '">' +
+        escapeHtml(d) + ' · ' + ((hwCache.byDate[d] || []).length) + '</button>'
+      ).join('');
+      dateList.querySelectorAll('.hw-date-chip').forEach((btn) => {
+        btn.addEventListener('click', () => renderHomeworkForDate(btn.dataset.date));
       });
+      const initial = (preferredDate && hwCache.byDate[preferredDate])
+        ? preferredDate
+        : hwCache.dates[0];
+      renderHomeworkForDate(initial);
     } catch (e) {
       box.innerHTML = '';
       err.textContent = e.message;
     }
   }
 
+  $('hwOpenPostBtn').addEventListener('click', openHwPostModal);
+  $('hwPostClose').addEventListener('click', () => hide($('hwPostModal')));
+  $('hwAddItemBtn').addEventListener('click', () => addHwItemRow({ dueDate: $('hwDate').value || todayISO() }));
   $('hwPostForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!currentClass) return;
     const err = $('hwPostError');
     err.textContent = '';
+    const items = [];
+    $('hwItemsMount').querySelectorAll('.hw-item-row').forEach((row) => {
+      const title = row.querySelector('.hw-item-title').value.trim();
+      if (!title) return;
+      items.push({
+        title,
+        description: row.querySelector('.hw-item-desc').value.trim(),
+        dueDate: row.querySelector('.hw-item-due').value
+      });
+    });
+    if (!items.length) {
+      err.textContent = 'Add at least one homework item.';
+      return;
+    }
     try {
       await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework', {
         method: 'POST',
         body: {
-          title: $('hwTitle').value.trim(),
+          title: $('hwTitle').value.trim() || items[0].title,
           description: $('hwDesc').value.trim(),
-          assignedDate: $('hwDate').value
+          assignedDate: $('hwDate').value,
+          dueDate: items[0].dueDate || '',
+          items
         }
       }, role);
-      $('hwTitle').value = '';
-      $('hwDesc').value = '';
-      loadHomework();
+      hide($('hwPostModal'));
+      loadHomework($('hwDate').value);
     } catch (ex) {
       err.textContent = ex.message;
     }
   });
-
-  async function loadBuddyMonitor() {
-    if (!currentClass) return;
-    const box = $('buddyTeacherList');
-    const err = $('buddyTeacherError');
-    err.textContent = '';
-    box.innerHTML = '<p class="muted">Loading…</p>';
-    hide($('buddyTeacherChat'));
-    try {
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/english-buddy', {}, role);
-      const students = data.students || [];
-      let html = '<p class="muted small">Today (' + escapeHtml(data.dateKey || '') + ')</p>';
-      if (!students.length) {
-        html += '<p class="muted">No students.</p>';
-      } else {
-        html += '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
-          '<th>Student</th><th>Used</th><th>Left</th><th>Strikes</th><th></th></tr></thead><tbody>';
-        students.forEach((s) => {
-          html += '<tr><td>' + escapeHtml(s.name) +
-            (s.locked ? ' <span class="muted">(locked)</span>' : '') +
-            '</td><td>' + s.used + '/' + s.limit + '</td><td>' + s.remaining +
-            '</td><td>' + s.strikes + '</td><td style="white-space:nowrap">' +
-            '<button type="button" class="btn btn-ghost buddy-view" data-sid="' + escapeHtml(s.studentId) +
-            '" data-name="' + escapeHtml(s.name) + '">Chat</button> ' +
-            (s.locked
-              ? '<button type="button" class="btn btn-primary buddy-unlock" data-sid="' +
-                escapeHtml(s.studentId) + '">Unlock</button> '
-              : '') +
-            '<button type="button" class="btn btn-ghost buddy-refill" data-sid="' +
-            escapeHtml(s.studentId) + '">Refill</button></td></tr>';
-        });
-        html += '</tbody></table></div>';
-      }
-      if ((data.flags || []).length) {
-        html += '<h4 style="margin-top:1rem">Open flags</h4><ul class="stu-list">';
-        data.flags.forEach((f) => {
-          html += '<li><strong>' + escapeHtml(f.type) + '</strong> · ' +
-            escapeHtml(f.studentId) +
-            '<div class="muted small">' + escapeHtml(f.detail) + '</div></li>';
-        });
-        html += '</ul>';
-      }
-      box.innerHTML = html;
-      box.querySelectorAll('.buddy-view').forEach((btn) => {
-        btn.addEventListener('click', () => openBuddyChat(btn.dataset.sid, btn.dataset.name));
-      });
-      box.querySelectorAll('.buddy-unlock').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/english-buddy/' + encodeURIComponent(btn.dataset.sid) + '/unlock', { method: 'POST' }, role);
-            loadBuddyMonitor();
-          } catch (e) { err.textContent = e.message; }
-        });
-      });
-      box.querySelectorAll('.buddy-refill').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/english-buddy/' + encodeURIComponent(btn.dataset.sid) + '/refill', { method: 'POST' }, role);
-            loadBuddyMonitor();
-          } catch (e) { err.textContent = e.message; }
-        });
-      });
-    } catch (e) {
-      box.innerHTML = '';
-      err.textContent = e.message;
-    }
-  }
-
-  async function openBuddyChat(studentId, name) {
-    const err = $('buddyTeacherError');
-    err.textContent = '';
-    try {
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-        '/english-buddy/' + encodeURIComponent(studentId) + '/history', {}, role);
-      $('buddyChatTitle').textContent = (name || studentId) + ' — chat';
-      $('buddyChatBody').innerHTML = (data.messages || []).map((m) =>
-        '<div class="msg ' + (m.role === 'user' ? 'user' : 'buddy') + '"><div class="msg-meta">' +
-        escapeHtml(m.role === 'user' ? 'Student' : 'English Buddy') +
-        '</div>' + escapeHtml(m.text) + '</div>'
-      ).join('') || '<p class="muted">No messages yet.</p>';
-      show($('buddyTeacherChat'));
-    } catch (e) {
-      err.textContent = e.message;
-    }
-  }
-
-  $('buddyChatClose').addEventListener('click', () => hide($('buddyTeacherChat')));
 
   async function loadVocabOverview() {
     if (!currentClass) return;
@@ -644,10 +1604,10 @@
       let html = '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
         '<th>Student</th><th>Tier</th><th>Lv</th><th>Quest</th><th>Streak</th><th></th></tr></thead><tbody>';
       students.forEach((s) => {
-        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tier || '—') +
+        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.tierLabel || s.tier || s.tierName || '—') +
           '</td><td>' + (s.placementDone ? s.gradeLevel : '—') +
-          '</td><td>' + (s.questDone ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
-          '</td><td>' + (s.streak || 0) + '</td><td style="white-space:nowrap">' +
+          '</td><td>' + ((s.questDone || s.todayTestPassed) ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
+          '</td><td>' + (s.streak || s.streakDays || 0) + '</td><td style="white-space:nowrap">' +
           '<button type="button" class="btn btn-ghost vocab-reset" data-sid="' + escapeHtml(s.studentId) +
           '">Reset</button> ' +
           '<button type="button" class="btn btn-ghost vocab-up" data-sid="' + escapeHtml(s.studentId) +
@@ -685,70 +1645,137 @@
     }
   }
 
-  document.querySelectorAll('#classView .tab').forEach(btn => {
+  document.querySelectorAll('#classTabs .class-subnav-item').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  async function loadReport() {
-    const term = $('reportTerm').value.trim();
-    const subject = $('reportSubject').value.trim();
-    const q = '?term=' + encodeURIComponent(term) + (subject ? '&subject=' + encodeURIComponent(subject) : '');
-    const data = await api('/api/teacher/class/' + currentClass.classId + '/report-card' + q, {}, role);
-    let html = '';
-
-    if (data.computed && data.computed.length && subject) {
-      html += '<h3>Calculated grades (' + escapeHtml(subject) + ')</h3>';
-      html += '<p class="muted small">From grade weights + entries. Use Sync on Grades tab to push to stored report card.</p>';
-      html += '<table class="grades-table"><thead><tr><th>Student</th><th>Term grade</th>';
-      (data.weights || []).forEach((w) => { html += '<th>' + escapeHtml(w.label) + '</th>'; });
-      html += '</tr></thead><tbody>';
-      data.computed.forEach((st) => {
-        html += '<tr><td>' + escapeHtml(st.name) + '</td><td><strong>' + (st.weightedTotal != null ? st.weightedTotal : '—') + '</strong></td>';
-        (st.categories || []).forEach((c) => {
-          html += '<td>' + (c.categoryPercent != null ? c.categoryPercent + '%' : '—') + '</td>';
-        });
-        html += '</tr>';
-      });
-      html += '</tbody></table>';
-    }
-
-    (data.summary || []).forEach(st => {
-      html += '<h3>' + escapeHtml(st.name) + '</h3><table><thead><tr><th>Field</th><th>Score</th><th>Comment</th></tr></thead><tbody>';
-      Object.keys(st.subjects || {}).forEach(sub => {
-        (st.subjects[sub] || []).forEach(f => {
-          html += '<tr><td>' + escapeHtml(sub) + ' — ' + escapeHtml(f.label) + '</td>' +
-            '<td>' + (f.score != null ? f.score : '—') + '</td>' +
-            '<td>' + escapeHtml(f.comment || '') + '</td></tr>';
-        });
-      });
-      html += '</tbody></table>';
-    });
-    $('reportBody').innerHTML = html || '<p style="color:var(--muted)">Select a subject and load. Set grade weights on the Grades tab first.</p>';
+  if ($('classBackHomeBtn')) {
+    $('classBackHomeBtn').addEventListener('click', () => openHome());
   }
 
-  $('loadReportBtn').addEventListener('click', loadReport);
+  $('loadReportBtn').addEventListener('click', () => SaltReportCard.loadOverview());
+  if ($('reportTerm')) {
+    $('reportTerm').addEventListener('change', () => SaltReportCard.loadOverview());
+  }
 
-  $('backBtn').addEventListener('click', () => {
-    SaltLesson.closeDrawer();
-    hide($('classView')); show($('classesView'));
-    currentClass = null;
+  function closeClassToolsMenu() {
+    const panel = $('classToolsMenuPanel');
+    const btn = $('classToolsMenuBtn');
+    if (panel) panel.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
+  const classToolsMenuBtn = $('classToolsMenuBtn');
+  if (classToolsMenuBtn) {
+    classToolsMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = $('classToolsMenuPanel');
+      if (!panel) return;
+      const open = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !open);
+      classToolsMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+  document.addEventListener('click', (e) => {
+    const menu = $('classToolsMenu');
+    if (menu && !menu.contains(e.target)) closeClassToolsMenu();
   });
 
-  $('logoutBtn').addEventListener('click', () => {
-    setToken(role, ''); setProfile(role, null); location.href = '/';
+  const openJeopardyBtn = $('openJeopardyBtn');
+  if (openJeopardyBtn) {
+    openJeopardyBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/jeopardy', 'saltJeopardy', 'noopener,width=1280,height=820');
+    });
+  }
+  const openItemBankBtn = $('openItemBankBtn');
+  if (openItemBankBtn) {
+    openItemBankBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/item-bank', 'saltItemBank', 'noopener,width=1440,height=900');
+    });
+  }
+
+  if ($('shellLogoutBtn')) $('shellLogoutBtn').addEventListener('click', doLogout);
+
+  if ($('teacherNameBrand')) {
+    $('teacherNameBrand').addEventListener('click', () => {
+      openHome();
+      window.scrollTo(0, 0);
+    });
+  }
+  SaltChangePassword.mount({
+    role,
+    api,
+    requireChange: !!(getProfile(role) && getProfile(role).mustChangePassword)
   });
 
-  function bootApp() {
+  document.querySelectorAll('.teacher-nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nav = btn.getAttribute('data-nav');
+      if (nav === 'home') openHome({ focus: 'classes' });
+      else if (nav === 'students') openStudents();
+      else if (nav === 'lesson') openGlobalLesson();
+      else if (nav === 'materials') openMaterials();
+      else if (nav === 'conferences') openConferences();
+      else if (nav === 'lostFound') openLostFound();
+    });
+  });
+
+  window.addEventListener('hashchange', () => {
+    if (!applyingRoute) applyRoute();
+  });
+
+  function applyNavPermissionGates() {
+    const NAV_PERMS = {
+      home: '', // always show home
+      students: 'teacher.students',
+      lesson: 'teacher.lessonPlan',
+      materials: 'teacher.materials',
+      conferences: 'teacher.conferences',
+      lostFound: 'teacher.lostFound'
+    };
+    document.querySelectorAll('.teacher-nav-btn[data-nav]').forEach((btn) => {
+      const nav = btn.getAttribute('data-nav');
+      const perm = NAV_PERMS[nav];
+      const allowed = !perm || teacherHasPerm(perm);
+      btn.classList.toggle('hidden', !allowed);
+    });
+  }
+
+  async function bootApp() {
     const p = getProfile(role);
     if (!p) return;
-    hide($('loginView')); show($('classesView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name;
+    hide($('loginView'));
+    show($('appShell'));
+    if (window.SaltI18n) SaltI18n.bindToggle($('langToggleBtn'));
+    if ($('teacherShellRoot')) $('teacherShellRoot').classList.add('teacher-shell-wide');
+    setShellIdentity('Home', 'home');
+    applyNavPermissionGates();
     SaltTimetable.init({ api, escapeHtml, role });
     SaltStudentRegistry.init({
       role, api, escapeHtml, $, mount: 'teacherStudentRegistryMount', classes: []
     });
-    loadClasses();
+    if (typeof SaltMaterialRequests !== 'undefined') {
+      SaltMaterialRequests.init({ $, api, escapeHtml, role: 'teacher' });
+    }
+    if (window.SaltConferences && SaltConferences.Teacher) {
+      SaltConferences.Teacher.init({ api, $, escapeHtml, role: 'teacher' });
+    }
+    if (window.SaltLostFound && SaltLostFound.Teacher) {
+      SaltLostFound.Teacher.init({ api, $, escapeHtml, role: 'teacher' });
+    }
+    await loadClasses();
     SaltMessenger.init(role);
+    if (window.SaltPush) {
+      SaltPush.bindButtons({
+        api: function(path, opts) { return api(path, opts || {}, role); },
+        enableBtn: $('teacherPushEnableBtn'),
+        disableBtn: $('teacherPushDisableBtn'),
+        statusEl: $('teacherPushStatus')
+      });
+    }
+    await applyRoute();
   }
 
   if (getToken(role)) bootApp();

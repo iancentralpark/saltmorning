@@ -6,6 +6,9 @@ window.SaltGrades = (function() {
   let categoryPresets = [];
   let syncTimer = null;
   let highlightColumnId = null;
+  let canEditGrades = true;
+  let showSubjectPicker = false;
+  let subjectCatalog = [];
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
@@ -38,21 +41,123 @@ window.SaltGrades = (function() {
     $('gradeWeightsClose').addEventListener('click', () => deps.hide($('gradeWeightsModal')));
     $('gradeWeightsSave').addEventListener('click', saveWeights);
     $('gradeWeightAdd').addEventListener('click', addWeightRow);
+    if ($('gradeWeightPresetSelect')) {
+      $('gradeWeightPresetSelect').addEventListener('change', syncCustomAddFields);
+    }
     $('gradeAddColumnBtn').addEventListener('click', openColumnModal);
     $('gradeColumnClose').addEventListener('click', () => deps.hide($('gradeColumnModal')));
     $('gradeColumnForm').addEventListener('submit', submitColumn);
+    const backBtn = $('gradeBackToSubjectsBtn');
+    if (backBtn) backBtn.addEventListener('click', showPicker);
+  }
+
+  function setEditMode(editable) {
+    canEditGrades = !!editable;
+    const addBtn = $('gradeAddColumnBtn');
+    const weightsBtn = $('gradeWeightsBtn');
+    const badge = $('gradeReadOnlyBadge');
+    if (addBtn) {
+      addBtn.classList.toggle('hidden', !canEditGrades);
+      addBtn.disabled = !canEditGrades;
+    }
+    if (weightsBtn) {
+      weightsBtn.classList.toggle('hidden', !canEditGrades);
+      weightsBtn.disabled = !canEditGrades;
+    }
+    if (badge) badge.classList.toggle('hidden', canEditGrades);
+  }
+
+  function showPicker() {
+    const picker = $('gradeSubjectPicker');
+    const section = $('gradebookSection');
+    if (picker) deps.show(picker);
+    if (section) deps.hide(section);
+    destroyGrid();
+  }
+
+  function showGradebookUi() {
+    const picker = $('gradeSubjectPicker');
+    const section = $('gradebookSection');
+    if (picker) deps.hide(picker);
+    if (section) deps.show(section);
+    const backBtn = $('gradeBackToSubjectsBtn');
+    if (backBtn) backBtn.classList.toggle('hidden', !showSubjectPicker);
+  }
+
+  function renderSubjectPicker(subjects, isHomeroom) {
+    const list = $('gradeSubjectList');
+    const hint = $('gradeSubjectPickerHint');
+    if (!list) return;
+    if (hint) {
+      hint.textContent = isHomeroom
+        ? 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit.'
+        : 'Select a subject you teach in this class.';
+    }
+    if (!subjects.length) {
+      list.innerHTML = '<p class="muted">No subjects found for this class yet.</p>';
+      return;
+    }
+    list.innerHTML = subjects.map((s) => {
+      const teachers = (s.teacherNames && s.teacherNames.length)
+        ? s.teacherNames.join(', ')
+        : '';
+      const editTag = s.canEdit
+        ? '<span class="grade-subj-tag grade-subj-edit">Editable</span>'
+        : '<span class="grade-subj-tag grade-subj-view">View only</span>';
+      return '<button type="button" class="grade-subj-card" data-subject="' + escapeHtml(s.subject) +
+        '" data-edit="' + (s.canEdit ? '1' : '0') + '">' +
+        '<strong>' + escapeHtml(s.subject) + '</strong>' +
+        editTag +
+        (teachers ? '<span class="muted small">' + escapeHtml(teachers) + '</span>' : '') +
+        '</button>';
+    }).join('');
+    list.querySelectorAll('.grade-subj-card').forEach((btn) => {
+      btn.addEventListener('click', () => openSubject(btn.dataset.subject, btn.dataset.edit === '1'));
+    });
+  }
+
+  async function openSubject(subj, editable) {
+    $('gradeSubject').value = subj;
+    setEditMode(editable);
+    showGradebookUi();
+    await loadActiveTerm();
+    await loadGradebook();
+    await loadLessonWeights();
   }
 
   async function onClassOpen() {
     const cls = getClass();
-    if (cls && cls.subjects && cls.subjects !== 'All subjects') {
-      $('gradeSubject').value = cls.subjects.split(',')[0].trim();
-    } else {
-      $('gradeSubject').value = 'English';
+    if (!cls) return;
+    $('gradesError').textContent = '';
+    subjectCatalog = [];
+    showSubjectPicker = false;
+    setEditMode(true);
+
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects');
+      subjectCatalog = data.subjects || [];
+      const isHomeroom = !!data.isHomeroom;
+      showSubjectPicker = isHomeroom || subjectCatalog.length > 1;
+
+      if (showSubjectPicker) {
+        renderSubjectPicker(subjectCatalog, isHomeroom);
+        showPicker();
+        await loadActiveTerm();
+        return;
+      }
+
+      if (subjectCatalog.length === 1) {
+        await openSubject(subjectCatalog[0].subject, !!subjectCatalog[0].canEdit);
+        return;
+      }
+
+      const fallback = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
+      await openSubject(fallback, true);
+    } catch (e) {
+      $('gradesError').textContent = e.message || 'Could not load subjects.';
+      const fallback = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
+      await openSubject(fallback, true);
     }
-    await loadActiveTerm();
-    await loadGradebook();
-    await loadLessonWeights();
   }
 
   async function loadActiveTerm() {
@@ -68,8 +173,9 @@ window.SaltGrades = (function() {
       }
       $('gradeTerm').value = data.term.label;
       $('reportTerm').value = data.term.label;
+      const subj = subject();
       $('gradeContextLabel').textContent =
-        subject() + ' · ' + data.term.label + ' (' + data.term.startDate + ' – ' + data.term.endDate + ')';
+        (subj ? subj + ' · ' : '') + data.term.label + ' (' + data.term.startDate + ' – ' + data.term.endDate + ')';
     } catch (e) {
       $('gradeContextLabel').textContent = e.message || 'Could not load term.';
     }
@@ -150,6 +256,7 @@ window.SaltGrades = (function() {
     try {
       gradebook = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
         '/grades/gradebook?term=' + encodeURIComponent(t) + '&subject=' + encodeURIComponent(subj));
+      if (typeof gradebook.canEdit === 'boolean') setEditMode(gradebook.canEdit);
       renderWeightSummary();
       const focusColId = highlightColumnId;
       renderGradebook();
@@ -227,9 +334,12 @@ window.SaltGrades = (function() {
   function assessmentHeaderHtml(col) {
     const title = col.title || col.categoryLabel;
     const showCategory = col.categoryLabel && col.categoryLabel !== title;
+    const deleteBtn = canEditGrades
+      ? ('<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
+        '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>')
+      : '';
     return (
-      '<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
-      '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>' +
+      deleteBtn +
       '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
       '<div class="gb-col-meta">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
       (showCategory ? '<div class="gb-col-meta gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '')
@@ -320,7 +430,7 @@ window.SaltGrades = (function() {
         headerName: col.title || col.categoryLabel,
         width: COL_WIDTH,
         minWidth: COL_WIDTH,
-        editable: true,
+        editable: canEditGrades,
         cellEditor: 'agNumberCellEditor',
         cellEditorParams: { min: 0, max: col.maxScore, precision: 1 },
         cellRenderer: ScoreCellRenderer,
@@ -379,9 +489,11 @@ window.SaltGrades = (function() {
       return;
     }
 
-    const emptyHint = weights.length
-      ? 'No columns yet — click + Add column'
-      : 'Set up Grade weights, then click + Add column';
+    const emptyHint = !canEditGrades
+      ? 'No grade columns yet for this subject.'
+      : (weights.length
+        ? 'No columns yet — click + Add column'
+        : 'Set up Grade weights, then click + Add column');
 
     if (!cols.length) {
       destroyGrid();
@@ -422,6 +534,10 @@ window.SaltGrades = (function() {
   }
 
   async function onAgCellChanged(event) {
+    if (!canEditGrades) {
+      event.node.setDataValue(event.colDef.field, event.oldValue);
+      return;
+    }
     const field = event.colDef.field;
     if (!field || field === 'name' || field === 'finalGrade') return;
     const col = gridMeta.cols.find((c) => c.assessmentId === field);
@@ -478,9 +594,11 @@ window.SaltGrades = (function() {
       return;
     }
 
-    const emptyHint = weights.length
-      ? 'No columns yet — click + Add column'
-      : 'Set up Grade weights, then click + Add column';
+    const emptyHint = !canEditGrades
+      ? 'No grade columns yet for this subject.'
+      : (weights.length
+        ? 'No columns yet — click + Add column'
+        : 'Set up Grade weights, then click + Add column');
 
     let midHead = '';
     let colgroup = '';
@@ -498,8 +616,10 @@ window.SaltGrades = (function() {
           (showCategory ? ' · ' + col.categoryLabel : '') +
           ' · ' + formatColDate(col.date) + ' · /' + col.maxScore;
         midHead += '<th class="gb-col-head' + hl + '" title="' + escapeHtml(tooltip) + '">' +
-          '<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
-          '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>' +
+          (canEditGrades
+            ? ('<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
+              '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>')
+            : '') +
           '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
           '<div class="gb-col-meta muted small">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
           (showCategory ? '<div class="gb-col-meta muted small gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '') +
@@ -523,12 +643,19 @@ window.SaltGrades = (function() {
           const pct = cell && cell.percent != null ? cell.percent : null;
           const letter = letterGrade(pct);
           const hl = col.assessmentId === highlightColumnId ? ' gb-col-new' : '';
-          midCells += '<td class="gb-score-cell' + hl + '">' +
-            '<input type="number" class="gb-cell-input" min="0" max="' + col.maxScore + '" ' +
-            'data-aid="' + escapeHtml(col.assessmentId) + '" data-sid="' + escapeHtml(st.studentId) + '" ' +
-            'data-max="' + col.maxScore + '" value="' + val + '" placeholder="—">' +
-            (letter ? '<span class="gb-letter">' + letter + '</span>' : '') +
-          '</td>';
+          if (canEditGrades) {
+            midCells += '<td class="gb-score-cell' + hl + '">' +
+              '<input type="number" class="gb-cell-input" min="0" max="' + col.maxScore + '" ' +
+              'data-aid="' + escapeHtml(col.assessmentId) + '" data-sid="' + escapeHtml(st.studentId) + '" ' +
+              'data-max="' + col.maxScore + '" value="' + val + '" placeholder="—">' +
+              (letter ? '<span class="gb-letter">' + letter + '</span>' : '') +
+            '</td>';
+          } else {
+            midCells += '<td class="gb-score-cell' + hl + '">' +
+              '<span class="gb-ag-score">' + (val === '' ? '—' : escapeHtml(String(val))) + '</span>' +
+              (letter ? '<span class="gb-letter">' + letter + '</span>' : '') +
+            '</td>';
+          }
         });
       }
       midBody += '<tr>' + midCells + '</tr>';
@@ -723,6 +850,10 @@ window.SaltGrades = (function() {
   }
 
   function openColumnModal() {
+    if (!canEditGrades) {
+      $('gradesError').textContent = 'Only the subject teacher can add columns.';
+      return;
+    }
     const weights = (gradebook && gradebook.weights) || [];
     if (!weights.length) {
       $('gradesError').textContent = 'Set up grade weights first.';
@@ -769,6 +900,10 @@ window.SaltGrades = (function() {
   }
 
   async function openWeightsModal() {
+    if (!canEditGrades) {
+      $('gradesError').textContent = 'Only the subject teacher can edit grade weights.';
+      return;
+    }
     const cls = getClass();
     if (!term()) {
       $('gradeWeightsError').textContent = 'No active term. Contact admin.';
@@ -801,42 +936,100 @@ window.SaltGrades = (function() {
     return weightDraft.reduce((s, w) => s + (Number(w.weightPercent) || 0), 0);
   }
 
+  function isCustomCategory(w) {
+    if (!w) return false;
+    if (w.custom) return true;
+    return !categoryPresets.some((p) => p.categoryKey === w.categoryKey);
+  }
+
+  function syncCustomAddFields() {
+    const sel = $('gradeWeightPresetSelect');
+    const custom = sel && sel.value === '__custom__';
+    if ($('gradeWeightCustomLabel')) {
+      $('gradeWeightCustomLabel').classList.toggle('hidden', !custom);
+      if (custom) $('gradeWeightCustomLabel').focus();
+    }
+    if ($('gradeWeightCustomAgg')) {
+      $('gradeWeightCustomAgg').classList.toggle('hidden', !custom);
+    }
+  }
+
   function renderWeightEditor() {
     const presets = categoryPresets;
-    $('gradeWeightPresetSelect').innerHTML = presets.map((p) =>
-      '<option value="' + escapeHtml(p.categoryKey) + '">' + escapeHtml(p.label) + '</option>'
-    ).join('');
+    $('gradeWeightPresetSelect').innerHTML =
+      presets.map((p) =>
+        '<option value="' + escapeHtml(p.categoryKey) + '">' + escapeHtml(p.label) + '</option>'
+      ).join('') +
+      '<option value="__custom__">Custom…</option>';
+    syncCustomAddFields();
+
     $('gradeWeightRows').innerHTML = weightDraft.map((w, i) => {
+      const custom = isCustomCategory(w);
       const opts = presets.map((p) =>
-        '<option value="' + escapeHtml(p.categoryKey) + '"' + (p.categoryKey === w.categoryKey ? ' selected' : '') + '>' +
+        '<option value="' + escapeHtml(p.categoryKey) + '"' +
+        (!custom && p.categoryKey === w.categoryKey ? ' selected' : '') + '>' +
         escapeHtml(p.label) + '</option>'
-      ).join('');
+      ).join('') +
+        '<option value="__custom__"' + (custom ? ' selected' : '') + '>Custom…</option>';
       return '<div class="gw-row" data-idx="' + i + '">' +
         '<select class="gw-key">' + opts + '</select>' +
+        '<input type="text" class="gw-label' + (custom ? '' : ' hidden') +
+        '" maxlength="60" placeholder="Category name" value="' +
+        escapeHtml(w.label || '') + '">' +
+        '<select class="gw-agg-sel' + (custom ? '' : ' hidden') + '">' +
+        '<option value="average"' + (w.aggregation !== 'single' ? ' selected' : '') + '>Average</option>' +
+        '<option value="single"' + (w.aggregation === 'single' ? ' selected' : '') + '>Single score</option>' +
+        '</select>' +
+        '<span class="muted small gw-agg' + (custom ? ' hidden' : '') + '">' +
+        (w.aggregation === 'single' ? 'one score' : 'average') + '</span>' +
         '<input type="number" class="gw-pct" min="1" max="100" value="' + w.weightPercent + '" style="width:4.5rem"> %' +
-        '<span class="muted small gw-agg">' + (w.aggregation === 'single' ? 'one score' : 'average') + '</span>' +
         '<button type="button" class="btn btn-ghost gw-remove">×</button></div>';
     }).join('');
     $('gradeWeightTotal').textContent = 'Total: ' + Math.round(weightTotal() * 10) / 10 + '%';
+
     $('gradeWeightRows').querySelectorAll('.gw-pct').forEach((inp, i) => {
       inp.addEventListener('input', () => {
         weightDraft[i].weightPercent = Number(inp.value);
         $('gradeWeightTotal').textContent = 'Total: ' + Math.round(weightTotal() * 10) / 10 + '%';
       });
     });
+    $('gradeWeightRows').querySelectorAll('.gw-label').forEach((inp, i) => {
+      inp.addEventListener('input', () => {
+        weightDraft[i].label = inp.value;
+        weightDraft[i].custom = true;
+      });
+    });
+    $('gradeWeightRows').querySelectorAll('.gw-agg-sel').forEach((sel, i) => {
+      sel.addEventListener('change', () => {
+        weightDraft[i].aggregation = sel.value;
+      });
+    });
     $('gradeWeightRows').querySelectorAll('.gw-key').forEach((sel, i) => {
       sel.addEventListener('change', () => {
-        const p = presets.find((x) => x.categoryKey === sel.value);
-        if (p) {
+        const row = sel.closest('.gw-row');
+        if (sel.value === '__custom__') {
           weightDraft[i] = Object.assign({}, weightDraft[i], {
-            categoryKey: p.categoryKey,
-            label: p.label,
-            aggregation: p.aggregation,
-            defaultMaxScore: p.defaultMaxScore
+            categoryKey: weightDraft[i].categoryKey && isCustomCategory(weightDraft[i])
+              ? weightDraft[i].categoryKey
+              : ('custom_tmp_' + i),
+            label: weightDraft[i].label || '',
+            aggregation: weightDraft[i].aggregation || 'average',
+            defaultMaxScore: 100,
+            custom: true
           });
-          sel.closest('.gw-row').querySelector('.gw-agg').textContent =
-            p.aggregation === 'single' ? 'one score' : 'average';
+        } else {
+          const p = presets.find((x) => x.categoryKey === sel.value);
+          if (p) {
+            weightDraft[i] = Object.assign({}, weightDraft[i], {
+              categoryKey: p.categoryKey,
+              label: p.label,
+              aggregation: p.aggregation,
+              defaultMaxScore: p.defaultMaxScore,
+              custom: false
+            });
+          }
         }
+        renderWeightEditor();
       });
     });
     $('gradeWeightRows').querySelectorAll('.gw-remove').forEach((btn) => {
@@ -848,14 +1041,44 @@ window.SaltGrades = (function() {
   }
 
   function addWeightRow() {
-    const p = categoryPresets.find((x) => x.categoryKey === $('gradeWeightPresetSelect').value);
-    if (!p || weightDraft.some((w) => w.categoryKey === p.categoryKey)) return;
+    const key = $('gradeWeightPresetSelect').value;
+    $('gradeWeightsError').textContent = '';
+    if (key === '__custom__') {
+      const label = ($('gradeWeightCustomLabel').value || '').trim();
+      if (!label) {
+        $('gradeWeightsError').textContent = 'Enter a custom category name.';
+        $('gradeWeightCustomLabel').focus();
+        return;
+      }
+      const agg = ($('gradeWeightCustomAgg') && $('gradeWeightCustomAgg').value) || 'average';
+      if (weightDraft.some((w) => String(w.label || '').toLowerCase() === label.toLowerCase())) {
+        $('gradeWeightsError').textContent = 'That category is already added.';
+        return;
+      }
+      weightDraft.push({
+        categoryKey: 'custom_tmp_' + Date.now(),
+        label,
+        weightPercent: 10,
+        aggregation: agg,
+        defaultMaxScore: 100,
+        custom: true
+      });
+      $('gradeWeightCustomLabel').value = '';
+      renderWeightEditor();
+      return;
+    }
+    const p = categoryPresets.find((x) => x.categoryKey === key);
+    if (!p || weightDraft.some((w) => w.categoryKey === p.categoryKey)) {
+      if (p) $('gradeWeightsError').textContent = 'That category is already added.';
+      return;
+    }
     weightDraft.push({
       categoryKey: p.categoryKey,
       label: p.label,
       weightPercent: 10,
       aggregation: p.aggregation,
-      defaultMaxScore: p.defaultMaxScore
+      defaultMaxScore: p.defaultMaxScore,
+      custom: false
     });
     renderWeightEditor();
   }
@@ -865,26 +1088,50 @@ window.SaltGrades = (function() {
     $('gradeWeightsError').textContent = '';
     const rows = $('gradeWeightRows').querySelectorAll('.gw-row');
     const weights = [];
-    rows.forEach((row, i) => {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       const key = row.querySelector('.gw-key').value;
       const draft = weightDraft[i] || {};
-      const preset = categoryPresets.find((p) => p.categoryKey === key);
-      weights.push({
-        categoryKey: key,
-        label: preset ? preset.label : draft.label || key,
-        weightPercent: Number(row.querySelector('.gw-pct').value),
-        aggregation: draft.aggregation || (preset && preset.aggregation) || 'average',
-        defaultMaxScore: draft.defaultMaxScore || (preset && preset.defaultMaxScore) || 100,
-        sortOrder: i + 1
-      });
-    });
+      const custom = key === '__custom__' || draft.custom;
+      const labelInp = row.querySelector('.gw-label');
+      const aggSel = row.querySelector('.gw-agg-sel');
+      if (custom) {
+        const label = (labelInp && labelInp.value.trim()) || String(draft.label || '').trim();
+        if (!label) {
+          $('gradeWeightsError').textContent = 'Custom categories need a name.';
+          if (labelInp) labelInp.focus();
+          return;
+        }
+        weights.push({
+          categoryKey: draft.categoryKey && String(draft.categoryKey).indexOf('custom_tmp_') !== 0
+            ? draft.categoryKey
+            : '__custom__',
+          label,
+          weightPercent: Number(row.querySelector('.gw-pct').value),
+          aggregation: (aggSel && aggSel.value) || draft.aggregation || 'average',
+          defaultMaxScore: draft.defaultMaxScore || 100,
+          sortOrder: i + 1
+        });
+      } else {
+        const preset = categoryPresets.find((p) => p.categoryKey === key);
+        weights.push({
+          categoryKey: key,
+          label: preset ? preset.label : draft.label || key,
+          weightPercent: Number(row.querySelector('.gw-pct').value),
+          aggregation: draft.aggregation || (preset && preset.aggregation) || 'average',
+          defaultMaxScore: draft.defaultMaxScore || (preset && preset.defaultMaxScore) || 100,
+          sortOrder: i + 1
+        });
+      }
+    }
     try {
-      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/weights', {
+      const saved = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/weights', {
         method: 'POST',
         body: { term: term(), subject: subject(), weights }
       });
+      if (gradebook) gradebook.weights = saved.weights || weights;
       deps.hide($('gradeWeightsModal'));
-      loadGradebook();
+      await loadGradebook(true);
     } catch (e) {
       $('gradeWeightsError').textContent = e.message;
     }

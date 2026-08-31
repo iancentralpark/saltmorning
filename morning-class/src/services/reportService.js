@@ -6,8 +6,9 @@ const {
 const { getSheetRows } = require('../sheets');
 const { formatSheetDate } = require('../dateUtils');
 const { getHolidaysForMonth } = require('../holiday');
-const { countsAsPresent, parseAttendanceRow } = require('./attendanceService');
+const { countsAsPresent, parseAttendanceRow, normalizeAllowedDays } = require('./attendanceService');
 const { getPlannedForClassMonth } = require('./plannedAttendanceService');
+const { listEntries, resolveDay } = require('./schoolCalendarService');
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const ATT_MAP = {
@@ -16,33 +17,13 @@ const ATT_MAP = {
   '결석': { label: 'X', cls: 'att-absent' }
 };
 
-function normalizeAllowedDays(raw) {
-  if (!raw && raw !== 0) return [1, 2, 3, 4, 5];
-  const out = String(raw).split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n));
-  return out.length ? out : [1, 2, 3, 4, 5];
-}
-
-function buildScheduledDates(year, month, allowedDays, holidays) {
-  const allowed = normalizeAllowedDays(allowedDays);
-  const numDays = new Date(year, month, 0).getDate();
-  const dates = [];
-  for (let d = 1; d <= numDays; d++) {
-    const dateStr = year + '-' + String(month).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-    const dow = new Date(dateStr + 'T12:00:00').getDay();
-    if (!allowed.includes(dow)) continue;
-    dates.push({
-      dateStr,
-      dayLabel: DAY_LABELS[dow],
-      holiday: holidays[dateStr] || ''
-    });
-  }
-  return dates;
-}
-
 async function getMonthlyReport(classId, year, month) {
   const y = Number(year);
   const m = Number(month);
   const monthPrefix = y + '-' + String(m).padStart(2, '0');
+  const from = monthPrefix + '-01';
+  const last = new Date(y, m, 0).getDate();
+  const to = monthPrefix + '-' + String(last).padStart(2, '0');
   const holidays = await getHolidaysForMonth(y, m);
 
   const classData = await getSheetRows(CLASS_LIST_SHEET);
@@ -81,13 +62,45 @@ async function getMonthlyReport(classId, year, month) {
   }
 
   const plannedByClass = {};
+  const entriesByClass = {};
   for (const cls of classList) {
     plannedByClass[cls.id] = await getPlannedForClassMonth(cls.id, y, m);
+    entriesByClass[cls.id] = await listEntries({ from, to, classId: cls.id, includeInactive: false });
   }
 
   const report = [];
   for (const cls of classList) {
-    const dates = buildScheduledDates(y, m, cls.allowedDays, holidays);
+    const classMeta = { allowedDays: cls.allowedDays, className: cls.name };
+    const dates = [];
+    for (let d = 1; d <= last; d++) {
+      const dateStr = monthPrefix + '-' + String(d).padStart(2, '0');
+      const resolved = await resolveDay(cls.id, dateStr, {
+        classMeta,
+        entries: entriesByClass[cls.id],
+        krHolidayMap: holidays
+      });
+      if (!resolved.isClassDay && !resolved.krHoliday && resolved.dayType === 'off') continue;
+      if (!resolved.isClassDay) {
+        dates.push({
+          dateStr,
+          dayLabel: DAY_LABELS[resolved.dayOfWeek],
+          holiday: resolved.title || resolved.krHoliday || resolved.dayType,
+          isClassDay: false,
+          dayType: resolved.dayType,
+          events: resolved.events
+        });
+        continue;
+      }
+      dates.push({
+        dateStr,
+        dayLabel: DAY_LABELS[resolved.dayOfWeek],
+        holiday: '',
+        isClassDay: true,
+        dayType: resolved.dayType,
+        events: resolved.events
+      });
+    }
+
     const students = (studentsByClass[cls.id] || []).map((std) => {
       let present = 0;
       let tardy = 0;
@@ -95,7 +108,7 @@ async function getMonthlyReport(classId, year, month) {
       let excusedCount = 0;
 
       const cells = dates.map((d) => {
-        if (d.holiday) {
+        if (!d.isClassDay) {
           return { attendance: null, holiday: d.holiday, excused: false, planned: false };
         }
         let rec = recordMap[cls.id] && recordMap[cls.id][d.dateStr] && recordMap[cls.id][d.dateStr][std.id];

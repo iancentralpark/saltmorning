@@ -4,11 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260708libs">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css?v=20260813ux1">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
 </head>
 <body>
-<div class="shell">
+<div class="shell portal-shell-wide" id="adminShellRoot">
   <div id="loginView" class="card">
     <h2>Admin</h2>
     <p class="muted">Redirecting to sign in…</p>
@@ -16,52 +19,112 @@
   </div>
 
   <div id="adminView" class="hidden">
-    <div class="topbar">
-      <div class="brand" id="welcomeText">Salt Admin</div>
-      <button class="btn btn-ghost" id="logoutBtn" type="button">Log out</button>
-    </div>
+    <header class="topbar teacher-topbar teacher-shell-topbar portal-shell-topbar">
+      <div class="teacher-shell-identity">
+        <div class="brand" id="welcomeText" data-i18n="admin.brand">Salt Admin</div>
+        <div class="teacher-shell-page muted small" id="adminPageTitle" data-i18n="admin.page.monitor">Monitoring</div>
+      </div>
+      <div class="teacher-shell-nav">
+        <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
+        <button class="btn btn-ghost" id="changePasswordBtn" type="button" data-change-password data-i18n="nav.password">Password</button>
+        <button class="btn btn-ghost teacher-nav-logout" id="logoutBtn" type="button" data-i18n="nav.logout">Log out</button>
+      </div>
+    </header>
 
-    <div class="tabs">
-      <button class="tab active" data-tab="monitor" type="button">Monitoring</button>
-      <button class="tab" data-tab="lessons" type="button">Lesson plans</button>
-      <button class="tab" data-tab="teachers" type="button">Teachers</button>
-      <button class="tab" data-tab="classes" type="button">Classes</button>
-      <button class="tab" data-tab="students" type="button">Students</button>
-      <button class="tab" data-tab="timetables" type="button">Timetables</button>
-      <button class="tab" data-tab="terms" type="button">Term dates</button>
-    </div>
+    <nav class="class-subnav portal-subnav portal-subnav-grouped" id="adminNav" aria-label="Admin sections">
+      <div class="class-subnav-track portal-subnav-track-wrap">
+        <button class="class-subnav-item active" data-tab="monitor" type="button" data-perm="admin.monitor" data-i18n="nav.monitor">Monitor</button>
+
+        <div class="portal-nav-group" data-group="people">
+          <button type="button" class="class-subnav-item portal-nav-group-btn" aria-expanded="false" data-i18n="nav.groupPeople">People</button>
+          <div class="portal-nav-group-panel hidden" role="menu">
+            <button class="portal-nav-group-item" data-tab="teachers" type="button" data-perm="admin.faculty" data-i18n="nav.teachers" role="menuitem">Faculty</button>
+            <button class="portal-nav-group-item" data-tab="classes" type="button" data-perm="admin.classes" data-i18n="nav.classes" role="menuitem">Classes</button>
+            <button class="portal-nav-group-item" data-tab="students" type="button" data-perm="admin.students" data-i18n="nav.students" role="menuitem">Students</button>
+          </div>
+        </div>
+
+        <div class="portal-nav-group" data-group="academics">
+          <button type="button" class="class-subnav-item portal-nav-group-btn" aria-expanded="false" data-i18n="nav.groupAcademics">Academics</button>
+          <div class="portal-nav-group-panel hidden" role="menu">
+            <button class="portal-nav-group-item" data-tab="lessons" type="button" data-perm="admin.lessons" data-i18n="nav.lessons" role="menuitem">Lessons</button>
+            <button class="portal-nav-group-item" data-tab="timetables" type="button" data-perm="admin.timetables" data-i18n="nav.timetables" role="menuitem">Timetables</button>
+            <button class="portal-nav-group-item" data-tab="schoolCal" type="button" data-perm="admin.schoolCal" data-i18n="nav.schoolCal" role="menuitem">Calendar</button>
+            <button class="portal-nav-group-item" data-tab="analytics" type="button" data-perm="admin.analytics" data-i18n="nav.analytics" role="menuitem">Analytics</button>
+            <button class="portal-nav-group-item" data-tab="reportCards" type="button" data-perm="admin.reportCards" data-i18n="nav.reportCards" role="menuitem">Reports</button>
+            <button class="portal-nav-group-item" data-tab="vocabPlatform" type="button" data-perm="admin.vocabPlatform" data-i18n="nav.vocabPlatform" role="menuitem">Vocab</button>
+          </div>
+        </div>
+
+        <div class="portal-nav-group" data-group="operations">
+          <button type="button" class="class-subnav-item portal-nav-group-btn" aria-expanded="false" data-i18n="nav.groupOperations">Operations</button>
+          <div class="portal-nav-group-panel hidden" role="menu">
+            <button class="portal-nav-group-item" data-tab="bus" type="button" data-perm="admin.bus" data-i18n="nav.bus" role="menuitem">Bus</button>
+            <button class="portal-nav-group-item" data-tab="consents" type="button" data-perm="admin.consents" data-i18n="nav.consents" role="menuitem">Forms</button>
+            <button class="portal-nav-group-item" data-tab="announcements" type="button" data-perm="admin.announcements" data-i18n="nav.announcements" role="menuitem">News</button>
+            <button class="portal-nav-group-item" data-tab="lostFound" type="button" data-perm="admin.lostFound" data-i18n="nav.lostAndFound" role="menuitem">Lost &amp; Found</button>
+            <button class="portal-nav-group-item" data-tab="materials" type="button" data-perm="admin.materials" data-i18n="nav.materials" role="menuitem">Materials</button>
+          </div>
+        </div>
+      </div>
+    </nav>
 
     <div id="panelMonitor" class="card">
+      <div class="card" id="adminPushCard" style="margin:0 0 1rem;padding:0.75rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
+        <strong data-i18n="push.title">Notifications</strong>
+        <p class="muted small" data-i18n="push.help">Enable alerts for messenger and school updates when the app is closed.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+          <button type="button" class="btn btn-primary" id="adminPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
+          <button type="button" class="btn btn-ghost" id="adminPushDisableBtn" data-i18n="push.disable">Turn off</button>
+          <span class="muted small" id="adminPushStatus"></span>
+        </div>
+      </div>
       <div class="admin-toolbar">
-        <select id="monitorClass"><option value="">All classes</option></select>
+        <select id="monitorClass"><option value="" data-i18n="admin.monitor.allClasses">All classes</option></select>
         <select id="monitorType">
-          <option value="">All activity</option>
-          <option value="attendance">Attendance</option>
-          <option value="grade">Grades</option>
-          <option value="lesson_plan">Lesson plans</option>
-          <option value="planned_absence">Planned absences</option>
-          <option value="message">Messages</option>
-          <option value="dollar">Dollars</option>
-          <option value="homework">Homework</option>
-          <option value="english_buddy">English Buddy</option>
-          <option value="vocab">Vocab</option>
+          <option value="" data-i18n="admin.monitor.allActivity">All activity</option>
+          <option value="attendance" data-i18n="admin.monitor.attendance">Attendance</option>
+          <option value="grade" data-i18n="admin.monitor.grades">Grades</option>
+          <option value="lesson_plan" data-i18n="admin.monitor.lessonPlans">Lesson plans</option>
+          <option value="planned_absence" data-i18n="admin.monitor.plannedAbsences">Planned absences</option>
+          <option value="message" data-i18n="admin.monitor.messages">Messages</option>
+          <option value="dollar" data-i18n="admin.monitor.dollars">Dollars</option>
+          <option value="homework" data-i18n="admin.monitor.homework">Homework</option>
+          <option value="english_buddy" data-i18n="admin.monitor.buddy">English Buddy</option>
+          <option value="vocab" data-i18n="admin.monitor.vocab">Vocab Booster</option>
         </select>
-        <button type="button" class="btn btn-primary" id="monitorRefresh">Refresh</button>
+        <button type="button" class="btn btn-primary" id="monitorRefresh" data-i18n="admin.monitor.refresh">Refresh</button>
       </div>
       <div id="monitorFeed" class="table-wrap"></div>
+
+      <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border-soft)">
+      <div class="admin-toolbar" style="margin-bottom:0.5rem">
+        <h4 style="margin:0;flex:1" data-i18n="admin.audit.title">Audit log</h4>
+        <button type="button" class="btn btn-ghost" id="auditLogRefresh" data-i18n="common.refresh">Refresh</button>
+      </div>
+      <div id="auditLogFeed" class="table-wrap"><p class="muted">Loading…</p></div>
     </div>
 
     <div id="panelLessons" class="card hidden lp-cal-panel">
       <div class="admin-toolbar">
-        <select id="lpAdminTeacher"><option value="">All teachers</option></select>
-        <select id="lpAdminClass"><option value="">All classes</option></select>
+        <select id="lpAdminTeacher"><option value="" data-i18n="admin.lessons.allTeachers">All teachers</option></select>
+        <select id="lpAdminClass"><option value="" data-i18n="admin.lessons.allClasses">All classes</option></select>
+      </div>
+      <div id="lpAdminSemester" class="lp-semester-panel lp-admin-semester">
+        <div class="lp-semester-head">
+          <strong data-i18n="lessons.adminSemester">Semester plans</strong>
+          <span class="muted small" data-i18n="lessons.adminSemesterHelp">Review teacher semester lesson plans by class and subject.</span>
+        </div>
+        <div id="lpAdminSemesterList"><p class="muted small" data-i18n="common.loading">Loading…</p></div>
+        <div id="lpAdminSemesterDetail" class="hidden"></div>
       </div>
       <div class="lp-cal-toolbar">
         <button type="button" class="btn btn-ghost lp-prev-month" aria-label="Previous month">‹</button>
         <strong class="lp-month-label"></strong>
         <button type="button" class="btn btn-ghost lp-next-month" aria-label="Next month">›</button>
-        <button type="button" class="btn btn-ghost lp-today-btn">Today</button>
+        <button type="button" class="btn btn-ghost lp-today-btn" data-i18n="admin.lessons.today">Today</button>
       </div>
+      <p class="muted small lp-cal-school-note" data-i18n="admin.lessons.note">Day colors follow School calendar (holiday / break / event). Linked with attendance class days.</p>
       <div id="lpAdminLayout" class="lp-cal-layout">
         <div class="lp-cal-main">
           <div id="lpAdminCalendar"><p class="muted">Loading…</p></div>
@@ -80,25 +143,96 @@
     </div>
 
     <div id="panelTeachers" class="card hidden">
-      <h3>Teachers</h3>
-      <div id="teacherList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3>Add / edit teacher</h3>
-      <form id="teacherForm" class="form-grid admin-form-grid">
-        <input type="hidden" id="teacherId">
-        <input id="teacherName" placeholder="Full name" required>
-        <input id="teacherLoginId" placeholder="Login ID" required>
-        <input id="teacherPassword" type="password" placeholder="Password (required for new)">
-        <input id="teacherHomeroom" placeholder="Homeroom class ID (e.g. C001)">
-        <select id="teacherRole">
-          <option value="Teacher">Teacher</option>
-          <option value="Director">Director</option>
-        </select>
-        <button type="submit" class="btn btn-primary">Save teacher</button>
-        <div class="error" id="teacherError"></div>
-      </form>
+      <div class="teacher-panel-head">
+        <div>
+          <h3 style="margin:0" data-i18n="admin.teachers.title">Faculty</h3>
+          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.teachers.help">Manage faculty accounts, titles, portal permissions, and photos.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="teacherAddBtn" data-i18n="admin.teachers.add">+ Add faculty</button>
+      </div>
+      <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
+      <div id="teacherList" class="table-wrap" style="margin:1rem 0"></div>
+
+      <div id="teacherEditor" class="teacher-editor hidden">
+        <div class="teacher-editor-head">
+          <h3 id="teacherFormTitle" style="margin:0">Add teacher</h3>
+          <button type="button" class="btn btn-ghost" id="teacherFormCloseBtn">Close</button>
+        </div>
+        <form id="teacherForm" class="teacher-profile-form">
+          <input type="hidden" id="teacherId">
+          <div class="sr-photo-row teacher-photo-row">
+            <div class="sr-photo-box" id="teacherPhotoBox">
+              <div class="sr-avatar-fallback sr-photo-lg" id="teacherPhotoFallback">?</div>
+              <img id="teacherPhotoImg" class="sr-photo-lg hidden" alt="Teacher photo">
+            </div>
+            <div>
+              <label class="btn btn-ghost sr-photo-upload" id="teacherPhotoUploadLabel">
+                Upload photo
+                <input type="file" accept="image/jpeg,image/png,image/webp" id="teacherPhotoInput" class="hidden">
+              </label>
+              <p class="muted small" id="teacherPhotoHint">Save the teacher first, then upload a photo.</p>
+              <div class="error" id="teacherPhotoError"></div>
+            </div>
+          </div>
+          <div class="sr-form-grid teacher-profile-grid">
+            <label>Full name <input id="teacherName" required></label>
+            <label>Preferred name <input id="teacherPreferredName" placeholder="e.g. Mr. Park (shown to students/parents)"></label>
+            <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
+            <label>Login ID <input id="teacherLoginId" required></label>
+            <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
+            <div class="sr-span2">
+              <button type="button" class="btn btn-ghost" id="teacherResetPwBtn">Reset password (temp + force change)</button>
+            </div>
+            <label>Homeroom class ID <input id="teacherHomeroom" placeholder="e.g. C001"></label>
+            <label>Title
+              <select id="teacherRole">
+                <option value="Teacher">Teacher</option>
+                <option value="Head Teacher">Head Teacher</option>
+                <option value="Principal">Principal</option>
+                <option value="Vice Principal">Vice Principal</option>
+                <option value="Dean">Dean</option>
+                <option value="Chaplain">Chaplain</option>
+                <option value="Admin Staff">Admin Staff</option>
+                <option value="Librarian">Librarian</option>
+                <option value="Nurse">Nurse</option>
+                <option value="Head of Admin">Head of Admin</option>
+              </select>
+            </label>
+            <label>Head Teacher ID
+              <input id="teacherHeadId" list="headTeacherOptions" placeholder="TeacherID of their Head Teacher">
+              <datalist id="headTeacherOptions"></datalist>
+            </label>
+            <label>Job note <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
+            <div class="sr-span2" id="teacherPermBox">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                <strong data-i18n="admin.teachers.perms">Portal permissions</strong>
+                <button type="button" class="btn btn-ghost" id="teacherPermPresetBtn">Apply title preset</button>
+              </div>
+              <p class="muted small" style="margin:0.25rem 0 0.5rem" data-i18n="admin.teachers.permsHelp">Checked menus appear after this person signs in. Admin accounts always have everything.</p>
+              <div id="teacherPermChecks" class="faculty-perm-grid"></div>
+            </div>
+            <label>Hire date <input id="teacherHireDate" type="date"></label>
+            <label>Date of birth <input id="teacherDob" type="date"></label>
+            <label>Gender <input id="teacherGender"></label>
+            <label>Nationality <input id="teacherNationality"></label>
+            <label>Phone <input id="teacherPhone" type="tel"></label>
+            <label>Email <input id="teacherEmail" type="email"></label>
+            <label class="sr-span2">Address <input id="teacherAddress"></label>
+            <label>Emergency contact <input id="teacherEmergencyContact"></label>
+            <label>Emergency phone <input id="teacherEmergencyPhone" type="tel"></label>
+            <label class="sr-span2">Education <input id="teacherEducation" placeholder="Degrees, certifications"></label>
+            <label class="sr-span2">Notes <textarea id="teacherNotes" rows="3"></textarea></label>
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
+            <button type="submit" class="btn btn-primary">Save teacher</button>
+            <button type="button" class="btn btn-ghost" id="teacherFormResetBtn">Cancel</button>
+          </div>
+          <div class="error" id="teacherError"></div>
+        </form>
+      </div>
 
       <h3 style="margin-top:1.5rem">Class &amp; subject assignments</h3>
-      <p class="muted small">Admin 배정은 Class_Teachers에 저장됩니다. 선생님이 직접 추가한 과목은 Teacher_Class_Subjects입니다.</p>
+      <p class="muted small">Admin 배정은 Class_Teachers에 저장됩니다. 교사가 직접 추가한 과목은 Teacher_Class_Subjects입니다.</p>
       <div id="assignmentList" class="table-wrap" style="margin-bottom:1rem"></div>
       <h3>Add assignment</h3>
       <form id="assignmentForm" class="form-grid admin-form-grid">
@@ -116,97 +250,777 @@
     </div>
 
     <div id="panelClasses" class="card hidden">
-      <h3>Classes</h3>
-      <p class="muted small">Create classes and import students from the registry one at a time. Timetables for students and teachers will be added later.</p>
+      <h3 data-i18n="admin.classes.title">Classes</h3>
+      <p class="muted small" data-i18n="admin.classes.help">Create classes and import students from the registry. Timetables are managed in the Timetables tab.</p>
       <div id="classRegistryMount"></div>
     </div>
 
-    <div id="panelTerms" class="card hidden">
-      <h3>Term dates by class</h3>
-      <p class="muted small">Teachers use the active term automatically. Set date ranges here.</p>
-      <div id="termList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3>Add / update term</h3>
-      <form id="termForm" class="form-grid admin-form-grid">
-        <select id="termClassId" required></select>
-        <input id="termLabel" placeholder="Term label (e.g. Term1)" required>
-        <label>Start <input type="date" id="termStart" required></label>
-        <label>End <input type="date" id="termEnd" required></label>
-        <button type="submit" class="btn btn-primary">Save term</button>
-        <div class="error" id="termError"></div>
-      </form>
+    <div id="panelSchoolCal" class="card hidden sc-panel">
+      <div class="sc-panel-head">
+        <div>
+          <h3 style="margin:0" data-i18n="admin.schoolCal.title">Annual school calendar</h3>
+          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.schoolCal.help">
+            Korean public holidays sync automatically. Add school holidays, breaks, events, or force a holiday into a school day.
+          </p>
+        </div>
+      </div>
+      <div class="sc-toolbar">
+        <div class="sc-toolbar-left">
+          <button type="button" class="btn btn-ghost" id="scViewMonth" data-i18n="admin.schoolCal.monthly">Monthly</button>
+          <button type="button" class="btn btn-ghost" id="scViewYear" data-i18n="admin.schoolCal.yearly">Yearly</button>
+        </div>
+        <div class="sc-toolbar-right">
+          <button type="button" class="btn btn-ghost" id="scSemestersBtn" data-i18n="admin.semesters.open">School semesters</button>
+          <button type="button" class="btn btn-primary" id="scPrint" data-i18n="admin.schoolCal.print">Print plan</button>
+        </div>
+      </div>
+
+      <div class="sc-nav">
+        <button type="button" class="btn btn-ghost" id="scPrev" aria-label="Previous">‹</button>
+        <strong id="scLabel"></strong>
+        <button type="button" class="btn btn-ghost" id="scNext" aria-label="Next">›</button>
+        <button type="button" class="btn btn-ghost" id="scToday" data-i18n="admin.schoolCal.today">Today</button>
+      </div>
+      <div id="scMount" class="sc-mount"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+      <div class="sc-editor">
+        <h4 id="scFormTitle" data-i18n="admin.schoolCal.addTitle">Add to annual plan</h4>
+        <form id="scEntryForm" class="form-grid admin-form-grid sc-form">
+          <input type="hidden" id="scEntryId">
+          <label><span data-i18n="admin.schoolCal.date">Date</span> <input type="date" id="scDate" required></label>
+          <label class="sc-check sc-range-toggle">
+            <input type="checkbox" id="scMultiDay">
+            <span data-i18n="admin.schoolCal.multiDay">Date range (multi-day)</span>
+          </label>
+          <label id="scEndDateWrap" class="hidden">
+            <span data-i18n="admin.schoolCal.end">End</span>
+            <input type="date" id="scEndDate">
+          </label>
+          <label><span data-i18n="admin.schoolCal.type">Type</span>
+            <select id="scDayType" required>
+              <option value="holiday" data-i18n="admin.schoolCal.type.holiday">School holiday</option>
+              <option value="break" data-i18n="admin.schoolCal.type.break">Break</option>
+              <option value="event" data-i18n="admin.schoolCal.type.event">School event</option>
+              <option value="school_day" data-i18n="admin.schoolCal.type.schoolDay">Force school day (override holiday)</option>
+            </select>
+          </label>
+          <label><span data-i18n="admin.schoolCal.titleField">Title</span> <input id="scTitle" required placeholder="e.g. Sports Day, Summer break"></label>
+          <label class="sc-check"><input type="checkbox" id="scBlocksAttendance" checked> <span data-i18n="admin.schoolCal.blockAtt">No class / block attendance</span></label>
+          <label class="sc-notes"><span data-i18n="admin.schoolCal.notes">Notes</span> <input id="scNotes" placeholder="Optional"></label>
+          <div class="sc-form-actions">
+            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
+            <button type="button" class="btn btn-ghost" id="scEntryCancel" data-i18n="admin.schoolCal.clear">Clear</button>
+          </div>
+          <div class="error" id="scFormError"></div>
+        </form>
+        <h4 data-i18n="admin.schoolCal.entries">Entries in view</h4>
+        <div id="scEntryList" class="table-wrap"></div>
+      </div>
+    </div>
+
+    <div id="scSemesterModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="scSemesterModalTitle">
+      <div class="modal-card sc-semester-modal">
+        <div class="sc-semester-modal-head">
+          <div>
+            <h3 id="scSemesterModalTitle" style="margin:0" data-i18n="admin.semesters.title">School semesters</h3>
+            <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.semesters.help">School-wide · used by teacher semester lesson plans and grades</p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="scSemesterClose" data-i18n="common.close">Close</button>
+        </div>
+        <form id="scSemesterForm" class="sc-semester-form">
+          <div class="sc-semester-row">
+            <span class="sc-semester-label" data-i18n="admin.semesters.sem1">Semester 1</span>
+            <label><span data-i18n="admin.schoolCal.start">Start</span> <input type="date" id="scSem1Start" required></label>
+            <label><span data-i18n="admin.schoolCal.end">End</span> <input type="date" id="scSem1End" required></label>
+          </div>
+          <div class="sc-semester-row">
+            <span class="sc-semester-label" data-i18n="admin.semesters.sem2">Semester 2</span>
+            <label><span data-i18n="admin.schoolCal.start">Start</span> <input type="date" id="scSem2Start" required></label>
+            <label><span data-i18n="admin.schoolCal.end">End</span> <input type="date" id="scSem2End" required></label>
+          </div>
+          <div class="sc-semester-actions">
+            <button type="button" class="btn btn-ghost" id="scSemesterCancel" data-i18n="common.cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="admin.semesters.save">Save semesters</button>
+            <span class="muted small" id="scSemesterMsg"></span>
+          </div>
+          <div class="error" id="scSemesterError"></div>
+        </form>
+      </div>
     </div>
 
     <div id="panelStudents" class="card hidden">
-      <h3>Student registry</h3>
-      <p class="muted small">Master student list for photos, school records, and future class enrollment. Class assignment is optional until you import students into a class.</p>
+      <h3 data-i18n="admin.students.title">Student registry</h3>
+      <p class="muted small" data-i18n="admin.students.help">Master student list for photos, school records, and class enrollment.</p>
       <div id="studentRegistryMount"></div>
     </div>
 
     <div id="panelTimetables" class="card hidden">
-      <h3>Timetables</h3>
-      <p class="muted small">Configure bell schedule (periods, recess, lunch), set subject hours per week, then auto-generate with OR-Tools.</p>
+      <h3 data-i18n="admin.timetables.title">Timetables</h3>
+      <p class="muted small" data-i18n="admin.timetables.help">Open the class board below. Use Bell schedule / Subject requirements when you need to change structure or hours.</p>
       <div id="timetableSetupMount"></div>
       <hr style="margin:1.5rem 0;border:none;border-top:1px solid var(--border-soft)">
-      <h4>Manual view / edit</h4>
+      <h4 data-i18n="admin.timetables.resources">Resource views</h4>
       <div id="timetableMount"></div>
+    </div>
+
+    <div id="panelAnnouncements" class="card hidden">
+      <h3 style="margin-top:0" data-i18n="admin.ann.title">Announcements</h3>
+      <p class="muted small" data-i18n="admin.ann.help">Post school-wide or class announcements to parents, students, or both.</p>
+      <div id="adminAnnCompose"></div>
+      <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border-soft)">
+      <div class="admin-toolbar" style="margin-bottom:0.75rem">
+        <button type="button" class="btn btn-ghost" id="adminAnnRefresh" data-i18n="admin.ann.refresh">Refresh</button>
+      </div>
+      <div id="adminAnnList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
+
+    <div id="panelReportCards" class="card hidden">
+      <h3 style="margin-top:0" data-i18n="admin.rc.approvals">Report card approvals</h3>
+      <p class="muted small" data-i18n="admin.rc.help">Sign submitted cards, then share them with parents. You can share now or pick a time below.</p>
+      <div class="admin-toolbar rc-toolbar">
+        <button type="button" class="btn btn-ghost" id="adminRcRefresh" data-i18n="admin.rc.refresh">Refresh</button>
+        <label class="btn btn-ghost rc-toolbar-file">
+          <span data-i18n="admin.rc.uploadSig">Upload signature</span>
+          <input type="file" id="adminRcSigFile" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <button type="button" class="btn btn-primary" id="adminRcBatchSign" data-i18n="admin.rc.signAll">Sign all awaiting</button>
+        <label class="rc-schedule-field">
+          <span class="muted small" data-i18n="admin.rc.scheduleAt">Share at</span>
+          <input type="datetime-local" id="adminRcScheduleAt">
+        </label>
+      </div>
+      <div id="adminRcQueue"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+      <div id="adminRcPreview" class="hidden" style="margin-top:1rem"></div>
+      <div class="error" id="adminRcError"></div>
+
+      <details class="rc-advanced" id="rcAdvancedBox">
+        <summary data-i18n="admin.rc.advanced">Advanced</summary>
+        <p class="muted small" data-i18n="admin.rc.fieldsHelp">Optional extra score columns on a report card (for example “Quiz average”). Most classes can skip this.</p>
+        <div class="rc-fields-form">
+          <label><span class="muted small" data-i18n="admin.rc.fields.class">Class</span>
+            <select id="rcFieldsClass"><option value="*">All classes</option></select>
+          </label>
+          <label><span class="muted small" data-i18n="admin.rc.fields.term">Term</span>
+            <input type="text" id="rcFieldsTerm" placeholder="Blank = all terms" data-i18n-placeholder="admin.rc.fields.termPh">
+          </label>
+          <label><span class="muted small" data-i18n="admin.rc.fields.subject">Subject</span>
+            <input type="text" id="rcFieldsSubject" placeholder="English">
+          </label>
+          <label><span class="muted small" data-i18n="admin.rc.fields.key">Short name</span>
+            <input type="text" id="rcFieldsKey" placeholder="quiz_avg">
+          </label>
+          <label><span class="muted small" data-i18n="admin.rc.fields.label">Display name</span>
+            <input type="text" id="rcFieldsLabel" placeholder="Daily quiz average">
+          </label>
+          <label><span class="muted small" data-i18n="admin.rc.fields.sort">Order</span>
+            <input type="number" id="rcFieldsSort" placeholder="1">
+          </label>
+          <label><span class="muted small" data-i18n="admin.rc.fields.max">Max score</span>
+            <input type="number" id="rcFieldsMax" placeholder="100" value="100">
+          </label>
+          <div class="rc-fields-save">
+            <button type="button" class="btn btn-primary" id="rcFieldsSaveBtn" data-i18n="admin.rc.fields.save">Save column</button>
+          </div>
+        </div>
+        <div id="rcFieldsList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+        <div class="error" id="rcFieldsError"></div>
+        <hr class="rc-advanced-split">
+        <p class="muted small" data-i18n="admin.rc.setupHelp">Setup tools — only if accounts or demo data are missing.</p>
+        <div class="admin-toolbar rc-toolbar">
+          <button type="button" class="btn btn-ghost" id="adminRcEnsureLeaders" data-i18n="admin.rc.ensureLeaders">Create principal / head accounts</button>
+          <button type="button" class="btn btn-ghost" id="adminRcSeedDemo" data-i18n="admin.rc.seedDemo">Load demo report card</button>
+        </div>
+      </details>
+    </div>
+
+    <div id="panelLostFound" class="card hidden">
+      <h3 style="margin-top:0" data-i18n="admin.laf.title">Lost &amp; Found</h3>
+      <p class="muted small" data-i18n="admin.laf.help">Register items brought to the office. Teachers, students, and parents see the photos. Confirm pickup when a parent claims an item.</p>
+      <div class="laf-admin-form">
+        <label><span class="muted small" data-i18n="admin.laf.item">Item</span>
+          <input id="adminLafTitle" maxlength="120" placeholder="Blue water bottle" data-i18n-placeholder="admin.laf.itemPh">
+        </label>
+        <label><span class="muted small" data-i18n="admin.laf.location">Found at</span>
+          <input id="adminLafLoc" maxlength="160" placeholder="Office / Bus 2 / Room 301" data-i18n-placeholder="admin.laf.locationPh">
+        </label>
+        <label><span class="muted small" data-i18n="admin.laf.category">Category</span>
+          <select id="adminLafCat">
+            <option value="Clothing" data-i18n="laf.cat.clothing">Clothing</option>
+            <option value="Bottle" data-i18n="laf.cat.bottle">Bottle</option>
+            <option value="Stationery" data-i18n="laf.cat.stationery">Stationery</option>
+            <option value="Electronics" data-i18n="laf.cat.electronics">Electronics</option>
+            <option value="Other" selected data-i18n="laf.cat.other">Other</option>
+          </select>
+        </label>
+        <label><span class="muted small" data-i18n="admin.laf.photo">Photo</span>
+          <input type="file" id="adminLafPhoto" accept="image/*">
+        </label>
+        <div class="laf-admin-save">
+          <button type="button" class="btn btn-primary" id="adminLafPostBtn" data-i18n="admin.laf.register">Register item</button>
+        </div>
+      </div>
+      <p class="error" id="adminLafErr" style="margin:0 0 0.75rem"></p>
+      <div id="adminLafList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
+
+    <div id="panelMaterials" class="card hidden">
+      <h3 style="margin-top:0" data-i18n="materials.adminTitle">Material purchase requests</h3>
+      <p class="muted small" data-i18n="materials.adminHelp">Teachers request teaching materials here. Buy the item, then mark purchased so they can see the status.</p>
+      <div class="admin-toolbar" style="margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;align-items:center">
+        <select id="matAdminStatusFilter">
+          <option value="" data-i18n="materials.filter.all">All</option>
+          <option value="requested" data-i18n="materials.status.requested">Requested</option>
+          <option value="purchased" data-i18n="materials.status.purchased">Purchased</option>
+          <option value="cancelled" data-i18n="materials.status.cancelled">Cancelled</option>
+        </select>
+        <button type="button" class="btn btn-ghost" id="matAdminRefresh" data-i18n="common.refresh">Refresh</button>
+      </div>
+      <div id="matAdminList"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
+
+    <div id="panelAnalytics" class="card hidden la-panel">
+      <div class="la-toolbar">
+        <div>
+          <h3 style="margin:0" data-i18n="admin.analytics.title">Learning Analytics</h3>
+          <p class="muted small" style="margin:0.25rem 0 0" data-i18n="admin.analytics.help">School-wide SR/MAP trends, engagement, and early-warning badges for every enrolled student.</p>
+        </div>
+        <div class="la-toolbar-actions">
+          <select id="laClassFilter">
+            <option value="" data-i18n="admin.analytics.allClasses">All classes</option>
+          </select>
+          <select id="laStatusFilter">
+            <option value="" data-i18n="admin.analytics.allStatuses">All statuses</option>
+            <option value="on_track" data-i18n="la.on_track">On Track</option>
+            <option value="attention" data-i18n="la.attention">Attention</option>
+            <option value="warning" data-i18n="la.warning">Warning</option>
+            <option value="intervention" data-i18n="la.intervention">Intervention</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="laRefresh" data-i18n="admin.analytics.refresh">Refresh</button>
+          <button type="button" class="btn btn-primary" id="laSeedMock" data-i18n="admin.analytics.seed">Load demo data</button>
+        </div>
+      </div>
+      <div id="laCounts" class="la-counts"></div>
+      <div id="laRoster"></div>
+
+      <details class="la-import">
+        <summary data-i18n="admin.analytics.importSummary">Import Star Reading / MAP (PDF or scan)</summary>
+        <p class="muted small" data-i18n="admin.analytics.importHelp">Choose a class, then upload the official report PDF or a clear photo/scan.</p>
+        <div class="la-import-row">
+          <select id="laImportSource">
+            <option value="star_reading">Star Reading</option>
+            <option value="map">NWEA MAP</option>
+          </select>
+          <input type="file" id="laImportFile" accept="application/pdf,image/*">
+          <button type="button" class="btn btn-primary" id="laImportBtn" data-i18n="admin.analytics.importBtn">Analyze &amp; import</button>
+        </div>
+        <p class="muted small" id="laImportMsg"></p>
+      </details>
+
+      <div id="laDetail" class="la-detail hidden">
+        <div class="la-detail-head">
+          <h3 id="laDetailTitle" style="margin:0">Student analysis</h3>
+          <div>
+            <button type="button" class="btn btn-primary" id="laDiagnoseBtn" data-i18n="la.diagnose">Generate AI learning profile</button>
+            <button type="button" class="btn btn-ghost" id="laDetailClose" data-i18n="common.close">Close</button>
+          </div>
+        </div>
+        <div id="laDetailBody"></div>
+      </div>
+    </div>
+
+    <div id="panelVocabPlatform" class="card hidden">
+      <h3 data-i18n="admin.vocab.title">Vocab Booster</h3>
+      <p class="muted" data-i18n="admin.vocab.help">Central Vocab Booster console — tenants, curriculum packs, learners, and analytics for Salt Morning.</p>
+      <p style="margin:1rem 0 0">
+        <a class="btn btn-primary" id="vocabPlatformAdminBtn" href="https://mrpark-class-api-production.up.railway.app/vocab-admin" target="_blank" rel="noopener" data-i18n="admin.vocab.open">Open Vocab Booster</a>
+      </p>
+    </div>
+
+    <div id="panelConsents" class="card hidden">
+      <div class="teacher-panel-head" style="margin-bottom:1rem">
+        <div>
+          <h2 style="margin:0" data-i18n="admin.consents.title">Forms · Consents · Events</h2>
+          <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.consents.hint">
+            기본 공문·동의서·캠프/행사 신청 양식을 선택해 문구만 수정한 뒤 발행합니다. 캠프는 정원·대기순번이 자동 적용됩니다.
+          </p>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost" id="consentRefreshBtn">새로고침</button>
+          <button type="button" class="btn btn-primary" id="consentNewBtn" data-open="0">새 공문 작성</button>
+        </div>
+      </div>
+
+      <div id="consentComposeCard" class="card hidden" style="margin:0 0 1rem;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
+        <h3 style="margin:0 0 0.75rem">공문 작성 · 발행</h3>
+        <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
+          <label style="flex:1;min-width:240px">
+            <span class="muted small">기본 양식</span>
+            <select id="consentTemplateSelect"><option value="">양식 선택…</option></select>
+          </label>
+          <button type="button" class="btn btn-ghost" id="consentDeleteTemplateBtn" style="align-self:flex-end">양식 삭제</button>
+          <label style="min-width:160px">
+            <span class="muted small">대상</span>
+            <select id="consentTargets"><option value="*">전체 재학생</option></select>
+          </label>
+          <label style="min-width:140px">
+            <span class="muted small">제출 마감</span>
+            <input type="date" id="consentDue">
+          </label>
+        </div>
+        <div id="consentEventFields" class="admin-toolbar hidden" style="flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
+          <label style="min-width:120px">
+            <span class="muted small">모집 정원</span>
+            <input type="number" id="consentCapacity" min="1" max="500" placeholder="20">
+          </label>
+          <label style="min-width:140px">
+            <span class="muted small">행사 일시</span>
+            <input type="text" id="consentEventDate" maxlength="80" placeholder="2026-08-20 09:00">
+          </label>
+          <label style="min-width:160px;flex:1">
+            <span class="muted small">장소</span>
+            <input type="text" id="consentEventLocation" maxlength="120" placeholder="학교 / 캠프장">
+          </label>
+          <label style="min-width:120px">
+            <span class="muted small">참가비</span>
+            <input type="text" id="consentEventFee" maxlength="80" placeholder="₩30,000">
+          </label>
+          <label style="min-width:160px;flex:1">
+            <span class="muted small">준비물</span>
+            <input type="text" id="consentEventSupplies" maxlength="200" placeholder="수면복, 세면도구">
+          </label>
+        </div>
+        <label style="display:block;margin-bottom:0.75rem">
+          <span class="muted small">제목</span>
+          <input id="consentTitle" style="width:100%" maxlength="200" placeholder="공문 제목">
+        </label>
+        <div class="admin-toolbar" style="gap:0.35rem;margin-bottom:0.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost" data-consent-cmd="bold"><b>B</b></button>
+          <button type="button" class="btn btn-ghost" data-consent-cmd="italic"><i>I</i></button>
+          <button type="button" class="btn btn-ghost" data-consent-cmd="underline"><u>U</u></button>
+          <button type="button" class="btn btn-ghost" data-consent-cmd="insertUnorderedList">• List</button>
+          <span class="muted small" style="margin-left:0.5rem">변수:</span>
+          <button type="button" class="btn btn-ghost" data-consent-var="{student_name}">{student_name}</button>
+          <button type="button" class="btn btn-ghost" data-consent-var="{class_name}">{class_name}</button>
+          <button type="button" class="btn btn-ghost" data-consent-var="{due_date}">{due_date}</button>
+          <button type="button" class="btn btn-ghost" data-consent-var="{trip_date}">{trip_date}</button>
+          <button type="button" class="btn btn-ghost" data-consent-var="{location}">{location}</button>
+        </div>
+        <div id="consentBody" class="consent-editor-body odoc-editor" contenteditable="true"
+          data-placeholder="양식을 선택하면 공문 본문이 여기에 나타납니다. 필요한 부분만 수정하세요."></div>
+        <div class="admin-toolbar" style="margin-top:0.75rem;gap:0.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn-ghost" id="consentSaveTemplateBtn">수정본을 새 양식으로 저장</button>
+          <button type="button" class="btn btn-primary" id="consentPublishBtn">학부모에게 발행</button>
+        </div>
+        <p class="error" id="consentEditorError" style="margin:0.5rem 0 0"></p>
+      </div>
+
+      <div class="card" style="margin:0;padding:1rem;border:1px solid var(--border-soft);border-radius:var(--radius-sm)">
+        <h3 style="margin:0 0 0.75rem">발행된 공문 · 제출 현황</h3>
+        <div id="consentFormsList"><p class="muted">Loading…</p></div>
+        <div id="consentAnalytics" class="hidden consent-analytics" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-soft)"></div>
+      </div>
+    </div>
+
+    <div id="panelBus" class="card hidden">
+      <div class="admin-toolbar bus-toolbar">
+        <div class="bus-subnav">
+          <button type="button" class="btn btn-ghost" id="busSubSetup" data-i18n="admin.bus.setup">Semester routes</button>
+        </div>
+        <div class="bus-board-tools" id="busBoardTools">
+          <button type="button" class="btn btn-ghost" id="busBoardRefresh" data-i18n="common.refresh">Refresh</button>
+        </div>
+      </div>
+
+      <div id="busBoardPanel">
+        <div class="bus-board-weekbar">
+          <button type="button" class="btn btn-ghost" id="busBoardPrevWeek" aria-label="Previous week">‹</button>
+          <strong id="busBoardWeekLabel"></strong>
+          <button type="button" class="btn btn-ghost" id="busBoardNextWeek" aria-label="Next week">›</button>
+          <button type="button" class="btn btn-ghost" id="busBoardThisWeek" data-i18n="admin.bus.thisWeek">This week</button>
+        </div>
+        <div class="bus-day-tabs" id="busBoardDayTabs" role="tablist" aria-label="Weekdays"></div>
+        <p class="muted small" data-i18n="admin.bus.boardHelp">
+          Live boarding for that day — absences, tardy, and early leave (조퇴) are already applied. No-show is morning pickup only.
+        </p>
+        <div id="busBoardBody" class="bus-day-schedule"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+      </div>
+    </div>
+
+    <div id="busSetupModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="busSetupModalTitle">
+      <div class="modal-card modal-wide bus-setup-modal">
+        <div class="bus-setup-modal-head">
+          <div>
+            <h3 id="busSetupModalTitle" style="margin:0" data-i18n="admin.bus.setup">Semester routes</h3>
+            <p class="muted small" style="margin:0.35rem 0 0" data-i18n="admin.bus.setupHelp">Fleet, dismissal times, and who rides each bus — set once, adjust rarely.</p>
+          </div>
+          <button type="button" class="btn btn-ghost" id="busSetupClose" data-i18n="common.close">Close</button>
+        </div>
+        <div id="busSetupPanel">
+          <div class="bus-fleet-bar">
+            <div class="bus-fleet-label" data-i18n="admin.bus.fleet">Bus fleet</div>
+            <div id="busFleetList" class="bus-fleet-list"></div>
+            <button type="button" class="btn btn-ghost" id="busAddFleetBtn" data-i18n="admin.bus.addBusBtn">+ Add bus</button>
+          </div>
+
+          <div class="bus-dismiss-settings">
+            <div class="bus-dismiss-settings-head">
+              <div class="bus-fleet-label" data-i18n="admin.bus.dismissalTimes">Dismissal times</div>
+              <button type="button" class="btn btn-ghost" id="busAddDismissSlotBtn" data-i18n="admin.bus.addDismissSlot">+ Add 하교 slot</button>
+            </div>
+            <p class="muted small" data-i18n="admin.bus.dismissHelp">Set 1차 / 2차 / … dismissal times once. Every bus gets those routes.</p>
+            <div id="busDismissTimes" class="bus-dismiss-edit-list"></div>
+          </div>
+
+          <div class="bus-day-tabs" id="busSetupDayTabs" role="tablist" aria-label="Weekdays"></div>
+          <p class="muted small" data-i18n="admin.bus.dayHelp">
+            Click a weekday to see who rides each bus. Click a bus block to assign students. Empty = not running that day.
+          </p>
+          <div id="busRouteGrid" class="bus-day-schedule"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="busFleetModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card bus-fleet-modal">
+        <h3 id="busFleetModalTitle" data-i18n="admin.bus.addBus">Add bus</h3>
+        <form id="busFleetForm" class="bus-fleet-form">
+          <input type="hidden" id="busEditId">
+          <label><span data-i18n="admin.bus.name">Name</span> <input id="busName" required placeholder="1호차"></label>
+          <label><span data-i18n="admin.bus.driver">Driver</span> <input id="busDriverName"></label>
+          <label><span data-i18n="admin.bus.driverPhone">Driver phone</span> <input id="busDriverPhone"></label>
+          <label><span data-i18n="admin.bus.plate">Plate</span> <input id="busPlate"></label>
+          <label><span data-i18n="admin.bus.vehicle">Vehicle</span> <input id="busVehicleInfo"></label>
+          <div class="bus-modal-actions">
+            <button type="button" class="btn btn-ghost" id="busFleetCancel" data-i18n="common.cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-i18n="common.save">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- routes are created via buses + dismissal slots -->
+
+    <div id="busRouteModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card bus-route-modal">
+        <div class="bus-route-modal-head">
+          <h3 id="busRouteModalTitle">Route</h3>
+          <button type="button" class="btn btn-ghost" id="busRouteModalClose" data-i18n="common.close">Close</button>
+        </div>
+        <p class="muted small" id="busRouteModalMeta"></p>
+        <label><span data-i18n="admin.bus.teacher">Duty teacher</span>
+          <select id="busRouteTeacherId"><option value="">—</option></select>
+        </label>
+        <div class="bus-field">
+          <span class="bus-field-label" data-i18n="admin.bus.weekdays">Weekdays</span>
+          <div id="busRouteDays" class="bus-days"></div>
+        </div>
+        <div class="bus-field">
+          <span class="bus-field-label" data-i18n="admin.bus.students">Students</span>
+          <input type="search" id="busStudentSearch" placeholder="Search name…" autocomplete="off">
+          <div id="busStudentSearchResults" class="bus-search-results hidden"></div>
+          <div id="busStudentChips" class="bus-student-chips"></div>
+        </div>
+        <div class="bus-modal-actions">
+          <button type="button" class="btn btn-primary" id="busRouteSaveBtn" data-i18n="admin.bus.saveRoute">Save</button>
+        </div>
+        <p class="error" id="busRouteError"></p>
+        <p class="ok" id="busRouteOk"></p>
+      </div>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/teacher-lesson.js?v=20260708libs"></script>
-<script src="/js/messenger.js?v=20260708libs"></script>
-<script src="/js/student-registry.js?v=20260709registry"></script>
-<script src="/js/class-registry.js?v=20260709classes"></script>
-<script src="/js/timetable.js?v=20260709tt"></script>
-<script src="/js/timetable-setup.js?v=20260709ttsetup"></script>
+<script src="/js/app.js?v=20260813ux1"></script>
+<script src="/js/change-password.js?v=20260813gap27"></script>
+<script src="/js/i18n.js?v=20260813ux1"></script>
+<script src="/js/push-client.js?v=20260813push3"></script>
+<script src="/js/subject-colors.js?v=20260810ttclass"></script>
+<script src="/js/teacher-lesson.js?v=20260813fac1"></script>
+<script src="/js/teacher-analytics.js?v=20260813gap27"></script>
+<script src="/js/messenger.js?v=20260813gap1"></script>
+<script src="/js/student-registry.js?v=20260813gap27"></script>
+<script src="/js/class-registry.js?v=20260813fac1"></script>
+<script src="/js/timetable.js?v=20260813gap1"></script>
+<script src="/js/timetable-setup.js?v=20260813fac1"></script>
+<script src="/js/report-card-print.js?v=20260810rcsig2"></script>
+<script src="/js/announcements.js?v=20260813gap27"></script>
+<script src="/js/admin-school-calendar.js?v=20260813fac1"></script>
+<script src="/js/admin-bus.js?v=20260813gap1"></script>
+<script src="/js/consent-admin.js?v=20260813gap27"></script>
+<script src="/js/material-requests.js?v=20260813ux1"></script>
+<script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script>
 (function() {
-  const role = 'admin';
-  const { api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml } = SaltApp;
+  const role = SaltApp.resolveAdminPortalRole() || 'admin';
+  const {
+    api, getToken, setToken, getProfile, setProfile, $, show, hide, escapeHtml,
+    hasPermission, isAdminPortalRole
+  } = SaltApp;
+
+  SaltI18n.bindToggle($('langToggleBtn'));
+  SaltSchoolCalendar.init({ $, api, escapeHtml, show, hide, role });
+  SaltAnalytics.init({ $, api, escapeHtml, role, mode: 'school' });
+  SaltAdminBus.init({ $, api, escapeHtml, show, hide, role });
+  if (window.SaltConsentAdmin) {
+    SaltConsentAdmin.init({ api, escapeHtml, role, $, classes: [] });
+  }
+  if (typeof SaltMaterialRequests !== 'undefined') {
+    SaltMaterialRequests.init({ $, api, escapeHtml, role });
+  }
+  if (window.SaltLostFound && SaltLostFound.Admin) {
+    SaltLostFound.Admin.init({ $, api, escapeHtml, role });
+  }
   let classes = [];
   let teachers = [];
+  let facultyCatalog = null;
+  const sessionProfile = getProfile(role) || {};
+  const TAB_TITLE_KEYS = {
+    monitor: 'admin.page.monitor',
+    lessons: 'admin.page.lessons',
+    teachers: 'admin.page.teachers',
+    classes: 'admin.page.classes',
+    students: 'admin.page.students',
+    analytics: 'admin.page.analytics',
+    timetables: 'admin.page.timetables',
+    schoolCal: 'admin.page.schoolCal',
+    bus: 'admin.page.bus',
+    consents: 'admin.page.consents',
+    announcements: 'admin.page.announcements',
+    reportCards: 'admin.page.reportCards',
+    lostFound: 'admin.page.lostFound',
+    materials: 'admin.page.materials',
+    vocabPlatform: 'admin.page.vocabPlatform'
+  };
+  const TAB_PERM = {
+    monitor: 'admin.monitor',
+    lessons: 'admin.lessons',
+    teachers: 'admin.faculty',
+    classes: 'admin.classes',
+    students: 'admin.students',
+    analytics: 'admin.analytics',
+    timetables: 'admin.timetables',
+    schoolCal: 'admin.schoolCal',
+    bus: 'admin.bus',
+    consents: 'admin.consents',
+    announcements: 'admin.announcements',
+    reportCards: 'admin.reportCards',
+    lostFound: 'admin.lostFound',
+    materials: 'admin.materials',
+    vocabPlatform: 'admin.vocabPlatform'
+  };
+
+  function canAccessTab(tab) {
+    if (role === 'admin') return true;
+    const key = TAB_PERM[tab];
+    if (!key) return true;
+    return hasPermission(Object.assign({ role: role }, sessionProfile), key);
+  }
+
+  function filterAdminNav() {
+    const tabButtons = Array.from(document.querySelectorAll('#adminNav [data-tab]'));
+    let firstAllowed = '';
+    tabButtons.forEach((btn) => {
+      const tab = btn.dataset.tab;
+      const ok = canAccessTab(tab);
+      btn.classList.toggle('hidden', !ok);
+      if (ok && !firstAllowed) firstAllowed = tab;
+    });
+    document.querySelectorAll('#adminNav .portal-nav-group').forEach((group) => {
+      const anyVisible = Array.from(group.querySelectorAll('[data-tab]'))
+        .some((b) => !b.classList.contains('hidden'));
+      group.classList.toggle('hidden', !anyVisible);
+    });
+    return firstAllowed || 'monitor';
+  }
+
+  function closeAdminNavGroups(except) {
+    document.querySelectorAll('#adminNav .portal-nav-group').forEach((group) => {
+      if (except && group === except) return;
+      const panel = group.querySelector('.portal-nav-group-panel');
+      const btn = group.querySelector('.portal-nav-group-btn');
+      if (panel) panel.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      group.classList.remove('is-open');
+    });
+  }
+
+  function syncAdminNavActive(tab) {
+    document.querySelectorAll('#adminNav [data-tab]').forEach((t) =>
+      t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('#adminNav .portal-nav-group').forEach((group) => {
+      const hasActive = !!group.querySelector('[data-tab].active:not(.hidden)');
+      group.classList.toggle('has-active', hasActive);
+      const gBtn = group.querySelector('.portal-nav-group-btn');
+      if (gBtn) gBtn.classList.toggle('active', hasActive);
+    });
+  }
+
+  document.querySelectorAll('#adminNav .portal-nav-group-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const group = btn.closest('.portal-nav-group');
+      const panel = group && group.querySelector('.portal-nav-group-panel');
+      if (!panel) return;
+      const willOpen = panel.classList.contains('hidden');
+      closeAdminNavGroups(willOpen ? group : null);
+      panel.classList.toggle('hidden', !willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (group) group.classList.toggle('is-open', willOpen);
+    });
+  });
+  document.addEventListener('click', (e) => {
+    const inside = e.target && e.target.closest && e.target.closest('#adminNav .portal-nav-group');
+    if (!inside) closeAdminNavGroups();
+  });
 
   SaltTimetable.init({ api, escapeHtml, role });
 
   SaltLesson.init({
-    $, show, hide, escapeHtml, api, role: 'admin',
+    $, show, hide, escapeHtml, api, role: role,
     getClass: () => null
   });
 
-  $('lpAdminTeacher').addEventListener('change', () => SaltLesson.loadAdminCalendar());
-  $('lpAdminClass').addEventListener('change', () => SaltLesson.loadAdminCalendar());
+  $('lpAdminTeacher').addEventListener('change', () => {
+    SaltLesson.loadAdminCalendar();
+    SaltLesson.loadAdminSemesterPlans();
+  });
+  $('lpAdminClass').addEventListener('change', () => {
+    SaltLesson.loadAdminCalendar();
+    SaltLesson.loadAdminSemesterPlans();
+  });
 
   function syncClassDropdowns() {
     const opts = '<option value="">All classes</option>' +
       classes.map(c => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
     $('monitorClass').innerHTML = opts;
     $('lpAdminClass').innerHTML = opts;
-    $('termClassId').innerHTML = classes.map(c =>
-      '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + ' (' + escapeHtml(c.classId) + ')</option>'
-    ).join('');
+    if ($('rcFieldsClass')) {
+      $('rcFieldsClass').innerHTML = '<option value="*">* (All classes)</option>' +
+        classes.map(c => '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>').join('');
+    }
     if (typeof SaltStudentRegistry !== 'undefined' && SaltStudentRegistry.setClasses) {
       SaltStudentRegistry.setClasses(classes);
     }
+    if (window.SaltConsentAdmin && SaltConsentAdmin.setClasses) {
+      SaltConsentAdmin.setClasses(classes);
+    }
   }
 
-  function switchTab(name) {
-    document.querySelectorAll('#adminView .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelTimetables','panelTerms'].forEach(id => hide($(id)));
+  let currentAdminTab = '';
+
+  function setAdminRoute(tab, replace) {
+    const hash = '#/' + encodeURIComponent(tab || 'monitor');
+    if (replace) history.replaceState(null, '', hash);
+    else if (location.hash !== hash) location.hash = hash;
+  }
+
+  function switchTab(name, opts) {
+    opts = opts || {};
+    if (!TAB_TITLE_KEYS[name]) name = 'monitor';
+    if (!canAccessTab(name)) name = filterAdminNav();
+    if (!opts.skipHash) setAdminRoute(name, !!opts.replace);
+    if (currentAdminTab === name && !opts.force) return;
+    currentAdminTab = name;
+    syncAdminNavActive(name);
+    closeAdminNavGroups();
+    ['panelMonitor','panelLessons','panelTeachers','panelClasses','panelStudents','panelAnalytics','panelTimetables','panelSchoolCal','panelBus','panelConsents','panelAnnouncements','panelReportCards','panelLostFound','panelMaterials','panelVocabPlatform'].forEach(id => hide($(id)));
     const map = {
       monitor: 'panelMonitor', lessons: 'panelLessons', teachers: 'panelTeachers',
-      classes: 'panelClasses', students: 'panelStudents', timetables: 'panelTimetables', terms: 'panelTerms'
+      classes: 'panelClasses', students: 'panelStudents', analytics: 'panelAnalytics',
+      timetables: 'panelTimetables',
+      schoolCal: 'panelSchoolCal', bus: 'panelBus', consents: 'panelConsents',
+      announcements: 'panelAnnouncements',
+      reportCards: 'panelReportCards',
+      lostFound: 'panelLostFound',
+      materials: 'panelMaterials',
+      vocabPlatform: 'panelVocabPlatform'
     };
     show($(map[name]));
-    if (name === 'monitor') loadMonitor();
+    if ($('adminPageTitle')) {
+      $('adminPageTitle').setAttribute('data-i18n', TAB_TITLE_KEYS[name]);
+      $('adminPageTitle').textContent = SaltI18n.t(TAB_TITLE_KEYS[name]);
+    }
+    if (name === 'monitor') { loadMonitor(); loadAuditLog(); }
     if (name === 'lessons') SaltLesson.onAdminOpen();
     if (name === 'teachers') { loadTeachers(); loadAssignments(); }
     if (name === 'classes') SaltClassRegistry.open();
     if (name === 'students') SaltStudentRegistry.open();
+    if (name === 'analytics') SaltAnalytics.onSchoolOpen(classes);
     if (name === 'timetables') loadTimetables();
-    if (name === 'terms') loadTerms();
+    if (name === 'schoolCal') SaltSchoolCalendar.open();
+    if (name === 'bus') SaltAdminBus.open();
+    if (name === 'consents' && window.SaltConsentAdmin) {
+      SaltConsentAdmin.open().catch((e) => {
+        const box = $('consentFormsList');
+        if (box) box.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Failed to load') + '</p>';
+      });
+    }
+    if (name === 'announcements') loadAdminAnnouncements();
+    if (name === 'reportCards') { loadAdminReportCards(); loadReportCardFields(); }
+    if (name === 'lostFound' && window.SaltLostFound && SaltLostFound.Admin) SaltLostFound.Admin.open();
+    if (name === 'materials' && typeof SaltMaterialRequests !== 'undefined') SaltMaterialRequests.openAdmin();
+    SaltI18n.apply(document.getElementById('adminView'));
+  }
+
+  function applyAdminRoute() {
+    const raw = String(location.hash || '').replace(/^#\/?/, '');
+    let tab = decodeURIComponent(raw.split('/')[0] || 'monitor');
+    if (tab === 'terms') tab = 'schoolCal';
+    if (tab === 'lost-and-found') tab = 'lostFound';
+    const next = TAB_TITLE_KEYS[tab] ? tab : 'monitor';
+    if (currentAdminTab === next) return;
+    switchTab(next, { skipHash: true });
+  }
+
+  async function loadAdminAnnouncements() {
+    const classesForAnn = (classes || []).map((c) => ({ classId: c.classId, className: c.name || c.className }));
+    SaltAnnouncements.bindComposer($('adminAnnCompose'), {
+      mode: 'admin',
+      formId: 'adminAnnComposeForm',
+      classes: classesForAnn,
+      onSubmit: async (fd) => {
+        await api('/api/admin/announcements', { method: 'POST', body: fd }, role);
+      },
+      onPosted: () => refreshAdminAnnList()
+    });
+    await refreshAdminAnnList();
+  }
+
+  async function refreshAdminAnnList() {
+    const box = $('adminAnnList');
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/admin/announcements', {}, role);
+      SaltAnnouncements.renderList(box, data.announcements || [], {
+        canRemove: true,
+        canEdit: true,
+        emptyText: 'No announcements posted yet.',
+        onRemove: async (id) => {
+          if (!confirm('Remove this announcement?')) return;
+          await api('/api/admin/announcements/' + encodeURIComponent(id) + '/deactivate', { method: 'POST' }, role);
+          refreshAdminAnnList();
+        },
+        onEdit: async (id, current) => {
+          const title = window.prompt('Title', current.title);
+          if (title == null) return;
+          const body = window.prompt('Body', current.body);
+          if (body == null) return;
+          try {
+            await api('/api/admin/announcements/' + encodeURIComponent(id), {
+              method: 'POST',
+              body: { title, body }
+            }, role);
+            refreshAdminAnnList();
+          } catch (e) {
+            alert(e.message);
+          }
+        }
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
   }
 
   async function loadTimetables() {
@@ -216,16 +1030,28 @@
     ]);
     teachers = tData.teachers || [];
     await SaltTimetableSetup.open($('timetableSetupMount'), {
-      api, escapeHtml, classes, teachers
+      api, escapeHtml, classes, teachers, role
     });
     await SaltTimetable.openAdmin($('timetableMount'), {
       students: sData.students || [],
-      teachers: teachers
+      teachers: teachers,
+      classes: classes
     });
   }
 
-  document.querySelectorAll('#adminView .tab').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  document.querySelectorAll('#adminNav [data-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      closeAdminNavGroups();
+      switchTab(btn.dataset.tab);
+    });
+  });
+  window.addEventListener('hashchange', () => applyAdminRoute());
+  window.addEventListener('salt:langchange', () => {
+    const active = document.querySelector('#adminNav [data-tab].active');
+    const tab = active && active.dataset.tab;
+    if (tab && $('adminPageTitle')) {
+      $('adminPageTitle').textContent = SaltI18n.t(TAB_TITLE_KEYS[tab]);
+    }
   });
 
   async function loadClasses() {
@@ -235,9 +1061,9 @@
     const tData = await api('/api/admin/teachers', {}, role);
     teachers = tData.teachers || [];
     $('lpAdminTeacher').innerHTML = '<option value="">All teachers</option>' +
-      teachers.map(t => '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>').join('');
+      teachers.map(t => '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>').join('');
     $('assignTeacher').innerHTML = teachers.map(t =>
-      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
     $('assignClass').innerHTML = classes.map(c =>
       '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.name) + '</option>'
@@ -298,6 +1124,7 @@
       $('assignmentError').style.color = '#16a34a';
       $('assignmentError').textContent = 'Assignment added.';
       $('assignSubject').value = '';
+      $('assignType').value = 'Subject';
       loadAssignments();
     } catch (err) {
       $('assignmentError').style.color = '#dc2626';
@@ -314,7 +1141,7 @@
     dollar: 'Dollar',
     homework: 'Homework',
     english_buddy: 'English Buddy',
-    vocab: 'Vocab'
+    vocab: 'Vocab Booster'
   };
 
   async function loadMonitor() {
@@ -345,31 +1172,358 @@
   $('monitorClass').addEventListener('change', loadMonitor);
   $('monitorType').addEventListener('change', loadMonitor);
 
+  async function loadAuditLog() {
+    const box = $('auditLogFeed');
+    if (!box) return;
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/admin/audit-log?limit=100', {}, role);
+      const entries = data.entries || [];
+      if (!entries.length) {
+        box.innerHTML = '<p class="muted">No audit entries yet.</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table admin-feed"><thead><tr>' +
+        '<th>When</th><th>Actor</th><th>Action</th><th>Entity</th><th>Detail</th></tr></thead><tbody>' +
+        entries.map((e) =>
+          '<tr>' +
+          '<td>' + escapeHtml(String(e.createdAt || '').slice(0, 16).replace('T', ' ')) + '</td>' +
+          '<td>' + escapeHtml(e.actorName || e.actorId || '—') +
+          (e.actorRole ? ' <span class="muted small">(' + escapeHtml(e.actorRole) + ')</span>' : '') + '</td>' +
+          '<td>' + escapeHtml(e.action || '') + '</td>' +
+          '<td>' + escapeHtml((e.entityType || '') + (e.entityId ? ' · ' + e.entityId : '')) + '</td>' +
+          '<td class="muted small">' + escapeHtml(String(e.detail || '').slice(0, 160)) + '</td>' +
+          '</tr>'
+        ).join('') + '</tbody></table>';
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  if ($('auditLogRefresh')) $('auditLogRefresh').addEventListener('click', loadAuditLog);
+
+  async function ensureFacultyCatalog() {
+    if (facultyCatalog) return facultyCatalog;
+    try {
+      facultyCatalog = await api('/api/admin/faculty/catalog', {}, role);
+    } catch (_) {
+      facultyCatalog = {
+        titles: ['Principal', 'Vice Principal', 'Dean', 'Head Teacher', 'Teacher', 'Chaplain', 'Admin Staff', 'Librarian', 'Nurse', 'Head of Admin'],
+        adminPermissions: [
+          { key: 'admin.monitor', label: 'Monitor' },
+          { key: 'admin.lessons', label: 'Lessons' },
+          { key: 'admin.faculty', label: 'Faculty' },
+          { key: 'admin.classes', label: 'Classes' },
+          { key: 'admin.students', label: 'Students' },
+          { key: 'admin.transcript', label: 'Official Transcript' },
+          { key: 'admin.analytics', label: 'Analytics' },
+          { key: 'admin.timetables', label: 'Timetables' },
+          { key: 'admin.schoolCal', label: 'Calendar' },
+          { key: 'admin.bus', label: 'Bus' },
+          { key: 'admin.consents', label: 'Consents & bus forms' },
+          { key: 'admin.announcements', label: 'News' },
+          { key: 'admin.reportCards', label: 'Reports' },
+          { key: 'admin.materials', label: 'Materials' },
+          { key: 'admin.vocabPlatform', label: 'Vocab' }
+        ],
+        teacherPermissions: [
+          { key: 'teacher.home', label: 'Teacher home' },
+          { key: 'teacher.classes', label: 'Class tools' },
+          { key: 'teacher.lessonPlan', label: 'Lesson plan' },
+          { key: 'teacher.materials', label: 'Material requests' },
+          { key: 'teacher.students', label: 'Student registry' },
+          { key: 'teacher.headReports', label: 'Head Teacher reports' }
+        ],
+        presets: {}
+      };
+    }
+    const sel = $('teacherRole');
+    if (sel && facultyCatalog.titles && facultyCatalog.titles.length) {
+      const cur = sel.value;
+      sel.innerHTML = facultyCatalog.titles.map((t) =>
+        '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>'
+      ).join('');
+      if (cur) sel.value = cur;
+    }
+    return facultyCatalog;
+  }
+
+  function collectTeacherPermissions() {
+    return Array.from(document.querySelectorAll('#teacherPermChecks input[type=checkbox]:checked'))
+      .map((el) => el.value);
+  }
+
+  function renderTeacherPermChecks(selected) {
+    const box = $('teacherPermChecks');
+    if (!box || !facultyCatalog) return;
+    const selectedSet = new Set(selected || []);
+    const groups = [
+      { title: 'Admin portal', items: facultyCatalog.adminPermissions || [] },
+      { title: 'Teacher portal', items: facultyCatalog.teacherPermissions || [] }
+    ];
+    box.innerHTML = groups.map((g) =>
+      '<div class="faculty-perm-group"><div class="muted small">' + escapeHtml(g.title) + '</div>' +
+      g.items.map((p) =>
+        '<label class="faculty-perm-item"><input type="checkbox" value="' + escapeHtml(p.key) + '"' +
+        (selectedSet.has(p.key) ? ' checked' : '') + '> ' + escapeHtml(p.label) + '</label>'
+      ).join('') + '</div>'
+    ).join('');
+  }
+
+  function applyTitlePreset() {
+    const title = $('teacherRole').value;
+    const preset = (facultyCatalog && facultyCatalog.presets && facultyCatalog.presets[title]) || [];
+    renderTeacherPermChecks(preset);
+  }
+
+  function permSummary(perms) {
+    const list = Array.isArray(perms) ? perms : [];
+    if (!list.length) return '—';
+    if (list.includes('*')) return 'All';
+    const adminCount = list.filter((k) => String(k).indexOf('admin.') === 0).length;
+    const teacherCount = list.filter((k) => String(k).indexOf('teacher.') === 0).length;
+    const parts = [];
+    if (adminCount) parts.push(adminCount + ' admin');
+    if (teacherCount) parts.push(teacherCount + ' teacher');
+    return parts.join(' · ') || String(list.length);
+  }
+
   async function loadTeachers() {
+    await ensureFacultyCatalog();
     const data = await api('/api/admin/teachers', {}, role);
     const teachers = data.teachers || [];
-    let html = '<table class="grades-table"><thead><tr><th>Name</th><th>Login</th><th>Homeroom</th><th>Role</th><th></th></tr></thead><tbody>';
+    let html = '<table class="grades-table"><thead><tr><th></th><th>Name</th><th>Title</th><th>Login</th><th>Contact</th><th>Homeroom</th><th>Permissions</th><th></th></tr></thead><tbody>';
     teachers.forEach(t => {
-      html += '<tr><td>' + escapeHtml(t.name) + '</td><td>' + escapeHtml(t.loginId) + '</td>' +
-        '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td><td>' + escapeHtml(t.staffRole) + '</td>' +
-        '<td><button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button></td></tr>';
+      const shown = t.displayName || t.preferredName || t.name || '';
+      const initial = (shown || '?').trim().charAt(0).toUpperCase();
+      const photo = t.photoPath
+        ? '<img class="sr-photo-xs" src="' + escapeHtml(t.photoPath) + '" alt="">'
+        : '<div class="sr-avatar-fallback sr-photo-xs">' + escapeHtml(initial) + '</div>';
+      const contact = [t.phone, t.email].filter(Boolean).map(escapeHtml).join('<br>') || '—';
+      const nameCell = escapeHtml(shown) +
+        (t.preferredName && t.name && t.preferredName !== t.name
+          ? '<div class="muted small">' + escapeHtml(t.name) + '</div>'
+          : '');
+      html += '<tr><td>' + photo + '</td><td>' + nameCell + '</td>' +
+        '<td>' + escapeHtml(t.staffTitle || t.staffRole || '—') + '</td>' +
+        '<td>' + escapeHtml(t.loginId) + '</td>' +
+        '<td class="muted small">' + contact + '</td>' +
+        '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td>' +
+        '<td class="muted small">' + escapeHtml(permSummary(t.permissions)) + '</td>' +
+        '<td style="white-space:nowrap">' +
+        '<button type="button" class="btn btn-ghost" data-edit="' + escapeHtml(t.teacherId) + '">Edit</button> ' +
+        '<button type="button" class="btn btn-danger" data-del-teacher="' + escapeHtml(t.teacherId) + '" data-del-name="' + escapeHtml(shown || t.name) + '">Delete</button>' +
+        '</td></tr>';
     });
     html += '</tbody></table>';
-    $('teacherList').innerHTML = html || '<p class="muted">No teachers.</p>';
+    $('teacherList').innerHTML = html || '<p class="muted">No faculty yet.</p>';
     $('assignTeacher').innerHTML = teachers.map(t =>
-      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.name) + '</option>'
+      '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
+    if ($('headTeacherOptions')) {
+      $('headTeacherOptions').innerHTML = teachers
+        .filter((t) => /head\s*teacher/i.test(String(t.staffRole || t.staffTitle || '')))
+        .map((t) =>
+          '<option value="' + escapeHtml(t.teacherId) + '">' +
+          escapeHtml((t.displayName || t.name) + ' (' + t.teacherId + ')') + '</option>'
+        ).join('');
+    }
     document.querySelectorAll('[data-edit]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const t = teachers.find(x => x.teacherId === btn.dataset.edit);
-        if (!t) return;
-        $('teacherId').value = t.teacherId;
-        $('teacherName').value = t.name;
-        $('teacherLoginId').value = t.loginId;
-        $('teacherPassword').value = '';
-        $('teacherHomeroom').value = t.homeroomClassId || '';
-        $('teacherRole').value = t.staffRole || 'Teacher';
+      btn.addEventListener('click', () => fillTeacherForm(teachers.find(x => x.teacherId === btn.dataset.edit)));
+    });
+    document.querySelectorAll('[data-del-teacher]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.delName || 'this faculty member';
+        if (!confirm('Delete "' + name + '"?\n\nThis permanently removes their account from the faculty list.')) return;
+        try {
+          await api('/api/admin/teachers/' + encodeURIComponent(btn.dataset.delTeacher), {
+            method: 'DELETE'
+          }, role);
+          closeTeacherEditor();
+          showTeacherSaveToast('Faculty deleted.');
+          loadTeachers();
+          loadAssignments();
+        } catch (err) {
+          alert(err.message);
+        }
       });
+    });
+  }
+
+  function teacherAvatar(name, photoPath) {
+    const img = $('teacherPhotoImg');
+    const fallback = $('teacherPhotoFallback');
+    const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    fallback.textContent = initial;
+    if (photoPath) {
+      img.src = photoPath + (photoPath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+      img.classList.remove('hidden');
+      fallback.classList.add('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+      fallback.classList.remove('hidden');
+    }
+  }
+
+  function setTeacherPhotoEnabled(enabled) {
+    $('teacherPhotoInput').disabled = !enabled;
+    $('teacherPhotoUploadLabel').classList.toggle('is-disabled', !enabled);
+    $('teacherPhotoHint').textContent = enabled
+      ? 'JPEG, PNG, or WebP · max 2MB'
+      : 'Save the teacher first, then upload a photo.';
+  }
+
+  function showTeacherSaveToast(message) {
+    const toast = $('teacherSaveToast');
+    if (!toast) return;
+    toast.textContent = message || 'Saved.';
+    toast.classList.remove('hidden');
+    clearTimeout(showTeacherSaveToast._timer);
+    showTeacherSaveToast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  function openTeacherEditor() {
+    const editor = $('teacherEditor');
+    if (editor) {
+      editor.classList.remove('hidden');
+      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function closeTeacherEditor() {
+    clearTeacherForm();
+    const editor = $('teacherEditor');
+    if (editor) editor.classList.add('hidden');
+  }
+
+  function clearTeacherForm() {
+    $('teacherId').value = '';
+    $('teacherForm').reset();
+    $('teacherIdDisplay').value = '';
+    $('teacherError').textContent = '';
+    $('teacherError').style.color = '';
+    $('teacherPhotoError').textContent = '';
+    $('teacherFormTitle').textContent = 'Add faculty';
+    teacherAvatar('', '');
+    setTeacherPhotoEnabled(false);
+    ensureFacultyCatalog().then(() => applyTitlePreset());
+  }
+
+  async function fillTeacherForm(t) {
+    if (!t) return;
+    await ensureFacultyCatalog();
+    const p = t.profile || {};
+    $('teacherFormTitle').textContent = 'Edit faculty';
+    $('teacherId').value = t.teacherId;
+    $('teacherIdDisplay').value = t.teacherId;
+    $('teacherName').value = t.name || '';
+    if ($('teacherPreferredName')) {
+      $('teacherPreferredName').value = t.preferredName || p.preferredName || '';
+    }
+    $('teacherLoginId').value = t.loginId || '';
+    $('teacherPassword').value = '';
+    $('teacherHomeroom').value = t.homeroomClassId || '';
+    $('teacherRole').value = t.staffTitle || t.staffRole || 'Teacher';
+    if ($('teacherHeadId')) $('teacherHeadId').value = t.headTeacherId || '';
+    $('teacherTitle').value = p.title || t.title || '';
+    $('teacherHireDate').value = p.hireDate || '';
+    $('teacherDob').value = p.dateOfBirth || '';
+    $('teacherGender').value = p.gender || '';
+    $('teacherNationality').value = p.nationality || '';
+    $('teacherPhone').value = p.phone || t.phone || '';
+    $('teacherEmail').value = p.email || t.email || '';
+    $('teacherAddress').value = p.address || '';
+    $('teacherEmergencyContact').value = p.emergencyContact || '';
+    $('teacherEmergencyPhone').value = p.emergencyPhone || '';
+    $('teacherEducation').value = p.education || '';
+    $('teacherNotes').value = p.notes || '';
+    $('teacherError').textContent = '';
+    $('teacherError').style.color = '';
+    $('teacherPhotoError').textContent = '';
+    renderTeacherPermChecks(t.permissions || []);
+    teacherAvatar(t.name, t.photoPath || p.photoPath || '');
+    setTeacherPhotoEnabled(true);
+    openTeacherEditor();
+  }
+
+  $('teacherAddBtn').addEventListener('click', () => {
+    clearTeacherForm();
+    $('teacherFormTitle').textContent = 'Add faculty';
+    openTeacherEditor();
+    $('teacherName').focus();
+  });
+
+  if ($('teacherPermPresetBtn')) {
+    $('teacherPermPresetBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      applyTitlePreset();
+    });
+  }
+  if ($('teacherRole')) {
+    $('teacherRole').addEventListener('change', () => {
+      // Only auto-apply when creating a new account
+      if (!$('teacherId').value.trim()) applyTitlePreset();
+    });
+  }
+
+  $('teacherFormResetBtn').addEventListener('click', closeTeacherEditor);
+  $('teacherFormCloseBtn').addEventListener('click', closeTeacherEditor);
+
+  $('teacherName').addEventListener('input', () => {
+    if ($('teacherPhotoImg').classList.contains('hidden')) {
+      teacherAvatar($('teacherName').value, '');
+    }
+  });
+
+  $('teacherPhotoInput').addEventListener('change', async () => {
+    const teacherId = $('teacherId').value.trim();
+    const file = $('teacherPhotoInput').files && $('teacherPhotoInput').files[0];
+    $('teacherPhotoError').textContent = '';
+    if (!teacherId) {
+      $('teacherPhotoError').textContent = 'Save the teacher first.';
+      return;
+    }
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('photo', file);
+    try {
+      const res = await api('/api/admin/teachers/' + encodeURIComponent(teacherId) + '/photo', {
+        method: 'POST',
+        body: fd
+      }, role);
+      teacherAvatar($('teacherName').value, res.photoPath);
+      $('teacherPhotoInput').value = '';
+      loadTeachers();
+    } catch (err) {
+      $('teacherPhotoError').textContent = err.message;
+    }
+  });
+
+  if ($('teacherResetPwBtn')) {
+    $('teacherResetPwBtn').addEventListener('click', async () => {
+      const teacherId = $('teacherId').value.trim();
+      if (!teacherId) {
+        alert('Save the faculty member first.');
+        return;
+      }
+      if (!confirm('Reset faculty password?\n\nA temporary password will be generated and they must change it on next login.')) {
+        return;
+      }
+      try {
+        const res = await api('/api/admin/accounts/reset-password', {
+          method: 'POST',
+          body: { role: 'teacher', accountId: teacherId, forceChange: true }
+        }, role);
+        alert(
+          'Password reset.\n\n' +
+          (res.loginId ? 'Login: ' + res.loginId + '\n' : '') +
+          'Temporary password: ' + (res.temporaryPassword || '') +
+          '\n\nShare this securely. They must change it after login.'
+        );
+      } catch (err) {
+        alert(err.message || 'Could not reset password.');
+      }
     });
   }
 
@@ -377,21 +1531,36 @@
     e.preventDefault();
     $('teacherError').textContent = '';
     try {
+      const wasNew = !$('teacherId').value.trim();
       await api('/api/admin/teachers', {
         method: 'POST',
         body: {
           teacherId: $('teacherId').value,
           name: $('teacherName').value,
+          preferredName: $('teacherPreferredName') ? $('teacherPreferredName').value : '',
           loginId: $('teacherLoginId').value,
           password: $('teacherPassword').value,
           homeroomClassId: $('teacherHomeroom').value,
-          staffRole: $('teacherRole').value
+          staffRole: $('teacherRole').value,
+          staffTitle: $('teacherRole').value,
+          headTeacherId: $('teacherHeadId') ? $('teacherHeadId').value : '',
+          permissions: collectTeacherPermissions(),
+          title: $('teacherTitle').value,
+          hireDate: $('teacherHireDate').value,
+          dateOfBirth: $('teacherDob').value,
+          gender: $('teacherGender').value,
+          nationality: $('teacherNationality').value,
+          phone: $('teacherPhone').value,
+          email: $('teacherEmail').value,
+          address: $('teacherAddress').value,
+          emergencyContact: $('teacherEmergencyContact').value,
+          emergencyPhone: $('teacherEmergencyPhone').value,
+          education: $('teacherEducation').value,
+          notes: $('teacherNotes').value
         }
       }, role);
-      $('teacherId').value = '';
-      $('teacherForm').reset();
-      $('teacherError').style.color = '#16a34a';
-      $('teacherError').textContent = 'Saved.';
+      closeTeacherEditor();
+      showTeacherSaveToast(wasNew ? 'Faculty added.' : 'Faculty saved.');
       loadTeachers();
     } catch (err) {
       $('teacherError').style.color = '#dc2626';
@@ -399,58 +1568,358 @@
     }
   });
 
-  async function loadTerms() {
-    const data = await api('/api/admin/terms', {}, role);
-    const terms = data.terms || [];
-    let html = '<table class="grades-table"><thead><tr><th>Class</th><th>Term</th><th>Start</th><th>End</th></tr></thead><tbody>';
-    terms.forEach(t => {
-      const cls = classes.find(c => c.classId === t.classId);
-      html += '<tr><td>' + escapeHtml(cls ? cls.name : t.classId) + '</td><td>' + escapeHtml(t.label) + '</td>' +
-        '<td>' + escapeHtml(t.startDate) + '</td><td>' + escapeHtml(t.endDate) + '</td></tr>';
-    });
-    html += '</tbody></table>';
-    $('termList').innerHTML = html || '<p class="muted">No terms configured.</p>';
+  setTeacherPhotoEnabled(false);
+
+  async function loadAdminReportCards() {
+    const box = $('adminRcQueue');
+    const err = $('adminRcError');
+    const preview = $('adminRcPreview');
+    if (err) err.textContent = '';
+    if (preview) { preview.classList.add('hidden'); preview.innerHTML = ''; }
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/admin/report-cards', {}, role);
+      const rows = data.workflows || [];
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No report cards awaiting Principal action.</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table"><thead><tr>' +
+        '<th>Class</th><th>Student</th><th>Term</th><th>State</th><th></th></tr></thead><tbody>' +
+        rows.map((w) =>
+          '<tr>' +
+          '<td>' + escapeHtml(w.classId) + '</td>' +
+          '<td>' + escapeHtml(w.studentId) + '</td>' +
+          '<td>' + escapeHtml(w.term) + '</td>' +
+          '<td>' + escapeHtml(w.state) + '</td>' +
+          '<td style="white-space:nowrap">' +
+          '<button type="button" class="btn btn-ghost admin-rc-view" data-cid="' + escapeHtml(w.classId) +
+          '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">View</button> ' +
+          (w.state === 'submitted_principal'
+            ? '<button type="button" class="btn btn-primary admin-rc-sign" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Sign</button> '
+            : '') +
+          (w.state === 'signed_principal'
+            ? '<button type="button" class="btn btn-primary admin-rc-share" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Share now</button> ' +
+              '<button type="button" class="btn btn-ghost admin-rc-schedule" data-cid="' + escapeHtml(w.classId) +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Schedule</button>'
+            : '') +
+          (w.scheduledShareAt
+            ? ' <span class="muted small">Scheduled ' + escapeHtml(String(w.scheduledShareAt).slice(0, 16)) + '</span>'
+            : '') +
+          '</td></tr>'
+        ).join('') + '</tbody></table>';
+
+      box.querySelectorAll('.admin-rc-view').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          preview.classList.remove('hidden');
+          preview.innerHTML = '<p class="muted">Loading card…</p>';
+          try {
+            const res = await api(
+              '/api/admin/report-cards/' + encodeURIComponent(btn.dataset.cid) + '/' +
+              encodeURIComponent(btn.dataset.sid) + '?term=' + encodeURIComponent(btn.dataset.term),
+              {},
+              role
+            );
+            preview.innerHTML = (window.SaltReportCardPrint
+              ? SaltReportCardPrint.renderPrintableCard(res.card)
+              : '<p class="error">Print renderer missing.</p>');
+          } catch (e) {
+            preview.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-sign').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'sign',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term
+              }
+            }, role);
+            loadAdminReportCards();
+          } catch (e) {
+            err.textContent = e.message;
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-share').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Share this report card with parents now?')) return;
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'share',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term
+              }
+            }, role);
+            loadAdminReportCards();
+          } catch (e) {
+            err.textContent = e.message;
+          }
+        });
+      });
+      box.querySelectorAll('.admin-rc-schedule').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const at = $('adminRcScheduleAt') && $('adminRcScheduleAt').value;
+          if (!at) {
+            err.textContent = 'Pick a date/time for scheduled share.';
+            return;
+          }
+          try {
+            await api('/api/admin/report-cards/workflow', {
+              method: 'POST',
+              body: {
+                action: 'schedule',
+                classId: btn.dataset.cid,
+                studentId: btn.dataset.sid,
+                term: btn.dataset.term,
+                scheduledShareAt: new Date(at).toISOString()
+              }
+            }, role);
+            err.style.color = '#16a34a';
+            err.textContent = 'Share scheduled.';
+            loadAdminReportCards();
+          } catch (e) {
+            err.style.color = '#dc2626';
+            err.textContent = e.message;
+          }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
   }
 
-  $('termForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    $('termError').textContent = '';
+  async function loadReportCardFields() {
+    const box = $('rcFieldsList');
+    const err = $('rcFieldsError');
+    if (!box) return;
+    if (err) err.textContent = '';
+    box.innerHTML = '<p class="muted">Loading…</p>';
     try {
-      await api('/api/admin/terms', {
-        method: 'POST',
-        body: {
-          classId: $('termClassId').value,
-          label: $('termLabel').value,
-          startDate: $('termStart').value,
-          endDate: $('termEnd').value
-        }
-      }, role);
-      $('termError').style.color = '#16a34a';
-      $('termError').textContent = 'Term saved.';
-      loadTerms();
-    } catch (err) {
-      $('termError').style.color = '#dc2626';
-      $('termError').textContent = err.message;
+      const classId = ($('rcFieldsClass') && $('rcFieldsClass').value) || '*';
+      const term = ($('rcFieldsTerm') && $('rcFieldsTerm').value.trim()) || '';
+      const data = await api(
+        '/api/admin/report-card-fields?classId=' + encodeURIComponent(classId) +
+        (term ? '&term=' + encodeURIComponent(term) : ''),
+        {}, role
+      );
+      const fields = data.fields || [];
+      if (!fields.length) {
+        box.innerHTML = '<p class="muted">No custom fields yet for this class/term.</p>';
+        return;
+      }
+      box.innerHTML = '<table class="grades-table"><thead><tr>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.class', 'Class')) + '</th>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.term', 'Term')) + '</th>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.subject', 'Subject')) + '</th>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.key', 'Short name')) + '</th>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.label', 'Display name')) + '</th>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.sort', 'Order')) + '</th>' +
+        '<th>' + escapeHtml(SaltI18n.t('admin.rc.fields.max', 'Max')) + '</th>' +
+        '<th></th>' +
+        '</tr></thead><tbody>' +
+        fields.map((f) =>
+          '<tr>' +
+          '<td>' + escapeHtml(f.classId) + '</td>' +
+          '<td>' + escapeHtml(f.term) + '</td>' +
+          '<td>' + escapeHtml(f.subject) + '</td>' +
+          '<td>' + escapeHtml(f.fieldKey) + '</td>' +
+          '<td>' + escapeHtml(f.label) + '</td>' +
+          '<td>' + f.sortOrder + '</td>' +
+          '<td>' + f.maxScore + '</td>' +
+          '<td><button type="button" class="btn btn-ghost rc-field-delete" data-id="' +
+          escapeHtml(f.fieldId) + '">' + escapeHtml(SaltI18n.t('common.delete', 'Delete')) + '</button></td>' +
+          '</tr>'
+        ).join('') + '</tbody></table>';
+      box.querySelectorAll('.rc-field-delete').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this field?')) return;
+          try {
+            await api('/api/admin/report-card-fields/' + encodeURIComponent(btn.dataset.id), { method: 'DELETE' }, role);
+            loadReportCardFields();
+          } catch (e) {
+            if (err) err.textContent = e.message;
+          }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '';
+      if (err) err.textContent = e.message;
     }
-  });
+  }
+
+  if ($('rcFieldsClass')) $('rcFieldsClass').addEventListener('change', loadReportCardFields);
+  if ($('rcFieldsSaveBtn')) {
+    $('rcFieldsSaveBtn').addEventListener('click', async () => {
+      const err = $('rcFieldsError');
+      if (err) err.textContent = '';
+      const classId = ($('rcFieldsClass') && $('rcFieldsClass').value) || '*';
+      const subject = ($('rcFieldsSubject') && $('rcFieldsSubject').value.trim()) || '';
+      const fieldKey = ($('rcFieldsKey') && $('rcFieldsKey').value.trim()) || '';
+      const label = ($('rcFieldsLabel') && $('rcFieldsLabel').value.trim()) || '';
+      if (!subject || !fieldKey || !label) {
+        if (err) err.textContent = 'Subject, short name, and display name are required.';
+        return;
+      }
+      try {
+        await api('/api/admin/report-card-fields', {
+          method: 'POST',
+          body: {
+            classId,
+            term: ($('rcFieldsTerm') && $('rcFieldsTerm').value.trim()) || '*',
+            subject,
+            fieldKey,
+            label,
+            sortOrder: Number(($('rcFieldsSort') && $('rcFieldsSort').value) || 0),
+            maxScore: Number(($('rcFieldsMax') && $('rcFieldsMax').value) || 100)
+          }
+        }, role);
+        ['rcFieldsSubject', 'rcFieldsKey', 'rcFieldsLabel', 'rcFieldsSort'].forEach((id) => {
+          if ($(id)) $(id).value = '';
+        });
+        loadReportCardFields();
+      } catch (e) {
+        if (err) err.textContent = e.message;
+      }
+    });
+  }
+
+  if ($('adminRcRefresh')) $('adminRcRefresh').addEventListener('click', loadAdminReportCards);
+  if ($('adminRcEnsureLeaders')) {
+    $('adminRcEnsureLeaders').addEventListener('click', async () => {
+      try {
+        const res = await api('/api/admin/ensure-leadership', { method: 'POST' }, role);
+        const lines = (res.accounts || []).map((a) => a.role + ': ' + a.loginId + ' / ' + a.password);
+        $('adminRcError').style.color = '#16a34a';
+        $('adminRcError').textContent = 'Accounts ready. ' + lines.join(' · ');
+      } catch (e) {
+        $('adminRcError').style.color = '#dc2626';
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
+  if ($('adminRcSeedDemo')) {
+    $('adminRcSeedDemo').addEventListener('click', async () => {
+      $('adminRcError').textContent = 'Seeding Test Students mock report card…';
+      try {
+        const res = await api('/api/admin/seed-parent-demo', { method: 'POST' }, role);
+        $('adminRcError').style.color = '#16a34a';
+        $('adminRcError').textContent =
+          'Seeded ' + (res.student && res.student.name) +
+          ' · terms ' + ((res.termsSeeded || [res.term]).join(', ')) +
+          ' · subjects ' + ((res.subjects || []).join(', ')) +
+          (res.attendanceSeeded != null ? (' · attendance rows ' + res.attendanceSeeded) : '');
+      } catch (e) {
+        $('adminRcError').style.color = '#dc2626';
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
+  if ($('adminRcSigFile')) {
+    $('adminRcSigFile').addEventListener('change', async () => {
+      const file = $('adminRcSigFile').files && $('adminRcSigFile').files[0];
+      if (!file) return;
+      const fd = new FormData();
+      try {
+        const prepared = (SaltApp.prepareSignatureFile
+          ? await SaltApp.prepareSignatureFile(file)
+          : file);
+        fd.append('signature', prepared);
+        await api('/api/admin/signature', { method: 'POST', body: fd }, role);
+        $('adminRcError').style.color = '#16a34a';
+        $('adminRcError').textContent = 'Principal signature saved permanently. Sign again on awaiting cards if needed.';
+      } catch (e) {
+        $('adminRcError').style.color = '#dc2626';
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
+  if ($('adminRcBatchSign')) {
+    $('adminRcBatchSign').addEventListener('click', async () => {
+      try {
+        const data = await api('/api/admin/report-cards', {}, role);
+        const items = (data.workflows || [])
+          .filter((w) => w.state === 'submitted_principal')
+          .map((w) => ({ classId: w.classId, studentId: w.studentId, term: w.term }));
+        if (!items.length) {
+          $('adminRcError').textContent = 'Nothing awaiting signature.';
+          return;
+        }
+        await api('/api/admin/report-cards/workflow', {
+          method: 'POST',
+          body: { action: 'batch-sign', items }
+        }, role);
+        loadAdminReportCards();
+      } catch (e) {
+        $('adminRcError').textContent = e.message;
+      }
+    });
+  }
 
   $('logoutBtn').addEventListener('click', () => {
+    api('/api/auth/logout', { method: 'POST' }, role).catch(() => {});
     setToken(role, ''); setProfile(role, null); location.href = '/';
+  });
+
+  SaltChangePassword.mount({
+    role,
+    api,
+    requireChange: !!(getProfile(role) && getProfile(role).mustChangePassword)
   });
 
   async function bootApp() {
     const p = getProfile(role);
     if (!p) return;
     hide($('loginView')); show($('adminView'));
-    $('welcomeText').textContent = 'Hi, ' + p.name;
-    await loadClasses();
-    SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
-    SaltClassRegistry.init({
-      api, escapeHtml, mount: 'classRegistryMount',
-      onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
-    });
-    switchTab('monitor');
-    SaltMessenger.init(role);
+    const greet = p.preferredName || p.name || 'there';
+    $('welcomeText').textContent = 'Hi, ' + greet;
+    $('welcomeText').removeAttribute('data-i18n');
+    const firstTab = filterAdminNav();
+    try {
+      await loadClasses();
+    } catch (_) {
+      classes = [];
+      syncClassDropdowns();
+    }
+    if (canAccessTab('students')) {
+      SaltStudentRegistry.init({ role, api, escapeHtml, $, mount: 'studentRegistryMount', classes });
+    }
+    if (canAccessTab('classes')) {
+      SaltClassRegistry.init({
+        api, escapeHtml, role, mount: 'classRegistryMount',
+        onClassesChanged: (list) => { classes = list; syncClassDropdowns(); }
+      });
+    }
+    // Land on first allowed tab when current hash is blocked
+    const raw = String(location.hash || '').replace(/^#\/?/, '');
+    let tab = decodeURIComponent(raw.split('/')[0] || firstTab);
+    if (!canAccessTab(tab)) {
+      setAdminRoute(firstTab, true);
+      switchTab(firstTab, { skipHash: true, force: true });
+    } else {
+      applyAdminRoute();
+    }
+    try { SaltMessenger.init(role); } catch (_) { /* optional for limited staff */ }
+    if (window.SaltPush) {
+      SaltPush.bindButtons({
+        api: function(path, opts) { return api(path, opts || {}, role); },
+        enableBtn: $('adminPushEnableBtn'),
+        disableBtn: $('adminPushDisableBtn'),
+        statusEl: $('adminPushStatus'),
+        t: function (k, f) { return (window.SaltI18n && SaltI18n.t) ? SaltI18n.t(k) : f; }
+      });
+    }
+    SaltI18n.apply(document.getElementById('adminView'));
   }
 
   if (getToken(role)) bootApp();

@@ -1,0 +1,16 @@
+# Node portal + Python OR-Tools solver in one Railway service.
+providers = ["node", "python"]
+
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+cmds = [
+  "npm ci",
+  "python3 -m venv solver/.venv",
+  "solver/.venv/bin/pip install --upgrade pip",
+  "solver/.venv/bin/pip install -r solver/requirements.txt"
+]
+
+[start]
+cmd = "npm start"
