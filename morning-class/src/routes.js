@@ -188,17 +188,6 @@ const {
   listParentSharedReports
 } = require('./services/learningAnalytics');
 const {
-  getClassAnalyticsDashboard,
-  getStudentAnalytics,
-  getSchoolAnalyticsDashboard,
-  getSchoolStudentAnalytics,
-  importAssessments,
-  seedLearningAnalyticsMock,
-  generateAiDiagnostic,
-  shareParentReport,
-  listParentSharedReports
-} = require('./services/learningAnalytics');
-const {
   listStudents,
   getStudent,
   saveStudent,
