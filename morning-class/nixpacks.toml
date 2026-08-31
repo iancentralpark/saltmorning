@@ -1,15 +1,10 @@
-# Node portal + Python OR-Tools solver in one Railway service.
-# Use only the Node provider: adding the Python provider installs a second
-# CPython that conflicts with python311 in nix-env (python3-embed.pc).
+# Node portal. Solver venv is optional: installing a second Nix Python
+# next to the Node provider conflicts (python3-embed.pc) and Node-only
+# images have no python3. The app still boots if the solver is missing.
 providers = ["node"]
 
 [phases.install]
-cmds = [
-  "npm ci",
-  "python3 -m venv solver/.venv",
-  "solver/.venv/bin/pip install --upgrade pip",
-  "solver/.venv/bin/pip install -r solver/requirements.txt"
-]
+cmds = ["npm ci"]
 
 [start]
 cmd = "npm start"
