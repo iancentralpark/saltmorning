@@ -294,6 +294,7 @@ async function listClassGradeSubjects(teacherId, classId) {
     .map((s) => ({
       subject: s.subject,
       canEdit: taughtSet.has(s.subject),
+      teacherIds: s.teacherIds,
       teacherNames: s.teacherNames
     }))
     .sort((a, b) => a.subject.localeCompare(b.subject));
