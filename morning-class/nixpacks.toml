@@ -1,8 +1,7 @@
 # Node portal + Python OR-Tools solver in one Railway service.
-providers = ["node", "python"]
-
-[phases.setup]
-nixPkgs = ["python311"]
+# Use only the Node provider: adding the Python provider installs a second
+# CPython that conflicts with python311 in nix-env (python3-embed.pc).
+providers = ["node"]
 
 [phases.install]
 cmds = [
