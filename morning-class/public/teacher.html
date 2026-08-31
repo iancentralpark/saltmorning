@@ -4,7 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Teacher — Salt Morning Class</title>
-  <link rel="stylesheet" href="/css/app.css?v=20260831rc2">
+  <meta name="theme-color" content="#0D2748">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Salt Morning">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260818">
+  <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
+  <link rel="shortcut icon" href="/favicon.ico?v=20260818">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/css/app.css?v=20260831redesign">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -19,9 +31,14 @@
 
     <div id="appShell" class="hidden teacher-app-shell">
   <header class="topbar teacher-topbar teacher-shell-topbar">
-    <div class="teacher-shell-identity">
-      <button type="button" class="brand brand-link" id="teacherNameBrand" title="Go to home timetable">Teacher</button>
-      <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
+    <div class="teacher-shell-row">
+      <div class="teacher-shell-identity">
+        <button type="button" class="brand brand-link" id="teacherNameBrand" title="Go to home timetable">Teacher</button>
+        <div class="teacher-shell-page muted small" id="teacherPageTitle">Home</div>
+      </div>
+      <button type="button" class="teacher-nav-toggle" id="teacherNavToggle" aria-label="Menu" aria-expanded="false" aria-controls="teacherShellNav">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </div>
     <nav class="teacher-shell-nav" id="teacherShellNav" aria-label="Teacher menu">
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="home" data-i18n="nav.home">Home</button>
@@ -52,7 +69,7 @@
       <div class="card teacher-home-classes" id="homeClassesSection">
         <div class="section-title" data-i18n="teacher.home.classes">My classes</div>
         <p class="muted small teacher-home-classes-help" data-i18n="teacher.home.classesHelp">Pick a shortcut, or open the class for all tools.</p>
-        <div class="class-list" id="assignedList"></div>
+        <div class="class-list" id="assignedList"><p class="muted">Loading classes…</p></div>
       </div>
     </div>
     <div class="card bus-duty-section" id="homeBusDutySection">
@@ -64,12 +81,14 @@
       </div>
       <div id="teacherBusDutyBody" class="bus-duty-body"><p class="muted">Loading…</p></div>
     </div>
-    <div class="card" id="teacherPushCard">
-      <div class="section-title" data-i18n="push.title">Notifications</div>
-      <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center">
+    <div class="push-prompt" id="teacherPushCard">
+      <div class="push-prompt-copy">
+        <strong data-i18n="push.title">Notifications</strong>
+        <p class="muted small" data-i18n="push.help">Enable alerts for messenger, announcements, and updates when the app is closed.</p>
+      </div>
+      <div class="push-prompt-actions">
         <button type="button" class="btn btn-primary" id="teacherPushEnableBtn" data-i18n="push.enable">Enable notifications</button>
-        <button type="button" class="btn btn-ghost" id="teacherPushDisableBtn" data-i18n="push.disable">Turn off</button>
+        <button type="button" class="btn btn-ghost" id="teacherPushLaterBtn" data-i18n="push.later">Not now</button>
         <span class="muted small" id="teacherPushStatus"></span>
       </div>
     </div>
@@ -158,32 +177,8 @@
   <div id="conferencesView" class="hidden">
     <div class="card">
       <h3 style="margin-top:0" data-i18n="teacher.conf.title">Parent conferences</h3>
-      <p class="muted small" data-i18n="teacher.conf.help">Open time slots by date, length, and type. Parents are notified in their portal.</p>
-      <div class="admin-toolbar" style="flex-wrap:wrap;gap:0.65rem;margin-bottom:0.75rem">
-        <label><span class="muted small">Date</span><input type="date" id="tchConfDate"></label>
-        <label><span class="muted small">Start</span><input type="time" id="tchConfStart" value="09:00"></label>
-        <label><span class="muted small">End</span><input type="time" id="tchConfEnd" value="12:00"></label>
-        <label><span class="muted small">Interval</span>
-          <select id="tchConfMins"><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select>
-        </label>
-        <label><span class="muted small">Type</span>
-          <select id="tchConfType">
-            <option value="InPerson">In person</option>
-            <option value="Phone">Phone</option>
-            <option value="Zoom">Zoom</option>
-          </select>
-        </label>
-        <label style="min-width:140px;flex:1"><span class="muted small">Location / link</span>
-          <input id="tchConfLoc" maxlength="120" placeholder="Room / Zoom URL">
-        </label>
-        <label style="min-width:120px"><span class="muted small">Target class</span>
-          <input id="tchConfTarget" maxlength="40" value="*" placeholder="* or class id">
-        </label>
-        <button type="button" class="btn btn-primary" id="tchConfOpenBtn" data-i18n="teacher.conf.open">Open slots</button>
-      </div>
-      <p class="error" id="tchConfErr" style="margin:0 0 0.75rem"></p>
-      <h4 data-i18n="teacher.conf.openSlots">Open slots</h4>
-      <div id="tchConfOpenList"><p class="muted">…</p></div>
+      <p class="muted small" data-i18n="teacher.conf.help">Open slots on free periods in your timetable. After the last lesson, extra rows keep going at the length you choose. Parents pick in person, phone, or Zoom when they book.</p>
+      <div id="tchConfBoard"><p class="muted">…</p></div>
       <h4 style="margin-top:1.25rem" data-i18n="teacher.conf.booked">Booked</h4>
       <div id="tchConfBookedList"><p class="muted">…</p></div>
     </div>
@@ -208,6 +203,7 @@
     <nav class="class-subnav" id="classTabs" aria-label="Class sections">
       <div class="class-subnav-track">
         <button class="class-subnav-item active" data-tab="attendance" data-homeroom-only="1" type="button" data-i18n="nav.attendance">Attendance</button>
+        <button class="class-subnav-item" data-tab="timetable" type="button" data-i18n="nav.timetable">Timetable</button>
         <button class="class-subnav-item" data-tab="grades" type="button" data-i18n="nav.parentGrades">Grades</button>
         <button class="class-subnav-item" data-tab="dollars" type="button" data-i18n="nav.dollars">Dollars</button>
         <button class="class-subnav-item" data-tab="homework" type="button" data-i18n="nav.homework">Homework</button>
@@ -225,6 +221,11 @@
       </div>
       <div id="attScheduleAlert" class="att-alert"></div>
       <div id="attStudentList" class="att-student-list"></div>
+    </div>
+
+    <div id="panelTimetable" class="card hidden">
+      <p class="muted small" data-i18n="teacher.class.timetableHelp">This class's weekly schedule — subjects, teachers, and rooms.</p>
+      <div id="classTimetableMount"><p class="muted">Loading timetable…</p></div>
     </div>
 
     <div id="panelGrades" class="card hidden grades-panel">
@@ -285,9 +286,10 @@
     <div id="panelReport" class="card hidden">
       <div class="rc-panel-toolbar">
         <label class="muted small">Term
-          <input id="reportTerm" value="Term1" placeholder="Term1">
+          <select id="reportTerm"><option value="">Loading…</option></select>
         </label>
         <button class="btn btn-ghost" id="loadReportBtn" type="button">Refresh</button>
+        <span class="rc-term-closed-badge hidden" id="reportTermClosedBadge">🔒 Closed — view only</span>
       </div>
       <div id="reportBody"><p class="muted">Loading report card…</p></div>
       <div class="error" id="reportError"></div>
@@ -300,15 +302,16 @@
           <p class="muted small" style="margin:0.25rem 0 0">SR/MAP trends, engagement, early-warning badges, and essay-style AI learning profiles.</p>
         </div>
         <div class="la-toolbar-actions">
-          <select id="laStatusFilter">
-            <option value="">All statuses</option>
-            <option value="on_track">On Track</option>
-            <option value="attention">Attention</option>
-            <option value="warning">Warning</option>
-            <option value="intervention">Intervention Required</option>
-          </select>
+          <label><span data-i18n="la.status">Status</span>
+            <select id="laStatusFilter">
+              <option value="">All statuses</option>
+              <option value="on_track">On Track</option>
+              <option value="attention">Attention</option>
+              <option value="warning">Warning</option>
+              <option value="intervention">Intervention Required</option>
+            </select>
+          </label>
           <button type="button" class="btn btn-ghost" id="laRefresh">Refresh</button>
-          <button type="button" class="btn btn-primary" id="laSeedMock">Load demo data</button>
         </div>
       </div>
       <div id="laCounts" class="la-counts"></div>
@@ -418,19 +421,22 @@
 </div>
 
 <div id="gradeWeightsModal" class="modal hidden" role="dialog">
-  <div class="modal-card modal-wide">
+  <div class="modal-card gw-modal">
     <h3>Grade weights — <span id="gradeWeightsTitle"></span></h3>
     <p class="muted small">Categories must total <strong>100%</strong>. Recurring items (Daily Quiz, Assignment…) use the <em>average</em> of all entries. Exams use a <em>single</em> score.</p>
     <div id="gradeWeightRows" class="gw-editor"></div>
     <div class="gw-add-row">
-      <select id="gradeWeightPresetSelect"></select>
-      <input id="gradeWeightCustomLabel" class="hidden" type="text" maxlength="60" placeholder="Custom category name">
-      <select id="gradeWeightCustomAgg" class="hidden" title="How scores combine">
-        <option value="average">Average of entries</option>
-        <option value="single">Single score</option>
-      </select>
-      <button type="button" class="btn btn-ghost" id="gradeWeightAdd">Add category</button>
-      <strong id="gradeWeightTotal"></strong>
+      <div class="gw-add-label">New category</div>
+      <div class="gw-add-controls">
+        <select id="gradeWeightPresetSelect"></select>
+        <input id="gradeWeightCustomLabel" class="hidden" type="text" maxlength="60" placeholder="Custom category name">
+        <select id="gradeWeightCustomAgg" class="hidden" title="How scores combine">
+          <option value="average">Average of entries</option>
+          <option value="single">Single score</option>
+        </select>
+        <button type="button" class="btn btn-primary" id="gradeWeightAdd">Add category</button>
+      </div>
+      <strong id="gradeWeightTotal" class="gw-total"></strong>
     </div>
     <div style="display:flex;gap:0.5rem;margin-top:1rem;flex-wrap:wrap">
       <button type="button" class="btn btn-primary" id="gradeWeightsSave">Save weights</button>
@@ -527,24 +533,24 @@
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260813ux1"></script>
-<script src="/js/i18n.js?v=20260813ux1"></script>
+<script src="/js/app.js?v=20260817mobile1"></script>
+<script src="/js/i18n.js?v=20260818sem1"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/material-requests.js?v=20260813ux1"></script>
-<script src="/js/conferences.js?v=20260813ux1"></script>
+<script src="/js/conferences.js?v=20260814ux4"></script>
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
-<script src="/js/push-client.js?v=20260813push3"></script>
-<script src="/js/teacher-attendance.js?v=20260812bus7"></script>
-<script src="/js/teacher-grades.js?v=20260810gwcustom"></script>
+<script src="/js/push-client.js?v=20260814ux2"></script>
+<script src="/js/teacher-attendance.js?v=20260817perf1"></script>
+<script src="/js/teacher-grades.js?v=20260817perf1"></script>
 <script src="/js/report-card-print.js?v=20260831rc2"></script>
-<script src="/js/teacher-reportcard.js?v=20260831rc2"></script>
-<script src="/js/teacher-analytics.js?v=20260813gap27"></script>
+<script src="/js/teacher-reportcard.js?v=20260818sem1"></script>
+<script src="/js/teacher-analytics.js?v=20260814ux2"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
-<script src="/js/teacher-lesson.js?v=20260812ttperiod"></script>
+<script src="/js/teacher-lesson.js?v=20260817perf1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/student-registry.js?v=20260813gap27"></script>
-<script src="/js/timetable.js?v=20260813gap1"></script>
+<script src="/js/timetable.js?v=20260817classtt1"></script>
 <script>
 (function() {
   const role = 'teacher';
@@ -594,10 +600,7 @@
   SaltLesson.init({
     $, show, hide, escapeHtml, api, role,
     getClass: () => (lessonScope === 'global' ? null : currentClass),
-    onClassOpenExtra: async () => {
-      await SaltGrades.loadActiveTerm();
-      SaltGrades.loadLessonWeights();
-    }
+    onClassOpenExtra: () => {}
   });
 
   function parseClassFromCard(el) {
@@ -617,8 +620,8 @@
     const roleLabel = c.roleLabel || (c.roles && c.roles.length ? c.roles.join(' / ') : (c.subjects || []).join(' / '));
     const subjectsJson = JSON.stringify(c.subjects || []);
     const quick = isHomeroom
-      ? [['attendance', 'Attendance'], ['grades', 'Grades'], ['homework', 'Homework']]
-      : [['grades', 'Grades'], ['homework', 'Homework'], ['dollars', 'Dollars']];
+      ? [['attendance', 'Attendance'], ['timetable', 'Timetable'], ['grades', 'Grades']]
+      : [['timetable', 'Timetable'], ['grades', 'Grades'], ['homework', 'Homework']];
     const actions = quick.map((pair) =>
       '<button type="button" class="class-card-quick" data-tab="' + pair[0] + '">' + pair[1] + '</button>'
     ).join('') +
@@ -637,6 +640,9 @@
   }
 
   async function loadClasses() {
+    if ($('assignedList') && !$('assignedList').innerHTML.trim()) {
+      $('assignedList').innerHTML = '<p class="muted">Loading classes…</p>';
+    }
     const data = await api('/api/teacher/classes', {}, role);
     const classes = data.classes && data.classes.length
       ? data.classes
@@ -880,10 +886,10 @@
                 r.emergency && r.emergency.emergencyPhone
               ].filter(Boolean).join(' · ') || '—';
               return '<tr class="' + (r.noShow ? 'bus-noshow' : '') + '">' +
-                '<td><strong>' + escapeHtml(r.name) + '</strong>' +
+                '<td data-label="Student"><strong>' + escapeHtml(r.name) + '</strong>' +
                 (r.classId ? ' <span class="muted">(' + escapeHtml(r.classId) + ')</span>' : '') +
                 (r.noShow ? ' <span class="error">No-show</span>' : '') + '</td>' +
-                '<td class="muted small">' + escapeHtml(contact) + '</td>' +
+                '<td class="muted small" data-label="Contact">' + escapeHtml(contact) + '</td>' +
                 (isPickup
                   ? '<td class="bus-duty-action"><button type="button" class="btn btn-ghost t-bus-ns" data-run="' +
                     escapeHtml(run.runId) + '" data-sid="' + escapeHtml(r.studentId) + '" data-ns="' +
@@ -1122,6 +1128,7 @@
   function tabLabel(name) {
     const map = {
       attendance: 'Attendance',
+      timetable: 'Timetable',
       grades: 'Grades',
       dollars: 'Dollars',
       homework: 'Homework',
@@ -1247,11 +1254,12 @@
     $('attDate').value = todayISO();
     const firstSubject = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
     if ($('gradeSubject')) $('gradeSubject').value = firstSubject;
-    if ($('reportTerm')) $('reportTerm').value = ($('gradeTerm') && $('gradeTerm').value) || 'Term1';
     syncClassTabs();
     const tab = tabName || defaultClassTab();
+    if ($('gradeSubjectList')) $('gradeSubjectList').innerHTML = '<p class="muted">Loading…</p>';
+    if ($('reportBody')) $('reportBody').innerHTML = '<p class="muted">Loading…</p>';
+    if ($('attStudentList')) $('attStudentList').innerHTML = '<p class="muted">Loading…</p>';
     switchTab(tab, { skipRoute: true });
-    if (isHomeroomClass(cls)) SaltAttendance.onClassOpen();
     if (!opts.fromRoute && !applyingRoute) {
       setRoute('#/class/' + encodeURIComponent(cls.classId) + '/' + encodeURIComponent(tab));
     }
@@ -1265,11 +1273,12 @@
     }
     currentClassTab = name;
     document.querySelectorAll('#classTabs .class-subnav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
+    ['panelAttendance','panelTimetable','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
       if ($(id)) hide($(id));
     });
     const map = {
       attendance: 'panelAttendance',
+      timetable: 'panelTimetable',
       grades: 'panelGrades',
       dollars: 'panelDollars',
       homework: 'panelHomework',
@@ -1288,6 +1297,7 @@
         setRoute('#/class/' + encodeURIComponent(currentClass.classId) + '/' + encodeURIComponent(name));
       }
     }
+    if (name === 'timetable') loadClassTimetable();
     if (name === 'grades') SaltGrades.onClassOpen();
     if (name === 'dollars') loadDollars();
     if (name === 'homework') loadHomework();
@@ -1347,6 +1357,16 @@
     } finally {
       applyingRoute = false;
     }
+  }
+
+  async function loadClassTimetable() {
+    const mount = $('classTimetableMount');
+    if (!mount || !currentClass) return;
+    if (!window.SaltTimetable || typeof SaltTimetable.renderReadOnly !== 'function') {
+      mount.innerHTML = '<p class="muted">Timetable is unavailable.</p>';
+      return;
+    }
+    await SaltTimetable.renderReadOnly(mount, 'class', currentClass.classId, '');
   }
 
   async function loadDollars() {
@@ -1653,7 +1673,7 @@
     $('classBackHomeBtn').addEventListener('click', () => openHome());
   }
 
-  $('loadReportBtn').addEventListener('click', () => SaltReportCard.loadOverview());
+  $('loadReportBtn').addEventListener('click', () => SaltReportCard.refresh());
   if ($('reportTerm')) {
     $('reportTerm').addEventListener('change', () => SaltReportCard.loadOverview());
   }
@@ -1722,6 +1742,22 @@
     });
   });
 
+  // Mobile hamburger menu: collapse the nav into a toggled drawer.
+  if ($('teacherNavToggle') && $('teacherShellNav')) {
+    const navToggle = $('teacherNavToggle');
+    const shellNav = $('teacherShellNav');
+    navToggle.addEventListener('click', () => {
+      const open = shellNav.classList.toggle('is-open');
+      navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    shellNav.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn || btn.id === 'classToolsMenuBtn') return;
+      shellNav.classList.remove('is-open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  }
+
   window.addEventListener('hashchange', () => {
     if (!applyingRoute) applyRoute();
   });
@@ -1766,16 +1802,19 @@
       SaltLostFound.Teacher.init({ api, $, escapeHtml, role: 'teacher' });
     }
     await loadClasses();
-    SaltMessenger.init(role);
+    await applyRoute();
     if (window.SaltPush) {
       SaltPush.bindButtons({
         api: function(path, opts) { return api(path, opts || {}, role); },
         enableBtn: $('teacherPushEnableBtn'),
-        disableBtn: $('teacherPushDisableBtn'),
+        dismissBtn: $('teacherPushLaterBtn'),
+        cardEl: $('teacherPushCard'),
         statusEl: $('teacherPushStatus')
       });
     }
-    await applyRoute();
+    setTimeout(() => {
+      try { SaltMessenger.init(role); } catch (e) { /* messenger is non-blocking */ }
+    }, 0);
   }
 
   if (getToken(role)) bootApp();

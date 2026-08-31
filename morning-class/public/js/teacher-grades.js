@@ -84,14 +84,18 @@ window.SaltGrades = (function() {
     if (backBtn) backBtn.classList.toggle('hidden', !showSubjectPicker);
   }
 
-  function renderSubjectPicker(subjects, isHomeroom) {
+  function renderSubjectPicker(subjects, isHomeroom, source) {
     const list = $('gradeSubjectList');
     const hint = $('gradeSubjectPickerHint');
     if (!list) return;
     if (hint) {
-      hint.textContent = isHomeroom
-        ? 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit.'
-        : 'Select a subject you teach in this class.';
+      if (isHomeroom && source === 'requirements') {
+        hint.textContent = 'Subjects match this class\'s timetable Subject requirements. Gradebooks stay here even if you exclude a subject from the report card.';
+      } else if (isHomeroom) {
+        hint.textContent = 'Homeroom: browse every subject your students take. You can view all grades; only the subject teacher can edit. Exclude a subject from the report card without removing its gradebook.';
+      } else {
+        hint.textContent = 'Select a subject you teach in this class. You can exclude it from the report card without removing the gradebook.';
+      }
     }
     if (!subjects.length) {
       list.innerHTML = '<p class="muted">No subjects found for this class yet.</p>';
@@ -101,28 +105,63 @@ window.SaltGrades = (function() {
       const teachers = (s.teacherNames && s.teacherNames.length)
         ? s.teacherNames.join(', ')
         : '';
+      const excluded = !!s.excludeFromReport;
       const editTag = s.canEdit
         ? '<span class="grade-subj-tag grade-subj-edit">Editable</span>'
         : '<span class="grade-subj-tag grade-subj-view">View only</span>';
-      return '<button type="button" class="grade-subj-card" data-subject="' + escapeHtml(s.subject) +
+      const offTag = excluded
+        ? '<span class="grade-subj-tag grade-subj-off">Off report</span>'
+        : '';
+      const rcBtn = s.canToggleReport
+        ? '<button type="button" class="grade-subj-rc-btn" data-subject="' + escapeHtml(s.subject) +
+          '" data-exclude="' + (excluded ? '0' : '1') + '">' +
+          (excluded ? 'Include on report' : 'Exclude from report') + '</button>'
+        : (excluded ? '<span class="muted small">Off report card</span>' : '');
+      return '<div class="grade-subj-card' + (excluded ? ' grade-subj-off-report' : '') + '">' +
+        '<button type="button" class="grade-subj-open" data-subject="' + escapeHtml(s.subject) +
         '" data-edit="' + (s.canEdit ? '1' : '0') + '">' +
-        '<strong>' + escapeHtml(s.subject) + '</strong>' +
-        editTag +
+        '<span class="grade-subj-name">' + escapeHtml(s.subject) + '</span>' +
+        '<span class="grade-subj-meta">' + editTag + offTag +
         (teachers ? '<span class="muted small">' + escapeHtml(teachers) + '</span>' : '') +
-        '</button>';
+        '</span></button>' +
+        rcBtn +
+        '</div>';
     }).join('');
-    list.querySelectorAll('.grade-subj-card').forEach((btn) => {
+    list.querySelectorAll('.grade-subj-open').forEach((btn) => {
       btn.addEventListener('click', () => openSubject(btn.dataset.subject, btn.dataset.edit === '1'));
     });
+    list.querySelectorAll('.grade-subj-rc-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleReportInclude(btn.dataset.subject, btn.dataset.exclude === '1');
+      });
+    });
+  }
+
+  async function toggleReportInclude(subject, exclude) {
+    const cls = getClass();
+    const err = $('gradesError');
+    if (err) err.textContent = '';
+    try {
+      await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects/report-card', {
+        method: 'POST',
+        body: { subject: subject, excludeFromReport: !!exclude }
+      });
+      await onClassOpen();
+    } catch (e) {
+      if (err) err.textContent = e.message || 'Could not update report-card inclusion.';
+    }
   }
 
   async function openSubject(subj, editable) {
     $('gradeSubject').value = subj;
     setEditMode(editable);
     showGradebookUi();
+    const mount = $('gradebookMount');
+    if (mount) mount.innerHTML = '<p class="muted">Loading gradebook…</p>';
     await loadActiveTerm();
-    await loadGradebook();
-    await loadLessonWeights();
+    await Promise.all([loadGradebook(), loadLessonWeights()]);
   }
 
   async function onClassOpen() {
@@ -132,6 +171,9 @@ window.SaltGrades = (function() {
     subjectCatalog = [];
     showSubjectPicker = false;
     setEditMode(true);
+    const list = $('gradeSubjectList');
+    if (list) list.innerHTML = '<p class="muted">Loading subjects…</p>';
+    showPicker();
 
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects');
@@ -140,9 +182,9 @@ window.SaltGrades = (function() {
       showSubjectPicker = isHomeroom || subjectCatalog.length > 1;
 
       if (showSubjectPicker) {
-        renderSubjectPicker(subjectCatalog, isHomeroom);
+        renderSubjectPicker(subjectCatalog, isHomeroom, data.source);
         showPicker();
-        await loadActiveTerm();
+        loadActiveTerm();
         return;
       }
 
@@ -956,11 +998,20 @@ window.SaltGrades = (function() {
 
   function renderWeightEditor() {
     const presets = categoryPresets;
+    const used = {};
+    weightDraft.forEach((w) => {
+      if (w && w.categoryKey && !isCustomCategory(w)) used[w.categoryKey] = true;
+    });
+    const unused = presets.filter((p) => !used[p.categoryKey]);
+    const prevAdd = $('gradeWeightPresetSelect') && $('gradeWeightPresetSelect').value;
     $('gradeWeightPresetSelect').innerHTML =
-      presets.map((p) =>
+      unused.map((p) =>
         '<option value="' + escapeHtml(p.categoryKey) + '">' + escapeHtml(p.label) + '</option>'
       ).join('') +
       '<option value="__custom__">Custom…</option>';
+    if (prevAdd && (prevAdd === '__custom__' || unused.some((p) => p.categoryKey === prevAdd))) {
+      $('gradeWeightPresetSelect').value = prevAdd;
+    }
     syncCustomAddFields();
 
     $('gradeWeightRows').innerHTML = weightDraft.map((w, i) => {

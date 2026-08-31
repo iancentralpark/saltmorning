@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Item Bank — Salt Morning</title>
+  <meta name="theme-color" content="#0D2748">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Salt Morning">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -12,19 +18,19 @@
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <style>
     :root {
-      --olive: #3B4A34;
-      --olive-deep: #2a3525;
-      --gold: #C5A059;
-      --cream: #FBF9F5;
-      --sage: #A3B18A;
-      --sage-soft: #eef3ea;
-      --ink: #1C251B;
-      --muted: #6b7466;
-      --border: #d9ddd2;
+      --olive: #0D9488;
+      --olive-deep: #0F766E;
+      --gold: #FB923C;
+      --cream: #F1F6F9;
+      --sage: #2DD4BF;
+      --sage-soft: #E3FBF7;
+      --ink: #0F172A;
+      --muted: #5B6B7C;
+      --border: #DCE6EE;
       --card: #fff;
       --danger: #c45d55;
       --ok: #3d7a4a;
-      --shadow: 0 10px 28px rgba(28, 37, 27, 0.08);
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
     }
     * { box-sizing: border-box; }
     body {
@@ -32,9 +38,9 @@
       font-family: 'Source Sans 3', system-ui, sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at 12% 0%, rgba(197, 160, 89, 0.14), transparent 34%),
-        radial-gradient(circle at 88% 100%, rgba(163, 177, 138, 0.22), transparent 40%),
-        linear-gradient(165deg, #f7f4ee 0%, var(--cream) 45%, #f1eee6 100%);
+        radial-gradient(circle at 12% 0%, rgba(251, 146, 60, 0.14), transparent 34%),
+        radial-gradient(circle at 88% 100%, rgba(45, 212, 191, 0.22), transparent 40%),
+        linear-gradient(165deg, #f4f9fa 0%, var(--cream) 45%, #eef5f7 100%);
       min-height: 100vh;
     }
     .hidden { display: none !important; }

@@ -180,11 +180,15 @@
         host.innerHTML = '<p class="muted small">' + escapeHtml(t('parent.consents.historyEmpty', '제출 이력이 없습니다.')) + '</p>';
         return;
       }
-      host.innerHTML = '<table class="grades-table"><thead><tr><th>제목</th><th>응답</th><th>상태</th><th>제출</th></tr></thead><tbody>' +
+      host.innerHTML = '<table class="grades-table"><thead><tr>' +
+        '<th>' + escapeHtml(t('consent.col.title', 'Title')) + '</th>' +
+        '<th>' + escapeHtml(t('consent.col.response', 'Response')) + '</th>' +
+        '<th>' + escapeHtml(t('consent.col.status', 'Status')) + '</th>' +
+        '<th>' + escapeHtml(t('consent.col.submitted', 'Submitted')) + '</th></tr></thead><tbody>' +
         rows.map((r) => {
           const st = r.registrationStatus === 'Waiting'
-            ? ('대기' + (r.waitNumber ? ' #' + r.waitNumber : ''))
-            : (r.registrationStatus === 'Confirmed' ? '확정' : '—');
+            ? (t('parent.consents.waitlist', 'Waitlist') + (r.waitNumber ? ' #' + r.waitNumber : ''))
+            : (r.registrationStatus === 'Confirmed' ? t('parent.consents.confirmed', 'Confirmed') : '—');
           return '<tr><td>' + escapeHtml(r.title) + '</td><td>' + escapeHtml(r.agreed) +
             '</td><td>' + escapeHtml(st) + '</td><td>' +
             escapeHtml(String(r.submittedAt || '').slice(0, 16).replace('T', ' ')) + '</td></tr>';
@@ -216,10 +220,10 @@
         '<input id="ppConsentApartment" maxlength="120"></label>' +
         '<label><span>' + escapeHtml(t('parent.consents.desire', '이용 희망')) + '</span>' +
         '<select id="ppConsentDesire">' +
-        '<option value="both">등하원</option>' +
-        '<option value="pickup">등교만</option>' +
-        '<option value="dismissal">하교만</option>' +
-        '<option value="self">자가 (버스 이용 안 함)</option>' +
+        '<option value="both">' + escapeHtml(t('parent.consents.desireBoth', 'Both ways')) + '</option>' +
+        '<option value="pickup">' + escapeHtml(t('parent.consents.desirePickup', 'Morning only')) + '</option>' +
+        '<option value="dismissal">' + escapeHtml(t('parent.consents.desireDismissal', 'Dismissal only')) + '</option>' +
+        '<option value="self">' + escapeHtml(t('parent.consents.desireSelf', 'No shuttle (self)')) + '</option>' +
         '</select></label>' +
         '<label><span>' + escapeHtml(t('parent.consents.pickupPlace', '희망 승하차 장소')) + '</span>' +
         '<input id="ppConsentPickupPlace" maxlength="120"></label>';

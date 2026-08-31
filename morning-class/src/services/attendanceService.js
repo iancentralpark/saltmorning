@@ -241,7 +241,7 @@ function categorizeAttendance(attendance, excuse) {
 }
 
 async function getStudentYearAttendance(classId, studentId, startDate, endDate) {
-  await ensureAttendanceColumns();
+  if (!isOpsDbEnabled()) await ensureAttendanceColumns();
   classId = String(classId);
   studentId = String(studentId);
   const range = (startDate && endDate)

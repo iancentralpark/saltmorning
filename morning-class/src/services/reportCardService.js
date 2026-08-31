@@ -13,13 +13,21 @@ const {
   getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache
 } = require('../sheets');
 const { getClassRoster, getTeacherProfile, getClassNameMap } = require('./teacherPortalService');
-const {
-  listClassGradeSubjects,
-  getTeacherGradeAccess,
-  isTeacherHomeroomOf
-} = require('./subjectAssignmentService');
+const { listClassGradeSubjects, getTeacherGradeAccess, collectClassSubjects } = require('./subjectAssignmentService');
+const { listExcludedReportSubjects } = require('./classSubjectFlagsService');
 const { buildReportCardFromGrades } = require('./gradeService');
 const { getActiveTerm } = require('./gradeWeightService');
+const { getSchoolSemester } = require('./schoolSemesterService');
+
+async function isTermClosed(term) {
+  if (!term) return false;
+  try {
+    const sem = await getSchoolSemester(term);
+    return !!(sem && sem.closed);
+  } catch (e) {
+    return false;
+  }
+}
 const {
   SCHOOL_NAME,
   SCHOOL_ADDRESS
@@ -69,9 +77,84 @@ const RATING_SCORE = {
 };
 
 const SUBJECT_COMMENT_KEY = 'subject_comment';
+const ACADEMIC_SOURCE_KEY = 'academic_source';
+const ACADEMIC_LETTER_KEY = 'academic_letter';
+const ACADEMIC_PERCENT_KEY = 'academic_percent';
+const LETTER_GRADES = ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'F'];
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
+}
+
+function parseAcademicOverride(entries) {
+  const byKey = {};
+  (entries || []).forEach((e) => { byKey[e.fieldKey] = e; });
+  const source = String((byKey[ACADEMIC_SOURCE_KEY] && byKey[ACADEMIC_SOURCE_KEY].comment) || '')
+    .trim().toLowerCase();
+  const letter = String((byKey[ACADEMIC_LETTER_KEY] && byKey[ACADEMIC_LETTER_KEY].comment) || '').trim();
+  const raw = byKey[ACADEMIC_PERCENT_KEY] ? byKey[ACADEMIC_PERCENT_KEY].score : null;
+  const percent = raw == null || raw === '' || Number.isNaN(Number(raw)) ? null : Number(raw);
+  return {
+    source: source === 'manual' ? 'manual' : 'gradebook',
+    letterGrade: letter,
+    percentageGrade: percent
+  };
+}
+
+function resolveAcademic(computedPercent, entries, categories) {
+  const gradebook = {
+    percentageGrade: computedPercent,
+    letterGrade: letterGrade(computedPercent),
+    categories: categories || []
+  };
+  const override = parseAcademicOverride(entries);
+  if (override.source === 'manual') {
+    const pct = override.percentageGrade;
+    return {
+      source: 'manual',
+      percentageGrade: pct,
+      letterGrade: override.letterGrade || letterGrade(pct),
+      categories: gradebook.categories,
+      gradebook
+    };
+  }
+  return {
+    source: 'gradebook',
+    percentageGrade: gradebook.percentageGrade,
+    letterGrade: gradebook.letterGrade,
+    categories: gradebook.categories,
+    gradebook
+  };
+}
+
+function normalizeAcademicSave(academic) {
+  if (!academic || typeof academic !== 'object') return null;
+  const raw = academic.source != null
+    ? academic.source
+    : (academic.useManual ? 'manual' : 'gradebook');
+  const source = String(raw).trim().toLowerCase();
+  if (source !== 'manual') {
+    return { source: 'gradebook', letterGrade: '', percentageGrade: null };
+  }
+  let letter = String(academic.letterGrade || '').trim();
+  if (letter && !LETTER_GRADES.includes(letter)) {
+    throw new Error('Invalid letter grade.');
+  }
+  let percent = academic.percentageGrade;
+  if (percent === '' || percent == null) {
+    percent = null;
+  } else {
+    percent = Number(percent);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      throw new Error('Percentage grade must be between 0 and 100.');
+    }
+    percent = Math.round(percent * 10) / 10;
+  }
+  if (!letter && percent != null) letter = letterGrade(percent);
+  if (!letter && percent == null) {
+    return { source: 'gradebook', letterGrade: '', percentageGrade: null };
+  }
+  return { source: 'manual', letterGrade: letter, percentageGrade: percent };
 }
 
 function letterGrade(pct) {
@@ -384,42 +467,16 @@ function isSubjectFormComplete(form) {
 }
 
 async function listAllSubjectsForClass(classId) {
-  const {
-    CLASS_TEACHERS_SHEET,
-    TEACHER_CLASS_SUBJECTS_SHEET,
-    GRADE_ASSESSMENTS_SHEET
-  } = require('../config');
-  const [assignRows, customRows, assessRows, names] = await Promise.all([
-    getSheetRows(CLASS_TEACHERS_SHEET),
-    getSheetRows(TEACHER_CLASS_SUBJECTS_SHEET),
-    getSheetRows(GRADE_ASSESSMENTS_SHEET).catch(() => []),
-    teacherNameMap()
+  const collected = await collectClassSubjects(classId);
+  return collected.subjects;
+}
+
+async function listReportCardSubjectsForClass(classId) {
+  const [subjects, excluded] = await Promise.all([
+    listAllSubjectsForClass(classId),
+    listExcludedReportSubjects(classId)
   ]);
-  const bySubject = new Map();
-  function add(subject, teacherIdForSubj) {
-    const name = String(subject || '').trim();
-    if (!name || name === 'All' || name === 'All subjects') return;
-    if (!bySubject.has(name)) bySubject.set(name, { subject: name, teacherIds: [], teacherNames: [] });
-    const entry = bySubject.get(name);
-    const tid = String(teacherIdForSubj || '').trim();
-    if (tid && !entry.teacherIds.includes(tid)) {
-      entry.teacherIds.push(tid);
-      entry.teacherNames.push(names[tid] || tid);
-    }
-  }
-  for (let i = 1; i < assignRows.length; i++) {
-    if (String(assignRows[i][0]) !== String(classId)) continue;
-    add(assignRows[i][3], assignRows[i][1]);
-  }
-  for (let i = 1; i < customRows.length; i++) {
-    if (String(customRows[i][1]) !== String(classId)) continue;
-    add(customRows[i][2], customRows[i][0]);
-  }
-  for (let i = 1; i < (assessRows || []).length; i++) {
-    if (String(assessRows[i][1]) !== String(classId)) continue;
-    add(assessRows[i][3], assessRows[i][8]);
-  }
-  return Array.from(bySubject.values()).sort((a, b) => a.subject.localeCompare(b.subject));
+  return subjects.filter((s) => !excluded.has(s.subject));
 }
 
 /**
@@ -434,30 +491,31 @@ async function getClassReportOverview(teacherId, classId, term) {
     term = (active && (active.label || active.termId)) || 'Term1';
   }
 
-  const [students, subjectData, allSubjects, statuses, classNames, teacher, names] = await Promise.all([
+  const [students, subjectData, statuses, classNames, teacher, names, closed] = await Promise.all([
     getClassRoster(classId),
     listClassGradeSubjects(teacherId, classId),
-    listAllSubjectsForClass(classId),
     listStatusRows(classId, term),
     getClassNameMap(),
     getTeacherProfile(teacherId),
-    teacherNameMap()
+    teacherNameMap(),
+    isTermClosed(term)
   ]);
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
-  const isHomeroom = !!(subjectData.isHomeroom ||
-    (teacher && String(teacher.homeroomClassId) === String(classId)) ||
-    await isTeacherHomeroomOf(teacherId, classId));
-  // Readiness uses ALL class subjects; canEdit follows the logged-in teacher.
-  const subjectList = (allSubjects.length ? allSubjects : (subjectData.subjects || [])).map((s) => ({
+  const isHomeroom = !!(subjectData.isHomeroom || (teacher && teacher.homeroomClassId === classId));
+  const sourceSubjects = (subjectData.allSubjects && subjectData.allSubjects.length)
+    ? subjectData.allSubjects
+    : (subjectData.subjects || []);
+  const reportSubjects = sourceSubjects.filter((s) => !s.excludeFromReport);
+  const subjectList = reportSubjects.map((s) => ({
     subject: s.subject,
-    teacherIds: s.teacherIds || [],
     teacherNames: s.teacherNames || [],
     canEdit: isHomeroom ? false : taughtSet.has(s.subject) || !!(subjectData.subjects || []).find((x) => x.subject === s.subject && x.canEdit)
   }));
   // Subject teachers can edit their taught subjects; homeroom edits none unless also assigned
   subjectList.forEach((s) => {
     if (taughtSet.has(s.subject)) s.canEdit = true;
+    if (closed) s.canEdit = false;
   });
 
   const statusMap = {};
@@ -499,6 +557,7 @@ async function getClassReportOverview(teacherId, classId, term) {
     classId,
     className: classNames[classId] || classId,
     term,
+    closed,
     isHomeroom,
     workHabitFields: WORK_HABITS,
     ratingOptions: RATING_OPTIONS,
@@ -527,14 +586,15 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
   const access = await getTeacherGradeAccess(teacherId, classId, subject);
   if (!access.canView) throw new Error('You cannot view this subject report.');
 
-  const [roster, entries, statuses, computedList, meta, classNames, names] = await Promise.all([
-    getClassRoster(classId),
+  const roster = await getClassRoster(classId);
+  const [entries, statuses, computedList, meta, classNames, names, closed] = await Promise.all([
     listReportCardEntries(classId, term, studentId, subject),
     listStatusRows(classId, term, studentId),
-    buildReportCardFromGrades(classId, term, subject, await getClassRoster(classId)),
+    buildReportCardFromGrades(classId, term, subject, roster),
     getStudentMeta(studentId),
     getClassNameMap(),
-    teacherNameMap()
+    teacherNameMap(),
+    isTermClosed(term)
   ]);
 
   const student = roster.find((s) => s.studentId === String(studentId));
@@ -544,30 +604,28 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
   const percent = computed && computed.weightedTotal != null ? computed.weightedTotal : null;
   const form = entriesToSubjectForm(entries, subject);
   const statusRow = (statuses || []).find((s) => s.subject === subject);
+  const academic = resolveAcademic(percent, entries, computed ? computed.categories : []);
 
   return {
     classId,
     className: classNames[classId] || classId,
     term,
+    closed,
     subject,
     student: {
       studentId: student.studentId,
       name: student.name,
       gradeLevel: meta.gradeLevel || ''
     },
-    canEdit: !!access.canEdit,
+    canEdit: !!access.canEdit && !closed,
     isHomeroom: !!access.isHomeroom,
-    academic: {
-      percentageGrade: percent,
-      letterGrade: letterGrade(percent),
-      categories: computed ? computed.categories : []
-    },
+    academic,
+    letterGrades: LETTER_GRADES,
     workHabits: form.workHabits,
     subjectComment: form.subjectComment,
     formComplete: isSubjectFormComplete(form),
     status: statusRow ? statusRow.status : 'Draft',
     sharedWithParents: !!(statusRow && statusRow.sharedWithParents),
-    updatedAt: statusRow ? statusRow.updatedAt : '',
     workHabitFields: WORK_HABITS,
     ratingOptions: RATING_OPTIONS,
     teacherName: names[teacherId] || ''
@@ -579,6 +637,10 @@ async function saveStudentSubjectReport(teacherId, classId, payload) {
   const subject = String(payload.subject || '').trim();
   const studentId = String(payload.studentId || '').trim();
   if (!term || !subject || !studentId) throw new Error('Term, subject, and student are required.');
+
+  if (await isTermClosed(term)) {
+    throw Object.assign(new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.'), { status: 400 });
+  }
 
   const access = await getTeacherGradeAccess(teacherId, classId, subject);
   if (!access.canEdit) throw new Error('Only the subject teacher can edit this report section.');
@@ -603,6 +665,28 @@ async function saveStudentSubjectReport(teacherId, classId, payload) {
     score: null,
     comment: String(payload.subjectComment || '').trim()
   });
+
+  const academicSave = normalizeAcademicSave(payload.academic);
+  if (academicSave) {
+    entries.push({
+      studentId,
+      fieldKey: ACADEMIC_SOURCE_KEY,
+      score: null,
+      comment: academicSave.source === 'manual' ? 'manual' : ''
+    });
+    entries.push({
+      studentId,
+      fieldKey: ACADEMIC_LETTER_KEY,
+      score: null,
+      comment: academicSave.source === 'manual' ? academicSave.letterGrade : ''
+    });
+    entries.push({
+      studentId,
+      fieldKey: ACADEMIC_PERCENT_KEY,
+      score: academicSave.source === 'manual' ? academicSave.percentageGrade : null,
+      comment: ''
+    });
+  }
 
   await saveReportCardEntries(classId, term, subject, teacherId, entries);
 
@@ -662,9 +746,6 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
   let access = { isHomeroom: false };
   if (!opts.bypassAccess) {
     access = await getTeacherGradeAccess(viewerId, classId, '');
-    if (String(viewerId) === String(homeroomId) || overview.isHomeroom) {
-      access.isHomeroom = true;
-    }
     const canEditSome = overview.subjects.some((s) => s.canEdit);
     if (!access.isHomeroom && !canEditSome) {
       const headOf = await getTeacherHeadId(homeroomId).catch(() => '');
@@ -675,7 +756,7 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
   }
 
   const teacherIdsForSigs = new Set();
-  overview.subjects.forEach((subj) => {
+  (overview.subjects || []).forEach((subj) => {
     (subj.teacherIds || []).forEach((id) => {
       if (id) teacherIdsForSigs.add(String(id));
     });
@@ -685,8 +766,7 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
     sigByTeacher[tid] = await resolveSignaturePath(tid);
   }));
 
-  const subjectBlocks = [];
-  for (const subj of overview.subjects) {
+  const subjectBlocks = await Promise.all((overview.subjects || []).map(async (subj) => {
     const block = await getStudentSubjectReport(
       overviewTeacherId, classId, studentId, term, subj.subject
     );
@@ -700,7 +780,7 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
       sigPath: (tid && sigByTeacher[tid]) || '',
       signedAt: block.status === 'Complete' ? (block.updatedAt || '') : ''
     }));
-    subjectBlocks.push({
+    return {
       subject: subj.subject,
       teacherIds,
       teacherNames,
@@ -712,8 +792,8 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
       subjectComment: block.subjectComment,
       status: block.status,
       complete: block.status === 'Complete'
-    });
-  }
+    };
+  }));
 
   const reportReady = !!(studentRow && studentRow.reportReady);
   const shared = !!(studentRow && studentRow.sharedWithParents);
@@ -892,6 +972,8 @@ async function listParentReportCards(parentSession) {
 
   // Build card without teacher access check — parents only see shared cards
   const overviewSubjects = [...new Set(sharedSubjects.map((s) => s.subject))];
+  const excluded = await listExcludedReportSubjects(classId);
+  const reportSubjects = overviewSubjects.filter((subject) => !excluded.has(subject));
   const meta = await getStudentMeta(studentId);
   const classNames = await getClassNameMap();
   const names = await teacherNameMap();
@@ -900,7 +982,7 @@ async function listParentReportCards(parentSession) {
   const classSubjects = await listAllSubjectsForClass(classId).catch(() => []);
   const subjectMetaByName = new Map(classSubjects.map((s) => [s.subject, s]));
   const teacherIdsForSigs = new Set();
-  overviewSubjects.forEach((subject) => {
+  reportSubjects.forEach((subject) => {
     const metaSubj = subjectMetaByName.get(subject);
     (metaSubj && metaSubj.teacherIds ? metaSubj.teacherIds : []).forEach((id) => {
       if (id) teacherIdsForSigs.add(String(id));
@@ -914,7 +996,7 @@ async function listParentReportCards(parentSession) {
   }));
 
   const subjectBlocks = [];
-  for (const subject of overviewSubjects) {
+  for (const subject of reportSubjects) {
     const entries = await listReportCardEntries(classId, term, studentId, subject);
     const form = entriesToSubjectForm(entries, subject);
     let percent = null;
@@ -923,6 +1005,7 @@ async function listParentReportCards(parentSession) {
       const hit = (computed || []).find((c) => c.studentId === studentId);
       if (hit) percent = hit.weightedTotal;
     } catch (e) { /* ignore */ }
+    const academic = resolveAcademic(percent, entries, []);
     const st = sharedSubjects.find((s) => s.subject === subject);
     const metaSubj = subjectMetaByName.get(subject);
     const teacherIds = (metaSubj && metaSubj.teacherIds && metaSubj.teacherIds.length)
@@ -942,8 +1025,8 @@ async function listParentReportCards(parentSession) {
       teacherIds,
       teacherNames,
       teacherSignatures,
-      letterGrade: letterGrade(percent),
-      percentageGrade: percent,
+      letterGrade: academic.letterGrade,
+      percentageGrade: academic.percentageGrade,
       workHabits: form.workHabits,
       subjectComment: form.subjectComment,
       status: 'Complete',
@@ -1013,6 +1096,7 @@ async function listParentReportCards(parentSession) {
 module.exports = {
   WORK_HABITS,
   RATING_OPTIONS,
+  LETTER_GRADES,
   letterGrade,
   listReportCardFields,
   saveReportCardField,
@@ -1027,6 +1111,7 @@ module.exports = {
   shareReportCardWithParents,
   listParentReportCards,
   listAllSubjectsForClass,
+  listReportCardSubjectsForClass,
   ensureReportCardSheets,
   seedDemoSubjectReports
 };

@@ -352,6 +352,8 @@ async function bookSlot(session, payload) {
   const studentId = String(payload.studentId || session.studentId || '').trim();
   const parentId = String(session.parentId || '').trim();
   const parentNote = String(payload.parentNote || '').trim().slice(0, 500);
+  const meetingType = String(payload.meetingType || payload.type || '').trim();
+  const allowedTypes = { InPerson: 1, Phone: 1, Zoom: 1 };
   if (!scheduleId || !studentId || !parentId) {
     throw Object.assign(new Error('Schedule, student, and parent are required.'), { status: 400 });
   }
@@ -385,6 +387,7 @@ async function bookSlot(session, payload) {
     const row = rows[i].slice();
     while (row.length < 9) row.push('');
     row[6] = 'Booked';
+    if (allowedTypes[meetingType]) row[5] = meetingType;
     await updateRange(CONFERENCE_SCHEDULES_SHEET, `A${i + 1}:I${i + 1}`, [row]);
     invalidateSheetRowsCache(CONFERENCE_SCHEDULES_SHEET);
     break;
@@ -537,9 +540,110 @@ async function closeSchedule(teacherId, scheduleId) {
   throw Object.assign(new Error('Schedule not found.'), { status: 404 });
 }
 
+async function reopenSchedule(teacherId, scheduleId) {
+  scheduleId = String(scheduleId || '').trim();
+  const rows = await getSheetRows(CONFERENCE_SCHEDULES_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== scheduleId) continue;
+    if (String(rows[i][1]) !== String(teacherId)) {
+      throw Object.assign(new Error('Not your schedule.'), { status: 403 });
+    }
+    const row = rows[i].slice();
+    while (row.length < 9) row.push('');
+    if (row[6] === 'Booked') {
+      throw Object.assign(new Error('Cannot reopen a booked slot.'), { status: 400 });
+    }
+    row[5] = 'Any';
+    row[6] = 'Open';
+    await updateRange(CONFERENCE_SCHEDULES_SHEET, `A${i + 1}:I${i + 1}`, [row]);
+    invalidateSheetRowsCache(CONFERENCE_SCHEDULES_SHEET);
+    return parseScheduleRow(row);
+  }
+  throw Object.assign(new Error('Schedule not found.'), { status: 404 });
+}
+
+/**
+ * Toggle conference availability for one timetable cell (date + start/end).
+ * Open slots in that window are closed; otherwise slots are created or reopened.
+ */
+async function togglePeriodSlots(teacherId, payload) {
+  await ensureConferenceSheets();
+  teacherId = String(teacherId || '').trim();
+  if (!teacherId) throw Object.assign(new Error('Teacher required.'), { status: 400 });
+
+  const date = String(payload.date || '').trim();
+  const startTime = String(payload.startTime || '').trim();
+  const endTime = String(payload.endTime || '').trim();
+  const location = String(payload.location || '').trim();
+  const slotMinutes = Number(payload.slotMinutes) || 15;
+  const targetGrade = String(payload.targetGrade || payload.targetClassId || '*').trim() || '*';
+
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw Object.assign(new Error('Valid date (YYYY-MM-DD) is required.'), { status: 400 });
+  }
+
+  let slots = buildSlots(startTime, endTime, slotMinutes);
+  if (!slots.length) {
+    const start = parseHm(startTime);
+    const end = parseHm(endTime);
+    if (start == null || end == null || end <= start) {
+      throw Object.assign(new Error('Valid start/end times are required.'), { status: 400 });
+    }
+    slots = [formatHm(start) + '-' + formatHm(end)];
+  }
+
+  const desired = String(payload.desired || payload.action || '').trim().toLowerCase();
+
+  const existing = await listSchedules({ teacherId, date, skipCache: true });
+  const slotSet = new Set(slots);
+  const inWindow = existing.filter((s) => slotSet.has(s.timeSlot));
+  const openOnes = inWindow.filter((s) => s.status === 'Open');
+  const wantClose = desired === 'close' || desired === 'closed' || (!desired && openOnes.length);
+  if (wantClose) {
+    if (!openOnes.length) return { action: 'closed', count: 0, already: true };
+    const closed = [];
+    for (const s of openOnes) {
+      closed.push(await closeSchedule(teacherId, s.scheduleId));
+    }
+    return { action: 'closed', count: closed.length, schedules: closed };
+  }
+
+  if (desired === 'open' && openOnes.length && openOnes.length >= slots.length) {
+    return { action: 'opened', count: 0, already: true, created: [], reopened: [] };
+  }
+
+  const created = [];
+  const reopened = [];
+  const rows = [];
+  for (const slot of slots) {
+    const hit = existing.find((s) => s.timeSlot === slot);
+    if (hit && hit.status === 'Booked') continue;
+    if (hit && hit.status === 'Closed') {
+      reopened.push(await reopenSchedule(teacherId, hit.scheduleId));
+      continue;
+    }
+    if (hit && hit.status === 'Open') continue;
+    const scheduleId = newId('cfs');
+    const row = [
+      scheduleId, teacherId, targetGrade, date, slot, 'Any', 'Open', location, String(slotMinutes)
+    ];
+    rows.push(row);
+    created.push(parseScheduleRow(row));
+  }
+  if (rows.length) {
+    await appendRows(CONFERENCE_SCHEDULES_SHEET, rows);
+    invalidateSheetRowsCache(CONFERENCE_SCHEDULES_SHEET);
+  }
+  if (!created.length && !reopened.length) {
+    throw Object.assign(new Error('Could not open this slot (already booked).'), { status: 400 });
+  }
+  return { action: 'opened', count: created.length + reopened.length, created, reopened };
+}
+
 module.exports = {
   ensureConferenceSheets,
   createSchedules,
+  togglePeriodSlots,
   listTeacherDashboard,
   listAvailableForParent,
   bookSlot,

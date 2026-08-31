@@ -10,7 +10,7 @@ window.SaltLesson = (function() {
   let mountId = 'lpCalendarMount';
   let readOnly = false;
   let subjectGroups = null;
-  let globalMode = false;
+  let adminSemesterOpenIdx = -1;
 
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -143,8 +143,7 @@ window.SaltLesson = (function() {
     setMount('lpAdminCalendar');
     globalMode = false;
     readOnly = true;
-    await loadAdminCalendar();
-    await loadAdminSemesterPlans();
+    await Promise.all([loadAdminCalendar(), loadAdminSemesterPlans()]);
   }
 
   async function loadSubjectGroups() {
@@ -325,6 +324,7 @@ window.SaltLesson = (function() {
     if (!classes.length) {
       html += '<p class="muted small">No classes assigned.</p>';
     } else {
+      html += '<div class="lp-subjects-classes">';
       classes.forEach((c) => {
         html += '<div class="lp-subject-class">' +
           '<div class="lp-subject-class-name">' + escapeHtml(c.className) + '</div>' +
@@ -362,6 +362,7 @@ window.SaltLesson = (function() {
         });
         html += '</div>';
       });
+      html += '</div>';
     }
 
     html += '<form class="lp-add-subject-form" data-mount="' + escapeHtml(panelMountId) + '">' +
@@ -824,7 +825,7 @@ window.SaltLesson = (function() {
         return opt && opt.value ? opt.textContent : id;
       };
       listEl.innerHTML = '<div class="lp-admin-sem-list">' + plans.map((p, i) =>
-        '<button type="button" class="lp-admin-sem-item" data-idx="' + i + '">' +
+        '<button type="button" class="lp-admin-sem-item' + (adminSemesterOpenIdx === i ? ' is-open' : '') + '" data-idx="' + i + '">' +
         '<strong>' + escapeHtml(teacherName(p.teacherId)) + '</strong>' +
         '<span>' + escapeHtml(className(p.classId) + ' · ' + p.subject) + '</span>' +
         '<span class="muted small">' + escapeHtml((p.termLabel || '') +
@@ -832,33 +833,53 @@ window.SaltLesson = (function() {
         '</span></button>'
       ).join('') + '</div>';
 
+      function renderAdminSemesterDetail(p) {
+        let html = '<div class="lp-semester-meta">' +
+          '<strong>' + escapeHtml(teacherName(p.teacherId) + ' · ' + className(p.classId) + ' · ' + p.subject) +
+          '</strong>' +
+          '<span class="muted small">' + escapeHtml(p.termLabel || '') + '</span></div>';
+        html += '<div class="lp-semester-table-wrap"><table class="lp-semester-table"><thead><tr>' +
+          '<th>' + escapeHtml(t('lessons.week', 'Week')) + '</th>' +
+          '<th>' + escapeHtml(t('lessons.date', 'Date')) + '</th>' +
+          '<th>' + escapeHtml(t('lessons.content', 'Lesson content')) + '</th>' +
+          '<th>' + escapeHtml(t('lessons.objective', 'Objective')) + '</th>' +
+          '</tr></thead><tbody>';
+        (p.weeks || []).forEach((w) => {
+          const examClass = /midterm/i.test(w.weekLabel || '') ? ' is-midterm' :
+            (/final/i.test(w.weekLabel || '') ? ' is-final' : '');
+          html += '<tr class="' + examClass + '">' +
+            '<td>' + escapeHtml(w.weekLabel || ('Week ' + w.weekIndex)) + '</td>' +
+            '<td>' + escapeHtml(formatRange(w.weekStart, w.weekEnd)) + '</td>' +
+            '<td>' + (w.content ? escapeHtml(w.content).replace(/\n/g, '<br>') : '<span class="muted">—</span>') + '</td>' +
+            '<td>' + (w.objective ? escapeHtml(w.objective).replace(/\n/g, '<br>') : '<span class="muted">—</span>') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+      }
+
+      if (adminSemesterOpenIdx >= 0 && plans[adminSemesterOpenIdx] && detailEl) {
+        detailEl.classList.remove('hidden');
+        detailEl.innerHTML = renderAdminSemesterDetail(plans[adminSemesterOpenIdx]);
+      }
+
       listEl.querySelectorAll('.lp-admin-sem-item').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const p = plans[Number(btn.dataset.idx)];
+          const idx = Number(btn.dataset.idx);
+          const p = plans[idx];
           if (!p || !detailEl) return;
+          if (adminSemesterOpenIdx === idx && !detailEl.classList.contains('hidden')) {
+            adminSemesterOpenIdx = -1;
+            detailEl.classList.add('hidden');
+            detailEl.innerHTML = '';
+            listEl.querySelectorAll('.lp-admin-sem-item').forEach((b) => b.classList.remove('is-open'));
+            return;
+          }
+          adminSemesterOpenIdx = idx;
+          listEl.querySelectorAll('.lp-admin-sem-item').forEach((b) =>
+            b.classList.toggle('is-open', Number(b.dataset.idx) === idx));
           detailEl.classList.remove('hidden');
-          let html = '<div class="lp-semester-meta">' +
-            '<strong>' + escapeHtml(teacherName(p.teacherId) + ' · ' + className(p.classId) + ' · ' + p.subject) +
-            '</strong>' +
-            '<span class="muted small">' + escapeHtml(p.termLabel || '') + '</span></div>';
-          html += '<div class="lp-semester-table-wrap"><table class="lp-semester-table"><thead><tr>' +
-            '<th>' + escapeHtml(t('lessons.week', 'Week')) + '</th>' +
-            '<th>' + escapeHtml(t('lessons.date', 'Date')) + '</th>' +
-            '<th>' + escapeHtml(t('lessons.content', 'Lesson content')) + '</th>' +
-            '<th>' + escapeHtml(t('lessons.objective', 'Objective')) + '</th>' +
-            '</tr></thead><tbody>';
-          (p.weeks || []).forEach((w) => {
-            const examClass = /midterm/i.test(w.weekLabel || '') ? ' is-midterm' :
-              (/final/i.test(w.weekLabel || '') ? ' is-final' : '');
-            html += '<tr class="' + examClass + '">' +
-              '<td>' + escapeHtml(w.weekLabel || ('Week ' + w.weekIndex)) + '</td>' +
-              '<td>' + escapeHtml(formatRange(w.weekStart, w.weekEnd)) + '</td>' +
-              '<td>' + (w.content ? escapeHtml(w.content).replace(/\n/g, '<br>') : '<span class="muted">—</span>') + '</td>' +
-              '<td>' + (w.objective ? escapeHtml(w.objective).replace(/\n/g, '<br>') : '<span class="muted">—</span>') + '</td>' +
-              '</tr>';
-          });
-          html += '</tbody></table></div>';
-          detailEl.innerHTML = html;
+          detailEl.innerHTML = renderAdminSemesterDetail(p);
         });
       });
     } catch (err) {

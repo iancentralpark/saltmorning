@@ -26,6 +26,10 @@
       return '/api/admin/timetable/' + segment + '/' + encodeURIComponent(ownerId);
     }
     if (role === 'student' && ownerType === 'student') return '/api/student/timetable';
+    if (role === 'teacher' && ownerType === 'class') {
+      return '/api/teacher/class/' + encodeURIComponent(ownerId) + '/timetable';
+    }
+    if (role === 'student' && ownerType === 'student') return '/api/student/timetable';
     if (ownerType === 'teacher') return '/api/teacher/timetable';
     return '/api/teacher/timetable/students/' + encodeURIComponent(ownerId);
   }
@@ -71,7 +75,7 @@
       );
     }
     const time = escapeHtml(slot.startTime) + '–' + escapeHtml(slot.endTime);
-    const classLabel = String(slot.className || '').trim();
+    const classLabel = opts.hideClassName ? '' : String(slot.className || '').trim();
     const subject = String(slot.subject || '').trim() || '—';
     const teacher = String(slot.teacherName || '').trim();
     const room = String(slot.room || '').trim();
@@ -176,7 +180,8 @@
     );
   }
 
-  function renderStackedWeekGrid(byDay) {
+  function renderStackedWeekGrid(byDay, options) {
+    const opts = options || {};
     let html = '<div class="tt-week-grid">';
     DAYS.forEach((d) => {
       const slots = (byDay && byDay[d.value]) || [];
@@ -184,7 +189,7 @@
       if (!slots.length) {
         html += '<div class="tt-day-empty muted small">—</div>';
       } else {
-        slots.forEach((s) => { html += slotCard(s, false); });
+        slots.forEach((s) => { html += slotCard(s, false, { hideClassName: !!opts.hideClassName }); });
       }
       html += '</div></div>';
     });
@@ -206,7 +211,7 @@
     }
 
     if (!periods.length) {
-      return renderStackedWeekGrid(byDay);
+      return renderStackedWeekGrid(byDay, opts);
     }
 
     let html = '<div class="tt-period-grid-wrap tt-week-period-wrap">' +
@@ -243,7 +248,7 @@
         }
         const entry = findEntryForPeriod((byDay && byDay[d.value]) || [], period, lessonPeriods);
         html += '<td class="tt-cell-slot">';
-        if (entry) html += slotCard(entry, false, { hideTime: true });
+        if (entry) html += slotCard(entry, false, { hideTime: true, hideClassName: !!opts.hideClassName });
         else html += '<div class="tt-day-empty muted small">—</div>';
         html += '</td>';
       });
@@ -1072,15 +1077,19 @@
       const data = await api(apiPath(ownerType, resolvedId), {}, role);
       const tt = data.timetable || {};
       const entries = (tt.entries || []).filter((e) => !e.isBreak);
+      const emptyMsg = ownerType === 'class'
+        ? 'No timetable saved for this class yet.'
+        : 'No class periods found yet. After admin saves a class timetable that includes you, it will appear here.';
       mountEl.innerHTML =
         '<div class="tt-readonly">' +
         (ownerName ? '<p class="muted small"><strong>' + escapeHtml(ownerName) + '</strong> — weekly schedule</p>' : '') +
         (entries.length
           ? ''
-          : '<p class="muted small">No class periods found yet. After admin saves a class timetable that includes you, it will appear here.</p>') +
+          : '<p class="muted small">' + emptyMsg + '</p>') +
         renderWeekGrid(tt.byDay, {
           lessonPeriods: tt.lessonPeriods || [],
-          bellSchedule: tt.bellSchedule || []
+          bellSchedule: tt.bellSchedule || [],
+          hideClassName: ownerType === 'class'
         }) +
         '</div>';
     } catch (e) {

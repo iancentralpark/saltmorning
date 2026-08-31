@@ -70,5 +70,6 @@ module.exports = {
   TIMETABLE_ENTRIES_SHEET: 'Timetable_Entries',
   BELL_SCHEDULE_SHEET: 'Bell_Schedule',
   TIMETABLE_REQUIREMENTS_SHEET: 'Timetable_Requirements',
+  CLASS_SUBJECT_FLAGS_SHEET: 'Class_Subject_Flags',
   TIMETABLE_SOLVER_URL: process.env.TIMETABLE_SOLVER_URL || 'http://127.0.0.1:8791'
 };

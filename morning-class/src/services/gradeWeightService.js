@@ -1,6 +1,8 @@
 const { GRADE_WEIGHTS_SHEET, GRADE_TERMS_SHEET } = require('../config');
 const { getSheetRows, appendRows, updateRange } = require('../sheets');
 const { formatSheetDate } = require('../dateUtils');
+const { query, table, withTransaction } = require('../db/pool');
+const { ensureOpsDbStarted, isOpsGradesReady } = require('../db/boot');
 const crypto = require('crypto');
 
 const GRADE_CATEGORY_PRESETS = [
@@ -57,7 +59,78 @@ function parseTermRow(row) {
   };
 }
 
+function mapWeightRow(row) {
+  return {
+    weightId: String(row.weight_id),
+    classId: String(row.class_id),
+    term: String(row.term),
+    subject: String(row.subject),
+    categoryKey: String(row.category_key),
+    label: String(row.label || ''),
+    weightPercent: Number(row.weight_percent) || 0,
+    aggregation: String(row.aggregation || 'average'),
+    sortOrder: Number(row.sort_order) || 0,
+    defaultMaxScore: Number(row.default_max_score) || 100,
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : ''
+  };
+}
+
+async function listGradeWeightsPg(classId, term, subject) {
+  const params = [String(classId)];
+  let sql = 'SELECT * FROM ' + table('grade_weights') + ' WHERE class_id = $1';
+  if (term) {
+    params.push(String(term));
+    sql += ' AND term = $' + params.length;
+  }
+  if (subject) {
+    params.push(String(subject));
+    sql += ' AND subject = $' + params.length;
+  }
+  sql += ' ORDER BY sort_order ASC, label ASC';
+  const r = await query(sql, params);
+  return r.rows.map(mapWeightRow);
+}
+
+async function saveGradeWeightsPg(classId, term, subject, normalized) {
+  await withTransaction(async (client) => {
+    const existing = await client.query(
+      'SELECT weight_id, category_key FROM ' + table('grade_weights') +
+        ' WHERE class_id = $1 AND term = $2 AND subject = $3',
+      [classId, term, subject]
+    );
+    const byKey = {};
+    existing.rows.forEach((row) => {
+      byKey[String(row.category_key)] = String(row.weight_id);
+    });
+    const keep = [];
+    for (const w of normalized) {
+      const weightId = byKey[w.categoryKey] || newId('gw');
+      keep.push(w.categoryKey);
+      await client.query(
+        'INSERT INTO ' + table('grade_weights') +
+          ' (weight_id, class_id, term, subject, category_key, label, weight_percent, aggregation, sort_order, default_max_score, updated_at)' +
+          ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())' +
+          ' ON CONFLICT (class_id, term, subject, category_key) DO UPDATE SET' +
+          ' label = EXCLUDED.label, weight_percent = EXCLUDED.weight_percent,' +
+          ' aggregation = EXCLUDED.aggregation, sort_order = EXCLUDED.sort_order,' +
+          ' default_max_score = EXCLUDED.default_max_score, updated_at = now()',
+        [
+          weightId, classId, term, subject, w.categoryKey, w.label,
+          w.weightPercent, w.aggregation, w.sortOrder, w.defaultMaxScore
+        ]
+      );
+    }
+    await client.query(
+      'DELETE FROM ' + table('grade_weights') +
+        ' WHERE class_id = $1 AND term = $2 AND subject = $3 AND NOT (category_key = ANY($4::text[]))',
+      [classId, term, subject, keep]
+    );
+  });
+}
+
 async function ensureGradeSheets() {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) return;
   const { getSheetsApi, getSheetIdMap } = require('../sheets');
   const sheets = await getSheetsApi();
   const { SPREADSHEET_ID } = require('../config');
@@ -122,33 +195,24 @@ async function listAllGradeTerms() {
 }
 
 async function saveGradeTerm(classId, label, startDate, endDate) {
-  // Legacy admin Terms API → school-wide semester slots
-  const { getSchoolSemester, saveSchoolSemesters, listSchoolSemesters } = require('./schoolSemesterService');
+  // Legacy admin Terms API — find-or-create a semester by label.
+  const { getSchoolSemester, createSemester, updateSemester, asTerm } = require('./schoolSemesterService');
   const matched = await getSchoolSemester(label);
-  const key = matched ? matched.key : (/2|term2|2학기/i.test(String(label || '')) ? 'sem2' : 'sem1');
-  const current = await listSchoolSemesters();
-  const payload = {
-    sem1: {
-      startDate: key === 'sem1' ? startDate : (current[0] && current[0].startDate),
-      endDate: key === 'sem1' ? endDate : (current[0] && current[0].endDate)
-    },
-    sem2: {
-      startDate: key === 'sem2' ? startDate : (current[1] && current[1].startDate),
-      endDate: key === 'sem2' ? endDate : (current[1] && current[1].endDate)
-    }
-  };
-  const result = await saveSchoolSemesters(payload);
-  const saved = result.semesters.find((s) => s.key === key);
-  return {
-    termId: key,
-    classId: '*',
-    label: saved ? saved.label : label,
-    startDate: saved ? saved.startDate : startDate,
-    endDate: saved ? saved.endDate : endDate
-  };
+  let saved;
+  if (matched) {
+    if (matched.closed) throw new Error('"' + matched.label + '" is closed and can no longer be edited.');
+    saved = await updateSemester(matched.key, { startDate, endDate });
+  } else {
+    saved = await createSemester({ label, startDate, endDate });
+  }
+  return asTerm(saved, '*');
 }
 
 async function listGradeWeights(classId, term, subject) {
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    return listGradeWeightsPg(classId, term, subject);
+  }
   await ensureGradeSheets();
   const rows = await getSheetRows(GRADE_WEIGHTS_SHEET);
   const out = [];
@@ -170,6 +234,11 @@ async function saveGradeWeights(classId, term, subject, weights) {
   if (!term || !subject) throw new Error('Term and subject are required.');
   if (!Array.isArray(weights) || !weights.length) {
     throw new Error('Add at least one grade category weight.');
+  }
+  const { getSchoolSemester } = require('./schoolSemesterService');
+  const sem = await getSchoolSemester(term).catch(() => null);
+  if (sem && sem.closed) {
+    throw new Error('"' + term + '" is closed. Ask Admin to reopen it before making changes.');
   }
 
   const normalized = weights.map((w, idx) => {
@@ -215,6 +284,18 @@ async function saveGradeWeights(classId, term, subject, weights) {
   const total = normalized.reduce((s, w) => s + w.weightPercent, 0);
   if (Math.abs(total - 100) > 0.01) {
     throw new Error('Weights must add up to 100% (currently ' + Math.round(total * 10) / 10 + '%).');
+  }
+
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    await saveGradeWeightsPg(classId, term, subject, normalized);
+    try {
+      const { clearGradebookCache } = require('./gradeService');
+      clearGradebookCache(classId, term, subject);
+    } catch (e) {
+      // ignore cache clear failures
+    }
+    return { saved: normalized.length, weights: await listGradeWeights(classId, term, subject), totalPercent: total };
   }
 
   const data = await getSheetRows(GRADE_WEIGHTS_SHEET, { skipCache: true });

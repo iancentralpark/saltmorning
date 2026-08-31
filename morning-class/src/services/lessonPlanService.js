@@ -152,11 +152,17 @@ async function getTeacherClassSlots(teacherId, filterClassId) {
     isHidden,
     resolveTeachingDays
   } = require('./subjectPrefsService');
-  const prefs = await listTeacherSubjectPrefs(teacherId);
+  const { getTimetable } = require('./timetableService');
+  const [prefs, timetable] = await Promise.all([
+    listTeacherSubjectPrefs(teacherId),
+    getTimetable('teacher', teacherId).catch(() => ({ entries: [] }))
+  ]);
   const out = [];
   for (const slot of slots) {
     if (isHidden(prefs, slot.classId, slot.subject)) continue;
-    const teachingDays = await resolveTeachingDays(teacherId, slot.classId, slot.subject, prefs);
+    const teachingDays = await resolveTeachingDays(
+      teacherId, slot.classId, slot.subject, prefs, timetable
+    );
     out.push(Object.assign({}, slot, { teachingDays }));
   }
   return out;

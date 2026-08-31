@@ -83,12 +83,15 @@ window.SaltAttendance = (function() {
     const date = $('attDate').value;
     $('attScheduleAlert').textContent = 'Loading…';
     $('attScheduleAlert').className = 'att-alert';
-    $('attStudentList').innerHTML = '';
+    $('attStudentList').innerHTML = '<p class="muted">Loading…</p>';
     boardExtras = {};
     try {
-      workData = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/work?date=' + encodeURIComponent(date));
       const q = isHomeroom() ? '?monitors=1' : '';
-      const extras = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/attendance-board' + q);
+      const [work, extras] = await Promise.all([
+        api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/work?date=' + encodeURIComponent(date)),
+        api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/attendance-board' + q)
+      ]);
+      workData = work;
       (extras.students || []).forEach((s) => { boardExtras[s.studentId] = s; });
       renderScheduleAlert();
       renderStudentList();

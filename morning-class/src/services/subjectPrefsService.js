@@ -67,18 +67,22 @@ async function listTeacherSubjectPrefs(teacherId) {
   return map;
 }
 
-async function teachingDaysFromTimetable(teacherId, classId, subject) {
+function teachingDaysFromEntries(tt, classId, subject) {
+  const days = new Set();
+  (tt && tt.entries ? tt.entries : []).forEach((e) => {
+    if (e.isBreak) return;
+    if (String(e.classId || '') !== String(classId)) return;
+    if (String(e.subject || '').trim() !== String(subject).trim()) return;
+    const dow = Number(e.dayOfWeek);
+    if (dow >= 1 && dow <= 5) days.add(dow);
+  });
+  return Array.from(days).sort((a, b) => a - b);
+}
+
+async function teachingDaysFromTimetable(teacherId, classId, subject, timetable) {
   try {
-    const tt = await getTimetable('teacher', teacherId);
-    const days = new Set();
-    (tt.entries || []).forEach((e) => {
-      if (e.isBreak) return;
-      if (String(e.classId || '') !== String(classId)) return;
-      if (String(e.subject || '').trim() !== String(subject).trim()) return;
-      const dow = Number(e.dayOfWeek);
-      if (dow >= 1 && dow <= 5) days.add(dow);
-    });
-    return Array.from(days).sort((a, b) => a - b);
+    const tt = timetable || await getTimetable('teacher', teacherId);
+    return teachingDaysFromEntries(tt, classId, subject);
   } catch (e) {
     return [];
   }
@@ -103,13 +107,13 @@ async function periodsPerWeekFromTimetable(teacherId, classId, subject) {
 /**
  * Resolve teaching days for a slot: prefs → timetable → Mon–Fri default.
  */
-async function resolveTeachingDays(teacherId, classId, subject, prefsMap) {
+async function resolveTeachingDays(teacherId, classId, subject, prefsMap, timetable) {
   const key = prefKey(classId, subject);
   const pref = prefsMap && prefsMap[key];
   if (pref && !pref.syncFromTimetable && pref.teachingDays && pref.teachingDays.length) {
     return pref.teachingDays.slice();
   }
-  const fromTt = await teachingDaysFromTimetable(teacherId, classId, subject);
+  const fromTt = await teachingDaysFromTimetable(teacherId, classId, subject, timetable);
   if (fromTt.length) return fromTt;
   if (pref && pref.teachingDays && pref.teachingDays.length) return pref.teachingDays.slice();
   return [1, 2, 3, 4, 5];

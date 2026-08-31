@@ -6,6 +6,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { ensureOpsDbStarted } = require('./db/boot');
 const { PORT } = require('./config');
 const apiRoutes = require('./routes');
 const { initRealtime } = require('./realtime');
@@ -16,6 +17,7 @@ const { ensureTimetableSheet } = require('./services/timetableService');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+express.static.mime.define({ 'application/manifest+json': ['webmanifest'] });
 
 // Legacy signature URLs → durable API (old cards pointed at ephemeral /uploads/)
 app.get('/uploads/signatures/:file', (req, res) => {
@@ -25,7 +27,15 @@ app.get('/uploads/signatures/:file', (req, res) => {
   res.redirect(302, '/api/signatures/' + encodeURIComponent(id));
 });
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  maxAge: '7d',
+  etag: true,
+  setHeaders(res, filePath) {
+    if (/\.html$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 app.use('/api', apiRoutes);
 
@@ -61,6 +71,7 @@ app.get('/', (req, res) => {
 
 const server = http.createServer(app);
 initRealtime(server);
+ensureOpsDbStarted();
 
 server.listen(PORT, () => {
   console.log('Salt Morning Class listening on http://localhost:' + PORT);

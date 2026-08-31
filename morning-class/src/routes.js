@@ -112,6 +112,7 @@ const {
   processDueScheduledShares,
   STATES: RC_WF_STATES
 } = require('./services/reportCardWorkflowService');
+const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
 const {
   getActiveTerm,
   saveGradeTerm,
@@ -135,8 +136,12 @@ const {
 } = require('./services/semesterPlanService');
 const {
   listSchoolSemesters,
-  saveSchoolSemesters,
-  getActiveSchoolSemester
+  getActiveSchoolSemester,
+  createSemester,
+  updateSemester,
+  closeSemester,
+  reopenSemester,
+  listTermsForClass
 } = require('./services/schoolSemesterService');
 const {
   createRequest: createMaterialRequest,
@@ -170,6 +175,18 @@ const {
   getTeacherGradeAccess,
   listClassGradeSubjects
 } = require('./services/subjectAssignmentService');
+const { setExcludeFromReport } = require('./services/classSubjectFlagsService');
+const {
+  getClassAnalyticsDashboard,
+  getStudentAnalytics,
+  getSchoolAnalyticsDashboard,
+  getSchoolStudentAnalytics,
+  importAssessments,
+  seedLearningAnalyticsMock,
+  generateAiDiagnostic,
+  shareParentReport,
+  listParentSharedReports
+} = require('./services/learningAnalytics');
 const {
   getClassAnalyticsDashboard,
   getStudentAnalytics,
@@ -339,6 +356,9 @@ async function assertHomeroomOfClass(teacherId, classId) {
 }
 
 router.get('/health', async (req, res) => {
+  try {
+    await require('./db/boot').ensureOpsDbStarted();
+  } catch (_) { /* still report health below */ }
   let vocab = null;
   let engine = null;
   let opsDb = null;
@@ -358,7 +378,6 @@ router.get('/health', async (req, res) => {
     opsDb = { ok: false, reason: e.message || String(e) };
   }
   const push = require('./services/pushService');
-  const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
   res.json({
     ok: true,
     service: 'salt-morning-class',
@@ -764,6 +783,23 @@ router.get('/teacher/class/:classId/grades/subjects', requireRole('teacher'), as
   }
 });
 
+router.post('/teacher/class/:classId/grades/subjects/report-card', requireRole('teacher'), async (req, res) => {
+  try {
+    const classId = req.params.classId;
+    const subject = String((req.body || {}).subject || '').trim();
+    const exclude = !!(req.body || {}).excludeFromReport;
+    if (!subject) return res.status(400).json({ error: 'Subject is required.' });
+    const access = await getTeacherGradeAccess(req.session.teacherId, classId, subject);
+    if (!access.isHomeroom && !access.canEdit) {
+      return res.status(403).json({ error: 'Only the homeroom or subject teacher can change report-card inclusion.' });
+    }
+    const result = await setExcludeFromReport(classId, subject, exclude, req.session.teacherId);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update report-card inclusion.' });
+  }
+});
+
 router.get('/teacher/class/:classId/grades/weights', requireRole('teacher'), async (req, res) => {
   try {
     const subject = req.query.subject || '';
@@ -989,7 +1025,7 @@ router.post('/teacher/class/:classId/report-card', requireRole('teacher'), async
   try {
     const body = req.body || {};
     // New student-subject save (work habits + comment)
-    if (body.studentId && body.subject && (body.workHabits || body.subjectComment != null || body.markComplete != null)) {
+    if (body.studentId && body.subject && (body.workHabits || body.subjectComment != null || body.markComplete != null || body.academic)) {
       const result = await saveStudentSubjectReport(req.session.teacherId, req.params.classId, body);
       return res.json(result);
     }
@@ -3022,12 +3058,53 @@ router.get('/admin/school-semesters', requireRole('admin'), async (req, res) => 
   }
 });
 
-router.put('/admin/school-semesters', requireRole('admin'), async (req, res) => {
+router.post('/admin/school-semesters', requireRole('admin'), async (req, res) => {
   try {
-    const result = await saveSchoolSemesters(req.body || {});
-    res.json(result);
+    const semester = await createSemester(req.body || {});
+    res.json({ semester });
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not save school semesters.' });
+    res.status(400).json({ error: e.message || 'Could not create semester.' });
+  }
+});
+
+router.put('/admin/school-semesters/:key', requireRole('admin'), async (req, res) => {
+  try {
+    const semester = await updateSemester(req.params.key, req.body || {});
+    res.json({ semester });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not update semester.' });
+  }
+});
+
+router.post('/admin/school-semesters/:key/close', requireRole('admin'), async (req, res) => {
+  try {
+    const semester = await closeSemester(req.params.key);
+    res.json({ semester });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not close semester.' });
+  }
+});
+
+router.post('/admin/school-semesters/:key/reopen', requireRole('admin'), async (req, res) => {
+  try {
+    const semester = await reopenSemester(req.params.key);
+    res.json({ semester });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not reopen semester.' });
+  }
+});
+
+router.get('/teacher/class/:classId/semesters', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const [semesters, active] = await Promise.all([
+      listTermsForClass(req.params.classId),
+      getActiveSchoolSemester()
+    ]);
+    res.json({ semesters, activeSemesterKey: active ? active.key : '' });
+  } catch (e) {
+    const status = /assign|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load semesters.' });
   }
 });
 
@@ -3442,6 +3519,19 @@ router.post('/admin/timetable/teachers/:teacherId', requireRole('admin'), async 
     res.json({ timetable });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save timetable.' });
+  }
+});
+
+router.get('/teacher/class/:classId/timetable', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    await ensureTimetableSheet();
+    res.json({
+      timetable: await getTimetable('class', req.params.classId)
+    });
+  } catch (e) {
+    const code = /assign|access/i.test(e.message || '') ? 403 : 500;
+    res.status(code).json({ error: e.message || 'Could not load class timetable.' });
   }
 });
 
@@ -4118,6 +4208,17 @@ router.post('/teacher/conferences/schedules', requireRole('teacher', 'admin', 'p
   }
 });
 
+router.post('/teacher/conferences/toggle', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
+  try {
+    const conf = require('./services/conferenceService');
+    const teacherId = req.session.teacherId || req.body.teacherId;
+    if (!teacherId) return res.status(400).json({ error: 'Teacher session required.' });
+    res.json(await conf.togglePeriodSlots(teacherId, req.body || {}));
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message || 'Could not toggle slot.' });
+  }
+});
+
 router.get('/teacher/conferences', requireRole('teacher', 'admin', 'principal', 'staff'), async (req, res) => {
   try {
     const conf = require('./services/conferenceService');
@@ -4315,7 +4416,7 @@ router.get('/parent/school-calendar', requireRole('parent'), async (req, res) =>
 router.get('/student/timetable', requireRole('student'), async (req, res) => {
   try {
     const { getTimetable } = require('./services/timetableService');
-    res.json(await getTimetable('student', req.session.studentId));
+    res.json({ timetable: await getTimetable('student', req.session.studentId) });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load timetable.' });
   }

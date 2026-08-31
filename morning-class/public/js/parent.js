@@ -108,8 +108,29 @@ window.SaltParent = (function() {
 
   function init(options) {
     deps = options || {};
-    document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) => {
-      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    document.querySelectorAll('#parentNav [data-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        closeParentNavGroups();
+        switchTab(btn.dataset.tab);
+      });
+    });
+    document.querySelectorAll('#parentNav .portal-nav-group-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const group = btn.closest('.portal-nav-group');
+        const panel = group && group.querySelector('.portal-nav-group-panel');
+        if (!panel) return;
+        const willOpen = panel.classList.contains('hidden');
+        closeParentNavGroups(willOpen ? group : null);
+        panel.classList.toggle('hidden', !willOpen);
+        btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (group) group.classList.toggle('is-open', willOpen);
+      });
+    });
+    document.addEventListener('click', (e) => {
+      const inside = e.target && e.target.closest && e.target.closest('#parentNav .portal-nav-group');
+      if (!inside) closeParentNavGroups();
     });
     window.addEventListener('hashchange', applyRoute);
     window.addEventListener('salt:langchange', () => {
@@ -125,6 +146,8 @@ window.SaltParent = (function() {
         api: api,
         enableBtn: $('ppPushEnableBtn'),
         disableBtn: $('ppPushDisableBtn'),
+        dismissBtn: $('ppPushLaterBtn'),
+        cardEl: $('ppPushCard'),
         statusEl: $('ppPushStatus'),
         t: t
       });
@@ -213,14 +236,36 @@ window.SaltParent = (function() {
     switchTab(next, { skipHash: true, formId: formId });
   }
 
+  function closeParentNavGroups(except) {
+    document.querySelectorAll('#parentNav .portal-nav-group').forEach((group) => {
+      if (except && group === except) return;
+      const panel = group.querySelector('.portal-nav-group-panel');
+      const btn = group.querySelector('.portal-nav-group-btn');
+      if (panel) panel.classList.add('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      group.classList.remove('is-open');
+    });
+  }
+
+  function syncParentNavActive(tab) {
+    document.querySelectorAll('#parentNav [data-tab]').forEach((btn) =>
+      btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('#parentNav .portal-nav-group').forEach((group) => {
+      const hasActive = !!group.querySelector('[data-tab].active');
+      group.classList.toggle('has-active', hasActive);
+      const gBtn = group.querySelector('.portal-nav-group-btn');
+      if (gBtn) gBtn.classList.toggle('active', hasActive);
+    });
+  }
+
   function switchTab(name, opts) {
     opts = opts || {};
     if (!TAB_TITLE_KEYS[name]) name = 'feed';
     if (!opts.skipHash) setRoute(name, !!opts.replace);
     if (currentTab === name && !opts.force && !opts.formId) return;
     currentTab = name;
-    document.querySelectorAll('#parentNav .class-subnav-item').forEach((btn) =>
-      btn.classList.toggle('active', btn.dataset.tab === name));
+    syncParentNavActive(name);
+    closeParentNavGroups();
     ['feed', 'announcements', 'attendance', 'calendar', 'bus', 'consents', 'conferences', 'lostAndFound', 'timetable', 'homework', 'grades', 'reportcards', 'profile'].forEach((k) => {
       const id = k === 'lostAndFound' ? 'tabLostAndFound' : ('tab' + k.charAt(0).toUpperCase() + k.slice(1));
       const el = $(id);
@@ -543,6 +588,14 @@ window.SaltParent = (function() {
         '</div>';
     });
     html += '</div>';
+    html += '<div class="pp-cal-legend">' +
+      '<span><i class="ya-swatch ya-cal-present" aria-hidden="true"></i>' +
+      escapeHtml(t('parent.cal.legendClass', 'Class day')) + '</span>' +
+      '<span><i class="ya-swatch ya-cal-absent" aria-hidden="true"></i>' +
+      escapeHtml(t('parent.cal.legendHoliday', 'Holiday / break')) + '</span>' +
+      '<span><i class="ya-swatch ya-cal-tardy" aria-hidden="true"></i>' +
+      escapeHtml(t('parent.cal.legendEvent', 'School event')) + '</span>' +
+      '</div>';
     const events = (schoolCal.entries || []).filter((e) => e && e.title);
     if (events.length) {
       html += '<ul class="pp-bus-upcoming-list" style="margin-top:1rem">' +
@@ -698,7 +751,6 @@ window.SaltParent = (function() {
     if (ok) ok.textContent = '';
     if (err) err.textContent = '';
     if (cur) cur.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
-    loadBusAssignments();
     try {
       const studentId = overview && overview.student && overview.student.studentId;
       const date = selectedBusDate();
