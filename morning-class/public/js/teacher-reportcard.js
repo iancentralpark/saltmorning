@@ -497,10 +497,16 @@
         ? '<button type="button" class="btn btn-primary" id="rcSubmitHeadBtn">Submit</button>'
         : '') +
       '</div></div>' +
-      renderPrintableCard(card) +
+      '<div id="rcPrintPreview" class="rc-print-preview-mount"></div>' +
       '<div class="error no-print" id="rcCardError"></div>' +
       '</div>';
     box.innerHTML = html;
+
+    if (global.SaltReportCardPrint && SaltReportCardPrint.mountPrintPreview) {
+      SaltReportCardPrint.mountPrintPreview($('rcPrintPreview'), card);
+    } else if ($('rcPrintPreview')) {
+      $('rcPrintPreview').innerHTML = renderPrintableCard(card);
+    }
 
     $('rcCardBack').addEventListener('click', () => {
       state.card = null;

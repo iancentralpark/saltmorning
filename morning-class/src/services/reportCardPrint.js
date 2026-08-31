@@ -2,7 +2,7 @@
  * Report card print helpers: GPA, grade legend, school header constants.
  */
 
-const REPORT_CARD_PRINT_VERSION = '20260831rc2';
+const REPORT_CARD_PRINT_VERSION = '20260831rc3';
 
 const GPA_POINTS = {
   A: 4.0,

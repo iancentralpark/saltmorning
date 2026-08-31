@@ -39,6 +39,7 @@ const {
   academicYearLabel,
   termDisplayLabel
 } = require('./reportCardPrint');
+const { getReportCardPrintSettings } = require('./reportCardPrintSettingsService');
 const {
   getOrCreateWorkflow,
   findWorkflow,
@@ -836,6 +837,9 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
   const canSubmitHead = !!(access.isHomeroom && wfState === WF_STATES.signed_homeroom);
   // Parents receive cards only after Principal signs + shares
   const canShare = false;
+  const printSettings = await getReportCardPrintSettings().catch(() => ({
+    showPrincipalSignature: true
+  }));
 
   return {
     schoolName: SCHOOL_NAME,
@@ -879,6 +883,7 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
     canHomeroomSign,
     canSubmitHead,
     canGenerate: reportReady,
+    printSettings,
     generatedAt: new Date().toISOString()
   };
 }
@@ -1050,6 +1055,9 @@ async function listParentReportCards(parentSession) {
   } catch (e) { /* ignore */ }
 
   const wfHit = await findWorkflow(classId, studentId, term);
+  const printSettings = await getReportCardPrintSettings().catch(() => ({
+    showPrincipalSignature: true
+  }));
 
   return {
     reports: [{
@@ -1088,6 +1096,7 @@ async function listParentReportCards(parentSession) {
         : null,
       sharedWithParents: true,
       sharedAt: sharedSubjects[0].sharedAt || '',
+      printSettings,
       generatedAt: new Date().toISOString()
     }]
   };

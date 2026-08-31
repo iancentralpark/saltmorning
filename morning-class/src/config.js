@@ -35,6 +35,7 @@ module.exports = {
   REPORT_CARD_STATUS_SHEET: 'ReportCard_Status',
   REPORT_CARD_WORKFLOW_SHEET: 'ReportCard_Workflow',
   REPORT_CARD_SIGNATURES_SHEET: 'ReportCard_Signatures',
+  REPORT_CARD_PRINT_SETTINGS_SHEET: 'ReportCard_PrintSettings',
   SCHOOL_NAME: process.env.SCHOOL_NAME || 'Salt Academy Morning Class',
   SCHOOL_ADDRESS: process.env.SCHOOL_ADDRESS ||
     '168 Haedoi-ro, Yeonsu-gu, Incheon, Republic of Korea (Hyein Plaza, 7th Floor)',

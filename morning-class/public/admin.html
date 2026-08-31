@@ -407,6 +407,10 @@
           <span data-i18n="admin.rc.uploadSig">Upload signature</span>
           <input type="file" id="adminRcSigFile" accept="image/png,image/jpeg,image/webp" hidden>
         </label>
+        <label class="rc-principal-default-toggle">
+          <input type="checkbox" id="adminRcShowPrincipalSig" checked>
+          <span>Show Principal's signature on printed report cards</span>
+        </label>
         <button type="button" class="btn btn-primary" id="adminRcBatchSign" data-i18n="admin.rc.signAll">Sign all awaiting</button>
         <label class="rc-schedule-field">
           <span class="muted small" data-i18n="admin.rc.scheduleAt">Share at</span>
@@ -772,7 +776,7 @@
 <script src="/js/class-registry.js?v=20260813fac1"></script>
 <script src="/js/timetable.js?v=20260813gap1"></script>
 <script src="/js/timetable-setup.js?v=20260817gs1"></script>
-<script src="/js/report-card-print.js?v=20260831rc2"></script>
+<script src="/js/report-card-print.js?v=20260831rc3"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/admin-school-calendar.js?v=20260818sem1"></script>
 <script src="/js/admin-bus.js?v=20260813gap1"></script>
@@ -987,7 +991,11 @@
       });
     }
     if (name === 'announcements') loadAdminAnnouncements();
-    if (name === 'reportCards') { loadAdminReportCards(); loadReportCardFields(); }
+    if (name === 'reportCards') {
+      loadAdminReportCards();
+      loadReportCardFields();
+      loadReportCardPrintSettings();
+    }
     if (name === 'lostFound' && window.SaltLostFound && SaltLostFound.Admin) SaltLostFound.Admin.open();
     if (name === 'materials' && typeof SaltMaterialRequests !== 'undefined') SaltMaterialRequests.openAdmin();
     SaltI18n.apply(document.getElementById('adminView'));
@@ -1653,9 +1661,13 @@
               {},
               role
             );
-            preview.innerHTML = (window.SaltReportCardPrint
-              ? SaltReportCardPrint.renderPrintableCard(res.card)
-              : '<p class="error">Print renderer missing.</p>');
+            preview.innerHTML = '<div id="adminRcPrintPreview" class="rc-print-preview-mount"></div>';
+            const mount = $('adminRcPrintPreview');
+            if (mount && window.SaltReportCardPrint && SaltReportCardPrint.mountPrintPreview) {
+              SaltReportCardPrint.mountPrintPreview(mount, res.card);
+            } else if (mount) {
+              mount.innerHTML = '<p class="error">Print renderer missing.</p>';
+            }
           } catch (e) {
             preview.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
           }
@@ -1826,6 +1838,41 @@
   }
 
   if ($('adminRcRefresh')) $('adminRcRefresh').addEventListener('click', loadAdminReportCards);
+
+  async function loadReportCardPrintSettings() {
+    const cb = $('adminRcShowPrincipalSig');
+    if (!cb) return;
+    try {
+      const data = await api('/api/admin/report-card-print-settings', {}, role);
+      cb.checked = data.showPrincipalSignature !== false;
+    } catch (e) {
+      cb.checked = true;
+    }
+  }
+
+  if ($('adminRcShowPrincipalSig')) {
+    $('adminRcShowPrincipalSig').addEventListener('change', async (ev) => {
+      const err = $('adminRcError');
+      try {
+        await api('/api/admin/report-card-print-settings', {
+          method: 'POST',
+          body: { showPrincipalSignature: ev.target.checked }
+        }, role);
+        if (err) {
+          err.style.color = '#16a34a';
+          err.textContent = ev.target.checked
+            ? "Principal's signature will show on report cards by default."
+            : "Principal's signature hidden by default — users can still turn it on before printing.";
+        }
+      } catch (e) {
+        if (err) {
+          err.style.color = '#dc2626';
+          err.textContent = e.message;
+        }
+      }
+    });
+  }
+
   if ($('adminRcEnsureLeaders')) {
     $('adminRcEnsureLeaders').addEventListener('click', async () => {
       try {

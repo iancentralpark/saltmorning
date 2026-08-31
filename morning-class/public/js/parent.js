@@ -910,13 +910,9 @@ window.SaltParent = (function() {
 
   function renderParentCard(card) {
     let html = '<div class="rc-full-toolbar no-print">' +
-      '<button type="button" class="btn btn-primary" id="parentPrintBtn">Print</button></div>';
-    if (window.SaltReportCardPrint && SaltReportCardPrint.renderPrintableCard) {
-      html += SaltReportCardPrint.renderPrintableCard(card);
-    } else {
-      html += '<p class="error">Could not render report card.</p>';
-    }
-    return html;
+      '<button type="button" class="btn btn-primary" id="parentPrintBtn">Print</button></div>' +
+      '<div id="parentRcPrintPreview" class="rc-print-preview-mount"></div>';
+    return { html: html, card: card };
   }
 
   async function loadReportCards() {
@@ -939,7 +935,14 @@ window.SaltParent = (function() {
       ).join('');
       list.querySelectorAll('.parent-rc-open').forEach((btn) => {
         btn.addEventListener('click', () => {
-          body.innerHTML = renderParentCard(reports[Number(btn.dataset.idx)]);
+          const rendered = renderParentCard(reports[Number(btn.dataset.idx)]);
+          body.innerHTML = rendered.html;
+          const preview = $('parentRcPrintPreview');
+          if (preview && window.SaltReportCardPrint && SaltReportCardPrint.mountPrintPreview) {
+            SaltReportCardPrint.mountPrintPreview(preview, rendered.card);
+          } else if (preview) {
+            preview.innerHTML = '<p class="error">Could not render report card.</p>';
+          }
           const printBtn = $('parentPrintBtn');
           if (printBtn) {
             printBtn.addEventListener('click', () => {

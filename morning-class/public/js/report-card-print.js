@@ -3,7 +3,8 @@
  * Layout v2: cover signatures + grading scale on page 1; subjects from page 2.
  */
 (function (global) {
-  var REPORT_CARD_PRINT_VERSION = '20260831rc2';
+  var REPORT_CARD_PRINT_VERSION = '20260831rc3';
+  var PRINCIPAL_PREF_KEY = 'saltRcShowPrincipalSig';
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -11,6 +12,68 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function showPrincipalSignature(card) {
+    card = card || {};
+    if (card._showPrincipalSignature === false) return false;
+    if (card._showPrincipalSignature === true) return true;
+    if (card.printSettings && card.printSettings.showPrincipalSignature === false) return false;
+    return true;
+  }
+
+  function applyPrincipalPref(card) {
+    if (!card) return card;
+    try {
+      var v = localStorage.getItem(PRINCIPAL_PREF_KEY);
+      if (v === '0') card._showPrincipalSignature = false;
+      else if (v === '1') card._showPrincipalSignature = true;
+    } catch (e) { /* ignore */ }
+    return card;
+  }
+
+  function savePrincipalPref(show) {
+    try {
+      localStorage.setItem(PRINCIPAL_PREF_KEY, show ? '1' : '0');
+    } catch (e) { /* ignore */ }
+  }
+
+  function principalToggleHtml(card) {
+    var checked = showPrincipalSignature(card);
+    return (
+      '<label class="rc-principal-toggle no-print">' +
+      '<input type="checkbox" class="rc-show-principal-sig"' + (checked ? ' checked' : '') + '> ' +
+      "Include Principal's signature" +
+      '</label>'
+    );
+  }
+
+  function replacePrintSheet(container, card) {
+    if (!container) return;
+    var sheet = container.querySelector('#rcPrintSheet');
+    if (!sheet) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = renderPrintableCard(card);
+    var next = tmp.querySelector('#rcPrintSheet');
+    if (next) sheet.replaceWith(next);
+  }
+
+  function bindPrincipalToggle(container, card) {
+    if (!container || !card) return;
+    var cb = container.querySelector('.rc-show-principal-sig');
+    if (!cb) return;
+    cb.addEventListener('change', function () {
+      card._showPrincipalSignature = cb.checked;
+      savePrincipalPref(cb.checked);
+      replacePrintSheet(container, card);
+      bindPrincipalToggle(container, card);
+    });
+  }
+
+  function mountPrintPreview(container, card) {
+    applyPrincipalPref(card);
+    container.innerHTML = principalToggleHtml(card) + renderPrintableCard(card);
+    bindPrincipalToggle(container, card);
   }
 
   function sigBlock(label, path, at, nameLine) {
@@ -60,6 +123,8 @@
     const att = card.attendance || {};
     const summary = card.termSummary || {};
     const wf = card.workflow || {};
+    const showPrincipal = showPrincipalSignature(card);
+    const topSigClass = 'rc-sig-row rc-sig-row-top' + (showPrincipal ? '' : ' rc-sig-row-top--solo');
 
     let html = '<article class="rc-print-sheet" id="rcPrintSheet" data-rc-layout="' +
       esc(REPORT_CARD_PRINT_VERSION) + '">' +
@@ -68,18 +133,20 @@
       '<div class="rc-print-school">' + esc(card.schoolName || 'Salt Academy Morning Class') + '</div>' +
       '<div class="rc-print-address muted small">' + esc(card.schoolAddress || '') + '</div>' +
       '<h2>Student Report Card</h2>' +
-      '<div class="rc-sig-row rc-sig-row-top">' +
+      '<div class="' + topSigClass + '">' +
       sigBlock(
         "Homeroom Teacher's Signature",
         wf.homeroomSigPath,
         wf.homeroomSignedAt,
         card.homeroomTeacherName || ''
       ) +
-      sigBlock(
-        "Principal's Signature",
-        wf.principalSigPath,
-        wf.principalSignedAt
-      ) +
+      (showPrincipal
+        ? sigBlock(
+          "Principal's Signature",
+          wf.principalSigPath,
+          wf.principalSignedAt
+        )
+        : '') +
       '</div>' +
       '<div class="rc-print-meta">' +
       '<div><span>Student Name</span><strong>' + esc(student.name) + '</strong></div>' +
@@ -192,6 +259,12 @@
 
   global.SaltReportCardPrint = {
     REPORT_CARD_PRINT_VERSION: REPORT_CARD_PRINT_VERSION,
+    showPrincipalSignature: showPrincipalSignature,
+    applyPrincipalPref: applyPrincipalPref,
+    principalToggleHtml: principalToggleHtml,
+    mountPrintPreview: mountPrintPreview,
+    bindPrincipalToggle: bindPrincipalToggle,
+    replacePrintSheet: replacePrintSheet,
     renderPrintableCard: renderPrintableCard,
     printCard: printCard
   };

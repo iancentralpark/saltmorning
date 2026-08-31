@@ -114,6 +114,10 @@ const {
 } = require('./services/reportCardWorkflowService');
 const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
 const {
+  getReportCardPrintSettings,
+  saveReportCardPrintSettings
+} = require('./services/reportCardPrintSettingsService');
+const {
   getActiveTerm,
   saveGradeTerm,
   listGradeWeights,
@@ -4454,6 +4458,22 @@ router.delete('/admin/report-card-fields/:fieldId', requireRole('admin'), async 
     res.json(await deleteReportCardField(req.params.fieldId));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not delete field.' });
+  }
+});
+
+router.get('/admin/report-card-print-settings', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await getReportCardPrintSettings());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load report card print settings.' });
+  }
+});
+
+router.post('/admin/report-card-print-settings', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await saveReportCardPrintSettings(req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save report card print settings.' });
   }
 });
 
