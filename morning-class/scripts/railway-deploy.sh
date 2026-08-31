@@ -29,8 +29,8 @@ if [[ ! -f .railway/project.json ]]; then
   $RAILWAY init --name salt-morning-class
 fi
 
-echo "=== Deploy ==="
-$RAILWAY up --detach
+echo "=== Deploy (GitHub source only — never railway up) ==="
+$RAILWAY redeploy --from-source --yes --service salt-morning-class
 
 echo "=== Environment variables ==="
 $RAILWAY variables set \
@@ -45,7 +45,7 @@ if [[ -n "${GEMINI_API_KEY:-}" ]]; then
 fi
 
 echo "=== Redeploy with env ==="
-$RAILWAY redeploy --yes 2>/dev/null || $RAILWAY up --detach
+$RAILWAY redeploy --from-source --yes --service salt-morning-class 2>/dev/null || true
 
 echo "=== Public domain ==="
 $RAILWAY domain 2>/dev/null || echo "Dashboard → Settings → Networking → Generate Domain"
