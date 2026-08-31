@@ -3700,10 +3700,12 @@ body.buddy-resize-active {
   color: #8a8274;
 }
 @media print {
-  .rc-sig-area { height: 6.25rem; }
-  .rc-sig-img { height: 5.6rem; bottom: 0.45rem; }
-  .rc-print-page-cover .rc-sig-area { height: 4.85rem; }
-  .rc-print-page-cover .rc-sig-img { height: 4.25rem; }
+  .rc-sig-area { height: 5.1rem; }
+  .rc-sig-img { height: 4.5rem; bottom: 0.4rem; }
+  .rc-print-page-cover .rc-sig-area { height: 4.5rem; }
+  .rc-print-page-cover .rc-sig-img { height: 3.95rem; }
+  .rc-print-subject .rc-sig-area { height: 3.6rem; }
+  .rc-print-subject .rc-sig-img { height: 3.1rem; }
   .rc-print-page-break { display: none !important; }
   .rc-print-page-subjects {
     page-break-before: always;
@@ -3712,6 +3714,9 @@ body.buddy-resize-active {
   .rc-print-subject {
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+  .rc-print-habits th, .rc-print-habits td {
+    padding: 0.22rem 0.45rem;
   }
 }
 .rc-print-school {
@@ -3743,10 +3748,15 @@ body.buddy-resize-active {
   letter-spacing: 0.04em;
 }
 .rc-print-subject {
-  margin-top: 1.1rem;
-  padding-top: 0.85rem;
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
   border-top: 1px dashed #d7d0c2;
   break-inside: avoid;
+}
+.rc-print-page-subjects .rc-print-subject:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 .rc-print-subject-head {
   display: flex;
