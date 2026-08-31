@@ -1,7 +1,10 @@
 /**
  * Shared printable report card HTML (teacher, head, principal, parent).
+ * Layout v2: cover signatures + grading scale on page 1; subjects from page 2.
  */
 (function (global) {
+  var REPORT_CARD_PRINT_VERSION = '20260831rc2';
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -58,7 +61,8 @@
     const summary = card.termSummary || {};
     const wf = card.workflow || {};
 
-    let html = '<article class="rc-print-sheet" id="rcPrintSheet">' +
+    let html = '<article class="rc-print-sheet" id="rcPrintSheet" data-rc-layout="' +
+      esc(REPORT_CARD_PRINT_VERSION) + '">' +
       '<div class="rc-print-page rc-print-page-cover">' +
       '<header class="rc-print-header">' +
       '<div class="rc-print-school">' + esc(card.schoolName || 'Salt Academy Morning Class') + '</div>' +
@@ -187,6 +191,7 @@
   }
 
   global.SaltReportCardPrint = {
+    REPORT_CARD_PRINT_VERSION: REPORT_CARD_PRINT_VERSION,
     renderPrintableCard: renderPrintableCard,
     printCard: printCard
   };

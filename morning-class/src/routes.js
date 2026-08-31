@@ -358,9 +358,11 @@ router.get('/health', async (req, res) => {
     opsDb = { ok: false, reason: e.message || String(e) };
   }
   const push = require('./services/pushService');
+  const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
   res.json({
     ok: true,
     service: 'salt-morning-class',
+    reportCardPrintVersion: REPORT_CARD_PRINT_VERSION,
     gemini: isGeminiConfigured(),
     vocab,
     vocabEngine: engine,
