@@ -36,7 +36,8 @@ const {
   findWorkflow,
   STATES: WF_STATES,
   stateLabel,
-  getTeacherHeadId
+  getTeacherHeadId,
+  resolveSignaturePath
 } = require('./reportCardWorkflowService');
 const { getStudentYearAttendance } = require('./attendanceService');
 const { defaultAcademicYearRange } = require('./schoolCalendarService');
@@ -450,6 +451,7 @@ async function getClassReportOverview(teacherId, classId, term) {
   // Readiness uses ALL class subjects; canEdit follows the logged-in teacher.
   const subjectList = (allSubjects.length ? allSubjects : (subjectData.subjects || [])).map((s) => ({
     subject: s.subject,
+    teacherIds: s.teacherIds || [],
     teacherNames: s.teacherNames || [],
     canEdit: isHomeroom ? false : taughtSet.has(s.subject) || !!(subjectData.subjects || []).find((x) => x.subject === s.subject && x.canEdit)
   }));
@@ -565,6 +567,7 @@ async function getStudentSubjectReport(teacherId, classId, studentId, term, subj
     formComplete: isSubjectFormComplete(form),
     status: statusRow ? statusRow.status : 'Draft',
     sharedWithParents: !!(statusRow && statusRow.sharedWithParents),
+    updatedAt: statusRow ? statusRow.updatedAt : '',
     workHabitFields: WORK_HABITS,
     ratingOptions: RATING_OPTIONS,
     teacherName: names[teacherId] || ''
@@ -671,16 +674,37 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
     }
   }
 
+  const teacherIdsForSigs = new Set();
+  overview.subjects.forEach((subj) => {
+    (subj.teacherIds || []).forEach((id) => {
+      if (id) teacherIdsForSigs.add(String(id));
+    });
+  });
+  const sigByTeacher = {};
+  await Promise.all(Array.from(teacherIdsForSigs).map(async (tid) => {
+    sigByTeacher[tid] = await resolveSignaturePath(tid);
+  }));
+
   const subjectBlocks = [];
   for (const subj of overview.subjects) {
     const block = await getStudentSubjectReport(
       overviewTeacherId, classId, studentId, term, subj.subject
     );
+    const teacherIds = (subj.teacherIds || []).map((id) => String(id)).filter(Boolean);
+    const teacherNames = subj.teacherNames && subj.teacherNames.length
+      ? subj.teacherNames
+      : (block.teacherName ? [block.teacherName] : []);
+    const teacherSignatures = (teacherIds.length ? teacherIds : teacherNames.map(() => '')).map((tid, i) => ({
+      teacherId: tid,
+      teacherName: teacherNames[i] || names[tid] || tid || '',
+      sigPath: (tid && sigByTeacher[tid]) || '',
+      signedAt: block.status === 'Complete' ? (block.updatedAt || '') : ''
+    }));
     subjectBlocks.push({
       subject: subj.subject,
-      teacherNames: subj.teacherNames && subj.teacherNames.length
-        ? subj.teacherNames
-        : (block.teacherName ? [block.teacherName] : []),
+      teacherIds,
+      teacherNames,
+      teacherSignatures,
       letterGrade: block.academic.letterGrade,
       percentageGrade: block.academic.percentageGrade,
       categories: block.academic.categories,
@@ -873,6 +897,21 @@ async function listParentReportCards(parentSession) {
   const names = await teacherNameMap();
   const homeroomId = await getHomeroomTeacherId(classId);
   const roster = [{ studentId, name: meta.name }];
+  const classSubjects = await listAllSubjectsForClass(classId).catch(() => []);
+  const subjectMetaByName = new Map(classSubjects.map((s) => [s.subject, s]));
+  const teacherIdsForSigs = new Set();
+  overviewSubjects.forEach((subject) => {
+    const metaSubj = subjectMetaByName.get(subject);
+    (metaSubj && metaSubj.teacherIds ? metaSubj.teacherIds : []).forEach((id) => {
+      if (id) teacherIdsForSigs.add(String(id));
+    });
+    const st = sharedSubjects.find((s) => s.subject === subject);
+    if (st && st.teacherId) teacherIdsForSigs.add(String(st.teacherId));
+  });
+  const sigByTeacher = {};
+  await Promise.all(Array.from(teacherIdsForSigs).map(async (tid) => {
+    sigByTeacher[tid] = await resolveSignaturePath(tid);
+  }));
 
   const subjectBlocks = [];
   for (const subject of overviewSubjects) {
@@ -885,9 +924,24 @@ async function listParentReportCards(parentSession) {
       if (hit) percent = hit.weightedTotal;
     } catch (e) { /* ignore */ }
     const st = sharedSubjects.find((s) => s.subject === subject);
+    const metaSubj = subjectMetaByName.get(subject);
+    const teacherIds = (metaSubj && metaSubj.teacherIds && metaSubj.teacherIds.length)
+      ? metaSubj.teacherIds.map((id) => String(id))
+      : (st && st.teacherId ? [String(st.teacherId)] : []);
+    const teacherNames = (metaSubj && metaSubj.teacherNames && metaSubj.teacherNames.length)
+      ? metaSubj.teacherNames
+      : (st && st.teacherId ? [names[st.teacherId] || st.teacherId] : []);
+    const teacherSignatures = (teacherIds.length ? teacherIds : teacherNames.map(() => '')).map((tid, i) => ({
+      teacherId: tid,
+      teacherName: teacherNames[i] || names[tid] || tid || '',
+      sigPath: (tid && sigByTeacher[tid]) || '',
+      signedAt: st && st.updatedAt ? st.updatedAt : ''
+    }));
     subjectBlocks.push({
       subject,
-      teacherNames: st && st.teacherId ? [names[st.teacherId] || st.teacherId] : [],
+      teacherIds,
+      teacherNames,
+      teacherSignatures,
       letterGrade: letterGrade(percent),
       percentageGrade: percent,
       workHabits: form.workHabits,
