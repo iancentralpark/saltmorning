@@ -59,7 +59,7 @@ async function loadTeacherSubjectData(teacherId) {
 function subjectsForClassFromData(teacherId, classId, data, opts) {
   const includeHomeroomDefault = !opts || opts.includeHomeroomDefault !== false;
   const subjects = new Set();
-  const isHomeroom = data.homeroom.some((e) => e.classId === classId);
+  const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
 
   data.assigned.forEach((e) => {
     if (e.classId !== classId) return;
@@ -89,7 +89,16 @@ function subjectsForClassFromData(teacherId, classId, data, opts) {
 }
 
 function isHomeroomOfFromData(teacherId, classId, data) {
-  return data.homeroom.some((e) => e.classId === String(classId));
+  const cid = String(classId);
+  const tid = String(teacherId);
+  if (data.homeroom.some((e) => String(e.classId) === cid)) return true;
+  // Homeroom role may be stored on Class_Teachers without Teacher_List HomeroomClassID.
+  for (let i = 1; i < data.assignRows.length; i++) {
+    if (String(data.assignRows[i][1]) !== tid) continue;
+    if (String(data.assignRows[i][0]) !== cid) continue;
+    if (String(data.assignRows[i][2] || '').trim().toLowerCase() === 'homeroom') return true;
+  }
+  return false;
 }
 
 function buildLessonSlotsFromData(teacherId, filterClassId, data) {
@@ -103,7 +112,7 @@ function buildLessonSlotsFromData(teacherId, filterClassId, data) {
   for (const classId of classIds) {
     if (filterClassId && classId !== filterClassId) continue;
     const subjects = subjectsForClassFromData(teacherId, classId, data);
-    const isHomeroom = data.homeroom.some((e) => e.classId === classId);
+    const isHomeroom = isHomeroomOfFromData(teacherId, classId, data);
     subjects.forEach((subject) => {
       const key = classId + '|' + subject;
       if (seen.has(key)) return;
@@ -211,6 +220,8 @@ async function getSubjectsForClass(teacherId, classId, opts) {
 }
 
 async function isTeacherHomeroomOf(teacherId, classId) {
+  const { isHomeroomOfClass } = require('./teacherPortalService');
+  if (await isHomeroomOfClass(teacherId, classId)) return true;
   const data = await loadTeacherSubjectData(teacherId);
   return isHomeroomOfFromData(teacherId, classId, data);
 }

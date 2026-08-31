@@ -13,7 +13,11 @@ const {
   getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache
 } = require('../sheets');
 const { getClassRoster, getTeacherProfile, getClassNameMap } = require('./teacherPortalService');
-const { listClassGradeSubjects, getTeacherGradeAccess } = require('./subjectAssignmentService');
+const {
+  listClassGradeSubjects,
+  getTeacherGradeAccess,
+  isTeacherHomeroomOf
+} = require('./subjectAssignmentService');
 const { buildReportCardFromGrades } = require('./gradeService');
 const { getActiveTerm } = require('./gradeWeightService');
 const {
@@ -440,7 +444,9 @@ async function getClassReportOverview(teacherId, classId, term) {
   ]);
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
-  const isHomeroom = !!(subjectData.isHomeroom || (teacher && teacher.homeroomClassId === classId));
+  const isHomeroom = !!(subjectData.isHomeroom ||
+    (teacher && String(teacher.homeroomClassId) === String(classId)) ||
+    await isTeacherHomeroomOf(teacherId, classId));
   // Readiness uses ALL class subjects; canEdit follows the logged-in teacher.
   const subjectList = (allSubjects.length ? allSubjects : (subjectData.subjects || [])).map((s) => ({
     subject: s.subject,
@@ -653,6 +659,9 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
   let access = { isHomeroom: false };
   if (!opts.bypassAccess) {
     access = await getTeacherGradeAccess(viewerId, classId, '');
+    if (String(viewerId) === String(homeroomId) || overview.isHomeroom) {
+      access.isHomeroom = true;
+    }
     const canEditSome = overview.subjects.some((s) => s.canEdit);
     if (!access.isHomeroom && !canEditSome) {
       const headOf = await getTeacherHeadId(homeroomId).catch(() => '');
