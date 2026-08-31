@@ -509,7 +509,13 @@
       else renderOverview();
     });
     if ($('rcPrintBtn')) {
-      $('rcPrintBtn').addEventListener('click', () => window.print());
+      $('rcPrintBtn').addEventListener('click', () => {
+        if (global.SaltReportCardPrint && SaltReportCardPrint.printCard) {
+          SaltReportCardPrint.printCard();
+        } else {
+          window.print();
+        }
+      });
     }
     if ($('rcSignBtn')) $('rcSignBtn').addEventListener('click', () => workflowAction('sign'));
     if ($('rcSubmitHeadBtn')) {

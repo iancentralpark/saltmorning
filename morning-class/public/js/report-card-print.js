@@ -1,7 +1,10 @@
 /**
  * Shared printable report card HTML (teacher, head, principal, parent).
+ * Layout v2: cover signatures + grading scale on page 1; subjects from page 2.
  */
 (function (global) {
+  var REPORT_CARD_PRINT_VERSION = '20260831rc2';
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;')
@@ -10,7 +13,7 @@
       .replace(/"/g, '&quot;');
   }
 
-  function sigBlock(label, path, at) {
+  function sigBlock(label, path, at, nameLine) {
     const dateText = at ? String(at).slice(0, 10) : '';
     return (
       '<div class="rc-sig-box">' +
@@ -22,9 +25,32 @@
       '</div>' +
       '<div class="rc-sig-caption">' +
       '<div class="rc-sig-label">' + esc(label) + '</div>' +
+      (nameLine
+        ? '<div class="rc-sig-name">' + esc(nameLine) + '</div>'
+        : '') +
       '<div class="rc-sig-meta muted small">' +
       (dateText ? ('Date: ' + esc(dateText)) : 'Date ______________') +
       '</div></div></div>'
+    );
+  }
+
+  function subjectTeacherSigs(subj) {
+    const sigs = (subj.teacherSignatures && subj.teacherSignatures.length)
+      ? subj.teacherSignatures
+      : [{
+        teacherName: (subj.teacherNames || []).filter(Boolean).join(', '),
+        sigPath: '',
+        signedAt: ''
+      }];
+    return (
+      '<div class="rc-sig-row rc-sig-row-subject">' +
+      sigs.map((t) => sigBlock(
+        "Subject Teacher's Signature",
+        t.sigPath,
+        t.signedAt,
+        t.teacherName || ''
+      )).join('') +
+      '</div>'
     );
   }
 
@@ -35,11 +61,26 @@
     const summary = card.termSummary || {};
     const wf = card.workflow || {};
 
-    let html = '<article class="rc-print-sheet" id="rcPrintSheet">' +
+    let html = '<article class="rc-print-sheet" id="rcPrintSheet" data-rc-layout="' +
+      esc(REPORT_CARD_PRINT_VERSION) + '">' +
+      '<div class="rc-print-page rc-print-page-cover">' +
       '<header class="rc-print-header">' +
       '<div class="rc-print-school">' + esc(card.schoolName || 'Salt Academy Morning Class') + '</div>' +
       '<div class="rc-print-address muted small">' + esc(card.schoolAddress || '') + '</div>' +
       '<h2>Student Report Card</h2>' +
+      '<div class="rc-sig-row rc-sig-row-top">' +
+      sigBlock(
+        "Homeroom Teacher's Signature",
+        wf.homeroomSigPath,
+        wf.homeroomSignedAt,
+        card.homeroomTeacherName || ''
+      ) +
+      sigBlock(
+        "Principal's Signature",
+        wf.principalSigPath,
+        wf.principalSignedAt
+      ) +
+      '</div>' +
       '<div class="rc-print-meta">' +
       '<div><span>Student Name</span><strong>' + esc(student.name) + '</strong></div>' +
       '<div><span>Grade Level</span><strong>' + esc(student.gradeLevel || '—') + '</strong></div>' +
@@ -50,12 +91,6 @@
       '<div><span>Academic Year</span><strong>' + esc(card.academicYear || '—') + '</strong></div>' +
       '<div><span>Term</span><strong>' +
       esc(card.termLabel || card.term || '—') + '</strong></div>' +
-      '</div>';
-
-    html += '<div class="rc-sig-row rc-sig-row-top">' +
-      sigBlock('Homeroom Teacher Signature', wf.homeroomSigPath, wf.homeroomSignedAt) +
-      sigBlock("Head Teacher's Signature", wf.headSigPath, wf.headSignedAt) +
-      sigBlock("Principal's Signature", wf.principalSigPath, wf.principalSignedAt) +
       '</div></header>';
 
     html += '<section class="rc-print-attendance">' +
@@ -82,6 +117,22 @@
         : '—') +
       '</strong></div></div></section>';
 
+    html += '<section class="rc-print-legend">' +
+      '<h3>Grading Scale &amp; Achievement Criteria</h3>' +
+      '<div class="rc-legend-grid">' +
+      '<div><h4>Letter Grades</h4><ul class="rc-legend-letters">';
+    (card.gradeLegend || []).forEach((g) => {
+      html += '<li><strong>' + esc(g.letter) + '</strong> = ' + esc(g.range) + '</li>';
+    });
+    html += '</ul></div><div><h4>Work Habits / SEL</h4><ul>';
+    (card.selLegend || []).forEach((g) => {
+      html += '<li><strong>' + esc(g.symbol) + '</strong> — ' + esc(g.meaning) + '</li>';
+    });
+    html += '</ul></div></div></section></div>';
+
+    html += '<div class="rc-print-page rc-print-page-subjects">' +
+      '<div class="rc-print-page-break" aria-hidden="true">Page 2 — Subject Grades</div>';
+
     (card.subjects || []).forEach((subj) => {
       html += '<section class="rc-print-subject">' +
         '<div class="rc-print-subject-head">' +
@@ -99,35 +150,49 @@
       });
       html += '</tbody></table>' +
         '<div class="rc-print-comment"><span>Teacher Comment</span><p>' +
-        esc(subj.subjectComment || '—') + '</p></div></section>';
+        esc(subj.subjectComment || '—') + '</p></div>' +
+        subjectTeacherSigs(subj) +
+        '</section>';
     });
-
-    html += '<section class="rc-print-legend">' +
-      '<h3>Grading Scale &amp; Achievement Criteria</h3>' +
-      '<div class="rc-legend-grid">' +
-      '<div><h4>Letter Grades</h4><ul>';
-    (card.gradeLegend || []).forEach((g) => {
-      html += '<li><strong>' + esc(g.letter) + '</strong> = ' + esc(g.range) + '</li>';
-    });
-    html += '</ul></div><div><h4>Work Habits / SEL</h4><ul>';
-    (card.selLegend || []).forEach((g) => {
-      html += '<li><strong>' + esc(g.symbol) + '</strong> — ' + esc(g.meaning) + '</li>';
-    });
-    html += '</ul></div></div></section>';
-
-    html += '<section class="rc-sig-row rc-sig-row-bottom">' +
-      sigBlock('Homeroom Teacher Signature', wf.homeroomSigPath, wf.homeroomSignedAt) +
-      sigBlock('Director / Principal Signature', wf.principalSigPath, wf.principalSignedAt) +
-      sigBlock('Parent / Guardian Signature', '', '') +
-      '</section>';
 
     html += '<footer class="rc-print-footer muted small">Generated ' +
       esc(String(card.generatedAt || '').slice(0, 10)) +
       (card.sharedWithParents ? ' · Shared with parents' : '') +
       (wf.stateLabel ? ' · ' + esc(wf.stateLabel) : '') +
-      '</footer></article>';
+      '</footer></div></article>';
     return html;
   }
 
-  global.SaltReportCardPrint = { renderPrintableCard: renderPrintableCard };
+  function ensurePrintMount() {
+    if (document.getElementById('rcPrintMount')) return;
+    const sheet = document.getElementById('rcPrintSheet');
+    if (!sheet) return;
+    const holder = document.createElement('div');
+    holder.id = 'rcPrintMount';
+    holder.appendChild(sheet.cloneNode(true));
+    document.body.appendChild(holder);
+    document.documentElement.classList.add('rc-printing');
+  }
+
+  function clearPrintMount() {
+    document.documentElement.classList.remove('rc-printing');
+    const holder = document.getElementById('rcPrintMount');
+    if (holder) holder.remove();
+  }
+
+  function printCard() {
+    ensurePrintMount();
+    window.print();
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeprint', ensurePrintMount);
+    window.addEventListener('afterprint', clearPrintMount);
+  }
+
+  global.SaltReportCardPrint = {
+    REPORT_CARD_PRINT_VERSION: REPORT_CARD_PRINT_VERSION,
+    renderPrintableCard: renderPrintableCard,
+    printCard: printCard
+  };
 })(window);

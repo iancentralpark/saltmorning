@@ -3956,6 +3956,13 @@ body.buddy-resize-active {
   margin: 0 0 0.45rem;
   font-size: 1rem;
 }
+.rc-print-legend h4 {
+  margin: 0 0 0.2rem;
+  font-size: 0.85rem;
+}
+.rc-print-page-cover .rc-print-header { margin-bottom: 0.7rem; }
+.rc-print-page-cover .rc-sig-area { height: 4.6rem; }
+.rc-print-page-cover .rc-sig-img { height: 4.05rem; }
 .rc-att-grid { grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); }
 .rc-legend-grid {
   display: grid;
@@ -3964,12 +3971,28 @@ body.buddy-resize-active {
   text-align: left;
 }
 .rc-legend-grid ul { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+.rc-legend-letters {
+  columns: 2;
+  column-gap: 1.25rem;
+}
+.rc-legend-letters li { break-inside: avoid; }
 .rc-sig-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.1rem 1.35rem;
   margin: 1.35rem 0 0.75rem;
   text-align: left;
+}
+.rc-sig-row-top {
+  max-width: 34rem;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1rem;
+}
+.rc-sig-row-subject {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 16rem));
+  justify-content: start;
+  margin: 0.65rem 0 0;
 }
 .rc-sig-box {
   border: none;
@@ -4019,13 +4042,45 @@ body.buddy-resize-active {
   margin: 0;
   letter-spacing: 0.01em;
 }
+.rc-sig-name {
+  font-size: 0.78rem;
+  color: #1f1f1f;
+  margin: 0;
+}
 .rc-sig-meta {
   font-size: 0.72rem;
   margin: 0;
 }
+.rc-print-page-break {
+  display: block;
+  margin: 1.5rem 0 0.75rem;
+  padding: 0.45rem 0 0.15rem;
+  border-top: 2px dashed #c9c2b2;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a8274;
+}
 @media print {
-  .rc-sig-area { height: 6.25rem; }
-  .rc-sig-img { height: 5.6rem; bottom: 0.45rem; }
+  .rc-sig-area { height: 5.1rem; }
+  .rc-sig-img { height: 4.5rem; bottom: 0.4rem; }
+  .rc-print-page-cover .rc-sig-area { height: 4.5rem; }
+  .rc-print-page-cover .rc-sig-img { height: 3.95rem; }
+  .rc-print-subject .rc-sig-area { height: 3.6rem; }
+  .rc-print-subject .rc-sig-img { height: 3.1rem; }
+  .rc-print-page-break { display: none !important; }
+  .rc-print-page-subjects {
+    page-break-before: always;
+    break-before: page;
+  }
+  .rc-print-subject {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .rc-print-habits th, .rc-print-habits td {
+    padding: 0.22rem 0.45rem;
+  }
 }
 .rc-print-school {
   letter-spacing: 0.08em;
@@ -4060,6 +4115,11 @@ body.buddy-resize-active {
   padding-top: 0.85rem;
   border-top: 1px dashed #d7d0c2;
   break-inside: avoid;
+}
+.rc-print-page-subjects .rc-print-subject:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 .rc-print-subject-head {
   display: flex;
@@ -4558,6 +4618,28 @@ body.buddy-resize-active {
     border: none;
     box-shadow: none;
     padding: 0;
+    max-width: none;
+  }
+  html.rc-printing body > *:not(#rcPrintMount) {
+    display: none !important;
+  }
+  html.rc-printing #rcPrintMount,
+  html.rc-printing #rcPrintMount * {
+    visibility: visible !important;
+  }
+  html.rc-printing #rcPrintMount {
+    display: block !important;
+    position: static !important;
+  }
+  html.rc-printing #rcPrintMount #rcPrintSheet {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
   .sc-print-root {
     position: absolute;

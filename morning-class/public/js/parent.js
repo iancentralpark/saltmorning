@@ -941,7 +941,15 @@ window.SaltParent = (function() {
         btn.addEventListener('click', () => {
           body.innerHTML = renderParentCard(reports[Number(btn.dataset.idx)]);
           const printBtn = $('parentPrintBtn');
-          if (printBtn) printBtn.addEventListener('click', () => window.print());
+          if (printBtn) {
+            printBtn.addEventListener('click', () => {
+              if (window.SaltReportCardPrint && SaltReportCardPrint.printCard) {
+                SaltReportCardPrint.printCard();
+              } else {
+                window.print();
+              }
+            });
+          }
         });
       });
       list.querySelector('.parent-rc-open').click();

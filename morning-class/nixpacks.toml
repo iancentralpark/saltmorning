@@ -1,0 +1,10 @@
+# Node portal. Solver venv is optional: installing a second Nix Python
+# next to the Node provider conflicts (python3-embed.pc) and Node-only
+# images have no python3. The app still boots if the solver is missing.
+providers = ["node"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[start]
+cmd = "npm start"

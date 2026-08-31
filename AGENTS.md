@@ -48,3 +48,25 @@ checks: `GET /api/health` (both Node apps) and `GET /health` (solver).
 - `server/docs/vocab-booster-multi-tenant.md`: shared multi-tenant Vocab Booster.
 - Python solver deps: `morning-class/solver/requirements.txt`
   (`pip3 install -r morning-class/solver/requirements.txt`).
+
+### Salt Morning production deploy (saltmorning.study)
+
+**Live service (only this one):** Railway project `mrpark-class-api`
+(`37e18dd4-072b-49df-ab3b-315e9ea29dcf`), service `salt-morning-class`
+(`a77855e7-6d45-4bcb-8191-e68c1dc16147`), root directory `morning-class/`.
+
+**Never use `railway up` for production.** It uploads the agent VM's local
+folder and can overwrite the GitHub-connected deployment with a stale snapshot
+(this caused the Aug 2026 rollbacks).
+
+**Correct deploy (from `morning-class/` after pushing to `main`):**
+
+```bash
+npx @railway/cli link -p 37e18dd4-072b-49df-ab3b-315e9ea29dcf -e production -s salt-morning-class
+npx @railway/cli redeploy --from-source -y --service salt-morning-class
+```
+
+Or run `bash scripts/deploy-production.sh` in `morning-class/`.
+
+Verify: `GET /api/health` should include `reportCardPrintVersion`. Do **not**
+touch `server/` (Mr. Park Class API) when deploying Salt Morning.

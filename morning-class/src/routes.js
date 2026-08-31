@@ -112,6 +112,7 @@ const {
   processDueScheduledShares,
   STATES: RC_WF_STATES
 } = require('./services/reportCardWorkflowService');
+const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
 const {
   getActiveTerm,
   saveGradeTerm,
@@ -369,6 +370,7 @@ router.get('/health', async (req, res) => {
   res.json({
     ok: true,
     service: 'salt-morning-class',
+    reportCardPrintVersion: REPORT_CARD_PRINT_VERSION,
     gemini: isGeminiConfigured(),
     vocab,
     vocabEngine: engine,

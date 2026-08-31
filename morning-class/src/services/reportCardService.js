@@ -44,7 +44,8 @@ const {
   findWorkflow,
   STATES: WF_STATES,
   stateLabel,
-  getTeacherHeadId
+  getTeacherHeadId,
+  resolveSignaturePath
 } = require('./reportCardWorkflowService');
 const { getStudentYearAttendance } = require('./attendanceService');
 const { defaultAcademicYearRange } = require('./schoolCalendarService');
@@ -754,15 +755,36 @@ async function getFullStudentReportCard(viewerId, classId, studentId, term, opts
     }
   }
 
+  const teacherIdsForSigs = new Set();
+  (overview.subjects || []).forEach((subj) => {
+    (subj.teacherIds || []).forEach((id) => {
+      if (id) teacherIdsForSigs.add(String(id));
+    });
+  });
+  const sigByTeacher = {};
+  await Promise.all(Array.from(teacherIdsForSigs).map(async (tid) => {
+    sigByTeacher[tid] = await resolveSignaturePath(tid);
+  }));
+
   const subjectBlocks = await Promise.all((overview.subjects || []).map(async (subj) => {
     const block = await getStudentSubjectReport(
       overviewTeacherId, classId, studentId, term, subj.subject
     );
+    const teacherIds = (subj.teacherIds || []).map((id) => String(id)).filter(Boolean);
+    const teacherNames = subj.teacherNames && subj.teacherNames.length
+      ? subj.teacherNames
+      : (block.teacherName ? [block.teacherName] : []);
+    const teacherSignatures = (teacherIds.length ? teacherIds : teacherNames.map(() => '')).map((tid, i) => ({
+      teacherId: tid,
+      teacherName: teacherNames[i] || names[tid] || tid || '',
+      sigPath: (tid && sigByTeacher[tid]) || '',
+      signedAt: block.status === 'Complete' ? (block.updatedAt || '') : ''
+    }));
     return {
       subject: subj.subject,
-      teacherNames: subj.teacherNames && subj.teacherNames.length
-        ? subj.teacherNames
-        : (block.teacherName ? [block.teacherName] : []),
+      teacherIds,
+      teacherNames,
+      teacherSignatures,
       letterGrade: block.academic.letterGrade,
       percentageGrade: block.academic.percentageGrade,
       categories: block.academic.categories,
@@ -957,6 +979,21 @@ async function listParentReportCards(parentSession) {
   const names = await teacherNameMap();
   const homeroomId = await getHomeroomTeacherId(classId);
   const roster = [{ studentId, name: meta.name }];
+  const classSubjects = await listAllSubjectsForClass(classId).catch(() => []);
+  const subjectMetaByName = new Map(classSubjects.map((s) => [s.subject, s]));
+  const teacherIdsForSigs = new Set();
+  reportSubjects.forEach((subject) => {
+    const metaSubj = subjectMetaByName.get(subject);
+    (metaSubj && metaSubj.teacherIds ? metaSubj.teacherIds : []).forEach((id) => {
+      if (id) teacherIdsForSigs.add(String(id));
+    });
+    const st = sharedSubjects.find((s) => s.subject === subject);
+    if (st && st.teacherId) teacherIdsForSigs.add(String(st.teacherId));
+  });
+  const sigByTeacher = {};
+  await Promise.all(Array.from(teacherIdsForSigs).map(async (tid) => {
+    sigByTeacher[tid] = await resolveSignaturePath(tid);
+  }));
 
   const subjectBlocks = [];
   for (const subject of reportSubjects) {
@@ -970,9 +1007,24 @@ async function listParentReportCards(parentSession) {
     } catch (e) { /* ignore */ }
     const academic = resolveAcademic(percent, entries, []);
     const st = sharedSubjects.find((s) => s.subject === subject);
+    const metaSubj = subjectMetaByName.get(subject);
+    const teacherIds = (metaSubj && metaSubj.teacherIds && metaSubj.teacherIds.length)
+      ? metaSubj.teacherIds.map((id) => String(id))
+      : (st && st.teacherId ? [String(st.teacherId)] : []);
+    const teacherNames = (metaSubj && metaSubj.teacherNames && metaSubj.teacherNames.length)
+      ? metaSubj.teacherNames
+      : (st && st.teacherId ? [names[st.teacherId] || st.teacherId] : []);
+    const teacherSignatures = (teacherIds.length ? teacherIds : teacherNames.map(() => '')).map((tid, i) => ({
+      teacherId: tid,
+      teacherName: teacherNames[i] || names[tid] || tid || '',
+      sigPath: (tid && sigByTeacher[tid]) || '',
+      signedAt: st && st.updatedAt ? st.updatedAt : ''
+    }));
     subjectBlocks.push({
       subject,
-      teacherNames: st && st.teacherId ? [names[st.teacherId] || st.teacherId] : [],
+      teacherIds,
+      teacherNames,
+      teacherSignatures,
       letterGrade: academic.letterGrade,
       percentageGrade: academic.percentageGrade,
       workHabits: form.workHabits,

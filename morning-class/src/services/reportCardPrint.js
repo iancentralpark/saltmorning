@@ -2,6 +2,8 @@
  * Report card print helpers: GPA, grade legend, school header constants.
  */
 
+const REPORT_CARD_PRINT_VERSION = '20260831rc2';
+
 const GPA_POINTS = {
   A: 4.0,
   'A-': 3.7,
@@ -96,6 +98,7 @@ function termDisplayLabel(term) {
 }
 
 module.exports = {
+  REPORT_CARD_PRINT_VERSION,
   GPA_POINTS,
   GRADE_LEGEND,
   SEL_LEGEND,
