@@ -218,14 +218,15 @@ async function listAllParents() {
 }
 
 async function listTeachersForClass(classId) {
+  const { parseHomeroomClassIds } = require('./teacherPortalService');
   const rows = await getSheetRows(TEACHER_LIST_SHEET).catch(() => []);
   const out = [];
   const want = String(classId || '');
   for (let i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
     const tid = String(rows[i][0]);
-    const homeroom = String(rows[i][4] || '').trim();
-    if (want && homeroom === want) {
+    const homeroomIds = parseHomeroomClassIds(rows[i][4]);
+    if (want && homeroomIds.includes(want)) {
       out.push(tid);
       continue;
     }

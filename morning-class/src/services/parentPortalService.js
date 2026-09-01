@@ -512,10 +512,12 @@ async function ensureParentDemoData() {
   } catch (e) { /* continue */ }
 
   // 3) Homeroom teacher
+  const { parseHomeroomClassIds } = require('./teacherPortalService');
   const teacherRows = await getSheetRows(TEACHER_LIST_SHEET);
   let teacherId = 'T001';
   for (let i = 1; i < teacherRows.length; i++) {
-    if (String(teacherRows[i][4] || '') === classId || String(teacherRows[i][0]) === 'T001') {
+    const ids = parseHomeroomClassIds(teacherRows[i][4]);
+    if (ids.includes(classId) || String(teacherRows[i][0]) === 'T001') {
       teacherId = String(teacherRows[i][0]);
       break;
     }

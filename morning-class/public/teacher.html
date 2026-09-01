@@ -997,7 +997,9 @@
             '<table class="grades-table"><thead><tr><th>Teacher</th><th>Homeroom</th><th>Classes / subjects</th></tr></thead><tbody>' +
             teachers.map((t) =>
               '<tr><td>' + escapeHtml(t.name || t.teacherId) + '</td>' +
-              '<td>' + escapeHtml(t.homeroomClassId || '—') + '</td>' +
+              '<td>' + escapeHtml((t.homeroomClassIds && t.homeroomClassIds.length)
+                ? t.homeroomClassIds.join(', ')
+                : (t.homeroomClassId || '—')) + '</td>' +
               '<td class="small">' + escapeHtml(
                 (t.classes || []).map((c) =>
                   (c.className || c.classId) + (c.roleLabel ? ' (' + c.roleLabel + ')' : '')

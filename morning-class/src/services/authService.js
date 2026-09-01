@@ -15,6 +15,7 @@ const {
   isAccountActive,
   normalizeFlagRole
 } = require('./accountFlagsService');
+const { parseHomeroomClassIds } = require('./teacherPortalService');
 
 const MIN_PASSWORD_LEN = 4;
 
@@ -276,12 +277,14 @@ async function loginTeacher(loginId, password) {
     if (!permissions.length) permissions = presetsForTitle(staffTitle);
     const portalRole = portalRoleForFaculty(staffTitle, permissions);
 
+    const homeroomClassIds = parseHomeroomClassIds(rows[i][4]);
     const profile = {
       teacherId,
       name: displayName,
       fullName,
       preferredName,
-      homeroomClassId: String(rows[i][4] || '').trim(),
+      homeroomClassId: homeroomClassIds[0] || '',
+      homeroomClassIds,
       staffRole: staffTitle,
       staffTitle,
       headTeacherId: String(rows[i][6] || '').trim(),

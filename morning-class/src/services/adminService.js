@@ -22,6 +22,7 @@ const {
   getTeacherDetail,
   deleteTeacherRecord
 } = require('./teacherRegistryService');
+const { parseHomeroomClassIds, serializeHomeroomClassIds } = require('./teacherPortalService');
 const crypto = require('crypto');
 
 function newId(prefix) {
@@ -85,7 +86,9 @@ async function saveTeacher(payload) {
   const name = String(payload.name || '').trim();
   const loginId = String(payload.loginId || '').trim();
   const password = String(payload.password || '').trim();
-  const homeroomClassId = String(payload.homeroomClassId || '').trim();
+  const homeroomClassId = serializeHomeroomClassIds(
+    parseHomeroomClassIds(payload.homeroomClassId || payload.homeroomClassIds)
+  );
   const staffTitle = normalizeTitle(payload.staffTitle || payload.staffRole || 'Teacher');
   const staffRole = staffTitle;
   const headTeacherId = String(payload.headTeacherId || '').trim();
@@ -168,6 +171,7 @@ async function saveTeacher(payload) {
     displayName: teacherDisplayName(name, preferredName),
     loginId,
     homeroomClassId,
+    homeroomClassIds: parseHomeroomClassIds(homeroomClassId),
     staffRole,
     staffTitle,
     headTeacherId: headTeacherId || existingHead || '',

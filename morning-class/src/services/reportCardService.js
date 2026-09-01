@@ -12,7 +12,7 @@ const {
 const {
   getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache
 } = require('../sheets');
-const { getClassRoster, getTeacherProfile, getClassNameMap } = require('./teacherPortalService');
+const { getClassRoster, getTeacherProfile, getClassNameMap, getHomeroomTeacherId, isHomeroomOfClass } = require('./teacherPortalService');
 const { listClassGradeSubjects, getTeacherGradeAccess, collectClassSubjects } = require('./subjectAssignmentService');
 const { listExcludedReportSubjects } = require('./classSubjectFlagsService');
 const { buildReportCardFromGrades } = require('./gradeService');
@@ -503,7 +503,7 @@ async function getClassReportOverview(teacherId, classId, term) {
   ]);
 
   const taughtSet = new Set(subjectData.taughtSubjects || []);
-  const isHomeroom = !!(subjectData.isHomeroom || (teacher && teacher.homeroomClassId === classId));
+  const isHomeroom = !!(subjectData.isHomeroom || (await isHomeroomOfClass(teacherId, classId)));
   const sourceSubjects = (subjectData.allSubjects && subjectData.allSubjects.length)
     ? subjectData.allSubjects
     : (subjectData.subjects || []);
@@ -569,14 +569,6 @@ async function getClassReportOverview(teacherId, classId, term) {
       ? (teacher && (teacher.displayName || teacher.name))
       : (names[(await getHomeroomTeacherId(classId))] || '')
   };
-}
-
-async function getHomeroomTeacherId(classId) {
-  const rows = await getSheetRows(TEACHER_LIST_SHEET);
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][4] || '').trim() === String(classId)) return String(rows[i][0]);
-  }
-  return '';
 }
 
 /**

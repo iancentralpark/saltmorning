@@ -6,6 +6,35 @@ const {
 } = require('../config');
 const { getSheetRows } = require('../sheets');
 
+function parseHomeroomClassIds(raw) {
+  return String(raw || '')
+    .split(/[,;|]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function serializeHomeroomClassIds(ids) {
+  const seen = new Set();
+  const out = [];
+  (ids || []).forEach((id) => {
+    const v = String(id || '').trim();
+    if (!v || seen.has(v)) return;
+    seen.add(v);
+    out.push(v);
+  });
+  return out.join(', ');
+}
+
+function homeroomEntry(classId, names) {
+  return {
+    classId,
+    className: names[classId] || classId,
+    assignmentType: 'Homeroom',
+    subjects: ['All'],
+    isHomeroom: true
+  };
+}
+
 async function getClassNameMap() {
   const rows = await getSheetRows(CLASS_LIST_SHEET);
   const map = {};
@@ -29,13 +58,15 @@ async function getTeacherProfile(teacherId) {
       preferredName = String((tp && tp.preferredName) || '').trim();
       displayName = teacherDisplayName(fullName, preferredName);
     } catch (_) { /* keep full name */ }
+    const homeroomClassIds = parseHomeroomClassIds(rows[i][4]);
     return {
       teacherId: String(rows[i][0]),
       name: displayName,
       fullName,
       preferredName,
       displayName,
-      homeroomClassId: String(rows[i][4] || '').trim(),
+      homeroomClassId: homeroomClassIds[0] || '',
+      homeroomClassIds,
       staffRole: String(rows[i][5] || 'Teacher')
     };
   }
@@ -50,18 +81,15 @@ async function getTeacherClasses(teacherId) {
 
   const homeroom = [];
   const assigned = [];
-  const seen = new Set();
+  const seenHomeroom = new Set();
+  const seenAssigned = new Set();
 
-  if (teacher.homeroomClassId) {
-    homeroom.push({
-      classId: teacher.homeroomClassId,
-      className: names[teacher.homeroomClassId] || teacher.homeroomClassId,
-      assignmentType: 'Homeroom',
-      subjects: ['All'],
-      isHomeroom: true
-    });
-    seen.add(teacher.homeroomClassId + ':Homeroom');
-  }
+  parseHomeroomClassIds(teacher.homeroomClassIds.join(', ')).forEach((classId) => {
+    const key = classId + ':Homeroom';
+    if (seenHomeroom.has(key)) return;
+    seenHomeroom.add(key);
+    homeroom.push(homeroomEntry(classId, names));
+  });
 
   const assignRows = await getSheetRows(CLASS_TEACHERS_SHEET);
   for (let i = 1; i < assignRows.length; i++) {
@@ -69,29 +97,57 @@ async function getTeacherClasses(teacherId) {
     const classId = String(assignRows[i][0] || '');
     const assignmentType = String(assignRows[i][2] || 'Subject');
     const subject = String(assignRows[i][3] || '').trim();
-    const key = classId + ':' + assignmentType + ':' + subject;
-    if (seen.has(key)) continue;
-    seen.add(key);
 
-    const entry = {
+    if (assignmentType === 'Homeroom') {
+      const key = classId + ':Homeroom';
+      if (!seenHomeroom.has(key)) {
+        seenHomeroom.add(key);
+        homeroom.push(homeroomEntry(classId, names));
+      }
+      continue;
+    }
+
+    const key = classId + ':' + assignmentType + ':' + subject;
+    if (seenAssigned.has(key)) continue;
+    seenAssigned.add(key);
+
+    assigned.push({
       classId,
       className: names[classId] || classId,
       assignmentType,
       subjects: subject ? [subject] : [],
       isHomeroom: false
-    };
-
-    if (assignmentType === 'Homeroom' && teacher.homeroomClassId === classId) continue;
-    assigned.push(entry);
+    });
   }
 
   return { teacher, homeroom, assigned };
 }
 
 async function isHomeroomOfClass(teacherId, classId) {
-  const teacher = await getTeacherProfile(teacherId);
-  return !!(teacher && teacher.homeroomClassId &&
-    String(teacher.homeroomClassId) === String(classId));
+  const { homeroom } = await getTeacherClasses(teacherId);
+  return homeroom.some((e) => String(e.classId) === String(classId));
+}
+
+async function getHomeroomTeacherId(classId) {
+  classId = String(classId || '').trim();
+  if (!classId) return '';
+
+  const rows = await getSheetRows(TEACHER_LIST_SHEET);
+  for (let i = 1; i < rows.length; i++) {
+    const teacherId = String(rows[i][0] || '').trim();
+    if (!teacherId) continue;
+    const ids = parseHomeroomClassIds(rows[i][4]);
+    if (ids.includes(classId)) return teacherId;
+  }
+
+  const assignRows = await getSheetRows(CLASS_TEACHERS_SHEET);
+  for (let i = 1; i < assignRows.length; i++) {
+    if (String(assignRows[i][0] || '').trim() !== classId) continue;
+    if (String(assignRows[i][2] || '').trim().toLowerCase() !== 'homeroom') continue;
+    const teacherId = String(assignRows[i][1] || '').trim();
+    if (teacherId) return teacherId;
+  }
+  return '';
 }
 
 async function getClassRoster(classId) {
@@ -110,9 +166,12 @@ async function getClassRoster(classId) {
 }
 
 module.exports = {
+  parseHomeroomClassIds,
+  serializeHomeroomClassIds,
   getTeacherClasses,
   getClassRoster,
   getClassNameMap,
   getTeacherProfile,
-  isHomeroomOfClass
+  isHomeroomOfClass,
+  getHomeroomTeacherId
 };

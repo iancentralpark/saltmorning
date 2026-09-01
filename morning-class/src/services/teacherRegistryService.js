@@ -11,6 +11,7 @@ const {
   ensureSheet,
   invalidateSheetRowsCache
 } = require('../sheets');
+const { parseHomeroomClassIds } = require('./teacherPortalService');
 
 const PROFILE_COL = {
   teacherId: 0,
@@ -225,11 +226,13 @@ function facultyFromListRow(row) {
   const staffTitle = normalizeTitle(row[5], 'Teacher');
   let permissions = upgradePermissions(staffTitle, parsePermissions(row[7]));
   if (!permissions.length) permissions = presetsForTitle(staffTitle);
+  const homeroomClassIds = parseHomeroomClassIds(row[4]);
   return {
     teacherId: String(row[0] || ''),
     name: String(row[1] || ''),
     loginId: String(row[2] || ''),
-    homeroomClassId: String(row[4] || ''),
+    homeroomClassId: homeroomClassIds.join(', '),
+    homeroomClassIds,
     staffRole: staffTitle,
     staffTitle,
     headTeacherId: String(row[6] || '').trim(),
