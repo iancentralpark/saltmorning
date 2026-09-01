@@ -450,7 +450,7 @@
       '</div>' +
       (solverOk
         ? '<p class="tt-solver-ok muted small">✓ Auto-Solve ready — locked cells are preserved</p>'
-        : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Drag-and-drop editing and <strong>Save &amp; sync</strong> still work.</p>') +
+        : '<p class="tt-solver-warn muted small">Auto-Solve is offline (solver not connected). Click-to-place editing and <strong>Save &amp; sync</strong> still work.</p>') +
       '<div class="tt-setup-section">' +
       '<div class="tt-board-toolbar">' +
       '<strong>Class timetable board</strong>' +
@@ -462,7 +462,7 @@
       ).join('') +
       '</select>' +
       '</div>' +
-      '<p class="muted small">Drag subject chips into the Mon–Fri × period grid. Green = free for that teacher; red = conflict.</p>' +
+      '<p class="muted small">Select a subject on the left, then click empty Mon–Fri periods to fill them. Green = free for that teacher; red = conflict.</p>' +
       '<div class="tt-setup-board-mount"></div>' +
       '</div>';
 

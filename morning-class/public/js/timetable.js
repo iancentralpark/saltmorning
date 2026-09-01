@@ -300,7 +300,7 @@
     let bellSchedule = (opts.timetable && opts.timetable.bellSchedule) || [];
     let entries = ((opts.timetable && opts.timetable.entries) || []).filter((e) => !e.isBreak);
     let busyMap = {};
-    let dragPayload = null;
+    let selectedChip = null;
     let dirty = false;
     let statusMsg = '';
     let statusOk = true;
@@ -325,16 +325,63 @@
     }
 
     function paintHeatmap(on) {
-      mountEl.querySelectorAll('.tt-grid-cell[data-droppable="1"]').forEach((cell) => {
-        cell.classList.remove('tt-cell-valid', 'tt-cell-invalid');
-        if (!on || !dragPayload) return;
+      mountEl.querySelectorAll('.tt-grid-cell[data-placeable="1"]').forEach((cell) => {
+        cell.classList.remove('tt-cell-valid', 'tt-cell-invalid', 'tt-cell-ready');
+        if (!on || !selectedChip) return;
         const day = Number(cell.dataset.day);
         const periodId = cell.dataset.periodId;
         const key = slotKey(day, periodId);
-        const teacherBusy = busyMap[dragPayload.teacherId] && busyMap[dragPayload.teacherId][key];
+        const teacherBusy = busyMap[selectedChip.teacherId] && busyMap[selectedChip.teacherId][key];
+        cell.classList.add('tt-cell-ready');
         if (teacherBusy) cell.classList.add('tt-cell-invalid');
         else cell.classList.add('tt-cell-valid');
       });
+    }
+
+    function chipPayloadFromEl(chip) {
+      return {
+        subject: chip.dataset.subject,
+        teacherId: chip.dataset.teacherId,
+        teacherName: chip.dataset.teacherName,
+        room: chip.dataset.room || ''
+      };
+    }
+
+    function chipsMatch(a, b) {
+      return a && b &&
+        a.subject === b.subject &&
+        a.teacherId === b.teacherId;
+    }
+
+    function placeEntry(cell, payload) {
+      if (!payload || !payload.subject) return false;
+      const key = cell.dataset.key;
+      if (busyMap[payload.teacherId] && busyMap[payload.teacherId][key]) {
+        setStatus('Teacher is busy in another class at that period.', false);
+        return false;
+      }
+      if (entryAt(cell.dataset.day, cell.dataset.periodId)) {
+        setStatus('That period is already filled.', false);
+        return false;
+      }
+      entries.push({
+        entryId: 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        dayOfWeek: Number(cell.dataset.day),
+        periodId: cell.dataset.periodId,
+        startTime: cell.dataset.start,
+        endTime: cell.dataset.end,
+        sortOrder: Number(cell.dataset.sort) || 0,
+        subject: payload.subject,
+        teacherId: payload.teacherId,
+        teacherName: payload.teacherName,
+        room: payload.room || '',
+        locked: false,
+        notes: '',
+        classId
+      });
+      dirty = true;
+      setStatus('Slot added — save to sync students & teachers.', true);
+      return true;
     }
 
     async function loadBusy() {
@@ -352,23 +399,28 @@
 
     function render() {
       const palette = buildPalette(requirements, entries, teachers);
+      if (selectedChip) {
+        const still = palette.find((chip) => chipsMatch(selectedChip, chip) && chip.remaining > 0);
+        if (!still) selectedChip = null;
+      }
       const periods = lessonPeriods.length
         ? lessonPeriods
         : (bellSchedule || []).filter((p) => p.periodType === 'lesson');
 
       let paletteHtml = '<div class="tt-palette">';
       paletteHtml += '<div class="tt-palette-head">Unassigned</div>';
-      paletteHtml += '<p class="muted small tt-palette-hint">Drag chips onto empty periods. Locked cells (🔒) are kept by Auto-Solve.</p>';
+      paletteHtml += '<p class="muted small tt-palette-hint">Select a subject, then click empty periods to fill them. Green = free; red = teacher conflict. Locked cells (🔒) are kept by Auto-Solve.</p>';
       if (!palette.length) {
         paletteHtml += '<p class="muted small">No requirements — add them above.</p>';
       } else {
         palette.forEach((chip) => {
           const doneClass = chip.remaining <= 0 ? ' tt-chip-done' : '';
-          const draggable = !readonly && chip.remaining > 0;
+          const selectable = !readonly && chip.remaining > 0;
+          const selected = selectable && selectedChip && chipsMatch(selectedChip, chip);
           const chipColor = subjectColor(chip.subject, false, classId);
           paletteHtml +=
-            '<div class="tt-chip tt-chip-colored' + doneClass + '"' +
-            (draggable ? ' draggable="true"' : '') +
+            '<div class="tt-chip tt-chip-colored' + doneClass + (selected ? ' tt-chip-selected' : '') + '"' +
+            (selectable ? ' data-selectable="1" role="button" tabindex="0"' : '') +
             ' data-subject="' + escapeHtml(chip.subject) + '"' +
             ' data-teacher-id="' + escapeHtml(chip.teacherId) + '"' +
             ' data-teacher-name="' + escapeHtml(chip.teacherName) + '"' +
@@ -420,14 +472,15 @@
                   : '') +
                 '</td>';
             } else {
+              const placeHint = selectedChip ? 'Click to add' : '—';
               gridHtml +=
-                '<td class="tt-grid-cell tt-cell-empty" data-droppable="1"' +
+                '<td class="tt-grid-cell tt-cell-empty" data-placeable="1"' +
                 ' data-day="' + d.value + '" data-period-id="' + escapeHtml(period.periodId) + '"' +
                 ' data-start="' + escapeHtml(period.startTime) + '"' +
                 ' data-end="' + escapeHtml(period.endTime) + '"' +
                 ' data-sort="' + periods.indexOf(period) + '"' +
                 ' data-key="' + escapeHtml(key) + '">' +
-                '<span class="tt-cell-placeholder">Drop</span></td>';
+                '<span class="tt-cell-placeholder">' + placeHint + '</span></td>';
             }
           });
           gridHtml += '</tr>';
@@ -458,68 +511,34 @@
     }
 
     function bind() {
-      mountEl.querySelectorAll('.tt-chip[draggable="true"]').forEach((chip) => {
-        chip.addEventListener('dragstart', (ev) => {
-          dragPayload = {
-            subject: chip.dataset.subject,
-            teacherId: chip.dataset.teacherId,
-            teacherName: chip.dataset.teacherName,
-            room: chip.dataset.room || ''
-          };
-          chip.classList.add('tt-chip-dragging');
-          ev.dataTransfer.setData('text/plain', JSON.stringify(dragPayload));
-          ev.dataTransfer.effectAllowed = 'copy';
-          paintHeatmap(true);
-        });
-        chip.addEventListener('dragend', () => {
-          chip.classList.remove('tt-chip-dragging');
-          dragPayload = null;
-          paintHeatmap(false);
+      mountEl.querySelectorAll('.tt-chip[data-selectable="1"]').forEach((chip) => {
+        function toggleChip() {
+          const payload = chipPayloadFromEl(chip);
+          if (selectedChip && chipsMatch(selectedChip, payload)) {
+            selectedChip = null;
+            setStatus('Selection cleared.', true);
+          } else {
+            selectedChip = payload;
+            setStatus('Selected ' + payload.subject + ' — click empty periods to place.', true);
+          }
+          render();
+        }
+        chip.addEventListener('click', toggleChip);
+        chip.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            toggleChip();
+          }
         });
       });
 
-      mountEl.querySelectorAll('.tt-grid-cell[data-droppable="1"]').forEach((cell) => {
-        cell.addEventListener('dragover', (ev) => {
-          ev.preventDefault();
-          const key = cell.dataset.key;
-          const invalid = dragPayload && busyMap[dragPayload.teacherId] && busyMap[dragPayload.teacherId][key];
-          ev.dataTransfer.dropEffect = invalid ? 'none' : 'copy';
-        });
-        cell.addEventListener('drop', (ev) => {
-          ev.preventDefault();
-          let payload = dragPayload;
-          try {
-            payload = JSON.parse(ev.dataTransfer.getData('text/plain') || 'null') || dragPayload;
-          } catch (e) { /* keep */ }
-          if (!payload || !payload.subject) return;
-          const key = cell.dataset.key;
-          if (busyMap[payload.teacherId] && busyMap[payload.teacherId][key]) {
-            setStatus('Teacher is busy in another class at that period.', false);
+      mountEl.querySelectorAll('.tt-grid-cell[data-placeable="1"]').forEach((cell) => {
+        cell.addEventListener('click', () => {
+          if (!selectedChip) {
+            setStatus('Select a subject from the left first.', false);
             return;
           }
-          if (entryAt(cell.dataset.day, cell.dataset.periodId)) {
-            setStatus('That period is already filled.', false);
-            return;
-          }
-          entries.push({
-            entryId: 'tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            dayOfWeek: Number(cell.dataset.day),
-            periodId: cell.dataset.periodId,
-            startTime: cell.dataset.start,
-            endTime: cell.dataset.end,
-            sortOrder: Number(cell.dataset.sort) || 0,
-            subject: payload.subject,
-            teacherId: payload.teacherId,
-            teacherName: payload.teacherName,
-            room: payload.room || '',
-            locked: false,
-            notes: '',
-            classId
-          });
-          dirty = true;
-          dragPayload = null;
-          setStatus('Slot added — save to sync students & teachers.', true);
-          render();
+          if (placeEntry(cell, selectedChip)) render();
         });
       });
 
@@ -646,6 +665,8 @@
       if (reloadBtn) {
         reloadBtn.addEventListener('click', () => reload().catch((e) => setStatus(e.message, false)));
       }
+
+      if (selectedChip) paintHeatmap(true);
     }
 
     async function reload() {
