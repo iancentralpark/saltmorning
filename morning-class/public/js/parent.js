@@ -883,14 +883,25 @@ window.SaltParent = (function() {
       let html = '<h4>Pending</h4>';
       if (!pending.length) html += '<p class="muted">No pending homework.</p>';
       else {
-        html += pending.map((h) =>
-          '<div class="pp-hw-item">' +
+        html += pending.map((h) => {
+          let links = '';
+          if (h.linkUrl) {
+            links += '<p class="muted small"><a href="' + escapeHtml(h.linkUrl) + '" target="_blank" rel="noopener">' +
+              escapeHtml(h.isYouTube ? 'Watch video' : 'Open link') + '</a></p>';
+          }
+          if (h.attachmentPath) {
+            links += '<p class="muted small"><a href="' + escapeHtml(h.attachmentPath) + '" target="_blank" rel="noopener">' +
+              escapeHtml(h.attachmentName || 'Download file') + '</a></p>';
+          }
+          return '<div class="pp-hw-item">' +
             '<strong>' + escapeHtml(h.title) + '</strong>' +
+            (h.points ? ' <span class="muted small">· ' + escapeHtml(h.points) + ' pts</span>' : '') +
             '<div class="muted small">Assigned ' + escapeHtml(h.assignedDate || '') +
               (h.dueDate ? ' · Due ' + escapeHtml(h.dueDate) : '') + '</div>' +
             '<p>' + escapeHtml(h.description || '') + '</p>' +
-          '</div>'
-        ).join('');
+            links +
+          '</div>';
+        }).join('');
       }
       html += '<h4 style="margin-top:1rem">Recently completed</h4>';
       if (!completed.length) html += '<p class="muted">None yet.</p>';

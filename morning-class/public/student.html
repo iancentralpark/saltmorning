@@ -410,9 +410,23 @@
   }
 
   function hwItem(x) {
+    let extra = '';
+    if (x.points) extra += ' · ' + escapeHtml(x.points) + ' pts';
+    if (x.dueDate) extra += ' · Due ' + escapeHtml(x.dueDate);
+    let links = '';
+    if (x.linkUrl) {
+      links += '<div><a href="' + escapeHtml(x.linkUrl) + '" target="_blank" rel="noopener">' +
+        escapeHtml(x.isYouTube ? 'Watch video' : 'Open link') + '</a></div>';
+    }
+    if (x.attachmentPath) {
+      links += '<div><a href="' + escapeHtml(x.attachmentPath) + '" target="_blank" rel="noopener">' +
+        escapeHtml(x.attachmentName || 'Download file') + '</a></div>';
+    }
     return '<li><strong>' + escapeHtml(x.title || 'Homework') + '</strong>' +
-      (x.assignedDate ? '<div class="muted small">' + escapeHtml(x.assignedDate) + '</div>' : '') +
+      (x.assignedDate || extra ? '<div class="muted small">' +
+        (x.assignedDate ? escapeHtml(x.assignedDate) : '') + extra + '</div>' : '') +
       (x.description ? '<div class="muted small">' + escapeHtml(x.description) + '</div>' : '') +
+      links +
       '</li>';
   }
 

@@ -3125,6 +3125,42 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   gap: 0.45rem;
   margin-bottom: 0.85rem;
 }
+.hw-compose {
+  display: grid;
+  gap: 0.65rem;
+  max-width: 42rem;
+}
+.hw-compose-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+}
+.hw-compose-dates label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+}
+.hw-compose-dates input,
+.hw-compose-dates select {
+  min-width: 9rem;
+}
+.hw-compose input[type="text"],
+.hw-compose input:not([type]),
+.hw-compose textarea {
+  width: 100%;
+}
+.hw-compose-attach {
+  display: grid;
+  gap: 0.5rem;
+}
+.hw-compose-attach label {
+  display: grid;
+  gap: 0.25rem;
+}
+.hw-card a {
+  color: var(--teal, var(--sage));
+}
 .hw-date-chip {
   border: 1px solid var(--border-soft);
   background: var(--cream);

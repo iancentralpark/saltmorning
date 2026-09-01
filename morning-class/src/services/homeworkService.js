@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const { getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache } = require('../sheets');
 const { getClassRoster } = require('./teacherPortalService');
@@ -6,13 +8,70 @@ const LOG_SHEET = 'Homework_Log';
 const ITEMS_SHEET = 'Homework_Items';
 const COMPLETION_SHEET = 'Homework_Completion';
 
-const LOG_HEADERS = ['HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt', 'DueDate'];
+const LOG_HEADERS = [
+  'HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt', 'DueDate',
+  'LinkUrl', 'Points', 'AttachmentPath', 'AttachmentName'
+];
+const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'homework');
+const ATTACH_MIME = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'application/pdf': '.pdf',
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'text/plain': '.txt',
+  'application/zip': '.zip'
+};
 const ITEM_HEADERS = ['ItemID', 'HomeworkID', 'SortOrder', 'Title', 'Description', 'TargetStudentIDs', 'DueDate'];
 const COMP_HEADERS = ['ItemID', 'StudentID', 'Completed', 'CompletedAt', 'FixNote'];
 
-/** One-time DueDate header migration; skipCache thrash was slowing every homework read. */
+/** One-time header migration; skipCache thrash was slowing every homework read. */
 let homeworkHeaderMigrationDone = false;
 let homeworkHeaderMigrationInFlight = null;
+
+function ensureUploadDir() {
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+function saveHomeworkFile(homeworkId, file) {
+  if (!file || !file.buffer) return null;
+  const ext = ATTACH_MIME[file.mimetype];
+  if (!ext) throw new Error('File type not allowed. Use PDF, Word, Excel, image, text, or ZIP.');
+  ensureUploadDir();
+  const safeId = String(homeworkId).replace(/[^a-zA-Z0-9_-]/g, '');
+  const filename = safeId + '_' + Date.now() + ext;
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), file.buffer);
+  return {
+    path: '/uploads/homework/' + filename,
+    name: String(file.originalname || filename).slice(0, 180)
+  };
+}
+
+function removeHomeworkFile(filePath) {
+  const rel = String(filePath || '').replace(/^\/uploads\/homework\//, '');
+  if (!rel || rel.includes('..')) return;
+  const full = path.join(UPLOAD_DIR, rel);
+  try {
+    if (fs.existsSync(full)) fs.unlinkSync(full);
+  } catch (_) { /* ignore */ }
+}
+
+function logRowToMeta(row) {
+  return {
+    linkUrl: String(row[8] || '').trim(),
+    points: String(row[9] || '').trim(),
+    attachmentPath: String(row[10] || '').trim(),
+    attachmentName: String(row[11] || '').trim()
+  };
+}
+
+function isYouTubeUrl(url) {
+  return /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)/i.test(String(url || ''));
+}
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -22,21 +81,30 @@ function todaySeoul() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
 }
 
-async function migrateHomeworkDueDateHeaders() {
+async function migrateHomeworkLogHeaders() {
   if (homeworkHeaderMigrationDone) return;
   if (homeworkHeaderMigrationInFlight) return homeworkHeaderMigrationInFlight;
   homeworkHeaderMigrationInFlight = (async () => {
     try {
       const logs = await getSheetRows(LOG_SHEET, { skipCache: true });
       const header = logs[0] || [];
-      if (String(header[7] || '') !== 'DueDate') {
-        const next = header.slice();
-        while (next.length < LOG_HEADERS.length) next.push('');
-        for (let i = 0; i < LOG_HEADERS.length; i++) {
+      let needsUpdate = false;
+      const next = header.slice();
+      while (next.length < LOG_HEADERS.length) next.push('');
+      for (let i = 0; i < LOG_HEADERS.length; i++) {
+        if (!String(next[i] || '').trim() || next[i] !== LOG_HEADERS[i]) {
           if (!String(next[i] || '').trim()) next[i] = LOG_HEADERS[i];
+          needsUpdate = true;
         }
-        next[7] = 'DueDate';
-        await updateRange(LOG_SHEET, 'A1:H1', [next.slice(0, LOG_HEADERS.length)]);
+      }
+      for (let i = 0; i < LOG_HEADERS.length; i++) {
+        if (next[i] !== LOG_HEADERS[i]) {
+          next[i] = LOG_HEADERS[i];
+          needsUpdate = true;
+        }
+      }
+      if (needsUpdate) {
+        await updateRange(LOG_SHEET, 'A1:L1', [next.slice(0, LOG_HEADERS.length)]);
         invalidateSheetRowsCache(LOG_SHEET);
       }
     } catch (e) { /* non-fatal */ }
@@ -64,7 +132,7 @@ async function ensureHomeworkSheets() {
   await ensureSheet(LOG_SHEET, LOG_HEADERS);
   await ensureSheet(ITEMS_SHEET, ITEM_HEADERS);
   await ensureSheet(COMPLETION_SHEET, COMP_HEADERS);
-  await migrateHomeworkDueDateHeaders();
+  await migrateHomeworkLogHeaders();
 }
 
 function parseTargets(raw) {
@@ -74,23 +142,36 @@ function parseTargets(raw) {
     .filter(Boolean);
 }
 
-async function postHomework(classId, payload) {
+async function postHomework(classId, payload, file) {
   await ensureHomeworkSheets();
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
 
-  const title = String(payload.title || '').trim() || 'Homework';
+  const title = String(payload.title || '').trim();
+  if (!title) throw new Error('Homework title is required.');
   const description = String(payload.description || '').trim();
   const assignedDate = String(payload.assignedDate || todaySeoul()).trim();
   const dueDate = String(payload.dueDate || '').trim();
+  const linkUrl = String(payload.linkUrl || '').trim();
+  const points = String(payload.points || '').trim();
   const itemsIn = Array.isArray(payload.items) && payload.items.length
     ? payload.items
     : [{ title, description, dueDate }];
 
   const homeworkId = newId('hw');
   const postedAt = new Date().toISOString();
+  let attachmentPath = '';
+  let attachmentName = '';
+  if (file) {
+    const saved = saveHomeworkFile(homeworkId, file);
+    if (saved) {
+      attachmentPath = saved.path;
+      attachmentName = saved.name;
+    }
+  }
   await appendRows(LOG_SHEET, [[
-    homeworkId, classId, assignedDate, title, description, '', postedAt, dueDate
+    homeworkId, classId, assignedDate, title, description, '', postedAt, dueDate,
+    linkUrl, points, attachmentPath, attachmentName
   ]]);
 
   const itemRows = itemsIn.map((it, idx) => {
@@ -150,12 +231,14 @@ async function updateHomework(classId, homeworkId, payload) {
     : String(logs[logRow - 1][7] || '');
 
   const row = logs[logRow - 1].slice();
-  while (row.length < 8) row.push('');
+  while (row.length < LOG_HEADERS.length) row.push('');
   row[2] = assignedDate;
   row[3] = title;
   row[4] = description;
   row[7] = dueDate;
-  await updateRange(LOG_SHEET, `A${logRow}:H${logRow}`, [row]);
+  if (payload.linkUrl != null) row[8] = String(payload.linkUrl || '').trim();
+  if (payload.points != null) row[9] = String(payload.points || '').trim();
+  await updateRange(LOG_SHEET, `A${logRow}:L${logRow}`, [row.slice(0, LOG_HEADERS.length)]);
 
   if (Array.isArray(payload.items) && payload.items.length) {
     const items = await getSheetRows(ITEMS_SHEET, { skipCache: true });
@@ -222,8 +305,10 @@ async function getClassHomework(classId) {
   const homeworks = [];
   for (let i = 1; i < logs.length; i++) {
     if (String(logs[i][1]) !== classId) continue;
-    const homeworkId = String(logs[i][0]);
+    const homeworkId = String(logs[i][0] || '').trim();
+    if (!homeworkId) continue;
     const hwDue = String(logs[i][7] || '');
+    const extras = logRowToMeta(logs[i]);
     const hwItems = [];
     for (let j = 1; j < items.length; j++) {
       if (String(items[j][1]) !== homeworkId) continue;
@@ -262,6 +347,11 @@ async function getClassHomework(classId) {
       title: String(logs[i][3] || ''),
       description: String(logs[i][4] || ''),
       postedAt: String(logs[i][6] || ''),
+      linkUrl: extras.linkUrl,
+      points: extras.points,
+      attachmentPath: extras.attachmentPath,
+      attachmentName: extras.attachmentName,
+      isYouTube: isYouTubeUrl(extras.linkUrl),
       items: hwItems
     });
   }
@@ -293,10 +383,12 @@ async function getStudentHomeworkStatus(studentId, classId) {
 
   for (let i = 1; i < logs.length; i++) {
     if (classId && String(logs[i][1]) !== classId) continue;
-    const homeworkId = String(logs[i][0]);
+    const homeworkId = String(logs[i][0] || '').trim();
+    if (!homeworkId) continue;
     const assignedDate = String(logs[i][2] || '');
     const hwDue = String(logs[i][7] || '');
     const hwTitle = String(logs[i][3] || 'Homework');
+    const extras = logRowToMeta(logs[i]);
 
     for (let j = 1; j < items.length; j++) {
       if (String(items[j][1]) !== homeworkId) continue;
@@ -312,7 +404,12 @@ async function getStudentHomeworkStatus(studentId, classId) {
         dueDate,
         title: String(items[j][3] || hwTitle),
         description: String(items[j][4] || logs[i][4] || ''),
-        homeworkTitle: hwTitle
+        homeworkTitle: hwTitle,
+        linkUrl: extras.linkUrl,
+        points: extras.points,
+        attachmentPath: extras.attachmentPath,
+        attachmentName: extras.attachmentName,
+        isYouTube: isYouTubeUrl(extras.linkUrl)
       };
       const c = done[itemId + ':' + studentId];
       if (c && c.completed) {
@@ -347,6 +444,7 @@ async function getPendingHomeworkCounts(classId, opts) {
   const classHomeworkIds = new Set();
   for (let i = 1; i < logs.length; i++) {
     if (classId && String(logs[i][1]) !== classId) continue;
+    if (!String(logs[i][0] || '').trim()) continue;
     classHomeworkIds.add(String(logs[i][0]));
   }
 
@@ -403,10 +501,55 @@ async function setHomeworkCompletion(itemId, studentId, completed, fixNote) {
   return { itemId, studentId, completed: isDone };
 }
 
+async function deleteHomework(classId, homeworkId) {
+  await ensureHomeworkSheets();
+  classId = String(classId || '').trim();
+  homeworkId = String(homeworkId || '').trim();
+  if (!classId || !homeworkId) throw new Error('Class and homework ID are required.');
+
+  const logs = await getSheetRows(LOG_SHEET, { skipCache: true });
+  let logRow = -1;
+  let attachmentPath = '';
+  for (let i = 1; i < logs.length; i++) {
+    if (String(logs[i][0]) !== homeworkId) continue;
+    if (String(logs[i][1]) !== classId) throw new Error('Homework not found for this class.');
+    logRow = i + 1;
+    attachmentPath = String(logs[i][10] || '');
+    break;
+  }
+  if (logRow < 0) throw new Error('Homework not found.');
+
+  const items = await getSheetRows(ITEMS_SHEET, { skipCache: true });
+  const itemIds = [];
+  for (let j = 1; j < items.length; j++) {
+    if (String(items[j][1]) !== homeworkId) continue;
+    const itemId = String(items[j][0] || '');
+    if (itemId) itemIds.push(itemId);
+    await updateRange(ITEMS_SHEET, `A${j + 1}:G${j + 1}`, [new Array(7).fill('')]);
+  }
+
+  if (itemIds.length) {
+    const comps = await getSheetRows(COMPLETION_SHEET, { skipCache: true });
+    for (let k = 1; k < comps.length; k++) {
+      if (!itemIds.includes(String(comps[k][0] || ''))) continue;
+      await updateRange(COMPLETION_SHEET, `A${k + 1}:E${k + 1}`, [new Array(5).fill('')]);
+    }
+    invalidateSheetRowsCache(COMPLETION_SHEET);
+  }
+
+  await updateRange(LOG_SHEET, `A${logRow}:L${logRow}`, [new Array(LOG_HEADERS.length).fill('')]);
+  invalidateSheetRowsCache(LOG_SHEET);
+  invalidateSheetRowsCache(ITEMS_SHEET);
+  if (attachmentPath) removeHomeworkFile(attachmentPath);
+
+  return getClassHomework(classId);
+}
+
 module.exports = {
   ensureHomeworkSheets,
   postHomework,
   updateHomework,
+  deleteHomework,
   getClassHomework,
   getStudentHomeworkStatus,
   getPendingHomeworkCounts,

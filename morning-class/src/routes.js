@@ -244,6 +244,7 @@ const {
 const {
   postHomework,
   updateHomework,
+  deleteHomework,
   getClassHomework,
   getStudentHomeworkStatus,
   setHomeworkCompletion,
@@ -336,6 +337,24 @@ const lostFoundUpload = multer({
   fileFilter: (req, file, cb) => {
     const ok = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.mimetype);
     cb(ok ? null : new Error('Photo must be JPEG, PNG, WebP, or GIF.'), ok);
+  }
+});
+
+const homeworkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'application/zip'
+    ].includes(file.mimetype);
+    cb(ok ? null : new Error('File type not allowed for homework attachments.'), ok);
   }
 });
 
@@ -1695,12 +1714,24 @@ router.get('/teacher/class/:classId/homework', requireRole('teacher'), async (re
   }
 });
 
-router.post('/teacher/class/:classId/homework', requireRole('teacher'), async (req, res) => {
+router.post('/teacher/class/:classId/homework', requireRole('teacher'), (req, res) => {
+  homeworkUpload.single('attachment')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed.' });
+    try {
+      const data = await postHomework(req.params.classId, req.body || {}, req.file);
+      res.json(data);
+    } catch (e) {
+      res.status(400).json({ error: e.message || 'Could not post homework.' });
+    }
+  });
+});
+
+router.delete('/teacher/class/:classId/homework/:homeworkId', requireRole('teacher'), async (req, res) => {
   try {
-    const data = await postHomework(req.params.classId, req.body || {});
+    const data = await deleteHomework(req.params.classId, req.params.homeworkId);
     res.json(data);
   } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not post homework.' });
+    res.status(400).json({ error: e.message || 'Could not delete homework.' });
   }
 });
 

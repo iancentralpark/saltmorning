@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20260831redesign">
+  <link rel="stylesheet" href="/css/app.css?v=20260901hw1">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -258,11 +258,38 @@
     </div>
 
     <div id="panelHomework" class="card hidden">
-      <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem">
-        <p class="muted small" style="margin:0">Homework by assigned date. Open a day to mark student work done.</p>
-        <button type="button" class="btn btn-primary" id="hwOpenPostBtn">Post Homework</button>
-      </div>
-      <div id="hwDateList" class="hw-date-list"></div>
+      <form id="hwComposeForm" class="hw-compose">
+        <h3 style="margin:0 0 0.75rem">Upload Homework</h3>
+        <div class="hw-compose-dates">
+          <label>Assigned date <input type="date" id="hwAssignedDate" required></label>
+          <label>Due date <input type="date" id="hwDueDate"></label>
+          <label>Points
+            <select id="hwPoints">
+              <option value="">No points</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100" selected>100</option>
+            </select>
+          </label>
+        </div>
+        <input id="hwComposeTitle" placeholder="Homework title" required maxlength="120">
+        <textarea id="hwComposeDesc" placeholder="Instructions or description" rows="3" maxlength="2000"></textarea>
+        <div class="hw-compose-attach">
+          <label class="muted small">Link (YouTube, Google Form, etc.)
+            <input type="url" id="hwComposeLink" placeholder="https://…" maxlength="500">
+          </label>
+          <label class="muted small">File attachment
+            <input type="file" id="hwComposeFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,image/*">
+          </label>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary" type="submit">Upload Homework</button>
+          <span class="muted small">Posted homework appears below. Students see it on their dashboard.</span>
+        </div>
+        <div class="error" id="hwComposeError"></div>
+      </form>
+      <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border-soft)">
       <div id="hwTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="hwTeacherError"></div>
     </div>
@@ -446,29 +473,6 @@
   </div>
 </div>
 
-<div id="hwPostModal" class="modal hidden hw-modal" role="dialog">
-  <div class="modal-card modal-wide">
-    <h3>Post Homework</h3>
-    <p class="muted small">Add one or more homework items for the assigned date. Each item can have its own due date.</p>
-    <form id="hwPostForm" class="form-grid">
-      <label>Assigned date <input type="date" id="hwDate" required></label>
-      <input id="hwTitle" placeholder="Post title (optional summary)" maxlength="120">
-      <textarea id="hwDesc" placeholder="Overall description (optional)" rows="2" maxlength="500"></textarea>
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.35rem">
-          <strong>Homework items</strong>
-          <button type="button" class="btn btn-ghost" id="hwAddItemBtn">+ Add Homework</button>
-        </div>
-        <div id="hwItemsMount"></div>
-      </div>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-        <button class="btn btn-primary" type="submit">Post</button>
-        <button type="button" class="btn btn-ghost" id="hwPostClose">Cancel</button>
-      </div>
-      <div class="error" id="hwPostError"></div>
-    </form>
-  </div>
-</div>
 
 <div id="plannedModal" class="modal hidden" role="dialog">
   <div class="modal-card">
@@ -1424,66 +1428,44 @@
     }
   }
 
-  let hwCache = { dates: [], byDate: {}, selectedDate: '' };
+  let hwCache = { homeworks: [] };
 
-  function addHwItemRow(prefill) {
-    const mount = $('hwItemsMount');
-    if (!mount) return;
-    const row = document.createElement('div');
-    row.className = 'hw-item-row';
-    row.innerHTML =
-      '<input class="hw-item-title" placeholder="Homework title" required maxlength="120" value="' +
-      escapeHtml((prefill && prefill.title) || '') + '">' +
-      '<textarea class="hw-item-desc" placeholder="Description (optional)" rows="2" maxlength="500">' +
-      escapeHtml((prefill && prefill.description) || '') + '</textarea>' +
-      '<label class="muted small">Due date <input type="date" class="hw-item-due" value="' +
-      escapeHtml((prefill && prefill.dueDate) || '') + '"></label>' +
-      '<button type="button" class="btn btn-ghost hw-item-remove">Remove</button>';
-    mount.appendChild(row);
-    row.querySelector('.hw-item-remove').addEventListener('click', () => {
-      if (mount.querySelectorAll('.hw-item-row').length <= 1) return;
-      row.remove();
-    });
+  function hwAttachmentHtml(hw) {
+    let html = '';
+    if (hw.linkUrl) {
+      const label = hw.isYouTube ? 'Watch video' : 'Open link';
+      html += '<p class="muted small"><a href="' + escapeHtml(hw.linkUrl) + '" target="_blank" rel="noopener">' +
+        escapeHtml(label) + '</a></p>';
+    }
+    if (hw.attachmentPath) {
+      html += '<p class="muted small"><a href="' + escapeHtml(hw.attachmentPath) + '" target="_blank" rel="noopener">' +
+        escapeHtml(hw.attachmentName || 'Download file') + '</a></p>';
+    }
+    return html;
   }
 
-  function openHwPostModal() {
-    if (!currentClass) return;
-    $('hwPostError').textContent = '';
-    $('hwTitle').value = '';
-    $('hwDesc').value = '';
-    $('hwDate').value = todayISO();
-    $('hwItemsMount').innerHTML = '';
-    addHwItemRow({ title: '', dueDate: todayISO() });
-    show($('hwPostModal'));
-  }
-
-  function renderHomeworkForDate(dateKey) {
+  function renderHomeworkList() {
     const box = $('hwTeacherList');
     const err = $('hwTeacherError');
-    const list = (hwCache.byDate && hwCache.byDate[dateKey]) || [];
-    hwCache.selectedDate = dateKey;
-    document.querySelectorAll('.hw-date-chip').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.date === dateKey);
-    });
+    const list = hwCache.homeworks || [];
     if (!list.length) {
-      box.innerHTML = '<p class="muted">No homework on this date.</p>';
+      box.innerHTML = '<p class="muted">No homework posted yet. Use the form above to upload.</p>';
       return;
     }
     box.innerHTML = list.map((hw) => {
-      let html = '<div class="card" style="margin-bottom:0.75rem">' +
-        '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">' +
-        '<strong>' + escapeHtml(hw.title || 'Homework') + '</strong>' +
-        '<span class="muted small">Assigned ' + escapeHtml(hw.assignedDate || '') +
-        (hw.dueDate ? ' · Due ' + escapeHtml(hw.dueDate) : '') +
-        ' <button type="button" class="btn btn-ghost hw-edit" data-id="' + escapeHtml(hw.homeworkId) +
-        '" data-title="' + escapeHtml(hw.title || '') + '" data-desc="' + escapeHtml(hw.description || '') +
-        '" data-due="' + escapeHtml(hw.dueDate || '') + '">Edit</button></span></div>' +
-        (hw.description ? '<p class="muted small">' + escapeHtml(hw.description) + '</p>' : '');
+      let html = '<div class="card hw-card" style="margin-bottom:0.75rem">' +
+        '<div style="display:flex;justify-content:space-between;gap:0.5rem;flex-wrap:wrap;align-items:flex-start">' +
+        '<div><strong>' + escapeHtml(hw.title || 'Homework') + '</strong>' +
+        (hw.points ? ' <span class="muted small">· ' + escapeHtml(hw.points) + ' pts</span>' : '') +
+        '<div class="muted small">Assigned ' + escapeHtml(hw.assignedDate || '') +
+        (hw.dueDate ? ' · Due ' + escapeHtml(hw.dueDate) : '') + '</div></div>' +
+        '<button type="button" class="btn btn-ghost hw-delete" data-id="' + escapeHtml(hw.homeworkId) +
+        '">Delete</button></div>' +
+        (hw.description ? '<p class="muted small" style="margin:0.35rem 0 0">' + escapeHtml(hw.description) + '</p>' : '') +
+        hwAttachmentHtml(hw);
       (hw.items || []).forEach((item) => {
-        html += '<div style="margin-top:0.5rem"><div class="muted small">' +
-          escapeHtml(item.title) +
-          (item.dueDate ? ' · due ' + escapeHtml(item.dueDate) : '') +
-          ' · ' + item.completedCount + '/' + item.totalCount + ' done</div>';
+        html += '<div style="margin-top:0.65rem"><div class="muted small">' +
+          item.completedCount + '/' + item.totalCount + ' students done</div>';
         html += '<div class="table-wrap"><table class="grades-table"><thead><tr><th>Student</th><th>Status</th><th></th></tr></thead><tbody>';
         (item.completions || []).forEach((c) => {
           html += '<tr><td>' + escapeHtml(c.name) + '</td><td>' +
@@ -1509,28 +1491,23 @@
             method: 'POST',
             body: { itemId: btn.dataset.item, studentId: btn.dataset.sid, completed: true }
           }, role);
-          loadHomework(hwCache.selectedDate);
+          loadHomework();
         } catch (e) {
           err.textContent = e.message;
         }
       });
     });
-    box.querySelectorAll('.hw-edit').forEach((btn) => {
+    box.querySelectorAll('.hw-delete').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        const title = window.prompt('Title', btn.dataset.title || '');
-        if (title == null) return;
-        const description = window.prompt('Description', btn.dataset.desc || '');
-        if (description == null) return;
-        const dueDate = window.prompt('Due date (YYYY-MM-DD, blank = none)', btn.dataset.due || '');
-        if (dueDate == null) return;
+        if (!confirm('Delete this homework? Students will no longer see it.')) return;
         err.textContent = '';
         try {
           await api(
             '/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework/' + encodeURIComponent(btn.dataset.id),
-            { method: 'PATCH', body: { title, description, dueDate } },
+            { method: 'DELETE' },
             role
           );
-          loadHomework(hwCache.selectedDate);
+          loadHomework();
         } catch (e) {
           err.textContent = e.message;
         }
@@ -1538,81 +1515,68 @@
     });
   }
 
-  async function loadHomework(preferredDate) {
+  function resetHwComposeForm() {
+    $('hwComposeTitle').value = '';
+    $('hwComposeDesc').value = '';
+    $('hwComposeLink').value = '';
+    $('hwComposeFile').value = '';
+    $('hwAssignedDate').value = todayISO();
+    $('hwDueDate').value = '';
+    $('hwPoints').value = '100';
+    $('hwComposeError').textContent = '';
+  }
+
+  async function loadHomework() {
     if (!currentClass) return;
     const box = $('hwTeacherList');
-    const dateList = $('hwDateList');
     const err = $('hwTeacherError');
     err.textContent = '';
     box.innerHTML = '<p class="muted">Loading…</p>';
-    dateList.innerHTML = '';
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework', {}, role);
-      hwCache = {
-        dates: data.dates || [],
-        byDate: data.byDate || {},
-        selectedDate: preferredDate || ''
-      };
-      if (!hwCache.dates.length) {
-        box.innerHTML = '<p class="muted">No homework posted yet. Click <strong>Post Homework</strong> to add some.</p>';
-        return;
-      }
-      dateList.innerHTML = hwCache.dates.map((d) =>
-        '<button type="button" class="hw-date-chip" data-date="' + escapeHtml(d) + '">' +
-        escapeHtml(d) + ' · ' + ((hwCache.byDate[d] || []).length) + '</button>'
-      ).join('');
-      dateList.querySelectorAll('.hw-date-chip').forEach((btn) => {
-        btn.addEventListener('click', () => renderHomeworkForDate(btn.dataset.date));
-      });
-      const initial = (preferredDate && hwCache.byDate[preferredDate])
-        ? preferredDate
-        : hwCache.dates[0];
-      renderHomeworkForDate(initial);
+      hwCache = { homeworks: data.homeworks || [] };
+      renderHomeworkList();
     } catch (e) {
       box.innerHTML = '';
       err.textContent = e.message;
     }
   }
 
-  $('hwOpenPostBtn').addEventListener('click', openHwPostModal);
-  $('hwPostClose').addEventListener('click', () => hide($('hwPostModal')));
-  $('hwAddItemBtn').addEventListener('click', () => addHwItemRow({ dueDate: $('hwDate').value || todayISO() }));
-  $('hwPostForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!currentClass) return;
-    const err = $('hwPostError');
-    err.textContent = '';
-    const items = [];
-    $('hwItemsMount').querySelectorAll('.hw-item-row').forEach((row) => {
-      const title = row.querySelector('.hw-item-title').value.trim();
-      if (!title) return;
-      items.push({
-        title,
-        description: row.querySelector('.hw-item-desc').value.trim(),
-        dueDate: row.querySelector('.hw-item-due').value
-      });
+  if ($('hwComposeForm')) {
+    $('hwAssignedDate').value = todayISO();
+    $('hwComposeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentClass) return;
+      const err = $('hwComposeError');
+      err.textContent = '';
+      const title = $('hwComposeTitle').value.trim();
+      if (!title) {
+        err.textContent = 'Enter a homework title.';
+        return;
+      }
+      const fd = new FormData();
+      fd.append('title', title);
+      fd.append('description', $('hwComposeDesc').value.trim());
+      fd.append('assignedDate', $('hwAssignedDate').value);
+      fd.append('dueDate', $('hwDueDate').value);
+      fd.append('linkUrl', $('hwComposeLink').value.trim());
+      fd.append('points', $('hwPoints').value);
+      const fileInput = $('hwComposeFile');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        fd.append('attachment', fileInput.files[0]);
+      }
+      try {
+        await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework', {
+          method: 'POST',
+          body: fd
+        }, role);
+        resetHwComposeForm();
+        loadHomework();
+      } catch (ex) {
+        err.textContent = ex.message;
+      }
     });
-    if (!items.length) {
-      err.textContent = 'Add at least one homework item.';
-      return;
-    }
-    try {
-      await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework', {
-        method: 'POST',
-        body: {
-          title: $('hwTitle').value.trim() || items[0].title,
-          description: $('hwDesc').value.trim(),
-          assignedDate: $('hwDate').value,
-          dueDate: items[0].dueDate || '',
-          items
-        }
-      }, role);
-      hide($('hwPostModal'));
-      loadHomework($('hwDate').value);
-    } catch (ex) {
-      err.textContent = ex.message;
-    }
-  });
+  }
 
   async function loadVocabOverview() {
     if (!currentClass) return;
