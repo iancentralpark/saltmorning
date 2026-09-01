@@ -66,11 +66,11 @@
     }
     let html = '<div class="hw-google-pick">';
     if (pickState.assignmentType === 'quiz') {
-      html += '<span class="hw-google-badge">Quiz</span> ';
+      html += '<span class="hw-google-badge"><i class="fa-solid fa-circle-question"></i> Quiz</span>';
     } else if (pickState.assignmentType === 'assignment' && pickState.googleFormId) {
-      html += '<span class="hw-google-badge">Google Form</span> ';
+      html += '<span class="hw-google-badge"><i class="fa-solid fa-list-check"></i> Form</span>';
     } else if (pickState.googleDriveFileId) {
-      html += '<span class="hw-google-badge">Drive</span> ';
+      html += '<span class="hw-google-badge"><i class="fa-brands fa-google-drive"></i> Drive</span>';
     }
     html += '<span>' + deps.escapeHtml(pickState.attachmentName || 'Attached') + '</span> ';
     html += '<button type="button" class="btn btn-ghost" id="hwGooglePickClear">Remove</button>';
@@ -117,15 +117,23 @@
     const bar = deps.$('hwGoogleBar');
     if (!bar) return;
     if (!status || !status.configured) {
-      bar.innerHTML = '<p class="muted small">Google Drive &amp; Forms: server OAuth not configured yet. You can still paste links or upload files.</p>';
+      bar.innerHTML =
+        '<p class="muted small" style="margin:0;text-align:center">' +
+        'Google Drive &amp; Forms: OAuth not configured on server. You can still paste links or upload files.' +
+        '</p>';
       bar.classList.remove('hidden');
       return;
     }
     if (!status.linked) {
       bar.innerHTML =
         '<div class="hw-google-connect">' +
-          '<p class="muted small" style="margin:0">Connect Google to attach Drive files or create Forms without leaving Salt Morning.</p>' +
-          '<button type="button" class="btn btn-ghost" id="hwGoogleConnectBtn">Connect Google account</button>' +
+          '<div class="hw-google-connect-copy">' +
+            '<span class="hw-google-account-icon"><i class="fa-brands fa-google" aria-hidden="true"></i></span>' +
+            '<p class="muted small">Connect Google to attach Drive files or create Forms &amp; quizzes.</p>' +
+          '</div>' +
+          '<button type="button" class="btn btn-primary hw-google-connect-btn" id="hwGoogleConnectBtn">' +
+            '<i class="fa-brands fa-google" aria-hidden="true"></i> Connect Google' +
+          '</button>' +
         '</div>';
       bar.classList.remove('hidden');
       const btn = deps.$('hwGoogleConnectBtn');
@@ -149,11 +157,26 @@
     }
     bar.innerHTML =
       '<div class="hw-google-tools">' +
-        '<span class="muted small">Google: ' + deps.escapeHtml(status.email || 'connected') + '</span>' +
-        '<button type="button" class="btn btn-ghost" id="hwGoogleDriveBtn">Drive</button>' +
-        '<button type="button" class="btn btn-ghost" id="hwGoogleFormBtn">New Form</button>' +
-        '<button type="button" class="btn btn-ghost" id="hwGoogleQuizBtn">New Quiz</button>' +
-        '<button type="button" class="btn btn-ghost" id="hwGoogleDisconnectBtn">Disconnect</button>' +
+        '<div class="hw-google-account">' +
+          '<span class="hw-google-account-icon"><i class="fa-brands fa-google" aria-hidden="true"></i></span>' +
+          '<span class="hw-google-email" title="' + deps.escapeHtml(status.email || '') + '">' +
+            deps.escapeHtml(status.email || 'Google connected') +
+          '</span>' +
+        '</div>' +
+        '<div class="hw-google-actions">' +
+          '<button type="button" class="hw-google-chip hw-google-chip--drive" id="hwGoogleDriveBtn">' +
+            '<i class="fa-brands fa-google-drive" aria-hidden="true"></i> Drive' +
+          '</button>' +
+          '<button type="button" class="hw-google-chip hw-google-chip--form" id="hwGoogleFormBtn">' +
+            '<i class="fa-solid fa-list-check" aria-hidden="true"></i> New Form' +
+          '</button>' +
+          '<button type="button" class="hw-google-chip hw-google-chip--quiz" id="hwGoogleQuizBtn">' +
+            '<i class="fa-solid fa-circle-question" aria-hidden="true"></i> New Quiz' +
+          '</button>' +
+          '<button type="button" class="hw-google-chip hw-google-chip--muted" id="hwGoogleDisconnectBtn">' +
+            '<i class="fa-solid fa-link-slash" aria-hidden="true"></i> Disconnect' +
+          '</button>' +
+        '</div>' +
       '</div>';
     bar.classList.remove('hidden');
     deps.$('hwGoogleDriveBtn').addEventListener('click', () => openDrivePicker());

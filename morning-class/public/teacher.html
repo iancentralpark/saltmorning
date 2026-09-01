@@ -16,7 +16,8 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20260901hw1">
+  <link rel="stylesheet" href="/css/app.css?v=20260901hw2">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css" rel="stylesheet">
@@ -257,14 +258,23 @@
       <div class="error" id="dollarTeacherError"></div>
     </div>
 
-    <div id="panelHomework" class="card hidden">
+    <div id="panelHomework" class="card hw-panel hidden">
+      <div class="hw-panel-head">
+        <div>
+          <h3 class="hw-panel-title">Upload Homework</h3>
+          <p class="muted small hw-panel-sub">Post to this class. Students and parents see it on their dashboard.</p>
+        </div>
+      </div>
       <div id="hwGoogleBar" class="hw-google-bar hidden"></div>
       <form id="hwComposeForm" class="hw-compose">
-        <h3 style="margin:0 0 0.75rem">Upload Homework</h3>
-        <div class="hw-compose-dates">
-          <label>Assigned date <input type="date" id="hwAssignedDate" required></label>
-          <label>Due date <input type="date" id="hwDueDate"></label>
-          <label>Points
+        <div class="hw-compose-grid">
+          <label class="hw-field">Assigned date
+            <input type="date" id="hwAssignedDate" required>
+          </label>
+          <label class="hw-field">Due date
+            <input type="date" id="hwDueDate">
+          </label>
+          <label class="hw-field">Points
             <select id="hwPoints">
               <option value="">No points</option>
               <option value="10">10</option>
@@ -273,25 +283,37 @@
               <option value="100" selected>100</option>
             </select>
           </label>
-        </div>
-        <input id="hwComposeTitle" placeholder="Homework title" required maxlength="120">
-        <textarea id="hwComposeDesc" placeholder="Instructions or description" rows="3" maxlength="2000"></textarea>
-        <div class="hw-compose-attach">
-          <label class="muted small">Link (YouTube, Google Form, etc.)
-            <input type="url" id="hwComposeLink" placeholder="https://…" maxlength="500">
+          <label class="hw-field hw-field-span">Title
+            <input type="text" id="hwComposeTitle" placeholder="Homework title" required maxlength="120">
           </label>
-          <label class="muted small">File attachment
-            <input type="file" id="hwComposeFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,image/*">
+          <label class="hw-field hw-field-span">Instructions
+            <textarea id="hwComposeDesc" placeholder="What should students do?" rows="4" maxlength="2000"></textarea>
           </label>
+          <div class="hw-field hw-field-span hw-attach-block">
+            <span class="hw-field-label">Attachments</span>
+            <div class="hw-attach-row">
+              <label class="hw-attach-input">
+                <span class="hw-attach-input-label"><i class="fa-solid fa-link" aria-hidden="true"></i> Link</span>
+                <input type="url" id="hwComposeLink" placeholder="YouTube, Google Form, or any URL" maxlength="500">
+              </label>
+              <label class="hw-attach-input">
+                <span class="hw-attach-input-label"><i class="fa-solid fa-paperclip" aria-hidden="true"></i> File</span>
+                <input type="file" id="hwComposeFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,image/*">
+              </label>
+            </div>
+            <div id="hwGooglePickSummary" class="hidden"></div>
+          </div>
         </div>
-        <div id="hwGooglePickSummary" class="hidden"></div>
-        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-primary" type="submit">Upload Homework</button>
-          <span class="muted small">Posted homework appears below. Students see it on their dashboard.</span>
+        <div class="hw-compose-actions">
+          <button class="btn btn-primary hw-upload-btn" type="submit">
+            <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload Homework
+          </button>
         </div>
         <div class="error" id="hwComposeError"></div>
       </form>
-      <hr style="margin:1.25rem 0;border:none;border-top:1px solid var(--border-soft)">
+      <div class="hw-list-head">
+        <h4>Posted homework</h4>
+      </div>
       <div id="hwTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="hwTeacherError"></div>
     </div>
@@ -555,7 +577,7 @@
 <script src="/js/teacher-lesson.js?v=20260817perf1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
-<script src="/js/google-homework.js?v=20260901google1"></script>
+<script src="/js/google-homework.js?v=20260901hw2"></script>
 <script src="/js/student-registry.js?v=20260813gap27"></script>
 <script src="/js/timetable.js?v=20260901click1"></script>
 <script>

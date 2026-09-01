@@ -3125,10 +3125,103 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   gap: 0.45rem;
   margin-bottom: 0.85rem;
 }
+.hw-panel {
+  padding: 1.1rem 1.15rem 1.25rem;
+}
+.hw-panel-head {
+  margin-bottom: 0.85rem;
+}
+.hw-panel-title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.hw-panel-sub {
+  margin: 0.3rem 0 0;
+}
 .hw-compose {
+  display: block;
+  width: 100%;
+}
+.hw-compose-grid {
   display: grid;
-  gap: 0.65rem;
-  max-width: 42rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem 1rem;
+}
+.hw-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.hw-field input,
+.hw-field select,
+.hw-field textarea {
+  font-weight: 400;
+  width: 100%;
+}
+.hw-field-span {
+  grid-column: 1 / -1;
+}
+.hw-field-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.hw-attach-block {
+  gap: 0.55rem;
+}
+.hw-attach-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.hw-attach-input {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.55rem;
+  background: #fff;
+}
+.hw-attach-input-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.hw-compose-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  padding-top: 0.25rem;
+}
+.hw-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 12rem;
+  justify-content: center;
+  padding: 0.55rem 1.25rem;
+}
+.hw-list-head {
+  margin: 1.35rem 0 0.65rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+.hw-list-head h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+@media (max-width: 720px) {
+  .hw-compose-grid {
+    grid-template-columns: 1fr;
+  }
+  .hw-attach-row {
+    grid-template-columns: 1fr;
+  }
 }
 .hw-compose-dates {
   display: flex;
@@ -3158,28 +3251,119 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   display: grid;
   gap: 0.25rem;
 }
+.hw-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 0.65rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+}
 .hw-card a {
   color: var(--teal, var(--sage));
 }
 .hw-google-bar {
-  margin-bottom: 0.85rem;
-  padding: 0.65rem 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
   border: 1px solid var(--border-soft);
-  border-radius: 0.55rem;
-  background: rgba(13, 148, 136, 0.06);
+  border-radius: 0.65rem;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.07), rgba(59, 130, 246, 0.05));
 }
 .hw-google-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.5rem;
+  gap: 0.65rem 1rem;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
+.hw-google-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.hw-google-account-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #4285f4;
+  flex-shrink: 0;
+}
+.hw-google-email {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14rem;
+}
+.hw-google-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+}
+.hw-google-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.hw-google-chip:hover {
+  border-color: rgba(13, 148, 136, 0.45);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.12);
+}
+.hw-google-chip i {
+  font-size: 0.95rem;
+}
+.hw-google-chip--drive i { color: #0f9d58; }
+.hw-google-chip--form i { color: #7248b9; }
+.hw-google-chip--quiz i { color: #ea8600; }
+.hw-google-chip--muted {
+  color: var(--muted, #64748b);
+  font-weight: 500;
+}
+.hw-google-chip--muted i { color: #94a3b8; }
 .hw-google-connect {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
+  gap: 0.75rem 1rem;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+}
+.hw-google-connect-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 12rem;
+}
+.hw-google-connect-copy p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.hw-google-connect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
 }
 .hw-google-badge {
   display: inline-block;
@@ -3193,12 +3377,13 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .hw-google-pick {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.5rem;
+  gap: 0.45rem 0.65rem;
   align-items: center;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.45rem;
-  background: #fff;
-  border: 1px dashed var(--border-soft);
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(13, 148, 136, 0.06);
+  border: 1px dashed rgba(13, 148, 136, 0.35);
 }
 .hw-date-chip {
   border: 1px solid var(--border-soft);
