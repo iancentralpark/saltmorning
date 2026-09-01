@@ -414,9 +414,17 @@
     if (x.points) extra += ' · ' + escapeHtml(x.points) + ' pts';
     if (x.dueDate) extra += ' · Due ' + escapeHtml(x.dueDate);
     let links = '';
+    if (x.assignmentType === 'quiz') {
+      links += '<div><span class="hw-google-badge">Quiz</span></div>';
+    } else if (x.isGoogleForm) {
+      links += '<div><span class="hw-google-badge">Google Form</span></div>';
+    }
     if (x.linkUrl) {
+      let label = 'Open link';
+      if (x.isYouTube) label = 'Watch video';
+      else if (x.isGoogleForm) label = 'Open form';
       links += '<div><a href="' + escapeHtml(x.linkUrl) + '" target="_blank" rel="noopener">' +
-        escapeHtml(x.isYouTube ? 'Watch video' : 'Open link') + '</a></div>';
+        escapeHtml(label) + '</a></div>';
     }
     if (x.attachmentPath) {
       links += '<div><a href="' + escapeHtml(x.attachmentPath) + '" target="_blank" rel="noopener">' +

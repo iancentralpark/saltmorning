@@ -885,9 +885,14 @@ window.SaltParent = (function() {
       else {
         html += pending.map((h) => {
           let links = '';
+          if (h.assignmentType === 'quiz') {
+            links += '<p class="muted small"><span class="hw-google-badge">Quiz</span></p>';
+          } else if (h.isGoogleForm) {
+            links += '<p class="muted small"><span class="hw-google-badge">Google Form</span></p>';
+          }
           if (h.linkUrl) {
             links += '<p class="muted small"><a href="' + escapeHtml(h.linkUrl) + '" target="_blank" rel="noopener">' +
-              escapeHtml(h.isYouTube ? 'Watch video' : 'Open link') + '</a></p>';
+              escapeHtml(h.isYouTube ? 'Watch video' : (h.isGoogleForm ? 'Open form' : 'Open link')) + '</a></p>';
           }
           if (h.attachmentPath) {
             links += '<p class="muted small"><a href="' + escapeHtml(h.attachmentPath) + '" target="_blank" rel="noopener">' +

@@ -3161,6 +3161,45 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 .hw-card a {
   color: var(--teal, var(--sage));
 }
+.hw-google-bar {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.55rem;
+  background: rgba(13, 148, 136, 0.06);
+}
+.hw-google-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+}
+.hw-google-connect {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.hw-google-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(13, 148, 136, 0.15);
+  color: var(--teal, #0D9488);
+}
+.hw-google-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: #fff;
+  border: 1px dashed var(--border-soft);
+}
 .hw-date-chip {
   border: 1px solid var(--border-soft);
   background: var(--cream);

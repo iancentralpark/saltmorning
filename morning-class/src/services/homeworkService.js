@@ -10,7 +10,7 @@ const COMPLETION_SHEET = 'Homework_Completion';
 
 const LOG_HEADERS = [
   'HomeworkID', 'ClassID', 'AssignedDate', 'Title', 'Description', 'ClassroomWorkId', 'PostedAt', 'DueDate',
-  'LinkUrl', 'Points', 'AttachmentPath', 'AttachmentName'
+  'LinkUrl', 'Points', 'AttachmentPath', 'AttachmentName', 'GoogleFormId', 'GoogleDriveFileId', 'AssignmentType'
 ];
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'homework');
 const ATTACH_MIME = {
@@ -65,8 +65,15 @@ function logRowToMeta(row) {
     linkUrl: String(row[8] || '').trim(),
     points: String(row[9] || '').trim(),
     attachmentPath: String(row[10] || '').trim(),
-    attachmentName: String(row[11] || '').trim()
+    attachmentName: String(row[11] || '').trim(),
+    googleFormId: String(row[12] || '').trim(),
+    googleDriveFileId: String(row[13] || '').trim(),
+    assignmentType: String(row[14] || '').trim()
   };
+}
+
+function isGoogleFormUrl(url) {
+  return /docs\.google\.com\/forms\//i.test(String(url || ''));
 }
 
 function isYouTubeUrl(url) {
@@ -104,7 +111,7 @@ async function migrateHomeworkLogHeaders() {
         }
       }
       if (needsUpdate) {
-        await updateRange(LOG_SHEET, 'A1:L1', [next.slice(0, LOG_HEADERS.length)]);
+        await updateRange(LOG_SHEET, 'A1:O1', [next.slice(0, LOG_HEADERS.length)]);
         invalidateSheetRowsCache(LOG_SHEET);
       }
     } catch (e) { /* non-fatal */ }
@@ -154,6 +161,9 @@ async function postHomework(classId, payload, file) {
   const dueDate = String(payload.dueDate || '').trim();
   const linkUrl = String(payload.linkUrl || '').trim();
   const points = String(payload.points || '').trim();
+  const googleFormId = String(payload.googleFormId || '').trim();
+  const googleDriveFileId = String(payload.googleDriveFileId || '').trim();
+  const assignmentType = String(payload.assignmentType || '').trim();
   const itemsIn = Array.isArray(payload.items) && payload.items.length
     ? payload.items
     : [{ title, description, dueDate }];
@@ -168,10 +178,16 @@ async function postHomework(classId, payload, file) {
       attachmentPath = saved.path;
       attachmentName = saved.name;
     }
+  } else {
+    const driveWebLink = String(payload.driveWebLink || '').trim();
+    if (driveWebLink) {
+      attachmentPath = driveWebLink;
+      attachmentName = String(payload.driveAttachmentName || '').trim() || 'Google Drive file';
+    }
   }
   await appendRows(LOG_SHEET, [[
     homeworkId, classId, assignedDate, title, description, '', postedAt, dueDate,
-    linkUrl, points, attachmentPath, attachmentName
+    linkUrl, points, attachmentPath, attachmentName, googleFormId, googleDriveFileId, assignmentType
   ]]);
 
   const itemRows = itemsIn.map((it, idx) => {
@@ -238,7 +254,7 @@ async function updateHomework(classId, homeworkId, payload) {
   row[7] = dueDate;
   if (payload.linkUrl != null) row[8] = String(payload.linkUrl || '').trim();
   if (payload.points != null) row[9] = String(payload.points || '').trim();
-  await updateRange(LOG_SHEET, `A${logRow}:L${logRow}`, [row.slice(0, LOG_HEADERS.length)]);
+  await updateRange(LOG_SHEET, `A${logRow}:O${logRow}`, [row.slice(0, LOG_HEADERS.length)]);
 
   if (Array.isArray(payload.items) && payload.items.length) {
     const items = await getSheetRows(ITEMS_SHEET, { skipCache: true });
@@ -351,7 +367,11 @@ async function getClassHomework(classId) {
       points: extras.points,
       attachmentPath: extras.attachmentPath,
       attachmentName: extras.attachmentName,
+      googleFormId: extras.googleFormId,
+      googleDriveFileId: extras.googleDriveFileId,
+      assignmentType: extras.assignmentType,
       isYouTube: isYouTubeUrl(extras.linkUrl),
+      isGoogleForm: !!(extras.googleFormId || isGoogleFormUrl(extras.linkUrl)),
       items: hwItems
     });
   }
@@ -409,7 +429,11 @@ async function getStudentHomeworkStatus(studentId, classId) {
         points: extras.points,
         attachmentPath: extras.attachmentPath,
         attachmentName: extras.attachmentName,
-        isYouTube: isYouTubeUrl(extras.linkUrl)
+        googleFormId: extras.googleFormId,
+        googleDriveFileId: extras.googleDriveFileId,
+        assignmentType: extras.assignmentType,
+        isYouTube: isYouTubeUrl(extras.linkUrl),
+        isGoogleForm: !!(extras.googleFormId || isGoogleFormUrl(extras.linkUrl))
       };
       const c = done[itemId + ':' + studentId];
       if (c && c.completed) {
@@ -537,7 +561,7 @@ async function deleteHomework(classId, homeworkId) {
     invalidateSheetRowsCache(COMPLETION_SHEET);
   }
 
-  await updateRange(LOG_SHEET, `A${logRow}:L${logRow}`, [new Array(LOG_HEADERS.length).fill('')]);
+  await updateRange(LOG_SHEET, `A${logRow}:O${logRow}`, [new Array(LOG_HEADERS.length).fill('')]);
   invalidateSheetRowsCache(LOG_SHEET);
   invalidateSheetRowsCache(ITEMS_SHEET);
   if (attachmentPath) removeHomeworkFile(attachmentPath);

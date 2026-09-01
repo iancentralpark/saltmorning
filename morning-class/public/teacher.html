@@ -258,6 +258,7 @@
     </div>
 
     <div id="panelHomework" class="card hidden">
+      <div id="hwGoogleBar" class="hw-google-bar hidden"></div>
       <form id="hwComposeForm" class="hw-compose">
         <h3 style="margin:0 0 0.75rem">Upload Homework</h3>
         <div class="hw-compose-dates">
@@ -283,6 +284,7 @@
             <input type="file" id="hwComposeFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,image/*">
           </label>
         </div>
+        <div id="hwGooglePickSummary" class="hidden"></div>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" type="submit">Upload Homework</button>
           <span class="muted small">Posted homework appears below. Students see it on their dashboard.</span>
@@ -553,6 +555,7 @@
 <script src="/js/teacher-lesson.js?v=20260817perf1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/announcements.js?v=20260813gap27"></script>
+<script src="/js/google-homework.js?v=20260901google1"></script>
 <script src="/js/student-registry.js?v=20260813gap27"></script>
 <script src="/js/timetable.js?v=20260901click1"></script>
 <script>
@@ -1432,14 +1435,24 @@
 
   function hwAttachmentHtml(hw) {
     let html = '';
+    if (hw.assignmentType === 'quiz') {
+      html += '<p class="muted small"><span class="hw-google-badge">Quiz</span></p>';
+    } else if (hw.isGoogleForm) {
+      html += '<p class="muted small"><span class="hw-google-badge">Google Form</span></p>';
+    }
     if (hw.linkUrl) {
-      const label = hw.isYouTube ? 'Watch video' : 'Open link';
+      let label = 'Open link';
+      if (hw.isYouTube) label = 'Watch video';
+      else if (hw.isGoogleForm) label = 'Open form';
       html += '<p class="muted small"><a href="' + escapeHtml(hw.linkUrl) + '" target="_blank" rel="noopener">' +
         escapeHtml(label) + '</a></p>';
     }
     if (hw.attachmentPath) {
       html += '<p class="muted small"><a href="' + escapeHtml(hw.attachmentPath) + '" target="_blank" rel="noopener">' +
         escapeHtml(hw.attachmentName || 'Download file') + '</a></p>';
+    } else if (hw.googleDriveFileId && hw.linkUrl) {
+      html += '<p class="muted small"><a href="' + escapeHtml(hw.linkUrl) + '" target="_blank" rel="noopener">' +
+        escapeHtml(hw.attachmentName || 'Open in Drive') + '</a></p>';
     }
     return html;
   }
@@ -1524,6 +1537,7 @@
     $('hwDueDate').value = '';
     $('hwPoints').value = '100';
     $('hwComposeError').textContent = '';
+    if (typeof SaltGoogleHomework !== 'undefined') SaltGoogleHomework.clearPick();
   }
 
   async function loadHomework() {
@@ -1532,6 +1546,9 @@
     const err = $('hwTeacherError');
     err.textContent = '';
     box.innerHTML = '<p class="muted">Loading…</p>';
+    if (typeof SaltGoogleHomework !== 'undefined') {
+      try { await SaltGoogleHomework.refreshBar(); } catch (_) { /* optional */ }
+    }
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework', {}, role);
       hwCache = { homeworks: data.homeworks || [] };
@@ -1561,6 +1578,15 @@
       fd.append('dueDate', $('hwDueDate').value);
       fd.append('linkUrl', $('hwComposeLink').value.trim());
       fd.append('points', $('hwPoints').value);
+      if (typeof SaltGoogleHomework !== 'undefined') {
+        const g = SaltGoogleHomework.getFormExtras();
+        if (g.googleFormId) fd.append('googleFormId', g.googleFormId);
+        if (g.googleDriveFileId) fd.append('googleDriveFileId', g.googleDriveFileId);
+        if (g.assignmentType) fd.append('assignmentType', g.assignmentType);
+        if (g.linkUrl) fd.set('linkUrl', g.linkUrl);
+        if (g.driveWebLink) fd.append('driveWebLink', g.driveWebLink);
+        if (g.driveAttachmentName) fd.append('driveAttachmentName', g.driveAttachmentName);
+      }
       const fileInput = $('hwComposeFile');
       if (fileInput && fileInput.files && fileInput.files[0]) {
         fd.append('attachment', fileInput.files[0]);
@@ -1771,7 +1797,21 @@
     if (window.SaltLostFound && SaltLostFound.Teacher) {
       SaltLostFound.Teacher.init({ api, $, escapeHtml, role: 'teacher' });
     }
+    if (typeof SaltGoogleHomework !== 'undefined') {
+      SaltGoogleHomework.init({
+        api, $, escapeHtml, role,
+        getReturnTo: () => (currentClass ? ('class:' + currentClass.classId + ':homework') : '')
+      });
+    }
     await loadClasses();
+    if (typeof SaltGoogleHomework !== 'undefined' && SaltGoogleHomework.handlePendingReturn) {
+      await SaltGoogleHomework.handlePendingReturn({
+        onReturnToClass: async (classId, tab) => {
+          const cls = findClassModel(classId);
+          if (cls) navigateToClass(cls, tab || 'homework');
+        }
+      });
+    }
     await applyRoute();
     if (window.SaltPush) {
       SaltPush.bindButtons({

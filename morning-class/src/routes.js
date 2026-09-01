@@ -250,6 +250,7 @@ const {
   setHomeworkCompletion,
   ensureHomeworkSheets
 } = require('./services/homeworkService');
+const googleTeacherAuth = require('./services/googleTeacherAuthService');
 const {
   getStudentVocabSummary,
   isPlacementDone,
@@ -395,6 +396,10 @@ router.get('/health', async (req, res) => {
     service: 'salt-morning-class',
     reportCardPrintVersion: REPORT_CARD_PRINT_VERSION,
     gemini: isGeminiConfigured(),
+    googleTeacherOAuth: {
+      configured: googleTeacherAuth.isGoogleOAuthConfigured(),
+      hasApiKey: !!process.env.GOOGLE_API_KEY
+    },
     vocab,
     vocabEngine: engine,
     opsDb,
@@ -1703,6 +1708,99 @@ router.post('/teacher/class/:classId/dollars', requireRole('teacher'), async (re
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not adjust dollars.' });
+  }
+});
+
+router.get('/teacher/google/config', requireRole('teacher'), (req, res) => {
+  res.json(googleTeacherAuth.getPublicClientConfig());
+});
+
+router.get('/teacher/google/status', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await googleTeacherAuth.getGoogleStatus(req.session.teacherId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load Google status.' });
+  }
+});
+
+router.get('/teacher/google/connect-url', requireRole('teacher'), (req, res) => {
+  try {
+    const redirectUri = googleTeacherAuth.getRedirectUri(req);
+    const returnTo = String(req.query.returnTo || '').trim();
+    const url = googleTeacherAuth.getConnectUrl(req.session.teacherId, redirectUri, returnTo);
+    res.json({ url });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not start Google sign-in.' });
+  }
+});
+
+router.get('/teacher/google/connect', requireRole('teacher'), (req, res) => {
+  try {
+    const redirectUri = googleTeacherAuth.getRedirectUri(req);
+    const returnTo = String(req.query.returnTo || '').trim();
+    const url = googleTeacherAuth.getConnectUrl(req.session.teacherId, redirectUri, returnTo);
+    res.redirect(url);
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not start Google sign-in.' });
+  }
+});
+
+router.get('/teacher/google/callback', async (req, res) => {
+  try {
+    const code = String(req.query.code || '');
+    const state = String(req.query.state || '');
+    if (!code) throw new Error('Google sign-in was cancelled.');
+    const redirectUri = googleTeacherAuth.getRedirectUri(req);
+    const result = await googleTeacherAuth.handleOAuthCallback(code, state, redirectUri);
+    const qs = 'google=connected';
+    const dest = result.returnTo ? ('/teacher?' + qs + '&returnTo=' + encodeURIComponent(result.returnTo)) : ('/teacher?' + qs);
+    res.redirect(dest);
+  } catch (e) {
+    const msg = encodeURIComponent(e.message || 'Google sign-in failed.');
+    res.redirect('/teacher?google=error&msg=' + msg);
+  }
+});
+
+router.post('/teacher/google/disconnect', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await googleTeacherAuth.clearGoogleLink(req.session.teacherId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not disconnect Google account.' });
+  }
+});
+
+router.get('/teacher/google/access-token', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await googleTeacherAuth.getAccessToken(req.session.teacherId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not get Google access token.' });
+  }
+});
+
+router.post('/teacher/google/drive/share', requireRole('teacher'), async (req, res) => {
+  try {
+    const fileId = String((req.body && req.body.fileId) || '');
+    const shared = await googleTeacherAuth.shareDriveFile(req.session.teacherId, fileId);
+    if (shared.isForm) {
+      const form = await googleTeacherAuth.resolveGoogleForm(req.session.teacherId, fileId);
+      res.json(Object.assign({}, shared, {
+        formId: form.formId,
+        responderUri: form.responderUri,
+        editUri: form.editUri
+      }));
+    } else {
+      res.json(shared);
+    }
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not share Drive file.' });
+  }
+});
+
+router.post('/teacher/google/forms/create', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await googleTeacherAuth.createGoogleForm(req.session.teacherId, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not create Google Form.' });
   }
 });
 
