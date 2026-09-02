@@ -74,6 +74,7 @@ const {
   getGradesDashboard,
   getGradebook,
   createAssessment,
+  updateAssessment,
   saveAssessmentCell,
   deleteAssessment,
   listAssessments,
@@ -881,6 +882,28 @@ router.post('/teacher/class/:classId/grades/gradebook/column', requireRole('teac
     res.json({ column });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not add column.' });
+  }
+});
+
+router.patch('/teacher/class/:classId/grades/gradebook/column/:assessmentId', requireRole('teacher'), async (req, res) => {
+  try {
+    const access = await getTeacherGradeAccess(
+      req.session.teacherId,
+      req.params.classId,
+      req.body && req.body.subject
+    );
+    if (!access.canEdit) {
+      return res.status(403).json({ error: 'Only the subject teacher can edit grade columns.' });
+    }
+    const column = await updateAssessment(
+      req.params.assessmentId,
+      req.params.classId,
+      req.session.teacherId,
+      { title: req.body && req.body.title }
+    );
+    res.json({ column });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update column.' });
   }
 });
 

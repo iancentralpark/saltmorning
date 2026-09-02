@@ -1816,10 +1816,16 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .gb-pane-right .gb-table td { border-right: none; }
 .gb-pane-left .gb-table th,
 .gb-pane-left .gb-table td { border-right: none; }
-.gb-col-delete {
+.gb-col-actions {
   position: absolute;
   top: 3px;
   right: 3px;
+  display: flex;
+  gap: 2px;
+  z-index: 1;
+}
+.gb-col-edit,
+.gb-col-delete {
   border: none;
   background: rgba(255, 255, 255, 0.9);
   color: var(--muted);
@@ -1831,6 +1837,7 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
   padding: 0;
   border-radius: 4px;
 }
+.gb-col-edit:hover { background: #eef4fc; color: var(--lavender-dark); }
 .gb-col-delete:hover { background: #fceeed; color: #c45d55; }
 .gb-col-title {
   font-weight: 700;
@@ -2783,10 +2790,12 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   color: var(--muted);
   margin-top: 0.1rem;
 }
-.ag-theme-salt .gb-ag-col-head .gb-col-delete {
+.ag-theme-salt .gb-ag-col-head .gb-col-actions {
   position: absolute;
   top: 2px;
   right: 2px;
+  display: flex;
+  gap: 2px;
 }
 .ag-theme-salt .gb-ag-score-cell,
 .ag-theme-salt .gb-ag-final-cell {

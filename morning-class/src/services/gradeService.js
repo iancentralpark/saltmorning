@@ -262,9 +262,15 @@ function computeStudentGrades(studentId, weights, entriesByCategory) {
     });
   }
 
+  const pointsEarned = weights.length ? Math.round(weightedTotal * 10) / 10 : null;
+  const normalizedTotal = gradedWeight > 0
+    ? Math.round((weightedTotal / gradedWeight) * 1000) / 10
+    : null;
+
   return {
     studentId,
-    weightedTotal: weights.length ? Math.round(weightedTotal * 10) / 10 : null,
+    weightedTotal: normalizedTotal,
+    weightedPointsEarned: pointsEarned,
     gradedWeightPercent: gradedWeight,
     categories
   };
@@ -1007,6 +1013,80 @@ async function deleteAssessment(assessmentId, classId, term, subject) {
   return { deleted: true };
 }
 
+async function updateAssessment(assessmentId, classId, teacherId, payload) {
+  assessmentId = String(assessmentId || '').trim();
+  classId = String(classId || '').trim();
+  if (!assessmentId || !classId) throw new Error('Column id is required.');
+  if (assessmentId.startsWith('legacy:')) {
+    throw new Error('This column cannot be renamed. Delete it and add a new one.');
+  }
+
+  const title = payload && payload.title != null ? String(payload.title || '').trim() : null;
+  if (!title) throw new Error('Title is required.');
+
+  await ensureOpsDbStarted();
+  if (isOpsGradesReady()) {
+    const assessment = await getAssessmentByIdPg(assessmentId);
+    if (!assessment || assessment.classId !== classId) throw new Error('Column not found.');
+    const termInfo = await getGradeTerm(classId, assessment.term).catch(() => null);
+    if (termInfo && termInfo.closed) {
+      throw new Error('"' + assessment.term + '" is closed. Ask Admin to reopen it before making changes.');
+    }
+    await query(
+      'UPDATE ' + table('grade_assessments') + ' SET title = $1 WHERE assessment_id = $2 AND class_id = $3',
+      [title, assessmentId, classId]
+    );
+    clearGradebookCache(classId, assessment.term, assessment.subject);
+    return {
+      assessmentId,
+      classId,
+      term: assessment.term,
+      subject: assessment.subject,
+      categoryKey: assessment.categoryKey,
+      title,
+      date: assessment.date,
+      maxScore: assessment.maxScore
+    };
+  }
+
+  await ensureAssessmentSheet();
+  const rows = await getSheetRows(GRADE_ASSESSMENTS_SHEET, { skipCache: true });
+  let foundRow = -1;
+  let rowTerm = '';
+  let rowSubject = '';
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== assessmentId) continue;
+    if (String(rows[i][1]) !== classId) throw new Error('Column not found.');
+    foundRow = i + 1;
+    rowTerm = String(rows[i][2] || '');
+    rowSubject = String(rows[i][3] || '');
+    break;
+  }
+  if (foundRow < 0) throw new Error('Column not found.');
+
+  const termInfo = rowTerm ? await getGradeTerm(classId, rowTerm).catch(() => null) : null;
+  if (termInfo && termInfo.closed) {
+    throw new Error('"' + rowTerm + '" is closed. Ask Admin to reopen it before making changes.');
+  }
+
+  const row = rows[foundRow - 1].slice();
+  while (row.length < 10) row.push('');
+  row[5] = title;
+  await updateRange(GRADE_ASSESSMENTS_SHEET, `A${foundRow}:J${foundRow}`, [row]);
+  clearGradebookCache(classId, rowTerm, rowSubject);
+
+  return {
+    assessmentId,
+    classId,
+    term: rowTerm,
+    subject: rowSubject,
+    categoryKey: String(row[4] || ''),
+    title,
+    date: formatSheetDate(row[6]),
+    maxScore: Number(row[7]) || 100
+  };
+}
+
 module.exports = {
   listGradeEntries,
   listDailyGrades,
@@ -1015,6 +1095,7 @@ module.exports = {
   getGradesDashboard,
   getGradebook,
   createAssessment,
+  updateAssessment,
   saveAssessmentCell,
   deleteAssessment,
   listAssessments,
