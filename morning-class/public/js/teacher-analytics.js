@@ -10,7 +10,12 @@ window.SaltAnalytics = (function() {
   let records = null;
   let batchFilter = '';
   let highlightBatchId = '';
+  let noteSubjects = [];
+  let editingNoteId = '';
 
+  function canManageData() {
+    return typeof deps.canManageData === 'function' ? !!deps.canManageData() : true;
+  }
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
   function api(path, opts) { return deps.api(path, opts, role); }
@@ -49,6 +54,7 @@ window.SaltAnalytics = (function() {
     if ($('laImportBtn')) $('laImportBtn').addEventListener('click', importData);
     if ($('laReloadRecords')) $('laReloadRecords').addEventListener('click', loadRecords);
     if ($('laClearMock')) $('laClearMock').addEventListener('click', clearMockData);
+    applyManageVisibility();
     if ($('laDetailClose')) {
       $('laDetailClose').addEventListener('click', () => {
         selectedId = '';
@@ -63,6 +69,12 @@ window.SaltAnalytics = (function() {
         renderRoster();
       }
     });
+  }
+
+  function applyManageVisibility() {
+    const manage = canManageData();
+    if ($('laDataMgmt')) $('laDataMgmt').classList.toggle('hidden', !manage);
+    document.querySelectorAll('.la-import').forEach((el) => el.classList.toggle('hidden', !manage));
   }
 
   function recordsBase() {
@@ -102,6 +114,7 @@ window.SaltAnalytics = (function() {
         const c = records.counts || {};
         $('laRecordsMsg').textContent =
           (c.testReports || 0) + ' test scores, ' + (c.dailyLogs || 0) + ' engagement logs' +
+          (c.teacherNotes ? (', ' + c.teacherNotes + ' teacher notes') : '') +
           (c.mockTestReports ? (' · ' + c.mockTestReports + ' demo test scores') : '') +
           (c.mockDailyLogs ? (' · ' + c.mockDailyLogs + ' demo logs') : '');
       }
@@ -198,6 +211,29 @@ window.SaltAnalytics = (function() {
     box.querySelectorAll('.la-del-record').forEach((btn) => {
       btn.addEventListener('click', () => deleteReport(btn.dataset.rid));
     });
+
+    const notes = (records.teacherNotes || []);
+    if (notes.length) {
+      box.innerHTML +=
+        '<h4 style="margin:1rem 0 0.5rem">Teacher insights</h4>' +
+        '<table class="la-table la-records-table"><thead><tr>' +
+        '<th>Date</th><th>Student</th><th>Subject</th><th>Type</th><th>Include</th><th></th>' +
+        '</tr></thead><tbody>' +
+        notes.map((n) =>
+          '<tr data-nid="' + escapeHtml(n.noteId) + '">' +
+            '<td>' + escapeHtml(String(n.updatedAt || n.createdAt || '').slice(0, 10) || '—') + '</td>' +
+            '<td><strong>' + escapeHtml(n.studentName || n.studentId) + '</strong></td>' +
+            '<td>' + escapeHtml(n.subject || '—') + '</td>' +
+            '<td>' + escapeHtml(n.noteType === 'diagnostic' ? 'Diagnostic' : 'Comment') + '</td>' +
+            '<td>' + (n.includedInAnalytics !== false ? 'Yes' : 'No') + '</td>' +
+            '<td><button type="button" class="btn btn-ghost la-open-note" data-sid="' + escapeHtml(n.studentId) + '">Open</button></td>' +
+          '</tr>'
+        ).join('') +
+        '</tbody></table>';
+      box.querySelectorAll('.la-open-note').forEach((btn) => {
+        btn.addEventListener('click', () => openDetail(btn.dataset.sid));
+      });
+    }
   }
 
   function showReportDetail(reportId) {
@@ -297,6 +333,8 @@ window.SaltAnalytics = (function() {
     selectedId = '';
     batchFilter = '';
     highlightBatchId = '';
+    editingNoteId = '';
+    applyManageVisibility();
     if ($('laStatusFilter')) $('laStatusFilter').value = '';
     if ($('laDetail')) $('laDetail').classList.add('hidden');
     if ($('laRecordDetail')) $('laRecordDetail').classList.add('hidden');
@@ -309,6 +347,8 @@ window.SaltAnalytics = (function() {
     selectedId = '';
     batchFilter = '';
     highlightBatchId = '';
+    editingNoteId = '';
+    applyManageVisibility();
     if ($('laStatusFilter')) $('laStatusFilter').value = '';
     if ($('laDetail')) $('laDetail').classList.add('hidden');
     if ($('laRecordDetail')) $('laRecordDetail').classList.add('hidden');
@@ -447,22 +487,26 @@ window.SaltAnalytics = (function() {
       ' · ' + vals[0] + ' → ' + vals[vals.length - 1] + '</div>';
   }
 
-  async function openDetail(studentId) {
+  async function openDetail(studentId, editNoteDraft) {
     selectedId = studentId;
     $('laDetail').classList.remove('hidden');
     $('laDetailBody').innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
       let s;
+      let classId = recordsClassId();
       if (mode === 'school') {
         s = await api('/api/admin/analytics/students/' + encodeURIComponent(studentId));
+        classId = classId || s.classId;
       } else {
         const cls = getClass();
+        classId = cls.classId;
         s = await api(
           '/api/teacher/class/' + encodeURIComponent(cls.classId) +
           '/analytics/students/' + encodeURIComponent(studentId)
         );
       }
-      renderDetail(s);
+      if (mode === 'class' || mode === 'school') await loadNoteSubjects(classId);
+      renderDetail(s, editNoteDraft);
     } catch (e) {
       $('laDetailBody').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
     }
@@ -508,6 +552,168 @@ window.SaltAnalytics = (function() {
     );
   }
 
+  async function loadNoteSubjects(classId) {
+    if (!classId) { noteSubjects = []; return; }
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(classId) + '/grade-subjects');
+      noteSubjects = (data.subjects || [])
+        .filter((s) => s.canEdit || s.subject)
+        .map((s) => s.subject)
+        .filter(Boolean);
+    } catch (e) {
+      noteSubjects = [];
+    }
+  }
+
+  function teacherNotesHtml(notes) {
+    const list = notes || [];
+    const items = list.length ? list.map((n) =>
+      '<article class="la-note-card' + (n.includedInAnalytics === false ? ' la-note-excluded' : '') + '" data-nid="' + escapeHtml(n.noteId) + '">' +
+        '<div class="la-note-head">' +
+          '<strong>' + escapeHtml(n.subject || 'General') + '</strong>' +
+          '<span class="muted small">' + escapeHtml(n.noteType === 'diagnostic' ? 'Diagnostic' : 'Comment') +
+            (n.teacherName ? ' · ' + escapeHtml(n.teacherName) : '') +
+            (n.updatedAt ? ' · ' + escapeHtml(String(n.updatedAt).slice(0, 10)) : '') +
+          '</span>' +
+        '</div>' +
+        '<div class="la-note-body">' + escapeHtml(n.body).replace(/\n/g, '<br>') + '</div>' +
+        '<div class="la-note-actions">' +
+          '<label class="la-include-toggle"><input type="checkbox" class="la-note-include" data-nid="' + escapeHtml(n.noteId) + '"' +
+            (n.includedInAnalytics !== false ? ' checked' : '') + '> Include in analytics</label>' +
+          '<button type="button" class="btn btn-ghost la-note-edit" data-nid="' + escapeHtml(n.noteId) + '">Edit</button>' +
+          '<button type="button" class="btn btn-ghost la-danger-btn la-note-del" data-nid="' + escapeHtml(n.noteId) + '">Delete</button>' +
+        '</div>' +
+      '</article>'
+    ).join('') : '<p class="muted small">No teacher notes yet. Add a diagnostic result or comment below.</p>';
+
+    const subjectOpts = noteSubjects.map((subj) =>
+      '<option value="' + escapeHtml(subj) + '"></option>'
+    ).join('');
+    const formTitle = editingNoteId ? 'Edit teacher note' : 'Add teacher note';
+
+    return (
+      '<section class="la-notes-section">' +
+        '<h4>Teacher insights (diagnostics & comments)</h4>' +
+        '<p class="muted small">Subject teachers can record diagnostic test results or observations in plain language. Included notes are woven into the AI learning profile.</p>' +
+        '<div id="laNotesList" class="la-notes-list">' + items + '</div>' +
+        '<form id="laNoteForm" class="la-note-form">' +
+          '<h5 style="margin:0.75rem 0 0.35rem">' + escapeHtml(formTitle) + '</h5>' +
+          '<div class="la-note-form-row">' +
+            '<label>Subject <input id="laNoteSubject" type="text" maxlength="60" list="laNoteSubjectList" required placeholder="e.g. English">' +
+              '<datalist id="laNoteSubjectList">' + subjectOpts + '</datalist></label>' +
+            '<label>Type <select id="laNoteType">' +
+              '<option value="diagnostic">Diagnostic test result</option>' +
+              '<option value="comment">Teacher comment</option></select></label>' +
+          '</div>' +
+          '<label>Notes <textarea id="laNoteBody" rows="5" maxlength="4000" required placeholder="e.g. Unit 3 diagnostic: strong vocabulary, weak inference on nonfiction texts…"></textarea></label>' +
+          '<div class="la-note-form-actions">' +
+            '<button type="submit" class="btn btn-primary" id="laNoteSaveBtn">' + (editingNoteId ? 'Save changes' : 'Add note') + '</button>' +
+            (editingNoteId ? '<button type="button" class="btn btn-ghost" id="laNoteCancelEdit">Cancel</button>' : '') +
+            '<span class="muted small" id="laNoteMsg"></span>' +
+          '</div>' +
+        '</form>' +
+      '</section>'
+    );
+  }
+
+  function wireTeacherNotes(notes) {
+    const cid = recordsClassId() || (getClass() && getClass().classId) || '';
+    document.querySelectorAll('.la-note-include').forEach((cb) => {
+      cb.addEventListener('change', () => toggleNoteIncluded(cb.dataset.nid, cb.checked, cid));
+    });
+    document.querySelectorAll('.la-note-edit').forEach((btn) => {
+      btn.addEventListener('click', () => startEditNote(btn.dataset.nid, notes));
+    });
+    document.querySelectorAll('.la-note-del').forEach((btn) => {
+      btn.addEventListener('click', () => removeTeacherNote(btn.dataset.nid, cid));
+    });
+    const form = $('laNoteForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveTeacherNote(cid);
+      });
+    }
+    const cancel = $('laNoteCancelEdit');
+    if (cancel) {
+      cancel.addEventListener('click', () => {
+        editingNoteId = '';
+        openDetail(selectedId);
+      });
+    }
+  }
+
+  function startEditNote(noteId, notes) {
+    const n = (notes || []).find((x) => x.noteId === noteId);
+    if (!n) return;
+    editingNoteId = noteId;
+    openDetail(selectedId, n);
+  }
+
+  async function saveTeacherNote(classId) {
+    if (!selectedId || !classId) return;
+    const body = ($('laNoteBody') && $('laNoteBody').value || '').trim();
+    const subject = $('laNoteSubject') && $('laNoteSubject').value;
+    const noteType = $('laNoteType') && $('laNoteType').value;
+    if ($('laNoteMsg')) $('laNoteMsg').textContent = '';
+    if (!body) {
+      if ($('laNoteMsg')) $('laNoteMsg').textContent = 'Enter note text.';
+      return;
+    }
+    try {
+      if (editingNoteId) {
+        const path = mode === 'school'
+          ? ('/api/admin/analytics/notes/' + encodeURIComponent(editingNoteId))
+          : ('/api/teacher/class/' + encodeURIComponent(classId) + '/analytics/notes/' + encodeURIComponent(editingNoteId));
+        await api(path, {
+          method: 'PATCH',
+          body: { classId, subject, noteType, body }
+        });
+      } else {
+        const path = mode === 'school'
+          ? ('/api/admin/analytics/students/' + encodeURIComponent(selectedId) + '/notes')
+          : ('/api/teacher/class/' + encodeURIComponent(classId) + '/analytics/students/' + encodeURIComponent(selectedId) + '/notes');
+        await api(path, {
+          method: 'POST',
+          body: { classId, subject, noteType, body }
+        });
+      }
+      editingNoteId = '';
+      await openDetail(selectedId);
+      if (canManageData()) await loadRecords();
+    } catch (e) {
+      if ($('laNoteMsg')) $('laNoteMsg').textContent = e.message;
+    }
+  }
+
+  async function toggleNoteIncluded(noteId, included, classId) {
+    try {
+      const path = mode === 'school'
+        ? ('/api/admin/analytics/notes/' + encodeURIComponent(noteId))
+        : ('/api/teacher/class/' + encodeURIComponent(classId) + '/analytics/notes/' + encodeURIComponent(noteId));
+      await api(path, { method: 'PATCH', body: { classId, includedInAnalytics: included } });
+      await openDetail(selectedId);
+      if (canManageData()) await loadRecords();
+    } catch (e) {
+      if ($('laNoteMsg')) $('laNoteMsg').textContent = e.message;
+    }
+  }
+
+  async function removeTeacherNote(noteId, classId) {
+    if (!window.confirm('Delete this teacher note?')) return;
+    try {
+      const path = mode === 'school'
+        ? ('/api/admin/analytics/notes/' + encodeURIComponent(noteId) + '?classId=' + encodeURIComponent(classId))
+        : ('/api/teacher/class/' + encodeURIComponent(classId) + '/analytics/notes/' + encodeURIComponent(noteId));
+      await api(path, { method: 'DELETE' });
+      editingNoteId = '';
+      await openDetail(selectedId);
+      if (canManageData()) await loadRecords();
+    } catch (e) {
+      if ($('laNoteMsg')) $('laNoteMsg').textContent = e.message;
+    }
+  }
+
   function renderDetail(s) {
     $('laDetailTitle').textContent = s.name +
       (s.className ? ' · ' + s.className : '') +
@@ -532,10 +738,20 @@ window.SaltAnalytics = (function() {
         '<section><h4>Formative</h4>' + sparkline('formative', s.progressSeries) + '</section>' +
       '</div>' +
       '<h4>Strengths & weaknesses</h4><div class="la-domains">' + domains + '</div>' +
+      teacherNotesHtml(s.allTeacherNotes || s.teacherNotes || []) +
       '<div id="laDiagOut" class="la-diag"></div>';
+
+    wireTeacherNotes(s.allTeacherNotes || s.teacherNotes || []);
+    if (editingNoteId && arguments[1]) {
+      const draft = arguments[1];
+      if ($('laNoteSubject')) $('laNoteSubject').value = draft.subject || '';
+      if ($('laNoteType')) $('laNoteType').value = draft.noteType || 'comment';
+      if ($('laNoteBody')) $('laNoteBody').value = draft.body || '';
+    }
 
     if ($('laDiagnoseBtn')) {
       $('laDiagnoseBtn').textContent = t('la.diagnose', 'Generate AI learning profile');
+      $('laDiagnoseBtn').classList.toggle('hidden', !canManageData());
     }
 
     if (s.latestIntervention) {

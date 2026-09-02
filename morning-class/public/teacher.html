@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20260902grade1">
+  <link rel="stylesheet" href="/css/app.css?v=20260902la2">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -211,7 +211,7 @@
         <button class="class-subnav-item" data-tab="announcements" type="button" data-i18n="nav.parentAnnouncements">Announcements</button>
         <button class="class-subnav-item" data-tab="vocab" data-homeroom-only="1" type="button" data-i18n="nav.vocabShort">Vocab</button>
         <button class="class-subnav-item" data-tab="report" type="button" data-i18n="nav.report">Report</button>
-        <button class="class-subnav-item" data-tab="analytics" data-homeroom-only="1" type="button" data-i18n="nav.analytics">Analytics</button>
+        <button class="class-subnav-item" data-tab="analytics" type="button" data-i18n="nav.analytics">Analytics</button>
         <button class="class-subnav-item" data-tab="lesson" data-homeroom-only="1" type="button" data-i18n="nav.lessons">Lessons</button>
       </div>
     </nav>
@@ -585,7 +585,7 @@
 <script src="/js/teacher-grades.js?v=20260902grade1"></script>
 <script src="/js/report-card-print.js?v=20260831rc3"></script>
 <script src="/js/teacher-reportcard.js?v=20260831rc3"></script>
-<script src="/js/teacher-analytics.js?v=20260902la1"></script>
+<script src="/js/teacher-analytics.js?v=20260902la2"></script>
 <script src="/js/subject-colors.js?v=20260810ttclass"></script>
 <script src="/js/teacher-lesson.js?v=20260817perf1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
@@ -636,7 +636,8 @@
 
   SaltAnalytics.init({
     $, show, hide, escapeHtml, api, role,
-    getClass: () => currentClass
+    getClass: () => currentClass,
+    canManageData: () => isHomeroomClass(currentClass)
   });
 
   SaltLesson.init({
@@ -1315,7 +1316,7 @@
 
   function switchTab(name, opts) {
     opts = opts || {};
-    const homeroomOnly = { attendance: 1, vocab: 1, analytics: 1, lesson: 1 };
+    const homeroomOnly = { attendance: 1, vocab: 1, lesson: 1 };
     if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
       name = defaultClassTab();
     }

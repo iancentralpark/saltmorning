@@ -113,7 +113,9 @@ const {
   processDueScheduledShares,
   STATES: RC_WF_STATES
 } = require('./services/reportCardWorkflowService');
+const LEARNING_ANALYTICS_BUILD = '20260902la2';
 const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
+
 const {
   getReportCardPrintSettings,
   saveReportCardPrintSettings
@@ -197,7 +199,11 @@ const {
   updateDailyLog,
   deleteDailyLog,
   clearMockAnalyticsData,
-  deleteImportBatch
+  deleteImportBatch,
+  createTeacherNote,
+  updateTeacherNote,
+  deleteTeacherNote,
+  listTeacherNotes
 } = require('./services/learningAnalytics');
 const {
   listStudents,
@@ -403,6 +409,7 @@ router.get('/health', async (req, res) => {
     ok: true,
     service: 'salt-morning-class',
     reportCardPrintVersion: REPORT_CARD_PRINT_VERSION,
+    learningAnalyticsBuild: LEARNING_ANALYTICS_BUILD,
     gemini: isGeminiConfigured(),
     googleTeacherOAuth: {
       configured: googleTeacherAuth.isGoogleOAuthConfigured(),
@@ -1357,10 +1364,10 @@ router.get('/teacher/class/:classId/analytics', requireRole('teacher'), async (r
 
 router.get('/teacher/class/:classId/analytics/students/:studentId', requireRole('teacher'), async (req, res) => {
   try {
-    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
     res.json(await getStudentAnalytics(req.params.classId, req.params.studentId));
   } catch (e) {
-    const status = /homeroom|not assigned|access|not found/i.test(e.message || '') ? 403 : 500;
+    const status = /not assigned|access|not found/i.test(e.message || '') ? 403 : 500;
     res.status(status).json({ error: e.message || 'Could not load student analytics.' });
   }
 });
@@ -1502,6 +1509,58 @@ router.delete('/teacher/class/:classId/analytics/batches/:batchId', requireRole(
   } catch (e) {
     const status = /homeroom|not found/i.test(e.message || '') ? 403 : 400;
     res.status(status).json({ error: e.message || 'Could not delete import batch.' });
+  }
+});
+
+router.get('/teacher/class/:classId/analytics/students/:studentId/notes', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const notes = await listTeacherNotes(req.params.classId, req.params.studentId);
+    res.json({ notes });
+  } catch (e) {
+    const status = /not assigned|access/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load teacher notes.' });
+  }
+});
+
+router.post('/teacher/class/:classId/analytics/students/:studentId/notes', requireRole('teacher'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const note = await createTeacherNote({
+      classId: req.params.classId,
+      studentId: req.params.studentId,
+      teacherId: req.session.teacherId,
+      teacherName: req.session.teacherName || req.session.name || '',
+      subject: body.subject,
+      noteType: body.noteType,
+      body: body.body,
+      includedInAnalytics: body.includedInAnalytics !== false
+    });
+    res.json({ note });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save teacher note.' });
+  }
+});
+
+router.patch('/teacher/class/:classId/analytics/notes/:noteId', requireRole('teacher'), async (req, res) => {
+  try {
+    const note = await updateTeacherNote(
+      req.params.noteId,
+      req.params.classId,
+      req.session.teacherId,
+      req.body || {}
+    );
+    res.json({ note });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update teacher note.' });
+  }
+});
+
+router.delete('/teacher/class/:classId/analytics/notes/:noteId', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json(await deleteTeacherNote(req.params.noteId, req.params.classId, req.session.teacherId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete teacher note.' });
   }
 });
 
@@ -1653,6 +1712,71 @@ router.delete('/admin/analytics/batches/:batchId', requireRole('admin'), async (
     res.json(await deleteImportBatch(classId, req.params.batchId));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not delete import batch.' });
+  }
+});
+
+router.get('/admin/analytics/students/:studentId/notes', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    const notes = await listTeacherNotes(classId, req.params.studentId);
+    res.json({ notes });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load teacher notes.' });
+  }
+});
+
+router.post('/admin/analytics/students/:studentId/notes', requireRole('admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const classId = String(body.classId || req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    const note = await createTeacherNote({
+      classId,
+      studentId: req.params.studentId,
+      teacherId: req.session.adminId || req.session.teacherId || 'admin',
+      teacherName: req.session.adminName || req.session.name || 'Admin',
+      subject: body.subject,
+      noteType: body.noteType,
+      body: body.body,
+      includedInAnalytics: body.includedInAnalytics !== false,
+      skipAccessCheck: true
+    });
+    res.json({ note });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not save teacher note.' });
+  }
+});
+
+router.patch('/admin/analytics/notes/:noteId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    const note = await updateTeacherNote(
+      req.params.noteId,
+      classId,
+      req.session.adminId || req.session.teacherId || 'admin',
+      req.body || {},
+      { skipAccessCheck: true }
+    );
+    res.json({ note });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update teacher note.' });
+  }
+});
+
+router.delete('/admin/analytics/notes/:noteId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    res.json(await deleteTeacherNote(
+      req.params.noteId,
+      classId,
+      req.session.adminId || req.session.teacherId || 'admin',
+      { skipAccessCheck: true }
+    ));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete teacher note.' });
   }
 });
 

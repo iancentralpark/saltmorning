@@ -44,6 +44,7 @@ module.exports = {
   ANALYTICS_TEST_REPORTS_SHEET: 'Analytics_TestReports',
   ANALYTICS_DAILY_LOGS_SHEET: 'Analytics_DailyLogs',
   ANALYTICS_INTERVENTIONS_SHEET: 'Analytics_Interventions',
+  ANALYTICS_TEACHER_NOTES_SHEET: 'Analytics_TeacherNotes',
   LESSON_PLANS_SHEET: 'Lesson_Plans',
   ADMIN_LIST_SHEET: 'Admin_List',
   SUBJECTS_SHEET: 'Subjects',

@@ -2,7 +2,8 @@ const crypto = require('crypto');
 const {
   ANALYTICS_TEST_REPORTS_SHEET,
   ANALYTICS_DAILY_LOGS_SHEET,
-  ANALYTICS_INTERVENTIONS_SHEET
+  ANALYTICS_INTERVENTIONS_SHEET,
+  ANALYTICS_TEACHER_NOTES_SHEET
 } = require('../../config');
 const {
   getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache, deleteRows
@@ -18,6 +19,10 @@ const {
   STATUS_META
 } = require('./statusEngine');
 const { parseAssessmentInput } = require('./assessmentParser');
+const {
+  listTeacherNotes,
+  activeTeacherNotes
+} = require('./teacherNotesService');
 
 const TEST_HEADERS = [
   'ReportID', 'StudentID', 'ClassID', 'Source', 'TestDate',
@@ -123,6 +128,24 @@ function parseLogRow(row) {
     included: !notes.startsWith('__excluded__'),
     isMock,
     createdAt: String(row[10] || '')
+  };
+}
+
+function parseTeacherNoteRow(row) {
+  if (!row || !row[0]) return null;
+  const included = String(row[8] || '').toLowerCase();
+  return {
+    noteId: String(row[0]),
+    studentId: String(row[1] || ''),
+    classId: String(row[2] || ''),
+    teacherId: String(row[3] || ''),
+    teacherName: String(row[4] || ''),
+    subject: String(row[5] || ''),
+    noteType: String(row[6] || 'comment'),
+    body: String(row[7] || ''),
+    includedInAnalytics: !(included === 'false' || included === '0' || included === 'no'),
+    createdAt: String(row[9] || ''),
+    updatedAt: String(row[10] || '')
   };
 }
 
@@ -419,10 +442,11 @@ function defaultActions(status) {
   return map[status] || map.attention;
 }
 
-function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendingHomework) {
+function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendingHomework, allNotes) {
   const studentId = student.studentId;
   const testReports = activeTestReports(allTests.filter((t) => t.studentId === studentId));
   const dailyLogs = activeDailyLogs(allLogs.filter((l) => l.studentId === studentId));
+  const teacherNotes = activeTeacherNotes((allNotes || []).filter((n) => n.studentId === studentId));
   const engagement = summarizeEngagement(dailyLogs, pendingHomework);
   const status = calculateStudentStatus({ testReports, dailyLogs, engagement, pendingHomework });
   const ints = allInts.filter((i) => i.studentId === studentId);
@@ -436,7 +460,9 @@ function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendin
     progressSeries: buildProgressSeries(testReports, dailyLogs),
     domainProfile: buildDomainProfile(testReports),
     status,
-    latestIntervention: ints[0] || null
+    latestIntervention: ints[0] || null,
+    teacherNotes,
+    allTeacherNotes: (allNotes || []).filter((n) => n.studentId === studentId)
   };
 }
 
@@ -459,10 +485,11 @@ async function getClassAnalyticsDashboard(classId, opts) {
 
   // Single parallel fan-out: roster + 3 analytics sheets + 1 homework bundle (not N× homework).
   const roster = await getClassRoster(classId);
-  const [testRows, logRows, intRows, pendingByStudent] = await Promise.all([
+  const [testRows, logRows, intRows, noteRows, pendingByStudent] = await Promise.all([
     getSheetRows(ANALYTICS_TEST_REPORTS_SHEET),
     getSheetRows(ANALYTICS_DAILY_LOGS_SHEET),
     getSheetRows(ANALYTICS_INTERVENTIONS_SHEET),
+    getSheetRows(ANALYTICS_TEACHER_NOTES_SHEET).catch(() => []),
     getPendingHomeworkCounts(classId, { roster }).catch(() => ({}))
   ]);
 
@@ -473,8 +500,10 @@ async function getClassAnalyticsDashboard(classId, opts) {
   const ints = filterParsed(intRows, parseInterventionRow, classId)
     .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
 
+  const notes = filterParsed(noteRows, parseTeacherNoteRow, classId);
+
   const students = roster.map((st) =>
-    buildStudentBundle(classId, st, tests, logs, ints, pendingByStudent[st.studentId] || 0)
+    buildStudentBundle(classId, st, tests, logs, ints, pendingByStudent[st.studentId] || 0, notes)
   );
 
   const statusFilter = opts.status ? String(opts.status) : '';
@@ -529,10 +558,11 @@ async function getSchoolAnalyticsDashboard(opts) {
     roster.map((s) => String(s.classId || '').trim()).filter(Boolean)
   ));
 
-  const [testRows, logRows, intRows, classNames, hwMaps] = await Promise.all([
+  const [testRows, logRows, intRows, noteRows, classNames, hwMaps] = await Promise.all([
     getSheetRows(ANALYTICS_TEST_REPORTS_SHEET),
     getSheetRows(ANALYTICS_DAILY_LOGS_SHEET),
     getSheetRows(ANALYTICS_INTERVENTIONS_SHEET),
+    getSheetRows(ANALYTICS_TEACHER_NOTES_SHEET).catch(() => []),
     getClassNameMap(),
     Promise.all(classIds.map((cid) =>
       getPendingHomeworkCounts(cid).catch(() => ({}))
@@ -552,6 +582,7 @@ async function getSchoolAnalyticsDashboard(opts) {
     .sort((a, b) => a.date.localeCompare(b.date));
   const ints = filterParsed(intRows, parseInterventionRow, '')
     .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+  const notes = filterParsed(noteRows, parseTeacherNoteRow, '');
 
   const students = roster.map((st) => {
     const bundle = buildStudentBundle(
@@ -560,7 +591,8 @@ async function getSchoolAnalyticsDashboard(opts) {
       tests,
       logs,
       ints,
-      pendingByStudent[st.studentId] || 0
+      pendingByStudent[st.studentId] || 0,
+      notes
     );
     bundle.className = classNames[st.classId] || st.className || st.classId || '';
     return bundle;
@@ -652,9 +684,10 @@ async function getAnalyticsRecords(classId) {
   const nameById = {};
   roster.forEach((s) => { nameById[s.studentId] = s.name; });
 
-  const [testReports, dailyLogs] = await Promise.all([
+  const [testReports, dailyLogs, teacherNotes] = await Promise.all([
     listTestReports(classId),
-    listDailyLogs(classId)
+    listDailyLogs(classId),
+    listTeacherNotes(classId)
   ]);
 
   const enrichedReports = testReports.map((r) => Object.assign({}, r, {
@@ -668,15 +701,24 @@ async function getAnalyticsRecords(classId) {
     sourceLabel: l.isMock ? 'Demo engagement log' : 'Engagement log'
   }));
 
+  const enrichedNotes = teacherNotes.map((n) => Object.assign({}, n, {
+    studentName: nameById[n.studentId] || n.studentId,
+    kind: 'teacher_note',
+    sourceLabel: (n.subject ? n.subject + ' · ' : '') + (n.noteType === 'diagnostic' ? 'Diagnostic' : 'Comment')
+  }));
+
   return {
     classId,
     testReports: enrichedReports,
     dailyLogs: enrichedLogs,
+    teacherNotes: enrichedNotes,
     batches: summarizeBatches(enrichedReports),
     counts: {
       testReports: enrichedReports.length,
       dailyLogs: enrichedLogs.length,
+      teacherNotes: enrichedNotes.length,
       includedTestReports: enrichedReports.filter((r) => r.included !== false).length,
+      includedTeacherNotes: enrichedNotes.filter((n) => n.includedInAnalytics !== false).length,
       mockTestReports: enrichedReports.filter((r) => r.isMock).length,
       mockDailyLogs: enrichedLogs.filter((l) => l.isMock).length
     }

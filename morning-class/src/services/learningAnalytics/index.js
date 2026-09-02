@@ -3,5 +3,6 @@ module.exports = {
   ...require('./statusEngine'),
   ...require('./assessmentParser'),
   seedLearningAnalyticsMock: require('./analyticsSeed').seedLearningAnalyticsMock,
-  generateAiDiagnostic: require('./diagnosticService').generateAiDiagnostic
+  generateAiDiagnostic: require('./diagnosticService').generateAiDiagnostic,
+  ...require('./teacherNotesService')
 };
