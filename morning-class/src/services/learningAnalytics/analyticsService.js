@@ -834,7 +834,27 @@ async function clearMockAnalyticsData(classId) {
 
   return {
     deletedTestReports: testDeletes.length,
-    deletedDailyLogs: logDeletes.length
+    deletedDailyLogs: logDeletes.length,
+    classId
+  };
+}
+
+async function clearAllMockAnalyticsData() {
+  const { CLASS_LIST_SHEET } = require('../../config');
+  const rows = await getSheetRows(CLASS_LIST_SHEET).catch(() => []);
+  const classIds = Array.from(new Set(
+    rows.slice(1).map((r) => String(r[0] || '').trim()).filter(Boolean)
+  ));
+  if (!classIds.length) classIds.push('C001');
+  const results = [];
+  for (const classId of classIds) {
+    results.push(await clearMockAnalyticsData(classId));
+  }
+  return {
+    classes: classIds.length,
+    results,
+    deletedTestReports: results.reduce((n, r) => n + (r.deletedTestReports || 0), 0),
+    deletedDailyLogs: results.reduce((n, r) => n + (r.deletedDailyLogs || 0), 0)
   };
 }
 
@@ -878,6 +898,7 @@ module.exports = {
   updateDailyLog,
   deleteDailyLog,
   clearMockAnalyticsData,
+  clearAllMockAnalyticsData,
   deleteImportBatch,
   activeTestReports,
   activeDailyLogs,
