@@ -13,7 +13,7 @@ const {
   ensureSheet,
   invalidateSheetRowsCache
 } = require('../sheets');
-const { askGemini, isGeminiConfigured, formatGeminiClientError } = require('./geminiService');
+const { askGemini, isGeminiConfigured, formatGeminiClientError, defaultModel } = require('./geminiService');
 
 const ITEM_HEADERS = [
   'QuestionID', 'TeacherID', 'Subject', 'Chapter', 'Topic', 'Difficulty', 'Type',
@@ -37,7 +37,7 @@ function isoNow() {
 }
 
 function geminiModel() {
-  return process.env.TEACHER_GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  return defaultModel();
 }
 
 function extractJson(text) {

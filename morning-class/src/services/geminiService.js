@@ -1,3 +1,11 @@
+const DEPRECATED_MODELS = new Set([
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash-exp'
+]);
+
+const CURRENT_FLASH_MODEL = 'gemini-3.6-flash';
+
 function isGeminiConfigured() {
   return !!String(process.env.GEMINI_API_KEY || '').trim();
 }
@@ -12,6 +20,18 @@ function isCapacityError(msg, status) {
     || /high demand|unavailable|overloaded|resource.?exhausted|try again later|quota|rate/i.test(s);
 }
 
+function isModelUnavailableError(msg, status) {
+  const s = String(msg || '');
+  return status === 404
+    || /no longer available|not found|deprecated|invalid model|is not supported/i.test(s);
+}
+
+function resolveModel(model) {
+  const m = String(model || '').trim();
+  if (!m || DEPRECATED_MODELS.has(m)) return CURRENT_FLASH_MODEL;
+  return m;
+}
+
 function formatGeminiClientError(err) {
   const msg = String((err && err.message) || err || '');
   if (/API_KEY|api key|401|403/i.test(msg)) {
@@ -24,19 +44,21 @@ function formatGeminiClientError(err) {
 }
 
 function defaultModel() {
-  return process.env.TEACHER_GEMINI_MODEL
+  return resolveModel(
+    process.env.TEACHER_GEMINI_MODEL
     || process.env.GEMINI_MODEL
-    || 'gemini-2.5-flash-lite';
+    || CURRENT_FLASH_MODEL
+  );
 }
 
 function fallbackModels(preferred) {
-  const primary = String(preferred || defaultModel()).trim();
+  const primary = resolveModel(preferred || defaultModel());
   const extras = String(process.env.GEMINI_FALLBACK_MODELS || '')
     .split(',')
-    .map((s) => s.trim())
+    .map((s) => resolveModel(s.trim()))
     .filter(Boolean);
   const defaults = [
-    'gemini-2.0-flash',
+    CURRENT_FLASH_MODEL,
     'gemini-2.5-flash',
     'gemini-flash-latest',
     'gemini-2.5-flash-lite'
@@ -44,9 +66,10 @@ function fallbackModels(preferred) {
   const seen = new Set();
   const out = [];
   [primary].concat(extras).concat(defaults).forEach((m) => {
-    if (!m || seen.has(m)) return;
-    seen.add(m);
-    out.push(m);
+    const resolved = resolveModel(m);
+    if (!resolved || seen.has(resolved)) return;
+    seen.add(resolved);
+    out.push(resolved);
   });
   return out;
 }
@@ -84,6 +107,7 @@ async function askGeminiOnce(promptOrParts, options, model, apiKey) {
     const err = new Error(errMsg);
     err.status = res.status;
     err.capacity = isCapacityError(errMsg, res.status);
+    err.modelUnavailable = isModelUnavailableError(errMsg, res.status);
     throw err;
   }
   const outParts = (((data.candidates || [])[0] || {}).content || {}).parts;
@@ -112,9 +136,9 @@ async function askGemini(prompt, historyOrOptions, maybeOptions) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
 
   const models = (Array.isArray(options.models) && options.models.length)
-    ? Array.from(new Set(options.models.map((m) => String(m || '').trim()).filter(Boolean)))
+    ? Array.from(new Set(options.models.map((m) => resolveModel(m)).filter(Boolean)))
     : (options.noFallback
-      ? [String(options.model || defaultModel()).trim()].filter(Boolean)
+      ? [resolveModel(options.model || defaultModel())].filter(Boolean)
       : fallbackModels(options.model));
   const maxAttemptsPerModel = Math.max(1, Number(options.retries) || (options.noFallback ? 1 : 2));
   let lastError = null;
@@ -126,8 +150,13 @@ async function askGemini(prompt, historyOrOptions, maybeOptions) {
         return await askGeminiOnce(prompt, options, model, apiKey);
       } catch (e) {
         lastError = e;
-        const capacity = e && (e.capacity || isCapacityError(e.message, e.status));
-        if (!capacity) {
+        const retryable = e && (
+          e.capacity
+          || isCapacityError(e.message, e.status)
+          || e.modelUnavailable
+          || isModelUnavailableError(e.message, e.status)
+        );
+        if (!retryable) {
           throw new Error(formatGeminiClientError(e));
         }
         // brief backoff before next try / next model
@@ -144,5 +173,8 @@ module.exports = {
   askGemini,
   formatGeminiClientError,
   defaultModel,
-  fallbackModels
+  fallbackModels,
+  resolveModel,
+  CURRENT_FLASH_MODEL,
+  DEPRECATED_MODELS
 };

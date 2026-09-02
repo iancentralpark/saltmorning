@@ -387,7 +387,7 @@ async function translateChatMessage(text, targetLang) {
   const models = Array.from(new Set([
     primary,
     'gemini-2.5-flash-lite',
-    'gemini-2.0-flash',
+    'gemini-3.6-flash',
     'gemini-flash-latest',
     'gemini-2.5-flash'
   ].filter(Boolean)));
