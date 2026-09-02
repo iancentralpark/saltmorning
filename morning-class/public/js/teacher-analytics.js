@@ -53,7 +53,6 @@ window.SaltAnalytics = (function() {
     }
     if ($('laImportBtn')) $('laImportBtn').addEventListener('click', importData);
     if ($('laReloadRecords')) $('laReloadRecords').addEventListener('click', loadRecords);
-    if ($('laClearMock')) $('laClearMock').addEventListener('click', clearMockData);
     applyManageVisibility();
     if ($('laDetailClose')) {
       $('laDetailClose').addEventListener('click', () => {
@@ -295,32 +294,6 @@ window.SaltAnalytics = (function() {
         : ('/api/teacher/class/' + encodeURIComponent(cid) + '/analytics/reports/' + encodeURIComponent(reportId));
       await api(path, { method: 'DELETE' });
       if ($('laRecordDetail')) $('laRecordDetail').classList.add('hidden');
-      await loadRecords();
-      await loadDashboard();
-    } catch (e) {
-      if ($('laRecordsMsg')) $('laRecordsMsg').textContent = e.message;
-    }
-  }
-
-  async function clearMockData() {
-    const cid = recordsClassId();
-    if (!cid) {
-      if ($('laRecordsMsg')) $('laRecordsMsg').textContent = 'Choose a class first.';
-      return;
-    }
-    if (!window.confirm('Remove all demo/mock SR, MAP, and engagement data for this class? Real uploaded reports are kept.')) return;
-    try {
-      const path = mode === 'school'
-        ? '/api/admin/analytics/clear-mock'
-        : ('/api/teacher/class/' + encodeURIComponent(cid) + '/analytics/clear-mock');
-      const res = await api(path, { method: 'POST', body: mode === 'school' ? { classId: cid } : {} });
-      if ($('laRecordsMsg')) {
-        $('laRecordsMsg').textContent =
-          'Removed ' + (res.deletedTestReports || 0) + ' demo test scores and ' +
-          (res.deletedDailyLogs || 0) + ' demo engagement logs.';
-      }
-      batchFilter = '';
-      highlightBatchId = '';
       await loadRecords();
       await loadDashboard();
     } catch (e) {

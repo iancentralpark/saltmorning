@@ -113,7 +113,7 @@ const {
   processDueScheduledShares,
   STATES: RC_WF_STATES
 } = require('./services/reportCardWorkflowService');
-const LEARNING_ANALYTICS_BUILD = '20260902la2';
+const LEARNING_ANALYTICS_BUILD = '20260902la3';
 const { REPORT_CARD_PRINT_VERSION } = require('./services/reportCardPrint');
 
 const {
@@ -199,6 +199,7 @@ const {
   updateDailyLog,
   deleteDailyLog,
   clearMockAnalyticsData,
+  clearAllMockAnalyticsData,
   deleteImportBatch,
   createTeacherNote,
   updateTeacherNote,
@@ -1492,16 +1493,6 @@ router.delete('/teacher/class/:classId/analytics/logs/:logId', requireRole('teac
   }
 });
 
-router.post('/teacher/class/:classId/analytics/clear-mock', requireRole('teacher'), async (req, res) => {
-  try {
-    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
-    res.json(await clearMockAnalyticsData(req.params.classId));
-  } catch (e) {
-    const status = /homeroom/i.test(e.message || '') ? 403 : 400;
-    res.status(status).json({ error: e.message || 'Could not clear mock analytics data.' });
-  }
-});
-
 router.delete('/teacher/class/:classId/analytics/batches/:batchId', requireRole('teacher'), async (req, res) => {
   try {
     await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
@@ -1695,16 +1686,6 @@ router.delete('/admin/analytics/logs/:logId', requireRole('admin'), async (req, 
   }
 });
 
-router.post('/admin/analytics/clear-mock', requireRole('admin'), async (req, res) => {
-  try {
-    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
-    if (!classId) return res.status(400).json({ error: 'Choose a class to clear mock data.' });
-    res.json(await clearMockAnalyticsData(classId));
-  } catch (e) {
-    res.status(400).json({ error: e.message || 'Could not clear mock analytics data.' });
-  }
-});
-
 router.delete('/admin/analytics/batches/:batchId', requireRole('admin'), async (req, res) => {
   try {
     const classId = String(req.query.classId || '').trim();
@@ -1777,6 +1758,23 @@ router.delete('/admin/analytics/notes/:noteId', requireRole('admin'), async (req
     ));
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not delete teacher note.' });
+  }
+});
+
+router.post('/dev/clear-mock-analytics', async (req, res) => {
+  try {
+    const key = String((req.body && req.body.key) || req.query.key || '');
+    if (key !== String(process.env.DEMO_SEED_KEY || 'salt-demo-seed')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
+    if (classId && classId !== '*') {
+      res.json(await clearMockAnalyticsData(classId));
+      return;
+    }
+    res.json(await clearAllMockAnalyticsData());
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Clear mock failed.' });
   }
 });
 
