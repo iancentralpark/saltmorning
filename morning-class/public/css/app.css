@@ -5293,6 +5293,22 @@ body.buddy-resize-active {
 .la-record-meta dt { color: var(--muted); font-size: 0.72rem; margin: 0; }
 .la-record-meta dd { margin: 0.1rem 0 0; font-weight: 600; }
 .la-domain-list { margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.85rem; }
+.la-notes-section { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border-soft); }
+.la-notes-list { display: grid; gap: 0.65rem; margin-bottom: 0.5rem; }
+.la-note-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+}
+.la-note-card.la-note-excluded { opacity: 0.72; background: #fafafa; }
+.la-note-head { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.35rem; }
+.la-note-body { font-size: 0.88rem; line-height: 1.45; white-space: pre-wrap; }
+.la-note-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center; margin-top: 0.45rem; }
+.la-note-form { margin-top: 0.5rem; }
+.la-note-form-row { display: flex; gap: 0.65rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.la-note-form textarea { width: 100%; min-height: 110px; font: inherit; }
+.la-note-form-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.5rem; }
 .la-detail {
   margin-top: 1rem;
   border: 1px solid var(--border);

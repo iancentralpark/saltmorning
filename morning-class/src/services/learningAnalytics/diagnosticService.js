@@ -74,6 +74,13 @@ function diagnosticPrompt(bundle) {
     domainProfile: bundle.domainProfile,
     latestTests: (bundle.testReports || []).slice(-6),
     progressSeries: (bundle.progressSeries || []).slice(-24),
+    teacherNotes: (bundle.teacherNotes || []).map((n) => ({
+      subject: n.subject,
+      noteType: n.noteType,
+      teacherName: n.teacherName,
+      body: n.body,
+      updatedAt: n.updatedAt || n.createdAt
+    })),
     latestIntervention: bundle.latestIntervention
       ? {
         status: bundle.latestIntervention.status,
@@ -86,6 +93,7 @@ function diagnosticPrompt(bundle) {
   return [
     'You are a senior instructional coach and literacy specialist.',
     'Using ALL of the student analytics JSON below, write a rich pedagogical analysis.',
+    'Teacher-submitted diagnostic results and subject comments are in teacherNotes — treat them as firsthand classroom evidence.',
     '',
     'Requirements for teacherReport (essay, English, 4–8 paragraphs):',
     '- Synthesize what the student does well, dispositions/tendencies, academic strengths, and gaps.',
