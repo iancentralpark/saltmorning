@@ -149,8 +149,8 @@ async function seedLearningAnalyticsMock(classId) {
     }
   });
 
-  const t = await saveTestReports(tests);
-  const l = await saveDailyLogs(logs);
+  const t = await saveTestReports(tests, { mock: true, importBatchId: 'mock_demo' });
+  const l = await saveDailyLogs(logs, { mock: true });
   return {
     ok: true,
     classId,

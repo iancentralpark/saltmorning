@@ -5,7 +5,7 @@ const {
   ANALYTICS_INTERVENTIONS_SHEET
 } = require('../../config');
 const {
-  getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache
+  getSheetRows, appendRows, updateRange, ensureSheet, invalidateSheetRowsCache, deleteRows
 } = require('../../sheets');
 const { formatSheetDate, todayStr } = require('../../dateUtils');
 const { getClassRoster } = require('../teacherPortalService');
@@ -68,6 +68,7 @@ async function ensureAnalyticsSheets() {
 
 function parseTestRow(row) {
   if (!row || !row[0]) return null;
+  const rawMeta = safeJson(row[10], {});
   return {
     reportId: String(row[0]),
     studentId: String(row[1] || ''),
@@ -79,13 +80,35 @@ function parseTestRow(row) {
     lexile: String(row[7] || '') || null,
     ritScore: row[8] === '' || row[8] == null ? null : Number(row[8]),
     domainScores: safeJson(row[9], []),
-    rawMeta: safeJson(row[10], {}),
+    rawMeta,
+    included: rawMeta.included !== false,
+    isMock: isMockReportMeta(rawMeta),
+    importBatchId: String(rawMeta.importBatchId || ''),
+    importedFrom: String(rawMeta.importedFrom || ''),
+    extractionModel: String(rawMeta.extractionModel || ''),
     createdAt: String(row[11] || '')
   };
 }
 
+function isMockReportMeta(rawMeta) {
+  const meta = rawMeta || {};
+  if (meta.mock === true || meta.sourceType === 'seed') return true;
+  if (meta.importedFrom || meta.importBatchId) return false;
+  return true;
+}
+
+function activeTestReports(reports) {
+  return (reports || []).filter((r) => r.included !== false);
+}
+
+function activeDailyLogs(logs) {
+  return (logs || []).filter((l) => l.included !== false);
+}
+
 function parseLogRow(row) {
   if (!row || !row[0]) return null;
+  const notes = String(row[9] || '');
+  const isMock = notes.startsWith('__mock__') || (!notes.includes('imported:') && notes !== '');
   return {
     logId: String(row[0]),
     studentId: String(row[1] || ''),
@@ -96,7 +119,9 @@ function parseLogRow(row) {
     homeworkSubmitted: Number(row[6]) || 0,
     homeworkAssigned: Number(row[7]) || 0,
     participation: row[8] === '' || row[8] == null ? null : Number(row[8]),
-    notes: String(row[9] || ''),
+    notes: notes.replace(/^__mock__\s*/, '').replace(/^__excluded__\s*/, '').trim(),
+    included: !notes.startsWith('__excluded__'),
+    isMock,
     createdAt: String(row[10] || '')
   };
 }
@@ -160,46 +185,61 @@ async function listInterventions(classId, studentId) {
   return out.sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
 }
 
-async function saveTestReports(reports) {
+async function saveTestReports(reports, opts) {
+  opts = opts || {};
   await ensureAnalyticsSheets();
   if (!Array.isArray(reports) || !reports.length) throw new Error('No reports to save.');
   const now = isoNow();
-  const rows = reports.map((r) => [
-    r.reportId || newId('atr'),
-    String(r.studentId),
-    String(r.classId || ''),
-    String(r.source || 'other'),
-    formatSheetDate(r.testDate),
-    r.score == null ? '' : r.score,
-    r.percentile == null ? '' : r.percentile,
-    r.lexile || '',
-    r.ritScore == null ? '' : r.ritScore,
-    JSON.stringify(r.domainScores || []),
-    JSON.stringify(r.rawMeta || {}),
-    now
-  ]);
+  const batchId = opts.importBatchId || '';
+  const rows = reports.map((r) => {
+    const rawMeta = Object.assign({}, r.rawMeta || {});
+    if (batchId && !rawMeta.importBatchId) rawMeta.importBatchId = batchId;
+    if (opts.mock && rawMeta.mock == null) rawMeta.mock = true;
+    if (rawMeta.included == null) rawMeta.included = true;
+    return [
+      r.reportId || newId('atr'),
+      String(r.studentId),
+      String(r.classId || ''),
+      String(r.source || 'other'),
+      formatSheetDate(r.testDate),
+      r.score == null ? '' : r.score,
+      r.percentile == null ? '' : r.percentile,
+      r.lexile || '',
+      r.ritScore == null ? '' : r.ritScore,
+      JSON.stringify(r.domainScores || []),
+      JSON.stringify(rawMeta),
+      now
+    ];
+  });
   await appendRows(ANALYTICS_TEST_REPORTS_SHEET, rows);
   invalidateSheetRowsCache(ANALYTICS_TEST_REPORTS_SHEET);
-  return { saved: rows.length };
+  return { saved: rows.length, importBatchId: batchId || null };
 }
 
-async function saveDailyLogs(logs) {
+async function saveDailyLogs(logs, opts) {
+  opts = opts || {};
   await ensureAnalyticsSheets();
   if (!Array.isArray(logs) || !logs.length) throw new Error('No logs to save.');
   const now = isoNow();
-  const rows = logs.map((l) => [
-    l.logId || newId('adl'),
-    String(l.studentId),
-    String(l.classId || ''),
-    formatSheetDate(l.date),
-    l.vocabScore == null ? '' : l.vocabScore,
-    l.formativeScore == null ? '' : l.formativeScore,
-    Number(l.homeworkSubmitted) || 0,
-    Number(l.homeworkAssigned) || 0,
-    l.participation == null ? '' : l.participation,
-    String(l.notes || ''),
-    now
-  ]);
+  const rows = logs.map((l) => {
+    let notes = String(l.notes || '');
+    if (opts.mock && !notes.startsWith('__mock__')) {
+      notes = '__mock__' + (notes ? ' ' + notes : '');
+    }
+    return [
+      l.logId || newId('adl'),
+      String(l.studentId),
+      String(l.classId || ''),
+      formatSheetDate(l.date),
+      l.vocabScore == null ? '' : l.vocabScore,
+      l.formativeScore == null ? '' : l.formativeScore,
+      Number(l.homeworkSubmitted) || 0,
+      Number(l.homeworkAssigned) || 0,
+      l.participation == null ? '' : l.participation,
+      notes,
+      now
+    ];
+  });
   await appendRows(ANALYTICS_DAILY_LOGS_SHEET, rows);
   invalidateSheetRowsCache(ANALYTICS_DAILY_LOGS_SHEET);
   return { saved: rows.length };
@@ -227,13 +267,33 @@ async function importAssessments(payload) {
       source: sourceHint || 'star_reading',
       roster
     });
-    const saved = await saveTestReports(extracted.reports);
+    const importBatchId = newId('la_import');
+    const reports = extracted.reports.map((r) => Object.assign({}, r, {
+      reportId: newId('atr'),
+      rawMeta: Object.assign({}, r.rawMeta || {}, {
+        importBatchId,
+        included: true
+      })
+    }));
+    const saved = await saveTestReports(reports, { importBatchId });
     return Object.assign({}, saved, {
       matched: extracted.matched,
       extracted: extracted.extracted,
       unmatched: extracted.unmatched,
       warnings: extracted.warnings,
-      model: extracted.model
+      model: extracted.model,
+      importBatchId,
+      reports: reports.map((r) => ({
+        reportId: r.reportId,
+        studentId: r.studentId,
+        source: r.source,
+        testDate: r.testDate,
+        score: r.score,
+        percentile: r.percentile,
+        lexile: r.lexile,
+        ritScore: r.ritScore,
+        domainScores: r.domainScores || []
+      }))
     });
   }
 
@@ -361,8 +421,8 @@ function defaultActions(status) {
 
 function buildStudentBundle(classId, student, allTests, allLogs, allInts, pendingHomework) {
   const studentId = student.studentId;
-  const testReports = allTests.filter((t) => t.studentId === studentId);
-  const dailyLogs = allLogs.filter((l) => l.studentId === studentId);
+  const testReports = activeTestReports(allTests.filter((t) => t.studentId === studentId));
+  const dailyLogs = activeDailyLogs(allLogs.filter((l) => l.studentId === studentId));
   const engagement = summarizeEngagement(dailyLogs, pendingHomework);
   const status = calculateStudentStatus({ testReports, dailyLogs, engagement, pendingHomework });
   const ints = allInts.filter((i) => i.studentId === studentId);
@@ -547,6 +607,214 @@ async function getSchoolStudentAnalytics(studentId) {
   return hit;
 }
 
+function sourceLabel(source) {
+  if (source === 'star_reading') return 'Star Reading';
+  if (source === 'map') return 'NWEA MAP';
+  return String(source || 'Other');
+}
+
+function summarizeBatches(testReports) {
+  const map = new Map();
+  (testReports || []).forEach((r) => {
+    const batchId = r.importBatchId || (r.isMock ? 'mock_demo' : 'legacy_untagged');
+    const label = r.isMock
+      ? 'Demo / mock data'
+      : (r.importedFrom
+        ? ('Upload: ' + r.importedFrom)
+        : (r.importBatchId ? 'Import ' + r.importBatchId : 'Legacy import'));
+    if (!map.has(batchId)) {
+      map.set(batchId, {
+        batchId,
+        label,
+        importedFrom: r.importedFrom || '',
+        extractionModel: r.extractionModel || '',
+        isMock: !!r.isMock,
+        createdAt: r.createdAt || '',
+        reportCount: 0,
+        includedCount: 0
+      });
+    }
+    const b = map.get(batchId);
+    b.reportCount += 1;
+    if (r.included !== false) b.includedCount += 1;
+    if (r.createdAt && (!b.createdAt || r.createdAt > b.createdAt)) b.createdAt = r.createdAt;
+  });
+  return Array.from(map.values()).sort((a, b) =>
+    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  );
+}
+
+async function getAnalyticsRecords(classId) {
+  classId = String(classId || '').trim();
+  if (!classId) throw new Error('Class is required.');
+  await ensureAnalyticsSheets();
+  const roster = await getClassRoster(classId).catch(() => []);
+  const nameById = {};
+  roster.forEach((s) => { nameById[s.studentId] = s.name; });
+
+  const [testReports, dailyLogs] = await Promise.all([
+    listTestReports(classId),
+    listDailyLogs(classId)
+  ]);
+
+  const enrichedReports = testReports.map((r) => Object.assign({}, r, {
+    studentName: nameById[r.studentId] || r.studentId,
+    sourceLabel: sourceLabel(r.source),
+    kind: 'test_report'
+  }));
+  const enrichedLogs = dailyLogs.map((l) => Object.assign({}, l, {
+    studentName: nameById[l.studentId] || l.studentId,
+    kind: 'daily_log',
+    sourceLabel: l.isMock ? 'Demo engagement log' : 'Engagement log'
+  }));
+
+  return {
+    classId,
+    testReports: enrichedReports,
+    dailyLogs: enrichedLogs,
+    batches: summarizeBatches(enrichedReports),
+    counts: {
+      testReports: enrichedReports.length,
+      dailyLogs: enrichedLogs.length,
+      includedTestReports: enrichedReports.filter((r) => r.included !== false).length,
+      mockTestReports: enrichedReports.filter((r) => r.isMock).length,
+      mockDailyLogs: enrichedLogs.filter((l) => l.isMock).length
+    }
+  };
+}
+
+async function findTestReportRow(reportId) {
+  reportId = String(reportId || '').trim();
+  const rows = await getSheetRows(ANALYTICS_TEST_REPORTS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === reportId) return { rowIndex: i + 1, row: rows[i].slice() };
+  }
+  return null;
+}
+
+async function findDailyLogRow(logId) {
+  logId = String(logId || '').trim();
+  const rows = await getSheetRows(ANALYTICS_DAILY_LOGS_SHEET, { skipCache: true });
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === logId) return { rowIndex: i + 1, row: rows[i].slice() };
+  }
+  return null;
+}
+
+function serializeTestRow(row) {
+  while (row.length < 12) row.push('');
+  return row.slice(0, 12);
+}
+
+async function updateTestReport(classId, reportId, patch) {
+  classId = String(classId || '').trim();
+  reportId = String(reportId || '').trim();
+  const hit = await findTestReportRow(reportId);
+  if (!hit) throw new Error('Assessment record not found.');
+  if (String(hit.row[2] || '') !== classId) throw new Error('Assessment record not found.');
+  const parsed = parseTestRow(hit.row);
+  const rawMeta = Object.assign({}, parsed.rawMeta || {});
+  if (patch && patch.included != null) rawMeta.included = !!patch.included;
+  const row = serializeTestRow(hit.row.slice());
+  row[10] = JSON.stringify(rawMeta);
+  await updateRange(ANALYTICS_TEST_REPORTS_SHEET, `A${hit.rowIndex}:L${hit.rowIndex}`, [row]);
+  return parseTestRow(row);
+}
+
+async function deleteTestReport(classId, reportId) {
+  classId = String(classId || '').trim();
+  reportId = String(reportId || '').trim();
+  const hit = await findTestReportRow(reportId);
+  if (!hit) throw new Error('Assessment record not found.');
+  if (String(hit.row[2] || '') !== classId) throw new Error('Assessment record not found.');
+  await deleteRows(ANALYTICS_TEST_REPORTS_SHEET, [hit.rowIndex]);
+  return { deleted: true, reportId };
+}
+
+async function updateDailyLog(classId, logId, patch) {
+  classId = String(classId || '').trim();
+  logId = String(logId || '').trim();
+  const hit = await findDailyLogRow(logId);
+  if (!hit) throw new Error('Engagement log not found.');
+  if (String(hit.row[2] || '') !== classId) throw new Error('Engagement log not found.');
+  const parsed = parseLogRow(hit.row);
+  let notes = String(hit.row[9] || '');
+  const isMock = parsed.isMock;
+  let body = notes.replace(/^__mock__\s*/, '').replace(/^__excluded__\s*/, '').trim();
+  const included = patch && patch.included != null ? !!patch.included : parsed.included;
+  notes = (included ? '' : '__excluded__ ') + (isMock ? '__mock__ ' : '') + body;
+  notes = notes.trim();
+  const row = hit.row.slice();
+  while (row.length < 11) row.push('');
+  row[9] = notes;
+  await updateRange(ANALYTICS_DAILY_LOGS_SHEET, `A${hit.rowIndex}:K${hit.rowIndex}`, [row]);
+  return parseLogRow(row);
+}
+
+async function deleteDailyLog(classId, logId) {
+  classId = String(classId || '').trim();
+  logId = String(logId || '').trim();
+  const hit = await findDailyLogRow(logId);
+  if (!hit) throw new Error('Engagement log not found.');
+  if (String(hit.row[2] || '') !== classId) throw new Error('Engagement log not found.');
+  await deleteRows(ANALYTICS_DAILY_LOGS_SHEET, [hit.rowIndex]);
+  return { deleted: true, logId };
+}
+
+async function clearMockAnalyticsData(classId) {
+  classId = String(classId || '').trim();
+  if (!classId) throw new Error('Class is required.');
+  await ensureAnalyticsSheets();
+
+  const [testRows, logRows] = await Promise.all([
+    getSheetRows(ANALYTICS_TEST_REPORTS_SHEET, { skipCache: true }),
+    getSheetRows(ANALYTICS_DAILY_LOGS_SHEET, { skipCache: true })
+  ]);
+
+  const testDeletes = [];
+  for (let i = 1; i < testRows.length; i++) {
+    const parsed = parseTestRow(testRows[i]);
+    if (!parsed || parsed.classId !== classId) continue;
+    if (parsed.isMock) testDeletes.push(i + 1);
+  }
+
+  const logDeletes = [];
+  for (let i = 1; i < logRows.length; i++) {
+    const parsed = parseLogRow(logRows[i]);
+    if (!parsed || parsed.classId !== classId) continue;
+    if (parsed.isMock || !parsed.notes.includes('imported:')) {
+      logDeletes.push(i + 1);
+    }
+  }
+
+  if (testDeletes.length) await deleteRows(ANALYTICS_TEST_REPORTS_SHEET, testDeletes);
+  if (logDeletes.length) await deleteRows(ANALYTICS_DAILY_LOGS_SHEET, logDeletes);
+
+  return {
+    deletedTestReports: testDeletes.length,
+    deletedDailyLogs: logDeletes.length
+  };
+}
+
+async function deleteImportBatch(classId, batchId) {
+  classId = String(classId || '').trim();
+  batchId = String(batchId || '').trim();
+  if (!batchId) throw new Error('Import batch is required.');
+  const rows = await getSheetRows(ANALYTICS_TEST_REPORTS_SHEET, { skipCache: true });
+  const deletes = [];
+  for (let i = 1; i < rows.length; i++) {
+    const parsed = parseTestRow(rows[i]);
+    if (!parsed || parsed.classId !== classId) continue;
+    const match = parsed.importBatchId === batchId
+      || (batchId === 'mock_demo' && parsed.isMock)
+      || (batchId === 'legacy_untagged' && !parsed.importBatchId && !parsed.importedFrom);
+    if (match) deletes.push(i + 1);
+  }
+  if (!deletes.length) throw new Error('No records found for this import batch.');
+  await deleteRows(ANALYTICS_TEST_REPORTS_SHEET, deletes);
+  return { deleted: deletes.length, batchId };
+}
+
 module.exports = {
   ensureAnalyticsSheets,
   listTestReports,
@@ -562,6 +830,15 @@ module.exports = {
   getStudentAnalytics,
   getSchoolAnalyticsDashboard,
   getSchoolStudentAnalytics,
+  getAnalyticsRecords,
+  updateTestReport,
+  deleteTestReport,
+  updateDailyLog,
+  deleteDailyLog,
+  clearMockAnalyticsData,
+  deleteImportBatch,
+  activeTestReports,
+  activeDailyLogs,
   defaultActions,
   STATUS_META,
   todayStr

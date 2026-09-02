@@ -7,6 +7,9 @@ window.SaltAnalytics = (function() {
   let selectedId = '';
   let mode = 'class'; // 'class' | 'school'
   let role = 'teacher';
+  let records = null;
+  let batchFilter = '';
+  let highlightBatchId = '';
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
@@ -40,9 +43,12 @@ window.SaltAnalytics = (function() {
       $('laClassFilter').addEventListener('change', () => {
         classFilter = $('laClassFilter').value;
         loadDashboard();
+        loadRecords();
       });
     }
     if ($('laImportBtn')) $('laImportBtn').addEventListener('click', importData);
+    if ($('laReloadRecords')) $('laReloadRecords').addEventListener('click', loadRecords);
+    if ($('laClearMock')) $('laClearMock').addEventListener('click', clearMockData);
     if ($('laDetailClose')) {
       $('laDetailClose').addEventListener('click', () => {
         selectedId = '';
@@ -59,21 +65,256 @@ window.SaltAnalytics = (function() {
     });
   }
 
+  function recordsBase() {
+    if (mode === 'school') return '/api/admin/analytics/records';
+    const cls = getClass();
+    if (!cls) return '';
+    return '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/analytics/records';
+  }
+
+  function recordsClassId() {
+    if (mode === 'school') {
+      return classFilter || ($('laClassFilter') && $('laClassFilter').value) || '';
+    }
+    const cls = getClass();
+    return cls ? cls.classId : '';
+  }
+
+  async function loadRecords() {
+    const base = recordsBase();
+    const cid = recordsClassId();
+    if (!base) return;
+    if (mode === 'school' && !cid) {
+      if ($('laRecords')) {
+        $('laRecords').innerHTML = '<p class="muted small">Choose a class to view assessment records.</p>';
+      }
+      return;
+    }
+    if ($('laRecords')) {
+      $('laRecords').innerHTML = '<p class="muted small">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
+    }
+    try {
+      const q = mode === 'school' ? ('?classId=' + encodeURIComponent(cid)) : '';
+      records = await api(base + q);
+      renderBatches();
+      renderRecordsTable();
+      if ($('laRecordsMsg')) {
+        const c = records.counts || {};
+        $('laRecordsMsg').textContent =
+          (c.testReports || 0) + ' test scores, ' + (c.dailyLogs || 0) + ' engagement logs' +
+          (c.mockTestReports ? (' · ' + c.mockTestReports + ' demo test scores') : '') +
+          (c.mockDailyLogs ? (' · ' + c.mockDailyLogs + ' demo logs') : '');
+      }
+    } catch (e) {
+      if ($('laRecords')) $('laRecords').innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function renderBatches() {
+    const box = $('laBatches');
+    if (!box || !records) return;
+    const batches = records.batches || [];
+    if (!batches.length) {
+      box.innerHTML = '';
+      return;
+    }
+    box.innerHTML =
+      '<div class="la-batch-chips">' +
+      '<button type="button" class="la-batch-chip' + (!batchFilter ? ' active' : '') + '" data-batch="">All imports</button>' +
+      batches.map((b) =>
+        '<button type="button" class="la-batch-chip' +
+          (batchFilter === b.batchId ? ' active' : '') +
+          (highlightBatchId === b.batchId ? ' la-batch-new' : '') +
+          '" data-batch="' + escapeHtml(b.batchId) + '">' +
+          escapeHtml(b.label) + ' (' + b.includedCount + '/' + b.reportCount + ')</button>'
+      ).join('') +
+      '</div>';
+    box.querySelectorAll('.la-batch-chip').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        batchFilter = btn.dataset.batch || '';
+        renderBatches();
+        renderRecordsTable();
+      });
+    });
+  }
+
+  function formatScoreRow(r) {
+    if (r.source === 'map') {
+      return (r.ritScore != null ? ('RIT ' + r.ritScore) : '—') +
+        (r.percentile != null ? (' · ' + r.percentile + 'th %ile') : '');
+    }
+    const bits = [];
+    if (r.score != null) bits.push('Score ' + r.score);
+    if (r.percentile != null) bits.push(r.percentile + 'th %ile');
+    if (r.lexile) bits.push(r.lexile);
+    return bits.length ? bits.join(' · ') : '—';
+  }
+
+  function renderRecordsTable() {
+    const box = $('laRecords');
+    if (!box || !records) return;
+    let rows = (records.testReports || []).slice();
+    if (batchFilter) {
+      rows = rows.filter((r) => {
+        const bid = r.importBatchId || (r.isMock ? 'mock_demo' : 'legacy_untagged');
+        return bid === batchFilter;
+      });
+    }
+    rows.sort((a, b) => String(b.testDate || b.createdAt).localeCompare(String(a.testDate || a.createdAt)));
+    if (!rows.length) {
+      box.innerHTML = '<p class="muted small">No assessment records yet. Upload a Star Reading or MAP report above.</p>';
+      return;
+    }
+    box.innerHTML =
+      '<table class="la-table la-records-table"><thead><tr>' +
+      '<th>Date</th><th>Student</th><th>Source</th><th>Extracted scores</th><th>Include</th><th></th>' +
+      '</tr></thead><tbody>' +
+      rows.map((r) =>
+        '<tr data-rid="' + escapeHtml(r.reportId) + '"' +
+          (highlightBatchId && r.importBatchId === highlightBatchId ? ' class="la-row-new"' : '') + '>' +
+          '<td>' + escapeHtml(r.testDate || '—') + '</td>' +
+          '<td><strong>' + escapeHtml(r.studentName || r.studentId) + '</strong></td>' +
+          '<td>' + escapeHtml(r.sourceLabel || r.source) +
+            (r.isMock ? ' <span class="la-tag-mock">demo</span>' : '') +
+            (r.importedFrom ? '<div class="muted small">' + escapeHtml(r.importedFrom) + '</div>' : '') +
+          '</td>' +
+          '<td class="small">' + escapeHtml(formatScoreRow(r)) + '</td>' +
+          '<td><label class="la-include-toggle"><input type="checkbox" class="la-include-cb" data-rid="' +
+            escapeHtml(r.reportId) + '"' + (r.included !== false ? ' checked' : '') + '> Include</label></td>' +
+          '<td class="la-rec-actions">' +
+            '<button type="button" class="btn btn-ghost la-view-record" data-rid="' + escapeHtml(r.reportId) + '">View</button>' +
+            '<button type="button" class="btn btn-ghost la-danger-btn la-del-record" data-rid="' + escapeHtml(r.reportId) + '">Delete</button>' +
+          '</td>' +
+        '</tr>'
+      ).join('') +
+      '</tbody></table>';
+
+    box.querySelectorAll('.la-include-cb').forEach((cb) => {
+      cb.addEventListener('change', () => toggleReportIncluded(cb.dataset.rid, cb.checked));
+    });
+    box.querySelectorAll('.la-view-record').forEach((btn) => {
+      btn.addEventListener('click', () => showReportDetail(btn.dataset.rid));
+    });
+    box.querySelectorAll('.la-del-record').forEach((btn) => {
+      btn.addEventListener('click', () => deleteReport(btn.dataset.rid));
+    });
+  }
+
+  function showReportDetail(reportId) {
+    const r = (records && records.testReports || []).find((x) => x.reportId === reportId);
+    const box = $('laRecordDetail');
+    if (!r || !box) return;
+    const domains = (r.domainScores || []).map((d) =>
+      '<li><strong>' + escapeHtml(d.label || d.domain) + '</strong>: ' +
+      (d.score != null ? d.score : '—') +
+      (d.percentile != null ? (' (' + d.percentile + 'th %ile)') : '') + '</li>'
+    ).join('') || '<li class="muted">No domain breakdown was extracted.</li>';
+
+    box.classList.remove('hidden');
+    box.innerHTML =
+      '<div class="la-record-detail-head">' +
+        '<h4 style="margin:0">' + escapeHtml(r.studentName || r.studentId) + ' · ' + escapeHtml(r.sourceLabel || r.source) + '</h4>' +
+        '<button type="button" class="btn btn-ghost" id="laRecordDetailClose">Close</button>' +
+      '</div>' +
+      '<dl class="la-record-meta">' +
+        '<div><dt>Test date</dt><dd>' + escapeHtml(r.testDate || '—') + '</dd></div>' +
+        '<div><dt>Imported</dt><dd>' + escapeHtml(r.createdAt ? r.createdAt.slice(0, 10) : '—') + '</dd></div>' +
+        '<div><dt>Source file</dt><dd>' + escapeHtml(r.importedFrom || (r.isMock ? 'Demo / mock generator' : '—')) + '</dd></div>' +
+        '<div><dt>AI model</dt><dd>' + escapeHtml(r.extractionModel || (r.isMock ? '—' : '—')) + '</dd></div>' +
+        '<div><dt>Import batch</dt><dd>' + escapeHtml(r.importBatchId || (r.isMock ? 'mock_demo' : 'legacy')) + '</dd></div>' +
+        '<div><dt>Included in analytics</dt><dd>' + (r.included !== false ? 'Yes' : 'No') + '</dd></div>' +
+      '</dl>' +
+      '<h4>Extracted scores</h4>' +
+      '<p>' + escapeHtml(formatScoreRow(r)) + '</p>' +
+      '<h4>Domain / skill breakdown</h4>' +
+      '<ul class="la-domain-list">' + domains + '</ul>';
+
+    const closeBtn = $('laRecordDetailClose');
+    if (closeBtn) closeBtn.addEventListener('click', () => box.classList.add('hidden'));
+  }
+
+  async function toggleReportIncluded(reportId, included) {
+    const cid = recordsClassId();
+    if (!cid) return;
+    try {
+      const path = mode === 'school'
+        ? ('/api/admin/analytics/reports/' + encodeURIComponent(reportId))
+        : ('/api/teacher/class/' + encodeURIComponent(cid) + '/analytics/reports/' + encodeURIComponent(reportId));
+      await api(path, { method: 'PATCH', body: { included, classId: cid } });
+      await loadRecords();
+      await loadDashboard();
+    } catch (e) {
+      if ($('laRecordsMsg')) $('laRecordsMsg').textContent = e.message;
+      await loadRecords();
+    }
+  }
+
+  async function deleteReport(reportId) {
+    if (!window.confirm('Delete this assessment record permanently?')) return;
+    const cid = recordsClassId();
+    if (!cid) return;
+    try {
+      const path = mode === 'school'
+        ? ('/api/admin/analytics/reports/' + encodeURIComponent(reportId) + '?classId=' + encodeURIComponent(cid))
+        : ('/api/teacher/class/' + encodeURIComponent(cid) + '/analytics/reports/' + encodeURIComponent(reportId));
+      await api(path, { method: 'DELETE' });
+      if ($('laRecordDetail')) $('laRecordDetail').classList.add('hidden');
+      await loadRecords();
+      await loadDashboard();
+    } catch (e) {
+      if ($('laRecordsMsg')) $('laRecordsMsg').textContent = e.message;
+    }
+  }
+
+  async function clearMockData() {
+    const cid = recordsClassId();
+    if (!cid) {
+      if ($('laRecordsMsg')) $('laRecordsMsg').textContent = 'Choose a class first.';
+      return;
+    }
+    if (!window.confirm('Remove all demo/mock SR, MAP, and engagement data for this class? Real uploaded reports are kept.')) return;
+    try {
+      const path = mode === 'school'
+        ? '/api/admin/analytics/clear-mock'
+        : ('/api/teacher/class/' + encodeURIComponent(cid) + '/analytics/clear-mock');
+      const res = await api(path, { method: 'POST', body: mode === 'school' ? { classId: cid } : {} });
+      if ($('laRecordsMsg')) {
+        $('laRecordsMsg').textContent =
+          'Removed ' + (res.deletedTestReports || 0) + ' demo test scores and ' +
+          (res.deletedDailyLogs || 0) + ' demo engagement logs.';
+      }
+      batchFilter = '';
+      highlightBatchId = '';
+      await loadRecords();
+      await loadDashboard();
+    } catch (e) {
+      if ($('laRecordsMsg')) $('laRecordsMsg').textContent = e.message;
+    }
+  }
+
   function onClassOpen() {
     statusFilter = '';
     selectedId = '';
+    batchFilter = '';
+    highlightBatchId = '';
     if ($('laStatusFilter')) $('laStatusFilter').value = '';
     if ($('laDetail')) $('laDetail').classList.add('hidden');
+    if ($('laRecordDetail')) $('laRecordDetail').classList.add('hidden');
     loadDashboard();
+    loadRecords();
   }
 
   function onSchoolOpen(classes) {
     statusFilter = '';
     selectedId = '';
+    batchFilter = '';
+    highlightBatchId = '';
     if ($('laStatusFilter')) $('laStatusFilter').value = '';
     if ($('laDetail')) $('laDetail').classList.add('hidden');
+    if ($('laRecordDetail')) $('laRecordDetail').classList.add('hidden');
     fillClassFilter(classes || []);
     loadDashboard();
+    loadRecords();
   }
 
   function fillClassFilter(classes) {
@@ -431,6 +672,11 @@ window.SaltAnalytics = (function() {
         );
       }
       let msg = 'Imported ' + (res.saved || res.matched || 0) + ' student score(s).';
+      if (res.importBatchId) {
+        highlightBatchId = res.importBatchId;
+        batchFilter = res.importBatchId;
+        msg += ' Review the extracted data below.';
+      }
       if (res.unmatched && res.unmatched.length) {
         msg += ' Unmatched: ' + res.unmatched.join(', ') + '.';
       }
@@ -439,6 +685,8 @@ window.SaltAnalytics = (function() {
       }
       $('laImportMsg').textContent = msg;
       if (input) input.value = '';
+      if ($('laDataMgmt')) $('laDataMgmt').open = true;
+      await loadRecords();
       await loadDashboard();
     } catch (e) {
       $('laImportMsg').textContent = e.message;

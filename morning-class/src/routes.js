@@ -190,7 +190,14 @@ const {
   seedLearningAnalyticsMock,
   generateAiDiagnostic,
   shareParentReport,
-  listParentSharedReports
+  listParentSharedReports,
+  getAnalyticsRecords,
+  updateTestReport,
+  deleteTestReport,
+  updateDailyLog,
+  deleteDailyLog,
+  clearMockAnalyticsData,
+  deleteImportBatch
 } = require('./services/learningAnalytics');
 const {
   listStudents,
@@ -1426,6 +1433,78 @@ router.post('/teacher/class/:classId/analytics/students/:studentId/share-parent'
   }
 });
 
+router.get('/teacher/class/:classId/analytics/records', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await getAnalyticsRecords(req.params.classId));
+  } catch (e) {
+    const status = /homeroom/i.test(e.message || '') ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not load analytics records.' });
+  }
+});
+
+router.patch('/teacher/class/:classId/analytics/reports/:reportId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    const report = await updateTestReport(req.params.classId, req.params.reportId, req.body || {});
+    res.json({ report });
+  } catch (e) {
+    const status = /homeroom|not found/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not update assessment record.' });
+  }
+});
+
+router.delete('/teacher/class/:classId/analytics/reports/:reportId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await deleteTestReport(req.params.classId, req.params.reportId));
+  } catch (e) {
+    const status = /homeroom|not found/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not delete assessment record.' });
+  }
+});
+
+router.patch('/teacher/class/:classId/analytics/logs/:logId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    const log = await updateDailyLog(req.params.classId, req.params.logId, req.body || {});
+    res.json({ log });
+  } catch (e) {
+    const status = /homeroom|not found/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not update engagement log.' });
+  }
+});
+
+router.delete('/teacher/class/:classId/analytics/logs/:logId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await deleteDailyLog(req.params.classId, req.params.logId));
+  } catch (e) {
+    const status = /homeroom|not found/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not delete engagement log.' });
+  }
+});
+
+router.post('/teacher/class/:classId/analytics/clear-mock', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await clearMockAnalyticsData(req.params.classId));
+  } catch (e) {
+    const status = /homeroom/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not clear mock analytics data.' });
+  }
+});
+
+router.delete('/teacher/class/:classId/analytics/batches/:batchId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    res.json(await deleteImportBatch(req.params.classId, req.params.batchId));
+  } catch (e) {
+    const status = /homeroom|not found/i.test(e.message || '') ? 403 : 400;
+    res.status(status).json({ error: e.message || 'Could not delete import batch.' });
+  }
+});
+
 /** Admin / Principal — school-wide Learning Analytics (all enrolled students). */
 router.get('/admin/analytics', requireRole('admin'), async (req, res) => {
   try {
@@ -1504,6 +1583,78 @@ router.post(
     }
   }
 );
+
+router.get('/admin/analytics/records', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Choose a class to view analytics records.' });
+    res.json(await getAnalyticsRecords(classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load analytics records.' });
+  }
+});
+
+router.patch('/admin/analytics/reports/:reportId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    const report = await updateTestReport(classId, req.params.reportId, req.body || {});
+    res.json({ report });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update assessment record.' });
+  }
+});
+
+router.delete('/admin/analytics/reports/:reportId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    res.json(await deleteTestReport(classId, req.params.reportId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete assessment record.' });
+  }
+});
+
+router.patch('/admin/analytics/logs/:logId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    const log = await updateDailyLog(classId, req.params.logId, req.body || {});
+    res.json({ log });
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not update engagement log.' });
+  }
+});
+
+router.delete('/admin/analytics/logs/:logId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    res.json(await deleteDailyLog(classId, req.params.logId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete engagement log.' });
+  }
+});
+
+router.post('/admin/analytics/clear-mock', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String((req.body && req.body.classId) || req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Choose a class to clear mock data.' });
+    res.json(await clearMockAnalyticsData(classId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not clear mock analytics data.' });
+  }
+});
+
+router.delete('/admin/analytics/batches/:batchId', requireRole('admin'), async (req, res) => {
+  try {
+    const classId = String(req.query.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'Class is required.' });
+    res.json(await deleteImportBatch(classId, req.params.batchId));
+  } catch (e) {
+    res.status(400).json({ error: e.message || 'Could not delete import batch.' });
+  }
+});
 
 router.post('/dev/seed-learning-analytics', async (req, res) => {
   try {
