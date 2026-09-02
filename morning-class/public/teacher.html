@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20260901hw2">
+  <link rel="stylesheet" href="/css/app.css?v=20260902grade1">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -457,14 +457,14 @@
 
 <div id="gradeColumnModal" class="modal hidden" role="dialog">
   <div class="modal-card">
-    <h3>Add grade column</h3>
-    <p class="muted small">Pick a category from your grade weights. A new column appears on the right.</p>
+    <h3 id="gradeColumnModalTitle">Add grade column</h3>
+    <p class="muted small" id="gradeColumnModalHelp">Pick a category from your grade weights. A new column appears on the right.</p>
     <form id="gradeColumnForm" class="form-grid">
-      <label>Category <select id="colCategory" required></select></label>
-      <input id="colTitle" placeholder="Title (optional, e.g. Pop quiz 3)" maxlength="80">
-      <label>Date <input type="date" id="colDate" required></label>
-      <label>Max score <input type="number" id="colMaxScore" value="100" min="1" required></label>
-      <button type="submit" class="btn btn-primary">Add column</button>
+      <label id="colCategoryWrap">Category <select id="colCategory" required></select></label>
+      <label>Title <input id="colTitle" placeholder="e.g. Grammar: SPB p. 187–188" maxlength="80" required></label>
+      <label id="colDateWrap">Date <input type="date" id="colDate" required></label>
+      <label id="colMaxWrap">Max score <input type="number" id="colMaxScore" value="100" min="1" required></label>
+      <button type="submit" class="btn btn-primary" id="colSubmitBtn">Add column</button>
       <div class="error" id="colError"></div>
     </form>
     <button type="button" class="btn btn-ghost" id="gradeColumnClose" style="margin-top:0.75rem">Cancel</button>
@@ -569,7 +569,7 @@
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script src="/js/push-client.js?v=20260814ux2"></script>
 <script src="/js/teacher-attendance.js?v=20260817perf1"></script>
-<script src="/js/teacher-grades.js?v=20260817perf1"></script>
+<script src="/js/teacher-grades.js?v=20260902grade1"></script>
 <script src="/js/report-card-print.js?v=20260831rc3"></script>
 <script src="/js/teacher-reportcard.js?v=20260831rc3"></script>
 <script src="/js/teacher-analytics.js?v=20260814ux2"></script>

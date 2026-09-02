@@ -6,6 +6,7 @@ window.SaltGrades = (function() {
   let categoryPresets = [];
   let syncTimer = null;
   let highlightColumnId = null;
+  let editingColumnId = null;
   let canEditGrades = true;
   let showSubjectPicker = false;
   let subjectCatalog = [];
@@ -45,7 +46,10 @@ window.SaltGrades = (function() {
       $('gradeWeightPresetSelect').addEventListener('change', syncCustomAddFields);
     }
     $('gradeAddColumnBtn').addEventListener('click', openColumnModal);
-    $('gradeColumnClose').addEventListener('click', () => deps.hide($('gradeColumnModal')));
+    $('gradeColumnClose').addEventListener('click', () => {
+      resetColumnModal();
+      deps.hide($('gradeColumnModal'));
+    });
     $('gradeColumnForm').addEventListener('submit', submitColumn);
     const backBtn = $('gradeBackToSubjectsBtn');
     if (backBtn) backBtn.addEventListener('click', showPicker);
@@ -237,14 +241,17 @@ window.SaltGrades = (function() {
 
   function computeStudentFinal(studentId, weights, entriesByCategory) {
     let weightedTotal = 0;
+    let gradedWeight = 0;
     for (const w of weights) {
       const catEntries = (entriesByCategory[w.categoryKey] || []).filter((e) => e.studentId === studentId);
       const categoryPercent = aggregateCategoryPercent(catEntries, w.aggregation);
       if (categoryPercent != null) {
         weightedTotal += Math.round(categoryPercent * w.weightPercent) / 100;
+        gradedWeight += w.weightPercent;
       }
     }
-    return weights.length ? Math.round(weightedTotal * 10) / 10 : null;
+    if (!weights.length || gradedWeight <= 0) return null;
+    return Math.round((weightedTotal / gradedWeight) * 1000) / 10;
   }
 
   function buildEntriesFromGradebook() {
@@ -376,12 +383,17 @@ window.SaltGrades = (function() {
   function assessmentHeaderHtml(col) {
     const title = col.title || col.categoryLabel;
     const showCategory = col.categoryLabel && col.categoryLabel !== title;
+    const canRename = canEditGrades && col.assessmentId && !String(col.assessmentId).startsWith('legacy:');
+    const editBtn = canRename
+      ? ('<button type="button" class="gb-col-edit" data-aid="' + escapeHtml(col.assessmentId) +
+        '" title="Rename column" aria-label="Rename column">✎</button>')
+      : '';
     const deleteBtn = canEditGrades
       ? ('<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
         '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>')
       : '';
     return (
-      deleteBtn +
+      '<div class="gb-col-actions">' + editBtn + deleteBtn + '</div>' +
       '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
       '<div class="gb-col-meta">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
       (showCategory ? '<div class="gb-col-meta gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '')
@@ -394,11 +406,18 @@ window.SaltGrades = (function() {
     this.eGui = document.createElement('div');
     this.eGui.className = 'gb-ag-col-head';
     this.eGui.innerHTML = assessmentHeaderHtml(col);
-    const btn = this.eGui.querySelector('.gb-col-delete');
-    if (btn) {
-      btn.addEventListener('click', (e) => {
+    const delBtn = this.eGui.querySelector('.gb-col-delete');
+    if (delBtn) {
+      delBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteColumn(col.assessmentId, col.title || col.categoryLabel);
+      });
+    }
+    const editBtn = this.eGui.querySelector('.gb-col-edit');
+    if (editBtn) {
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openColumnEditModal(col);
       });
     }
   };
@@ -891,6 +910,19 @@ window.SaltGrades = (function() {
     }
   }
 
+  function resetColumnModal() {
+    editingColumnId = null;
+    $('colError').textContent = '';
+    if ($('gradeColumnModalTitle')) $('gradeColumnModalTitle').textContent = 'Add grade column';
+    if ($('colSubmitBtn')) $('colSubmitBtn').textContent = 'Add column';
+    if ($('colCategory')) $('colCategory').disabled = false;
+    if ($('colDate')) $('colDate').disabled = false;
+    if ($('colMaxScore')) $('colMaxScore').disabled = false;
+    if ($('colCategoryWrap')) $('colCategoryWrap').classList.remove('hidden');
+    if ($('colDateWrap')) $('colDateWrap').classList.remove('hidden');
+    if ($('colMaxWrap')) $('colMaxWrap').classList.remove('hidden');
+  }
+
   function openColumnModal() {
     if (!canEditGrades) {
       $('gradesError').textContent = 'Only the subject teacher can add columns.';
@@ -902,7 +934,7 @@ window.SaltGrades = (function() {
       openWeightsModal();
       return;
     }
-    $('colError').textContent = '';
+    resetColumnModal();
     $('colDate').value = todayISO();
     $('colTitle').value = '';
     $('colCategory').innerHTML = weights.map((w) =>
@@ -917,11 +949,48 @@ window.SaltGrades = (function() {
     deps.show($('gradeColumnModal'));
   }
 
+  function openColumnEditModal(col) {
+    if (!canEditGrades) {
+      $('gradesError').textContent = 'Only the subject teacher can edit columns.';
+      return;
+    }
+    editingColumnId = col.assessmentId;
+    $('colError').textContent = '';
+    if ($('gradeColumnModalTitle')) $('gradeColumnModalTitle').textContent = 'Rename grade column';
+    if ($('colSubmitBtn')) $('colSubmitBtn').textContent = 'Save title';
+    if ($('colCategoryWrap')) $('colCategoryWrap').classList.add('hidden');
+    if ($('colDateWrap')) $('colDateWrap').classList.add('hidden');
+    if ($('colMaxWrap')) $('colMaxWrap').classList.add('hidden');
+    $('colTitle').value = col.title || col.categoryLabel || '';
+    $('colTitle').focus();
+    deps.show($('gradeColumnModal'));
+  }
+
   async function submitColumn(e) {
     e.preventDefault();
     const cls = getClass();
     $('colError').textContent = '';
     try {
+      if (editingColumnId) {
+        const title = $('colTitle').value.trim();
+        if (!title) {
+          $('colError').textContent = 'Enter a column title.';
+          return;
+        }
+        const res = await api(
+          '/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/gradebook/column/' +
+          encodeURIComponent(editingColumnId),
+          {
+            method: 'PATCH',
+            body: { title, subject: subject() }
+          }
+        );
+        highlightColumnId = res.column.assessmentId;
+        resetColumnModal();
+        deps.hide($('gradeColumnModal'));
+        await loadGradebook(true);
+        return;
+      }
       const res = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/gradebook/column', {
         method: 'POST',
         body: {
@@ -934,6 +1003,7 @@ window.SaltGrades = (function() {
         }
       });
       highlightColumnId = res.column.assessmentId;
+      resetColumnModal();
       deps.hide($('gradeColumnModal'));
       await loadGradebook(true);
     } catch (err) {
