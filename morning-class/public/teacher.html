@@ -275,13 +275,7 @@
             <input type="date" id="hwDueDate">
           </label>
           <label class="hw-field">Points
-            <select id="hwPoints">
-              <option value="">No points</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100" selected>100</option>
-            </select>
+            <input type="number" id="hwPoints" min="0" max="1000" step="1" value="100" placeholder="e.g. 27 — leave blank for none">
           </label>
           <label class="hw-field hw-field-span">Title
             <input type="text" id="hwComposeTitle" placeholder="Homework title" required maxlength="120">

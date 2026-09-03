@@ -72,6 +72,16 @@ function logRowToMeta(row) {
   };
 }
 
+function normalizeHomeworkPoints(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < 0 || n > 1000) {
+    throw new Error('Points must be a number between 0 and 1000, or left blank.');
+  }
+  return String(Math.round(n));
+}
+
 function isGoogleFormUrl(url) {
   return /docs\.google\.com\/forms\//i.test(String(url || ''));
 }
@@ -160,7 +170,7 @@ async function postHomework(classId, payload, file) {
   const assignedDate = String(payload.assignedDate || todaySeoul()).trim();
   const dueDate = String(payload.dueDate || '').trim();
   const linkUrl = String(payload.linkUrl || '').trim();
-  const points = String(payload.points || '').trim();
+  const points = normalizeHomeworkPoints(payload.points);
   const googleFormId = String(payload.googleFormId || '').trim();
   const googleDriveFileId = String(payload.googleDriveFileId || '').trim();
   const assignmentType = String(payload.assignmentType || '').trim();
@@ -253,7 +263,7 @@ async function updateHomework(classId, homeworkId, payload) {
   row[4] = description;
   row[7] = dueDate;
   if (payload.linkUrl != null) row[8] = String(payload.linkUrl || '').trim();
-  if (payload.points != null) row[9] = String(payload.points || '').trim();
+  if (payload.points != null) row[9] = normalizeHomeworkPoints(payload.points);
   await updateRange(LOG_SHEET, `A${logRow}:O${logRow}`, [row.slice(0, LOG_HEADERS.length)]);
 
   if (Array.isArray(payload.items) && payload.items.length) {
