@@ -3044,6 +3044,8 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   flex-direction: column;
   gap: 0.65rem;
 }
+.cr-class-form .btn { align-self: flex-start; }
+.cr-class-form .cr-delete-btn { margin-top: 0.15rem; }
 .cr-class-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
 .cr-class-form input { padding: 0.45rem 0.55rem; border: 1px solid var(--border-soft); border-radius: 0.45rem; }
 .cr-form-days {

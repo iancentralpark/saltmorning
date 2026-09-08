@@ -110,6 +110,8 @@
       '<div class="cr-form-days"><span class="cr-field-label">Class days</span>' +
       allowedDaysChecked(formClass.allowedDays) + '</div>' +
       '<button type="submit" class="btn btn-primary">Save class</button>' +
+      (isNew ? '' :
+        '<button type="button" class="btn btn-danger cr-delete-btn">Delete class</button>') +
       '<div class="cr-form-error error"></div>' +
       '</form>' +
       '</div>' +
@@ -146,6 +148,11 @@
           errEl.textContent = err.message;
         }
       });
+    }
+
+    const deleteBtn = detail.querySelector('.cr-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => deleteActiveClass());
     }
 
     detail.querySelectorAll('.cr-remove-btn').forEach((btn) => {
@@ -228,6 +235,39 @@
       renderDetail();
     } catch (e) {
       alert(e.message);
+    }
+  }
+
+  async function deleteActiveClass() {
+    if (!activeClassId || !activeClass) return;
+    const name = activeClass.name || activeClassId;
+    const count = (activeClass.students || []).length;
+    if (count > 0) {
+      alert('Remove all ' + count + ' student(s) from this class first, then delete it.');
+      return;
+    }
+    if (!confirm('Delete class "' + name + '"? This cannot be undone.\n\nTeacher assignments for this class will also be cleared.')) {
+      return;
+    }
+    const errEl = mountEl.querySelector('.cr-form-error');
+    try {
+      await api('/api/admin/classes/' + encodeURIComponent(activeClassId), { method: 'DELETE' }, role);
+      activeClassId = null;
+      activeClass = null;
+      availableStudents = [];
+      await refreshAll();
+      renderDetail();
+      if (errEl) {
+        errEl.style.color = '#16a34a';
+        errEl.textContent = 'Class deleted.';
+      }
+    } catch (e) {
+      if (errEl) {
+        errEl.style.color = '#dc2626';
+        errEl.textContent = e.message;
+      } else {
+        alert(e.message);
+      }
     }
   }
 
