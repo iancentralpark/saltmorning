@@ -178,6 +178,56 @@ window.SaltAttendance = (function() {
     });
   }
 
+  function formatShortDate(dateStr) {
+    const p = String(dateStr || '').split('-');
+    if (p.length !== 3) return dateStr || '';
+    return Number(p[1]) + '/' + Number(p[2]);
+  }
+
+  function groupUpcomingPlanned(items) {
+    const list = (items || []).slice().sort((a, b) =>
+      String(a.dateStr).localeCompare(String(b.dateStr))
+    );
+    if (!list.length) return [];
+    const groups = [];
+    let cur = {
+      type: list[0].type,
+      note: list[0].note || '',
+      start: list[0].dateStr,
+      end: list[0].dateStr
+    };
+    for (let i = 1; i < list.length; i++) {
+      const it = list[i];
+      const prev = new Date(cur.end + 'T12:00:00');
+      prev.setDate(prev.getDate() + 1);
+      const nextDay =
+        prev.getFullYear() + '-' +
+        String(prev.getMonth() + 1).padStart(2, '0') + '-' +
+        String(prev.getDate()).padStart(2, '0');
+      if (it.type === cur.type && String(it.note || '') === cur.note && it.dateStr === nextDay) {
+        cur.end = it.dateStr;
+      } else {
+        groups.push(cur);
+        cur = { type: it.type, note: it.note || '', start: it.dateStr, end: it.dateStr };
+      }
+    }
+    groups.push(cur);
+    return groups;
+  }
+
+  function plannedHintHtml(std) {
+    const groups = groupUpcomingPlanned(std.upcomingPlanned || []);
+    if (!groups.length) return '';
+    return '<div class="att-planned-hints">' + groups.map((g) => {
+      const kind = g.type === ATT.tardy ? 'Tardy' : 'Absent';
+      const when = g.start === g.end
+        ? formatShortDate(g.start)
+        : (formatShortDate(g.start) + '–' + formatShortDate(g.end));
+      const why = g.note ? (' — ' + escapeHtml(g.note)) : '';
+      return '<div class="att-planned-hint">' + escapeHtml(kind) + ' ' + escapeHtml(when) + why + '</div>';
+    }).join('') + '</div>';
+  }
+
   function renderStudentCard(std) {
     const key = std.studentId;
     const editable = !!(workData && workData.scheduledDay);
@@ -191,6 +241,7 @@ window.SaltAttendance = (function() {
     const excusedBadge = hasExcuse && showExcuse
       ? '<span class="att-badge att-badge-excused">Excused → counts Present</span>'
       : '';
+    const plannedHint = plannedHintHtml(std);
     const extra = boardExtras[key] || { dollars: 0 };
     const hr = isHomeroom();
 
@@ -256,7 +307,10 @@ window.SaltAttendance = (function() {
 
     return '<article class="att-student-card' + (hr ? '' : ' att-card-subject') + '" data-student-id="' + escapeHtml(key) + '" data-attendance="' + escapeHtml(att) + '" data-excuse="' + escapeHtml(std.excuse || '') + '">' +
       '<div class="att-student-head">' +
-        '<strong class="att-student-name">' + escapeHtml(std.name) + '</strong>' +
+        '<div class="att-student-id">' +
+          '<strong class="att-student-name">' + escapeHtml(std.name) + '</strong>' +
+          plannedHint +
+        '</div>' +
         '<div class="att-head-right">' +
           '<div class="att-badges">' +
             (hr ? planned + excusedBadge : '') +

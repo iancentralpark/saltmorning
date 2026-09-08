@@ -1478,8 +1478,21 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   padding: 0.85rem 1rem; background: var(--cream);
 }
-.att-student-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.6rem; }
-.att-student-name { flex: 1; min-width: 120px; }
+.att-student-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.att-student-id { flex: 1; min-width: 140px; }
+.att-student-name { display: block; }
+.att-planned-hints { margin-top: 0.2rem; display: grid; gap: 0.15rem; }
+.att-planned-hint {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #a66b42;
+  background: var(--peach-soft);
+  border: 1px solid rgba(232, 184, 154, 0.45);
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  max-width: 28rem;
+}
 .att-head-right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
 .att-plan-btn { flex-shrink: 0; white-space: nowrap; }
 .att-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
