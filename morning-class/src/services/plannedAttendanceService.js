@@ -88,6 +88,48 @@ async function getPlannedByClassAndDate(classId, dateStr) {
   return map;
 }
 
+function addDaysStr(dateStr, days) {
+  const d = new Date(normalizeDateStr(dateStr) + 'T12:00:00');
+  d.setDate(d.getDate() + Number(days) || 0);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+/**
+ * Planned notices visible on the attendance roster for viewDate:
+ * each absence/tardy day shows from 7 days before through that day
+ * (i.e. viewDate <= noticeDate <= viewDate + leadDays).
+ * Returns { [studentId]: [{ dateStr, type, note, noticeId }, ...] }
+ */
+async function getUpcomingPlannedForClass(classId, viewDateStr, leadDays) {
+  classId = String(classId);
+  viewDateStr = normalizeDateStr(viewDateStr);
+  const lead = Number.isFinite(Number(leadDays)) ? Math.max(0, Number(leadDays)) : 7;
+  const untilStr = addDaysStr(viewDateStr, lead);
+  const data = await getSheetRows(STUDENT_PLANNED_ATTENDANCE_SHEET);
+  const map = {};
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][3]) !== classId) continue;
+    if (String(data[i][7]) !== STATUS_ACTIVE) continue;
+    const item = parsePlannedRow(data[i]);
+    if (!item.dateStr) continue;
+    if (item.dateStr < viewDateStr || item.dateStr > untilStr) continue;
+    if (!map[item.studentId]) map[item.studentId] = [];
+    map[item.studentId].push({
+      noticeId: item.noticeId,
+      dateStr: item.dateStr,
+      type: item.type,
+      note: item.note
+    });
+  }
+  Object.keys(map).forEach((sid) => {
+    map[sid].sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  });
+  return map;
+}
+
 async function getPlannedForClassMonth(classId, year, month) {
   classId = String(classId);
   const monthPrefix = year + '-' + String(month).padStart(2, '0');
@@ -279,6 +321,7 @@ module.exports = {
   TYPE_ABSENT,
   TYPE_TARDY,
   getPlannedByClassAndDate,
+  getUpcomingPlannedForClass,
   getPlannedForClassMonth,
   listPlannedAttendance,
   getPlannedAttendanceCalendar,

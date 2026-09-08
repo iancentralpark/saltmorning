@@ -5,7 +5,7 @@ const {
 } = require('../config');
 const { getSheetRows, updateRange, appendRows } = require('../sheets');
 const { getClassRoster } = require('./teacherPortalService');
-const { getPlannedByClassAndDate } = require('./plannedAttendanceService');
+const { getPlannedByClassAndDate, getUpcomingPlannedForClass } = require('./plannedAttendanceService');
 const {
   resolveDay,
   defaultAcademicYearRange,
@@ -117,6 +117,7 @@ async function getClassWorkData(classId, dateStr) {
   const plannedMap = schedule.scheduledDay
     ? await getPlannedByClassAndDate(classId, dateStr)
     : {};
+  const upcomingPlannedMap = await getUpcomingPlannedForClass(classId, dateStr, 7);
 
   const students = roster.map((s) => {
     const rec = existing[s.studentId] || {};
@@ -132,6 +133,7 @@ async function getClassWorkData(classId, dateStr) {
       attendance,
       excuse,
       plannedNotice: planned || null,
+      upcomingPlanned: upcomingPlannedMap[s.studentId] || [],
       countsAsPresent: attendance ? countsAsPresent(attendance, excuse) : false,
       attendanceEditable: !!schedule.scheduledDay
     };
