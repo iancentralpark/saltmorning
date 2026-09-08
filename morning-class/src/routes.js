@@ -226,6 +226,7 @@ const {
   listClassesDetailed,
   getClassDetail,
   saveClass,
+  deleteClass,
   listAvailableStudents,
   importStudentToClass,
   removeStudentFromClass
@@ -3376,6 +3377,17 @@ router.post('/admin/classes', requireRole('admin'), async (req, res) => {
     res.json({ class: cls });
   } catch (e) {
     res.status(400).json({ error: e.message || 'Could not save class.' });
+  }
+});
+
+router.delete('/admin/classes/:classId', requireRole('admin'), async (req, res) => {
+  try {
+    res.json(await deleteClass(req.params.classId));
+  } catch (e) {
+    const status = /not found/i.test(e.message || '') ? 404
+      : /remove all|student/i.test(e.message || '') ? 400
+        : 400;
+    res.status(status).json({ error: e.message || 'Could not delete class.' });
   }
 });
 

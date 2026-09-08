@@ -1,8 +1,13 @@
 const {
   CLASS_LIST_SHEET,
-  STUDENT_LIST_SHEET
+  STUDENT_LIST_SHEET,
+  CLASS_TEACHERS_SHEET,
+  TEACHER_LIST_SHEET,
+  TEACHER_CLASS_SUBJECTS_SHEET
 } = require('../config');
-const { getSheetRows, appendRows, updateRange, invalidateSheetRowsCache } = require('../sheets');
+const {
+  getSheetRows, appendRows, updateRange, invalidateSheetRowsCache, deleteRows
+} = require('../sheets');
 const { getClassRoster } = require('./teacherPortalService');
 
 const CLASS_COL = { classId: 0, name: 1, scheduleType: 2, allowedDays: 3 };
@@ -200,10 +205,83 @@ async function removeStudentFromClass(classId, studentId) {
   return getClassDetail(classId);
 }
 
+async function blankMatchingRows(sheetName, colIndex, classId) {
+  const rows = await getSheetRows(sheetName, { skipCache: true }).catch(() => []);
+  if (!rows.length) return 0;
+  const deletes = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][colIndex] || '').trim() !== classId) continue;
+    deletes.push(i + 1);
+  }
+  if (!deletes.length) return 0;
+  await deleteRows(sheetName, deletes);
+  invalidateSheetRowsCache(sheetName);
+  return deletes.length;
+}
+
+async function clearHomeroomAssignments(classId) {
+  const rows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true }).catch(() => []);
+  let cleared = 0;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][4] || '').trim() !== classId) continue;
+    const row = rows[i].slice();
+    while (row.length < 8) row.push('');
+    row[4] = '';
+    await updateRange(TEACHER_LIST_SHEET, `A${i + 1}:H${i + 1}`, [row.slice(0, 8)]);
+    cleared += 1;
+  }
+  if (cleared) invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+  return cleared;
+}
+
+/**
+ * Delete a class. Requires an empty roster first (students must be removed).
+ * Also clears teacher assignments linked to this class.
+ */
+async function deleteClass(classId) {
+  classId = String(classId || '').trim();
+  if (!classId) throw new Error('Class ID is required.');
+
+  const detail = await getClassDetail(classId);
+  const roster = detail.students || [];
+  if (roster.length) {
+    throw new Error(
+      'Remove all ' + roster.length + ' student(s) from this class before deleting it.'
+    );
+  }
+
+  const classRows = await getSheetRows(CLASS_LIST_SHEET, { skipCache: true });
+  let classRowIndex = -1;
+  for (let i = 1; i < classRows.length; i++) {
+    if (String(classRows[i][CLASS_COL.classId] || '') === classId) {
+      classRowIndex = i + 1;
+      break;
+    }
+  }
+  if (classRowIndex < 0) throw new Error('Class not found.');
+
+  const teacherLinks = await blankMatchingRows(CLASS_TEACHERS_SHEET, 0, classId);
+  const subjectLinks = await blankMatchingRows(TEACHER_CLASS_SUBJECTS_SHEET, 1, classId);
+  const homeroomsCleared = await clearHomeroomAssignments(classId);
+
+  await deleteRows(CLASS_LIST_SHEET, [classRowIndex]);
+  invalidateSheetRowsCache(CLASS_LIST_SHEET);
+
+  return {
+    deleted: true,
+    classId,
+    name: detail.name,
+    teacherLinksCleared: teacherLinks,
+    subjectLinksCleared: subjectLinks,
+    homeroomsCleared
+  };
+}
+
 module.exports = {
   listClassesDetailed,
   getClassDetail,
   saveClass,
+  deleteClass,
   listAvailableStudents,
   importStudentToClass,
   removeStudentFromClass,
