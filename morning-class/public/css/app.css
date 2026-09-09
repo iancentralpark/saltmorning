@@ -1584,6 +1584,94 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
 .err { color: #dc2626; }
 
 .grades-toolbar-minimal { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+
+.gb-col-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--cream, #faf8f5);
+  border: 1px solid var(--border-soft, #e8e2da);
+  border-radius: var(--radius-sm, 8px);
+}
+.gb-col-filters-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.55rem;
+}
+.gb-col-filters-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-width: 4.5rem;
+}
+.gb-col-filters-date input[type="date"] {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.gb-col-filter-status { margin-left: 0.25rem; }
+.gb-cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.gb-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem 0.18rem 0.3rem;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.gb-cat-chip.is-on {
+  border-color: rgba(110, 160, 140, 0.55);
+  background: var(--sage-soft, #e7f2ec);
+}
+.gb-cat-chip.is-off {
+  opacity: 0.45;
+  text-decoration: line-through;
+  background: #f3f3f3;
+}
+.gb-cat-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.28rem;
+  border-radius: 999px;
+  background: var(--sky-soft, #e8f3fb);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.gb-cat-name { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gb-cat-count { color: var(--muted); font-size: 0.68rem; font-weight: 600; }
+.gb-col-code {
+  display: inline-block;
+  margin: 0 auto 0.12rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(158, 202, 232, 0.35);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  line-height: 1.2;
+}
 .admin-toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .admin-form-grid { max-width: 420px; }
 .teacher-panel-head {
@@ -2793,10 +2881,19 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .ag-theme-salt .gb-ag-col-head .gb-col-title {
   font-weight: 700;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   white-space: normal;
   word-break: break-word;
   line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: 2.3em;
+}
+.ag-theme-salt .gb-ag-col-head .gb-col-code {
+  display: inline-block;
+  margin-bottom: 0.1rem;
 }
 .ag-theme-salt .gb-ag-col-head .gb-col-meta {
   font-size: 0.62rem;

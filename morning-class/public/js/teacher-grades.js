@@ -10,6 +10,23 @@ window.SaltGrades = (function() {
   let canEditGrades = true;
   let showSubjectPicker = false;
   let subjectCatalog = [];
+  /** Client-only column view: { hiddenCats: { [categoryKey]: true }, hideFrom: 'YYYY-MM-DD', hideTo: 'YYYY-MM-DD' } */
+  let columnView = { hiddenCats: {}, hideFrom: '', hideTo: '' };
+
+  const CATEGORY_CODE_MAP = {
+    daily_quiz: 'QZ',
+    assignment: 'AS',
+    homework: 'HW',
+    midterm: 'MT',
+    final: 'FN',
+    participation: 'PT',
+    project: 'PR',
+    unit_test: 'UT',
+    listening: 'LI',
+    speaking: 'SP',
+    vocabulary: 'VOC',
+    writing: 'WR'
+  };
 
   function $(id) { return deps.$(id); }
   function escapeHtml(s) { return deps.escapeHtml(s); }
@@ -53,6 +70,12 @@ window.SaltGrades = (function() {
     $('gradeColumnForm').addEventListener('submit', submitColumn);
     const backBtn = $('gradeBackToSubjectsBtn');
     if (backBtn) backBtn.addEventListener('click', showPicker);
+    const clearBtn = $('gradeFiltersClear');
+    if (clearBtn) clearBtn.addEventListener('click', clearColumnFilters);
+    const hideFrom = $('gradeHideFrom');
+    const hideTo = $('gradeHideTo');
+    if (hideFrom) hideFrom.addEventListener('change', onHideDateChange);
+    if (hideTo) hideTo.addEventListener('change', onHideDateChange);
   }
 
   function setEditMode(editable) {
@@ -256,7 +279,8 @@ window.SaltGrades = (function() {
 
   function buildEntriesFromGradebook() {
     const entriesByCategory = {};
-    const cols = gridMeta.cols || [];
+    // Always use full gradebook columns — view filters must not change Final Grade.
+    const cols = (gradebook && gradebook.columns) || gridMeta.cols || [];
     (gradebook.students || []).forEach((st) => {
       cols.forEach((col) => {
         const cell = st.cells && st.cells[col.assessmentId];
@@ -292,6 +316,180 @@ window.SaltGrades = (function() {
     );
   }
 
+  function columnViewStorageKey() {
+    const cls = getClass();
+    if (!cls) return '';
+    return 'saltGbColView:' + cls.classId + '|' + term() + '|' + subject();
+  }
+
+  function loadColumnView() {
+    columnView = { hiddenCats: {}, hideFrom: '', hideTo: '' };
+    const key = columnViewStorageKey();
+    if (!key) return;
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      columnView = {
+        hiddenCats: parsed && parsed.hiddenCats && typeof parsed.hiddenCats === 'object' ? parsed.hiddenCats : {},
+        hideFrom: parsed && parsed.hideFrom ? String(parsed.hideFrom) : '',
+        hideTo: parsed && parsed.hideTo ? String(parsed.hideTo) : ''
+      };
+    } catch (e) { /* ignore bad storage */ }
+  }
+
+  function saveColumnView() {
+    const key = columnViewStorageKey();
+    if (!key) return;
+    try {
+      sessionStorage.setItem(key, JSON.stringify(columnView));
+    } catch (e) { /* ignore quota */ }
+  }
+
+  function categoryCode(col) {
+    const key = String((col && col.categoryKey) || '');
+    if (CATEGORY_CODE_MAP[key]) return CATEGORY_CODE_MAP[key];
+    const label = String((col && (col.categoryLabel || col.title)) || key || '?');
+    const letters = label.replace(/[^A-Za-z0-9]/g, '');
+    if (letters.length >= 2) return letters.slice(0, 3).toUpperCase();
+    return (key.slice(0, 3) || 'CAT').toUpperCase();
+  }
+
+  function isColumnDateHidden(col) {
+    const from = columnView.hideFrom || '';
+    const to = columnView.hideTo || '';
+    if (!from && !to) return false;
+    const d = String(col.date || '');
+    if (!d) return false;
+    if (from && to) return d >= from && d <= to;
+    if (from) return d >= from;
+    return d <= to;
+  }
+
+  function isColumnCategoryHidden(col) {
+    const key = String((col && col.categoryKey) || '');
+    return !!(key && columnView.hiddenCats[key]);
+  }
+
+  function visibleColumns(cols) {
+    return (cols || []).filter((col) => !isColumnCategoryHidden(col) && !isColumnDateHidden(col));
+  }
+
+  function ensureCategoryVisibleForColumn(assessmentId) {
+    if (!assessmentId || !gradebook) return;
+    const col = (gradebook.columns || []).find((c) => c.assessmentId === assessmentId);
+    if (!col) return;
+    let changed = false;
+    if (col.categoryKey && columnView.hiddenCats[col.categoryKey]) {
+      delete columnView.hiddenCats[col.categoryKey];
+      changed = true;
+    }
+    // Newly added/focused columns should not stay hidden behind a date range.
+    if (isColumnDateHidden(col)) {
+      columnView.hideFrom = '';
+      columnView.hideTo = '';
+      const hideFrom = $('gradeHideFrom');
+      const hideTo = $('gradeHideTo');
+      if (hideFrom) hideFrom.value = '';
+      if (hideTo) hideTo.value = '';
+      changed = true;
+    }
+    if (changed) saveColumnView();
+  }
+
+  function clearColumnFilters() {
+    columnView = { hiddenCats: {}, hideFrom: '', hideTo: '' };
+    saveColumnView();
+    const hideFrom = $('gradeHideFrom');
+    const hideTo = $('gradeHideTo');
+    if (hideFrom) hideFrom.value = '';
+    if (hideTo) hideTo.value = '';
+    renderColumnFilters();
+    renderGradebook();
+  }
+
+  function onHideDateChange() {
+    const hideFrom = $('gradeHideFrom');
+    const hideTo = $('gradeHideTo');
+    columnView.hideFrom = hideFrom ? hideFrom.value : '';
+    columnView.hideTo = hideTo ? hideTo.value : '';
+    saveColumnView();
+    renderColumnFilters();
+    renderGradebook();
+  }
+
+  function toggleCategoryVisibility(categoryKey) {
+    if (!categoryKey) return;
+    if (columnView.hiddenCats[categoryKey]) delete columnView.hiddenCats[categoryKey];
+    else columnView.hiddenCats[categoryKey] = true;
+    saveColumnView();
+    renderColumnFilters();
+    renderGradebook();
+  }
+
+  function renderColumnFilters() {
+    const bar = $('gradeColumnFilters');
+    const chips = $('gradeCategoryChips');
+    const status = $('gradeColumnFilterStatus');
+    if (!bar || !chips) return;
+
+    const allCols = sortColumnsByDate((gradebook && gradebook.columns) || []);
+    if (!allCols.length) {
+      bar.classList.add('hidden');
+      return;
+    }
+    bar.classList.remove('hidden');
+
+    const hideFrom = $('gradeHideFrom');
+    const hideTo = $('gradeHideTo');
+    if (hideFrom && hideFrom.value !== (columnView.hideFrom || '')) hideFrom.value = columnView.hideFrom || '';
+    if (hideTo && hideTo.value !== (columnView.hideTo || '')) hideTo.value = columnView.hideTo || '';
+
+    const byCat = {};
+    allCols.forEach((col) => {
+      const key = String(col.categoryKey || 'other');
+      if (!byCat[key]) {
+        byCat[key] = {
+          key,
+          label: col.categoryLabel || key,
+          code: categoryCode(col),
+          count: 0
+        };
+      }
+      byCat[key].count += 1;
+    });
+
+    const cats = Object.keys(byCat).map((k) => byCat[k])
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    chips.innerHTML = cats.map((c) => {
+      const on = !columnView.hiddenCats[c.key];
+      return (
+        '<button type="button" class="gb-cat-chip' + (on ? ' is-on' : ' is-off') + '" data-cat="' +
+        escapeHtml(c.key) + '" title="' + escapeHtml(c.label) + ' (' + c.count + ')" aria-pressed="' +
+        (on ? 'true' : 'false') + '">' +
+        '<span class="gb-cat-code">' + escapeHtml(c.code) + '</span>' +
+        '<span class="gb-cat-name">' + escapeHtml(c.label) + '</span>' +
+        '<span class="gb-cat-count">' + c.count + '</span>' +
+        '</button>'
+      );
+    }).join('');
+
+    chips.querySelectorAll('.gb-cat-chip').forEach((btn) => {
+      btn.addEventListener('click', () => toggleCategoryVisibility(btn.dataset.cat));
+    });
+
+    const shown = visibleColumns(allCols).length;
+    const hiddenByCat = allCols.filter(isColumnCategoryHidden).length;
+    const hiddenByDate = allCols.filter((c) => !isColumnCategoryHidden(c) && isColumnDateHidden(c)).length;
+    if (status) {
+      let msg = 'Showing ' + shown + ' of ' + allCols.length;
+      if (hiddenByCat) msg += ' · ' + hiddenByCat + ' by category';
+      if (hiddenByDate) msg += ' · ' + hiddenByDate + ' by date';
+      status.textContent = msg;
+    }
+  }
+
   async function loadGradebook(scrollToEnd) {
     const cls = getClass();
     const subj = subject();
@@ -306,11 +504,14 @@ window.SaltGrades = (function() {
       gradebook = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
         '/grades/gradebook?term=' + encodeURIComponent(t) + '&subject=' + encodeURIComponent(subj));
       if (typeof gradebook.canEdit === 'boolean') setEditMode(gradebook.canEdit);
+      loadColumnView();
+      if (highlightColumnId) ensureCategoryVisibleForColumn(highlightColumnId);
       renderWeightSummary();
+      renderColumnFilters();
       const focusColId = highlightColumnId;
       renderGradebook();
       if (gridApi && (focusColId || scrollToEnd)) {
-        const sorted = sortColumnsByDate((gradebook && gradebook.columns) || []);
+        const sorted = visibleColumns(sortColumnsByDate((gradebook && gradebook.columns) || []));
         const target = focusColId ||
           (scrollToEnd && sorted.length ? sorted[sorted.length - 1].assessmentId : null);
         if (target) {
@@ -382,7 +583,11 @@ window.SaltGrades = (function() {
 
   function assessmentHeaderHtml(col) {
     const title = col.title || col.categoryLabel;
-    const showCategory = col.categoryLabel && col.categoryLabel !== title;
+    const code = categoryCode(col);
+    const catLabel = col.categoryLabel || col.categoryKey || '';
+    const tooltip = title +
+      (catLabel ? ' · ' + catLabel : '') +
+      ' · ' + formatColDate(col.date) + ' · /' + col.maxScore;
     const canRename = canEditGrades && col.assessmentId && !String(col.assessmentId).startsWith('legacy:');
     const editBtn = canRename
       ? ('<button type="button" class="gb-col-edit" data-aid="' + escapeHtml(col.assessmentId) +
@@ -394,9 +599,9 @@ window.SaltGrades = (function() {
       : '';
     return (
       '<div class="gb-col-actions">' + editBtn + deleteBtn + '</div>' +
-      '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
-      '<div class="gb-col-meta">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
-      (showCategory ? '<div class="gb-col-meta gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '')
+      '<div class="gb-col-code" title="' + escapeHtml(catLabel || code) + '">' + escapeHtml(code) + '</div>' +
+      '<div class="gb-col-title" title="' + escapeHtml(tooltip) + '">' + escapeHtml(title) + '</div>' +
+      '<div class="gb-col-meta">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>'
     );
   }
 
@@ -501,7 +706,8 @@ window.SaltGrades = (function() {
         context: { col },
         tooltipValueGetter: function() {
           const title = col.title || col.categoryLabel;
-          return title + ' · ' + formatColDate(col.date) + ' · /' + col.maxScore;
+          const cat = col.categoryLabel || col.categoryKey || '';
+          return title + (cat ? ' · ' + cat : '') + ' · ' + formatColDate(col.date) + ' · /' + col.maxScore;
         },
         valueParser: function(params) {
           if (params.newValue === '' || params.newValue == null) return null;
@@ -540,7 +746,8 @@ window.SaltGrades = (function() {
       return;
     }
     const weights = gradebook.weights || [];
-    const cols = sortColumnsByDate(gradebook.columns || []);
+    const allCols = sortColumnsByDate(gradebook.columns || []);
+    const cols = visibleColumns(allCols);
     const students = gradebook.students || [];
     gridMeta.cols = cols;
 
@@ -556,9 +763,16 @@ window.SaltGrades = (function() {
         ? 'No columns yet — click + Add column'
         : 'Set up Grade weights, then click + Add column');
 
-    if (!cols.length) {
+    if (!allCols.length) {
       destroyGrid();
       mount.innerHTML = '<p class="muted">' + emptyHint + '</p>';
+      highlightColumnId = null;
+      return;
+    }
+
+    if (!cols.length) {
+      destroyGrid();
+      mount.innerHTML = '<p class="muted">All columns are hidden. Turn categories back on or clear the date hide range.</p>';
       highlightColumnId = null;
       return;
     }
@@ -578,7 +792,7 @@ window.SaltGrades = (function() {
         wrapHeaderText: true,
         autoHeaderHeight: true
       },
-      headerHeight: 64,
+      headerHeight: 56,
       rowHeight: 52,
       singleClickEdit: true,
       stopEditingWhenCellsLoseFocus: true,
@@ -647,7 +861,8 @@ window.SaltGrades = (function() {
       return;
     }
     const weights = gradebook.weights || [];
-    const cols = sortColumnsByDate(gradebook.columns || []);
+    const allCols = sortColumnsByDate(gradebook.columns || []);
+    const cols = visibleColumns(allCols);
     const students = gradebook.students || [];
 
     if (!students.length) {
@@ -664,26 +879,30 @@ window.SaltGrades = (function() {
     let midHead = '';
     let colgroup = '';
     const midTableWidth = cols.length ? cols.length * COL_WIDTH : 220;
-    if (!cols.length) {
+    if (!allCols.length) {
       midHead = '<th class="gb-col-head gb-col-empty"><div class="gb-col-title muted">' + emptyHint + '</div></th>';
       colgroup = '<colgroup><col style="width:220px"></colgroup>';
+    } else if (!cols.length) {
+      midHead = '<th class="gb-col-head gb-col-empty"><div class="gb-col-title muted">All columns are hidden. Turn categories back on or clear the date hide range.</div></th>';
+      colgroup = '<colgroup><col style="width:280px"></colgroup>';
     } else {
       colgroup = '<colgroup>' + cols.map(() => '<col style="width:' + COL_WIDTH + 'px">').join('') + '</colgroup>';
       cols.forEach((col) => {
         const hl = col.assessmentId === highlightColumnId ? ' gb-col-new' : '';
         const title = col.title || col.categoryLabel;
-        const showCategory = col.categoryLabel && col.categoryLabel !== title;
+        const code = categoryCode(col);
+        const catLabel = col.categoryLabel || col.categoryKey || '';
         const tooltip = title +
-          (showCategory ? ' · ' + col.categoryLabel : '') +
+          (catLabel ? ' · ' + catLabel : '') +
           ' · ' + formatColDate(col.date) + ' · /' + col.maxScore;
         midHead += '<th class="gb-col-head' + hl + '" title="' + escapeHtml(tooltip) + '">' +
           (canEditGrades
             ? ('<button type="button" class="gb-col-delete" data-aid="' + escapeHtml(col.assessmentId) +
               '" data-title="' + escapeHtml(title) + '" title="Delete column" aria-label="Delete column">×</button>')
             : '') +
+          '<div class="gb-col-code">' + escapeHtml(code) + '</div>' +
           '<div class="gb-col-title">' + escapeHtml(title) + '</div>' +
           '<div class="gb-col-meta muted small">' + formatColDate(col.date) + ' · /' + col.maxScore + '</div>' +
-          (showCategory ? '<div class="gb-col-meta muted small gb-col-cat">' + escapeHtml(col.categoryLabel) + '</div>' : '') +
         '</th>';
       });
     }
