@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20260908plan1">
+  <link rel="stylesheet" href="/css/app.css?v=20260909gbhide1">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -245,6 +245,20 @@
         <input type="hidden" id="gradeTerm">
         <input type="hidden" id="gradeSubject">
         <div id="gradeWeightSummary" class="grade-weight-summary"></div>
+        <div id="gradeColumnFilters" class="gb-col-filters hidden">
+          <div class="gb-col-filters-row">
+            <span class="gb-col-filters-label">Show</span>
+            <div id="gradeCategoryChips" class="gb-cat-chips" role="group" aria-label="Category visibility"></div>
+          </div>
+          <div class="gb-col-filters-row gb-col-filters-date">
+            <span class="gb-col-filters-label">Hide dates</span>
+            <input type="date" id="gradeHideFrom" aria-label="Hide columns from date">
+            <span class="muted">–</span>
+            <input type="date" id="gradeHideTo" aria-label="Hide columns to date">
+            <button type="button" class="btn btn-ghost btn-sm" id="gradeFiltersClear">Show all</button>
+            <span id="gradeColumnFilterStatus" class="muted small gb-col-filter-status"></span>
+          </div>
+        </div>
         <div id="gradebookWrap" class="gb-wrap">
           <div id="gradebookMount"><p class="muted">Loading gradebook…</p></div>
         </div>
@@ -575,7 +589,7 @@
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script src="/js/push-client.js?v=20260814ux2"></script>
 <script src="/js/teacher-attendance.js?v=20260908plan1"></script>
-<script src="/js/teacher-grades.js?v=20260902grade1"></script>
+<script src="/js/teacher-grades.js?v=20260909gbhide1"></script>
 <script src="/js/report-card-print.js?v=20260831rc3"></script>
 <script src="/js/teacher-reportcard.js?v=20260831rc3"></script>
 <script src="/js/teacher-analytics.js?v=20260902la3"></script>
