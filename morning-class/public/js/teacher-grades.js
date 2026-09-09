@@ -279,7 +279,8 @@ window.SaltGrades = (function() {
 
   function buildEntriesFromGradebook() {
     const entriesByCategory = {};
-    const cols = gridMeta.cols || [];
+    // Always use full gradebook columns — view filters must not change Final Grade.
+    const cols = (gradebook && gradebook.columns) || gridMeta.cols || [];
     (gradebook.students || []).forEach((st) => {
       cols.forEach((col) => {
         const cell = st.cells && st.cells[col.assessmentId];
@@ -377,11 +378,23 @@ window.SaltGrades = (function() {
   function ensureCategoryVisibleForColumn(assessmentId) {
     if (!assessmentId || !gradebook) return;
     const col = (gradebook.columns || []).find((c) => c.assessmentId === assessmentId);
-    if (!col || !col.categoryKey) return;
-    if (columnView.hiddenCats[col.categoryKey]) {
+    if (!col) return;
+    let changed = false;
+    if (col.categoryKey && columnView.hiddenCats[col.categoryKey]) {
       delete columnView.hiddenCats[col.categoryKey];
-      saveColumnView();
+      changed = true;
     }
+    // Newly added/focused columns should not stay hidden behind a date range.
+    if (isColumnDateHidden(col)) {
+      columnView.hideFrom = '';
+      columnView.hideTo = '';
+      const hideFrom = $('gradeHideFrom');
+      const hideTo = $('gradeHideTo');
+      if (hideFrom) hideFrom.value = '';
+      if (hideTo) hideTo.value = '';
+      changed = true;
+    }
+    if (changed) saveColumnView();
   }
 
   function clearColumnFilters() {
