@@ -145,6 +145,7 @@ function serializeJob(job) {
     chunks: (job.chunks || []).map((ch) => ({
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
+      summary: ch.summary || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
       text: keepText ? String(ch.text || '') : ''
@@ -152,6 +153,8 @@ function serializeJob(job) {
     parts: job.parts || [],
     culminating: job.culminating || null,
     googleDocsUrl: job.googleDocsUrl || null,
+    planMode: job.planMode || null,
+    tocCount: job.tocCount || 0,
     hasDocx: jobHasDownload(job),
     createdAt: job.createdAt,
     updatedAt: job.updatedAt
@@ -270,6 +273,8 @@ function hydrateJob(data) {
     parts: Array.isArray(data.parts) ? data.parts : [],
     culminating: data.culminating || null,
     googleDocsUrl: data.googleDocsUrl || null,
+    planMode: data.planMode || null,
+    tocCount: data.tocCount || 0,
     pages: null,
     pdfPath: null,
     docxBuffer: null,
@@ -564,6 +569,7 @@ function toPublicJob(job, opts) {
     chunks: (job.chunks || []).map((ch) => ({
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
+      summary: ch.summary || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
       charCount: String(ch.text || '').length
@@ -573,6 +579,8 @@ function toPublicJob(job, opts) {
     downloadReady: jobHasDownload(job),
     googleDocsUrl: job.googleDocsUrl || null,
     pageOverflowRisk: !!(job.options && job.options.pageOverflowRisk),
+    planMode: job.planMode || null,
+    tocCount: job.tocCount || 0,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     canDelete: !['generating', 'parsing', 'planning'].includes(String(job.status || ''))
@@ -771,30 +779,51 @@ function isJunkHeading(line, banned) {
   if (/^(page\s*)?\d+(\s*of\s*\d+)?$/i.test(raw)) return true;
   if (/z-?library|z-?lib|1lib\.|pdfdrive|downloaded from|www\.|https?:/i.test(raw)) return true;
   if (/^world map of history$/i.test(raw)) return true;
-  if (/copyright|all rights reserved|isbn\b/i.test(raw)) return true;
+  if (/copyright|all rights reserved|isbn\b|printed in|published by/i.test(raw)) return true;
+  if (/^(contents|table of contents|index|glossary|bibliography|acknowledgements?|about the author)$/i.test(raw)) {
+    return true;
+  }
+  return false;
+}
+
+function isGenericTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return true;
+  if (/^pages?\s*\d+\s*[–—\-]\s*\d+$/i.test(t)) return true;
+  if (/^pp\.?\s*\d+\s*[–—\-]\s*\d+$/i.test(t)) return true;
+  if (/^part\s*\d+(\s*[–—\-:]\s*pages?\s*\d+)/i.test(t)) return true;
+  if (/^(section|unit|chunk)\s*\d+$/i.test(t)) return true;
   return false;
 }
 
 function guessHeading(pageText, banned) {
   const lines = pageLines(pageText);
   const candidates = [];
-  for (const line of lines.slice(0, 10)) {
-    if (line.length < 4 || line.length > 90) continue;
+  for (const line of lines.slice(0, 12)) {
+    if (line.length < 3 || line.length > 100) continue;
     if (isJunkHeading(line, banned)) continue;
-    if (/^(chapter|part|unit|section|prologue|epilogue|contents|introduction)\b/i.test(line)) {
+    if (
+      /^(chapter|part|unit|section|prologue|epilogue|introduction|preface|afterword)\b/i.test(line)
+      || /^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(line)
+      || /^(chapter|ch\.?)\s*\d+\b/i.test(line)
+    ) {
       return line;
     }
-    // Title Case / short display heading — avoid ALL-CAPS running headers.
+    // Numbered nonfiction section: "1 Humans Take Over" / "IV. Fire"
+    if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(line) && line.length <= 80) {
+      candidates.push(line);
+      continue;
+    }
     const words = line.split(/\s+/);
-    const titleCase = words.length >= 2 && words.length <= 12
-      && words.filter((w) => /^[A-Z]/.test(w)).length >= Math.ceil(words.length * 0.5)
-      && !/[.!?]$/.test(line);
-    if (titleCase) candidates.push(line);
-    // ALL CAPS only if short and not banned (true chapter titles sometimes shout).
-    if (
-      /^[A-Z][A-Z0-9 ,.'’:\-]{3,50}$/.test(line)
+    const titleCase = words.length >= 2 && words.length <= 14
+      && words.filter((w) => /^[A-ZÀ-ÖØ-Þ]/.test(w)).length >= Math.ceil(words.length * 0.45)
       && !/[.!?]$/.test(line)
-      && words.length <= 8
+      && !/^(the|a|an|and|but|or|so|then|when|after|before)\b/i.test(line);
+    if (titleCase) candidates.push(line);
+    if (
+      /^[A-ZÀ-ÖØ-Þ][A-Z0-9 À-ÖØ-Þ,.'’:\-]{2,60}$/.test(line)
+      && !/[.!?]$/.test(line)
+      && words.length <= 10
     ) {
       candidates.push(line);
     }
@@ -805,15 +834,92 @@ function guessHeading(pageText, banned) {
 function firstContentSnippet(text, banned) {
   const lines = pageLines(text);
   for (const line of lines) {
-    if (line.length < 12 || line.length > 90) continue;
+    if (line.length < 18) continue;
     if (isJunkHeading(line, banned)) continue;
-    if (/^(chapter|part|unit|section)\b/i.test(line)) return line;
+    if (/^(chapter|part|unit|section|prologue|epilogue)\b/i.test(line)) continue;
+    if (/^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(line) && line.length < 60) continue;
     // Prefer a sentence-like content line over a header.
     if (/[a-z]/.test(line) && /[A-Za-z]/.test(line)) {
-      return line.replace(/\s+/g, ' ').slice(0, 72);
+      return line.replace(/\s+/g, ' ').slice(0, 90);
     }
   }
+  // Looser fallback: any non-junk line with letters
+  for (const line of lines) {
+    if (line.length < 8 || line.length > 120) continue;
+    if (isJunkHeading(line, banned)) continue;
+    if (/[A-Za-z]/.test(line)) return line.replace(/\s+/g, ' ').slice(0, 90);
+  }
   return '';
+}
+
+function makeChunkBlurb(text, banned) {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
+  // Skip leading heading-like fragment if present
+  let body = raw;
+  const snip = firstContentSnippet(text, banned);
+  if (snip && raw.toLowerCase().includes(snip.toLowerCase().slice(0, 24))) {
+    const idx = raw.toLowerCase().indexOf(snip.toLowerCase().slice(0, 24));
+    if (idx >= 0 && idx < 120) body = raw.slice(idx);
+  }
+  // One sentence-ish blurb
+  const m = body.match(/^.{24,160}?[\.\!\?](?:\s|$)/);
+  const blurb = (m ? m[0] : body.slice(0, 140)).trim();
+  return blurb.length > 150 ? blurb.slice(0, 147).trim() + '…' : blurb;
+}
+
+function labelChunk(sec, banned) {
+  const text = sec.text || (sec.pages || []).map((p) => p.text).join('\n\n').trim();
+  const start = sec.startPage;
+  const end = sec.endPage;
+  let title = String(sec.unitTitle || '').trim();
+  if (isGenericTitle(title) || isJunkHeading(title, banned)) {
+    const heading = guessHeading(text, banned);
+    if (heading && !isJunkHeading(heading, banned) && !isGenericTitle(heading)) {
+      title = heading;
+    } else {
+      const snip = firstContentSnippet(text, banned);
+      title = snip
+        ? snip.replace(/[.?!,:;]+\s*$/, '')
+        : ('Reading ' + start + '–' + end);
+      if (title.length > 70) title = title.slice(0, 67).trim() + '…';
+    }
+  } else if (title.length > 72) {
+    title = title.slice(0, 72).trim() + '…';
+  }
+  const summary = String(sec.summary || '').trim() || makeChunkBlurb(text, banned);
+  return {
+    partNum: sec.partNum || 0,
+    unitTitle: title,
+    summary: summary || ('Pages ' + start + '–' + end),
+    startPage: start,
+    endPage: end,
+    text
+  };
+}
+
+function buildToc(pages, banned) {
+  const toc = [];
+  let last = '';
+  (pages || []).forEach((p) => {
+    const h = guessHeading(p.text, banned);
+    if (!h) return;
+    const key = normalizeLine(h);
+    if (!key || key === last) return;
+    // Skip if this heading appears on too many pages (running header leak)
+    if (banned && banned.has(key)) return;
+    last = key;
+    toc.push({ page: p.pageNum, heading: h });
+  });
+  return toc;
+}
+
+function tocQuality(toc, pageCount) {
+  if (!toc || toc.length < 3) return 'weak';
+  const span = toc[toc.length - 1].page - toc[0].page;
+  if (toc.length >= 5 && span >= Math.max(20, pageCount * 0.25)) return 'strong';
+  if (toc.length >= 3 && span >= 10) return 'ok';
+  return 'weak';
 }
 
 function cleanBookTitle(raw, fallback) {
@@ -821,8 +927,20 @@ function cleanBookTitle(raw, fallback) {
   t = t.replace(/\((?:z-?library|z-?lib|1lib)[^)]*\)/gi, '');
   t = t.replace(/\b(?:z-?library\.sk|1lib\.sk|z-lib\.sk)\b/gi, '');
   t = t.replace(/\s{2,}/g, ' ').replace(/[_\-]+$/g, '').trim();
-  // "Title (Author etc.)" → keep title; author handled separately when possible.
   return t.slice(0, 160) || 'Untitled Book';
+}
+
+function guessGenreFromText(title, author, options) {
+  const blob = [
+    title, author, options && options.genre, options && options.fallbackTitle
+  ].map((x) => String(x || '')).join(' ').toLowerCase();
+  if (options && options.genre === 'nonfiction') return 'nonfiction';
+  if (options && options.genre === 'fiction') return 'fiction';
+  if (/non[- ]?fiction|harari|history|science|biography|memoir|argument|how humans|true story/.test(blob)) {
+    return 'nonfiction';
+  }
+  if (/novel|fiction|story of|fairy|fantasy|mystery/.test(blob)) return 'fiction';
+  return 'fiction';
 }
 
 function planChunksHeuristic(pages) {
@@ -831,7 +949,7 @@ function planChunksHeuristic(pages) {
   let cur = null;
   pages.forEach((p) => {
     const heading = guessHeading(p.text, banned);
-    const startNew = heading && (!cur || heading !== cur.unitTitle);
+    const startNew = heading && (!cur || normalizeLine(heading) !== normalizeLine(cur.unitTitle));
     if (!cur || startNew) {
       if (cur) raw.push(cur);
       cur = {
@@ -854,14 +972,7 @@ function planChunksHeuristic(pages) {
       const prev = merged[merged.length - 1];
       prev.endPage = sec.endPage;
       prev.pages = prev.pages.concat(sec.pages);
-      if (sec.unitTitle && sec.unitTitle !== prev.unitTitle && prev.unitTitle) {
-        // Keep first real heading; don't append running junk.
-        if (!isJunkHeading(sec.unitTitle, banned)) {
-          prev.unitTitle = prev.unitTitle; // no-op keep
-        }
-      } else if (!prev.unitTitle && sec.unitTitle) {
-        prev.unitTitle = sec.unitTitle;
-      }
+      if (!prev.unitTitle && sec.unitTitle) prev.unitTitle = sec.unitTitle;
     } else {
       merged.push({
         unitTitle: sec.unitTitle,
@@ -879,11 +990,15 @@ function planChunksHeuristic(pages) {
       split.push(sec);
       continue;
     }
+    // Prefer splitting near mid-section headings when oversized
     for (let i = 0; i < sec.pages.length; i += TARGET_MAX) {
       const slice = sec.pages.slice(i, i + TARGET_MAX);
       if (!slice.length) continue;
+      const localHeading = i === 0
+        ? sec.unitTitle
+        : (guessHeading(slice[0].text, banned) || sec.unitTitle);
       split.push({
-        unitTitle: sec.unitTitle || '',
+        unitTitle: localHeading || '',
         startPage: slice[0].pageNum,
         endPage: slice[slice.length - 1].pageNum,
         pages: slice
@@ -911,118 +1026,172 @@ function planChunksHeuristic(pages) {
     finalSecs.push(sec);
   }
 
-  return finalSecs.map((sec, idx) => {
-    const text = sec.pages.map((p) => p.text).join('\n\n').trim();
-    let title = String(sec.unitTitle || '').trim();
-    if (!title || isJunkHeading(title, banned)) {
-      const snip = firstContentSnippet(text, banned);
-      title = snip
-        ? ('pp. ' + sec.startPage + '–' + sec.endPage + ': ' + snip)
-        : ('Pages ' + sec.startPage + '–' + sec.endPage);
-    } else if (title.length > 72) {
-      title = title.slice(0, 72).trim() + '…';
-    }
-    return {
-      partNum: idx + 1,
-      unitTitle: title,
-      startPage: sec.startPage,
-      endPage: sec.endPage,
-      text
-    };
-  });
+  return finalSecs.map((sec, idx) => labelChunk({
+    partNum: idx + 1,
+    unitTitle: sec.unitTitle,
+    startPage: sec.startPage,
+    endPage: sec.endPage,
+    pages: sec.pages,
+    text: sec.pages.map((p) => p.text).join('\n\n').trim()
+  }, banned));
 }
 
-async function planChunksWithGemini(pages, options) {
-  const banned = collectRunningHeaders(pages);
-  const sample = pages.slice(0, 14).map((p) => ({
-    page: p.pageNum,
-    preview: String(p.text || '').slice(0, 420)
-  }));
-  const headings = [];
-  pages.forEach((p) => {
-    const h = guessHeading(p.text, banned);
-    if (h) headings.push({ page: p.pageNum, heading: h });
+/**
+ * Ask Gemini only for book meta + better titles/summaries (boundaries stay fixed).
+ * Batches to avoid truncated JSON on long books.
+ */
+async function enrichChunkLabelsWithGemini(chunks, metaSeed, options, toc) {
+  const banned = new Set(); // titles already cleaned
+  const out = chunks.map((c) => Object.assign({}, c));
+  const batchSize = 12;
+  for (let i = 0; i < out.length; i += batchSize) {
+    const batch = out.slice(i, i + batchSize);
+    const payload = batch.map((c) => ({
+      part_num: c.partNum,
+      start_page: c.startPage,
+      end_page: c.endPage,
+      current_title: c.unitTitle,
+      preview: String(c.text || '').replace(/\s+/g, ' ').trim().slice(0, 380)
+    }));
+    const prompt = [
+      'You label Novel Study worksheet sections for teachers.',
+      'Return JSON ONLY: { "items": [{ "part_num": number, "unit_title": string, "summary": string }] }',
+      'Rules:',
+      '- Keep the SAME part_num values. Do not add/remove parts or change page ranges.',
+      '- unit_title: short descriptive section title (chapter/section name OR a clear topic title).',
+      '- NEVER use titles like "Pages 1–4", "Part 3", or only a page range.',
+      '- summary: one plain sentence (max 140 chars) describing what students read in that range.',
+      '- Prefer real chapter/section names when the preview shows them.',
+      metaSeed && metaSeed.title ? ('Book: ' + metaSeed.title) : '',
+      toc && toc.length
+        ? ('Detected headings TOC (hint): ' + JSON.stringify(toc.slice(0, 60)))
+        : '',
+      'Sections to label: ' + JSON.stringify(payload)
+    ].filter(Boolean).join('\n');
+
+    try {
+      const res = await askGemini(prompt, {
+        temperature: 0.2,
+        maxOutputTokens: 3072,
+        responseMimeType: 'application/json',
+        systemInstruction: 'STRICT JSON only. Descriptive titles required. No page-range-only titles.',
+        retries: 1
+      });
+      const parsed = extractJson(res.text || res.answer || '');
+      const items = (parsed && (parsed.items || parsed.chunks)) || [];
+      if (!Array.isArray(items) || !items.length) continue;
+      const byPart = new Map();
+      items.forEach((it) => {
+        const n = Number(it.part_num || it.partNum);
+        if (!n) return;
+        byPart.set(n, it);
+      });
+      batch.forEach((c) => {
+        const hit = byPart.get(c.partNum);
+        if (!hit) return;
+        let title = String(hit.unit_title || hit.unitTitle || '').trim();
+        let summary = String(hit.summary || hit.blurb || '').trim();
+        if (title && !isGenericTitle(title) && !isJunkHeading(title, banned)) {
+          c.unitTitle = title.length > 72 ? title.slice(0, 72).trim() + '…' : title;
+        }
+        if (summary) {
+          c.summary = summary.length > 160 ? summary.slice(0, 157).trim() + '…' : summary;
+        }
+      });
+    } catch (e) {
+      console.warn('novelStudy label enrich batch failed', i, e.message);
+    }
+  }
+  return out.map((c) => labelChunk(c, banned));
+}
+
+async function detectBookMetaWithGemini(pages, options, toc) {
+  const sample = [];
+  const step = Math.max(1, Math.floor(pages.length / 10));
+  for (let i = 0; i < pages.length && sample.length < 12; i += step) {
+    sample.push({
+      page: pages[i].pageNum,
+      preview: String(pages[i].text || '').slice(0, 350)
+    });
+  }
+  // Always include opening pages (title/copyright)
+  pages.slice(0, 3).forEach((p) => {
+    if (!sample.some((s) => s.page === p.pageNum)) {
+      sample.unshift({ page: p.pageNum, preview: String(p.text || '').slice(0, 350) });
+    }
   });
-  const level = LEVELS[options.level] || LEVELS.middle;
 
   const prompt = [
-    'Plan a Novel/Book Study workbook for English class.',
-    'Return JSON ONLY:',
-    '{ "title": string, "author": string, "genre": "fiction"|"nonfiction",',
-    '  "chunks": [{ "part_num": number, "unit_title": string, "start_page": number, "end_page": number }] }',
-    'Rules:',
-    '- Prefer real chapter/section headings (e.g. "Chapter 1", topic titles).',
-    '- IGNORE running headers/footers that repeat on many pages (maps, site names, book title alone).',
-    '- Each chunk ≈ ' + TARGET_MIN + '-' + TARGET_MAX + ' pages for one class period.',
-    '- Split sections longer than ' + SPLIT_OVER + ' pages.',
-    '- Merge sections that are 1 page or less with a neighbor.',
-    '- unit_title must be unique and descriptive for that page range — never reuse a header.',
-    '- Page numbers must be within 1..' + pages.length + '.',
-    'Level: ' + level.prompt,
-    'Detected chapter-like headings: ' + JSON.stringify(headings.slice(0, 80)),
-    'Sample pages: ' + JSON.stringify(sample)
+    'Identify this book from PDF text samples.',
+    'Return JSON ONLY: { "title": string, "author": string, "genre": "fiction"|"nonfiction" }',
+    'Filename hint: ' + String(options.fallbackTitle || ''),
+    'Requested genre hint: ' + String(options.genre || 'auto'),
+    'TOC headings: ' + JSON.stringify((toc || []).slice(0, 40)),
+    'Samples: ' + JSON.stringify(sample.slice(0, 14))
   ].join('\n');
 
   try {
     const res = await askGemini(prompt, {
-      temperature: 0.2,
-      maxOutputTokens: 4096,
+      temperature: 0.1,
+      maxOutputTokens: 512,
       responseMimeType: 'application/json',
-      systemInstruction: 'STRICT: Output valid JSON only. Use only provided page numbers. Never use repeating page headers as unit titles.'
+      systemInstruction: 'STRICT JSON only. Prefer nonfiction when the text is history/science/essay.',
+      retries: 1
     });
     const parsed = extractJson(res.text || res.answer || '');
-    if (!parsed || !Array.isArray(parsed.chunks) || !parsed.chunks.length) {
-      throw new Error('empty plan');
-    }
-    const chunks = parsed.chunks.map((ch, i) => {
-      let start = Math.max(1, Math.min(pages.length, Number(ch.start_page || ch.startPage) || 1));
-      let end = Math.max(start, Math.min(pages.length, Number(ch.end_page || ch.endPage) || start));
-      if (end - start + 1 > SPLIT_OVER + 2) end = start + TARGET_MAX - 1;
-      const slice = pages.filter((p) => p.pageNum >= start && p.pageNum <= end);
-      const text = slice.map((p) => p.text).join('\n\n').trim();
-      let unitTitle = String(ch.unit_title || ch.unitTitle || '').trim();
-      if (!unitTitle || isJunkHeading(unitTitle, banned)) {
-        const snip = firstContentSnippet(text, banned);
-        unitTitle = snip
-          ? ('pp. ' + start + '–' + end + ': ' + snip)
-          : ('Pages ' + start + '–' + end);
-      }
-      return {
-        partNum: i + 1,
-        unitTitle,
-        startPage: start,
-        endPage: end,
-        text
-      };
-    }).filter((ch) => ch.text.length > 80);
+    if (!parsed) return null;
+    const title = cleanBookTitle(parsed.title || options.fallbackTitle, options.fallbackTitle);
+    const author = String(parsed.author || 'Unknown').replace(/\(.*?etc\.?\)/gi, '').trim() || 'Unknown';
+    const genre = guessGenreFromText(title, author, {
+      genre: parsed.genre || options.genre,
+      fallbackTitle: options.fallbackTitle
+    });
+    return { title, author, genre };
+  } catch (e) {
+    console.warn('novelStudy meta detect failed', e.message);
+    return null;
+  }
+}
 
-    if (!chunks.length) throw new Error('no usable chunks');
-    // Renumber after filter
-    chunks.forEach((ch, i) => { ch.partNum = i + 1; });
-    return {
-      meta: {
-        title: cleanBookTitle(parsed.title || options.fallbackTitle, options.fallbackTitle),
-        author: String(parsed.author || 'Unknown').replace(/\(.*?etc\.?\)/gi, '').trim() || 'Unknown',
-        genre: /non[- ]?fiction/i.test(String(parsed.genre || options.genre || ''))
-          ? 'nonfiction'
-          : (/fiction/i.test(String(parsed.genre || '')) ? 'fiction' : (
-            /harari|history|argument|science|biography/i.test(
-              String(parsed.title || '') + ' ' + String(options.fallbackTitle || '')
-            ) ? 'nonfiction' : 'fiction'
-          ))
-      },
-      chunks
-    };
-  } catch (_) {
-    return {
-      meta: {
-        title: cleanBookTitle(options.fallbackTitle, 'Untitled Book'),
-        author: 'Unknown',
-        genre: options.genre === 'nonfiction' ? 'nonfiction' : 'fiction'
-      },
-      chunks: planChunksHeuristic(pages)
+async function planChunksWithGemini(pages, options) {
+  const banned = collectRunningHeaders(pages);
+  const toc = buildToc(pages, banned);
+  const quality = tocQuality(toc, pages.length);
+  let chunks = planChunksHeuristic(pages);
+  const planMode = quality === 'strong' || quality === 'ok'
+    ? 'chapter-aware'
+    : 'page-groups';
+
+  let meta = await detectBookMetaWithGemini(pages, options, toc);
+  if (!meta) {
+    meta = {
+      title: cleanBookTitle(options.fallbackTitle, 'Untitled Book'),
+      author: 'Unknown',
+      genre: guessGenreFromText(options.fallbackTitle, '', options)
     };
   }
+
+  // Always try to upgrade generic titles + add one-line summaries via Gemini.
+  try {
+    chunks = await enrichChunkLabelsWithGemini(chunks, meta, options, toc);
+  } catch (e) {
+    console.warn('novelStudy enrich labels failed', e.message);
+    chunks = chunks.map((c) => labelChunk(c, banned));
+  }
+
+  // Final safety: no page-range-only titles
+  chunks = chunks.map((c, i) => {
+    const labeled = labelChunk(Object.assign({}, c, { partNum: i + 1 }), banned);
+    labeled.planMode = planMode;
+    return labeled;
+  });
+
+  return {
+    meta,
+    planMode,
+    tocCount: toc.length,
+    chunks
+  };
 }
 
 function evidenceInText(quote, sectionText) {
@@ -1346,12 +1515,17 @@ async function createJobFromPdf(teacherId, file, body) {
 
     // Temp PDF deleted after parse; keep chunk meta + text in memory.
     cleanupJobFiles(job);
+    const modeNote = planned.planMode === 'chapter-aware'
+      ? 'Used detected section headings.'
+      : 'Few clear chapter headings found — grouped by page length, then titled from content.';
     touch(job, {
       status: 'ready',
       progress: 18,
-      message: 'Chunk plan ready (' + planned.chunks.length + ' parts). Click Generate to continue.',
+      message: 'Chunk plan ready (' + planned.chunks.length + ' parts). ' + modeNote,
       meta: planned.meta,
       chunks: planned.chunks,
+      planMode: planned.planMode || null,
+      tocCount: planned.tocCount || 0,
       pages: null
     });
     return toPublicJob(job);
@@ -1444,6 +1618,7 @@ async function runGeneration(jobId, teacherId) {
     job.chunks = job.chunks.map((ch) => ({
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
+      summary: ch.summary || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
       text: ''

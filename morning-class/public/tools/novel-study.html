@@ -116,6 +116,15 @@
       font-size: 0.92rem;
     }
     .chunk-row b { color: var(--olive-deep); }
+    .chunk-main { flex: 1; min-width: 200px; }
+    .chunk-title { font-weight: 700; color: var(--olive-deep); }
+    .chunk-blurb { color: var(--muted); font-size: 0.84rem; margin-top: 0.2rem; line-height: 1.35; }
+    .chunk-pages { color: var(--muted); font-size: 0.84rem; white-space: nowrap; }
+    .plan-badge {
+      display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.12rem 0.45rem;
+      border-radius: 999px; background: var(--sage-soft); color: var(--olive); margin-left: 0.35rem;
+    }
+    .plan-badge.weak { background: #fff7e8; color: #8a6418; }
     .meta-line { color: var(--muted); font-size: 0.88rem; margin: 0.25rem 0 0; }
     .history-list { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
     .history-row {
@@ -223,7 +232,7 @@
     <section class="card hidden" id="chunksCard">
       <h2>2. Chunk plan</h2>
       <p class="hint" id="bookMeta">—</p>
-      <p class="hint">Titles use chapter headings when possible. Repeated page headers (maps, site names) are ignored. Review the list, then generate.</p>
+      <p class="hint">Titles use chapter/section headings when found; otherwise a short content blurb. Review the list, then generate.</p>
       <div class="chunk-list" id="chunkList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
@@ -746,14 +755,29 @@
   function renderChunks(job) {
     $('chunksCard').classList.remove('hidden');
     var meta = job.meta || {};
-    $('bookMeta').textContent =
-      (meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
+    var planMode = job.planMode || '';
+    var badge = '';
+    if (planMode === 'chapter-aware') {
+      badge = ' <span class="plan-badge">chapter-aware</span>';
+    } else if (planMode === 'page-groups') {
+      badge = ' <span class="plan-badge weak">page groups + titles</span>';
+    }
+    $('bookMeta').innerHTML =
+      escapeHtml((meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
       ' · ' + (meta.genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
-      ' · ' + (job.pageCount || 0) + ' pages · ' + (job.chunks || []).length + ' parts' +
+      ' · ' + (job.pageCount || 0) + ' pages · ' + (job.chunks || []).length + ' parts') +
+      badge +
       (job.pageOverflowRisk ? ' · page overflow risk' : '');
     $('chunkList').innerHTML = (job.chunks || []).map(function (ch) {
-      return '<div class="chunk-row"><div><b>Part ' + ch.partNum + '</b> — ' +
-        (ch.unitTitle || '') + '</div><div>pp. ' + ch.startPage + '–' + ch.endPage + '</div></div>';
+      var blurb = ch.summary || '';
+      return '<div class="chunk-row">' +
+        '<div class="chunk-main">' +
+          '<div class="chunk-title">Part ' + escapeHtml(ch.partNum) + ' — ' +
+            escapeHtml(ch.unitTitle || 'Section') + '</div>' +
+          (blurb ? '<div class="chunk-blurb">' + escapeHtml(blurb) + '</div>' : '') +
+        '</div>' +
+        '<div class="chunk-pages">pp. ' + escapeHtml(ch.startPage) + '–' + escapeHtml(ch.endPage) + '</div>' +
+      '</div>';
     }).join('') || '<p class="hint">No chunks found.</p>';
     $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
   }
