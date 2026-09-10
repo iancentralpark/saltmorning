@@ -1520,8 +1520,10 @@
         (hw.points ? ' <span class="muted small">· ' + escapeHtml(hw.points) + ' pts</span>' : '') +
         '<div class="muted small">Assigned ' + escapeHtml(hw.assignedDate || '') +
         (hw.dueDate ? ' · Due ' + escapeHtml(hw.dueDate) : '') + '</div></div>' +
+        '<div style="white-space:nowrap">' +
+        '<button type="button" class="btn btn-ghost hw-edit" data-id="' + escapeHtml(hw.homeworkId) + '">Edit</button> ' +
         '<button type="button" class="btn btn-ghost hw-delete" data-id="' + escapeHtml(hw.homeworkId) +
-        '">Delete</button></div>' +
+        '">Delete</button></div></div>' +
         (hw.description ? '<p class="muted small" style="margin:0.35rem 0 0">' + escapeHtml(hw.description) + '</p>' : '') +
         hwAttachmentHtml(hw);
       (hw.items || []).forEach((item) => {
@@ -1568,6 +1570,36 @@
             { method: 'DELETE' },
             role
           );
+          SaltApp.showToast('Homework deleted.');
+          loadHomework();
+        } catch (e) {
+          err.textContent = e.message;
+        }
+      });
+    });
+    box.querySelectorAll('.hw-edit').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const hw = list.find((h) => String(h.homeworkId) === String(btn.dataset.id));
+        if (!hw) return;
+        const values = await SaltApp.showFormModal({
+          title: 'Edit homework',
+          submitLabel: 'Save',
+          fields: [
+            { key: 'title', label: 'Title', value: hw.title },
+            { key: 'description', label: 'Description', value: hw.description, type: 'textarea' },
+            { key: 'assignedDate', label: 'Assigned date', value: hw.assignedDate, type: 'date' },
+            { key: 'dueDate', label: 'Due date', value: hw.dueDate, type: 'date' }
+          ]
+        });
+        if (!values) return;
+        err.textContent = '';
+        try {
+          await api(
+            '/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/homework/' + encodeURIComponent(btn.dataset.id),
+            { method: 'PATCH', body: values },
+            role
+          );
+          SaltApp.showToast('Homework updated.');
           loadHomework();
         } catch (e) {
           err.textContent = e.message;
@@ -1645,6 +1677,7 @@
           body: fd
         }, role);
         resetHwComposeForm();
+        SaltApp.showToast('Homework posted.');
         loadHomework();
       } catch (ex) {
         err.textContent = ex.message;

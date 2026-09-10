@@ -205,6 +205,29 @@
     (root || document).querySelectorAll('input[type="password"]:not([data-pw-toggled])').forEach(wirePasswordToggle);
   }
 
+  let toastHost = null;
+  /**
+   * Small floating success/info toast, usable on any page without a
+   * dedicated placeholder element (unlike the older per-page toast divs).
+   */
+  function showToast(message, opts) {
+    opts = opts || {};
+    if (!toastHost) {
+      toastHost = document.createElement('div');
+      toastHost.className = 'sf-toast-host';
+      document.body.appendChild(toastHost);
+    }
+    const el = document.createElement('div');
+    el.className = 'sf-toast' + (opts.type === 'error' ? ' sf-toast-error' : '');
+    el.textContent = message || '';
+    toastHost.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('sf-toast-in'));
+    setTimeout(() => {
+      el.classList.remove('sf-toast-in');
+      setTimeout(() => el.remove(), 250);
+    }, opts.duration || 2200);
+  }
+
   /**
    * Small in-page replacement for window.prompt() for edit flows with more
    * than one field (title+body, title+due date, ...). window.prompt() can
@@ -308,6 +331,7 @@
     prepareSignatureFile,
     wirePasswordToggle,
     autoWirePasswordToggles,
-    showFormModal
+    showFormModal,
+    showToast
   };
 })(window);
