@@ -155,6 +155,8 @@ function serializeJob(job) {
     googleDocsUrl: job.googleDocsUrl || null,
     planMode: job.planMode || null,
     tocCount: job.tocCount || 0,
+    skippedFront: job.skippedFront || 0,
+    skippedBack: job.skippedBack || 0,
     hasDocx: jobHasDownload(job),
     createdAt: job.createdAt,
     updatedAt: job.updatedAt
@@ -275,6 +277,8 @@ function hydrateJob(data) {
     googleDocsUrl: data.googleDocsUrl || null,
     planMode: data.planMode || null,
     tocCount: data.tocCount || 0,
+    skippedFront: data.skippedFront || 0,
+    skippedBack: data.skippedBack || 0,
     pages: null,
     pdfPath: null,
     docxBuffer: null,
@@ -581,6 +585,8 @@ function toPublicJob(job, opts) {
     pageOverflowRisk: !!(job.options && job.options.pageOverflowRisk),
     planMode: job.planMode || null,
     tocCount: job.tocCount || 0,
+    skippedFront: job.skippedFront || 0,
+    skippedBack: job.skippedBack || 0,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     canDelete: !['generating', 'parsing', 'planning'].includes(String(job.status || ''))
@@ -731,6 +737,147 @@ async function extractPages(pdfBuffer) {
     );
   }
   return { pageCount: pages.length, pages };
+}
+
+function pageCharCount(text) {
+  return String(text || '').replace(/\s+/g, '').length;
+}
+
+function frontMatterScore(pageText) {
+  const raw = String(pageText || '');
+  const t = raw.toLowerCase();
+  const len = pageCharCount(raw);
+  const lines = pageLines(raw);
+  let score = 0;
+
+  if (/©|copyright|all rights reserved|\bisbn\b|library of congress|cip data/i.test(t)) score += 4;
+  if (/published by|printed in|first (published|printing)|reprint(ed)?|imprint\b/i.test(t)) score += 3;
+  if (/table of contents/i.test(t) || /(^|\n)\s*contents\s*(\n|$)/i.test(raw)) score += 5;
+  if (/acknowledgements?|dedication|epigraph|also by (the )?author|about the author/i.test(t)) score += 4;
+  if (/permission to reproduce|cataloguing|cataloging.in.publication/i.test(t)) score += 3;
+  if (/title page|half title|frontispiece/i.test(t)) score += 2;
+
+  // TOC-like layout: many short numbered lines, little prose
+  const shortLines = lines.filter((l) => l.length > 0 && l.length <= 48);
+  const numbered = shortLines.filter((l) => /^\d+([.:)]|\s)/.test(l) || /^[ivxlc]+\./i.test(l)).length;
+  if (shortLines.length >= 4 && numbered >= 3 && len < 900) score += 3;
+
+  // Short sparse pages early in a book are usually title/front matter.
+  if (len < 120) score += 2;
+  else if (len < 280) score += 1;
+  if (lines.length > 0 && lines.length <= 10 && len < 500) score += 1;
+
+  // Dense narrative prose lowers the score.
+  const sentenceHits = (raw.match(/[a-z][.!?]\s+[A-Z]/g) || []).length;
+  if (len > 700 && sentenceHits >= 3) score -= 3;
+  if (len > 1200 && sentenceHits >= 5) score -= 2;
+
+  return score;
+}
+
+function backMatterScore(pageText) {
+  const t = String(pageText || '').toLowerCase();
+  const len = pageCharCount(pageText);
+  let score = 0;
+  if (/\b(index|bibliography|works cited|further reading|glossary|notes)\b/.test(t)) score += 3;
+  if (/about the author|acknowledgements?|credits|photo credits/i.test(t)) score += 2;
+  if (len < 200) score += 1;
+  return score;
+}
+
+function looksLikeBodyProse(pageText) {
+  const raw = String(pageText || '');
+  const compact = pageCharCount(raw);
+  const soft = String(raw).replace(/\s+/g, ' ').trim().length;
+  if (compact < 220 && soft < 280) return false;
+  if (frontMatterScore(raw) >= 3) return false;
+  const sentenceHits = (raw.match(/[a-z][.!?]\s+[A-Z]/g) || []).length;
+  const hasLower = /[a-z]/.test(raw);
+  return hasLower && (sentenceHits >= 2 || compact > 500 || soft > 600);
+}
+
+/**
+ * Drop title/copyright/TOC/dedication at the start and index/credits at the end.
+ * Keeps original PDF page numbers on remaining pages.
+ */
+function trimToBookBody(pages) {
+  const all = pages || [];
+  if (all.length <= 2) {
+    return { pages: all.slice(), skippedFront: 0, skippedBack: 0 };
+  }
+
+  const scanFront = Math.min(all.length - 1, Math.max(8, Math.ceil(all.length * 0.22)));
+  let bodyStart = 0;
+  for (let i = 0; i < scanFront; i += 1) {
+    const score = frontMatterScore(all[i].text);
+    if (score >= 2) {
+      bodyStart = i + 1;
+      continue;
+    }
+    if (i >= 1 && looksLikeBodyProse(all[i].text)) {
+      bodyStart = i;
+      break;
+    }
+    // Once we are past a couple pages and hit clear prose, stop.
+    if (i >= 2 && looksLikeBodyProse(all[i].text) && score <= 0) {
+      bodyStart = i;
+      break;
+    }
+  }
+
+  // Seek forward a little if we landed on another front-matter page.
+  while (
+    bodyStart < all.length - 1
+    && frontMatterScore(all[bodyStart].text) >= 2
+    && !looksLikeBodyProse(all[bodyStart].text)
+  ) {
+    bodyStart += 1;
+    if (bodyStart > Math.max(40, Math.floor(all.length * 0.4))) break;
+  }
+
+  // Absolute safety: never drop more than ~45% unless body prose was found earlier.
+  const absMax = Math.min(all.length - 1, Math.max(8, Math.floor(all.length * 0.45)));
+  if (bodyStart > absMax) {
+    let found = -1;
+    for (let i = 0; i <= absMax; i += 1) {
+      if (looksLikeBodyProse(all[i].text) && frontMatterScore(all[i].text) < 2) {
+        found = i;
+        break;
+      }
+    }
+    bodyStart = found >= 0 ? found : absMax;
+  }
+
+  let bodyEnd = all.length - 1;
+  const scanBackFrom = Math.max(bodyStart + 1, all.length - Math.max(6, Math.ceil(all.length * 0.12)));
+  for (let i = all.length - 1; i >= scanBackFrom; i -= 1) {
+    if (backMatterScore(all[i].text) >= 3 && !looksLikeBodyProse(all[i].text)) {
+      bodyEnd = i - 1;
+      continue;
+    }
+    break;
+  }
+  if (bodyEnd < bodyStart) bodyEnd = all.length - 1;
+
+  const sliced = all.slice(bodyStart, bodyEnd + 1);
+  return {
+    pages: sliced.length ? sliced : all.slice(),
+    skippedFront: sliced.length ? bodyStart : 0,
+    skippedBack: sliced.length ? (all.length - 1 - bodyEnd) : 0
+  };
+}
+
+function isNonContentChunk(chunk) {
+  const title = String((chunk && chunk.unitTitle) || '');
+  const summary = String((chunk && chunk.summary) || '');
+  const blob = (title + ' ' + summary).toLowerCase();
+  if (/title page|front matter|half[- ]title|copyright|table of contents|\bcontents\b|dedication|acknowledgements?|about the author|bibliography|\bindex\b/.test(blob)) {
+    return true;
+  }
+  if (chunk && chunk.text && frontMatterScore(chunk.text) >= 4 && !looksLikeBodyProse(chunk.text)) {
+    return true;
+  }
+  return false;
 }
 
 function normalizeLine(line) {
@@ -1060,6 +1207,7 @@ async function enrichChunkLabelsWithGemini(chunks, metaSeed, options, toc) {
       '- Keep the SAME part_num values. Do not add/remove parts or change page ranges.',
       '- unit_title: short descriptive section title (chapter/section name OR a clear topic title).',
       '- NEVER use titles like "Pages 1–4", "Part 3", or only a page range.',
+      '- NEVER label title pages, copyright, contents, dedication, or other front matter.',
       '- summary: one plain sentence (max 140 chars) describing what students read in that range.',
       '- Prefer real chapter/section names when the preview shows them.',
       metaSeed && metaSeed.title ? ('Book: ' + metaSeed.title) : '',
@@ -1154,10 +1302,13 @@ async function detectBookMetaWithGemini(pages, options, toc) {
 }
 
 async function planChunksWithGemini(pages, options) {
-  const banned = collectRunningHeaders(pages);
-  const toc = buildToc(pages, banned);
-  const quality = tocQuality(toc, pages.length);
-  let chunks = planChunksHeuristic(pages);
+  // Meta can use opening pages; worksheets only use book body.
+  const trimmed = trimToBookBody(pages);
+  const bodyPages = trimmed.pages;
+  const banned = collectRunningHeaders(bodyPages);
+  const toc = buildToc(bodyPages, banned);
+  const quality = tocQuality(toc, bodyPages.length);
+  let chunks = planChunksHeuristic(bodyPages);
   const planMode = quality === 'strong' || quality === 'ok'
     ? 'chapter-aware'
     : 'page-groups';
@@ -1171,7 +1322,6 @@ async function planChunksWithGemini(pages, options) {
     };
   }
 
-  // Always try to upgrade generic titles + add one-line summaries via Gemini.
   try {
     chunks = await enrichChunkLabelsWithGemini(chunks, meta, options, toc);
   } catch (e) {
@@ -1179,17 +1329,30 @@ async function planChunksWithGemini(pages, options) {
     chunks = chunks.map((c) => labelChunk(c, banned));
   }
 
-  // Final safety: no page-range-only titles
-  chunks = chunks.map((c, i) => {
-    const labeled = labelChunk(Object.assign({}, c, { partNum: i + 1 }), banned);
-    labeled.planMode = planMode;
-    return labeled;
-  });
+  chunks = chunks
+    .map((c, i) => {
+      const labeled = labelChunk(Object.assign({}, c, { partNum: i + 1 }), banned);
+      labeled.planMode = planMode;
+      return labeled;
+    })
+    .filter((c) => !isNonContentChunk(c));
+
+  // Renumber after dropping front/back-matter leftovers
+  chunks.forEach((c, i) => { c.partNum = i + 1; });
+
+  if (!chunks.length) {
+    // Absolute fallback: body pages with labels (should be rare)
+    chunks = planChunksHeuristic(bodyPages)
+      .filter((c) => !isNonContentChunk(c))
+      .map((c, i) => Object.assign(labelChunk(c, banned), { partNum: i + 1, planMode }));
+  }
 
   return {
     meta,
     planMode,
     tocCount: toc.length,
+    skippedFront: trimmed.skippedFront || 0,
+    skippedBack: trimmed.skippedBack || 0,
     chunks
   };
 }
@@ -1518,14 +1681,20 @@ async function createJobFromPdf(teacherId, file, body) {
     const modeNote = planned.planMode === 'chapter-aware'
       ? 'Used detected section headings.'
       : 'Few clear chapter headings found — grouped by page length, then titled from content.';
+    const skipBits = [];
+    if (planned.skippedFront) skipBits.push(planned.skippedFront + ' front-matter page(s) skipped');
+    if (planned.skippedBack) skipBits.push(planned.skippedBack + ' back-matter page(s) skipped');
     touch(job, {
       status: 'ready',
       progress: 18,
-      message: 'Chunk plan ready (' + planned.chunks.length + ' parts). ' + modeNote,
+      message: 'Chunk plan ready (' + planned.chunks.length + ' parts). ' + modeNote +
+        (skipBits.length ? ' ' + skipBits.join('; ') + '.' : ''),
       meta: planned.meta,
       chunks: planned.chunks,
       planMode: planned.planMode || null,
       tocCount: planned.tocCount || 0,
+      skippedFront: planned.skippedFront || 0,
+      skippedBack: planned.skippedBack || 0,
       pages: null
     });
     return toPublicJob(job);
