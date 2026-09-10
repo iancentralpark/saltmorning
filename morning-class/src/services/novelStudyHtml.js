@@ -61,6 +61,15 @@ function sectionLetters(hasVocab) {
   };
 }
 
+function reflectionTypeLabel(type) {
+  const t = String(type || '').toLowerCase();
+  if (t === 'personal_reflection') return 'Personal reflection';
+  if (t === 'critical_thinking') return 'Critical thinking';
+  if (t === 'factual') return 'Factual';
+  if (t === 'inference') return 'Inference';
+  return '';
+}
+
 function collectMasterVocab(parts) {
   const seen = new Set();
   const rows = [];
@@ -141,15 +150,18 @@ function buildPartHtml(part, options) {
     });
   }
 
-  bits.push('<h2>' + letters.reflection + '. Reflection</h2>');
+  bits.push('<h2>' + letters.reflection + '. Extended Response</h2>');
   const refs = part.reflection || [];
   if (!refs.length) {
-    bits.push('<p class="muted">(No reflection prompts.)</p>');
+    bits.push('<p class="muted">(No extended-response prompts.)</p>');
   } else {
     refs.forEach((q, i) => {
+      const typeLabel = reflectionTypeLabel(q.type);
       bits.push('<div class="q">');
-      bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' + esc(q.question || '') + '</p>');
-      bits.push(answerLinesHtml(5));
+      bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
+        (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
+        esc(q.question || '') + '</p>');
+      bits.push(answerLinesHtml(7));
       bits.push('</div>');
     });
   }
@@ -203,9 +215,12 @@ function buildAnswerKeyHtml(parts, culminating, meta) {
       bits.push('</ul>');
     }
     if ((part.reflection || []).length) {
-      bits.push('<h3>Reflection</h3><ul>');
+      bits.push('<h3>Extended Response</h3><ul>');
       part.reflection.forEach((q, i) => {
-        bits.push('<li><b>' + (i + 1) + '.</b> ' + esc(q.question || ''));
+        const typeLabel = reflectionTypeLabel(q.type);
+        bits.push('<li><b>' + (i + 1) + '.</b> ' +
+          (typeLabel ? '[' + esc(typeLabel) + '] ' : '') +
+          esc(q.question || ''));
         bits.push('<br><em>Sample: ' + esc(q.sampleAnswer || '') + '</em>');
         if (q.evidenceQuote) bits.push('<br><em>Evidence: “' + esc(q.evidenceQuote) + '”</em>');
         bits.push('</li>');
@@ -321,6 +336,7 @@ function wrapHtmlDocument(title, bodyHtml) {
     list-style: upper-alpha;
   }
   .choices li { margin: 0.18rem 0; padding-left: 0.25rem; }
+  .type-tag { color: var(--teal-deep); font-weight: 700; font-size: 0.9em; }
   .write-line {
     height: 1.55rem;
     border-bottom: 1.25px solid #2a3544;
