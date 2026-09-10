@@ -98,6 +98,15 @@ function sectionLetters(hasVocab) {
   };
 }
 
+function reflectionTypeLabel(type) {
+  const t = String(type || '').toLowerCase();
+  if (t === 'personal_reflection') return 'Personal reflection';
+  if (t === 'critical_thinking') return 'Critical thinking';
+  if (t === 'factual') return 'Factual';
+  if (t === 'inference') return 'Inference';
+  return '';
+}
+
 function cellPara(children, opts) {
   return new Paragraph(Object.assign({
     spacing: { after: 40, before: 40 },
@@ -242,7 +251,7 @@ function buildMasterVocab(parts) {
 
 function buildPartWorksheet(part, options) {
   const shortLines = 3;
-  const reflectionLines = 5;
+  const reflectionLines = 7;
   const vocab = part.vocab || [];
   const hasVocab = vocab.length > 0;
   const letters = sectionLetters(hasVocab);
@@ -297,17 +306,21 @@ function buildPartWorksheet(part, options) {
     children.push(p([run('(No short-answer questions.)', { italics: true })]));
   }
 
-  children.push(heading(letters.reflection + '. Reflection', HeadingLevel.HEADING_2));
+  children.push(heading(letters.reflection + '. Extended Response', HeadingLevel.HEADING_2));
   (part.reflection || []).forEach((q, i) => {
+    const typeLabel = reflectionTypeLabel(q.type);
     children.push(p([
       run((i + 1) + '. ', { bold: true }),
+      ...(typeLabel
+        ? [run('[' + typeLabel + '] ', { bold: true, color: '0D6E6E', size: 18 })]
+        : []),
       run(q.question || '')
     ]));
     children.push(...answerLines(reflectionLines));
     children.push(blank());
   });
   if (!(part.reflection || []).length) {
-    children.push(p([run('(No reflection prompts.)', { italics: true })]));
+    children.push(p([run('(No extended-response prompts.)', { italics: true })]));
   }
 
   if (options && options.pageOverflowRisk) {
@@ -415,10 +428,11 @@ function buildAnswerKey(parts, culminating, meta) {
     }
 
     if ((part.reflection || []).length) {
-      children.push(p([run('Reflection', { bold: true })]));
+      children.push(p([run('Extended Response', { bold: true })]));
       part.reflection.forEach((q, i) => {
+        const typeLabel = reflectionTypeLabel(q.type);
         children.push(p([
-          run((i + 1) + '. ' + (q.question || ''))
+          run((i + 1) + '. ' + (typeLabel ? '[' + typeLabel + '] ' : '') + (q.question || ''))
         ], { spacing: { after: 40 } }));
         children.push(p([
           run('Sample: ' + (q.sampleAnswer || ''), { italics: true })

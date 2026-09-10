@@ -176,7 +176,7 @@
 
     <section class="card" id="setupCard">
       <h2>1. Upload &amp; options</h2>
-      <p class="hint">Text-layer PDF only (not a scan). Default: Vocab 3 · MC 3 · Short Answer 1 · Reflection 1. Set Vocab to <b>0</b> to skip vocabulary. Prefer <b>Open printable HTML</b> for designed classroom copies.</p>
+      <p class="hint">Text-layer PDF only (not a scan). Default: Vocab <b>0</b> · MC <b>4</b> · Short Answer <b>2</b> · Extended write <b>1</b>. Prefer <b>Open printable HTML</b> for designed classroom copies.</p>
 
       <div class="drop" id="dropZone" tabindex="0" role="button" aria-label="Upload PDF">
         <strong id="dropLabel">Drop a PDF here or click to browse</strong>
@@ -202,12 +202,12 @@
       </div>
 
       <div class="counts" style="margin-top:0.75rem">
-        <label>Vocab <input type="number" id="vocabCount" min="0" max="6" value="3" title="0 = skip vocabulary"></label>
-        <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="3"></label>
-        <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="1"></label>
-        <label>Reflection <input type="number" id="reflectionCount" min="0" max="2" value="1"></label>
+        <label>Vocab <input type="number" id="vocabCount" min="0" max="6" value="0" title="0 = skip vocabulary"></label>
+        <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="4"></label>
+        <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="2"></label>
+        <label>Extended write <input type="number" id="reflectionCount" min="0" max="2" value="1" title="AI picks reflection, critical thinking, factual, or inference"></label>
       </div>
-      <p class="hint" style="margin-top:0.35rem">Vocab 0 skips the master list and section vocabulary. Short answer / reflection use ruled writing lines.</p>
+      <p class="hint" style="margin-top:0.35rem">Vocab 0 skips vocabulary. Extended write: AI chooses the best prompt type (personal reflection, critical thinking, factual, or inference) for ~1 paragraph.</p>
       <div class="warn hidden" id="overflowWarn">Raising item counts above defaults may overflow a single A4 page per worksheet.</div>
 
       <label style="margin-top:0.85rem">MC question types
@@ -318,9 +318,9 @@
   }
 
   function overflowRisk() {
-    return Number($('vocabCount').value) > 3
-      || Number($('mcCount').value) > 3
-      || Number($('shortCount').value) > 1
+    return Number($('vocabCount').value) > 0
+      || Number($('mcCount').value) > 4
+      || Number($('shortCount').value) > 2
       || Number($('reflectionCount').value) > 1;
   }
 
@@ -343,14 +343,14 @@
 
   function optionsPayload() {
     var vocabRaw = $('vocabCount').value;
-    var vocabCount = vocabRaw === '' || vocabRaw == null ? 3 : Number(vocabRaw);
-    if (!Number.isFinite(vocabCount)) vocabCount = 3;
+    var vocabCount = vocabRaw === '' || vocabRaw == null ? 0 : Number(vocabRaw);
+    if (!Number.isFinite(vocabCount)) vocabCount = 0;
     return {
       level: $('level').value || 'middle',
       genre: $('genre').value || 'auto',
       vocabCount: Math.max(0, Math.min(6, vocabCount)),
-      mcCount: Number($('mcCount').value) || 3,
-      shortCount: Number($('shortCount').value) || 1,
+      mcCount: Number($('mcCount').value) || 4,
+      shortCount: Number($('shortCount').value) || 2,
       reflectionCount: Number($('reflectionCount').value) || 1,
       mcTypes: selectedMcTypes()
     };
@@ -559,7 +559,8 @@
         return '<li><b>' + (qi + 1) + '.</b> ' + escapeHtml(q.question || '') + '</li>';
       }).join('') || '<li class="muted">(none)</li>';
       var refBits = (p.reflection || []).map(function (q, qi) {
-        return '<li><b>' + (qi + 1) + '.</b> ' + escapeHtml(q.question || '') + '</li>';
+        var type = q.type ? ' <span style="color:var(--olive)">[' + escapeHtml(String(q.type).replace(/_/g, ' ')) + ']</span>' : '';
+        return '<li><b>' + (qi + 1) + '.</b>' + type + ' ' + escapeHtml(q.question || '') + '</li>';
       }).join('') || '<li class="muted">(none)</li>';
       return '<article class="live-sheet' + (isNew ? ' new' : '') + '" data-part="' + escapeHtml(p.partNum) + '">' +
         '<h3>Part ' + escapeHtml(p.partNum) + ': ' + escapeHtml(p.unitTitle || 'Section') +
@@ -573,7 +574,7 @@
         '<details>' +
         '<summary>Short answer (' + (p.shortAnswer || []).length + ')</summary><ul>' + saBits + '</ul></details>' +
         '<details>' +
-        '<summary>Reflection (' + (p.reflection || []).length + ')</summary><ul>' + refBits + '</ul></details>' +
+        '<summary>Extended response (' + (p.reflection || []).length + ')</summary><ul>' + refBits + '</ul></details>' +
         '<div class="live-actions">' +
         '<button type="button" class="btn btn-ghost part-preview" data-part="' + escapeHtml(p.partNum) +
         '">Open full sheet</button></div></article>';

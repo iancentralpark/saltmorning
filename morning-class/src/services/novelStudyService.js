@@ -492,8 +492,9 @@ function stubPartWorksheet(chunk, options) {
   const reflection = [];
   for (let i = 0; i < (options.reflectionCount || 1); i += 1) {
     reflection.push({
-      question: 'What connection can you make between this section and something you already know?',
-      sampleAnswer: 'Student reflection.',
+      type: 'critical_thinking',
+      question: 'Using evidence from this section, explain one important idea and why it matters.',
+      sampleAnswer: 'Student answers will vary; cite a detail from the passage and explain its significance in about one paragraph.',
       evidenceQuote: quote
     });
   }
@@ -542,6 +543,7 @@ function summarizePartPreview(part) {
       question: q.question || ''
     })),
     reflection: (part.reflection || []).map((q) => ({
+      type: q.type || '',
       question: q.question || ''
     }))
   };
@@ -640,10 +642,14 @@ function normalizeOptions(body) {
   // vocabCount 0 = skip vocabulary entirely (master list + section A)
   const vocabRaw = body && body.vocabCount;
   const vocabCount = Math.max(0, Math.min(6,
-    vocabRaw === 0 || vocabRaw === '0' ? 0 : (Number(vocabRaw) || 3)
+    vocabRaw === 0 || vocabRaw === '0'
+      ? 0
+      : (vocabRaw === undefined || vocabRaw === null || vocabRaw === ''
+        ? 0
+        : (Number(vocabRaw) || 0))
   ));
-  const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 3));
-  const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 1));
+  const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 4));
+  const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 2));
   const reflectionCount = Math.max(0, Math.min(2, Number(body && body.reflectionCount) || 1));
   let mcTypes = Array.isArray(body && body.mcTypes)
     ? body.mcTypes.map(String)
@@ -658,7 +664,8 @@ function normalizeOptions(body) {
     shortCount,
     reflectionCount,
     mcTypes,
-    pageOverflowRisk: vocabCount > 3 || mcCount > 3 || shortCount > 1 || reflectionCount > 1
+    // Defaults (0/4/2/1) should not warn; warn only when above defaults.
+    pageOverflowRisk: vocabCount > 0 || mcCount > 4 || shortCount > 2 || reflectionCount > 1
   };
 }
 
@@ -1062,6 +1069,15 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     'Do NOT use an object for choices. Do NOT leave choice text blank.',
     'Do NOT put A/B/C/D letters inside choice strings — letters are added by the formatter.',
     'Example: "choices":["the river flooded","the mountain erupted","the forest burned","the desert froze"]',
+    options.reflectionCount > 0
+      ? [
+        'For each reflection item, pick the SINGLE best prompt type for THIS section among:',
+        'personal_reflection, critical_thinking, factual, inference.',
+        'Do NOT default to personal reflection — choose whichever fits the text best.',
+        'Each reflection item must include: type, question, sampleAnswer, evidenceQuote.',
+        'The question must invite about one paragraph of writing (roughly 5–8 sentences), grounded in the section.'
+      ].join(' ')
+      : 'Set reflection to an empty array [].',
     !compact ? ('Prefer these MC types: ' + typeList) : '',
     tryNum > 1 ? 'IMPORTANT: Previous reply was invalid or truncated. Reply with complete JSON only. Every MC choice must have real text.' : '',
     'section_text:',
@@ -1138,11 +1154,23 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
 
   const reflection = (Array.isArray(parsed.reflection) ? parsed.reflection : [])
     .slice(0, options.reflectionCount)
-    .map((q) => ({
-      question: String(q.question || '').trim(),
-      sampleAnswer: String(q.sampleAnswer || '').trim(),
-      evidenceQuote: String(q.evidenceQuote || '').trim()
-    }))
+    .map((q) => {
+      const rawType = String(q.type || q.promptType || '').trim().toLowerCase().replace(/\s+/g, '_');
+      const allowed = ['personal_reflection', 'critical_thinking', 'factual', 'inference'];
+      const type = allowed.includes(rawType)
+        ? rawType
+        : (rawType.includes('critical') ? 'critical_thinking'
+          : rawType.includes('fact') ? 'factual'
+            : rawType.includes('infer') ? 'inference'
+              : rawType.includes('reflect') || rawType.includes('personal') ? 'personal_reflection'
+                : 'critical_thinking');
+      return {
+        type,
+        question: String(q.question || '').trim(),
+        sampleAnswer: String(q.sampleAnswer || '').trim(),
+        evidenceQuote: String(q.evidenceQuote || '').trim()
+      };
+    })
     .filter((q) => q.question);
 
   const mcIncomplete = multipleChoice.some((q) =>
