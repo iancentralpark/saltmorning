@@ -4327,6 +4327,159 @@ router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (re
   }
 });
 
+/* ── Novel Study Workbook (class tool) ───────────────────────── */
+const {
+  createJobFromPdf,
+  getJob: getNovelStudyJob,
+  toPublicJob,
+  subscribe: subscribeNovelStudy,
+  runGeneration: runNovelStudyGeneration,
+  getDownload: getNovelStudyDownload,
+  uploadToGoogleDocs: uploadNovelStudyGoogleDocs,
+  listMcTypes: listNovelStudyMcTypes,
+  listLevels: listNovelStudyLevels,
+  normalizeOptions: normalizeNovelStudyOptions
+} = require('./services/novelStudyService');
+
+const novelStudyUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mime = String(file.mimetype || '').toLowerCase();
+    const name = String(file.originalname || '').toLowerCase();
+    const ok = mime === 'application/pdf' || name.endsWith('.pdf');
+    cb(ok ? null : new Error('Only PDF files are accepted.'), ok);
+  }
+});
+
+function novelStudyTeacherId(req) {
+  return req.session.teacherId || req.session.adminId || req.session.userId || 'admin';
+}
+
+router.get('/novel-study/meta', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    res.json({
+      ok: true,
+      levels: listNovelStudyLevels(),
+      mcTypes: listNovelStudyMcTypes(),
+      defaults: normalizeNovelStudyOptions({}),
+      geminiConfigured: isGeminiConfigured()
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load Novel Study meta.' });
+  }
+});
+
+router.post(
+  '/novel-study/jobs',
+  requireRole('teacher', 'admin'),
+  aiRateLimiter,
+  (req, res) => {
+    novelStudyUpload.single('pdf')(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message || 'Invalid PDF upload.' });
+      }
+      try {
+        const body = Object.assign({}, req.body || {});
+        if (typeof body.mcTypes === 'string') {
+          try { body.mcTypes = JSON.parse(body.mcTypes); } catch (_) {
+            body.mcTypes = String(body.mcTypes).split(',').map((s) => s.trim()).filter(Boolean);
+          }
+        }
+        const job = await createJobFromPdf(novelStudyTeacherId(req), req.file, body);
+        res.json({ ok: true, job });
+      } catch (e) {
+        console.error('POST /novel-study/jobs', e);
+        res.status(e.status || 500).json({ error: e.message || 'Could not create Novel Study job.' });
+      }
+    });
+  }
+);
+
+router.get('/novel-study/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = getNovelStudyJob(req.params.id, novelStudyTeacherId(req));
+    res.json({ ok: true, job: toPublicJob(job) });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Job not found.' });
+  }
+});
+
+router.get('/novel-study/jobs/:id/events', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const teacherId = novelStudyTeacherId(req);
+    getNovelStudyJob(req.params.id, teacherId);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+    res.write('event: ready\ndata: {"ok":true}\n\n');
+
+    const unsub = subscribeNovelStudy(req.params.id, teacherId, (payload) => {
+      try {
+        res.write('event: ' + (payload.type || 'message') + '\n');
+        res.write('data: ' + JSON.stringify(payload) + '\n\n');
+      } catch (_) { /* client gone */ }
+    });
+
+    const heartbeat = setInterval(() => {
+      try { res.write(': ping\n\n'); } catch (_) { /* ignore */ }
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      try { unsub(); } catch (_) { /* ignore */ }
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not subscribe.' });
+  }
+});
+
+router.post('/novel-study/jobs/:id/generate', requireRole('teacher', 'admin'), aiRateLimiter, (req, res) => {
+  try {
+    const teacherId = novelStudyTeacherId(req);
+    const job = getNovelStudyJob(req.params.id, teacherId);
+    if (job.status === 'generating') {
+      return res.status(409).json({ error: 'Generation is already running.', job: toPublicJob(job) });
+    }
+    res.status(202).json({ ok: true, job: toPublicJob(job), message: 'Generation started.' });
+    setImmediate(() => {
+      runNovelStudyGeneration(req.params.id, teacherId).catch((e) => {
+        console.error('Novel Study generation failed', e);
+      });
+    });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not start generation.' });
+  }
+});
+
+router.get('/novel-study/jobs/:id/download', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const file = getNovelStudyDownload(req.params.id, novelStudyTeacherId(req));
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="' + String(file.filename).replace(/"/g, '') + '"'
+    );
+    res.send(file.buffer);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Download not ready.' });
+  }
+});
+
+router.post('/novel-study/jobs/:id/google-docs', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const result = await uploadNovelStudyGoogleDocs(req.params.id, novelStudyTeacherId(req));
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error('POST /novel-study/jobs/:id/google-docs', e);
+    res.status(e.status || 500).json({
+      error: e.message || 'Could not upload to Google Docs.',
+      code: e.code || undefined
+    });
+  }
+});
+
 /* ── Consent forms (admin) ──────────────────────────────────── */
 router.get('/admin/consent-templates', requireRole('admin'), async (req, res) => {
   try {

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Novel Study Workbook — Salt Morning</title>
+  <meta name="theme-color" content="#0D2748">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20260818">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --olive: #0D9488;
+      --olive-deep: #0F766E;
+      --gold: #FB923C;
+      --cream: #F1F6F9;
+      --sage: #2DD4BF;
+      --sage-soft: #E3FBF7;
+      --ink: #0F172A;
+      --muted: #5B6B7C;
+      --border: #DCE6EE;
+      --danger: #c45d55;
+      --ok: #3d7a4a;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(251, 146, 60, 0.14), transparent 34%),
+        radial-gradient(circle at 88% 100%, rgba(45, 212, 191, 0.22), transparent 40%),
+        linear-gradient(165deg, #f4f9fa 0%, var(--cream) 45%, #eef5f7 100%);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+      padding: 0.75rem 1.1rem; background: rgba(251, 249, 245, 0.92); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px);
+    }
+    .brand {
+      font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.55rem; font-weight: 700; color: var(--olive);
+      line-height: 1.1;
+    }
+    .brand small {
+      display: block; font-family: 'Source Sans 3', sans-serif; font-size: 0.72rem;
+      color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .status-pill {
+      font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px;
+      background: var(--sage-soft); color: var(--olive);
+    }
+    .pane { flex: 1; padding: 1rem 1.1rem 2rem; max-width: 980px; margin: 0 auto; width: 100%; }
+    .card {
+      background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 16px;
+      box-shadow: var(--shadow); padding: 1.15rem 1.2rem; margin-bottom: 1rem;
+    }
+    .card h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif; margin: 0 0 0.35rem;
+      font-size: 1.4rem; color: var(--olive);
+    }
+    .hint { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.9rem; }
+    .form-grid { display: grid; gap: 0.65rem; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+    label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+    input, select {
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.65rem;
+      font: inherit; color: var(--ink); background: #fff;
+    }
+    .counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+    @media (max-width: 700px) { .counts { grid-template-columns: 1fr 1fr; } }
+    .mc-types { display: grid; gap: 0.35rem; margin-top: 0.35rem; }
+    .mc-types label {
+      flex-direction: row; align-items: center; gap: 0.45rem; font-size: 0.88rem;
+      font-weight: 600; color: var(--ink); cursor: pointer;
+    }
+    .mc-types input { width: auto; }
+    .drop {
+      border: 2px dashed #b7cdd6; border-radius: 14px; padding: 1.4rem 1rem; text-align: center;
+      background: linear-gradient(180deg, #f8fcfd, #f1f7f9); cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .drop.drag { border-color: var(--olive); background: var(--sage-soft); }
+    .drop strong { display: block; color: var(--olive-deep); margin-bottom: 0.25rem; }
+    .drop span { color: var(--muted); font-size: 0.88rem; }
+    .btn {
+      border: none; border-radius: 10px; padding: 0.55rem 0.95rem; font-weight: 700; cursor: pointer;
+      font: inherit; display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, var(--olive), var(--olive-deep)); color: #fff; }
+    .btn-gold { background: linear-gradient(135deg, #d4b26e, var(--gold)); color: #2a220f; }
+    .btn-ghost { background: #fff; border: 1px solid var(--border); color: var(--olive); }
+    .btn-ok { background: #e7f3ea; color: var(--ok); border: 1px solid #c9e3d0; }
+    .toolbar { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.85rem; align-items: center; }
+    .error { color: var(--danger); font-size: 0.9rem; margin-top: 0.5rem; min-height: 1.2em; }
+    .warn {
+      background: #fff7e8; border: 1px solid #f0d9a8; color: #8a6418;
+      border-radius: 10px; padding: 0.55rem 0.75rem; font-size: 0.88rem; margin-top: 0.55rem;
+    }
+    .progress-wrap {
+      height: 10px; background: #e8eef2; border-radius: 999px; overflow: hidden; margin: 0.65rem 0 0.35rem;
+    }
+    .progress-bar {
+      height: 100%; width: 0%; background: linear-gradient(90deg, var(--olive), var(--sage));
+      transition: width .35s ease;
+    }
+    .chunk-list { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
+    .chunk-row {
+      display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
+      border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.75rem; background: #fff;
+      font-size: 0.92rem;
+    }
+    .chunk-row b { color: var(--olive-deep); }
+    .meta-line { color: var(--muted); font-size: 0.88rem; margin: 0.25rem 0 0; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">Novel Study Workbook <small>PDF → chapter chunks → A4 worksheets + answer key</small></div>
+    <span class="status-pill" id="authStatus">Checking login…</span>
+  </div>
+
+  <div class="pane">
+    <section class="card" id="setupCard">
+      <h2>1. Upload &amp; options</h2>
+      <p class="hint">Text-layer PDF only (not a scan). Default worksheet: Vocab 3 · MC 3 · Short Answer 1 · Reflection 1. Font Calibri 10pt, 0.5&quot; margins.</p>
+
+      <div class="drop" id="dropZone" tabindex="0" role="button" aria-label="Upload PDF">
+        <strong id="dropLabel">Drop a PDF here or click to browse</strong>
+        <span>Max 25MB · chapters preferred</span>
+        <input type="file" id="pdfInput" accept="application/pdf,.pdf" class="hidden">
+      </div>
+
+      <div class="form-grid" style="margin-top:0.9rem">
+        <label>Level
+          <select id="level">
+            <option value="elementary">Elementary 3–5</option>
+            <option value="middle" selected>Middle 6–8</option>
+            <option value="high">High School</option>
+          </select>
+        </label>
+        <label>Genre
+          <select id="genre">
+            <option value="auto">Auto-detect</option>
+            <option value="fiction">Fiction</option>
+            <option value="nonfiction">Nonfiction</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="counts" style="margin-top:0.75rem">
+        <label>Vocab <input type="number" id="vocabCount" min="1" max="6" value="3"></label>
+        <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="3"></label>
+        <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="1"></label>
+        <label>Reflection <input type="number" id="reflectionCount" min="0" max="2" value="1"></label>
+      </div>
+      <div class="warn hidden" id="overflowWarn">Raising item counts above defaults may overflow a single A4 page per worksheet.</div>
+
+      <label style="margin-top:0.85rem">MC question types
+        <div class="mc-types" id="mcTypes"></div>
+      </label>
+
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnUpload" disabled>Upload &amp; plan chunks</button>
+      </div>
+      <div class="error" id="setupError"></div>
+    </section>
+
+    <section class="card hidden" id="chunksCard">
+      <h2>2. Chunk plan</h2>
+      <p class="hint" id="bookMeta">—</p>
+      <div class="chunk-list" id="chunkList"></div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
+      </div>
+      <div class="error" id="chunkError"></div>
+    </section>
+
+    <section class="card hidden" id="progressCard">
+      <h2>3. Generation</h2>
+      <p class="meta-line" id="progressMsg">Starting…</p>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <p class="meta-line" id="progressPct">0%</p>
+      <div class="error" id="genError"></div>
+    </section>
+
+    <section class="card hidden" id="doneCard">
+      <h2>4. Download</h2>
+      <p class="hint">Student worksheets + Teacher Answer Key (with evidence quotes) in one .docx.</p>
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnDownload">Download .docx</button>
+        <button type="button" class="btn btn-ok" id="btnGoogle">Open in Google Docs</button>
+        <button type="button" class="btn btn-ghost" id="btnReset">New book</button>
+      </div>
+      <p class="meta-line" id="googleLink"></p>
+      <div class="error" id="doneError"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var jobId = null;
+  var pollTimer = null;
+  var selectedFile = null;
+  var DEFAULT_MC = ['factual', 'inference', 'vocab', 'negative', 'craft', 'paraphrase'];
+
+  function $(id) { return document.getElementById(id); }
+  function token() {
+    return localStorage.getItem('salt_teacher_token')
+      || localStorage.getItem('salt_admin_token')
+      || localStorage.getItem('mrpark_teacher_token')
+      || '';
+  }
+
+  function toolFetch(path, opts) {
+    opts = opts || {};
+    var headers = Object.assign({}, opts.headers || {});
+    var t = token();
+    if (t) headers.Authorization = 'Bearer ' + t;
+    var body = opts.body;
+    if (body && typeof body === 'object' && !(body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(body);
+    }
+    return fetch(path, Object.assign({}, opts, { headers: headers, body: body }))
+      .then(function (res) {
+        var ct = res.headers.get('content-type') || '';
+        if (ct.indexOf('application/json') >= 0 || ct.indexOf('text/event-stream') >= 0 || opts.raw) {
+          if (opts.raw) return res;
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            if (!res.ok) throw new Error((data && data.error) || res.statusText || 'Request failed');
+            return data;
+          });
+        }
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (data) {
+            throw new Error((data && data.error) || res.statusText || 'Request failed');
+          });
+        }
+        return res;
+      });
+  }
+
+  function setAuth(ok, msg) {
+    var el = $('authStatus');
+    el.textContent = msg || (ok ? 'Signed in' : 'Not signed in');
+    el.style.background = ok ? 'var(--sage-soft)' : '#fdeceb';
+    el.style.color = ok ? 'var(--olive)' : 'var(--danger)';
+  }
+
+  function overflowRisk() {
+    return Number($('vocabCount').value) > 3
+      || Number($('mcCount').value) > 3
+      || Number($('shortCount').value) > 1
+      || Number($('reflectionCount').value) > 1;
+  }
+
+  function updateOverflow() {
+    $('overflowWarn').classList.toggle('hidden', !overflowRisk());
+  }
+
+  function selectedMcTypes() {
+    return Array.prototype.slice.call(document.querySelectorAll('#mcTypes input:checked'))
+      .map(function (el) { return el.value; });
+  }
+
+  function renderMcTypes(list) {
+    var mount = $('mcTypes');
+    mount.innerHTML = (list || []).map(function (t) {
+      var checked = DEFAULT_MC.indexOf(t.id) >= 0 ? ' checked' : '';
+      return '<label><input type="checkbox" value="' + t.id + '"' + checked + '> ' + t.label + '</label>';
+    }).join('');
+  }
+
+  function optionsPayload() {
+    return {
+      level: $('level').value || 'middle',
+      genre: $('genre').value || 'auto',
+      vocabCount: Number($('vocabCount').value) || 3,
+      mcCount: Number($('mcCount').value) || 3,
+      shortCount: Number($('shortCount').value) || 1,
+      reflectionCount: Number($('reflectionCount').value) || 1,
+      mcTypes: selectedMcTypes()
+    };
+  }
+
+  function setFile(file) {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      $('setupError').textContent = 'Please choose a PDF file.';
+      return;
+    }
+    selectedFile = file;
+    $('dropLabel').textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+    $('btnUpload').disabled = !token();
+    $('setupError').textContent = '';
+  }
+
+  function renderChunks(job) {
+    $('chunksCard').classList.remove('hidden');
+    var meta = job.meta || {};
+    $('bookMeta').textContent =
+      (meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
+      ' · ' + (meta.genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
+      ' · ' + (job.pageCount || 0) + ' pages · ' + (job.chunks || []).length + ' parts' +
+      (job.pageOverflowRisk ? ' · page overflow risk' : '');
+    $('chunkList').innerHTML = (job.chunks || []).map(function (ch) {
+      return '<div class="chunk-row"><div><b>Part ' + ch.partNum + '</b> — ' +
+        (ch.unitTitle || '') + '</div><div>pp. ' + ch.startPage + '–' + ch.endPage + '</div></div>';
+    }).join('') || '<p class="hint">No chunks found.</p>';
+    $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
+  }
+
+  function setProgress(job) {
+    $('progressCard').classList.remove('hidden');
+    var pct = Math.max(0, Math.min(100, Number(job.progress) || 0));
+    $('progressBar').style.width = pct + '%';
+    $('progressPct').textContent = pct + '%';
+    $('progressMsg').textContent = job.message || job.status || 'Working…';
+    if (job.error) $('genError').textContent = job.error;
+  }
+
+  function stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  function showDone(job) {
+    stopPoll();
+    $('doneCard').classList.remove('hidden');
+    setProgress(job);
+    if (job.googleDocsUrl) {
+      $('googleLink').innerHTML = 'Google Docs: <a href="' + job.googleDocsUrl +
+        '" target="_blank" rel="noopener">' + job.googleDocsUrl + '</a>';
+    }
+  }
+
+  async function pollJob() {
+    if (!jobId) return;
+    try {
+      var data = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId));
+      var job = data.job || {};
+      setProgress(job);
+      if (job.status === 'done') showDone(job);
+      else if (job.status === 'error') {
+        stopPoll();
+        $('genError').textContent = job.error || job.message || 'Generation failed.';
+      }
+    } catch (e) {
+      $('genError').textContent = e.message || 'Poll failed.';
+    }
+  }
+
+  async function initMeta() {
+    try {
+      var data = await toolFetch('/api/novel-study/meta');
+      renderMcTypes(data.mcTypes || []);
+      if (data.levels && data.levels.length) {
+        $('level').innerHTML = data.levels.map(function (l) {
+          var sel = l.id === 'middle' ? ' selected' : '';
+          return '<option value="' + l.id + '"' + sel + '>' + l.label + '</option>';
+        }).join('');
+      }
+      if (!data.geminiConfigured) {
+        $('setupError').textContent = 'Gemini is not configured on the server (GEMINI_API_KEY).';
+      }
+    } catch (e) {
+      renderMcTypes([
+        { id: 'factual', label: 'Factual Information (Right There)' },
+        { id: 'inference', label: 'Inference & Clue Connection' },
+        { id: 'vocab', label: 'Vocabulary in Context' },
+        { id: 'negative', label: 'Negative Factual (NOT / EXCEPT)' },
+        { id: 'craft', label: "Author's Craft / Rhetorical Purpose" },
+        { id: 'paraphrase', label: 'Sentence Simplification / Paraphrasing' }
+      ]);
+      $('setupError').textContent = e.message || 'Could not load meta (are you signed in?)';
+    }
+  }
+
+  async function checkAuth() {
+    if (!token()) {
+      setAuth(false, 'Open from Teacher portal (sign in first)');
+      return;
+    }
+    try {
+      await toolFetch('/api/novel-study/meta');
+      setAuth(true, 'Signed in');
+      $('btnUpload').disabled = !selectedFile;
+    } catch (e) {
+      setAuth(false, 'Auth failed — reopen from Teacher portal');
+    }
+  }
+
+  $('dropZone').addEventListener('click', function () { $('pdfInput').click(); });
+  $('dropZone').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('pdfInput').click(); }
+  });
+  $('pdfInput').addEventListener('change', function () {
+    if (this.files && this.files[0]) setFile(this.files[0]);
+  });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    $('dropZone').addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      $('dropZone').classList.add('drag');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    $('dropZone').addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      $('dropZone').classList.remove('drag');
+      if (ev === 'drop' && e.dataTransfer && e.dataTransfer.files[0]) {
+        setFile(e.dataTransfer.files[0]);
+      }
+    });
+  });
+
+  ['vocabCount', 'mcCount', 'shortCount', 'reflectionCount'].forEach(function (id) {
+    $(id).addEventListener('input', updateOverflow);
+    $(id).addEventListener('change', updateOverflow);
+  });
+  updateOverflow();
+
+  $('btnUpload').addEventListener('click', async function () {
+    $('setupError').textContent = '';
+    if (!selectedFile) {
+      $('setupError').textContent = 'Choose a PDF first.';
+      return;
+    }
+    if (!token()) {
+      $('setupError').textContent = 'Sign in via the Teacher portal first.';
+      return;
+    }
+    $('btnUpload').disabled = true;
+    $('btnUpload').textContent = 'Uploading…';
+    try {
+      var fd = new FormData();
+      fd.append('pdf', selectedFile);
+      var opts = optionsPayload();
+      Object.keys(opts).forEach(function (k) {
+        if (k === 'mcTypes') fd.append(k, JSON.stringify(opts[k]));
+        else fd.append(k, String(opts[k]));
+      });
+      var data = await toolFetch('/api/novel-study/jobs', { method: 'POST', body: fd });
+      jobId = data.job && data.job.id;
+      renderChunks(data.job || {});
+      $('chunkError').textContent = '';
+    } catch (e) {
+      $('setupError').textContent = e.message || 'Upload failed.';
+    } finally {
+      $('btnUpload').disabled = !selectedFile;
+      $('btnUpload').textContent = 'Upload & plan chunks';
+    }
+  });
+
+  $('btnGenerate').addEventListener('click', async function () {
+    $('chunkError').textContent = '';
+    $('genError').textContent = '';
+    if (!jobId) return;
+    $('btnGenerate').disabled = true;
+    $('progressCard').classList.remove('hidden');
+    $('doneCard').classList.add('hidden');
+    try {
+      await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
+        method: 'POST',
+        body: {}
+      });
+      stopPoll();
+      pollTimer = setInterval(pollJob, 1200);
+      pollJob();
+    } catch (e) {
+      $('chunkError').textContent = e.message || 'Could not start generation.';
+      $('btnGenerate').disabled = false;
+    }
+  });
+
+  $('btnDownload').addEventListener('click', async function () {
+    $('doneError').textContent = '';
+    if (!jobId) return;
+    try {
+      var t = token();
+      var res = await fetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/download', {
+        headers: t ? { Authorization: 'Bearer ' + t } : {}
+      });
+      if (!res.ok) {
+        var err = await res.json().catch(function () { return {}; });
+        throw new Error(err.error || 'Download failed');
+      }
+      var blob = await res.blob();
+      var dispo = res.headers.get('Content-Disposition') || '';
+      var match = /filename="([^"]+)"/.exec(dispo);
+      var name = (match && match[1]) || 'novel-study-workbook.docx';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    } catch (e) {
+      $('doneError').textContent = e.message || 'Download failed.';
+    }
+  });
+
+  $('btnGoogle').addEventListener('click', async function () {
+    $('doneError').textContent = '';
+    $('googleLink').textContent = 'Uploading to Google Docs…';
+    try {
+      var data = await toolFetch(
+        '/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/google-docs',
+        { method: 'POST', body: {} }
+      );
+      var url = data.url;
+      $('googleLink').innerHTML = 'Google Docs: <a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>';
+      if (url) window.open(url, '_blank', 'noopener');
+    } catch (e) {
+      $('googleLink').textContent = '';
+      $('doneError').textContent = e.message || 'Google Docs upload failed.';
+    }
+  });
+
+  $('btnReset').addEventListener('click', function () {
+    stopPoll();
+    jobId = null;
+    selectedFile = null;
+    $('pdfInput').value = '';
+    $('dropLabel').textContent = 'Drop a PDF here or click to browse';
+    $('btnUpload').disabled = true;
+    $('chunksCard').classList.add('hidden');
+    $('progressCard').classList.add('hidden');
+    $('doneCard').classList.add('hidden');
+    $('setupError').textContent = '';
+    $('chunkError').textContent = '';
+    $('genError').textContent = '';
+    $('doneError').textContent = '';
+    $('googleLink').textContent = '';
+    $('progressBar').style.width = '0%';
+  });
+
+  checkAuth();
+  initMeta();
+})();
+</script>
+</body>
+</html>
