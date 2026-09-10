@@ -30,6 +30,9 @@ function verifyToken(token) {
 function readBearerToken(req) {
   const h = req.headers.authorization || '';
   if (h.startsWith('Bearer ')) return h.slice(7).trim();
+  // EventSource cannot set Authorization headers — allow ?access_token= for SSE.
+  const q = (req.query && (req.query.access_token || req.query.token)) || '';
+  if (q && typeof q === 'string') return q.trim();
   return '';
 }
 

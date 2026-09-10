@@ -229,74 +229,13 @@ function buildAnswerKeyHtml(parts, culminating, meta) {
   return bits.join('\n');
 }
 
-/**
- * @param {object} job
- * @returns {string} full HTML document
- */
-function buildWorkbookHtml(job) {
-  const meta = job.meta || { title: 'Untitled Book', author: 'Unknown', genre: 'fiction' };
-  const options = job.options || {};
-  const parts = job.parts || [];
-  const culminating = job.culminating || null;
-  const genre = meta.genre === 'nonfiction' ? 'nonfiction' : 'fiction';
-  const master = collectMasterVocab(parts);
-  const level = options.level || 'middle';
-
-  const body = [];
-  body.push('<section class="sheet cover">');
-  body.push('<p class="brand">Salt Morning Class</p>');
-  body.push('<h1 class="workbook-title">Novel / Book Study Workbook</h1>');
-  body.push('<h2 class="book-title">' + esc(meta.title) + '</h2>');
-  body.push('<p class="by">by ' + esc(meta.author) + '</p>');
-  body.push('<p class="meta">Genre: ' + esc(genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
-    ' · Level: ' + esc(level) + '</p>');
-  body.push('<div class="fields">');
-  body.push('<p>Student name: <span class="blank"></span></p>');
-  body.push('<p>Class / Date: <span class="blank"></span></p>');
-  body.push('</div>');
-  body.push('<p class="lede">Read each section carefully. Use evidence from the text when you answer. ' +
-    'Complete the culminating task after all section worksheets.</p>');
-  body.push('<div class="no-print toolbar-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>');
-  body.push('</section>');
-
-  if (master.length) {
-    body.push('<section class="sheet">');
-    body.push('<h1>Master Vocabulary List</h1>');
-    body.push('<p class="lede">Study these words from the whole book. Definitions are student-friendly English.</p>');
-    body.push(vocabTableHtml(master, false));
-    body.push('</section>');
-  }
-
-  parts.forEach((part) => {
-    body.push(buildPartHtml(part, options));
-  });
-
-  body.push('<section class="sheet">');
-  body.push('<h1>Culminating Task</h1>');
-  body.push('<p class="lede">' + (genre === 'nonfiction'
-    ? 'Answer these three synthesis questions about the whole nonfiction text.'
-    : 'Answer these three synthesis questions about the whole fiction text.') + '</p>');
-  const prompts = (culminating && culminating.prompts) || [];
-  if (!prompts.length) {
-    body.push('<p class="muted">(Culminating prompts unavailable.)</p>');
-  } else {
-    prompts.forEach((q, i) => {
-      const label = q.label ? esc(q.label) + ': ' : '';
-      body.push('<div class="q"><p class="q-stem"><b>' + (i + 1) + '. ' + label + '</b>' + esc(q.question || '') + '</p>');
-      body.push(answerLinesHtml(6));
-      body.push('</div>');
-    });
-  }
-  body.push('</section>');
-
-  body.push(buildAnswerKeyHtml(parts, culminating, meta));
-
+function wrapHtmlDocument(title, bodyHtml) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(meta.title)} — Novel Study Workbook</title>
+<title>${esc(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
@@ -398,6 +337,9 @@ function buildWorkbookHtml(job) {
     background: var(--teal); color: #fff; border: none;
     border-radius: 8px; padding: 0.55rem 1rem;
   }
+  .live-banner {
+    text-align: center; color: var(--muted); font-size: 0.9rem; margin: 0 0 0.75rem;
+  }
   @page { size: A4; margin: 12mm; }
   @media print {
     body { background: #fff; }
@@ -412,13 +354,95 @@ function buildWorkbookHtml(job) {
 </style>
 </head>
 <body>
-${body.join('\n')}
+${bodyHtml}
 </body>
 </html>`;
 }
 
+/**
+ * @param {object} job
+ * @returns {string} full HTML document
+ */
+function buildWorkbookHtml(job) {
+  const meta = job.meta || { title: 'Untitled Book', author: 'Unknown', genre: 'fiction' };
+  const options = job.options || {};
+  const parts = job.parts || [];
+  const culminating = job.culminating || null;
+  const genre = meta.genre === 'nonfiction' ? 'nonfiction' : 'fiction';
+  const master = collectMasterVocab(parts);
+  const level = options.level || 'middle';
+
+  const body = [];
+  body.push('<section class="sheet cover">');
+  body.push('<p class="brand">Salt Morning Class</p>');
+  body.push('<h1 class="workbook-title">Novel / Book Study Workbook</h1>');
+  body.push('<h2 class="book-title">' + esc(meta.title) + '</h2>');
+  body.push('<p class="by">by ' + esc(meta.author) + '</p>');
+  body.push('<p class="meta">Genre: ' + esc(genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
+    ' · Level: ' + esc(level) + '</p>');
+  body.push('<div class="fields">');
+  body.push('<p>Student name: <span class="blank"></span></p>');
+  body.push('<p>Class / Date: <span class="blank"></span></p>');
+  body.push('</div>');
+  body.push('<p class="lede">Read each section carefully. Use evidence from the text when you answer. ' +
+    'Complete the culminating task after all section worksheets.</p>');
+  body.push('<div class="no-print toolbar-print"><button type="button" onclick="window.print()">Print / Save as PDF</button></div>');
+  body.push('</section>');
+
+  if (master.length) {
+    body.push('<section class="sheet">');
+    body.push('<h1>Master Vocabulary List</h1>');
+    body.push('<p class="lede">Study these words from the whole book. Definitions are student-friendly English.</p>');
+    body.push(vocabTableHtml(master, false));
+    body.push('</section>');
+  }
+
+  parts.forEach((part) => {
+    body.push(buildPartHtml(part, options));
+  });
+
+  body.push('<section class="sheet">');
+  body.push('<h1>Culminating Task</h1>');
+  body.push('<p class="lede">' + (genre === 'nonfiction'
+    ? 'Answer these three synthesis questions about the whole nonfiction text.'
+    : 'Answer these three synthesis questions about the whole fiction text.') + '</p>');
+  const prompts = (culminating && culminating.prompts) || [];
+  if (!prompts.length) {
+    body.push('<p class="muted">(Culminating prompts unavailable.)</p>');
+  } else {
+    prompts.forEach((q, i) => {
+      const label = q.label ? esc(q.label) + ': ' : '';
+      body.push('<div class="q"><p class="q-stem"><b>' + (i + 1) + '. ' + label + '</b>' + esc(q.question || '') + '</p>');
+      body.push(answerLinesHtml(6));
+      body.push('</div>');
+    });
+  }
+  body.push('</section>');
+
+  body.push(buildAnswerKeyHtml(parts, culminating, meta));
+
+  return wrapHtmlDocument((meta.title || 'Book') + ' — Novel Study Workbook', body.join('\n'));
+}
+
+/**
+ * Single-part printable sheet (for live preview while generation runs).
+ */
+function buildPartSheetHtml(part, meta, options) {
+  const title = (meta && meta.title) || 'Book Study';
+  const banner = '<p class="live-banner no-print"><b>Live sheet preview</b> · ' +
+    esc(title) + ' · Part ' + esc(part && part.partNum) + '</p>';
+  const toolbar = '<div class="no-print toolbar-print" style="max-width:210mm;margin:0 auto 12px;text-align:center">' +
+    '<button type="button" onclick="window.print()">Print this sheet</button></div>';
+  return wrapHtmlDocument(
+    'Part ' + (part && part.partNum) + ' — ' + title,
+    banner + toolbar + buildPartHtml(part, options || {})
+  );
+}
+
 module.exports = {
   buildWorkbookHtml,
+  buildPartSheetHtml,
+  buildPartHtml,
   normalizeChoices,
   normalizeChoiceText
 };
