@@ -98,6 +98,12 @@ window.SaltAttendance = (function() {
     } catch (e) {
       $('attScheduleAlert').textContent = e.message || 'Could not load attendance.';
       $('attScheduleAlert').className = 'att-alert att-alert-error';
+      $('attStudentList').innerHTML =
+        '<p class="muted att-load-error">Could not load the class list. ' +
+        escapeHtml(e.message || 'Please try again.') +
+        ' <button type="button" class="btn btn-ghost btn-sm" id="attRetryBtn">Retry</button></p>';
+      const retryBtn = document.getElementById('attRetryBtn');
+      if (retryBtn) retryBtn.addEventListener('click', loadWork);
     }
   }
 
@@ -671,9 +677,15 @@ window.SaltAttendance = (function() {
 
   async function loadPlannedList(studentId) {
     const cls = getClass();
-    const data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
-      '/planned-attendance?studentId=' + encodeURIComponent(studentId));
     const box = $('plannedList');
+    let data;
+    try {
+      data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) +
+        '/planned-attendance?studentId=' + encodeURIComponent(studentId));
+    } catch (e) {
+      box.innerHTML = '<p class="err">' + escapeHtml(e.message || 'Could not load notices.') + '</p>';
+      return;
+    }
     const items = data.items || [];
     if (!items.length) {
       box.innerHTML = '<p class="muted">No upcoming notices.</p>';
