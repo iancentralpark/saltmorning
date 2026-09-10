@@ -21,6 +21,8 @@ const TARGET_MIN = 2;
 const TARGET_MAX = 4;
 const SPLIT_OVER = 5;
 const MERGE_UNDER = 1;
+/** Text-layer novel PDFs are often 30–80MB; keep headroom for full books. */
+const MAX_PDF_BYTES = 100 * 1024 * 1024;
 
 /** @type {Map<string, object>} */
 const jobs = new Map();
@@ -610,8 +612,8 @@ async function createJobFromPdf(teacherId, file, body) {
   if (!file || !file.buffer || !file.buffer.length) {
     throw httpError('PDF file is required.', 400);
   }
-  if (file.buffer.length > 25 * 1024 * 1024) {
-    throw httpError('PDF is too large (max 25MB).', 400);
+  if (file.buffer.length > MAX_PDF_BYTES) {
+    throw httpError('PDF is too large (max 100MB).', 400);
   }
   const mime = String(file.mimetype || '').toLowerCase();
   const name = String(file.originalname || '').toLowerCase();
@@ -854,5 +856,6 @@ module.exports = {
   uploadToGoogleDocs,
   listMcTypes,
   listLevels,
-  normalizeOptions
+  normalizeOptions,
+  MAX_PDF_BYTES
 };

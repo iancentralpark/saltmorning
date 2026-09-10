@@ -4338,12 +4338,13 @@ const {
   uploadToGoogleDocs: uploadNovelStudyGoogleDocs,
   listMcTypes: listNovelStudyMcTypes,
   listLevels: listNovelStudyLevels,
-  normalizeOptions: normalizeNovelStudyOptions
+  normalizeOptions: normalizeNovelStudyOptions,
+  MAX_PDF_BYTES: NOVEL_STUDY_MAX_PDF_BYTES
 } = require('./services/novelStudyService');
 
 const novelStudyUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: NOVEL_STUDY_MAX_PDF_BYTES },
   fileFilter: (req, file, cb) => {
     const mime = String(file.mimetype || '').toLowerCase();
     const name = String(file.originalname || '').toLowerCase();
@@ -4363,7 +4364,8 @@ router.get('/novel-study/meta', requireRole('teacher', 'admin'), (req, res) => {
       levels: listNovelStudyLevels(),
       mcTypes: listNovelStudyMcTypes(),
       defaults: normalizeNovelStudyOptions({}),
-      geminiConfigured: isGeminiConfigured()
+      geminiConfigured: isGeminiConfigured(),
+      maxPdfMb: Math.round(NOVEL_STUDY_MAX_PDF_BYTES / (1024 * 1024))
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load Novel Study meta.' });
@@ -4377,6 +4379,10 @@ router.post(
   (req, res) => {
     novelStudyUpload.single('pdf')(req, res, async (err) => {
       if (err) {
+        const maxMb = Math.round(NOVEL_STUDY_MAX_PDF_BYTES / (1024 * 1024));
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'PDF is too large (max ' + maxMb + 'MB).' });
+        }
         return res.status(400).json({ error: err.message || 'Invalid PDF upload.' });
       }
       try {
