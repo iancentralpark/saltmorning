@@ -19,7 +19,7 @@ const TMP_ROOT = path.join(os.tmpdir(), 'salt-novel-study');
 const JOBS_DIR = path.join(TMP_ROOT, 'jobs');
 /** Keep finished workbooks available for reopen/download. */
 const JOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const PART_DELAY_MS = 2500;
+const PART_DELAY_MS = 3000;
 const MIN_CHARS_PAGE = 40;
 const TARGET_MIN = 2;
 const TARGET_MAX = 4;
@@ -370,19 +370,144 @@ function nowIso() {
 }
 
 function extractJson(text) {
-  const raw = String(text || '').trim();
+  let raw = String(text || '').trim();
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch (_) { /* continue */ }
+
+  function tryParse(s) {
+    try { return JSON.parse(s); } catch (_) { return null; }
+  }
+
+  let parsed = tryParse(raw);
+  if (parsed) return parsed;
+
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced) {
-    try { return JSON.parse(fenced[1].trim()); } catch (_) { /* continue */ }
+    parsed = tryParse(fenced[1].trim());
+    if (parsed) return parsed;
+    raw = fenced[1].trim();
   }
+
   const a = raw.indexOf('{');
-  const b = raw.lastIndexOf('}');
-  if (a >= 0 && b > a) {
-    try { return JSON.parse(raw.slice(a, b + 1)); } catch (_) { /* continue */ }
+  if (a < 0) return null;
+  let slice = raw.slice(a);
+  parsed = tryParse(slice);
+  if (parsed) return parsed;
+
+  // Truncated / messy model output: trim to last complete-looking brace region and close opens.
+  const b = slice.lastIndexOf('}');
+  if (b > 0) {
+    parsed = tryParse(slice.slice(0, b + 1));
+    if (parsed) return parsed;
   }
-  return null;
+
+  let repaired = slice
+    .replace(/,\s*([}\]])/g, '$1')
+    .replace(/[\u0000-\u001f]/g, ' ');
+  // Close dangling strings/braces roughly.
+  let inStr = false;
+  let esc = false;
+  let braces = 0;
+  let brackets = 0;
+  for (let i = 0; i < repaired.length; i += 1) {
+    const ch = repaired[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{') braces += 1;
+    else if (ch === '}') braces = Math.max(0, braces - 1);
+    else if (ch === '[') brackets += 1;
+    else if (ch === ']') brackets = Math.max(0, brackets - 1);
+  }
+  if (inStr) repaired += '"';
+  while (brackets > 0) { repaired += ']'; brackets -= 1; }
+  while (braces > 0) { repaired += '}'; braces -= 1; }
+  repaired = repaired.replace(/,\s*([}\]])/g, '$1');
+  return tryParse(repaired);
+}
+
+function pickSnippetWords(text, count) {
+  const stop = new Set([
+    'about', 'after', 'again', 'their', 'there', 'these', 'those', 'which', 'where',
+    'while', 'would', 'could', 'should', 'because', 'people', 'through', 'other',
+    'being', 'before', 'between', 'under', 'over', 'into', 'from', 'with', 'that',
+    'this', 'have', 'been', 'were', 'when', 'what', 'your', 'they', 'them'
+  ]);
+  const seen = new Set();
+  const out = [];
+  const words = String(text || '').match(/\b[A-Za-z][A-Za-z'-]{4,}\b/g) || [];
+  for (const w of words) {
+    const key = w.toLowerCase();
+    if (stop.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push(w);
+    if (out.length >= count) break;
+  }
+  return out;
+}
+
+function stubPartWorksheet(chunk, options) {
+  const text = String(chunk.text || '');
+  const quote = text.replace(/\s+/g, ' ').trim().slice(0, 120);
+  const words = pickSnippetWords(text, Math.max(3, options.vocabCount || 3));
+  const vocab = [];
+  for (let i = 0; i < (options.vocabCount || 3); i += 1) {
+    const word = words[i] || ('word' + (i + 1));
+    vocab.push({
+      word,
+      partOfSpeech: 'noun',
+      definition: 'A word used in this section of the text.',
+      exampleFromText: quote,
+      evidenceQuote: quote
+    });
+  }
+  const mc = [];
+  for (let i = 0; i < (options.mcCount || 3); i += 1) {
+    mc.push({
+      type: 'factual',
+      question: 'According to this section (pages ' + chunk.startPage + '–' + chunk.endPage +
+        '), which idea is supported by the text?',
+      choices: [
+        'A detail supported by the passage',
+        'An idea not mentioned in the passage',
+        'A contradiction of the passage',
+        'A claim with no textual evidence'
+      ],
+      answer: 'A',
+      evidenceQuote: quote
+    });
+  }
+  const shortAnswer = [];
+  for (let i = 0; i < (options.shortCount || 1); i += 1) {
+    shortAnswer.push({
+      question: 'Using evidence from this section, explain one important idea the author presents.',
+      sampleAnswer: 'Student answers will vary; cite a detail from the passage.',
+      evidenceQuote: quote
+    });
+  }
+  const reflection = [];
+  for (let i = 0; i < (options.reflectionCount || 1); i += 1) {
+    reflection.push({
+      question: 'What connection can you make between this section and something you already know?',
+      sampleAnswer: 'Student reflection.',
+      evidenceQuote: quote
+    });
+  }
+  return {
+    partNum: chunk.partNum,
+    unitTitle: chunk.unitTitle,
+    startPage: chunk.startPage,
+    endPage: chunk.endPage,
+    vocab,
+    multipleChoice: mc,
+    shortAnswer,
+    reflection,
+    groundingScore: 0,
+    stubbed: true
+  };
 }
 
 function httpError(message, status, code) {
@@ -864,72 +989,67 @@ function evidenceInText(quote, sectionText) {
 
 async function generatePartWorksheet(chunk, meta, options, attempt) {
   const tryNum = attempt || 1;
+  const maxTries = 5;
   const level = LEVELS[options.level] || LEVELS.middle;
   const typeList = options.mcTypes.map((id) => {
     const hit = MC_TYPES.find((t) => t.id === id);
     return hit ? hit.label : id;
   }).join('; ');
 
+  const compact = tryNum >= 3;
   const system = [
     'You are an expert ELA worksheet writer for school teachers.',
     'STRICT GROUNDING: Rely EXCLUSIVELY on the provided section_text.',
-    'Before each vocabulary item and each question, choose an exact quote from section_text as evidence.',
-    'Never invent plot points, facts, names, or claims not present in section_text.',
-    'Output valid JSON only. No markdown fences, no commentary.'
+    'Output ONE valid JSON object only. No markdown fences, no commentary.',
+    compact
+      ? 'Keep every string short. Prefer brief evidence quotes (under 20 words).'
+      : 'Before each vocabulary item and each question, choose an exact quote from section_text as evidence.'
   ].join(' ');
 
+  const textLimit = compact ? 9000 : (tryNum > 1 ? 16000 : 24000);
   const prompt = [
-    'Create one Novel/Book Study worksheet for this section.',
+    compact
+      ? 'Create a SHORT Novel/Book Study worksheet JSON for this section.'
+      : 'Create one Novel/Book Study worksheet for this section.',
     'Book: ' + meta.title + ' by ' + meta.author + ' (' + meta.genre + ')',
     'Unit: ' + chunk.unitTitle + ' (pages ' + chunk.startPage + '–' + chunk.endPage + ')',
     'Audience: ' + level.prompt,
-    'Return JSON:',
-    '{',
-    '  "vocab": [{ "word", "partOfSpeech", "definition", "exampleFromText", "evidenceQuote" }],',
-    '  "multipleChoice": [{ "type", "question", "choices": ["A...","B...","C...","D..."], "answer": "A"|"B"|"C"|"D", "evidenceQuote" }],',
-    '  "shortAnswer": [{ "question", "sampleAnswer", "evidenceQuote" }],',
-    '  "reflection": [{ "question", "sampleAnswer", "evidenceQuote" }]',
-    '}',
+    'Return JSON with keys vocab, multipleChoice, shortAnswer, reflection.',
     'Counts: vocab=' + options.vocabCount + ', mc=' + options.mcCount +
       ', short=' + options.shortCount + ', reflection=' + options.reflectionCount,
-    'Prefer these MC types: ' + typeList,
-    'Definitions must be student-friendly English-English.',
-    'exampleFromText and evidenceQuote must be exact phrases/sentences from section_text.',
-    tryNum > 1 ? 'IMPORTANT: Previous reply was invalid. Reply with ONE JSON object only.' : '',
+    !compact ? ('Prefer these MC types: ' + typeList) : '',
+    tryNum > 1 ? 'IMPORTANT: Previous reply was invalid or truncated. Reply with complete JSON only.' : '',
     'section_text:',
-    String(chunk.text || '').slice(0, tryNum > 1 ? 18000 : 28000)
+    String(chunk.text || '').slice(0, textLimit)
   ].filter(Boolean).join('\n');
 
   let rawText = '';
   try {
     const res = await askGemini(prompt, {
-      temperature: tryNum > 1 ? 0.15 : 0.35,
-      maxOutputTokens: 4096,
+      temperature: compact ? 0.1 : (tryNum > 1 ? 0.2 : 0.35),
+      maxOutputTokens: compact ? 3072 : 4096,
       responseMimeType: 'application/json',
       systemInstruction: system,
       retries: 2
     });
     rawText = res.text || res.answer || '';
   } catch (e) {
-    if (tryNum < 3) {
-      await sleep(1200 * tryNum);
+    if (tryNum < maxTries) {
+      await sleep(1500 * tryNum);
       return generatePartWorksheet(chunk, meta, options, tryNum + 1);
     }
-    throw new Error(
-      'AI failed on part ' + chunk.partNum + ' (' + (e.message || 'request error') + '). Try Generate again.'
-    );
+    console.warn('novelStudy part stub after API error', chunk.partNum, e.message);
+    return stubPartWorksheet(chunk, options);
   }
 
   const parsed = extractJson(rawText);
   if (!parsed) {
-    if (tryNum < 3) {
-      await sleep(1200 * tryNum);
+    if (tryNum < maxTries) {
+      await sleep(1500 * tryNum);
       return generatePartWorksheet(chunk, meta, options, tryNum + 1);
     }
-    throw new Error(
-      'AI returned unreadable output for part ' + chunk.partNum +
-        '. Click Generate again to retry from this job.'
-    );
+    console.warn('novelStudy part stub after bad JSON', chunk.partNum, String(rawText).slice(0, 180));
+    return stubPartWorksheet(chunk, options);
   }
 
   const vocab = (Array.isArray(parsed.vocab) ? parsed.vocab : [])
@@ -977,11 +1097,11 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     .filter((q) => q.question);
 
   if (!vocab.length && !multipleChoice.length && !shortAnswer.length) {
-    if (tryNum < 3) {
-      await sleep(1200 * tryNum);
+    if (tryNum < maxTries) {
+      await sleep(1500 * tryNum);
       return generatePartWorksheet(chunk, meta, options, tryNum + 1);
     }
-    throw new Error('AI returned empty worksheet for part ' + chunk.partNum + '. Try Generate again.');
+    return stubPartWorksheet(chunk, options);
   }
 
   const checks = []
@@ -991,7 +1111,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     .concat(reflection.map((q) => q.evidenceQuote));
   const ok = checks.filter((q) => evidenceInText(q, chunk.text)).length;
   const ratio = checks.length ? ok / checks.length : 0;
-  if (ratio < 0.5 && tryNum < 2) {
+  if (ratio < 0.4 && tryNum < 3) {
     return generatePartWorksheet(chunk, meta, options, tryNum + 1);
   }
 
@@ -1177,20 +1297,27 @@ async function runGeneration(jobId, teacherId) {
   if (!job.chunks || !job.chunks.length) throw httpError('No chunks to generate.', 400);
   if (!isGeminiConfigured()) throw httpError('Gemini is not configured.', 503);
 
+  // Resume from last successful part instead of restarting from part 1.
+  const existingParts = Array.isArray(job.parts) ? job.parts.slice() : [];
+  const startIndex = Math.min(existingParts.length, job.chunks.length);
+  const total = job.chunks.length;
+
   touch(job, {
     status: 'generating',
-    progress: 20,
-    message: 'Generating worksheets…',
-    parts: [],
+    progress: 20 + Math.floor((startIndex / Math.max(1, total)) * 60),
+    message: startIndex
+      ? ('Resuming from part ' + (startIndex + 1) + '/' + total + '…')
+      : 'Generating worksheets…',
+    parts: existingParts,
     culminating: null,
     docxBuffer: null,
     error: null
   });
   emit(job, 'status', toPublicJob(job));
 
-  const total = job.chunks.length;
+  let stubCount = 0;
   try {
-    for (let i = 0; i < total; i += 1) {
+    for (let i = startIndex; i < total; i += 1) {
       const chunk = job.chunks[i];
       touch(job, {
         message: 'Generating part ' + (i + 1) + '/' + total + ': ' + chunk.unitTitle,
@@ -1199,9 +1326,14 @@ async function runGeneration(jobId, teacherId) {
       emit(job, 'status', toPublicJob(job));
 
       const part = await generatePartWorksheet(chunk, job.meta, job.options);
+      if (part.stubbed) stubCount += 1;
       job.parts.push(part);
       touch(job, { parts: job.parts });
-      emit(job, 'part', { partNum: part.partNum, groundingScore: part.groundingScore });
+      emit(job, 'part', {
+        partNum: part.partNum,
+        groundingScore: part.groundingScore,
+        stubbed: !!part.stubbed
+      });
 
       if (i < total - 1) await sleep(PART_DELAY_MS);
     }
@@ -1227,10 +1359,14 @@ async function runGeneration(jobId, teacherId) {
     }));
     job.pages = null;
 
+    const doneMsg = stubCount
+      ? ('Workbook ready — download below. (' + stubCount +
+        ' part(s) used a simplified fallback after AI errors.)')
+      : 'Workbook ready — download below.';
     touch(job, {
       status: 'done',
       progress: 100,
-      message: 'Workbook ready — download below.',
+      message: doneMsg,
       docxBuffer: buf,
       error: null
     });
@@ -1244,7 +1380,11 @@ async function runGeneration(jobId, teacherId) {
       status: 'error',
       progress: failProgress,
       message: e.message || 'Generation failed.',
-      error: e.message || 'Generation failed.'
+      error: (e.message || 'Generation failed.') +
+        (doneParts
+          ? ' Saved ' + doneParts + '/' + totalParts +
+            ' parts — click Generate again to resume from part ' + (doneParts + 1) + '.'
+          : '')
     });
     emit(job, 'error', toPublicJob(job));
     throw e;
