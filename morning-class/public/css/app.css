@@ -1187,6 +1187,10 @@ a:hover { color: var(--gold); }
 .login-check span {
   line-height: 1.2;
 }
+.login-help {
+  margin: 0.25rem 0 0;
+  text-align: center;
+}
 
 .landing { text-align: center; padding: 2.5rem 1rem 2rem; }
 .landing h1 {

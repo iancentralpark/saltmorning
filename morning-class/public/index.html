@@ -61,13 +61,10 @@
             <input type="checkbox" id="staySignedIn" checked>
             <span>Stay signed in</span>
           </label>
-          <label class="login-check">
-            <input type="checkbox" id="savePassword">
-            <span>Save password</span>
-          </label>
         </div>
         <div class="error" id="loginError"></div>
         <button class="btn btn-primary btn-block" type="submit">Enter Morning Class</button>
+        <p class="muted small login-help">Forgot your password? Ask your teacher, homeroom, or the school office to reset it.</p>
       </form>
     </div>
   </main>
@@ -77,7 +74,7 @@
 (function() {
   const {
     api, setToken, setProfile, getToken, $,
-    authPersistEnabled, setAuthPersist, getSavedLogin, setSavedLogin
+    authPersistEnabled, setAuthPersist
   } = SaltApp;
   const DEST = {
     student: '/student',
@@ -97,7 +94,6 @@
   const loginForm = $('unifiedLogin');
   const navBtn = $('navSignInBtn');
   const stayEl = $('staySignedIn');
-  const saveEl = $('savePassword');
 
   if (navBtn && loginForm) {
     navBtn.addEventListener('click', function () {
@@ -107,13 +103,6 @@
     });
   }
 
-  // Restore saved credentials / persist preference
-  const saved = getSavedLogin();
-  if (saved && saved.savePassword) {
-    $('loginId').value = saved.loginId || '';
-    $('password').value = saved.password || '';
-    saveEl.checked = true;
-  }
   stayEl.checked = authPersistEnabled();
 
   loginForm.addEventListener('submit', async (e) => {
@@ -122,15 +111,8 @@
     const loginId = $('loginId').value.trim();
     const password = $('password').value;
     const stay = stayEl.checked;
-    const savePw = saveEl.checked;
 
     setAuthPersist(stay);
-    setSavedLogin({
-      savePassword: savePw,
-      loginId: loginId,
-      password: password,
-      staySignedIn: stay
-    });
 
     try {
       const data = await api('/api/auth/login', {

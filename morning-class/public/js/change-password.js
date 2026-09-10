@@ -72,20 +72,6 @@ window.SaltChangePassword = (function() {
     if (modal) modal.classList.add('hidden');
   }
 
-  function syncSavedLoginPassword(newPassword) {
-    try {
-      if (!window.SaltApp || !SaltApp.getSavedLogin || !SaltApp.setSavedLogin) return;
-      const saved = SaltApp.getSavedLogin();
-      if (!saved || !saved.savePassword) return;
-      SaltApp.setSavedLogin({
-        loginId: saved.loginId,
-        password: newPassword,
-        staySignedIn: saved.staySignedIn !== false,
-        savePassword: true
-      });
-    } catch (e) { /* ignore */ }
-  }
-
   function mount(options) {
     options = options || {};
     const role = options.role;
@@ -140,7 +126,6 @@ window.SaltChangePassword = (function() {
         if (result && result.token && window.SaltApp && SaltApp.setToken) {
           SaltApp.setToken(role, result.token);
         }
-        syncSavedLoginPassword(newPassword);
         try {
           const profile = SaltApp.getProfile && SaltApp.getProfile(role);
           if (profile) {

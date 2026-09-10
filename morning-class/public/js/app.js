@@ -3,6 +3,10 @@
   const PERSIST_KEY = 'salt_auth_persist';
   const SAVED_LOGIN_KEY = 'salt_saved_login';
 
+  // One-time cleanup: this key used to hold a plaintext saved password.
+  // Remove it for any browser that still has it from before the fix.
+  try { localStorage.removeItem(SAVED_LOGIN_KEY); } catch (e) { /* ignore */ }
+
   function authPersistEnabled() {
     // Default true when unset (existing users already in localStorage)
     const v = localStorage.getItem(PERSIST_KEY);
@@ -89,37 +93,6 @@
       return true;
     }
     return perms.indexOf(key) >= 0;
-  }
-
-  function getSavedLogin() {
-    try {
-      const raw = localStorage.getItem(SAVED_LOGIN_KEY);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== 'object') return null;
-      return {
-        loginId: String(data.loginId || ''),
-        password: String(data.password || ''),
-        staySignedIn: data.staySignedIn !== false,
-        savePassword: data.savePassword === true
-      };
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function setSavedLogin(opts) {
-    opts = opts || {};
-    if (!opts.savePassword) {
-      localStorage.removeItem(SAVED_LOGIN_KEY);
-      return;
-    }
-    localStorage.setItem(SAVED_LOGIN_KEY, JSON.stringify({
-      loginId: String(opts.loginId || ''),
-      password: String(opts.password || ''),
-      staySignedIn: opts.staySignedIn !== false,
-      savePassword: true
-    }));
   }
 
   async function api(path, options, role) {
@@ -264,8 +237,6 @@
     hasPermission,
     authPersistEnabled,
     setAuthPersist,
-    getSavedLogin,
-    setSavedLogin,
     api,
     $,
     show,
