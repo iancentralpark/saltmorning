@@ -518,8 +518,38 @@ function httpError(message, status, code) {
   return err;
 }
 
-function toPublicJob(job) {
+function summarizePartPreview(part) {
+  if (!part) return null;
   return {
+    partNum: part.partNum,
+    unitTitle: part.unitTitle,
+    startPage: part.startPage,
+    endPage: part.endPage,
+    groundingScore: part.groundingScore,
+    stubbed: !!part.stubbed,
+    vocab: (part.vocab || []).map((v) => ({
+      word: v.word,
+      partOfSpeech: v.partOfSpeech || '',
+      definition: v.definition || '',
+      exampleFromText: v.exampleFromText || ''
+    })),
+    multipleChoice: (part.multipleChoice || []).map((q) => ({
+      question: q.question || '',
+      choices: Array.isArray(q.choices) ? q.choices.slice(0, 4) : [],
+      answer: q.answer || ''
+    })),
+    shortAnswer: (part.shortAnswer || []).map((q) => ({
+      question: q.question || ''
+    })),
+    reflection: (part.reflection || []).map((q) => ({
+      question: q.question || ''
+    }))
+  };
+}
+
+function toPublicJob(job, opts) {
+  const includeParts = !!(opts && opts.includeParts);
+  const out = {
     id: job.id,
     teacherId: job.teacherId,
     status: job.status,
@@ -542,8 +572,13 @@ function toPublicJob(job) {
     googleDocsUrl: job.googleDocsUrl || null,
     pageOverflowRisk: !!(job.options && job.options.pageOverflowRisk),
     createdAt: job.createdAt,
-    updatedAt: job.updatedAt
+    updatedAt: job.updatedAt,
+    canDelete: !['generating', 'parsing', 'planning'].includes(String(job.status || ''))
   };
+  if (includeParts) {
+    out.partsPreview = (job.parts || []).map(summarizePartPreview).filter(Boolean);
+  }
+  return out;
 }
 
 function touch(job, patch) {
@@ -1335,7 +1370,7 @@ async function runGeneration(jobId, teacherId) {
     docxBuffer: null,
     error: null
   });
-  emit(job, 'status', toPublicJob(job));
+  emit(job, 'status', toPublicJob(job, { includeParts: true }));
 
   let stubCount = 0;
   try {
@@ -1345,7 +1380,7 @@ async function runGeneration(jobId, teacherId) {
         message: 'Generating part ' + (i + 1) + '/' + total + ': ' + chunk.unitTitle,
         progress: 20 + Math.floor((i / total) * 60)
       });
-      emit(job, 'status', toPublicJob(job));
+      emit(job, 'status', toPublicJob(job, { includeParts: true }));
 
       const part = await generatePartWorksheet(chunk, job.meta, job.options);
       if (part.stubbed) stubCount += 1;
@@ -1354,7 +1389,13 @@ async function runGeneration(jobId, teacherId) {
       emit(job, 'part', {
         partNum: part.partNum,
         groundingScore: part.groundingScore,
-        stubbed: !!part.stubbed
+        stubbed: !!part.stubbed,
+        partsDone: job.parts.length,
+        partsTotal: total,
+        progress: 20 + Math.floor(((i + 1) / total) * 60),
+        message: 'Finished part ' + (i + 1) + '/' + total + ': ' + chunk.unitTitle,
+        part: summarizePartPreview(part),
+        job: toPublicJob(job, { includeParts: true })
       });
 
       if (i < total - 1) await sleep(PART_DELAY_MS);
@@ -1362,12 +1403,12 @@ async function runGeneration(jobId, teacherId) {
 
     await sleep(PART_DELAY_MS);
     touch(job, { message: 'Generating culminating task…', progress: 85 });
-    emit(job, 'status', toPublicJob(job));
+    emit(job, 'status', toPublicJob(job, { includeParts: true }));
     const culminating = await generateCulminating(job);
     touch(job, { culminating });
 
     touch(job, { message: 'Building workbook (.docx)…', progress: 92 });
-    emit(job, 'status', toPublicJob(job));
+    emit(job, 'status', toPublicJob(job, { includeParts: true }));
 
     const buf = await buildWorkbookDocx(job);
 
@@ -1392,8 +1433,8 @@ async function runGeneration(jobId, teacherId) {
       docxBuffer: buf,
       error: null
     });
-    emit(job, 'done', toPublicJob(job));
-    return toPublicJob(job);
+    emit(job, 'done', toPublicJob(job, { includeParts: true }));
+    return toPublicJob(job, { includeParts: true });
   } catch (e) {
     const doneParts = (job.parts || []).length;
     const totalParts = (job.chunks || []).length || 1;
@@ -1408,7 +1449,7 @@ async function runGeneration(jobId, teacherId) {
             ' parts — click Generate again to resume from part ' + (doneParts + 1) + '.'
           : '')
     });
-    emit(job, 'error', toPublicJob(job));
+    emit(job, 'error', toPublicJob(job, { includeParts: true }));
     throw e;
   }
 }
@@ -1469,6 +1510,38 @@ async function getHtml(jobId, teacherId) {
     html,
     mime: 'text/html; charset=utf-8'
   };
+}
+
+async function getPartHtml(jobId, teacherId, partNum) {
+  const job = getJob(jobId, teacherId);
+  const n = Number(partNum);
+  const part = (job.parts || []).find((p) => Number(p.partNum) === n);
+  if (!part) throw httpError('That worksheet sheet is not ready yet.', 404);
+  const { buildPartSheetHtml } = require('./novelStudyHtml');
+  const html = buildPartSheetHtml(part, job.meta, job.options);
+  return {
+    filename: 'part-' + n + '-sheet.html',
+    html,
+    mime: 'text/html; charset=utf-8'
+  };
+}
+
+function deleteJob(jobId, teacherId) {
+  const job = getJob(jobId, teacherId);
+  const status = String(job.status || '');
+  if (status === 'generating' || status === 'parsing' || status === 'planning') {
+    throw httpError(
+      'Cannot delete while this workbook is still running. Wait until it finishes or fails.',
+      409
+    );
+  }
+  cleanupJobFiles(job);
+  deletePersistedJob(job.id);
+  try {
+    if (job.listeners) job.listeners.length = 0;
+  } catch (_) { /* ignore */ }
+  jobs.delete(job.id);
+  return { ok: true, id: jobId };
 }
 
 async function uploadToGoogleDocs(jobId, teacherId) {
@@ -1542,6 +1615,8 @@ module.exports = {
   runGeneration,
   getDownload,
   getHtml,
+  getPartHtml,
+  deleteJob,
   uploadToGoogleDocs,
   listMcTypes,
   listLevels,

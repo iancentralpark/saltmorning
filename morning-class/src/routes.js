@@ -4337,6 +4337,8 @@ const {
   runGeneration: runNovelStudyGeneration,
   getDownload: getNovelStudyDownload,
   getHtml: getNovelStudyHtml,
+  getPartHtml: getNovelStudyPartHtml,
+  deleteJob: deleteNovelStudyJob,
   uploadToGoogleDocs: uploadNovelStudyGoogleDocs,
   listMcTypes: listNovelStudyMcTypes,
   listLevels: listNovelStudyLevels,
@@ -4416,9 +4418,18 @@ router.post(
 router.get('/novel-study/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
   try {
     const job = getNovelStudyJob(req.params.id, novelStudyTeacherId(req));
-    res.json({ ok: true, job: toPublicJob(job) });
+    res.json({ ok: true, job: toPublicJob(job, { includeParts: true }) });
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Job not found.' });
+  }
+});
+
+router.delete('/novel-study/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const result = deleteNovelStudyJob(req.params.id, novelStudyTeacherId(req));
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not delete workbook.' });
   }
 });
 
@@ -4459,7 +4470,7 @@ router.post('/novel-study/jobs/:id/generate', requireRole('teacher', 'admin'), n
     if (job.status === 'generating') {
       return res.status(409).json({ error: 'Generation is already running.', job: toPublicJob(job) });
     }
-    res.status(202).json({ ok: true, job: toPublicJob(job), message: 'Generation started.' });
+    res.status(202).json({ ok: true, job: toPublicJob(job, { includeParts: true }), message: 'Generation started.' });
     setImmediate(() => {
       runNovelStudyGeneration(req.params.id, teacherId).catch((e) => {
         console.error('Novel Study generation failed', e);
@@ -4495,6 +4506,24 @@ router.get('/novel-study/jobs/:id/html', requireRole('teacher', 'admin'), async 
     res.send(file.html);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'HTML not ready.' });
+  }
+});
+
+router.get('/novel-study/jobs/:id/parts/:partNum/html', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const file = await getNovelStudyPartHtml(
+      req.params.id,
+      novelStudyTeacherId(req),
+      req.params.partNum
+    );
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader(
+      'Content-Disposition',
+      'inline; filename="' + String(file.filename).replace(/"/g, '') + '"'
+    );
+    res.send(file.html);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Sheet not ready.' });
   }
 });
 

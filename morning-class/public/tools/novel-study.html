@@ -134,6 +134,30 @@
     .badge-status.generating, .badge-status.parsing, .badge-status.planning { background: #fff7e8; color: #8a6418; }
     .badge-status.error { background: #fdeceb; color: var(--danger); }
     .badge-status.ready { background: var(--sage-soft); color: var(--olive); }
+    .live-feed { display: grid; gap: 0.55rem; margin-top: 0.75rem; }
+    .live-sheet {
+      border: 1px solid var(--border); border-radius: 12px; background: #fff;
+      padding: 0.7rem 0.85rem; animation: nsIn 0.35s ease;
+    }
+    .live-sheet.new { box-shadow: 0 0 0 2px rgba(13,148,136,0.35); }
+    .live-sheet h3 {
+      margin: 0 0 0.35rem; font-size: 1rem; color: var(--olive-deep);
+      font-family: 'Cormorant Garamond', Georgia, serif;
+    }
+    .live-sheet .live-meta { color: var(--muted); font-size: 0.8rem; margin: 0 0 0.45rem; }
+    .live-sheet details { margin-top: 0.35rem; }
+    .live-sheet summary { cursor: pointer; font-weight: 700; font-size: 0.88rem; color: var(--ink); }
+    .live-sheet ul { margin: 0.35rem 0 0; padding-left: 1.1rem; font-size: 0.88rem; }
+    .live-sheet li { margin: 0.2rem 0; }
+    .live-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .btn-danger {
+      background: #fdeceb; color: var(--danger); border: 1px solid #f0c4c0;
+    }
+    .live-empty { color: var(--muted); font-size: 0.88rem; margin: 0.5rem 0 0; font-style: italic; }
+    @keyframes nsIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: none; }
+    }
   </style>
 </head>
 <body>
@@ -212,8 +236,10 @@
       <p class="meta-line" id="progressMsg">Starting…</p>
       <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <p class="meta-line" id="progressPct">0%</p>
+      <p class="hint" id="liveHint">Sheets appear below one by one as they finish — open any sheet to review it while the rest generate.</p>
+      <div class="live-feed" id="liveFeed"><p class="live-empty" id="liveEmpty">Waiting for the first worksheet…</p></div>
       <div class="error" id="genError"></div>
-      <p class="hint hidden" id="genFailHint">Generation paused. Saved parts are kept — click <b>Retry generate</b> to continue from the failed part (not from the beginning).</p>
+      <p class="hint hidden" id="genFailHint">Generation paused. Saved parts are kept — click <b>Retry generate</b> to continue from the failed part (not from the beginning). Or delete this workbook from Your workbooks.</p>
     </section>
 
     <section class="card hidden" id="doneCard">
@@ -235,7 +261,10 @@
 (function () {
   var jobId = null;
   var pollTimer = null;
+  var eventSource = null;
   var selectedFile = null;
+  var latestPartsPreview = [];
+  var lastTerminalKey = null;
   var DEFAULT_MC = ['factual', 'inference', 'vocab', 'negative', 'craft', 'paraphrase'];
 
   function $(id) { return document.getElementById(id); }
@@ -387,6 +416,10 @@
         actions += '<button type="button" class="btn btn-gold hist-html" data-id="' + escapeHtml(j.id) + '">Print HTML</button>';
         actions += '<button type="button" class="btn btn-primary hist-dl" data-id="' + escapeHtml(j.id) + '">.docx</button>';
       }
+      if (j.canDelete !== false && j.status !== 'generating' && j.status !== 'parsing' && j.status !== 'planning') {
+        actions += '<button type="button" class="btn btn-danger hist-del" data-id="' + escapeHtml(j.id) +
+          '" data-title="' + escapeHtml(title) + '">Delete</button>';
+      }
       if (j.status === 'ready' || j.status === 'error') {
         actions += '<button type="button" class="btn btn-gold hist-gen" data-id="' + escapeHtml(j.id) + '">' +
           (j.status === 'error' ? 'Retry' : 'Generate') + '</button>';
@@ -465,6 +498,176 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 60 * 1000);
   }
 
+  async function openPartHtml(id, partNum) {
+    var t = token();
+    var res = await fetch(
+      '/api/novel-study/jobs/' + encodeURIComponent(id) +
+      '/parts/' + encodeURIComponent(partNum) + '/html',
+      { headers: t ? { Authorization: 'Bearer ' + t } : {} }
+    );
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.error || 'Could not open sheet');
+    }
+    var html = await res.text();
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60 * 1000);
+  }
+
+  async function deleteJobById(id, title) {
+    var label = title || 'this workbook';
+    if (!window.confirm('Delete "' + label + '"? This cannot be undone.')) return;
+    await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(id), { method: 'DELETE' });
+    if (jobId === id) {
+      stopLive();
+      jobId = null;
+      rememberJob('');
+      latestPartsPreview = [];
+      $('progressCard').classList.add('hidden');
+      $('doneCard').classList.add('hidden');
+      $('chunksCard').classList.add('hidden');
+      renderPartsPreview([]);
+    }
+    await refreshHistory();
+  }
+
+  function choiceLetter(i) { return String.fromCharCode(65 + i); }
+
+  function renderPartsPreview(parts, highlightPartNum) {
+    latestPartsPreview = parts || [];
+    var mount = $('liveFeed');
+    if (!mount) return;
+    if (!latestPartsPreview.length) {
+      mount.innerHTML = '<p class="live-empty" id="liveEmpty">Waiting for the first worksheet…</p>';
+      return;
+    }
+    mount.innerHTML = latestPartsPreview.map(function (p) {
+      var isNew = highlightPartNum != null && Number(p.partNum) === Number(highlightPartNum);
+      var vocabBits = (p.vocab || []).map(function (v) {
+        return '<li><b>' + escapeHtml(v.word || '') + '</b> — ' + escapeHtml(v.definition || '') + '</li>';
+      }).join('') || '<li class="muted">(none)</li>';
+      var mcBits = (p.multipleChoice || []).map(function (q, qi) {
+        var choices = (q.choices || []).map(function (c, ci) {
+          return choiceLetter(ci) + '. ' + escapeHtml(c || '');
+        }).join(' · ');
+        return '<li><b>' + (qi + 1) + '.</b> ' + escapeHtml(q.question || '') +
+          (choices ? '<br><span style="color:var(--muted)">' + choices + '</span>' : '') + '</li>';
+      }).join('') || '<li class="muted">(none)</li>';
+      var saBits = (p.shortAnswer || []).map(function (q, qi) {
+        return '<li><b>' + (qi + 1) + '.</b> ' + escapeHtml(q.question || '') + '</li>';
+      }).join('') || '<li class="muted">(none)</li>';
+      var refBits = (p.reflection || []).map(function (q, qi) {
+        return '<li><b>' + (qi + 1) + '.</b> ' + escapeHtml(q.question || '') + '</li>';
+      }).join('') || '<li class="muted">(none)</li>';
+      return '<article class="live-sheet' + (isNew ? ' new' : '') + '" data-part="' + escapeHtml(p.partNum) + '">' +
+        '<h3>Part ' + escapeHtml(p.partNum) + ': ' + escapeHtml(p.unitTitle || 'Section') +
+        (p.stubbed ? ' <span class="badge-status">fallback</span>' : '') + '</h3>' +
+        '<p class="live-meta">Pages ' + escapeHtml(p.startPage) + '–' + escapeHtml(p.endPage) +
+        (p.groundingScore != null ? ' · grounding ' + escapeHtml(p.groundingScore) + '%' : '') + '</p>' +
+        '<details open>' +
+        '<summary>Vocabulary (' + (p.vocab || []).length + ')</summary><ul>' + vocabBits + '</ul></details>' +
+        '<details open>' +
+        '<summary>Multiple choice (' + (p.multipleChoice || []).length + ')</summary><ul>' + mcBits + '</ul></details>' +
+        '<details>' +
+        '<summary>Short answer (' + (p.shortAnswer || []).length + ')</summary><ul>' + saBits + '</ul></details>' +
+        '<details>' +
+        '<summary>Reflection (' + (p.reflection || []).length + ')</summary><ul>' + refBits + '</ul></details>' +
+        '<div class="live-actions">' +
+        '<button type="button" class="btn btn-ghost part-preview" data-part="' + escapeHtml(p.partNum) +
+        '">Open full sheet</button></div></article>';
+    }).join('');
+    if (highlightPartNum != null) {
+      var el = mount.querySelector('[data-part="' + highlightPartNum + '"]');
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  function stopEvents() {
+    if (eventSource) {
+      try { eventSource.close(); } catch (_) { /* ignore */ }
+      eventSource = null;
+    }
+  }
+
+  function stopLive() {
+    stopPoll();
+    stopEvents();
+  }
+
+  function startEvents(id) {
+    stopEvents();
+    var t = token();
+    if (!t || typeof EventSource === 'undefined') return;
+    var url = '/api/novel-study/jobs/' + encodeURIComponent(id) +
+      '/events?access_token=' + encodeURIComponent(t);
+    try {
+      eventSource = new EventSource(url);
+    } catch (_) {
+      eventSource = null;
+      return;
+    }
+    function onStatus(ev) {
+      try {
+        var data = JSON.parse(ev.data || '{}');
+        // SSE wraps payload as { type, ...jobFields } or { type, job }
+        var job = data.job || data;
+        if (job && job.id) applyLiveJob(job, null);
+      } catch (_) { /* ignore */ }
+    }
+    function onPart(ev) {
+      try {
+        var data = JSON.parse(ev.data || '{}');
+        if (data.job) applyLiveJob(data.job, data.partNum);
+        else if (data.part) {
+          var merged = latestPartsPreview.slice();
+          var idx = merged.findIndex(function (p) { return Number(p.partNum) === Number(data.part.partNum); });
+          if (idx >= 0) merged[idx] = data.part;
+          else merged.push(data.part);
+          merged.sort(function (a, b) { return Number(a.partNum) - Number(b.partNum); });
+          renderPartsPreview(merged, data.partNum);
+          if (data.message) $('progressMsg').textContent = data.message;
+          if (data.progress != null) {
+            $('progressBar').style.width = data.progress + '%';
+            $('progressPct').textContent = data.progress + '%';
+          }
+        }
+      } catch (_) { /* ignore */ }
+    }
+    function onDone(ev) {
+      try {
+        var data = JSON.parse(ev.data || '{}');
+        var job = data.job || data;
+        applyLiveJob(job, null);
+        if (job && job.status === 'done') showDone(job);
+      } catch (_) { /* ignore */ }
+    }
+    function onError(ev) {
+      try {
+        var data = JSON.parse((ev && ev.data) || '{}');
+        var job = data.job || data;
+        if (job && job.status === 'error') showFailed(job);
+      } catch (_) { /* ignore */ }
+    }
+    eventSource.addEventListener('status', onStatus);
+    eventSource.addEventListener('part', onPart);
+    eventSource.addEventListener('done', onDone);
+    eventSource.addEventListener('error', function (ev) {
+      // EventSource "error" fires on disconnect too; only handle typed error payloads
+      if (ev && ev.data) onError(ev);
+    });
+  }
+
+  function applyLiveJob(job, highlightPartNum) {
+    if (!job) return;
+    setProgress(job);
+    if (job.partsPreview) renderPartsPreview(job.partsPreview, highlightPartNum);
+    if (job.status === 'done' && job.downloadReady) showDone(job);
+    else if (job.status === 'error') showFailed(job);
+  }
+
+
   function applyJobToUi(job) {
     jobId = job.id;
     rememberJob(jobId);
@@ -476,11 +679,17 @@
     $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
     $('btnGenerate').textContent = job.status === 'error' ? 'Retry generate' : 'Generate workbook';
 
+    if (job.partsPreview && job.partsPreview.length) {
+      $('progressCard').classList.remove('hidden');
+      renderPartsPreview(job.partsPreview);
+    }
+
     if (job.status === 'generating' || job.status === 'parsing' || job.status === 'planning') {
       $('progressCard').classList.remove('hidden');
       setProgress(job);
-      stopPoll();
-      pollTimer = setInterval(pollJob, 1200);
+      stopLive();
+      startEvents(jobId);
+      pollTimer = setInterval(pollJob, 2500);
       pollJob();
     } else if (job.status === 'done' && job.downloadReady) {
       showDone(job);
@@ -511,14 +720,19 @@
     $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
     $('progressBar').style.width = '5%';
     $('progressPct').textContent = '5%';
-    $('progressMsg').textContent = 'Starting generation… (safe to close this window)';
+    $('progressMsg').textContent = 'Starting generation… sheets will appear below as each part finishes.';
+    renderPartsPreview([]);
     try {
-      await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
+      var start = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
         method: 'POST',
         body: {}
       });
-      stopPoll();
-      pollTimer = setInterval(pollJob, 1200);
+      if (start && start.job && start.job.partsPreview) {
+        renderPartsPreview(start.job.partsPreview);
+      }
+      stopLive();
+      startEvents(jobId);
+      pollTimer = setInterval(pollJob, 2500);
       pollJob();
       refreshHistory();
     } catch (e) {
@@ -562,12 +776,13 @@
   }
 
   function showDone(job) {
-    stopPoll();
+    stopLive();
     $('doneCard').classList.remove('hidden');
     $('genFailHint').classList.add('hidden');
     $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
     setProgress(job);
-    $('progressMsg').textContent = 'Workbook ready — use Download below.';
+    if (job && job.partsPreview) renderPartsPreview(job.partsPreview);
+    $('progressMsg').textContent = 'Workbook ready — review sheets above, or download / print below.';
     $('progressPct').textContent = '100%';
     $('btnGenerate').disabled = false;
     $('btnGenerate').textContent = 'Generate workbook';
@@ -579,12 +794,13 @@
   }
 
   function showFailed(job) {
-    stopPoll();
+    stopLive();
     $('doneCard').classList.add('hidden');
     $('genFailHint').classList.remove('hidden');
     $('progressBar').style.background = 'linear-gradient(90deg, #c45d55, #e08a84)';
     setProgress(job);
-    $('progressMsg').textContent = 'Failed — no workbook yet.';
+    if (job && job.partsPreview) renderPartsPreview(job.partsPreview);
+    $('progressMsg').textContent = 'Failed — saved sheets stay below. Retry or delete from Your workbooks.';
     $('genError').textContent = job.error || job.message || 'Generation failed.';
     $('btnGenerate').disabled = false;
     $('btnGenerate').textContent = 'Retry generate';
@@ -596,10 +812,7 @@
     try {
       var data = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId));
       var job = data.job || {};
-      setProgress(job);
-      if (job.status === 'done' && job.downloadReady) showDone(job);
-      else if (job.status === 'error') showFailed(job);
-      else if (job.status === 'generating') refreshHistory();
+      applyLiveJob(job, null);
     } catch (e) {
       $('genError').textContent = e.message || 'Poll failed.';
     }
@@ -725,12 +938,25 @@
         await openHtmlJobById(id);
       } else if (btn.classList.contains('hist-dl')) {
         await downloadJobById(id);
+      } else if (btn.classList.contains('hist-del')) {
+        await deleteJobById(id, btn.getAttribute('data-title') || '');
       } else if (btn.classList.contains('hist-gen')) {
         await openJob(id);
         await startGenerateFor(id);
       }
     } catch (err) {
       $('setupError').textContent = err.message || 'Action failed.';
+    }
+  });
+
+  $('liveFeed').addEventListener('click', async function (e) {
+    var btn = e.target.closest('button.part-preview');
+    if (!btn || !jobId) return;
+    var partNum = btn.getAttribute('data-part');
+    try {
+      await openPartHtml(jobId, partNum);
+    } catch (err) {
+      $('genError').textContent = err.message || 'Could not open sheet.';
     }
   });
 
@@ -794,10 +1020,11 @@
   });
 
   $('btnReset').addEventListener('click', function () {
-    stopPoll();
+    stopLive();
     jobId = null;
     rememberJob('');
     selectedFile = null;
+    latestPartsPreview = [];
     $('pdfInput').value = '';
     $('dropLabel').textContent = 'Drop a PDF here or click to browse';
     $('btnUpload').disabled = true;
@@ -812,6 +1039,7 @@
     $('googleLink').textContent = '';
     $('progressBar').style.width = '0%';
     $('btnGenerate').textContent = 'Generate workbook';
+    renderPartsPreview([]);
     refreshHistory();
   });
 
