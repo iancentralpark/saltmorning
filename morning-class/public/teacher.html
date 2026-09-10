@@ -57,6 +57,7 @@
         <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
           <button type="button" class="teacher-nav-dropdown-item" id="openJeopardyBtn" role="menuitem">AI Jeopardy</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openNovelStudyBtn" role="menuitem">Novel Study Workbook</button>
         </div>
       </div>
       <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
@@ -1798,6 +1799,13 @@
     openItemBankBtn.addEventListener('click', () => {
       closeClassToolsMenu();
       window.open('/tools/item-bank', 'saltItemBank', 'noopener,width=1440,height=900');
+    });
+  }
+  const openNovelStudyBtn = $('openNovelStudyBtn');
+  if (openNovelStudyBtn) {
+    openNovelStudyBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/novel-study', 'saltNovelStudy', 'noopener,width=1280,height=900');
     });
   }
 

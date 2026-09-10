@@ -68,6 +68,11 @@ app.get('/tools/item-bank', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'item-bank.html'));
 });
 
+app.get('/tools/novel-study', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'novel-study.html'));
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
