@@ -152,7 +152,7 @@
 
     <section class="card" id="setupCard">
       <h2>1. Upload &amp; options</h2>
-      <p class="hint">Text-layer PDF only (not a scan). Default worksheet: Vocab 3 · MC 3 · Short Answer 1 · Reflection 1. Font Calibri 10pt, 0.5&quot; margins.</p>
+      <p class="hint">Text-layer PDF only (not a scan). Default: Vocab 3 · MC 3 · Short Answer 1 · Reflection 1. Set Vocab to <b>0</b> to skip vocabulary. Prefer <b>Open printable HTML</b> for designed classroom copies.</p>
 
       <div class="drop" id="dropZone" tabindex="0" role="button" aria-label="Upload PDF">
         <strong id="dropLabel">Drop a PDF here or click to browse</strong>
@@ -178,11 +178,12 @@
       </div>
 
       <div class="counts" style="margin-top:0.75rem">
-        <label>Vocab <input type="number" id="vocabCount" min="1" max="6" value="3"></label>
+        <label>Vocab <input type="number" id="vocabCount" min="0" max="6" value="3" title="0 = skip vocabulary"></label>
         <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="3"></label>
         <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="1"></label>
         <label>Reflection <input type="number" id="reflectionCount" min="0" max="2" value="1"></label>
       </div>
+      <p class="hint" style="margin-top:0.35rem">Vocab 0 skips the master list and section vocabulary. Short answer / reflection use ruled writing lines.</p>
       <div class="warn hidden" id="overflowWarn">Raising item counts above defaults may overflow a single A4 page per worksheet.</div>
 
       <label style="margin-top:0.85rem">MC question types
@@ -216,9 +217,10 @@
     </section>
 
     <section class="card hidden" id="doneCard">
-      <h2>4. Download workbook</h2>
-      <p class="hint">Student worksheets + Teacher Answer Key (with evidence quotes) in one .docx. This section appears only when generation succeeds.</p>
+      <h2>4. Get your workbook</h2>
+      <p class="hint">Best for class: <b>Open printable HTML</b> (designed layout, vocab tables, writing lines — then Print / Save as PDF). .docx download and Google Docs are also available.</p>
       <div class="toolbar">
+        <button type="button" class="btn btn-gold" id="btnHtml">Open printable HTML</button>
         <button type="button" class="btn btn-primary" id="btnDownload">Download .docx</button>
         <button type="button" class="btn btn-ok" id="btnGoogle">Open in Google Docs</button>
         <button type="button" class="btn btn-ghost" id="btnReset">New book</button>
@@ -260,13 +262,19 @@
         if (ct.indexOf('application/json') >= 0 || ct.indexOf('text/event-stream') >= 0 || opts.raw) {
           if (opts.raw) return res;
           return res.json().catch(function () { return {}; }).then(function (data) {
-            if (!res.ok) throw new Error((data && data.error) || res.statusText || 'Request failed');
+            if (!res.ok) {
+              var err = new Error((data && data.error) || res.statusText || 'Request failed');
+              if (data && data.code) err.code = data.code;
+              throw err;
+            }
             return data;
           });
         }
         if (!res.ok) {
           return res.json().catch(function () { return {}; }).then(function (data) {
-            throw new Error((data && data.error) || res.statusText || 'Request failed');
+            var err = new Error((data && data.error) || res.statusText || 'Request failed');
+            if (data && data.code) err.code = data.code;
+            throw err;
           });
         }
         return res;
@@ -305,10 +313,13 @@
   }
 
   function optionsPayload() {
+    var vocabRaw = $('vocabCount').value;
+    var vocabCount = vocabRaw === '' || vocabRaw == null ? 3 : Number(vocabRaw);
+    if (!Number.isFinite(vocabCount)) vocabCount = 3;
     return {
       level: $('level').value || 'middle',
       genre: $('genre').value || 'auto',
-      vocabCount: Number($('vocabCount').value) || 3,
+      vocabCount: Math.max(0, Math.min(6, vocabCount)),
       mcCount: Number($('mcCount').value) || 3,
       shortCount: Number($('shortCount').value) || 1,
       reflectionCount: Number($('reflectionCount').value) || 1,
@@ -373,7 +384,8 @@
       var actions = '<div class="history-actions">' +
         '<button type="button" class="btn btn-ghost hist-open" data-id="' + escapeHtml(j.id) + '">Open</button>';
       if (j.downloadReady) {
-        actions += '<button type="button" class="btn btn-primary hist-dl" data-id="' + escapeHtml(j.id) + '">Download</button>';
+        actions += '<button type="button" class="btn btn-gold hist-html" data-id="' + escapeHtml(j.id) + '">Print HTML</button>';
+        actions += '<button type="button" class="btn btn-primary hist-dl" data-id="' + escapeHtml(j.id) + '">.docx</button>';
       }
       if (j.status === 'ready' || j.status === 'error') {
         actions += '<button type="button" class="btn btn-gold hist-gen" data-id="' + escapeHtml(j.id) + '">' +
@@ -426,6 +438,31 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  async function openHtmlJobById(id) {
+    var t = token();
+    var res = await fetch('/api/novel-study/jobs/' + encodeURIComponent(id) + '/html', {
+      headers: t ? { Authorization: 'Bearer ' + t } : {}
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.error || 'Could not open printable HTML');
+    }
+    var html = await res.text();
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var win = window.open(url, '_blank', 'noopener');
+    if (!win) {
+      var a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60 * 1000);
   }
 
   function applyJobToUi(job) {
@@ -684,6 +721,8 @@
     try {
       if (btn.classList.contains('hist-open')) {
         await openJob(id);
+      } else if (btn.classList.contains('hist-html')) {
+        await openHtmlJobById(id);
       } else if (btn.classList.contains('hist-dl')) {
         await downloadJobById(id);
       } else if (btn.classList.contains('hist-gen')) {
@@ -723,6 +762,16 @@
     }
   });
 
+  $('btnHtml').addEventListener('click', async function () {
+    $('doneError').textContent = '';
+    if (!jobId) return;
+    try {
+      await openHtmlJobById(jobId);
+    } catch (e) {
+      $('doneError').textContent = e.message || 'Could not open printable HTML.';
+    }
+  });
+
   $('btnGoogle').addEventListener('click', async function () {
     $('doneError').textContent = '';
     $('googleLink').textContent = 'Uploading to Google Docs…';
@@ -736,7 +785,11 @@
       if (url) window.open(url, '_blank', 'noopener');
     } catch (e) {
       $('googleLink').textContent = '';
-      $('doneError').textContent = e.message || 'Google Docs upload failed.';
+      var msg = e.message || 'Google Docs upload failed.';
+      if (e.code === 'GOOGLE_NOT_CONNECTED' || /Connect your Google/i.test(msg)) {
+        msg = 'Google account not connected. Open the teacher portal → connect Google, then try again. Or use printable HTML / .docx instead.';
+      }
+      $('doneError').textContent = msg;
     }
   });
 

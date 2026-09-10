@@ -4336,6 +4336,7 @@ const {
   subscribe: subscribeNovelStudy,
   runGeneration: runNovelStudyGeneration,
   getDownload: getNovelStudyDownload,
+  getHtml: getNovelStudyHtml,
   uploadToGoogleDocs: uploadNovelStudyGoogleDocs,
   listMcTypes: listNovelStudyMcTypes,
   listLevels: listNovelStudyLevels,
@@ -4480,6 +4481,20 @@ router.get('/novel-study/jobs/:id/download', requireRole('teacher', 'admin'), as
     res.send(file.buffer);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || 'Download not ready.' });
+  }
+});
+
+router.get('/novel-study/jobs/:id/html', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const file = await getNovelStudyHtml(req.params.id, novelStudyTeacherId(req));
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader(
+      'Content-Disposition',
+      'inline; filename="' + String(file.filename).replace(/"/g, '') + '"'
+    );
+    res.send(file.html);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'HTML not ready.' });
   }
 });
 

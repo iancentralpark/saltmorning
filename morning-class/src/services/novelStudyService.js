@@ -452,9 +452,10 @@ function pickSnippetWords(text, count) {
 function stubPartWorksheet(chunk, options) {
   const text = String(chunk.text || '');
   const quote = text.replace(/\s+/g, ' ').trim().slice(0, 120);
-  const words = pickSnippetWords(text, Math.max(3, options.vocabCount || 3));
+  const vocabWanted = Math.max(0, Number(options.vocabCount) || 0);
+  const words = pickSnippetWords(text, Math.max(3, vocabWanted || 3));
   const vocab = [];
-  for (let i = 0; i < (options.vocabCount || 3); i += 1) {
+  for (let i = 0; i < vocabWanted; i += 1) {
     const word = words[i] || ('word' + (i + 1));
     vocab.push({
       word,
@@ -601,7 +602,11 @@ setInterval(purgeExpired, 15 * 60 * 1000).unref?.();
 function normalizeOptions(body) {
   const level = String((body && body.level) || 'middle').toLowerCase();
   const genre = String((body && body.genre) || 'auto').toLowerCase();
-  const vocabCount = Math.max(1, Math.min(6, Number(body && body.vocabCount) || 3));
+  // vocabCount 0 = skip vocabulary entirely (master list + section A)
+  const vocabRaw = body && body.vocabCount;
+  const vocabCount = Math.max(0, Math.min(6,
+    vocabRaw === 0 || vocabRaw === '0' ? 0 : (Number(vocabRaw) || 3)
+  ));
   const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 3));
   const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 1));
   const reflectionCount = Math.max(0, Math.min(2, Number(body && body.reflectionCount) || 1));
@@ -1017,8 +1022,13 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     'Return JSON with keys vocab, multipleChoice, shortAnswer, reflection.',
     'Counts: vocab=' + options.vocabCount + ', mc=' + options.mcCount +
       ', short=' + options.shortCount + ', reflection=' + options.reflectionCount,
+    options.vocabCount === 0 ? 'Set vocab to an empty array []. Do not invent vocabulary.' : '',
+    'For each multipleChoice item, choices MUST be a JSON array of exactly 4 NON-EMPTY answer strings.',
+    'Do NOT use an object for choices. Do NOT leave choice text blank.',
+    'Do NOT put A/B/C/D letters inside choice strings — letters are added by the formatter.',
+    'Example: "choices":["the river flooded","the mountain erupted","the forest burned","the desert froze"]',
     !compact ? ('Prefer these MC types: ' + typeList) : '',
-    tryNum > 1 ? 'IMPORTANT: Previous reply was invalid or truncated. Reply with complete JSON only.' : '',
+    tryNum > 1 ? 'IMPORTANT: Previous reply was invalid or truncated. Reply with complete JSON only. Every MC choice must have real text.' : '',
     'section_text:',
     String(chunk.text || '').slice(0, textLimit)
   ].filter(Boolean).join('\n');
@@ -1052,21 +1062,25 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     return stubPartWorksheet(chunk, options);
   }
 
-  const vocab = (Array.isArray(parsed.vocab) ? parsed.vocab : [])
-    .slice(0, options.vocabCount)
-    .map((v) => ({
-      word: String(v.word || '').trim(),
-      partOfSpeech: String(v.partOfSpeech || v.pos || '').trim(),
-      definition: String(v.definition || '').trim(),
-      exampleFromText: String(v.exampleFromText || v.example || '').trim(),
-      evidenceQuote: String(v.evidenceQuote || v.exampleFromText || '').trim()
-    }))
-    .filter((v) => v.word);
+  const { normalizeChoices } = require('./novelStudyHtml');
+
+  const vocab = options.vocabCount === 0
+    ? []
+    : (Array.isArray(parsed.vocab) ? parsed.vocab : [])
+      .slice(0, options.vocabCount)
+      .map((v) => ({
+        word: String(v.word || '').trim(),
+        partOfSpeech: String(v.partOfSpeech || v.pos || '').trim(),
+        definition: String(v.definition || '').trim(),
+        exampleFromText: String(v.exampleFromText || v.example || '').trim(),
+        evidenceQuote: String(v.evidenceQuote || v.exampleFromText || '').trim()
+      }))
+      .filter((v) => v.word);
 
   const multipleChoice = (Array.isArray(parsed.multipleChoice) ? parsed.multipleChoice : [])
     .slice(0, options.mcCount)
     .map((q) => {
-      const choices = Array.isArray(q.choices) ? q.choices.map((c) => String(c || '').trim()) : [];
+      const choices = normalizeChoices(q.choices != null ? q.choices : q.options);
       while (choices.length < 4) choices.push('');
       return {
         type: String(q.type || '').trim(),
@@ -1095,6 +1109,14 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
       evidenceQuote: String(q.evidenceQuote || '').trim()
     }))
     .filter((q) => q.question);
+
+  const mcIncomplete = multipleChoice.some((q) =>
+    !(q.choices || []).filter((c) => String(c || '').trim()).length >= 4
+  );
+  if (mcIncomplete && tryNum < maxTries) {
+    await sleep(1500 * tryNum);
+    return generatePartWorksheet(chunk, meta, options, tryNum + 1);
+  }
 
   if (!vocab.length && !multipleChoice.length && !shortAnswer.length) {
     if (tryNum < maxTries) {
@@ -1391,9 +1413,32 @@ async function runGeneration(jobId, teacherId) {
   }
 }
 
+async function rebuildDocxBuffer(job) {
+  const { buildWorkbookDocx } = require('./novelStudyDocx');
+  const buf = await buildWorkbookDocx(job);
+  job.docxBuffer = buf;
+  try {
+    ensureTmp();
+    fs.writeFileSync(jobDocxPath(job.id), buf);
+  } catch (_) { /* cache best-effort */ }
+  return buf;
+}
+
 async function getDownload(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
-  const buf = await ensureDocxBufferAsync(job);
+  if (job.status !== 'done' && !(job.parts || []).length) {
+    throw httpError('Download is not ready yet.', 409);
+  }
+  // Always rebuild so template/layout fixes apply to older jobs too.
+  let buf = null;
+  if ((job.parts || []).length) {
+    try {
+      buf = await rebuildDocxBuffer(job);
+    } catch (e) {
+      console.warn('novelStudy rebuild docx failed', job.id, e.message);
+    }
+  }
+  if (!buf || !buf.length) buf = await ensureDocxBufferAsync(job);
   if (!buf || !buf.length) throw httpError('Download is not ready yet.', 409);
   const safe = String((job.meta && job.meta.title) || 'book-study')
     .replace(/[^\w\s\-]+/g, '')
@@ -1407,9 +1452,34 @@ async function getDownload(jobId, teacherId) {
   };
 }
 
+async function getHtml(jobId, teacherId) {
+  const job = getJob(jobId, teacherId);
+  if (job.status !== 'done' || !(job.parts || []).length) {
+    throw httpError('Printable HTML is not ready yet.', 409);
+  }
+  const { buildWorkbookHtml } = require('./novelStudyHtml');
+  const html = buildWorkbookHtml(job);
+  const safe = String((job.meta && job.meta.title) || 'book-study')
+    .replace(/[^\w\s\-]+/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 60) || 'book-study';
+  return {
+    filename: safe + '-workbook.html',
+    html,
+    mime: 'text/html; charset=utf-8'
+  };
+}
+
 async function uploadToGoogleDocs(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
-  const buf = await ensureDocxBufferAsync(job);
+  let buf = null;
+  if ((job.parts || []).length) {
+    try {
+      buf = await rebuildDocxBuffer(job);
+    } catch (_) { /* fall through */ }
+  }
+  if (!buf || !buf.length) buf = await ensureDocxBufferAsync(job);
   if (!buf || !buf.length) throw httpError('Generate the workbook first.', 409);
   job.docxBuffer = buf;
 
@@ -1471,6 +1541,7 @@ module.exports = {
   subscribe,
   runGeneration,
   getDownload,
+  getHtml,
   uploadToGoogleDocs,
   listMcTypes,
   listLevels,
