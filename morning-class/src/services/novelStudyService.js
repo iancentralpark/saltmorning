@@ -1,6 +1,7 @@
 /**
  * Novel / Book Study — PDF parse, chunk planning, Gemini worksheet generation.
- * In-memory job store; temp PDF deleted after parse; jobs purged after 2h.
+ * Jobs persist under tmp so closing the tool UI does not lose progress/downloads.
+ * Original PDF is deleted after parse; chunk text kept until workbook succeeds.
  */
 'use strict';
 
@@ -14,7 +15,9 @@ const { askGemini, isGeminiConfigured } = require('./geminiService');
 const { buildWorkbookDocx } = require('./novelStudyDocx');
 
 const TMP_ROOT = path.join(os.tmpdir(), 'salt-novel-study');
-const JOB_TTL_MS = 2 * 60 * 60 * 1000;
+const JOBS_DIR = path.join(TMP_ROOT, 'jobs');
+/** Keep finished workbooks available for reopen/download. */
+const JOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PART_DELAY_MS = 2500;
 const MIN_CHARS_PAGE = 40;
 const TARGET_MIN = 2;
@@ -26,6 +29,8 @@ const MAX_PDF_BYTES = 100 * 1024 * 1024;
 
 /** @type {Map<string, object>} */
 const jobs = new Map();
+/** @type {Map<string, NodeJS.Timeout>} */
+const persistTimers = new Map();
 
 const LEVELS = {
   elementary: {
@@ -68,6 +73,159 @@ const CULMINATING_NONFICTION = [
 
 function ensureTmp() {
   if (!fs.existsSync(TMP_ROOT)) fs.mkdirSync(TMP_ROOT, { recursive: true });
+  if (!fs.existsSync(JOBS_DIR)) fs.mkdirSync(JOBS_DIR, { recursive: true });
+}
+
+function jobMetaPath(id) {
+  return path.join(JOBS_DIR, String(id) + '.json');
+}
+
+function jobDocxPath(id) {
+  return path.join(JOBS_DIR, String(id) + '.docx');
+}
+
+function hasDocxOnDisk(job) {
+  try {
+    return !!(job && job.id && fs.existsSync(jobDocxPath(job.id)));
+  } catch (_) {
+    return false;
+  }
+}
+
+function jobHasDownload(job) {
+  return !!(job && ((job.docxBuffer && job.docxBuffer.length) || hasDocxOnDisk(job)));
+}
+
+function ensureDocxBuffer(job) {
+  if (job.docxBuffer && job.docxBuffer.length) return job.docxBuffer;
+  if (hasDocxOnDisk(job)) {
+    job.docxBuffer = fs.readFileSync(jobDocxPath(job.id));
+    return job.docxBuffer;
+  }
+  return null;
+}
+
+function serializeJob(job) {
+  const keepText = job.status !== 'done';
+  return {
+    id: job.id,
+    teacherId: job.teacherId,
+    status: job.status,
+    progress: job.progress,
+    message: job.message,
+    error: job.error || null,
+    meta: job.meta,
+    options: job.options,
+    pageCount: job.pageCount || 0,
+    chunks: (job.chunks || []).map((ch) => ({
+      partNum: ch.partNum,
+      unitTitle: ch.unitTitle,
+      startPage: ch.startPage,
+      endPage: ch.endPage,
+      text: keepText ? String(ch.text || '') : ''
+    })),
+    parts: job.parts || [],
+    culminating: job.culminating || null,
+    googleDocsUrl: job.googleDocsUrl || null,
+    hasDocx: jobHasDownload(job),
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt
+  };
+}
+
+function persistJobNow(job) {
+  if (!job || !job.id) return;
+  try {
+    ensureTmp();
+    if (job.docxBuffer && job.docxBuffer.length) {
+      fs.writeFileSync(jobDocxPath(job.id), job.docxBuffer);
+    }
+    fs.writeFileSync(jobMetaPath(job.id), JSON.stringify(serializeJob(job)));
+  } catch (e) {
+    console.warn('novelStudy persist failed', job.id, e.message);
+  }
+}
+
+function schedulePersist(job, immediate) {
+  if (!job || !job.id) return;
+  if (immediate) {
+    const t = persistTimers.get(job.id);
+    if (t) clearTimeout(t);
+    persistTimers.delete(job.id);
+    persistJobNow(job);
+    return;
+  }
+  if (persistTimers.has(job.id)) clearTimeout(persistTimers.get(job.id));
+  persistTimers.set(
+    job.id,
+    setTimeout(() => {
+      persistTimers.delete(job.id);
+      persistJobNow(job);
+    }, 500)
+  );
+}
+
+function deletePersistedJob(jobId) {
+  try {
+    const meta = jobMetaPath(jobId);
+    const docx = jobDocxPath(jobId);
+    if (fs.existsSync(meta)) fs.unlinkSync(meta);
+    if (fs.existsSync(docx)) fs.unlinkSync(docx);
+  } catch (_) { /* ignore */ }
+}
+
+function hydrateJob(data) {
+  const job = {
+    id: data.id,
+    teacherId: String(data.teacherId || ''),
+    status: data.status || 'error',
+    progress: Number(data.progress) || 0,
+    message: data.message || '',
+    error: data.error || null,
+    meta: data.meta || null,
+    options: data.options || {},
+    pageCount: data.pageCount || 0,
+    chunks: Array.isArray(data.chunks) ? data.chunks : [],
+    parts: Array.isArray(data.parts) ? data.parts : [],
+    culminating: data.culminating || null,
+    googleDocsUrl: data.googleDocsUrl || null,
+    pages: null,
+    pdfPath: null,
+    docxBuffer: null,
+    listeners: [],
+    createdAt: data.createdAt || nowIso(),
+    updatedAt: data.updatedAt || nowIso()
+  };
+  if (data.hasDocx || hasDocxOnDisk(job)) {
+    try {
+      if (fs.existsSync(jobDocxPath(job.id))) {
+        job.docxBuffer = fs.readFileSync(jobDocxPath(job.id));
+      }
+    } catch (_) { /* ignore */ }
+  }
+  // Generation loops die with the process — mark interrupted jobs as retryable.
+  if (job.status === 'generating' || job.status === 'parsing' || job.status === 'planning') {
+    job.status = 'error';
+    job.error = 'Interrupted while the tool was closed or the server restarted. Open the job and click Generate again.';
+    job.message = job.error;
+  }
+  return job;
+}
+
+function loadJobsFromDisk() {
+  try {
+    ensureTmp();
+    const files = fs.readdirSync(JOBS_DIR).filter((f) => f.endsWith('.json'));
+    files.forEach((file) => {
+      try {
+        const raw = fs.readFileSync(path.join(JOBS_DIR, file), 'utf8');
+        const data = JSON.parse(raw);
+        if (!data || !data.id) return;
+        const job = hydrateJob(data);
+        jobs.set(job.id, job);
+      } catch (_) { /* skip bad file */ }
+    });
+  } catch (_) { /* empty */ }
 }
 
 function newId(prefix) {
@@ -108,6 +266,7 @@ function httpError(message, status, code) {
 function toPublicJob(job) {
   return {
     id: job.id,
+    teacherId: job.teacherId,
     status: job.status,
     progress: job.progress,
     message: job.message,
@@ -124,7 +283,7 @@ function toPublicJob(job) {
     })),
     partsDone: (job.parts || []).length,
     partsTotal: (job.chunks || []).length,
-    downloadReady: !!(job.docxBuffer && job.docxBuffer.length),
+    downloadReady: jobHasDownload(job),
     googleDocsUrl: job.googleDocsUrl || null,
     pageOverflowRisk: !!(job.options && job.options.pageOverflowRisk),
     createdAt: job.createdAt,
@@ -135,6 +294,8 @@ function toPublicJob(job) {
 function touch(job, patch) {
   Object.assign(job, patch || {}, { updatedAt: nowIso() });
   jobs.set(job.id, job);
+  const immediate = job.status === 'done' || job.status === 'error' || job.status === 'ready';
+  schedulePersist(job, immediate);
   return job;
 }
 
@@ -145,6 +306,16 @@ function getJob(jobId, teacherId) {
     throw httpError('You do not have access to this job.', 403);
   }
   return job;
+}
+
+function listJobsForTeacher(teacherId, limit) {
+  const tid = String(teacherId || '');
+  const max = Math.max(1, Math.min(50, Number(limit) || 30));
+  return Array.from(jobs.values())
+    .filter((j) => String(j.teacherId || '') === tid)
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+    .slice(0, max)
+    .map((j) => toPublicJob(j));
 }
 
 function cleanupJobFiles(job) {
@@ -160,6 +331,7 @@ function purgeExpired() {
     const t = Date.parse(job.updatedAt || job.createdAt || 0) || 0;
     if (t < cutoff) {
       cleanupJobFiles(job);
+      deletePersistedJob(id);
       jobs.delete(id);
     }
   }
@@ -946,7 +1118,8 @@ async function runGeneration(jobId, teacherId) {
 
 function getDownload(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
-  if (!job.docxBuffer) throw httpError('Download is not ready yet.', 409);
+  const buf = ensureDocxBuffer(job);
+  if (!buf || !buf.length) throw httpError('Download is not ready yet.', 409);
   const safe = String((job.meta && job.meta.title) || 'book-study')
     .replace(/[^\w\s\-]+/g, '')
     .trim()
@@ -954,14 +1127,16 @@ function getDownload(jobId, teacherId) {
     .slice(0, 60) || 'book-study';
   return {
     filename: safe + '-workbook.docx',
-    buffer: job.docxBuffer,
+    buffer: buf,
     mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   };
 }
 
 async function uploadToGoogleDocs(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
-  if (!job.docxBuffer) throw httpError('Generate the workbook first.', 409);
+  const buf = ensureDocxBuffer(job);
+  if (!buf || !buf.length) throw httpError('Generate the workbook first.', 409);
+  job.docxBuffer = buf;
 
   const {
     getGoogleStatus,
@@ -1016,6 +1191,7 @@ async function uploadToGoogleDocs(jobId, teacherId) {
 module.exports = {
   createJobFromPdf,
   getJob,
+  listJobsForTeacher,
   toPublicJob,
   subscribe,
   runGeneration,
@@ -1026,3 +1202,6 @@ module.exports = {
   normalizeOptions,
   MAX_PDF_BYTES
 };
+
+loadJobsFromDisk();
+purgeExpired();
