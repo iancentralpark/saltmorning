@@ -384,6 +384,31 @@ async function assertHomeroomOfClass(teacherId, classId) {
   }
 }
 
+/**
+ * Defense-in-depth IDOR guard: every /teacher/class/:classId/* route must be
+ * scoped to classes the requesting teacher is actually assigned to (homeroom
+ * or subject teacher). Individual handlers may layer stricter checks
+ * (assertHomeroomOfClass, getTeacherGradeAccess) on top of this, but this
+ * blanket check ensures no route can accidentally skip class-scoping.
+ */
+async function requireClassAccess(req, res, next) {
+  try {
+    if (!req.session || !req.session.teacherId) {
+      return res.status(401).json({ error: 'Login required.' });
+    }
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    next();
+  } catch (e) {
+    res.status(403).json({ error: e.message || 'You are not assigned to this class.' });
+  }
+}
+
+// Blanket IDOR guard: run before every /teacher/class/:classId/* handler below.
+// (requireRole('teacher') here just populates req.session; individual routes
+// still declare their own requireRole('teacher') too, which is a cheap no-op
+// re-check once req.session is already set.)
+router.use('/teacher/class/:classId', requireRole('teacher'), requireClassAccess);
+
 router.get('/health', async (req, res) => {
   try {
     await require('./db/boot').ensureOpsDbStarted();
