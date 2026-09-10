@@ -211,12 +211,23 @@
       </div>
 
       <div class="counts" style="margin-top:0.75rem">
-        <label>Vocab <input type="number" id="vocabCount" min="0" max="6" value="0" title="0 = skip vocabulary"></label>
+        <label>Worksheets (chunks)
+          <input type="number" id="targetChunks" min="0" max="80" value="0"
+            title="0 = auto from chapters/sections. Or set e.g. 20 to force that many worksheets.">
+        </label>
+        <label>Vocab / part
+          <input type="number" id="vocabCount" min="0" max="8" value="4"
+            title="Target words per worksheet (about 3–5). 0 = skip vocabulary. May add a few extra essential words.">
+        </label>
         <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="4"></label>
         <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="2"></label>
         <label>Extended write <input type="number" id="reflectionCount" min="0" max="2" value="1" title="AI picks reflection, critical thinking, factual, or inference"></label>
       </div>
-      <p class="hint" style="margin-top:0.35rem">Vocab 0 skips vocabulary. Extended write: AI chooses the best prompt type (personal reflection, critical thinking, factual, or inference) for ~1 paragraph.</p>
+      <p class="hint" style="margin-top:0.35rem">
+        Worksheets 0 = AI/chapter auto-split. Set a number (e.g. 20) to force that many parts.
+        Vocab default 4 builds a master word list at the front plus 3–5 words per sheet (after worksheets are written). Vocab 0 skips words.
+        Extended write: AI chooses prompt type for ~1 paragraph.
+      </p>
       <div class="warn hidden" id="overflowWarn">Raising item counts above defaults may overflow a single A4 page per worksheet.</div>
 
       <label style="margin-top:0.85rem">MC question types
@@ -232,7 +243,7 @@
     <section class="card hidden" id="chunksCard">
       <h2>2. Chunk plan</h2>
       <p class="hint" id="bookMeta">—</p>
-      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. Chunks follow chapter/section headings when possible (not a fixed 4-page grid).</p>
+      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. Chunks follow chapter/section headings when possible; mid-page headings keep the section text with the right worksheet. If you set a worksheet count, the plan is fitted to that number.</p>
       <div class="chunk-list" id="chunkList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
@@ -245,7 +256,7 @@
       <p class="meta-line" id="progressMsg">Starting…</p>
       <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <p class="meta-line" id="progressPct">0%</p>
-      <p class="hint" id="liveHint">Sheets appear below one by one as they finish — open any sheet to review it while the rest generate.</p>
+      <p class="hint" id="liveHint">Sheets appear below one by one as they finish — open any sheet to review it while the rest generate. Vocabulary lists are filled in at the end for every part, then the master list is built for the front of the workbook.</p>
       <div class="live-feed" id="liveFeed"><p class="live-empty" id="liveEmpty">Waiting for the first worksheet…</p></div>
       <div class="error" id="genError"></div>
       <p class="hint hidden" id="genFailHint">Generation paused. Saved parts are kept — click <b>Retry generate</b> to continue from the failed part (not from the beginning). Or delete this workbook from Your workbooks.</p>
@@ -327,7 +338,7 @@
   }
 
   function overflowRisk() {
-    return Number($('vocabCount').value) > 0
+    return Number($('vocabCount').value) > 5
       || Number($('mcCount').value) > 4
       || Number($('shortCount').value) > 2
       || Number($('reflectionCount').value) > 1;
@@ -352,12 +363,16 @@
 
   function optionsPayload() {
     var vocabRaw = $('vocabCount').value;
-    var vocabCount = vocabRaw === '' || vocabRaw == null ? 0 : Number(vocabRaw);
-    if (!Number.isFinite(vocabCount)) vocabCount = 0;
+    var vocabCount = vocabRaw === '' || vocabRaw == null ? 4 : Number(vocabRaw);
+    if (!Number.isFinite(vocabCount)) vocabCount = 4;
+    var targetRaw = $('targetChunks').value;
+    var targetChunks = targetRaw === '' || targetRaw == null ? 0 : Number(targetRaw);
+    if (!Number.isFinite(targetChunks)) targetChunks = 0;
     return {
       level: $('level').value || 'middle',
       genre: $('genre').value || 'auto',
-      vocabCount: Math.max(0, Math.min(6, vocabCount)),
+      targetChunks: Math.max(0, Math.min(80, targetChunks)),
+      vocabCount: Math.max(0, Math.min(8, vocabCount)),
       mcCount: Number($('mcCount').value) || 4,
       shortCount: Number($('shortCount').value) || 2,
       reflectionCount: Number($('reflectionCount').value) || 1,
@@ -802,6 +817,8 @@
     var badge = '';
     if (planMode === 'chapter-aware') {
       badge = ' <span class="plan-badge">chapter-aware</span>';
+    } else if (planMode === 'target-count') {
+      badge = ' <span class="plan-badge">target worksheet count</span>';
     } else if (planMode === 'page-groups') {
       badge = ' <span class="plan-badge weak">page groups + titles</span>';
     }
@@ -957,7 +974,7 @@
     });
   });
 
-  ['vocabCount', 'mcCount', 'shortCount', 'reflectionCount'].forEach(function (id) {
+  ['targetChunks', 'vocabCount', 'mcCount', 'shortCount', 'reflectionCount'].forEach(function (id) {
     $(id).addEventListener('input', updateOverflow);
     $(id).addEventListener('change', updateOverflow);
   });

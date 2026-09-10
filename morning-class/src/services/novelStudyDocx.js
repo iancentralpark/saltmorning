@@ -135,9 +135,10 @@ function vocabCell(text, opts) {
 
 function buildVocabTable(items, opts) {
   const withExample = !!(opts && opts.withExample);
+  const exampleLabel = (opts && opts.exampleLabel) || 'Example sentence';
   const colNum = 700;
-  const colWord = withExample ? 2200 : 2800;
-  const colDef = withExample ? 4200 : CONTENT_WIDTH - colNum - colWord;
+  const colWord = withExample ? 2000 : 2800;
+  const colDef = withExample ? 3800 : CONTENT_WIDTH - colNum - colWord;
   const colEx = withExample ? CONTENT_WIDTH - colNum - colWord - colDef : 0;
 
   const headerRuns = (label) => [run(label, { bold: true, color: 'FFFFFF', size: 18 })];
@@ -148,7 +149,7 @@ function buildVocabTable(items, opts) {
       vocabCell(headerRuns('Word'), { width: colWord, shading: '0D2748' }),
       vocabCell(headerRuns('Definition'), { width: colDef, shading: '0D2748' }),
       ...(withExample
-        ? [vocabCell(headerRuns('From the text'), { width: colEx, shading: '0D2748' })]
+        ? [vocabCell(headerRuns(exampleLabel), { width: colEx, shading: '0D2748' })]
         : [])
     ]
   });
@@ -157,6 +158,7 @@ function buildVocabTable(items, opts) {
   items.forEach((v, i) => {
     const shade = i % 2 === 0 ? 'F3F7F8' : 'FFFFFF';
     const pos = v.partOfSpeech ? ' (' + v.partOfSpeech + ')' : '';
+    const example = v.exampleSentence || v.exampleFromText || '';
     const cells = [
       vocabCell([run(String(i + 1), { size: 18, color: '5B6B7C' })], { width: colNum, shading: shade }),
       vocabCell([
@@ -167,7 +169,7 @@ function buildVocabTable(items, opts) {
     ];
     if (withExample) {
       cells.push(vocabCell(
-        [run(String(v.exampleFromText || ''), { italics: true, size: 16, color: '334155' })],
+        [run(String(example), { italics: true, size: 16, color: '334155' })],
         { width: colEx, shading: shade }
       ));
     }
@@ -240,10 +242,11 @@ function buildMasterVocab(parts) {
   const children = [
     heading('Master Vocabulary List', HeadingLevel.HEADING_1),
     p([run(
-      'Study these words from the whole book. Definitions are student-friendly English.',
+      'Study these words from the whole book. Definitions are student-friendly English. ' +
+      'Example sentences are new practice sentences (not copied from the book).',
       { italics: true, color: '5B6B7C' }
     )]),
-    buildVocabTable(items, { withExample: false }),
+    buildVocabTable(items, { withExample: true, exampleLabel: 'Example sentence' }),
     blank()
   ];
   return children;
@@ -269,7 +272,7 @@ function buildPartWorksheet(part, options) {
 
   if (hasVocab) {
     children.push(heading(letters.vocab + '. Vocabulary', HeadingLevel.HEADING_2));
-    children.push(buildVocabTable(vocab, { withExample: true }));
+    children.push(buildVocabTable(vocab, { withExample: true, exampleLabel: 'Example sentence' }));
     children.push(blank());
   }
 

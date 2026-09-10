@@ -473,6 +473,7 @@ function stubPartWorksheet(chunk, options) {
       partOfSpeech: 'noun',
       definition: 'A word used in this section of the text.',
       exampleFromText: quote,
+      exampleSentence: 'Students can use the word "' + word + '" in a clear classroom sentence.',
       evidenceQuote: quote
     });
   }
@@ -655,18 +656,25 @@ setInterval(purgeExpired, 15 * 60 * 1000).unref?.();
 function normalizeOptions(body) {
   const level = String((body && body.level) || 'middle').toLowerCase();
   const genre = String((body && body.genre) || 'auto').toLowerCase();
-  // vocabCount 0 = skip vocabulary entirely (master list + section A)
+  // vocabCount: target words per part (3–5 typical). 0 = skip vocabulary.
+  // Default 4 so master + per-part vocab are generated unless teacher turns it off.
   const vocabRaw = body && body.vocabCount;
-  const vocabCount = Math.max(0, Math.min(6,
+  const vocabCount = Math.max(0, Math.min(8,
     vocabRaw === 0 || vocabRaw === '0'
       ? 0
       : (vocabRaw === undefined || vocabRaw === null || vocabRaw === ''
-        ? 0
-        : (Number(vocabRaw) || 0))
+        ? 4
+        : (Number(vocabRaw) || 4))
   ));
   const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 4));
   const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 2));
   const reflectionCount = Math.max(0, Math.min(2, Number(body && body.reflectionCount) || 1));
+  // 0 / empty = auto chunk count from headings; otherwise aim for N worksheets.
+  const targetRaw = body && body.targetChunks;
+  let targetChunks = 0;
+  if (targetRaw !== undefined && targetRaw !== null && targetRaw !== '' && targetRaw !== '0') {
+    targetChunks = Math.max(2, Math.min(80, Number(targetRaw) || 0));
+  }
   let mcTypes = Array.isArray(body && body.mcTypes)
     ? body.mcTypes.map(String)
     : MC_TYPES.map((t) => t.id);
@@ -676,12 +684,12 @@ function normalizeOptions(body) {
     level: LEVELS[level] ? level : 'middle',
     genre: ['auto', 'fiction', 'nonfiction'].includes(genre) ? genre : 'auto',
     vocabCount,
+    targetChunks,
     mcCount,
     shortCount,
     reflectionCount,
     mcTypes,
-    // Defaults (0/4/2/1) should not warn; warn only when above defaults.
-    pageOverflowRisk: vocabCount > 0 || mcCount > 4 || shortCount > 2 || reflectionCount > 1
+    pageOverflowRisk: vocabCount > 5 || mcCount > 4 || shortCount > 2 || reflectionCount > 1
   };
 }
 
@@ -1053,6 +1061,224 @@ function pageHasSectionBreak(pageText, banned, currentTitle) {
   return true;
 }
 
+/** True when a single line looks like a chapter/section heading. */
+function lineLooksLikeHeading(line, banned, fromBreak) {
+  const cleaned = String(line || '').replace(/[?!:.…]+$/g, '').trim();
+  if (!cleaned || cleaned.length < 3 || cleaned.length > 100) return false;
+  if (isJunkHeading(cleaned, banned)) return false;
+  if (
+    /^(chapter|part|unit|section|prologue|epilogue|introduction|preface|afterword)\b/i.test(cleaned)
+    || /^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned)
+    || /^(chapter|ch\.?)\s*\d+\b/i.test(cleaned)
+  ) return true;
+  if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned) && cleaned.length <= 80) return true;
+  const words = cleaned.split(/\s+/);
+  const titleCase = words.length >= 2 && words.length <= 14
+    && words.filter((w) => /^[A-ZÀ-ÖØ-Þ]/.test(w)).length >= Math.ceil(words.length * 0.45)
+    && !/[.!?]$/.test(cleaned)
+    && !/^(the|a|an|and|but|or|so|then|when|after|before|this|that|these|those)\b/i.test(cleaned);
+  if (titleCase) return true;
+  if (
+    fromBreak
+    && words.length >= 2
+    && words.length <= 10
+    && cleaned.length <= 70
+    && !/[.]$/.test(cleaned)
+    && /[A-Za-z]/.test(cleaned)
+    && !/^(however|therefore|meanwhile|suddenly|because)\b/i.test(cleaned)
+  ) return true;
+  return false;
+}
+
+/**
+ * If a new heading starts mid-page (after real prose), return a text split.
+ * Fixes worksheets that would otherwise miss the start of the next section.
+ */
+function findMidPageHeadingBreak(pageText, banned, currentTitle) {
+  const lines = pageLines(pageText);
+  if (lines.length < 5) return null;
+  for (let i = 2; i < lines.length - 1; i += 1) {
+    const beforeLen = lines.slice(0, i).join(' ').replace(/\s+/g, ' ').trim().length;
+    if (beforeLen < 90) continue;
+    const fromBreak = lines[i - 1].length < 2;
+    if (!lineLooksLikeHeading(lines[i], banned, fromBreak || i > 3)) continue;
+    const heading = lines[i].replace(/[?!:.…]+$/g, '').trim();
+    if (currentTitle && normalizeLine(heading) === normalizeLine(currentTitle)) continue;
+    const afterLen = lines.slice(i).join(' ').replace(/\s+/g, ' ').trim().length;
+    if (afterLen < 40) continue;
+    return {
+      heading,
+      beforeText: lines.slice(0, i).join('\n').trim(),
+      afterText: lines.slice(i).join('\n').trim()
+    };
+  }
+  return null;
+}
+
+function sectionFromPages(unitTitle, pages) {
+  if (!pages || !pages.length) return null;
+  return {
+    unitTitle: unitTitle || '',
+    startPage: pages[0].pageNum,
+    endPage: pages[pages.length - 1].pageNum,
+    pages: pages.slice(),
+    text: pages.map((p) => p.text).join('\n\n').trim()
+  };
+}
+
+/**
+ * Move mid-page "next section" tails from section i into section i+1
+ * so worksheet text follows headings, not just whole PDF pages.
+ */
+function carveAdjacentSections(sections, banned) {
+  const secs = (sections || []).map((s) => ({
+    unitTitle: s.unitTitle || '',
+    startPage: s.startPage,
+    endPage: s.endPage,
+    pages: (s.pages || []).map((p) => ({ pageNum: p.pageNum, text: p.text })),
+    text: s.text || ''
+  }));
+
+  for (let i = 0; i < secs.length - 1; i += 1) {
+    const a = secs[i];
+    const b = secs[i + 1];
+    if (!a.pages.length) continue;
+    const last = a.pages[a.pages.length - 1];
+    if (b.startPage > last.pageNum + 1) continue;
+
+    const br = findMidPageHeadingBreak(last.text, banned, a.unitTitle);
+    if (!br) continue;
+
+    const nextKey = normalizeLine(b.unitTitle || '');
+    const headKey = normalizeLine(br.heading);
+    const matchesNext = !!(nextKey && (headKey === nextKey
+      || nextKey.includes(headKey)
+      || headKey.includes(nextKey)));
+    const differsCurrent = !a.unitTitle || headKey !== normalizeLine(a.unitTitle);
+    if (!matchesNext && !differsCurrent) continue;
+
+    if (br.beforeText) {
+      a.pages[a.pages.length - 1] = { pageNum: last.pageNum, text: br.beforeText };
+    } else {
+      a.pages.pop();
+    }
+    if (!a.pages.length) {
+      // Avoid empty section — keep a minimal stub and do not carve.
+      a.pages.push({ pageNum: last.pageNum, text: br.beforeText || last.text });
+      continue;
+    }
+    a.endPage = a.pages[a.pages.length - 1].pageNum;
+    a.text = a.pages.map((p) => p.text).join('\n\n').trim();
+
+    if (b.pages[0] && b.pages[0].pageNum === last.pageNum) {
+      b.pages[0] = { pageNum: last.pageNum, text: br.afterText };
+    } else {
+      b.pages.unshift({ pageNum: last.pageNum, text: br.afterText });
+    }
+    if (!b.unitTitle) b.unitTitle = br.heading;
+    b.startPage = b.pages[0].pageNum;
+    b.endPage = b.pages[b.pages.length - 1].pageNum;
+    b.text = b.pages.map((p) => p.text).join('\n\n').trim();
+  }
+
+  return secs.filter((s) => s.pages && s.pages.length);
+}
+
+function rematerializeSectionPages(chunks, bodyPages) {
+  const byNum = new Map((bodyPages || []).map((p) => [p.pageNum, p]));
+  return (chunks || []).map((c) => {
+    const pages = [];
+    for (let n = c.startPage; n <= c.endPage; n += 1) {
+      if (byNum.has(n)) pages.push({ pageNum: n, text: byNum.get(n).text });
+    }
+    return {
+      unitTitle: c.unitTitle || '',
+      startPage: pages.length ? pages[0].pageNum : c.startPage,
+      endPage: pages.length ? pages[pages.length - 1].pageNum : c.endPage,
+      pages,
+      text: pages.map((p) => p.text).join('\n\n').trim(),
+      summary: c.summary || ''
+    };
+  }).filter((s) => s.pages.length);
+}
+
+/** Merge/split page-backed sections until count is close to target. */
+function fitSectionsToTargetCount(sections, target, banned) {
+  const want = Math.max(2, Math.min(80, Number(target) || 0));
+  if (!want) return sections;
+  let secs = (sections || []).map((s) => ({
+    unitTitle: s.unitTitle || '',
+    startPage: s.startPage,
+    endPage: s.endPage,
+    pages: (s.pages || []).slice(),
+    text: s.text || '',
+    summary: s.summary || ''
+  })).filter((s) => s.pages.length);
+  if (secs.length < 1) return sections;
+
+  while (secs.length > want) {
+    let best = 0;
+    let bestSpan = Infinity;
+    for (let i = 0; i < secs.length - 1; i += 1) {
+      const span = secs[i].pages.length + secs[i + 1].pages.length;
+      if (span < bestSpan) {
+        bestSpan = span;
+        best = i;
+      }
+    }
+    const a = secs[best];
+    const b = secs[best + 1];
+    secs.splice(best, 2, {
+      unitTitle: a.unitTitle || b.unitTitle,
+      startPage: a.startPage,
+      endPage: b.endPage,
+      pages: a.pages.concat(b.pages),
+      text: '',
+      summary: a.summary || b.summary || ''
+    });
+  }
+
+  while (secs.length < want) {
+    let best = 0;
+    let bestLen = 0;
+    for (let i = 0; i < secs.length; i += 1) {
+      if (secs[i].pages.length > bestLen) {
+        bestLen = secs[i].pages.length;
+        best = i;
+      }
+    }
+    if (bestLen < 2) break;
+    const sec = secs[best];
+    const mid = Math.floor(sec.pages.length / 2);
+    const left = sec.pages.slice(0, mid);
+    const right = sec.pages.slice(mid);
+    const rightHeading = guessHeading(right[0].text, banned) || (sec.unitTitle + ' (cont.)');
+    secs.splice(best, 1,
+      {
+        unitTitle: sec.unitTitle,
+        startPage: left[0].pageNum,
+        endPage: left[left.length - 1].pageNum,
+        pages: left,
+        text: '',
+        summary: ''
+      },
+      {
+        unitTitle: rightHeading,
+        startPage: right[0].pageNum,
+        endPage: right[right.length - 1].pageNum,
+        pages: right,
+        text: '',
+        summary: ''
+      }
+    );
+  }
+
+  return secs.map((s) => {
+    s.text = s.pages.map((p) => p.text).join('\n\n').trim();
+    return s;
+  });
+}
+
 function sliceSectionPages(sec, fromIdx, toIdxExclusive, banned) {
   const slice = sec.pages.slice(fromIdx, toIdxExclusive);
   if (!slice.length) return null;
@@ -1228,6 +1454,22 @@ function planChunksHeuristic(pages) {
   const raw = [];
   let cur = null;
   pages.forEach((p) => {
+    const mid = cur ? findMidPageHeadingBreak(p.text, banned, cur.unitTitle) : null;
+    if (mid && cur) {
+      if (mid.beforeText) {
+        cur.pages.push({ pageNum: p.pageNum, text: mid.beforeText });
+        cur.endPage = p.pageNum;
+      }
+      raw.push(cur);
+      cur = {
+        unitTitle: mid.heading,
+        startPage: p.pageNum,
+        endPage: p.pageNum,
+        pages: [{ pageNum: p.pageNum, text: mid.afterText }]
+      };
+      return;
+    }
+
     const heading = guessHeading(p.text, banned);
     const startNew = heading && (!cur || normalizeLine(heading) !== normalizeLine(cur.unitTitle));
     if (!cur || startNew) {
@@ -1288,7 +1530,8 @@ function planChunksHeuristic(pages) {
     finalSecs.push(sec);
   }
 
-  return finalSecs.map((sec, idx) => labelChunk({
+  const carved = carveAdjacentSections(finalSecs, banned);
+  return carved.map((sec, idx) => labelChunk({
     partNum: idx + 1,
     unitTitle: sec.unitTitle,
     startPage: sec.startPage,
@@ -1431,13 +1674,16 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
     }
   });
 
+  const targetN = Math.max(0, Number(options && options.targetChunks) || 0);
   const prompt = [
     'Plan Novel/Book Study reading sections for one class period each.',
     'Return JSON ONLY:',
     '{ "sections": [{ "unit_title": string, "start_page": number, "end_page": number }] }',
     'Rules:',
     '- Align starts to REAL chapter/section headings whenever the outline shows them.',
-    '- Do NOT make every section exactly 4 pages. Typical length is ' + TARGET_MIN + '-' + (TARGET_MAX + 2) + ' pages.',
+    targetN >= 2
+      ? ('- Create EXACTLY ' + targetN + ' sections (teacher requested worksheet count). Prefer natural heading breaks; otherwise split at sensible paragraph/topic shifts.')
+      : ('- Do NOT make every section exactly 4 pages. Typical length is ' + TARGET_MIN + '-' + (TARGET_MAX + 2) + ' pages.'),
     '- Never invent page numbers outside ' + pages[0].pageNum + '..' + pages[pages.length - 1].pageNum + '.',
     '- Cover the whole book body with contiguous, non-overlapping sections.',
     '- unit_title must be descriptive (chapter/section name or clear topic). Never "Pages 12–15".',
@@ -1451,8 +1697,9 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
     temperature: 0.15,
     maxOutputTokens: 4096,
     responseMimeType: 'application/json',
-    systemInstruction:
-      'STRICT JSON only. Prefer heading-aligned boundaries. Avoid uniform page grids.',
+    systemInstruction: targetN >= 2
+      ? ('STRICT JSON only. Return exactly ' + targetN + ' heading-aware sections.')
+      : 'STRICT JSON only. Prefer heading-aligned boundaries. Avoid uniform page grids.',
     retries: 1
   });
   const parsed = extractJson(res.text || res.answer || '');
@@ -1520,6 +1767,7 @@ async function planChunksWithGemini(pages, options, onProgress) {
   report(12, 'Skipping front matter…');
   const trimmed = trimToBookBody(pages);
   const bodyPages = trimmed.pages;
+  const targetN = Math.max(0, Number(options && options.targetChunks) || 0);
 
   report(22, 'Detecting chapter and section headings…');
   const banned = collectRunningHeaders(bodyPages);
@@ -1540,22 +1788,44 @@ async function planChunksWithGemini(pages, options, onProgress) {
     };
   }
 
-  // If headings are weak OR the plan looks like a uniform 4-page grid, ask Gemini for boundaries.
+  // Target worksheet count → ask Gemini for that many sections.
+  // Otherwise: weak TOC or uniform 4-page grids → AI boundaries.
   const spans = chunks.map((c) => c.endPage - c.startPage + 1);
   const mostlyFour = spans.length >= 6 && spans.filter((n) => n === TARGET_MAX).length >= Math.ceil(spans.length * 0.7);
-  if (quality === 'weak' || mostlyFour) {
-    report(52, 'Asking AI to align sections to chapter/section headings…');
+  const needAiBoundaries = targetN >= 2 || quality === 'weak' || mostlyFour;
+  if (needAiBoundaries) {
+    report(52, targetN >= 2
+      ? ('Asking AI to split the book into ' + targetN + ' worksheets…')
+      : 'Asking AI to align sections to chapter/section headings…');
     try {
       const aiChunks = await proposeBoundariesWithGemini(bodyPages, options, toc);
       if (aiChunks && aiChunks.length >= 2) {
         chunks = aiChunks;
-        planMode = 'chapter-aware';
+        planMode = targetN >= 2 ? 'target-count' : 'chapter-aware';
         quality = 'ok';
       }
     } catch (e) {
       console.warn('novelStudy boundary proposal failed', e.message);
     }
   }
+
+  // Rematerialize page lists, carve mid-page heading tails, fit target count.
+  report(64, 'Refining page boundaries…');
+  let sections = rematerializeSectionPages(chunks, bodyPages);
+  sections = carveAdjacentSections(sections, banned);
+  if (targetN >= 2) {
+    sections = fitSectionsToTargetCount(sections, targetN, banned);
+    planMode = 'target-count';
+  }
+  chunks = sections.map((sec, idx) => labelChunk({
+    partNum: idx + 1,
+    unitTitle: sec.unitTitle,
+    summary: sec.summary || '',
+    startPage: sec.startPage,
+    endPage: sec.endPage,
+    pages: sec.pages,
+    text: sec.text
+  }, banned));
 
   report(72, 'Writing section titles and blurbs…');
   try {
@@ -1690,6 +1960,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
         partOfSpeech: String(v.partOfSpeech || v.pos || '').trim(),
         definition: String(v.definition || '').trim(),
         exampleFromText: String(v.exampleFromText || v.example || '').trim(),
+        exampleSentence: String(v.exampleSentence || v.example_sentence || '').trim(),
         evidenceQuote: String(v.evidenceQuote || v.exampleFromText || '').trim()
       }))
       .filter((v) => v.word);
@@ -1777,6 +2048,123 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     reflection,
     groundingScore: Math.round(ratio * 100)
   };
+}
+
+/**
+ * After all worksheets exist, pick useful academic / harder words per section.
+ * Prefer 3–5; may exceed (up to 8) for essential elementary learning words.
+ * exampleSentence is newly written for students (not copied from the book).
+ */
+async function extractSectionVocab(chunk, meta, options, usedWords) {
+  const target = Math.max(3, Math.min(5, Number(options.vocabCount) || 4));
+  const maxN = 8;
+  const level = LEVELS[options.level] || LEVELS.middle;
+  const avoid = Array.from(usedWords || []).slice(0, 120);
+  const prompt = [
+    'Extract vocabulary for an elementary/middle Novel Study worksheet section.',
+    'Book: ' + ((meta && meta.title) || 'Untitled') + ' by ' + ((meta && meta.author) || 'Unknown'),
+    'Section: ' + chunk.unitTitle + ' (pages ' + chunk.startPage + '–' + chunk.endPage + ')',
+    'Audience: ' + level.prompt,
+    'Return JSON ONLY:',
+    '{ "vocab": [{ "word", "partOfSpeech", "definition", "exampleSentence", "evidenceQuote" }] }',
+    'Rules:',
+    '- Pick about ' + target + ' words students may not know well (academic, precise, or slightly hard).',
+    '- You MAY include up to ' + maxN + ' if there are extra essential words for young readers of this book.',
+    '- Prefer words that actually appear in section_text. evidenceQuote must be a short phrase from the text containing the word.',
+    '- definition: short student-friendly English.',
+    '- exampleSentence: invent a NEW clear classroom sentence using the word (do NOT copy from the book).',
+    '- Avoid duplicates of these already-used words: ' + JSON.stringify(avoid),
+    '- Avoid names, tiny function words, and ultra-common words (said, went, like, very).',
+    'section_text:',
+    String(chunk.text || '').replace(/\s+/g, ' ').trim().slice(0, 14000)
+  ].join('\n');
+
+  const res = await askGemini(prompt, {
+    temperature: 0.3,
+    maxOutputTokens: 2048,
+    responseMimeType: 'application/json',
+    systemInstruction: 'Output valid JSON only. Create original example sentences for learners.',
+    retries: 1
+  });
+  const parsed = extractJson(res.text || res.answer || '');
+  const rows = Array.isArray(parsed && parsed.vocab) ? parsed.vocab : [];
+  const out = [];
+  const local = new Set();
+  rows.forEach((v) => {
+    if (out.length >= maxN) return;
+    const word = String(v.word || '').trim();
+    const key = word.toLowerCase();
+    if (!word || key.length < 3 || local.has(key) || (usedWords && usedWords.has(key))) return;
+    local.add(key);
+    out.push({
+      word,
+      partOfSpeech: String(v.partOfSpeech || v.pos || '').trim(),
+      definition: String(v.definition || '').trim(),
+      exampleSentence: String(v.exampleSentence || v.example_sentence || '').trim(),
+      exampleFromText: String(v.evidenceQuote || v.exampleFromText || '').trim(),
+      evidenceQuote: String(v.evidenceQuote || '').trim()
+    });
+  });
+  if (out.length < 3) {
+    // Soft fallback from snippet words if model under-delivers
+    const extras = pickSnippetWords(chunk.text, target);
+    extras.forEach((word) => {
+      if (out.length >= target) return;
+      const key = word.toLowerCase();
+      if (local.has(key) || (usedWords && usedWords.has(key))) return;
+      local.add(key);
+      out.push({
+        word,
+        partOfSpeech: '',
+        definition: 'A useful word from this section.',
+        exampleSentence: 'We practiced the word "' + word + '" in class today.',
+        exampleFromText: '',
+        evidenceQuote: ''
+      });
+    });
+  }
+  return out;
+}
+
+async function enrichPartsVocabulary(job) {
+  const wanted = Math.max(0, Number(job.options && job.options.vocabCount) || 0);
+  if (!wanted) {
+    (job.parts || []).forEach((p) => { p.vocab = []; });
+    return;
+  }
+  const used = new Set();
+  const total = (job.parts || []).length;
+  for (let i = 0; i < total; i += 1) {
+    const chunk = job.chunks[i];
+    const part = job.parts[i];
+    if (!chunk || !part) continue;
+    touch(job, {
+      message: 'Building vocabulary for part ' + (i + 1) + '/' + total + '…',
+      progress: 82 + Math.floor((i / Math.max(1, total)) * 6)
+    });
+    emit(job, 'status', toPublicJob(job, { includeParts: true }));
+    try {
+      const vocab = await extractSectionVocab(chunk, job.meta, job.options, used);
+      part.vocab = vocab;
+      vocab.forEach((v) => {
+        const key = String(v.word || '').toLowerCase();
+        if (key) used.add(key);
+      });
+    } catch (e) {
+      console.warn('novelStudy vocab enrich failed part', i + 1, e.message);
+      part.vocab = part.vocab || [];
+    }
+    touch(job, { parts: job.parts });
+    emit(job, 'part', {
+      partNum: part.partNum,
+      partsDone: i + 1,
+      partsTotal: total,
+      message: 'Vocabulary ready for part ' + (i + 1) + '/' + total,
+      part: summarizePartPreview(part),
+      job: toPublicJob(job, { includeParts: true })
+    });
+    if (i < total - 1) await sleep(Math.min(PART_DELAY_MS, 1500));
+  }
 }
 
 async function generateCulminating(job) {
@@ -2028,7 +2416,12 @@ async function runGeneration(jobId, teacherId) {
       });
       emit(job, 'status', toPublicJob(job, { includeParts: true }));
 
-      const part = await generatePartWorksheet(chunk, job.meta, job.options);
+      // Worksheets first (no vocab yet); vocabulary is a final pass over all parts.
+      const part = await generatePartWorksheet(
+        chunk,
+        job.meta,
+        Object.assign({}, job.options, { vocabCount: 0 })
+      );
       if (part.stubbed) stubCount += 1;
       job.parts.push(part);
       touch(job, { parts: job.parts });
@@ -2048,12 +2441,18 @@ async function runGeneration(jobId, teacherId) {
     }
 
     await sleep(PART_DELAY_MS);
-    touch(job, { message: 'Generating culminating task…', progress: 85 });
+    if ((job.options && job.options.vocabCount) > 0) {
+      touch(job, { message: 'Extracting vocabulary lists…', progress: 82 });
+      emit(job, 'status', toPublicJob(job, { includeParts: true }));
+      await enrichPartsVocabulary(job);
+    }
+
+    touch(job, { message: 'Generating culminating task…', progress: 88 });
     emit(job, 'status', toPublicJob(job, { includeParts: true }));
     const culminating = await generateCulminating(job);
     touch(job, { culminating });
 
-    touch(job, { message: 'Building workbook (.docx)…', progress: 92 });
+    touch(job, { message: 'Building workbook (.docx)…', progress: 94 });
     emit(job, 'status', toPublicJob(job, { includeParts: true }));
 
     const buf = await buildWorkbookDocx(job);
