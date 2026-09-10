@@ -118,17 +118,20 @@ function buildPartHtml(part, options) {
   bits.push('</header>');
 
   if (hasVocab) {
+    bits.push('<div class="keep section-block">');
     bits.push('<h2>' + letters.vocab + '. Vocabulary</h2>');
     bits.push(vocabTableHtml(part.vocab, { withExample: true, exampleLabel: 'Example sentence' }));
+    bits.push('</div>');
   }
 
+  bits.push('<div class="keep section-block">');
   bits.push('<h2>' + letters.mc + '. Multiple Choice</h2>');
   const mc = part.multipleChoice || [];
   if (!mc.length) {
     bits.push('<p class="muted">(No multiple-choice questions.)</p>');
   } else {
     mc.forEach((q, i) => {
-      bits.push('<div class="q">');
+      bits.push('<div class="q keep">');
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' + esc(q.question || '') + '</p>');
       bits.push('<ol class="choices" type="A">');
       const choices = normalizeChoices(q.choices || q.options);
@@ -139,20 +142,24 @@ function buildPartHtml(part, options) {
       bits.push('</ol></div>');
     });
   }
+  bits.push('</div>');
 
+  bits.push('<div class="keep section-block">');
   bits.push('<h2>' + letters.short + '. Short Answer</h2>');
   const shorts = part.shortAnswer || [];
   if (!shorts.length) {
     bits.push('<p class="muted">(No short-answer questions.)</p>');
   } else {
     shorts.forEach((q, i) => {
-      bits.push('<div class="q">');
+      bits.push('<div class="q keep">');
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' + esc(q.question || '') + '</p>');
       bits.push(answerLinesHtml(3));
       bits.push('</div>');
     });
   }
+  bits.push('</div>');
 
+  bits.push('<div class="keep section-block">');
   bits.push('<h2>' + letters.reflection + '. Extended Response</h2>');
   const refs = part.reflection || [];
   if (!refs.length) {
@@ -160,17 +167,19 @@ function buildPartHtml(part, options) {
   } else {
     refs.forEach((q, i) => {
       const typeLabel = reflectionTypeLabel(q.type);
-      bits.push('<div class="q">');
+      bits.push('<div class="q keep">');
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
         (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
         esc(q.question || '') + '</p>');
-      bits.push(answerLinesHtml(7));
+      // 5 ruled lines ≈ one paragraph; keeps the block on one printed page more reliably than 7.
+      bits.push(answerLinesHtml(5));
       bits.push('</div>');
     });
   }
+  bits.push('</div>');
 
   if (options && options.pageOverflowRisk) {
-    bits.push('<p class="note">Note: Extra items may need more than one page.</p>');
+    bits.push('<p class="note no-print">Note: Extra items may need more than one page when printed.</p>');
   }
   bits.push('</section>');
   return bits.join('\n');
@@ -274,18 +283,22 @@ function wrapHtmlDocument(title, bodyHtml) {
     color: var(--ink);
     font-family: 'Source Sans 3', 'Segoe UI', sans-serif;
     font-size: 11pt;
-    line-height: 1.45;
+    line-height: 1.4;
     background: #e8eef2;
   }
+  /* Screen preview ≈ A4 page so layout matches print more closely */
   .sheet {
+    width: 210mm;
     max-width: 210mm;
+    min-height: 297mm;
     margin: 12px auto;
-    padding: 14mm 14mm 16mm;
+    padding: 12mm;
     background:
       linear-gradient(180deg, rgba(13,110,110,0.06), transparent 120px),
       #fff;
     box-shadow: 0 8px 28px rgba(15,23,42,0.1);
     border-top: 6px solid var(--teal);
+    overflow: visible;
   }
   .cover { text-align: center; border-top-color: var(--header); }
   .brand {
@@ -307,68 +320,110 @@ function wrapHtmlDocument(title, bodyHtml) {
   .lede { color: var(--muted); font-size: 0.95rem; max-width: 36rem; margin: 1rem auto 0; }
   h1 {
     font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.55rem; color: var(--header); margin: 0 0 0.35rem;
-    border-bottom: 2px solid var(--teal); padding-bottom: 0.25rem;
+    font-size: 1.45rem; color: var(--header); margin: 0 0 0.3rem;
+    border-bottom: 2px solid var(--teal); padding-bottom: 0.2rem;
   }
   h2 {
     font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.2rem; color: var(--teal-deep); margin: 1.1rem 0 0.45rem;
+    font-size: 1.15rem; color: var(--teal-deep); margin: 0.85rem 0 0.35rem;
+    break-after: avoid;
+    page-break-after: avoid;
   }
   h3 { font-size: 1rem; color: var(--header); margin: 0.75rem 0 0.3rem; }
+  .part-head { break-after: avoid; page-break-after: avoid; }
   .part-head .pages { margin: 0; color: var(--muted); font-style: italic; font-size: 0.92rem; }
+  .section-block { margin: 0 0 0.35rem; }
+  .keep {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
   .vocab-table {
-    width: 100%; border-collapse: collapse; margin: 0.4rem 0 0.8rem;
-    font-size: 0.95rem;
+    width: 100%; border-collapse: collapse; margin: 0.3rem 0 0.5rem;
+    font-size: 0.9rem;
   }
   .vocab-table th {
     background: var(--header); color: #fff; text-align: left;
-    padding: 0.4rem 0.55rem; font-weight: 700;
+    padding: 0.32rem 0.45rem; font-weight: 700;
   }
   .vocab-table td {
-    border: 1px solid var(--line); padding: 0.4rem 0.55rem; vertical-align: top;
+    border: 1px solid var(--line); padding: 0.32rem 0.45rem; vertical-align: top;
   }
+  .vocab-table tr { break-inside: avoid; page-break-inside: avoid; }
   .vocab-table tr:nth-child(even) td { background: var(--soft); }
   .vocab-table .num { width: 2.2rem; text-align: center; color: var(--muted); }
   .vocab-table .word { font-weight: 700; white-space: nowrap; }
   .vocab-table .pos { font-weight: 400; color: var(--muted); font-size: 0.85em; }
-  .vocab-table .ex { font-style: italic; color: #334; font-size: 0.9em; }
-  .q { margin: 0.55rem 0 0.9rem; }
-  .q-stem { margin: 0 0 0.35rem; }
+  .vocab-table .ex { font-style: italic; color: #334; font-size: 0.88em; }
+  .q { margin: 0.4rem 0 0.65rem; }
+  .q-stem { margin: 0 0 0.28rem; }
   .choices {
-    margin: 0.15rem 0 0.35rem 1.1rem; padding: 0;
+    margin: 0.1rem 0 0.25rem 1.1rem; padding: 0;
     list-style: upper-alpha;
   }
-  .choices li { margin: 0.18rem 0; padding-left: 0.25rem; }
+  .choices li { margin: 0.12rem 0; padding-left: 0.25rem; }
   .type-tag { color: var(--teal-deep); font-weight: 700; font-size: 0.9em; }
   .write-line {
-    height: 1.55rem;
+    height: 1.35rem;
     border-bottom: 1.25px solid #2a3544;
-    margin: 0.15rem 0;
+    margin: 0.08rem 0;
   }
   .muted { color: var(--muted); font-style: italic; }
-  .note { font-size: 0.8rem; color: var(--muted); font-style: italic; margin-top: 1rem; }
+  .note { font-size: 0.8rem; color: var(--muted); font-style: italic; margin-top: 0.75rem; }
   .key-sheet { border-top-color: var(--accent); }
   .key-sheet ul { padding-left: 1.2rem; margin: 0.3rem 0 0.7rem; }
-  .key-sheet li { margin: 0.35rem 0; }
+  .key-sheet li { margin: 0.35rem 0; break-inside: avoid; page-break-inside: avoid; }
   .toolbar-print { margin-top: 1.25rem; }
   .toolbar-print button {
     font: inherit; font-weight: 700; cursor: pointer;
     background: var(--teal); color: #fff; border: none;
     border-radius: 8px; padding: 0.55rem 1rem;
   }
+  .toolbar-print .print-hint {
+    display: block; margin-top: 0.45rem; color: var(--muted); font-size: 0.85rem;
+  }
   .live-banner {
     text-align: center; color: var(--muted); font-size: 0.9rem; margin: 0 0 0.75rem;
   }
-  @page { size: A4; margin: 12mm; }
+  /* Margins live on the sheet (padding), not @page — avoids Chrome "Default"
+     margins stacking on top of @page and shrinking the printable area. */
+  @page { size: A4; margin: 0; }
   @media print {
-    body { background: #fff; }
-    .sheet {
-      margin: 0; max-width: none; box-shadow: none;
-      page-break-after: always; border-top-width: 4px;
-      padding: 0;
+    html, body {
+      width: 210mm;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .sheet:last-child { page-break-after: auto; }
+    .sheet {
+      width: 210mm;
+      max-width: 210mm;
+      min-height: 297mm;
+      margin: 0 !important;
+      padding: 11mm 12mm 12mm;
+      box-shadow: none !important;
+      border-top-width: 4px;
+      break-after: page;
+      page-break-after: always;
+    }
+    .sheet:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }
+    .keep, .q, .section-block {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    h2, .part-head {
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+    .write-line { height: 1.28rem; }
     .no-print { display: none !important; }
+  }
+  @media screen and (max-width: 900px) {
+    .sheet { width: auto; max-width: 100%; min-height: 0; margin: 8px; }
   }
 </style>
 </head>
