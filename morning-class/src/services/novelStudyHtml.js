@@ -84,20 +84,23 @@ function collectMasterVocab(parts) {
   return rows;
 }
 
-function vocabTableHtml(items, withExample) {
+function vocabTableHtml(items, opts) {
+  const withExample = !!(opts && opts.withExample);
+  const exampleLabel = (opts && opts.exampleLabel) || 'Example sentence';
   if (!items.length) return '<p class="muted">(No vocabulary.)</p>';
   const head = withExample
-    ? '<tr><th>#</th><th>Word</th><th>Definition</th><th>From the text</th></tr>'
+    ? '<tr><th>#</th><th>Word</th><th>Definition</th><th>' + esc(exampleLabel) + '</th></tr>'
     : '<tr><th>#</th><th>Word</th><th>Definition</th></tr>';
   const body = items.map((v, i) => {
     const pos = v.partOfSpeech ? ' <span class="pos">(' + esc(v.partOfSpeech) + ')</span>' : '';
+    const example = v.exampleSentence || v.exampleFromText || '';
     const cells = [
       '<td class="num">' + (i + 1) + '</td>',
       '<td class="word">' + esc(v.word || '') + pos + '</td>',
       '<td>' + esc(v.definition || '') + '</td>'
     ];
     if (withExample) {
-      cells.push('<td class="ex">' + esc(v.exampleFromText || '') + '</td>');
+      cells.push('<td class="ex">' + esc(example) + '</td>');
     }
     return '<tr>' + cells.join('') + '</tr>';
   }).join('\n');
@@ -116,7 +119,7 @@ function buildPartHtml(part, options) {
 
   if (hasVocab) {
     bits.push('<h2>' + letters.vocab + '. Vocabulary</h2>');
-    bits.push(vocabTableHtml(part.vocab, true));
+    bits.push(vocabTableHtml(part.vocab, { withExample: true, exampleLabel: 'Example sentence' }));
   }
 
   bits.push('<h2>' + letters.mc + '. Multiple Choice</h2>');
@@ -408,8 +411,8 @@ function buildWorkbookHtml(job) {
   if (master.length) {
     body.push('<section class="sheet">');
     body.push('<h1>Master Vocabulary List</h1>');
-    body.push('<p class="lede">Study these words from the whole book. Definitions are student-friendly English.</p>');
-    body.push(vocabTableHtml(master, false));
+    body.push('<p class="lede">Study these words from the whole book. Definitions are student-friendly English. Example sentences are new practice sentences (not copied from the book).</p>');
+    body.push(vocabTableHtml(master, { withExample: true, exampleLabel: 'Example sentence' }));
     body.push('</section>');
   }
 
