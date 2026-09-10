@@ -1645,8 +1645,8 @@
         '<th>Class</th><th>Student</th><th>Term</th><th>State</th><th></th></tr></thead><tbody>' +
         rows.map((w) =>
           '<tr>' +
-          '<td>' + escapeHtml(w.classId) + '</td>' +
-          '<td>' + escapeHtml(w.studentId) + '</td>' +
+          '<td>' + escapeHtml(w.className || w.classId) + '</td>' +
+          '<td>' + escapeHtml(w.studentName || w.studentId) + '</td>' +
           '<td>' + escapeHtml(w.term) + '</td>' +
           '<td>' + escapeHtml(w.state) + '</td>' +
           '<td style="white-space:nowrap">' +
@@ -1654,11 +1654,13 @@
           '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">View</button> ' +
           (w.state === 'submitted_principal'
             ? '<button type="button" class="btn btn-primary admin-rc-sign" data-cid="' + escapeHtml(w.classId) +
-              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Sign</button> '
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) +
+              '" data-name="' + escapeHtml(w.studentName || w.studentId) + '">Sign</button> '
             : '') +
           (w.state === 'signed_principal'
             ? '<button type="button" class="btn btn-primary admin-rc-share" data-cid="' + escapeHtml(w.classId) +
-              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Share now</button> ' +
+              '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) +
+              '" data-name="' + escapeHtml(w.studentName || w.studentId) + '">Share now</button> ' +
               '<button type="button" class="btn btn-ghost admin-rc-schedule" data-cid="' + escapeHtml(w.classId) +
               '" data-sid="' + escapeHtml(w.studentId) + '" data-term="' + escapeHtml(w.term) + '">Schedule</button>'
             : '') +
@@ -1693,6 +1695,8 @@
       });
       box.querySelectorAll('.admin-rc-sign').forEach((btn) => {
         btn.addEventListener('click', async () => {
+          if (!confirm('Sign the ' + (btn.dataset.term || '') + ' report card for ' +
+            (btn.dataset.name || btn.dataset.sid) + ' as Principal?\n\nThis certifies the card is final and ready to share.')) return;
           try {
             await api('/api/admin/report-cards/workflow', {
               method: 'POST',
@@ -1711,7 +1715,8 @@
       });
       box.querySelectorAll('.admin-rc-share').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          if (!confirm('Share this report card with parents now?')) return;
+          if (!confirm('Share the ' + (btn.dataset.term || '') + ' report card for ' +
+            (btn.dataset.name || btn.dataset.sid) + ' with parents now?')) return;
           try {
             await api('/api/admin/report-cards/workflow', {
               method: 'POST',

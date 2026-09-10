@@ -1266,7 +1266,21 @@ router.get('/admin/report-cards', requireRole('admin', 'principal'), async (req,
         RC_WF_STATES.shared_parent
       ]
     });
-    res.json({ workflows });
+    const { getClassNameMap } = require('./services/studentRegistryService');
+    const [classNames, studentEntries] = await Promise.all([
+      getClassNameMap().catch(() => ({})),
+      Promise.all(workflows.map((w) => getStudent(w.studentId).catch(() => null)))
+    ]);
+    const studentNames = {};
+    studentEntries.forEach((s) => {
+      if (s && s.studentId) studentNames[s.studentId] = s.name;
+    });
+    const enriched = workflows.map((w) => ({
+      ...w,
+      studentName: studentNames[w.studentId] || w.studentId,
+      className: classNames[w.classId] || w.classId
+    }));
+    res.json({ workflows: enriched });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load Principal queue.' });
   }
