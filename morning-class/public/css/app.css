@@ -5192,6 +5192,17 @@ body.buddy-resize-active {
   border-bottom: 1px solid var(--border-soft);
 }
 .pp-feed-item:last-child { border-bottom: none; }
+.pp-feed-clickable {
+  cursor: pointer;
+  margin: 0 -0.5rem;
+  padding: 0.85rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.12s ease;
+}
+.pp-feed-clickable:hover, .pp-feed-clickable:focus-visible {
+  background: var(--cream);
+  outline: none;
+}
 .pp-feed-type {
   font-size: 0.7rem;
   font-weight: 700;
@@ -5205,6 +5216,22 @@ body.buddy-resize-active {
 .pp-feed-grade .pp-feed-type { color: #2563eb; }
 .pp-feed-comment .pp-feed-type { color: #a16207; }
 .pp-feed-homework .pp-feed-type { color: #047857; }
+.pp-grades-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.pp-grades-term-label { display: flex; align-items: center; gap: 0.35rem; }
+.pp-grades-term {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.4rem;
+  background: #fff;
+  font: inherit;
+}
 .pp-teacher-list {
   display: flex;
   flex-wrap: wrap;

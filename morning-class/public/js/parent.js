@@ -444,6 +444,16 @@ window.SaltParent = (function() {
       report: 'Report card',
       attendance: 'Attendance'
     };
+    // Which tab tapping a feed item should jump to — lets parents go straight
+    // from "New grade posted" to the Grades tab instead of hunting for it.
+    const feedTabTarget = {
+      announcement: 'announcements',
+      report: 'reportcards',
+      comment: 'reportcards',
+      grade: 'grades',
+      homework: 'homework',
+      attendance: 'attendance'
+    };
     box.innerHTML = items.map((it) => {
       let extra = '';
       if (it.type === 'announcement' && it.meta) {
@@ -460,7 +470,10 @@ window.SaltParent = (function() {
             '📎 ' + escapeHtml(it.meta.attachmentName || 'Attachment') + '</a></p>';
         }
       }
-      return '<article class="pp-feed-item pp-feed-' + escapeHtml(it.type) + '">' +
+      const target = feedTabTarget[it.type] || '';
+      return '<article class="pp-feed-item pp-feed-' + escapeHtml(it.type) +
+          (target ? ' pp-feed-clickable' : '') + '"' +
+          (target ? ' data-feed-tab="' + escapeHtml(target) + '" role="button" tabindex="0"' : '') + '>' +
         '<div class="pp-feed-type">' + escapeHtml(typeLabel[it.type] || it.type) +
           (it.meta && it.meta.source ? ' · ' + escapeHtml(it.meta.source) : '') +
         '</div>' +
@@ -474,6 +487,20 @@ window.SaltParent = (function() {
         '</div>' +
       '</article>';
     }).join('');
+
+    box.querySelectorAll('.pp-feed-clickable[data-feed-tab]').forEach((el) => {
+      const go = () => switchTab(el.dataset.feedTab);
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return; // let announcement image/link/attachment links behave normally
+        go();
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          go();
+        }
+      });
+    });
   }
 
   async function loadAttendance() {
@@ -978,19 +1005,37 @@ window.SaltParent = (function() {
     }
   }
 
-  async function loadGrades() {
+  let gradesTermQuery = '';
+
+  async function loadGrades(term) {
     const box = $('ppGrades');
     if (!box) return;
+    if (term != null) gradesTermQuery = term;
     box.innerHTML = '<p class="muted">' + escapeHtml(t('common.loading', 'Loading…')) + '</p>';
     try {
-      const data = await api('/api/parent/grades');
+      const q = gradesTermQuery ? ('?term=' + encodeURIComponent(gradesTermQuery)) : '';
+      const data = await api('/api/parent/grades' + q);
       const subjects = data.subjects || [];
+      const terms = data.terms || [];
+      const termPicker = terms.length > 1
+        ? ('<label class="muted small pp-grades-term-label">' + escapeHtml(t('parent.grades.term', 'Term')) + ' ' +
+          '<select class="pp-grades-term" id="ppGradesTerm">' +
+          terms.map((tm) =>
+            '<option value="' + escapeHtml(tm) + '"' + (tm === data.term ? ' selected' : '') + '>' +
+            escapeHtml(tm) + '</option>'
+          ).join('') +
+          '</select></label>')
+        : '';
+      const header = '<div class="pp-grades-head">' +
+        '<p class="muted small">' + escapeHtml((data.className ? data.className + ' · ' : '') + (data.term || '')) + '</p>' +
+        termPicker +
+        '</div>';
       if (!subjects.length) {
-        box.innerHTML = '<p class="muted">' + escapeHtml(data.message || 'No graded subjects found yet.') + '</p>';
+        box.innerHTML = header + '<p class="muted">' + escapeHtml(data.message || 'No graded subjects found yet.') + '</p>';
+        wireGradesTermPicker(box);
         return;
       }
-      let html = '<p class="muted small">' +
-        escapeHtml((data.className ? data.className + ' · ' : '') + (data.term || '')) + '</p>' +
+      let html = header +
         '<table class="grades-table"><thead><tr><th>Subject</th><th>Grade</th><th>Progress</th><th>Recent</th></tr></thead><tbody>';
       subjects.forEach((s) => {
         const weights = (s.weights || []).map((w) =>
@@ -1009,8 +1054,16 @@ window.SaltParent = (function() {
       });
       html += '</tbody></table>';
       box.innerHTML = html;
+      wireGradesTermPicker(box);
     } catch (e) {
       box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function wireGradesTermPicker(box) {
+    const sel = box.querySelector('#ppGradesTerm');
+    if (sel) {
+      sel.addEventListener('change', () => loadGrades(sel.value));
     }
   }
 
