@@ -59,14 +59,25 @@ checks: `GET /api/health` (both Node apps) and `GET /health` (solver).
 folder and can overwrite the GitHub-connected deployment with a stale snapshot
 (this caused the Aug 2026 rollbacks).
 
+**Auth for agents:** Set Cursor secret `RAILWAY_API_TOKEN` to a **workspace API
+token** for `iancentralpark's Projects` (create via Railway dashboard → Account
+Settings → Tokens, or `apiTokenCreate` GraphQL mutation after `railway login`).
+Workspace tokens cannot run `whoami`, so the deploy script uses GraphQL
+`serviceInstanceDeploy` instead of the CLI. Do not set a stale `RAILWAY_TOKEN`
+alongside it — an expired project token in the environment will break CLI calls.
+
 **Correct deploy (from `morning-class/` after pushing to `main`):**
+
+```bash
+bash scripts/deploy-production.sh
+```
+
+Or manually (CLI login session only):
 
 ```bash
 npx @railway/cli link -p 37e18dd4-072b-49df-ab3b-315e9ea29dcf -e production -s salt-morning-class
 npx @railway/cli redeploy --from-source -y --service salt-morning-class
 ```
 
-Or run `bash scripts/deploy-production.sh` in `morning-class/`.
-
-Verify: `GET /api/health` should include `reportCardPrintVersion`. Do **not**
-touch `server/` (Mr. Park Class API) when deploying Salt Morning.
+Verify: `GET /api/health` should include `gradesStorage` and `reportCardPrintVersion`.
+Do **not** touch `server/` (Mr. Park Class API) when deploying Salt Morning.
