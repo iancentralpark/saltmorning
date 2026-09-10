@@ -167,6 +167,7 @@
   }
 
   function renderFab(unread) {
+    window.dispatchEvent(new CustomEvent('salt:messenger-unread', { detail: { unread: unread || 0 } }));
     const fab = root().querySelector('.msg-fab');
     const badge = root().querySelector('.msg-fab-badge');
     if (!fab) return;

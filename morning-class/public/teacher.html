@@ -48,6 +48,10 @@
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="materials" data-i18n="nav.materials">Materials</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="conferences" data-i18n="nav.conferences">Conferences</button>
       <button type="button" class="btn btn-ghost teacher-nav-btn" data-nav="lostFound" data-i18n="nav.lostAndFound">Lost &amp; Found</button>
+      <button type="button" class="btn btn-ghost teacher-nav-btn teacher-nav-messages" id="teacherMessagesNavBtn">
+        <span data-i18n="nav.messages">Messages</span>
+        <span class="teacher-nav-badge hidden" id="teacherMessagesNavBadge">0</span>
+      </button>
       <div class="teacher-nav-dropdown" id="classToolsMenu">
         <button type="button" class="btn btn-ghost teacher-nav-btn" id="classToolsMenuBtn" aria-expanded="false" aria-haspopup="true" data-i18n="nav.classTools">Class tools</button>
         <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
@@ -1909,6 +1913,19 @@
     }
     setTimeout(() => {
       try { SaltMessenger.init(role); } catch (e) { /* messenger is non-blocking */ }
+      const messagesNavBtn = $('teacherMessagesNavBtn');
+      if (messagesNavBtn) {
+        messagesNavBtn.addEventListener('click', () => {
+          if (window.SaltMessenger) window.SaltMessenger.open();
+        });
+      }
+      window.addEventListener('salt:messenger-unread', (e) => {
+        const badge = $('teacherMessagesNavBadge');
+        if (!badge) return;
+        const n = (e.detail && e.detail.unread) || 0;
+        badge.textContent = n > 99 ? '99+' : String(n || '');
+        badge.classList.toggle('hidden', !n);
+      });
     }, 0);
   }
 
