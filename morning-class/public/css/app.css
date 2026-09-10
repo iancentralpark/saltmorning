@@ -2632,6 +2632,21 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   overflow: auto;
   margin-top: 0.35rem;
 }
+.msg-thread-search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  background: #fff;
+}
+.msg-thread-search:focus {
+  outline: none;
+  background: var(--cream);
+}
+.msg-thread-search.hidden { display: none; }
 .msg-directory-item {
   width: 100%;
   text-align: left;
@@ -3158,6 +3173,14 @@ body.lp-lesson-drawer-open { overflow: hidden; }
   min-height: 24rem;
 }
 .cr-sidebar { display: flex; flex-direction: column; gap: 0.75rem; }
+.cr-toolbar { display: flex; flex-direction: column; gap: 0.5rem; }
+.cr-class-search {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.5rem;
+  background: #fff;
+}
 .cr-class-list {
   border: 1px solid var(--border-soft);
   border-radius: 0.75rem;

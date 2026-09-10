@@ -171,7 +171,8 @@
         <button type="button" class="btn btn-primary" id="teacherAddBtn" data-i18n="admin.teachers.add">+ Add faculty</button>
       </div>
       <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
-      <div id="teacherList" class="table-wrap" style="margin:1rem 0"></div>
+      <input type="search" id="teacherSearch" class="cr-class-search" style="margin:0.75rem 0 0;max-width:20rem" placeholder="Search faculty by name, title, or login…" aria-label="Search faculty">
+      <div id="teacherList" class="table-wrap" style="margin:0.75rem 0"></div>
 
       <div id="teacherEditor" class="teacher-editor hidden">
         <div class="teacher-editor-head">
@@ -821,6 +822,7 @@
   let classes = [];
   let teachers = [];
   let facultyCatalog = null;
+  let teacherSearchQuery = '';
   const sessionProfile = getProfile(role) || {};
   const TAB_TITLE_KEYS = {
     monitor: 'admin.page.monitor',
@@ -1349,9 +1351,20 @@
   async function loadTeachers() {
     await ensureFacultyCatalog();
     const data = await api('/api/admin/teachers', {}, role);
-    const teachers = data.teachers || [];
+    teachers = data.teachers || [];
+    renderTeacherTable();
+  }
+
+  function renderTeacherTable() {
+    const q = teacherSearchQuery.trim().toLowerCase();
+    const visible = !q ? teachers : teachers.filter((t) => {
+      const haystack = [
+        t.displayName, t.preferredName, t.name, t.staffTitle, t.staffRole, t.loginId, t.email, t.phone
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
     let html = '<table class="grades-table"><thead><tr><th></th><th>Name</th><th>Title</th><th>Login</th><th>Contact</th><th>Homeroom</th><th>Permissions</th><th></th></tr></thead><tbody>';
-    teachers.forEach(t => {
+    visible.forEach(t => {
       const shown = t.displayName || t.preferredName || t.name || '';
       const initial = (shown || '?').trim().charAt(0).toUpperCase();
       const photo = t.photoPath
@@ -1376,7 +1389,9 @@
         '</td></tr>';
     });
     html += '</tbody></table>';
-    $('teacherList').innerHTML = html || '<p class="muted">No faculty yet.</p>';
+    $('teacherList').innerHTML = visible.length
+      ? html
+      : ('<p class="muted">' + (q ? 'No faculty match “' + escapeHtml(teacherSearchQuery) + '”.' : 'No faculty yet.') + '</p>');
     $('assignTeacher').innerHTML = teachers.map(t =>
       '<option value="' + escapeHtml(t.teacherId) + '">' + escapeHtml(t.displayName || t.name) + '</option>'
     ).join('');
@@ -1514,6 +1529,11 @@
     $('teacherFormTitle').textContent = 'Add faculty';
     openTeacherEditor();
     $('teacherName').focus();
+  });
+
+  $('teacherSearch').addEventListener('input', (e) => {
+    teacherSearchQuery = e.target.value || '';
+    renderTeacherTable();
   });
 
   if ($('teacherPermPresetBtn')) {

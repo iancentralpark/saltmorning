@@ -21,6 +21,7 @@
   let directoryQuery = '';
   let directorySearching = false;
   let quickContacts = [];
+  let threadSearchQuery = '';
 
   function usesContactTabs() {
     return isParentRole();
@@ -267,12 +268,25 @@
     const list = root().querySelector('.msg-thread-list');
     if (!list) return;
     const L = tabLabels();
+    const searchInput = root().querySelector('.msg-thread-search');
+    if (searchInput) {
+      // Only worth showing once there are enough conversations to need filtering.
+      searchInput.classList.toggle('hidden', threads.length < 6);
+    }
     if (!threads.length) {
       list.innerHTML = '<p class="msg-empty">' + escapeHtml(L.emptyChats) +
         (isAdminRole() ? ' Search above to message someone.' : '') + '</p>';
       return;
     }
-    list.innerHTML = threads.map((t) => {
+    const q = threadSearchQuery.trim().toLowerCase();
+    const visibleThreads = !q ? threads : threads.filter((t) =>
+      [t.title, t.subtitle, t.lastMessage].filter(Boolean).join(' ').toLowerCase().includes(q)
+    );
+    if (!visibleThreads.length) {
+      list.innerHTML = '<p class="msg-empty">No conversations match “' + escapeHtml(threadSearchQuery) + '”.</p>';
+      return;
+    }
+    list.innerHTML = visibleThreads.map((t) => {
       const preview = t.lastMessage ? escapeHtml(t.lastMessage) : '<span class="muted">No messages yet</span>';
       const badge = t.unread ? '<span class="msg-thread-unread">' + t.unread + '</span>' : '';
       const initial = String(t.title || '?').trim().charAt(0).toUpperCase() || '?';
@@ -830,6 +844,7 @@
           '<div class="msg-directory-results hidden"></div>' +
           '</div>'
         : '') +
+      '<input type="search" class="msg-thread-search" placeholder="Filter conversations…" aria-label="Filter conversations">' +
       '<div class="msg-thread-list"></div>' +
       '</div>' +
       '</div>' +
@@ -904,6 +919,14 @@
           clearDirectorySearch();
           dirInput.blur();
         }
+      });
+    }
+
+    const threadSearchInput = wrap.querySelector('.msg-thread-search');
+    if (threadSearchInput) {
+      threadSearchInput.addEventListener('input', () => {
+        threadSearchQuery = threadSearchInput.value || '';
+        renderThreads();
       });
     }
 

@@ -18,6 +18,16 @@
   let activeClass = null;
   let availableStudents = [];
   let importQuery = '';
+  let classSearchQuery = '';
+
+  function filteredClasses() {
+    const q = classSearchQuery.trim().toLowerCase();
+    if (!q) return classes;
+    return classes.filter((c) =>
+      String(c.name || '').toLowerCase().includes(q) ||
+      String(c.classId || '').toLowerCase().includes(q)
+    );
+  }
 
   function renderList() {
     const list = mountEl.querySelector('.cr-class-list');
@@ -28,7 +38,13 @@
       return;
     }
 
-    list.innerHTML = classes.map((c) => {
+    const visible = filteredClasses();
+    if (!visible.length) {
+      list.innerHTML = '<p class="muted">No classes match “' + escapeHtml(classSearchQuery) + '”.</p>';
+      return;
+    }
+
+    list.innerHTML = visible.map((c) => {
       const active = c.classId === activeClassId ? ' active' : '';
       return (
         '<button type="button" class="cr-class-item' + active + '" data-id="' + escapeHtml(c.classId) + '">' +
@@ -283,6 +299,7 @@
       '<div class="cr-layout">' +
       '<aside class="cr-sidebar">' +
       '<div class="cr-toolbar">' +
+      '<input type="search" class="cr-class-search" placeholder="Search classes…" aria-label="Search classes">' +
       '<button type="button" class="btn btn-primary cr-new-btn">+ New class</button>' +
       '</div>' +
       '<div class="cr-class-list"><p class="muted">Loading…</p></div>' +
@@ -291,6 +308,10 @@
       '</div>';
 
     mountEl.querySelector('.cr-new-btn').addEventListener('click', newClass);
+    mountEl.querySelector('.cr-class-search').addEventListener('input', (e) => {
+      classSearchQuery = e.target.value || '';
+      renderList();
+    });
   }
 
   function init(opts) {
