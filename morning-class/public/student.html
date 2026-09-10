@@ -65,6 +65,17 @@
       <div id="homeworkList"></div>
     </div>
 
+    <div class="card stu-card" id="sectionGrades">
+      <div class="card-title"><i class="fa-solid fa-chart-simple"></i> <span data-i18n="nav.parentGrades">Grades</span></div>
+      <div id="stuGrades"><p class="muted" data-i18n="common.loading">Loading…</p></div>
+    </div>
+
+    <div class="card stu-card" id="sectionReportCard">
+      <div class="card-title"><i class="fa-solid fa-file-lines"></i> <span data-i18n="nav.reportCards">Report card</span></div>
+      <div id="stuReportList" class="rc-parent-list"></div>
+      <div id="stuReportBody"></div>
+    </div>
+
     <div class="card stu-card" id="sectionDollars">
       <div class="card-title"><i class="fa-solid fa-coins"></i> <span data-i18n="student.dollars">My dollars</span></div>
       <div class="stu-dollar-row">
@@ -168,6 +179,7 @@
 <script src="/js/messenger.js?v=20260813gap1"></script>
 <script src="/js/subject-colors.js?v=20260812pastel"></script>
 <script src="/js/timetable.js?v=20260901click1"></script>
+<script src="/js/report-card-print.js?v=20260910stugr1"></script>
 <script src="/js/vocab-learn.js?v=20260810teacherux"></script>
 <script>
 (function() {
@@ -478,6 +490,94 @@
       (p.studentId ? ' · ' + p.studentId : '');
   }
 
+  async function loadGrades() {
+    const box = $('stuGrades');
+    if (!box) return;
+    box.innerHTML = '<p class="muted">' + escapeHtml('Loading…') + '</p>';
+    try {
+      const data = await api('/api/student/grades', {}, role);
+      const subjects = data.subjects || [];
+      if (!subjects.length) {
+        box.innerHTML = '<p class="muted">' + escapeHtml(data.message || 'No graded subjects found yet.') + '</p>';
+        return;
+      }
+      let html = '<p class="muted small">' +
+        escapeHtml((data.className ? data.className + ' · ' : '') + (data.term || '')) + '</p>' +
+        '<table class="grades-table"><thead><tr><th>Subject</th><th>Grade</th><th>Progress</th><th>Recent</th></tr></thead><tbody>';
+      subjects.forEach((s) => {
+        const weights = (s.weights || []).map((w) =>
+          escapeHtml(w.label || w.categoryKey) + ' ' + (w.weightPercent != null ? w.weightPercent + '%' : '')
+        ).join(', ');
+        const recent = (s.recent || []).filter((r) => r.score != null).slice(-3).map((r) =>
+          escapeHtml(r.title || '') + (r.percent != null ? ' (' + Math.round(r.percent) + '%)' : '')
+        ).join('; ');
+        html += '<tr>' +
+          '<td><strong>' + escapeHtml(s.subject) + '</strong>' +
+          (weights ? '<div class="muted small">' + weights + '</div>' : '') + '</td>' +
+          '<td>' + (s.finalGrade != null ? escapeHtml(String(s.finalGrade)) : '—') + '</td>' +
+          '<td>' + (s.gradedWeightPercent != null ? Math.round(s.gradedWeightPercent) + '%' : '—') + '</td>' +
+          '<td class="muted small">' + (recent || '—') + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+      box.innerHTML = html;
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function renderStuReportCard(card) {
+    return '<div class="rc-full-toolbar no-print">' +
+      '<button type="button" class="btn btn-primary" id="stuPrintBtn">Print</button></div>' +
+      '<div id="stuRcPrintPreview" class="rc-print-preview-mount"></div>';
+  }
+
+  async function loadReportCards() {
+    const list = $('stuReportList');
+    const body = $('stuReportBody');
+    if (!list || !body) return;
+    list.innerHTML = '<p class="muted">Loading…</p>';
+    body.innerHTML = '';
+    try {
+      const data = await api('/api/student/report-cards', {}, role);
+      const reports = data.reports || [];
+      if (!reports.length) {
+        list.innerHTML = '<p class="muted">' + escapeHtml(data.message || 'No report card has been shared yet.') + '</p>';
+        return;
+      }
+      list.innerHTML = reports.map((r, idx) =>
+        '<button type="button" class="btn btn-primary stu-rc-open" data-idx="' + idx + '">' +
+        'View ' + escapeHtml(r.term) + '</button>'
+      ).join('');
+      list.querySelectorAll('.stu-rc-open').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const card = reports[Number(btn.dataset.idx)];
+          body.innerHTML = renderStuReportCard(card);
+          const preview = $('stuRcPrintPreview');
+          if (preview && window.SaltReportCardPrint && SaltReportCardPrint.mountPrintPreview) {
+            SaltReportCardPrint.mountPrintPreview(preview, card);
+          } else if (preview) {
+            preview.innerHTML = '<p class="error">Could not render report card.</p>';
+          }
+          const printBtn = $('stuPrintBtn');
+          if (printBtn) {
+            printBtn.addEventListener('click', () => {
+              if (window.SaltReportCardPrint && SaltReportCardPrint.printCard) {
+                SaltReportCardPrint.printCard();
+              } else {
+                window.print();
+              }
+            });
+          }
+        });
+      });
+      list.querySelector('.stu-rc-open').click();
+    } catch (e) {
+      list.innerHTML = '';
+      body.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
   async function loadDashboard() {
     try {
       dashboard = await api('/api/student/dashboard', {}, role);
@@ -603,6 +703,8 @@
   }
   loadDashboard();
   loadStudentAnnouncements();
+  loadGrades();
+  loadReportCards();
   if (window.SaltLostFound && SaltLostFound.Student) {
     SaltLostFound.Student.init({ api, $, escapeHtml });
     SaltLostFound.Student.open();

@@ -2192,6 +2192,27 @@ router.get('/student/dollars', requireRole('student'), async (req, res) => {
   }
 });
 
+router.get('/student/grades', requireRole('student'), async (req, res) => {
+  try {
+    const { getStudentGradeSummary } = require('./services/gradeService');
+    const summary = await getStudentGradeSummary(req.session.studentId, {
+      term: req.query.term || ''
+    });
+    res.json(summary);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not load grades.' });
+  }
+});
+
+router.get('/student/report-cards', requireRole('student'), async (req, res) => {
+  try {
+    const data = await listParentReportCards(req.session);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load report cards.' });
+  }
+});
+
 router.get('/student/homework', requireRole('student'), async (req, res) => {
   try {
     await ensureHomeworkSheets();
