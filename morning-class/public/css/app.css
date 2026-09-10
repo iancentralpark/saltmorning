@@ -4001,6 +4001,16 @@ body.lp-lesson-drawer-open { overflow: hidden; }
 }
 .stu-chip-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; }
 .stu-chip strong { font-size: 1.25rem; }
+.stu-chip-link {
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.stu-chip-link:hover, .stu-chip-link:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
 .stu-quick-links {
   display: flex;
   flex-wrap: wrap;

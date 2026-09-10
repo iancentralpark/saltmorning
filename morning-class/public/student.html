@@ -237,9 +237,27 @@
     }
   };
 
-  function chip(label, value) {
-    return '<div class="stu-chip"><span class="stu-chip-label">' + escapeHtml(label) +
-      '</span><strong>' + escapeHtml(String(value)) + '</strong></div>';
+  function chip(label, value, targetId) {
+    const tag = targetId ? 'button' : 'div';
+    const attrs = targetId
+      ? ' type="button" class="stu-chip stu-chip-link" data-chip-target="' + escapeHtml(targetId) + '"'
+      : ' class="stu-chip"';
+    return '<' + tag + attrs + '><span class="stu-chip-label">' + escapeHtml(label) +
+      '</span><strong>' + escapeHtml(String(value)) + '</strong></' + tag + '>';
+  }
+
+  function wireHomeChips() {
+    document.querySelectorAll('#homeSummary [data-chip-target]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.chipTarget;
+        if (target === 'messages') {
+          if (window.SaltMessenger) window.SaltMessenger.open();
+          return;
+        }
+        const el = document.getElementById(target);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
   }
 
   function setBuddyOpen(on) {
@@ -380,10 +398,11 @@
     const s = dashboard.summary || {};
     const v = dashboard.vocab || {};
     $('homeSummary').innerHTML =
-      chip('Messages', s.unreadMessages || 0) +
-      chip('Homework', s.pendingHomework || 0) +
-      chip('Dollars', s.dollars == null ? '—' : s.dollars) +
-      chip('Vocab Booster', v.placementDone ? (v.tierLabel || v.tierName || v.tier || 'Ready') : 'Place first');
+      chip('Messages', s.unreadMessages || 0, 'messages') +
+      chip('Homework', s.pendingHomework || 0, 'sectionHomework') +
+      chip('Dollars', s.dollars == null ? '—' : s.dollars, 'sectionDollars') +
+      chip('Vocab Booster', v.placementDone ? (v.tierLabel || v.tierName || v.tier || 'Ready') : 'Place first', 'vocabShell');
+    wireHomeChips();
   }
 
   function renderHomework() {
