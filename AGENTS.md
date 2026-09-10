@@ -59,14 +59,22 @@ checks: `GET /api/health` (both Node apps) and `GET /health` (solver).
 folder and can overwrite the GitHub-connected deployment with a stale snapshot
 (this caused the Aug 2026 rollbacks).
 
+**Auth for agents:** Cursor secret `RAILWAY_TOKEN` must be a **project token** for
+`mrpark-class-api` / `production` (not the wrong `salt-morning-class` project).
+Account/workspace tokens use `RAILWAY_API_TOKEN` instead. Do not set both.
+
 **Correct deploy (from `morning-class/` after pushing to `main`):**
+
+```bash
+bash scripts/deploy-production.sh
+```
+
+Or manually (CLI login / `RAILWAY_API_TOKEN` only):
 
 ```bash
 npx @railway/cli link -p 37e18dd4-072b-49df-ab3b-315e9ea29dcf -e production -s salt-morning-class
 npx @railway/cli redeploy --from-source -y --service salt-morning-class
 ```
-
-Or run `bash scripts/deploy-production.sh` in `morning-class/`.
 
 Verify: `GET /api/health` should include `reportCardPrintVersion`. Do **not**
 touch `server/` (Mr. Park Class API) when deploying Salt Morning.
