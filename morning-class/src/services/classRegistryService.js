@@ -233,13 +233,20 @@ async function blankMatchingRows(sheetName, colIndex, classId) {
 }
 
 async function clearHomeroomAssignments(classId) {
+  const { parseHomeroomClassIds, serializeHomeroomClassIds } = require('./teacherPortalService');
   const rows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true }).catch(() => []);
   let cleared = 0;
   for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][4] || '').trim() !== classId) continue;
+    const raw = String(rows[i][4] || '').trim();
+    if (!raw) continue;
+    const ids = parseHomeroomClassIds(raw);
+    if (!ids.includes(classId)) continue;
+    const next = serializeHomeroomClassIds(ids.filter((id) => id !== classId));
+    // Exact-match alone missed multi-homeroom values like "C001, C003".
+    if (next === raw) continue;
     const row = rows[i].slice();
     while (row.length < 8) row.push('');
-    row[4] = '';
+    row[4] = next;
     await updateRange(TEACHER_LIST_SHEET, `A${i + 1}:H${i + 1}`, [row.slice(0, 8)]);
     cleared += 1;
   }
