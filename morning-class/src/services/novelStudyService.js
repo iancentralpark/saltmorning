@@ -769,6 +769,10 @@ function pageCharCount(text) {
   return String(text || '').replace(/\s+/g, '').length;
 }
 
+/** US + UK: acknowledgment(s) / acknowledgement(s) */
+const ACK_RE = /acknowledg(e)?ments?/i;
+const NON_CONTENT_LABEL_RE = /title page|front matter|half[- ]title|copyright|table of contents|\bcontents\b|dedication|epigraph|acknowledg(e)?ments?|about the author|also by (the )?author|bibliography|works cited|further reading|\bindex\b|publishing information|publication (info|details|data)|colophon|photo credits|\bcredits\b|permissions?|catalogu?ing|isbn\b|digital archiv/i;
+
 function frontMatterScore(pageText) {
   const raw = String(pageText || '');
   const t = raw.toLowerCase();
@@ -779,7 +783,7 @@ function frontMatterScore(pageText) {
   if (/©|copyright|all rights reserved|\bisbn\b|library of congress|cip data/i.test(t)) score += 4;
   if (/published by|printed in|first (published|printing)|reprint(ed)?|imprint\b/i.test(t)) score += 3;
   if (/table of contents/i.test(t) || /(^|\n)\s*contents\s*(\n|$)/i.test(raw)) score += 5;
-  if (/acknowledgements?|dedication|epigraph|also by (the )?author|about the author/i.test(t)) score += 4;
+  if (ACK_RE.test(t) || /dedication|epigraph|also by (the )?author|about the author/i.test(t)) score += 4;
   if (/permission to reproduce|cataloguing|cataloging.in.publication/i.test(t)) score += 3;
   if (/title page|half title|frontispiece/i.test(t)) score += 2;
 
@@ -802,11 +806,22 @@ function frontMatterScore(pageText) {
 }
 
 function backMatterScore(pageText) {
-  const t = String(pageText || '').toLowerCase();
+  const raw = String(pageText || '');
+  const t = raw.toLowerCase();
   const len = pageCharCount(pageText);
+  const lines = pageLines(raw);
+  const head = lines.slice(0, 6).join(' ').toLowerCase();
   let score = 0;
-  if (/\b(index|bibliography|works cited|further reading|glossary|notes)\b/.test(t)) score += 3;
-  if (/about the author|acknowledgements?|credits|photo credits/i.test(t)) score += 2;
+
+  // Strong: heading-like first lines (acknowledgments are usually prose, so score high here).
+  if (ACK_RE.test(head) || /about the author|publishing information|publication (info|details)|colophon|photo credits|bibliography|works cited|further reading|\bindex\b|\bglossary\b/i.test(head)) {
+    score += 6;
+  }
+  if (/\b(index|bibliography|works cited|further reading|glossary|colophon)\b/.test(t)) score += 3;
+  if (ACK_RE.test(t) || /about the author|credits|photo credits|publishing information/i.test(t)) score += 4;
+  if (/©|\bisbn\b|library of congress|all rights reserved|printed in|published by|digital archiv/i.test(t) && len < 1600) {
+    score += 3;
+  }
   if (len < 200) score += 1;
   return score;
 }
@@ -875,9 +890,12 @@ function trimToBookBody(pages) {
   }
 
   let bodyEnd = all.length - 1;
-  const scanBackFrom = Math.max(bodyStart + 1, all.length - Math.max(6, Math.ceil(all.length * 0.12)));
+  // Acknowledgments / credits often look like prose — still trim them from the end.
+  const scanBackFrom = Math.max(bodyStart + 1, all.length - Math.max(10, Math.ceil(all.length * 0.18)));
   for (let i = all.length - 1; i >= scanBackFrom; i -= 1) {
-    if (backMatterScore(all[i].text) >= 3 && !looksLikeBodyProse(all[i].text)) {
+    const score = backMatterScore(all[i].text);
+    const prose = looksLikeBodyProse(all[i].text);
+    if (score >= 4 || (score >= 3 && !prose)) {
       bodyEnd = i - 1;
       continue;
     }
@@ -897,11 +915,11 @@ function isNonContentChunk(chunk) {
   const title = String((chunk && chunk.unitTitle) || '');
   const summary = String((chunk && chunk.summary) || '');
   const blob = (title + ' ' + summary).toLowerCase();
-  if (/title page|front matter|half[- ]title|copyright|table of contents|\bcontents\b|dedication|acknowledgements?|about the author|bibliography|\bindex\b/.test(blob)) {
-    return true;
-  }
-  if (chunk && chunk.text && frontMatterScore(chunk.text) >= 4 && !looksLikeBodyProse(chunk.text)) {
-    return true;
+  if (NON_CONTENT_LABEL_RE.test(blob)) return true;
+  if (chunk && chunk.text) {
+    const bm = backMatterScore(chunk.text);
+    if (bm >= 4) return true;
+    if (frontMatterScore(chunk.text) >= 4 && !looksLikeBodyProse(chunk.text)) return true;
   }
   return false;
 }
@@ -953,9 +971,10 @@ function isJunkHeading(line, banned) {
   if (/z-?library|z-?lib|1lib\.|pdfdrive|downloaded from|www\.|https?:/i.test(raw)) return true;
   if (/^world map of history$/i.test(raw)) return true;
   if (/copyright|all rights reserved|isbn\b|printed in|published by/i.test(raw)) return true;
-  if (/^(contents|table of contents|index|glossary|bibliography|acknowledgements?|about the author)$/i.test(raw)) {
+  if (/^(contents|table of contents|index|glossary|bibliography|acknowledg(e)?ments?|about the author|publishing information|colophon|photo credits)$/i.test(raw)) {
     return true;
   }
+  if (ACK_RE.test(raw) && raw.length < 80) return true;
   return false;
 }
 
@@ -1303,7 +1322,7 @@ async function enrichChunkLabelsWithGemini(chunks, metaSeed, options, toc) {
       '- Keep the SAME part_num values. Do not add/remove parts or change page ranges.',
       '- unit_title: short descriptive section title (chapter/section name OR a clear topic title).',
       '- NEVER use titles like "Pages 1–4", "Part 3", or only a page range.',
-      '- NEVER label title pages, copyright, contents, dedication, or other front matter.',
+      '- NEVER label title pages, copyright, contents, dedication, acknowledgments, about the author, publishing info, index, or other front/back matter.',
       '- summary: one plain sentence (max 140 chars) describing what students read in that range.',
       '- Prefer real chapter/section names when the preview shows them.',
       metaSeed && metaSeed.title ? ('Book: ' + metaSeed.title) : '',
@@ -1422,7 +1441,8 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
     '- Never invent page numbers outside ' + pages[0].pageNum + '..' + pages[pages.length - 1].pageNum + '.',
     '- Cover the whole book body with contiguous, non-overlapping sections.',
     '- unit_title must be descriptive (chapter/section name or clear topic). Never "Pages 12–15".',
-    '- Skip title/copyright/contents if they appear in the outline.',
+    '- Skip title/copyright/contents and back matter (acknowledgments, about the author, publishing info, index, credits) if they appear.',
+    '- Do not create sections for acknowledgments, credits, or publishing information.',
     'Detected headings: ' + JSON.stringify((toc || []).slice(0, 80)),
     'Page outline: ' + JSON.stringify(outline.slice(0, 120))
   ].join('\n');
