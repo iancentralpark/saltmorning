@@ -446,76 +446,52 @@ async function syncReportCardFromGrades(classId, term, subject, teacherId, stude
 
   const data = await getSheetRows(REPORT_CARD_ENTRIES_SHEET);
   const now = new Date().toISOString();
+  const index = new Map();
+  for (let i = 1; i < data.length; i++) {
+    const key = [data[i][1], data[i][2], data[i][3], data[i][4], data[i][5]].map(String).join('||');
+    index.set(key, i + 1);
+  }
+
   const appends = [];
+  const updates = [];
   let synced = 0;
+
+  function upsert(studentId, fieldKey, score, note) {
+    const key = [classId, studentId, term, subject, fieldKey].map(String).join('||');
+    const found = index.get(key) || -1;
+    const row = [
+      found > 0 ? String(data[found - 1][0]) : newId('rc'),
+      classId,
+      studentId,
+      term,
+      subject,
+      fieldKey,
+      score,
+      note,
+      teacherId,
+      now
+    ];
+    if (found > 0) {
+      updates.push({ sheetName: REPORT_CARD_ENTRIES_SHEET, a1: `A${found}:J${found}`, values: [row] });
+    } else {
+      appends.push(row);
+    }
+    synced++;
+  }
 
   for (const st of dashboard.standings) {
     for (const cat of st.categories) {
       if (cat.categoryPercent == null) continue;
-      const fieldKey = 'gw_' + cat.categoryKey;
-      let found = -1;
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][1]) !== String(classId)) continue;
-        if (String(data[i][2]) !== st.studentId) continue;
-        if (String(data[i][3]) !== String(term)) continue;
-        if (String(data[i][4]) !== String(subject)) continue;
-        if (String(data[i][5]) !== fieldKey) continue;
-        found = i + 1;
-        break;
-      }
-      const row = [
-        found > 0 ? String(data[found - 1][0]) : newId('rc'),
-        classId,
-        st.studentId,
-        term,
-        subject,
-        fieldKey,
-        cat.categoryPercent,
-        cat.label + ' (' + cat.weightPercent + '%)',
-        teacherId,
-        now
-      ];
-      if (found > 0) {
-        await updateRange(REPORT_CARD_ENTRIES_SHEET, `A${found}:J${found}`, [row]);
-      } else {
-        appends.push(row);
-      }
-      synced++;
+      upsert(st.studentId, 'gw_' + cat.categoryKey, cat.categoryPercent, cat.label + ' (' + cat.weightPercent + '%)');
     }
-
     if (st.weightedTotal != null) {
-      const fieldKey = 'term_total';
-      let found = -1;
-      for (let i = 1; i < data.length; i++) {
-        if (String(data[i][1]) !== String(classId)) continue;
-        if (String(data[i][2]) !== st.studentId) continue;
-        if (String(data[i][3]) !== String(term)) continue;
-        if (String(data[i][4]) !== String(subject)) continue;
-        if (String(data[i][5]) !== fieldKey) continue;
-        found = i + 1;
-        break;
-      }
-      const row = [
-        found > 0 ? String(data[found - 1][0]) : newId('rc'),
-        classId,
-        st.studentId,
-        term,
-        subject,
-        fieldKey,
-        st.weightedTotal,
-        'Weighted term grade',
-        teacherId,
-        now
-      ];
-      if (found > 0) {
-        await updateRange(REPORT_CARD_ENTRIES_SHEET, `A${found}:J${found}`, [row]);
-      } else {
-        appends.push(row);
-      }
-      synced++;
+      upsert(st.studentId, 'term_total', st.weightedTotal, 'Weighted term grade');
     }
   }
 
+  // One batch call for all updates + one append call for all new rows,
+  // instead of one Sheets API round-trip per student per category.
+  if (updates.length) await batchUpdateRanges(updates);
   if (appends.length) await appendRows(REPORT_CARD_ENTRIES_SHEET, appends);
   return { synced };
 }
