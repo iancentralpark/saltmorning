@@ -5,6 +5,7 @@ const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
 const { hasPermission } = require('./services/staffPermissionService');
+const { loginRateLimiter, aiRateLimiter } = require('./middleware/rateLimit');
 const {
   getTeacherClasses,
   getClassRoster,
@@ -581,7 +582,7 @@ router.post('/auth/admin/login', async (req, res) => {
   }
 });
 
-router.post('/auth/login', async (req, res) => {
+router.post('/auth/login', loginRateLimiter, async (req, res) => {
   try {
     const result = await loginUnified(req.body.loginId, req.body.password);
     res.json(result);
@@ -1463,7 +1464,7 @@ router.post('/teacher/class/:classId/analytics/seed-mock', requireRole('teacher'
   }
 });
 
-router.post('/teacher/class/:classId/analytics/students/:studentId/diagnose', requireRole('teacher'), async (req, res) => {
+router.post('/teacher/class/:classId/analytics/students/:studentId/diagnose', requireRole('teacher'), aiRateLimiter, async (req, res) => {
   try {
     await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
     res.json(await generateAiDiagnostic(req.params.classId, req.params.studentId));
@@ -1624,7 +1625,7 @@ router.get('/admin/analytics/students/:studentId', requireRole('admin'), async (
   }
 });
 
-router.post('/admin/analytics/students/:studentId/diagnose', requireRole('admin'), async (req, res) => {
+router.post('/admin/analytics/students/:studentId/diagnose', requireRole('admin'), aiRateLimiter, async (req, res) => {
   try {
     const bundle = await getSchoolStudentAnalytics(req.params.studentId);
     res.json(await generateAiDiagnostic(bundle.classId, req.params.studentId));
@@ -2721,7 +2722,7 @@ router.delete('/student/english-buddy/history', requireRole('student'), async (r
   }
 });
 
-router.post('/student/english-buddy', requireRole('student'), async (req, res) => {
+router.post('/student/english-buddy', requireRole('student'), aiRateLimiter, async (req, res) => {
   try {
     const result = await askEnglishBuddy(
       req.session.studentId,

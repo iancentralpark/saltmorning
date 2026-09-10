@@ -15,6 +15,9 @@ const { ensureRequirementsSheet } = require('./services/timetableRequirementsSer
 const { ensureTimetableSheet } = require('./services/timetableService');
 
 const app = express();
+// Deployed behind Railway's reverse proxy — trust the first hop so
+// req.ip reflects the real client (needed for IP-based rate limiting).
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 express.static.mime.define({ 'application/manifest+json': ['webmanifest'] });
