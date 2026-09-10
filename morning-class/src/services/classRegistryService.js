@@ -48,16 +48,29 @@ async function nextClassId() {
 }
 
 async function listClassesDetailed() {
-  const rows = await getSheetRows(CLASS_LIST_SHEET);
+  const [rows, studentRows] = await Promise.all([
+    getSheetRows(CLASS_LIST_SHEET),
+    getSheetRows(STUDENT_LIST_SHEET)
+  ]);
+
+  // Count enrolled students per class in one pass instead of re-scanning
+  // the whole student list once per class (was O(classes x students)).
+  const countByClass = {};
+  for (let i = 1; i < studentRows.length; i++) {
+    if (String(studentRows[i][LIST_COL.status] || '').trim() !== 'Enrolled') continue;
+    const classId = String(studentRows[i][LIST_COL.classId] || '').trim();
+    if (!classId) continue;
+    countByClass[classId] = (countByClass[classId] || 0) + 1;
+  }
+
   const classes = [];
   for (let i = 1; i < rows.length; i++) {
     const cls = rowToClass(rows[i]);
     if (!cls) continue;
-    const roster = await getClassRoster(cls.classId);
     classes.push({
       ...cls,
       allowedDaysLabel: cls.allowedDays.join(','),
-      studentCount: roster.length
+      studentCount: countByClass[cls.classId] || 0
     });
   }
   classes.sort((a, b) => a.name.localeCompare(b.name));
