@@ -1668,14 +1668,16 @@
           '</td><td>' + ((s.questDone || s.todayTestPassed) ? 'Done' : (s.placementDone ? 'Open' : 'Placement')) +
           '</td><td>' + (s.streak || s.streakDays || 0) + '</td><td style="white-space:nowrap">' +
           '<button type="button" class="btn btn-ghost vocab-reset" data-sid="' + escapeHtml(s.studentId) +
-          '">Reset</button> ' +
+          '" data-name="' + escapeHtml(s.name) + '">Reset</button> ' +
           '<button type="button" class="btn btn-ghost vocab-up" data-sid="' + escapeHtml(s.studentId) +
-          '" data-g="' + (s.gradeLevel || 4) + '">+Lv</button></td></tr>';
+          '" data-name="' + escapeHtml(s.name) + '" data-g="' + (s.gradeLevel || 4) + '">+Lv</button></td></tr>';
       });
       html += '</tbody></table></div>';
       box.innerHTML = html;
       box.querySelectorAll('.vocab-reset').forEach((btn) => {
         btn.addEventListener('click', async () => {
+          if (!confirm('Reset Vocab Booster placement for ' + (btn.dataset.name || 'this student') +
+            '?\n\nThey will need to retake the placement test.')) return;
           try {
             await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
               '/vocab/' + encodeURIComponent(btn.dataset.sid), {
@@ -1688,11 +1690,13 @@
       });
       box.querySelectorAll('.vocab-up').forEach((btn) => {
         btn.addEventListener('click', async () => {
+          const nextLevel = Number(btn.dataset.g) + 1;
+          if (!confirm('Move ' + (btn.dataset.name || 'this student') + ' up to Level ' + nextLevel + '?')) return;
           try {
             await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
               '/vocab/' + encodeURIComponent(btn.dataset.sid), {
               method: 'POST',
-              body: { gradeLevel: Number(btn.dataset.g) + 1, placementDone: true }
+              body: { gradeLevel: nextLevel, placementDone: true }
             }, role);
             loadVocabOverview();
           } catch (e) { err.textContent = e.message; }
