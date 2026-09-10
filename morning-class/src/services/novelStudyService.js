@@ -246,26 +246,117 @@ async function extractPages(pdfBuffer) {
   return { pageCount: pages.length, pages };
 }
 
-function guessHeading(pageText) {
-  const lines = String(pageText || '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  for (const line of lines.slice(0, 8)) {
-    if (line.length < 4 || line.length > 80) continue;
-    if (/^(chapter|part|unit|section|prologue|epilogue)\b/i.test(line)) return line;
-    if (/^[A-Z][A-Z0-9 ,.'’:\-]{6,60}$/.test(line) && !/[.!?]$/.test(line)) return line;
+function normalizeLine(line) {
+  return String(line || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function pageLines(pageText) {
+  return String(pageText || '')
+    .split(/\n+/)
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+/** Lines that repeat across many pages are usually running headers/footers. */
+function collectRunningHeaders(pages) {
+  const counts = new Map();
+  (pages || []).forEach((p) => {
+    const lines = pageLines(p.text);
+    const edge = lines.slice(0, 4).concat(lines.slice(-3));
+    const seen = new Set();
+    edge.forEach((line) => {
+      if (line.length < 4 || line.length > 90) return;
+      const key = normalizeLine(line);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  });
+  const pageCount = Math.max(1, (pages || []).length);
+  const threshold = Math.max(3, Math.ceil(pageCount * 0.12));
+  const banned = new Set();
+  for (const [key, n] of counts) {
+    if (n >= threshold) banned.add(key);
+  }
+  return banned;
+}
+
+function isJunkHeading(line, banned) {
+  const raw = String(line || '').trim();
+  const key = normalizeLine(raw);
+  if (!raw || !key) return true;
+  if (banned && banned.has(key)) return true;
+  if (/^(page\s*)?\d+(\s*of\s*\d+)?$/i.test(raw)) return true;
+  if (/z-?library|z-?lib|1lib\.|pdfdrive|downloaded from|www\.|https?:/i.test(raw)) return true;
+  if (/^world map of history$/i.test(raw)) return true;
+  if (/copyright|all rights reserved|isbn\b/i.test(raw)) return true;
+  return false;
+}
+
+function guessHeading(pageText, banned) {
+  const lines = pageLines(pageText);
+  const candidates = [];
+  for (const line of lines.slice(0, 10)) {
+    if (line.length < 4 || line.length > 90) continue;
+    if (isJunkHeading(line, banned)) continue;
+    if (/^(chapter|part|unit|section|prologue|epilogue|contents|introduction)\b/i.test(line)) {
+      return line;
+    }
+    // Title Case / short display heading — avoid ALL-CAPS running headers.
+    const words = line.split(/\s+/);
+    const titleCase = words.length >= 2 && words.length <= 12
+      && words.filter((w) => /^[A-Z]/.test(w)).length >= Math.ceil(words.length * 0.5)
+      && !/[.!?]$/.test(line);
+    if (titleCase) candidates.push(line);
+    // ALL CAPS only if short and not banned (true chapter titles sometimes shout).
+    if (
+      /^[A-Z][A-Z0-9 ,.'’:\-]{3,50}$/.test(line)
+      && !/[.!?]$/.test(line)
+      && words.length <= 8
+    ) {
+      candidates.push(line);
+    }
+  }
+  return candidates[0] || '';
+}
+
+function firstContentSnippet(text, banned) {
+  const lines = pageLines(text);
+  for (const line of lines) {
+    if (line.length < 12 || line.length > 90) continue;
+    if (isJunkHeading(line, banned)) continue;
+    if (/^(chapter|part|unit|section)\b/i.test(line)) return line;
+    // Prefer a sentence-like content line over a header.
+    if (/[a-z]/.test(line) && /[A-Za-z]/.test(line)) {
+      return line.replace(/\s+/g, ' ').slice(0, 72);
+    }
   }
   return '';
 }
 
+function cleanBookTitle(raw, fallback) {
+  let t = String(raw || fallback || 'Untitled Book').trim();
+  t = t.replace(/\((?:z-?library|z-?lib|1lib)[^)]*\)/gi, '');
+  t = t.replace(/\b(?:z-?library\.sk|1lib\.sk|z-lib\.sk)\b/gi, '');
+  t = t.replace(/\s{2,}/g, ' ').replace(/[_\-]+$/g, '').trim();
+  // "Title (Author etc.)" → keep title; author handled separately when possible.
+  return t.slice(0, 160) || 'Untitled Book';
+}
+
 function planChunksHeuristic(pages) {
+  const banned = collectRunningHeaders(pages);
   const raw = [];
   let cur = null;
   pages.forEach((p) => {
-    const heading = guessHeading(p.text);
+    const heading = guessHeading(p.text, banned);
     const startNew = heading && (!cur || heading !== cur.unitTitle);
     if (!cur || startNew) {
       if (cur) raw.push(cur);
       cur = {
-        unitTitle: heading || ('Section starting p.' + p.pageNum),
+        unitTitle: heading || '',
         startPage: p.pageNum,
         endPage: p.pageNum,
         pages: [p]
@@ -280,11 +371,18 @@ function planChunksHeuristic(pages) {
   const merged = [];
   for (const sec of raw) {
     const span = sec.endPage - sec.startPage + 1;
-    if (merged.length && span <= MERGE_UNDER) {
+    if (merged.length && (span <= MERGE_UNDER || !sec.unitTitle)) {
       const prev = merged[merged.length - 1];
       prev.endPage = sec.endPage;
       prev.pages = prev.pages.concat(sec.pages);
-      if (!/section starting/i.test(sec.unitTitle)) prev.unitTitle += ' / ' + sec.unitTitle;
+      if (sec.unitTitle && sec.unitTitle !== prev.unitTitle && prev.unitTitle) {
+        // Keep first real heading; don't append running junk.
+        if (!isJunkHeading(sec.unitTitle, banned)) {
+          prev.unitTitle = prev.unitTitle; // no-op keep
+        }
+      } else if (!prev.unitTitle && sec.unitTitle) {
+        prev.unitTitle = sec.unitTitle;
+      }
     } else {
       merged.push({
         unitTitle: sec.unitTitle,
@@ -305,9 +403,8 @@ function planChunksHeuristic(pages) {
     for (let i = 0; i < sec.pages.length; i += TARGET_MAX) {
       const slice = sec.pages.slice(i, i + TARGET_MAX);
       if (!slice.length) continue;
-      const idx = Math.floor(i / TARGET_MAX) + 1;
       split.push({
-        unitTitle: sec.unitTitle + (sec.pages.length > TARGET_MAX ? (' (' + idx + ')') : ''),
+        unitTitle: sec.unitTitle || '',
         startPage: slice[0].pageNum,
         endPage: slice[slice.length - 1].pageNum,
         pages: slice
@@ -323,7 +420,7 @@ function planChunksHeuristic(pages) {
       const next = split[i + 1];
       if (next.endPage - sec.startPage + 1 <= TARGET_MAX + 1) {
         finalSecs.push({
-          unitTitle: sec.unitTitle + ' / ' + next.unitTitle,
+          unitTitle: sec.unitTitle || next.unitTitle || '',
           startPage: sec.startPage,
           endPage: next.endPage,
           pages: sec.pages.concat(next.pages)
@@ -335,23 +432,36 @@ function planChunksHeuristic(pages) {
     finalSecs.push(sec);
   }
 
-  return finalSecs.map((sec, idx) => ({
-    partNum: idx + 1,
-    unitTitle: sec.unitTitle || ('Part ' + (idx + 1)),
-    startPage: sec.startPage,
-    endPage: sec.endPage,
-    text: sec.pages.map((p) => p.text).join('\n\n').trim()
-  }));
+  return finalSecs.map((sec, idx) => {
+    const text = sec.pages.map((p) => p.text).join('\n\n').trim();
+    let title = String(sec.unitTitle || '').trim();
+    if (!title || isJunkHeading(title, banned)) {
+      const snip = firstContentSnippet(text, banned);
+      title = snip
+        ? ('pp. ' + sec.startPage + '–' + sec.endPage + ': ' + snip)
+        : ('Pages ' + sec.startPage + '–' + sec.endPage);
+    } else if (title.length > 72) {
+      title = title.slice(0, 72).trim() + '…';
+    }
+    return {
+      partNum: idx + 1,
+      unitTitle: title,
+      startPage: sec.startPage,
+      endPage: sec.endPage,
+      text
+    };
+  });
 }
 
 async function planChunksWithGemini(pages, options) {
-  const sample = pages.slice(0, 12).map((p) => ({
+  const banned = collectRunningHeaders(pages);
+  const sample = pages.slice(0, 14).map((p) => ({
     page: p.pageNum,
-    preview: String(p.text || '').slice(0, 500)
+    preview: String(p.text || '').slice(0, 420)
   }));
   const headings = [];
   pages.forEach((p) => {
-    const h = guessHeading(p.text);
+    const h = guessHeading(p.text, banned);
     if (h) headings.push({ page: p.pageNum, heading: h });
   });
   const level = LEVELS[options.level] || LEVELS.middle;
@@ -362,13 +472,15 @@ async function planChunksWithGemini(pages, options) {
     '{ "title": string, "author": string, "genre": "fiction"|"nonfiction",',
     '  "chunks": [{ "part_num": number, "unit_title": string, "start_page": number, "end_page": number }] }',
     'Rules:',
-    '- Prefer chapter/section heading boundaries.',
+    '- Prefer real chapter/section headings (e.g. "Chapter 1", topic titles).',
+    '- IGNORE running headers/footers that repeat on many pages (maps, site names, book title alone).',
     '- Each chunk ≈ ' + TARGET_MIN + '-' + TARGET_MAX + ' pages for one class period.',
     '- Split sections longer than ' + SPLIT_OVER + ' pages.',
     '- Merge sections that are 1 page or less with a neighbor.',
+    '- unit_title must be unique and descriptive for that page range — never reuse a header.',
     '- Page numbers must be within 1..' + pages.length + '.',
     'Level: ' + level.prompt,
-    'Detected headings: ' + JSON.stringify(headings.slice(0, 80)),
+    'Detected chapter-like headings: ' + JSON.stringify(headings.slice(0, 80)),
     'Sample pages: ' + JSON.stringify(sample)
   ].join('\n');
 
@@ -377,7 +489,7 @@ async function planChunksWithGemini(pages, options) {
       temperature: 0.2,
       maxOutputTokens: 4096,
       responseMimeType: 'application/json',
-      systemInstruction: 'STRICT: Output valid JSON only. Use only provided page numbers.'
+      systemInstruction: 'STRICT: Output valid JSON only. Use only provided page numbers. Never use repeating page headers as unit titles.'
     });
     const parsed = extractJson(res.text || res.answer || '');
     if (!parsed || !Array.isArray(parsed.chunks) || !parsed.chunks.length) {
@@ -388,30 +500,44 @@ async function planChunksWithGemini(pages, options) {
       let end = Math.max(start, Math.min(pages.length, Number(ch.end_page || ch.endPage) || start));
       if (end - start + 1 > SPLIT_OVER + 2) end = start + TARGET_MAX - 1;
       const slice = pages.filter((p) => p.pageNum >= start && p.pageNum <= end);
+      const text = slice.map((p) => p.text).join('\n\n').trim();
+      let unitTitle = String(ch.unit_title || ch.unitTitle || '').trim();
+      if (!unitTitle || isJunkHeading(unitTitle, banned)) {
+        const snip = firstContentSnippet(text, banned);
+        unitTitle = snip
+          ? ('pp. ' + start + '–' + end + ': ' + snip)
+          : ('Pages ' + start + '–' + end);
+      }
       return {
         partNum: i + 1,
-        unitTitle: String(ch.unit_title || ch.unitTitle || ('Part ' + (i + 1))).trim(),
+        unitTitle,
         startPage: start,
         endPage: end,
-        text: slice.map((p) => p.text).join('\n\n').trim()
+        text
       };
     }).filter((ch) => ch.text.length > 80);
 
     if (!chunks.length) throw new Error('no usable chunks');
+    // Renumber after filter
+    chunks.forEach((ch, i) => { ch.partNum = i + 1; });
     return {
       meta: {
-        title: String(parsed.title || options.fallbackTitle || 'Untitled Book').trim(),
-        author: String(parsed.author || 'Unknown').trim(),
+        title: cleanBookTitle(parsed.title || options.fallbackTitle, options.fallbackTitle),
+        author: String(parsed.author || 'Unknown').replace(/\(.*?etc\.?\)/gi, '').trim() || 'Unknown',
         genre: /non[- ]?fiction/i.test(String(parsed.genre || options.genre || ''))
           ? 'nonfiction'
-          : 'fiction'
+          : (/fiction/i.test(String(parsed.genre || '')) ? 'fiction' : (
+            /harari|history|argument|science|biography/i.test(
+              String(parsed.title || '') + ' ' + String(options.fallbackTitle || '')
+            ) ? 'nonfiction' : 'fiction'
+          ))
       },
       chunks
     };
   } catch (_) {
     return {
       meta: {
-        title: options.fallbackTitle || 'Untitled Book',
+        title: cleanBookTitle(options.fallbackTitle, 'Untitled Book'),
         author: 'Unknown',
         genre: options.genre === 'nonfiction' ? 'nonfiction' : 'fiction'
       },
@@ -430,6 +556,7 @@ function evidenceInText(quote, sectionText) {
 }
 
 async function generatePartWorksheet(chunk, meta, options, attempt) {
+  const tryNum = attempt || 1;
   const level = LEVELS[options.level] || LEVELS.middle;
   const typeList = options.mcTypes.map((id) => {
     const hit = MC_TYPES.find((t) => t.id === id);
@@ -441,7 +568,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     'STRICT GROUNDING: Rely EXCLUSIVELY on the provided section_text.',
     'Before each vocabulary item and each question, choose an exact quote from section_text as evidence.',
     'Never invent plot points, facts, names, or claims not present in section_text.',
-    'Output valid JSON only.'
+    'Output valid JSON only. No markdown fences, no commentary.'
   ].join(' ');
 
   const prompt = [
@@ -461,18 +588,42 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     'Prefer these MC types: ' + typeList,
     'Definitions must be student-friendly English-English.',
     'exampleFromText and evidenceQuote must be exact phrases/sentences from section_text.',
+    tryNum > 1 ? 'IMPORTANT: Previous reply was invalid. Reply with ONE JSON object only.' : '',
     'section_text:',
-    String(chunk.text || '').slice(0, 28000)
-  ].join('\n');
+    String(chunk.text || '').slice(0, tryNum > 1 ? 18000 : 28000)
+  ].filter(Boolean).join('\n');
 
-  const res = await askGemini(prompt, {
-    temperature: 0.35,
-    maxOutputTokens: 4096,
-    responseMimeType: 'application/json',
-    systemInstruction: system
-  });
-  const parsed = extractJson(res.text || res.answer || '');
-  if (!parsed) throw new Error('Model returned non-JSON for part ' + chunk.partNum);
+  let rawText = '';
+  try {
+    const res = await askGemini(prompt, {
+      temperature: tryNum > 1 ? 0.15 : 0.35,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+      systemInstruction: system,
+      retries: 2
+    });
+    rawText = res.text || res.answer || '';
+  } catch (e) {
+    if (tryNum < 3) {
+      await sleep(1200 * tryNum);
+      return generatePartWorksheet(chunk, meta, options, tryNum + 1);
+    }
+    throw new Error(
+      'AI failed on part ' + chunk.partNum + ' (' + (e.message || 'request error') + '). Try Generate again.'
+    );
+  }
+
+  const parsed = extractJson(rawText);
+  if (!parsed) {
+    if (tryNum < 3) {
+      await sleep(1200 * tryNum);
+      return generatePartWorksheet(chunk, meta, options, tryNum + 1);
+    }
+    throw new Error(
+      'AI returned unreadable output for part ' + chunk.partNum +
+        '. Click Generate again to retry from this job.'
+    );
+  }
 
   const vocab = (Array.isArray(parsed.vocab) ? parsed.vocab : [])
     .slice(0, options.vocabCount)
@@ -518,6 +669,14 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     }))
     .filter((q) => q.question);
 
+  if (!vocab.length && !multipleChoice.length && !shortAnswer.length) {
+    if (tryNum < 3) {
+      await sleep(1200 * tryNum);
+      return generatePartWorksheet(chunk, meta, options, tryNum + 1);
+    }
+    throw new Error('AI returned empty worksheet for part ' + chunk.partNum + '. Try Generate again.');
+  }
+
   const checks = []
     .concat(vocab.map((v) => v.evidenceQuote || v.exampleFromText))
     .concat(multipleChoice.map((q) => q.evidenceQuote))
@@ -525,8 +684,8 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     .concat(reflection.map((q) => q.evidenceQuote));
   const ok = checks.filter((q) => evidenceInText(q, chunk.text)).length;
   const ratio = checks.length ? ok / checks.length : 0;
-  if (ratio < 0.5 && (!attempt || attempt < 2)) {
-    return generatePartWorksheet(chunk, meta, options, (attempt || 1) + 1);
+  if (ratio < 0.5 && tryNum < 2) {
+    return generatePartWorksheet(chunk, meta, options, tryNum + 1);
   }
 
   return {
@@ -660,7 +819,10 @@ async function createJobFromPdf(teacherId, file, body) {
       pageCount: extracted.pageCount
     });
 
-    const fallbackTitle = path.basename(String(file.originalname || 'book.pdf'), '.pdf');
+    const fallbackTitle = cleanBookTitle(
+      path.basename(String(file.originalname || 'book.pdf'), '.pdf'),
+      'Untitled Book'
+    );
     const planned = await planChunksWithGemini(extracted.pages, {
       level: options.level,
       genre: options.genre === 'auto' ? '' : options.genre,
@@ -743,7 +905,12 @@ async function runGeneration(jobId, teacherId) {
     const culminating = await generateCulminating(job);
     touch(job, { culminating });
 
-    // Drop section text from memory; keep chunk meta + question JSON.
+    touch(job, { message: 'Building workbook (.docx)…', progress: 92 });
+    emit(job, 'status', toPublicJob(job));
+
+    const buf = await buildWorkbookDocx(job);
+
+    // Drop section text only after a successful build so failed jobs can be retried.
     job.chunks = job.chunks.map((ch) => ({
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
@@ -753,22 +920,22 @@ async function runGeneration(jobId, teacherId) {
     }));
     job.pages = null;
 
-    touch(job, { message: 'Building workbook (.docx)…', progress: 92 });
-    emit(job, 'status', toPublicJob(job));
-
-    const buf = await buildWorkbookDocx(job);
     touch(job, {
       status: 'done',
       progress: 100,
-      message: 'Workbook ready.',
-      docxBuffer: buf
+      message: 'Workbook ready — download below.',
+      docxBuffer: buf,
+      error: null
     });
     emit(job, 'done', toPublicJob(job));
     return toPublicJob(job);
   } catch (e) {
+    const doneParts = (job.parts || []).length;
+    const totalParts = (job.chunks || []).length || 1;
+    const failProgress = Math.min(95, 20 + Math.floor((doneParts / totalParts) * 60));
     touch(job, {
       status: 'error',
-      progress: 100,
+      progress: failProgress,
       message: e.message || 'Generation failed.',
       error: e.message || 'Generation failed.'
     });

@@ -175,6 +175,7 @@
     <section class="card hidden" id="chunksCard">
       <h2>2. Chunk plan</h2>
       <p class="hint" id="bookMeta">—</p>
+      <p class="hint">Titles use chapter headings when possible. Repeated page headers (maps, site names) are ignored. Review the list, then generate.</p>
       <div class="chunk-list" id="chunkList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
@@ -188,11 +189,12 @@
       <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <p class="meta-line" id="progressPct">0%</p>
       <div class="error" id="genError"></div>
+      <p class="hint hidden" id="genFailHint">Generation did not finish, so there is no download yet. Fix options if needed, then click <b>Generate workbook</b> again.</p>
     </section>
 
     <section class="card hidden" id="doneCard">
-      <h2>4. Download</h2>
-      <p class="hint">Student worksheets + Teacher Answer Key (with evidence quotes) in one .docx.</p>
+      <h2>4. Download workbook</h2>
+      <p class="hint">Student worksheets + Teacher Answer Key (with evidence quotes) in one .docx. This section appears only when generation succeeds.</p>
       <div class="toolbar">
         <button type="button" class="btn btn-primary" id="btnDownload">Download .docx</button>
         <button type="button" class="btn btn-ok" id="btnGoogle">Open in Google Docs</button>
@@ -323,8 +325,13 @@
     var pct = Math.max(0, Math.min(100, Number(job.progress) || 0));
     $('progressBar').style.width = pct + '%';
     $('progressPct').textContent = pct + '%';
-    $('progressMsg').textContent = job.message || job.status || 'Working…';
+    var msg = job.message || job.status || 'Working…';
+    if (job.status === 'generating' && job.partsDone != null && job.partsTotal) {
+      msg = msg + ' (' + job.partsDone + '/' + job.partsTotal + ' parts)';
+    }
+    $('progressMsg').textContent = msg;
     if (job.error) $('genError').textContent = job.error;
+    else if (job.status !== 'error') $('genError').textContent = '';
   }
 
   function stopPoll() {
@@ -334,11 +341,28 @@
   function showDone(job) {
     stopPoll();
     $('doneCard').classList.remove('hidden');
+    $('genFailHint').classList.add('hidden');
+    $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
     setProgress(job);
+    $('progressMsg').textContent = 'Workbook ready — use Download below.';
+    $('progressPct').textContent = '100%';
+    $('btnGenerate').disabled = false;
     if (job.googleDocsUrl) {
       $('googleLink').innerHTML = 'Google Docs: <a href="' + job.googleDocsUrl +
         '" target="_blank" rel="noopener">' + job.googleDocsUrl + '</a>';
     }
+  }
+
+  function showFailed(job) {
+    stopPoll();
+    $('doneCard').classList.add('hidden');
+    $('genFailHint').classList.remove('hidden');
+    $('progressBar').style.background = 'linear-gradient(90deg, #c45d55, #e08a84)';
+    setProgress(job);
+    $('progressMsg').textContent = 'Failed — no workbook yet.';
+    $('genError').textContent = job.error || job.message || 'Generation failed.';
+    $('btnGenerate').disabled = false;
+    $('btnGenerate').textContent = 'Retry generate';
   }
 
   async function pollJob() {
@@ -347,11 +371,8 @@
       var data = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId));
       var job = data.job || {};
       setProgress(job);
-      if (job.status === 'done') showDone(job);
-      else if (job.status === 'error') {
-        stopPoll();
-        $('genError').textContent = job.error || job.message || 'Generation failed.';
-      }
+      if (job.status === 'done' && job.downloadReady) showDone(job);
+      else if (job.status === 'error') showFailed(job);
     } catch (e) {
       $('genError').textContent = e.message || 'Poll failed.';
     }
@@ -461,10 +482,16 @@
   $('btnGenerate').addEventListener('click', async function () {
     $('chunkError').textContent = '';
     $('genError').textContent = '';
+    $('genFailHint').classList.add('hidden');
     if (!jobId) return;
     $('btnGenerate').disabled = true;
+    $('btnGenerate').textContent = 'Generating…';
     $('progressCard').classList.remove('hidden');
     $('doneCard').classList.add('hidden');
+    $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
+    $('progressBar').style.width = '5%';
+    $('progressPct').textContent = '5%';
+    $('progressMsg').textContent = 'Starting generation…';
     try {
       await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
         method: 'POST',
@@ -476,6 +503,7 @@
     } catch (e) {
       $('chunkError').textContent = e.message || 'Could not start generation.';
       $('btnGenerate').disabled = false;
+      $('btnGenerate').textContent = 'Generate workbook';
     }
   });
 
