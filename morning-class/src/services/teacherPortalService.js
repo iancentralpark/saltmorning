@@ -4,7 +4,7 @@ const {
   TEACHER_LIST_SHEET,
   STUDENT_LIST_SHEET
 } = require('../config');
-const { getSheetRows } = require('../sheets');
+const { getSheetRows, updateRange, invalidateSheetRowsCache } = require('../sheets');
 
 function parseHomeroomClassIds(raw) {
   return String(raw || '')
@@ -73,18 +73,48 @@ async function getTeacherProfile(teacherId) {
   return null;
 }
 
+async function scrubOrphanHomeroomIds(teacherId, liveIds, names) {
+  const rows = await getSheetRows(TEACHER_LIST_SHEET, { skipCache: true }).catch(() => []);
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== String(teacherId)) continue;
+    const raw = String(rows[i][4] || '').trim();
+    const ids = parseHomeroomClassIds(raw);
+    const kept = ids.filter((id) => names[id]);
+    if (kept.length === ids.length) return kept;
+    try {
+      const row = rows[i].slice();
+      while (row.length < 8) row.push('');
+      row[4] = serializeHomeroomClassIds(kept);
+      await updateRange(TEACHER_LIST_SHEET, `A${i + 1}:H${i + 1}`, [row.slice(0, 8)]);
+      invalidateSheetRowsCache(TEACHER_LIST_SHEET);
+    } catch (_) { /* read path still filters orphans below */ }
+    return kept;
+  }
+  return liveIds;
+}
+
 async function getTeacherClasses(teacherId) {
   teacherId = String(teacherId);
   const names = await getClassNameMap();
   const teacher = await getTeacherProfile(teacherId);
   if (!teacher) throw new Error('Teacher not found.');
 
+  // Drop class IDs that no longer exist in Class_List (e.g. deleted in Admin
+  // while still listed in a multi-homeroom cell like "C001, C003").
+  let homeroomIds = parseHomeroomClassIds(teacher.homeroomClassIds.join(', '))
+    .filter((classId) => !!names[classId]);
+  if (homeroomIds.length !== teacher.homeroomClassIds.length) {
+    homeroomIds = await scrubOrphanHomeroomIds(teacherId, homeroomIds, names);
+    teacher.homeroomClassIds = homeroomIds;
+    teacher.homeroomClassId = homeroomIds[0] || '';
+  }
+
   const homeroom = [];
   const assigned = [];
   const seenHomeroom = new Set();
   const seenAssigned = new Set();
 
-  parseHomeroomClassIds(teacher.homeroomClassIds.join(', ')).forEach((classId) => {
+  homeroomIds.forEach((classId) => {
     const key = classId + ':Homeroom';
     if (seenHomeroom.has(key)) return;
     seenHomeroom.add(key);
@@ -94,7 +124,8 @@ async function getTeacherClasses(teacherId) {
   const assignRows = await getSheetRows(CLASS_TEACHERS_SHEET);
   for (let i = 1; i < assignRows.length; i++) {
     if (String(assignRows[i][1]) !== teacherId) continue;
-    const classId = String(assignRows[i][0] || '');
+    const classId = String(assignRows[i][0] || '').trim();
+    if (!classId || !names[classId]) continue; // skip deleted / unknown classes
     const assignmentType = String(assignRows[i][2] || 'Subject');
     const subject = String(assignRows[i][3] || '').trim();
 
