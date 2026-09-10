@@ -389,6 +389,47 @@ async function notifyReportCardShared(studentId, term) {
   });
 }
 
+// Debounce grade-posted pushes per (studentId, assessmentId): a teacher fixing
+// a typo a minute later shouldn't re-buzz the parent's phone for the same score.
+const recentGradeNotifications = new Map(); // key -> timestamp
+const GRADE_NOTIFY_DEBOUNCE_MS = 3 * 60 * 1000;
+const gradeNotifySweep = setInterval(() => {
+  const cutoff = Date.now() - GRADE_NOTIFY_DEBOUNCE_MS;
+  for (const [key, at] of recentGradeNotifications) {
+    if (at <= cutoff) recentGradeNotifications.delete(key);
+  }
+}, GRADE_NOTIFY_DEBOUNCE_MS);
+if (gradeNotifySweep.unref) gradeNotifySweep.unref();
+
+async function notifyGradePosted(studentId, assessmentId, info) {
+  if (!ensureWebPush()) return;
+  studentId = String(studentId || '');
+  if (!studentId) return;
+  const key = studentId + '::' + String(assessmentId || '');
+  const now = Date.now();
+  const last = recentGradeNotifications.get(key);
+  if (last && now - last < GRADE_NOTIFY_DEBOUNCE_MS) return;
+  recentGradeNotifications.set(key, now);
+
+  const recipients = (await listParentsForStudent(studentId)).map((pid) => ({
+    role: 'parent',
+    userId: pid
+  }));
+  if (!recipients.length) return;
+  const label = (info && (info.title || info.subject)) || 'Grade';
+  const score = info && info.score;
+  const maxScore = info && info.maxScore;
+  const body = (score != null && maxScore)
+    ? (label + ': ' + score + '/' + maxScore)
+    : (label + ' updated');
+  await sendToRecipients(recipients, {
+    title: 'Salt Morning · Grade' + (info && info.subject ? ' · ' + info.subject : ''),
+    body: body.slice(0, 140),
+    url: '/parent#/grades',
+    kind: 'grade'
+  });
+}
+
 /** @deprecated alias */
 async function notifyParentsNewMessage(msg) {
   return notifyMessageRecipients(msg);
@@ -412,5 +453,6 @@ module.exports = {
   notifyParentsNewMessage,
   notifyAnnouncement,
   notifyHomeworkPosted,
-  notifyReportCardShared
+  notifyReportCardShared,
+  notifyGradePosted
 };

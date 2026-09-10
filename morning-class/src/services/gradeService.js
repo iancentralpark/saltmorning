@@ -336,6 +336,7 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
   await ensureOpsDbStarted();
   if (isOpsGradesReady()) {
     let saved = 0;
+    const notifyByStudent = new Map();
     for (const e of entries) {
       const studentId = String(e.studentId);
       const score = Number(e.score);
@@ -367,8 +368,14 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
         );
       }
       saved++;
+      // One notification per student per batch, not per row — a 100-student
+      // CSV import shouldn't buzz the same parent's phone 100 times.
+      notifyByStudent.set(studentId, { assessmentId, subject, score, maxScore });
     }
     if (!saved) throw new Error('Enter at least one score.');
+    for (const [studentId, info] of notifyByStudent) {
+      notifyParentOfGrade(studentId, info.assessmentId || ('batch:' + dateStr + ':' + categoryKey), info);
+    }
     return { saved };
   }
 
@@ -378,6 +385,7 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
   const appends = [];
   const updates = [];
   let saved = 0;
+  const notifyByStudent = new Map();
 
   for (const e of entries) {
     const studentId = String(e.studentId);
@@ -396,6 +404,7 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
       break;
     }
 
+    const assessmentId = String(e.assessmentId || (found > 0 ? data[found - 1][11] : '') || '');
     const row = [
       found > 0 ? String(data[found - 1][0]) : newId('gd'),
       classId,
@@ -408,12 +417,14 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
       teacherId,
       String(e.note || ''),
       found > 0 ? String(data[found - 1][10] || now) : now,
-      String(e.assessmentId || (found > 0 ? data[found - 1][11] : '') || '')
+      assessmentId
     ];
 
     if (found > 0) updates.push({ row: found, values: row });
     else appends.push(row);
     saved++;
+    // One notification per student per batch — see PG branch above for why.
+    notifyByStudent.set(studentId, { assessmentId, subject, score, maxScore });
   }
 
   if (!saved) throw new Error('Enter at least one score.');
@@ -422,6 +433,10 @@ async function saveGradeEntries(classId, term, subject, teacherId, dateStr, cate
     await updateRange(GRADES_DAILY_SHEET, `A${u.row}:L${u.row}`, [u.values]);
   }
   if (appends.length) await appendRows(GRADES_DAILY_SHEET, appends);
+
+  for (const [studentId, info] of notifyByStudent) {
+    notifyParentOfGrade(studentId, info.assessmentId || ('batch:' + dateStr + ':' + categoryKey), info);
+  }
 
   return { saved };
 }
@@ -773,10 +788,24 @@ async function saveAssessmentCellPg(assessmentId, studentId, score, teacherId, o
       ]
     );
   }
+  notifyParentOfGrade(studentId, assessmentId, {
+    subject: assessment.subject,
+    title: assessment.title,
+    score: numScore,
+    maxScore: assessment.maxScore
+  });
   return {
     saved: true,
     percent: pctScore(numScore, assessment.maxScore)
   };
+}
+
+/** Fire-and-forget push to the student's parent(s); never blocks or fails a grade save. */
+function notifyParentOfGrade(studentId, assessmentId, info) {
+  try {
+    require('./pushService').notifyGradePosted(studentId, assessmentId, info)
+      .catch((e) => console.warn('[grades] push failed:', e.message));
+  } catch (_) { /* push module optional at boot */ }
 }
 
 async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opts) {
@@ -893,6 +922,13 @@ async function saveAssessmentCell(assessmentId, studentId, score, teacherId, opt
   } else {
     clearGradebookCache();
   }
+
+  notifyParentOfGrade(studentId, assessmentId, {
+    subject: existingSubject || assessment.subject,
+    title: assessment.title,
+    score: numScore,
+    maxScore: assessment.maxScore
+  });
 
   return {
     saved: true,
