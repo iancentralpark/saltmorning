@@ -153,6 +153,7 @@ function serializeJob(job) {
     parts: job.parts || [],
     culminating: job.culminating || null,
     googleDocsUrl: job.googleDocsUrl || null,
+    originalName: job.originalName || null,
     planMode: job.planMode || null,
     tocCount: job.tocCount || 0,
     skippedFront: job.skippedFront || 0,
@@ -275,6 +276,7 @@ function hydrateJob(data) {
     parts: Array.isArray(data.parts) ? data.parts : [],
     culminating: data.culminating || null,
     googleDocsUrl: data.googleDocsUrl || null,
+    originalName: data.originalName || null,
     planMode: data.planMode || null,
     tocCount: data.tocCount || 0,
     skippedFront: data.skippedFront || 0,
@@ -696,11 +698,33 @@ async function extractPages(pdfBuffer) {
   const data = await pdfParse(pdfBuffer, {
     pagerender(pageData) {
       return pageData.getTextContent().then((tc) => {
-        const text = (tc.items || [])
-          .map((it) => it.str || '')
-          .join(' ')
-          .replace(/[ \t]+/g, ' ')
-          .replace(/\s*\n\s*/g, '\n')
+        const items = tc.items || [];
+        let text = '';
+        let lastY = null;
+        let lastX = null;
+        items.forEach((it) => {
+          const str = String(it.str || '');
+          if (!str) return;
+          const tr = it.transform || [];
+          const x = typeof tr[4] === 'number' ? tr[4] : null;
+          const y = typeof tr[5] === 'number' ? tr[5] : null;
+          if (lastY != null && y != null && Math.abs(y - lastY) > 2.5) {
+            text += '\n';
+          } else if (text && !/\s$/.test(text) && !/^\s/.test(str)) {
+            // Same line: insert space when glyphs are separated
+            if (lastX != null && x != null && x - lastX > 0.6) text += ' ';
+            else if (lastX == null) text += ' ';
+          }
+          text += str;
+          if (y != null) lastY = y;
+          if (x != null && typeof it.width === 'number') lastX = x + it.width;
+          else if (x != null) lastX = x + str.length * 4;
+        });
+        text = text
+          .replace(/[ \t]+\n/g, '\n')
+          .replace(/\n[ \t]+/g, '\n')
+          .replace(/[ \t]{2,}/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
           .trim();
         pages.push({ pageNum: pages.length + 1, text });
         return text;
@@ -736,7 +760,9 @@ async function extractPages(pdfBuffer) {
       400
     );
   }
-  return { pageCount: pages.length, pages };
+  // Keep original page numbers from the PDF order (including sparse pages),
+  // but planning uses pages with enough text.
+  return { pageCount: pages.length, pages: usable.length ? usable : pages };
 }
 
 function pageCharCount(text) {
@@ -946,36 +972,124 @@ function isGenericTitle(title) {
 function guessHeading(pageText, banned) {
   const lines = pageLines(pageText);
   const candidates = [];
-  for (const line of lines.slice(0, 12)) {
-    if (line.length < 3 || line.length > 100) continue;
-    if (isJunkHeading(line, banned)) continue;
+  const consider = (line, fromBreak) => {
+    if (!line || line.length < 3 || line.length > 100) return;
+    if (isJunkHeading(line, banned)) return;
+    const cleaned = line.replace(/[?!:.…]+$/g, '').trim();
     if (
-      /^(chapter|part|unit|section|prologue|epilogue|introduction|preface|afterword)\b/i.test(line)
-      || /^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(line)
-      || /^(chapter|ch\.?)\s*\d+\b/i.test(line)
+      /^(chapter|part|unit|section|prologue|epilogue|introduction|preface|afterword)\b/i.test(cleaned)
+      || /^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned)
+      || /^(chapter|ch\.?)\s*\d+\b/i.test(cleaned)
     ) {
-      return line;
+      candidates.unshift(cleaned);
+      return;
     }
-    // Numbered nonfiction section: "1 Humans Take Over" / "IV. Fire"
-    if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(line) && line.length <= 80) {
-      candidates.push(line);
-      continue;
+    if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned) && cleaned.length <= 80) {
+      candidates.push(cleaned);
+      return;
     }
-    const words = line.split(/\s+/);
+    const words = cleaned.split(/\s+/);
     const titleCase = words.length >= 2 && words.length <= 14
       && words.filter((w) => /^[A-ZÀ-ÖØ-Þ]/.test(w)).length >= Math.ceil(words.length * 0.45)
-      && !/[.!?]$/.test(line)
-      && !/^(the|a|an|and|but|or|so|then|when|after|before)\b/i.test(line);
-    if (titleCase) candidates.push(line);
+      && !/[.!?]$/.test(cleaned)
+      && !/^(the|a|an|and|but|or|so|then|when|after|before|this|that|these|those)\b/i.test(cleaned);
+    if (titleCase) candidates.push(cleaned);
     if (
-      /^[A-ZÀ-ÖØ-Þ][A-Z0-9 À-ÖØ-Þ,.'’:\-]{2,60}$/.test(line)
-      && !/[.!?]$/.test(line)
+      /^[A-ZÀ-ÖØ-Þ][A-Z0-9 À-ÖØ-Þ,.'’:\-]{2,60}$/.test(cleaned)
+      && !/[.!?]$/.test(cleaned)
       && words.length <= 10
     ) {
-      candidates.push(line);
+      candidates.push(cleaned);
     }
+    // Short stand-alone title after a blank line (common in illustrated nonfiction)
+    if (
+      fromBreak
+      && words.length >= 2
+      && words.length <= 10
+      && cleaned.length <= 70
+      && !/[.]$/.test(cleaned)
+      && /[A-Za-z]/.test(cleaned)
+      && !/^(however|therefore|meanwhile|suddenly|because)\b/i.test(cleaned)
+    ) {
+      candidates.push(cleaned);
+    }
+  };
+
+  // Prefer top-of-page headings, but also scan later stand-alone lines.
+  for (let i = 0; i < Math.min(lines.length, 16); i += 1) {
+    consider(lines[i], i === 0 || (i > 0 && lines[i - 1].length < 2));
+  }
+  for (let i = 16; i < lines.length; i += 1) {
+    const fromBreak = i > 0 && lines[i - 1].length < 2;
+    if (!fromBreak) continue;
+    consider(lines[i], true);
   }
   return candidates[0] || '';
+}
+
+function pageHasSectionBreak(pageText, banned, currentTitle) {
+  const h = guessHeading(pageText, banned);
+  if (!h) return false;
+  if (currentTitle && normalizeLine(h) === normalizeLine(currentTitle)) return false;
+  return true;
+}
+
+function sliceSectionPages(sec, fromIdx, toIdxExclusive, banned) {
+  const slice = sec.pages.slice(fromIdx, toIdxExclusive);
+  if (!slice.length) return null;
+  const localHeading = fromIdx === 0
+    ? sec.unitTitle
+    : (guessHeading(slice[0].text, banned) || sec.unitTitle);
+  return {
+    unitTitle: localHeading || '',
+    startPage: slice[0].pageNum,
+    endPage: slice[slice.length - 1].pageNum,
+    pages: slice
+  };
+}
+
+/** Split long sections at heading pages when possible — not a blind every-4-pages grid. */
+function splitLongSection(sec, banned) {
+  const span = sec.endPage - sec.startPage + 1;
+  if (span <= SPLIT_OVER) return [sec];
+
+  const out = [];
+  let startIdx = 0;
+  const pages = sec.pages || [];
+  while (startIdx < pages.length) {
+    const remaining = pages.length - startIdx;
+    if (remaining <= SPLIT_OVER) {
+      const last = sliceSectionPages(sec, startIdx, pages.length, banned);
+      if (last) out.push(last);
+      break;
+    }
+    const minEnd = startIdx + TARGET_MIN - 1;
+    const idealEnd = startIdx + TARGET_MAX - 1;
+    const maxEnd = Math.min(pages.length - 1, startIdx + TARGET_MAX + 2);
+
+    let splitAt = idealEnd; // inclusive index of last page in this piece
+    // Prefer splitting just before a later heading in the window
+    for (let j = Math.min(maxEnd + 1, pages.length - 1); j > minEnd; j -= 1) {
+      if (pageHasSectionBreak(pages[j].text, banned, sec.unitTitle)) {
+        splitAt = j - 1;
+        break;
+      }
+    }
+    // Or if the ideal page itself introduces a new heading and we're far enough
+    if (
+      splitAt === idealEnd
+      && idealEnd + 1 < pages.length
+      && pageHasSectionBreak(pages[idealEnd + 1].text, banned, sec.unitTitle)
+    ) {
+      splitAt = idealEnd;
+    }
+    if (splitAt < minEnd) splitAt = Math.min(idealEnd, pages.length - 1);
+
+    const piece = sliceSectionPages(sec, startIdx, splitAt + 1, banned);
+    if (piece) out.push(piece);
+    startIdx = splitAt + 1;
+  }
+  return out.length ? out : [sec];
 }
 
 function firstContentSnippet(text, banned) {
@@ -1132,25 +1246,7 @@ function planChunksHeuristic(pages) {
 
   const split = [];
   for (const sec of merged) {
-    const span = sec.endPage - sec.startPage + 1;
-    if (span <= SPLIT_OVER) {
-      split.push(sec);
-      continue;
-    }
-    // Prefer splitting near mid-section headings when oversized
-    for (let i = 0; i < sec.pages.length; i += TARGET_MAX) {
-      const slice = sec.pages.slice(i, i + TARGET_MAX);
-      if (!slice.length) continue;
-      const localHeading = i === 0
-        ? sec.unitTitle
-        : (guessHeading(slice[0].text, banned) || sec.unitTitle);
-      split.push({
-        unitTitle: localHeading || '',
-        startPage: slice[0].pageNum,
-        endPage: slice[slice.length - 1].pageNum,
-        pages: slice
-      });
-    }
+    splitLongSection(sec, banned).forEach((piece) => split.push(piece));
   }
 
   const finalSecs = [];
@@ -1301,18 +1397,120 @@ async function detectBookMetaWithGemini(pages, options, toc) {
   }
 }
 
-async function planChunksWithGemini(pages, options) {
-  // Meta can use opening pages; worksheets only use book body.
+async function proposeBoundariesWithGemini(pages, options, toc) {
+  const banned = collectRunningHeaders(pages);
+  const outline = [];
+  pages.forEach((p, idx) => {
+    const heading = guessHeading(p.text, banned) || null;
+    // Always include heading pages; otherwise every 2nd page for coverage
+    if (heading || idx % 2 === 0 || idx < 3 || idx >= pages.length - 2) {
+      outline.push({
+        page: p.pageNum,
+        heading,
+        preview: String(p.text || '').replace(/\s+/g, ' ').trim().slice(0, 160)
+      });
+    }
+  });
+
+  const prompt = [
+    'Plan Novel/Book Study reading sections for one class period each.',
+    'Return JSON ONLY:',
+    '{ "sections": [{ "unit_title": string, "start_page": number, "end_page": number }] }',
+    'Rules:',
+    '- Align starts to REAL chapter/section headings whenever the outline shows them.',
+    '- Do NOT make every section exactly 4 pages. Typical length is ' + TARGET_MIN + '-' + (TARGET_MAX + 2) + ' pages.',
+    '- Never invent page numbers outside ' + pages[0].pageNum + '..' + pages[pages.length - 1].pageNum + '.',
+    '- Cover the whole book body with contiguous, non-overlapping sections.',
+    '- unit_title must be descriptive (chapter/section name or clear topic). Never "Pages 12–15".',
+    '- Skip title/copyright/contents if they appear in the outline.',
+    'Detected headings: ' + JSON.stringify((toc || []).slice(0, 80)),
+    'Page outline: ' + JSON.stringify(outline.slice(0, 120))
+  ].join('\n');
+
+  const res = await askGemini(prompt, {
+    temperature: 0.15,
+    maxOutputTokens: 4096,
+    responseMimeType: 'application/json',
+    systemInstruction:
+      'STRICT JSON only. Prefer heading-aligned boundaries. Avoid uniform page grids.',
+    retries: 1
+  });
+  const parsed = extractJson(res.text || res.answer || '');
+  const sections = (parsed && (parsed.sections || parsed.chunks)) || [];
+  if (!Array.isArray(sections) || sections.length < 2) {
+    throw new Error('no section boundaries');
+  }
+
+  const pageMin = pages[0].pageNum;
+  const pageMax = pages[pages.length - 1].pageNum;
+  const byNum = new Map(pages.map((p) => [p.pageNum, p]));
+  const normalized = sections.map((s, i) => {
+    let start = Math.max(pageMin, Math.min(pageMax, Number(s.start_page || s.startPage) || pageMin));
+    let end = Math.max(start, Math.min(pageMax, Number(s.end_page || s.endPage) || start));
+    if (end - start + 1 > TARGET_MAX + 3) end = start + TARGET_MAX + 1;
+    return {
+      order: i,
+      unitTitle: String(s.unit_title || s.unitTitle || '').trim(),
+      startPage: start,
+      endPage: end
+    };
+  }).sort((a, b) => a.startPage - b.startPage);
+
+  // Fix overlaps / gaps lightly
+  for (let i = 1; i < normalized.length; i += 1) {
+    if (normalized[i].startPage <= normalized[i - 1].endPage) {
+      normalized[i].startPage = normalized[i - 1].endPage + 1;
+    }
+    if (normalized[i].startPage > normalized[i].endPage) {
+      normalized[i].endPage = normalized[i].startPage;
+    }
+  }
+
+  const chunks = [];
+  normalized.forEach((sec) => {
+    if (sec.startPage > pageMax || sec.endPage < pageMin) return;
+    const slice = [];
+    for (let p = sec.startPage; p <= sec.endPage; p += 1) {
+      if (byNum.has(p)) slice.push(byNum.get(p));
+    }
+    if (!slice.length) return;
+    const text = slice.map((p) => p.text).join('\n\n').trim();
+    if (text.length < 80) return;
+    chunks.push(labelChunk({
+      unitTitle: sec.unitTitle,
+      startPage: slice[0].pageNum,
+      endPage: slice[slice.length - 1].pageNum,
+      pages: slice,
+      text
+    }, banned));
+  });
+
+  if (chunks.length < 2) throw new Error('boundary chunks too few');
+  chunks.forEach((c, i) => { c.partNum = i + 1; });
+  return chunks;
+}
+
+async function planChunksWithGemini(pages, options, onProgress) {
+  const report = (pct, message) => {
+    if (typeof onProgress === 'function') {
+      try { onProgress(pct, message); } catch (_) { /* ignore */ }
+    }
+  };
+
+  report(12, 'Skipping front matter…');
   const trimmed = trimToBookBody(pages);
   const bodyPages = trimmed.pages;
+
+  report(22, 'Detecting chapter and section headings…');
   const banned = collectRunningHeaders(bodyPages);
   const toc = buildToc(bodyPages, banned);
-  const quality = tocQuality(toc, bodyPages.length);
+  let quality = tocQuality(toc, bodyPages.length);
   let chunks = planChunksHeuristic(bodyPages);
-  const planMode = quality === 'strong' || quality === 'ok'
+  let planMode = quality === 'strong' || quality === 'ok'
     ? 'chapter-aware'
     : 'page-groups';
 
+  report(38, 'Identifying book title and author…');
   let meta = await detectBookMetaWithGemini(pages, options, toc);
   if (!meta) {
     meta = {
@@ -1322,6 +1520,24 @@ async function planChunksWithGemini(pages, options) {
     };
   }
 
+  // If headings are weak OR the plan looks like a uniform 4-page grid, ask Gemini for boundaries.
+  const spans = chunks.map((c) => c.endPage - c.startPage + 1);
+  const mostlyFour = spans.length >= 6 && spans.filter((n) => n === TARGET_MAX).length >= Math.ceil(spans.length * 0.7);
+  if (quality === 'weak' || mostlyFour) {
+    report(52, 'Asking AI to align sections to chapter/section headings…');
+    try {
+      const aiChunks = await proposeBoundariesWithGemini(bodyPages, options, toc);
+      if (aiChunks && aiChunks.length >= 2) {
+        chunks = aiChunks;
+        planMode = 'chapter-aware';
+        quality = 'ok';
+      }
+    } catch (e) {
+      console.warn('novelStudy boundary proposal failed', e.message);
+    }
+  }
+
+  report(72, 'Writing section titles and blurbs…');
   try {
     chunks = await enrichChunkLabelsWithGemini(chunks, meta, options, toc);
   } catch (e) {
@@ -1329,6 +1545,7 @@ async function planChunksWithGemini(pages, options) {
     chunks = chunks.map((c) => labelChunk(c, banned));
   }
 
+  report(90, 'Finalizing chunk plan…');
   chunks = chunks
     .map((c, i) => {
       const labeled = labelChunk(Object.assign({}, c, { partNum: i + 1 }), banned);
@@ -1336,12 +1553,9 @@ async function planChunksWithGemini(pages, options) {
       return labeled;
     })
     .filter((c) => !isNonContentChunk(c));
-
-  // Renumber after dropping front/back-matter leftovers
   chunks.forEach((c, i) => { c.partNum = i + 1; });
 
   if (!chunks.length) {
-    // Absolute fallback: body pages with labels (should be rare)
     chunks = planChunksHeuristic(bodyPages)
       .filter((c) => !isNonContentChunk(c))
       .map((c, i) => Object.assign(labelChunk(c, banned), { partNum: i + 1, planMode }));
@@ -1634,8 +1848,8 @@ async function createJobFromPdf(teacherId, file, body) {
     id: jobId,
     teacherId: String(teacherId || ''),
     status: 'parsing',
-    progress: 2,
-    message: 'Parsing PDF text…',
+    progress: 3,
+    message: 'Upload received — starting PDF parse…',
     options,
     pdfPath,
     pages: null,
@@ -1646,47 +1860,82 @@ async function createJobFromPdf(teacherId, file, body) {
     culminating: null,
     docxBuffer: null,
     googleDocsUrl: null,
+    originalName: String(file.originalname || 'book.pdf'),
     error: null,
     listeners: [],
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
   jobs.set(jobId, job);
+  schedulePersist(job, true);
+  return toPublicJob(job);
+}
+
+async function runPlanning(jobId, teacherId) {
+  const job = getJob(jobId, teacherId);
+  if (job.status === 'ready' && (job.chunks || []).length) {
+    return toPublicJob(job);
+  }
+  if (job.status === 'planning' && job.planningStarted) {
+    return toPublicJob(job);
+  }
+
+  const bump = (pct, message, extra) => {
+    touch(job, Object.assign({
+      progress: pct,
+      message
+    }, extra || {}));
+    emit(job, 'status', toPublicJob(job));
+  };
 
   try {
-    const extracted = await extractPages(file.buffer);
-    touch(job, {
+    job.planningStarted = true;
+    bump(5, 'Parsing PDF text…', { status: 'parsing', error: null });
+
+    let pdfBuffer = null;
+    if (job.pdfPath && fs.existsSync(job.pdfPath)) {
+      pdfBuffer = fs.readFileSync(job.pdfPath);
+    }
+    if (!pdfBuffer || !pdfBuffer.length) {
+      throw httpError('Uploaded PDF is missing. Please upload again.', 400);
+    }
+
+    const extracted = await extractPages(pdfBuffer);
+    bump(12, 'PDF parsed (' + extracted.pageCount + ' pages). Planning chunks…', {
       status: 'planning',
-      progress: 10,
-      message: 'Planning chapter chunks…',
       pages: extracted.pages,
       pageCount: extracted.pageCount
     });
 
     const fallbackTitle = cleanBookTitle(
-      path.basename(String(file.originalname || 'book.pdf'), '.pdf'),
+      path.basename(String(job.originalName || 'book.pdf'), '.pdf'),
       'Untitled Book'
     );
-    const planned = await planChunksWithGemini(extracted.pages, {
-      level: options.level,
-      genre: options.genre === 'auto' ? '' : options.genre,
-      fallbackTitle
-    });
-    if (options.genre === 'fiction' || options.genre === 'nonfiction') {
-      planned.meta.genre = options.genre;
+    const planned = await planChunksWithGemini(
+      extracted.pages,
+      {
+        level: job.options.level,
+        genre: job.options.genre === 'auto' ? '' : job.options.genre,
+        fallbackTitle
+      },
+      (pct, message) => bump(pct, message, { status: 'planning' })
+    );
+
+    if (job.options.genre === 'fiction' || job.options.genre === 'nonfiction') {
+      planned.meta.genre = job.options.genre;
     }
 
-    // Temp PDF deleted after parse; keep chunk meta + text in memory.
     cleanupJobFiles(job);
     const modeNote = planned.planMode === 'chapter-aware'
-      ? 'Used detected section headings.'
-      : 'Few clear chapter headings found — grouped by page length, then titled from content.';
+      ? 'Aligned to chapter/section headings where possible.'
+      : 'Few clear chapter headings found — grouped with content titles.';
     const skipBits = [];
     if (planned.skippedFront) skipBits.push(planned.skippedFront + ' front-matter page(s) skipped');
     if (planned.skippedBack) skipBits.push(planned.skippedBack + ' back-matter page(s) skipped');
+
     touch(job, {
       status: 'ready',
-      progress: 18,
+      progress: 100,
       message: 'Chunk plan ready (' + planned.chunks.length + ' parts). ' + modeNote +
         (skipBits.length ? ' ' + skipBits.join('; ') + '.' : ''),
       meta: planned.meta,
@@ -1695,17 +1944,23 @@ async function createJobFromPdf(teacherId, file, body) {
       tocCount: planned.tocCount || 0,
       skippedFront: planned.skippedFront || 0,
       skippedBack: planned.skippedBack || 0,
-      pages: null
+      pages: null,
+      planningStarted: false,
+      error: null
     });
+    emit(job, 'status', toPublicJob(job));
+    emit(job, 'planned', toPublicJob(job));
     return toPublicJob(job);
   } catch (e) {
     cleanupJobFiles(job);
     touch(job, {
       status: 'error',
       progress: 100,
-      message: e.message,
-      error: e.message
+      message: e.message || 'Planning failed.',
+      error: e.message || 'Planning failed.',
+      planningStarted: false
     });
+    emit(job, 'error', toPublicJob(job));
     throw e;
   }
 }
@@ -1980,6 +2235,7 @@ async function uploadToGoogleDocs(jobId, teacherId) {
 
 module.exports = {
   createJobFromPdf,
+  runPlanning,
   getJob,
   listJobsForTeacher,
   toPublicJob,

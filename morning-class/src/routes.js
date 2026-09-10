@@ -4330,6 +4330,7 @@ router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (re
 /* ── Novel Study Workbook (class tool) ───────────────────────── */
 const {
   createJobFromPdf,
+  runPlanning: runNovelStudyPlanning,
   getJob: getNovelStudyJob,
   listJobsForTeacher: listNovelStudyJobs,
   toPublicJob,
@@ -4405,8 +4406,14 @@ router.post(
             body.mcTypes = String(body.mcTypes).split(',').map((s) => s.trim()).filter(Boolean);
           }
         }
-        const job = await createJobFromPdf(novelStudyTeacherId(req), req.file, body);
-        res.json({ ok: true, job });
+        const teacherId = novelStudyTeacherId(req);
+        const job = await createJobFromPdf(teacherId, req.file, body);
+        res.status(202).json({ ok: true, job, message: 'Planning started.' });
+        setImmediate(() => {
+          runNovelStudyPlanning(job.id, teacherId).catch((e) => {
+            console.error('Novel Study planning failed', e);
+          });
+        });
       } catch (e) {
         console.error('POST /novel-study/jobs', e);
         res.status(e.status || 500).json({ error: e.message || 'Could not create Novel Study job.' });

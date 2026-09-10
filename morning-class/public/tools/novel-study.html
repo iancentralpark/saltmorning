@@ -232,7 +232,7 @@
     <section class="card hidden" id="chunksCard">
       <h2>2. Chunk plan</h2>
       <p class="hint" id="bookMeta">—</p>
-      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. Titles use chapter/section headings when found; otherwise a short content blurb.</p>
+      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. Chunks follow chapter/section headings when possible (not a fixed 4-page grid).</p>
       <div class="chunk-list" id="chunkList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
@@ -662,6 +662,7 @@
     }
     eventSource.addEventListener('status', onStatus);
     eventSource.addEventListener('part', onPart);
+    eventSource.addEventListener('planned', onStatus);
     eventSource.addEventListener('done', onDone);
     eventSource.addEventListener('error', function (ev) {
       // EventSource "error" fires on disconnect too; only handle typed error payloads
@@ -673,8 +674,50 @@
     if (!job) return;
     setProgress(job);
     if (job.partsPreview) renderPartsPreview(job.partsPreview, highlightPartNum);
-    if (job.status === 'done' && job.downloadReady) showDone(job);
-    else if (job.status === 'error') showFailed(job);
+    if (job.status === 'ready' && job.chunks && job.chunks.length) {
+      var readyKey = 'ready:' + job.id;
+      if (lastTerminalKey !== readyKey) {
+        lastTerminalKey = readyKey;
+        stopLive();
+        renderChunks(job);
+        $('progressCard').classList.remove('hidden');
+        $('progressMsg').textContent = job.message || 'Chunk plan ready.';
+        $('progressBar').style.width = '100%';
+        $('progressPct').textContent = '100%';
+        $('btnGenerate').disabled = false;
+        $('btnGenerate').textContent = 'Generate workbook';
+        $('btnUpload').disabled = !selectedFile;
+        $('btnUpload').textContent = 'Upload & plan chunks';
+        refreshHistory();
+      }
+      return;
+    }
+    if (job.status === 'done' && job.downloadReady) {
+      var doneKey = 'done:' + job.id;
+      if (lastTerminalKey !== doneKey) {
+        lastTerminalKey = doneKey;
+        showDone(job);
+      }
+      return;
+    }
+    if (job.status === 'error') {
+      var errKey = 'error:' + job.id;
+      if (lastTerminalKey !== errKey) {
+        lastTerminalKey = errKey;
+        $('btnUpload').disabled = !selectedFile;
+        $('btnUpload').textContent = 'Upload & plan chunks';
+        if (job.chunks && job.chunks.length) showFailed(job);
+        else {
+          stopLive();
+          $('progressCard').classList.remove('hidden');
+          $('progressMsg').textContent = 'Planning failed.';
+          $('genError').textContent = job.error || job.message || 'Planning failed.';
+          refreshHistory();
+        }
+      }
+      return;
+    }
+    lastTerminalKey = null;
   }
 
 
@@ -922,6 +965,8 @@
 
   $('btnUpload').addEventListener('click', async function () {
     $('setupError').textContent = '';
+    $('chunkError').textContent = '';
+    $('genError').textContent = '';
     if (!selectedFile) {
       $('setupError').textContent = 'Choose a PDF first.';
       return;
@@ -932,6 +977,16 @@
     }
     $('btnUpload').disabled = true;
     $('btnUpload').textContent = 'Uploading…';
+    $('doneCard').classList.add('hidden');
+    $('chunksCard').classList.add('hidden');
+    $('progressCard').classList.remove('hidden');
+    $('genFailHint').classList.add('hidden');
+    $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
+    $('progressBar').style.width = '3%';
+    $('progressPct').textContent = '3%';
+    $('progressMsg').textContent = 'Uploading PDF…';
+    renderPartsPreview([]);
+    lastTerminalKey = null;
     try {
       var fd = new FormData();
       fd.append('pdf', selectedFile);
@@ -943,12 +998,16 @@
       var data = await toolFetch('/api/novel-study/jobs', { method: 'POST', body: fd });
       jobId = data.job && data.job.id;
       rememberJob(jobId);
-      renderChunks(data.job || {});
-      $('chunkError').textContent = '';
+      setProgress(data.job || { progress: 5, message: 'Planning started…', status: 'parsing' });
+      $('btnUpload').textContent = 'Planning…';
+      stopLive();
+      startEvents(jobId);
+      pollTimer = setInterval(pollJob, 1500);
+      pollJob();
       refreshHistory();
     } catch (e) {
       $('setupError').textContent = e.message || 'Upload failed.';
-    } finally {
+      $('progressCard').classList.add('hidden');
       $('btnUpload').disabled = !selectedFile;
       $('btnUpload').textContent = 'Upload & plan chunks';
     }
