@@ -117,6 +117,23 @@
     }
     .chunk-row b { color: var(--olive-deep); }
     .meta-line { color: var(--muted); font-size: 0.88rem; margin: 0.25rem 0 0; }
+    .history-list { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
+    .history-row {
+      display: flex; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; align-items: center;
+      border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.75rem; background: #fff;
+      font-size: 0.9rem;
+    }
+    .history-row.active { border-color: var(--olive); background: var(--sage-soft); }
+    .history-meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+    .history-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .badge-status {
+      display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.12rem 0.45rem;
+      border-radius: 999px; background: #e8eef2; color: var(--muted);
+    }
+    .badge-status.done { background: #e7f3ea; color: var(--ok); }
+    .badge-status.generating, .badge-status.parsing, .badge-status.planning { background: #fff7e8; color: #8a6418; }
+    .badge-status.error { background: #fdeceb; color: var(--danger); }
+    .badge-status.ready { background: var(--sage-soft); color: var(--olive); }
   </style>
 </head>
 <body>
@@ -127,6 +144,12 @@
   </div>
 
   <div class="pane">
+    <section class="card" id="historyCard">
+      <h2>Your workbooks</h2>
+      <p class="hint">Jobs keep running if you close this window. Reopen anytime to check progress or download finished workbooks (kept ~7 days).</p>
+      <div class="history-list" id="historyList"><p class="hint">Loading…</p></div>
+    </section>
+
     <section class="card" id="setupCard">
       <h2>1. Upload &amp; options</h2>
       <p class="hint">Text-layer PDF only (not a scan). Default worksheet: Vocab 3 · MC 3 · Short Answer 1 · Reflection 1. Font Calibri 10pt, 0.5&quot; margins.</p>
@@ -305,6 +328,169 @@
     $('setupError').textContent = '';
   }
 
+  function rememberJob(id) {
+    try {
+      if (id) localStorage.setItem('salt_novel_study_job', id);
+      else localStorage.removeItem('salt_novel_study_job');
+    } catch (_) { /* ignore */ }
+  }
+
+  function rememberedJob() {
+    try { return localStorage.getItem('salt_novel_study_job') || ''; } catch (_) { return ''; }
+  }
+
+  function statusBadge(status) {
+    var s = String(status || 'unknown');
+    return '<span class="badge-status ' + s + '">' + s + '</span>';
+  }
+
+  function formatWhen(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      return d.toLocaleString();
+    } catch (_) {
+      return String(iso);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderHistory(jobs) {
+    var mount = $('historyList');
+    if (!jobs || !jobs.length) {
+      mount.innerHTML = '<p class="hint">No saved workbooks yet. Upload a PDF below to start.</p>';
+      return;
+    }
+    mount.innerHTML = jobs.map(function (j) {
+      var title = (j.meta && j.meta.title) || 'Untitled book';
+      var parts = (j.partsDone || 0) + '/' + (j.partsTotal || 0) + ' parts';
+      var active = j.id === jobId ? ' active' : '';
+      var actions = '<div class="history-actions">' +
+        '<button type="button" class="btn btn-ghost hist-open" data-id="' + escapeHtml(j.id) + '">Open</button>';
+      if (j.downloadReady) {
+        actions += '<button type="button" class="btn btn-primary hist-dl" data-id="' + escapeHtml(j.id) + '">Download</button>';
+      }
+      if (j.status === 'ready' || j.status === 'error') {
+        actions += '<button type="button" class="btn btn-gold hist-gen" data-id="' + escapeHtml(j.id) + '">' +
+          (j.status === 'error' ? 'Retry' : 'Generate') + '</button>';
+      }
+      actions += '</div>';
+      return '<div class="history-row' + active + '" data-id="' + escapeHtml(j.id) + '">' +
+        '<div><div><b>' + escapeHtml(title) + '</b> ' + statusBadge(j.status) + '</div>' +
+        '<div class="history-meta">' + escapeHtml(parts) +
+        (j.pageCount ? ' · ' + j.pageCount + ' pages' : '') +
+        ' · ' + escapeHtml(formatWhen(j.updatedAt)) +
+        (j.message ? ' · ' + escapeHtml(j.message) : '') +
+        '</div></div>' + actions + '</div>';
+    }).join('');
+  }
+
+  async function refreshHistory() {
+    if (!token()) {
+      $('historyList').innerHTML = '<p class="hint">Sign in from the Teacher portal to see your workbooks.</p>';
+      return [];
+    }
+    try {
+      var data = await toolFetch('/api/novel-study/jobs');
+      var jobs = data.jobs || [];
+      renderHistory(jobs);
+      return jobs;
+    } catch (e) {
+      $('historyList').innerHTML = '<p class="hint">' + escapeHtml(e.message || 'Could not load history') + '</p>';
+      return [];
+    }
+  }
+
+  async function downloadJobById(id) {
+    var t = token();
+    var res = await fetch('/api/novel-study/jobs/' + encodeURIComponent(id) + '/download', {
+      headers: t ? { Authorization: 'Bearer ' + t } : {}
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error(err.error || 'Download failed');
+    }
+    var blob = await res.blob();
+    var dispo = res.headers.get('Content-Disposition') || '';
+    var match = /filename="([^"]+)"/.exec(dispo);
+    var name = (match && match[1]) || 'novel-study-workbook.docx';
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function applyJobToUi(job) {
+    jobId = job.id;
+    rememberJob(jobId);
+    renderChunks(job);
+    $('genFailHint').classList.add('hidden');
+    $('doneCard').classList.add('hidden');
+    $('progressCard').classList.add('hidden');
+    $('genError').textContent = '';
+    $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
+    $('btnGenerate').textContent = job.status === 'error' ? 'Retry generate' : 'Generate workbook';
+
+    if (job.status === 'generating' || job.status === 'parsing' || job.status === 'planning') {
+      $('progressCard').classList.remove('hidden');
+      setProgress(job);
+      stopPoll();
+      pollTimer = setInterval(pollJob, 1200);
+      pollJob();
+    } else if (job.status === 'done' && job.downloadReady) {
+      showDone(job);
+    } else if (job.status === 'error') {
+      $('progressCard').classList.remove('hidden');
+      showFailed(job);
+    } else if (job.status === 'ready') {
+      $('progressMsg').textContent = job.message || 'Ready to generate.';
+    }
+    refreshHistory();
+  }
+
+  async function openJob(id) {
+    var data = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(id));
+    applyJobToUi(data.job || {});
+  }
+
+  async function startGenerateFor(id) {
+    jobId = id;
+    rememberJob(id);
+    $('chunkError').textContent = '';
+    $('genError').textContent = '';
+    $('genFailHint').classList.add('hidden');
+    $('btnGenerate').disabled = true;
+    $('btnGenerate').textContent = 'Generating…';
+    $('progressCard').classList.remove('hidden');
+    $('doneCard').classList.add('hidden');
+    $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
+    $('progressBar').style.width = '5%';
+    $('progressPct').textContent = '5%';
+    $('progressMsg').textContent = 'Starting generation… (safe to close this window)';
+    try {
+      await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
+        method: 'POST',
+        body: {}
+      });
+      stopPoll();
+      pollTimer = setInterval(pollJob, 1200);
+      pollJob();
+      refreshHistory();
+    } catch (e) {
+      $('chunkError').textContent = e.message || 'Could not start generation.';
+      $('btnGenerate').disabled = false;
+      $('btnGenerate').textContent = 'Generate workbook';
+    }
+  }
+
   function renderChunks(job) {
     $('chunksCard').classList.remove('hidden');
     var meta = job.meta || {};
@@ -347,10 +533,12 @@
     $('progressMsg').textContent = 'Workbook ready — use Download below.';
     $('progressPct').textContent = '100%';
     $('btnGenerate').disabled = false;
+    $('btnGenerate').textContent = 'Generate workbook';
     if (job.googleDocsUrl) {
       $('googleLink').innerHTML = 'Google Docs: <a href="' + job.googleDocsUrl +
         '" target="_blank" rel="noopener">' + job.googleDocsUrl + '</a>';
     }
+    refreshHistory();
   }
 
   function showFailed(job) {
@@ -363,6 +551,7 @@
     $('genError').textContent = job.error || job.message || 'Generation failed.';
     $('btnGenerate').disabled = false;
     $('btnGenerate').textContent = 'Retry generate';
+    refreshHistory();
   }
 
   async function pollJob() {
@@ -373,6 +562,7 @@
       setProgress(job);
       if (job.status === 'done' && job.downloadReady) showDone(job);
       else if (job.status === 'error') showFailed(job);
+      else if (job.status === 'generating') refreshHistory();
     } catch (e) {
       $('genError').textContent = e.message || 'Poll failed.';
     }
@@ -469,8 +659,10 @@
       });
       var data = await toolFetch('/api/novel-study/jobs', { method: 'POST', body: fd });
       jobId = data.job && data.job.id;
+      rememberJob(jobId);
       renderChunks(data.job || {});
       $('chunkError').textContent = '';
+      refreshHistory();
     } catch (e) {
       $('setupError').textContent = e.message || 'Upload failed.';
     } finally {
@@ -480,30 +672,26 @@
   });
 
   $('btnGenerate').addEventListener('click', async function () {
-    $('chunkError').textContent = '';
-    $('genError').textContent = '';
-    $('genFailHint').classList.add('hidden');
     if (!jobId) return;
-    $('btnGenerate').disabled = true;
-    $('btnGenerate').textContent = 'Generating…';
-    $('progressCard').classList.remove('hidden');
-    $('doneCard').classList.add('hidden');
-    $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
-    $('progressBar').style.width = '5%';
-    $('progressPct').textContent = '5%';
-    $('progressMsg').textContent = 'Starting generation…';
+    startGenerateFor(jobId);
+  });
+
+  $('historyList').addEventListener('click', async function (e) {
+    var btn = e.target.closest('button');
+    if (!btn) return;
+    var id = btn.getAttribute('data-id');
+    if (!id) return;
     try {
-      await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
-        method: 'POST',
-        body: {}
-      });
-      stopPoll();
-      pollTimer = setInterval(pollJob, 1200);
-      pollJob();
-    } catch (e) {
-      $('chunkError').textContent = e.message || 'Could not start generation.';
-      $('btnGenerate').disabled = false;
-      $('btnGenerate').textContent = 'Generate workbook';
+      if (btn.classList.contains('hist-open')) {
+        await openJob(id);
+      } else if (btn.classList.contains('hist-dl')) {
+        await downloadJobById(id);
+      } else if (btn.classList.contains('hist-gen')) {
+        await openJob(id);
+        await startGenerateFor(id);
+      }
+    } catch (err) {
+      $('setupError').textContent = err.message || 'Action failed.';
     }
   });
 
@@ -555,6 +743,7 @@
   $('btnReset').addEventListener('click', function () {
     stopPoll();
     jobId = null;
+    rememberJob('');
     selectedFile = null;
     $('pdfInput').value = '';
     $('dropLabel').textContent = 'Drop a PDF here or click to browse';
@@ -562,16 +751,40 @@
     $('chunksCard').classList.add('hidden');
     $('progressCard').classList.add('hidden');
     $('doneCard').classList.add('hidden');
+    $('genFailHint').classList.add('hidden');
     $('setupError').textContent = '';
     $('chunkError').textContent = '';
     $('genError').textContent = '';
     $('doneError').textContent = '';
     $('googleLink').textContent = '';
     $('progressBar').style.width = '0%';
+    $('btnGenerate').textContent = 'Generate workbook';
+    refreshHistory();
   });
 
-  checkAuth();
-  initMeta();
+  async function boot() {
+    await checkAuth();
+    await initMeta();
+    var jobs = await refreshHistory();
+    var preferred = rememberedJob();
+    var resume = null;
+    if (preferred) {
+      resume = (jobs || []).find(function (j) { return j.id === preferred; }) || null;
+    }
+    if (!resume) {
+      resume = (jobs || []).find(function (j) {
+        return j.status === 'generating' || j.status === 'parsing' || j.status === 'planning';
+      }) || null;
+    }
+    if (!resume) {
+      resume = (jobs || []).find(function (j) { return j.status === 'ready' || j.status === 'error'; }) || null;
+    }
+    if (resume) {
+      try { await openJob(resume.id); } catch (_) { /* ignore */ }
+    }
+  }
+
+  boot();
 })();
 </script>
 </body>

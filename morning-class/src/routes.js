@@ -4331,6 +4331,7 @@ router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (re
 const {
   createJobFromPdf,
   getJob: getNovelStudyJob,
+  listJobsForTeacher: listNovelStudyJobs,
   toPublicJob,
   subscribe: subscribeNovelStudy,
   runGeneration: runNovelStudyGeneration,
@@ -4369,6 +4370,15 @@ router.get('/novel-study/meta', requireRole('teacher', 'admin'), (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load Novel Study meta.' });
+  }
+});
+
+router.get('/novel-study/jobs', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const jobs = listNovelStudyJobs(novelStudyTeacherId(req), req.query.limit);
+    res.json({ ok: true, jobs });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not list jobs.' });
   }
 });
 
