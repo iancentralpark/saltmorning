@@ -1,7 +1,7 @@
 /**
  * Novel / Book Study — PDF parse, chunk planning, Gemini worksheet generation.
- * Jobs persist under tmp so closing the tool UI does not lose progress/downloads.
- * Original PDF is deleted after parse; chunk text kept until workbook succeeds.
+ * Jobs persist to ops Postgres (and local tmp cache) so closing the UI or a
+ * Railway redeploy does not wipe teacher workbooks.
  */
 'use strict';
 
@@ -13,6 +13,7 @@ const { Readable } = require('stream');
 const pdfParse = require('pdf-parse');
 const { askGemini, isGeminiConfigured } = require('./geminiService');
 const { buildWorkbookDocx } = require('./novelStudyDocx');
+const { isOpsDbEnabled, query, table } = require('../db/pool');
 
 const TMP_ROOT = path.join(os.tmpdir(), 'salt-novel-study');
 const JOBS_DIR = path.join(TMP_ROOT, 'jobs');
@@ -105,6 +106,30 @@ function ensureDocxBuffer(job) {
   return null;
 }
 
+async function ensureDocxBufferAsync(job) {
+  const local = ensureDocxBuffer(job);
+  if (local && local.length) return local;
+  if (!isOpsDbEnabled() || !job || !job.id) return null;
+  try {
+    const r = await query(
+      'SELECT docx FROM ' + table('novel_study_jobs') + ' WHERE id = $1 AND docx IS NOT NULL',
+      [job.id]
+    );
+    const buf = r.rows[0] && r.rows[0].docx;
+    if (buf && buf.length) {
+      job.docxBuffer = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+      try {
+        ensureTmp();
+        fs.writeFileSync(jobDocxPath(job.id), job.docxBuffer);
+      } catch (_) { /* cache best-effort */ }
+      return job.docxBuffer;
+    }
+  } catch (e) {
+    console.warn('novelStudy docx db load failed', job.id, e.message);
+  }
+  return null;
+}
+
 function serializeJob(job) {
   const keepText = job.status !== 'done';
   return {
@@ -142,7 +167,60 @@ function persistJobNow(job) {
     }
     fs.writeFileSync(jobMetaPath(job.id), JSON.stringify(serializeJob(job)));
   } catch (e) {
-    console.warn('novelStudy persist failed', job.id, e.message);
+    console.warn('novelStudy disk persist failed', job.id, e.message);
+  }
+  void persistJobToDb(job);
+}
+
+async function persistJobToDb(job) {
+  if (!job || !job.id || !isOpsDbEnabled()) return;
+  try {
+    const payload = serializeJob(job);
+    const docx = job.docxBuffer && job.docxBuffer.length ? job.docxBuffer : null;
+    await query(
+      'INSERT INTO ' + table('novel_study_jobs') + ' (' +
+        'id, teacher_id, status, progress, message, error, meta, options, page_count, ' +
+        'chunks, parts, culminating, google_docs_url, has_docx, docx, created_at, updated_at' +
+      ') VALUES (' +
+        '$1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9,$10::jsonb,$11::jsonb,$12::jsonb,$13,$14,$15,$16::timestamptz,$17::timestamptz' +
+      ') ON CONFLICT (id) DO UPDATE SET ' +
+        'teacher_id = EXCLUDED.teacher_id, ' +
+        'status = EXCLUDED.status, ' +
+        'progress = EXCLUDED.progress, ' +
+        'message = EXCLUDED.message, ' +
+        'error = EXCLUDED.error, ' +
+        'meta = EXCLUDED.meta, ' +
+        'options = EXCLUDED.options, ' +
+        'page_count = EXCLUDED.page_count, ' +
+        'chunks = EXCLUDED.chunks, ' +
+        'parts = EXCLUDED.parts, ' +
+        'culminating = EXCLUDED.culminating, ' +
+        'google_docs_url = EXCLUDED.google_docs_url, ' +
+        'has_docx = EXCLUDED.has_docx OR ' + table('novel_study_jobs') + '.has_docx, ' +
+        'docx = COALESCE(EXCLUDED.docx, ' + table('novel_study_jobs') + '.docx), ' +
+        'updated_at = EXCLUDED.updated_at',
+      [
+        payload.id,
+        payload.teacherId,
+        payload.status,
+        payload.progress,
+        payload.message,
+        payload.error,
+        JSON.stringify(payload.meta || null),
+        JSON.stringify(payload.options || null),
+        payload.pageCount || 0,
+        JSON.stringify(payload.chunks || []),
+        JSON.stringify(payload.parts || []),
+        JSON.stringify(payload.culminating || null),
+        payload.googleDocsUrl || null,
+        !!payload.hasDocx,
+        docx,
+        payload.createdAt || nowIso(),
+        payload.updatedAt || nowIso()
+      ]
+    );
+  } catch (e) {
+    console.warn('novelStudy db persist failed', job.id, e.message);
   }
 }
 
@@ -172,6 +250,9 @@ function deletePersistedJob(jobId) {
     if (fs.existsSync(meta)) fs.unlinkSync(meta);
     if (fs.existsSync(docx)) fs.unlinkSync(docx);
   } catch (_) { /* ignore */ }
+  if (isOpsDbEnabled()) {
+    void query('DELETE FROM ' + table('novel_study_jobs') + ' WHERE id = $1', [String(jobId)]).catch(() => {});
+  }
 }
 
 function hydrateJob(data) {
@@ -221,11 +302,59 @@ function loadJobsFromDisk() {
         const raw = fs.readFileSync(path.join(JOBS_DIR, file), 'utf8');
         const data = JSON.parse(raw);
         if (!data || !data.id) return;
+        if (jobs.has(data.id)) return; // DB copy wins if already loaded
         const job = hydrateJob(data);
         jobs.set(job.id, job);
       } catch (_) { /* skip bad file */ }
     });
   } catch (_) { /* empty */ }
+}
+
+async function loadJobsFromDb() {
+  if (!isOpsDbEnabled()) return 0;
+  try {
+    const cutoff = new Date(Date.now() - JOB_TTL_MS).toISOString();
+    const r = await query(
+      'SELECT id, teacher_id, status, progress, message, error, meta, options, page_count, ' +
+        'chunks, parts, culminating, google_docs_url, has_docx, ' +
+        'created_at, updated_at ' +
+      'FROM ' + table('novel_study_jobs') +
+      ' WHERE updated_at >= $1::timestamptz',
+      [cutoff]
+    );
+    let n = 0;
+    (r.rows || []).forEach((row) => {
+      const data = {
+        id: row.id,
+        teacherId: row.teacher_id,
+        status: row.status,
+        progress: row.progress,
+        message: row.message,
+        error: row.error,
+        meta: row.meta,
+        options: row.options,
+        pageCount: row.page_count,
+        chunks: row.chunks || [],
+        parts: row.parts || [],
+        culminating: row.culminating,
+        googleDocsUrl: row.google_docs_url,
+        hasDocx: !!row.has_docx,
+        createdAt: row.created_at && row.created_at.toISOString
+          ? row.created_at.toISOString()
+          : row.created_at,
+        updatedAt: row.updated_at && row.updated_at.toISOString
+          ? row.updated_at.toISOString()
+          : row.updated_at
+      };
+      const job = hydrateJob(data);
+      jobs.set(job.id, job);
+      n += 1;
+    });
+    return n;
+  } catch (e) {
+    console.warn('novelStudy db load failed', e.message);
+    return 0;
+  }
 }
 
 function newId(prefix) {
@@ -334,6 +463,12 @@ function purgeExpired() {
       deletePersistedJob(id);
       jobs.delete(id);
     }
+  }
+  if (isOpsDbEnabled()) {
+    void query(
+      'DELETE FROM ' + table('novel_study_jobs') + ' WHERE updated_at < $1::timestamptz',
+      [new Date(cutoff).toISOString()]
+    ).catch(() => {});
   }
 }
 setInterval(purgeExpired, 15 * 60 * 1000).unref?.();
@@ -1116,9 +1251,9 @@ async function runGeneration(jobId, teacherId) {
   }
 }
 
-function getDownload(jobId, teacherId) {
+async function getDownload(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
-  const buf = ensureDocxBuffer(job);
+  const buf = await ensureDocxBufferAsync(job);
   if (!buf || !buf.length) throw httpError('Download is not ready yet.', 409);
   const safe = String((job.meta && job.meta.title) || 'book-study')
     .replace(/[^\w\s\-]+/g, '')
@@ -1134,7 +1269,7 @@ function getDownload(jobId, teacherId) {
 
 async function uploadToGoogleDocs(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
-  const buf = ensureDocxBuffer(job);
+  const buf = await ensureDocxBufferAsync(job);
   if (!buf || !buf.length) throw httpError('Generate the workbook first.', 409);
   job.docxBuffer = buf;
 
@@ -1205,3 +1340,11 @@ module.exports = {
 
 loadJobsFromDisk();
 purgeExpired();
+void (async () => {
+  try {
+    const n = await loadJobsFromDb();
+    if (n) console.log('[novel-study] restored', n, 'job(s) from ops db');
+  } catch (e) {
+    console.warn('[novel-study] db restore skipped', e.message);
+  }
+})();

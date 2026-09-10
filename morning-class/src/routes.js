@@ -4469,9 +4469,9 @@ router.post('/novel-study/jobs/:id/generate', requireRole('teacher', 'admin'), n
   }
 });
 
-router.get('/novel-study/jobs/:id/download', requireRole('teacher', 'admin'), (req, res) => {
+router.get('/novel-study/jobs/:id/download', requireRole('teacher', 'admin'), async (req, res) => {
   try {
-    const file = getNovelStudyDownload(req.params.id, novelStudyTeacherId(req));
+    const file = await getNovelStudyDownload(req.params.id, novelStudyTeacherId(req));
     res.setHeader('Content-Type', file.mime);
     res.setHeader(
       'Content-Disposition',
