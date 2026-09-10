@@ -232,7 +232,7 @@
     <section class="card hidden" id="chunksCard">
       <h2>2. Chunk plan</h2>
       <p class="hint" id="bookMeta">—</p>
-      <p class="hint">Titles use chapter/section headings when found; otherwise a short content blurb. Review the list, then generate.</p>
+      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. Titles use chapter/section headings when found; otherwise a short content blurb.</p>
       <div class="chunk-list" id="chunkList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
@@ -762,11 +762,19 @@
     } else if (planMode === 'page-groups') {
       badge = ' <span class="plan-badge weak">page groups + titles</span>';
     }
+    var skipNote = '';
+    if (job.skippedFront || job.skippedBack) {
+      skipNote = ' · skipped ' +
+        [
+          job.skippedFront ? (job.skippedFront + ' front') : '',
+          job.skippedBack ? (job.skippedBack + ' back') : ''
+        ].filter(Boolean).join(' / ') + ' matter';
+    }
     $('bookMeta').innerHTML =
       escapeHtml((meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
       ' · ' + (meta.genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
       ' · ' + (job.pageCount || 0) + ' pages · ' + (job.chunks || []).length + ' parts') +
-      badge +
+      badge + escapeHtml(skipNote) +
       (job.pageOverflowRisk ? ' · page overflow risk' : '');
     $('chunkList').innerHTML = (job.chunks || []).map(function (ch) {
       var blurb = ch.summary || '';
