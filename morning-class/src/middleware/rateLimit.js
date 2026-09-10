@@ -61,4 +61,22 @@ const aiRateLimiter = createRateLimiter({
   message: 'English Buddy is getting a lot of requests right now. Please wait a moment and try again.'
 });
 
-module.exports = { createRateLimiter, loginRateLimiter, aiRateLimiter };
+/**
+ * Novel Study fire-and-forget jobs call Gemini many times with an internal
+ * delay. Cap job starts (upload + generate), not each model call — otherwise
+ * the shared AI limiter (12/min) would choke multi-part workbooks.
+ */
+const novelStudyJobLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 6,
+  keyFn: (req) => {
+    const sid =
+      (req.session && (req.session.teacherId || req.session.adminId || req.session.userId)) ||
+      req.ip ||
+      'unknown';
+    return 'novel-study:' + sid;
+  },
+  message: 'Novel Study is busy. Please wait a few minutes before starting another workbook.'
+});
+
+module.exports = { createRateLimiter, loginRateLimiter, aiRateLimiter, novelStudyJobLimiter };

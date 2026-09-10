@@ -5,7 +5,7 @@ const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
 const { hasPermission } = require('./services/staffPermissionService');
-const { loginRateLimiter, aiRateLimiter } = require('./middleware/rateLimit');
+const { loginRateLimiter, aiRateLimiter, novelStudyJobLimiter } = require('./middleware/rateLimit');
 const {
   getTeacherClasses,
   getClassRoster,
@@ -4373,7 +4373,7 @@ router.get('/novel-study/meta', requireRole('teacher', 'admin'), (req, res) => {
 router.post(
   '/novel-study/jobs',
   requireRole('teacher', 'admin'),
-  aiRateLimiter,
+  novelStudyJobLimiter,
   (req, res) => {
     novelStudyUpload.single('pdf')(req, res, async (err) => {
       if (err) {
@@ -4435,7 +4435,7 @@ router.get('/novel-study/jobs/:id/events', requireRole('teacher', 'admin'), (req
   }
 });
 
-router.post('/novel-study/jobs/:id/generate', requireRole('teacher', 'admin'), aiRateLimiter, (req, res) => {
+router.post('/novel-study/jobs/:id/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
   try {
     const teacherId = novelStudyTeacherId(req);
     const job = getNovelStudyJob(req.params.id, teacherId);

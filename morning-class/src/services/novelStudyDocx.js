@@ -388,7 +388,8 @@ async function buildWorkbookDocx(job) {
     sections: [{
       properties: {
         page: {
-          size: { width: 12240, height: 15840 }, // US Letter
+          // A4: 210mm × 297mm in twips (1 inch = 1440 twips)
+          size: { width: 11906, height: 16838 },
           margin: { top: MARGIN, right: MARGIN, bottom: MARGIN, left: MARGIN }
         }
       },
