@@ -175,14 +175,24 @@
       box.querySelectorAll('[data-consent-edit]').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const formId = btn.dataset.consentEdit;
-          const newTitle = window.prompt(t('consent.col.title', 'Title'), btn.dataset.title || '');
-          if (newTitle == null) return;
-          const newDue = window.prompt(t('consent.editDue', 'Due date (YYYY-MM-DD, blank for none)'), btn.dataset.due || '');
-          if (newDue == null) return;
+          const values = (global.SaltApp && global.SaltApp.showFormModal) ? await global.SaltApp.showFormModal({
+            title: t('consent.editTitle', 'Edit letter'),
+            submitLabel: t('common.save', 'Save'),
+            fields: [
+              { key: 'title', label: t('consent.col.title', 'Title'), value: btn.dataset.title || '' },
+              {
+                key: 'dueDate',
+                label: t('consent.editDue', 'Due date (YYYY-MM-DD, blank for none)'),
+                value: btn.dataset.due || '',
+                placeholder: 'YYYY-MM-DD'
+              }
+            ]
+          }) : null;
+          if (!values) return;
           try {
             await api('/api/admin/consents/' + encodeURIComponent(formId), {
               method: 'PATCH',
-              body: { title: newTitle, dueDate: newDue }
+              body: { title: values.title, dueDate: values.dueDate }
             }, role);
             await loadForms();
           } catch (e) {

@@ -809,14 +809,19 @@
           refreshTeacherAnnList();
         },
         onEdit: async (id, current) => {
-          const title = window.prompt('Title', current.title);
-          if (title == null) return;
-          const body = window.prompt('Body', current.body);
-          if (body == null) return;
+          const values = await SaltApp.showFormModal({
+            title: 'Edit announcement',
+            submitLabel: 'Save',
+            fields: [
+              { key: 'title', label: 'Title', value: current.title },
+              { key: 'body', label: 'Body', value: current.body, type: 'textarea' }
+            ]
+          });
+          if (!values) return;
           try {
             await api('/api/teacher/announcements/' + encodeURIComponent(id), {
               method: 'POST',
-              body: { title, body }
+              body: { title: values.title, body: values.body }
             }, role);
             refreshTeacherAnnList();
           } catch (e) {

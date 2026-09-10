@@ -205,6 +205,68 @@
     (root || document).querySelectorAll('input[type="password"]:not([data-pw-toggled])').forEach(wirePasswordToggle);
   }
 
+  /**
+   * Small in-page replacement for window.prompt() for edit flows with more
+   * than one field (title+body, title+due date, ...). window.prompt() can
+   * only show one line at a time and looks jarring/native next to the rest
+   * of the UI. Returns a Promise resolving to { key: value, ... } or null
+   * if the user cancels.
+   */
+  function showFormModal(opts) {
+    opts = opts || {};
+    const fields = opts.fields || [];
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal';
+      const fieldsHtml = fields.map((f, i) => {
+        const id = 'sfModalField' + i;
+        const value = f.value == null ? '' : String(f.value);
+        if (f.type === 'textarea') {
+          return '<label class="sf-modal-label" for="' + id + '">' + escapeHtml(f.label || '') + '</label>' +
+            '<textarea class="sf-modal-input" id="' + id + '" rows="' + (f.rows || 4) + '">' +
+            escapeHtml(value) + '</textarea>';
+        }
+        return '<label class="sf-modal-label" for="' + id + '">' + escapeHtml(f.label || '') + '</label>' +
+          '<input class="sf-modal-input" id="' + id + '" type="' + (f.type || 'text') + '" value="' +
+          escapeHtml(value) + '"' + (f.placeholder ? ' placeholder="' + escapeHtml(f.placeholder) + '"' : '') + '>';
+      }).join('');
+      overlay.innerHTML =
+        '<div class="modal-card sf-modal-card">' +
+          '<h3 class="sf-modal-title">' + escapeHtml(opts.title || '') + '</h3>' +
+          (opts.help ? '<p class="muted small">' + escapeHtml(opts.help) + '</p>' : '') +
+          '<form class="sf-modal-form">' + fieldsHtml +
+            '<div class="sf-modal-actions">' +
+              '<button type="button" class="btn btn-ghost" data-act="cancel">Cancel</button>' +
+              '<button type="submit" class="btn btn-primary">' + escapeHtml(opts.submitLabel || 'Save') + '</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      autoWirePasswordToggles(overlay);
+      function close(result) {
+        overlay.remove();
+        document.removeEventListener('keydown', onKeydown);
+        resolve(result);
+      }
+      function onKeydown(e) {
+        if (e.key === 'Escape') close(null);
+      }
+      document.addEventListener('keydown', onKeydown);
+      overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) close(null); });
+      overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => close(null));
+      overlay.querySelector('.sf-modal-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const values = {};
+        fields.forEach((f, i) => {
+          values[f.key] = document.getElementById('sfModalField' + i).value;
+        });
+        close(values);
+      });
+      const firstInput = overlay.querySelector('.sf-modal-input');
+      if (firstInput) firstInput.focus();
+    });
+  }
+
   if (typeof document !== 'undefined') {
     autoWirePasswordToggles(document);
     if (typeof MutationObserver !== 'undefined') {
@@ -245,6 +307,7 @@
     escapeHtml,
     prepareSignatureFile,
     wirePasswordToggle,
-    autoWirePasswordToggles
+    autoWirePasswordToggles,
+    showFormModal
   };
 })(window);

@@ -1573,6 +1573,12 @@ th, td { border-bottom: 1px solid var(--border); padding: 0.5rem; text-align: le
   box-shadow: var(--shadow-lg); border: 1px solid var(--border);
 }
 .modal-wide { width: min(960px, 100%); }
+.sf-modal-card { display: flex; flex-direction: column; gap: 0.5rem; }
+.sf-modal-title { margin: 0; }
+.sf-modal-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.sf-modal-label { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-top: 0.25rem; }
+.sf-modal-input { width: 100%; font-family: inherit; font-size: 0.95rem; }
+.sf-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
 .planned-item { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
 .report-scroll { overflow: auto; margin-bottom: 1rem; }
 .report-table { border-collapse: collapse; font-size: 0.78rem; min-width: 100%; }
