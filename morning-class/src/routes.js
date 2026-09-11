@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { isGeminiConfigured, isClaudeConfigured, preferredProvider } = require('./services/geminiService');
+const { isGeminiConfigured, isClaudeConfigured, hasGeminiKey, preferredProvider } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
@@ -456,9 +456,10 @@ router.get('/health', async (req, res) => {
     service: 'salt-morning-class',
     reportCardPrintVersion: REPORT_CARD_PRINT_VERSION,
     learningAnalyticsBuild: LEARNING_ANALYTICS_BUILD,
-    gemini: isGeminiConfigured(),
+    gemini: hasGeminiKey(),
     claude: isClaudeConfigured(),
     aiProvider: preferredProvider(),
+    aiConfigured: isGeminiConfigured(),
     googleTeacherOAuth: {
       configured: googleTeacherAuth.isGoogleOAuthConfigured(),
       hasApiKey: !!process.env.GOOGLE_API_KEY
