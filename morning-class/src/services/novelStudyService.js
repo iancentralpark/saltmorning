@@ -759,18 +759,19 @@ async function extractPages(pdfBuffer) {
     }
   }
 
-  const usable = pages.filter(
+  const usableCount = pages.filter(
     (p) => String(p.text || '').replace(/\s+/g, '').length >= MIN_CHARS_PAGE
-  );
-  if (!usable.length) {
+  ).length;
+  if (!usableCount) {
     throw httpError(
       'This PDF has no extractable text. Please upload a text-layer PDF (not a scan).',
       400
     );
   }
-  // Keep original page numbers from the PDF order (including sparse pages),
-  // but planning uses pages with enough text.
-  return { pageCount: pages.length, pages: usable.length ? usable : pages };
+  // Keep every PDF page (including short/nearly-blank ones) so chunk plans stay
+  // contiguous in page numbers. Dropping short pages previously created visible
+  // gaps like "Part 11 ends p.80, Part 12 starts p.84".
+  return { pageCount: pages.length, pages };
 }
 
 function pageCharCount(text) {
@@ -1202,6 +1203,118 @@ function rematerializeSectionPages(chunks, bodyPages) {
   }).filter((s) => s.pages.length);
 }
 
+/** True when every body page appears in at least one section (no coverage gaps).
+ * Mid-page heading splits may share a boundary page — that is allowed.
+ */
+function sectionsCoverAllBody(sections, bodyPages) {
+  const body = bodyPages || [];
+  if (!body.length) return !(sections && sections.length);
+  const covered = new Set();
+  for (const s of sections || []) {
+    for (const p of s.pages || []) covered.add(p.pageNum);
+  }
+  for (const p of body) {
+    if (!covered.has(p.pageNum)) return false;
+  }
+  return true;
+}
+
+/** True when sections are a partition of body pages (no gaps, no full-page overlaps). */
+function sectionsPartitionBody(sections, bodyPages) {
+  const body = bodyPages || [];
+  if (!body.length) return !(sections && sections.length);
+  const covered = new Set();
+  for (const s of sections || []) {
+    for (const p of s.pages || []) {
+      if (covered.has(p.pageNum)) return false;
+      covered.add(p.pageNum);
+    }
+  }
+  if (covered.size !== body.length) return false;
+  for (const p of body) {
+    if (!covered.has(p.pageNum)) return false;
+  }
+  return true;
+}
+
+/**
+ * Rebuild sections so every body page is in exactly one part, preserving
+ * heading-aligned starts when possible. Gaps between claimed ranges are filled;
+ * overlaps are resolved by preferring the later section's start.
+ */
+function ensureContiguousBodyCoverage(sections, bodyPages, banned) {
+  const body = (bodyPages || []).slice();
+  if (!body.length) return [];
+  const byNum = new Map(body.map((p) => [p.pageNum, p]));
+  const pageNums = body.map((p) => p.pageNum);
+  const indexOf = new Map(pageNums.map((n, i) => [n, i]));
+
+  let secs = (sections || [])
+    .map((s) => ({
+      unitTitle: s.unitTitle || '',
+      summary: s.summary || '',
+      pages: (s.pages || []).filter((p) => byNum.has(p.pageNum))
+    }))
+    .filter((s) => s.pages.length)
+    .sort((a, b) => a.pages[0].pageNum - b.pages[0].pageNum);
+
+  if (!secs.length) {
+    return [{
+      unitTitle: guessHeading(body[0].text, banned) || 'Part 1',
+      summary: '',
+      startPage: body[0].pageNum,
+      endPage: body[body.length - 1].pageNum,
+      pages: body.slice(),
+      text: body.map((p) => p.text).join('\n\n').trim()
+    }];
+  }
+
+  // Claim start indexes into body; later sections win overlapping claims.
+  const starts = [];
+  secs.forEach((s) => {
+    const idx = indexOf.get(s.pages[0].pageNum);
+    if (idx == null) return;
+    if (starts.length && idx <= starts[starts.length - 1]) return;
+    starts.push(idx);
+  });
+  if (!starts.length || starts[0] !== 0) starts.unshift(0);
+  // Deduplicate and ensure strictly increasing.
+  const uniq = [];
+  starts.forEach((idx) => {
+    if (!uniq.length || idx > uniq[uniq.length - 1]) uniq.push(idx);
+  });
+  if (uniq[0] !== 0) uniq[0] = 0;
+
+  const out = [];
+  for (let i = 0; i < uniq.length; i += 1) {
+    const from = uniq[i];
+    const to = i + 1 < uniq.length ? uniq[i + 1] : pageNums.length;
+    const slice = body.slice(from, to);
+    if (!slice.length) continue;
+    // Prefer original title for the section that started near this index.
+    let title = '';
+    let summary = '';
+    for (const s of secs) {
+      const sIdx = indexOf.get(s.pages[0].pageNum);
+      if (sIdx === from || (sIdx > from && sIdx < to)) {
+        title = s.unitTitle || title;
+        summary = s.summary || summary;
+        if (sIdx === from) break;
+      }
+    }
+    if (!title) title = guessHeading(slice[0].text, banned) || ('Part ' + (out.length + 1));
+    out.push({
+      unitTitle: title,
+      summary,
+      startPage: slice[0].pageNum,
+      endPage: slice[slice.length - 1].pageNum,
+      pages: slice,
+      text: slice.map((p) => p.text).join('\n\n').trim()
+    });
+  }
+  return out;
+}
+
 /** Merge/split page-backed sections until count equals target (best-effort). */
 function fitSectionsToTargetCount(sections, target, banned) {
   const want = Math.max(2, Math.min(80, Number(target) || 0));
@@ -1388,18 +1501,29 @@ function enforceTargetChunkCount(chunks, bodyPages, target, banned, toc) {
   const want = Math.max(2, Math.min(80, Number(target) || 0));
   if (!want) return chunks || [];
   let sections = rematerializeSectionPages(chunks, bodyPages);
-  if (!sections.length || sections.length !== want) {
-    // Prefer even/snapped plan over merging a heading explosion.
+
+  // Prefer stitching gaps (keeps AI/heading titles) before a full replan.
+  if (sections.length && !sectionsPartitionBody(sections, bodyPages)) {
+    sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+  }
+
+  const needsRebuild = !sections.length
+    || sections.length !== want
+    || !sectionsPartitionBody(sections, bodyPages);
+  if (needsRebuild) {
     if (!sections.length || sections.length > want * 2) {
       sections = planTargetCountSections(bodyPages, want, banned, toc);
     } else {
       sections = fitSectionsToTargetCount(sections, want, banned);
+      if (!sectionsPartitionBody(sections, bodyPages)) {
+        sections = planTargetCountSections(bodyPages, want, banned, toc);
+      }
     }
   }
-  if (sections.length !== want) {
+  if (sections.length !== want || !sectionsPartitionBody(sections, bodyPages)) {
     sections = planTargetCountSections(bodyPages, want, banned, toc);
   }
-  if (sections.length !== want) {
+  if (sections.length !== want || !sectionsPartitionBody(sections, bodyPages)) {
     sections = evenSplitPages(bodyPages, want, banned);
   }
   return sections.map((sec, idx) => labelChunk({
@@ -1845,30 +1969,57 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
   const pageMin = pages[0].pageNum;
   const pageMax = pages[pages.length - 1].pageNum;
   const byNum = new Map(pages.map((p) => [p.pageNum, p]));
+  const pageNums = pages.map((p) => p.pageNum);
+  const indexOf = new Map(pageNums.map((n, i) => [n, i]));
   const normalized = sections.map((s, i) => {
     let start = Math.max(pageMin, Math.min(pageMax, Number(s.start_page || s.startPage) || pageMin));
     let end = Math.max(start, Math.min(pageMax, Number(s.end_page || s.endPage) || start));
-    if (end - start + 1 > TARGET_MAX + 3) end = start + TARGET_MAX + 1;
+    // Only clamp runaway spans when the teacher did NOT ask for an exact count.
+    // Truncating here was a primary gap source (next section kept its original start).
+    if (targetN < 2 && end - start + 1 > TARGET_MAX + 3) end = start + TARGET_MAX + 1;
     return {
       order: i,
       unitTitle: String(s.unit_title || s.unitTitle || '').trim(),
       startPage: start,
       endPage: end
     };
-  }).sort((a, b) => a.startPage - b.startPage);
+  }).sort((a, b) => a.startPage - b.startPage || a.order - b.order);
 
-  // Fix overlaps / gaps lightly
-  for (let i = 1; i < normalized.length; i += 1) {
-    if (normalized[i].startPage <= normalized[i - 1].endPage) {
-      normalized[i].startPage = normalized[i - 1].endPage + 1;
+  // Resolve overlaps (later start wins) and fill gaps so coverage is contiguous
+  // over the body page list (not merely numeric end+1 when pages are sparse).
+  if (normalized.length) {
+    normalized[0].startPage = pageMin;
+    for (let i = 1; i < normalized.length; i += 1) {
+      const prev = normalized[i - 1];
+      const cur = normalized[i];
+      const prevEndIdx = indexOf.has(prev.endPage) ? indexOf.get(prev.endPage) : -1;
+      let curStartIdx = indexOf.has(cur.startPage) ? indexOf.get(cur.startPage) : -1;
+      if (curStartIdx < 0) {
+        // Snap start to nearest existing body page at/after claimed start.
+        curStartIdx = pageNums.findIndex((n) => n >= cur.startPage);
+        if (curStartIdx < 0) curStartIdx = pageNums.length - 1;
+        cur.startPage = pageNums[curStartIdx];
+      }
+      if (prevEndIdx >= 0 && curStartIdx <= prevEndIdx) {
+        // Overlap: push current start to the page after previous end.
+        const nextIdx = prevEndIdx + 1;
+        if (nextIdx >= pageNums.length) {
+          cur.startPage = pageMax;
+          cur.endPage = pageMax;
+        } else {
+          cur.startPage = pageNums[nextIdx];
+        }
+      } else if (prevEndIdx >= 0 && curStartIdx > prevEndIdx + 1) {
+        // Gap: extend previous section through the page before current start.
+        prev.endPage = pageNums[curStartIdx - 1];
+      }
+      if (cur.startPage > cur.endPage) cur.endPage = cur.startPage;
     }
-    if (normalized[i].startPage > normalized[i].endPage) {
-      normalized[i].endPage = normalized[i].startPage;
-    }
+    normalized[normalized.length - 1].endPage = pageMax;
   }
 
   const chunks = [];
-  normalized.forEach((sec) => {
+  normalized.forEach((sec, idx) => {
     if (sec.startPage > pageMax || sec.endPage < pageMin) return;
     const slice = [];
     for (let p = sec.startPage; p <= sec.endPage; p += 1) {
@@ -1876,9 +2027,9 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
     }
     if (!slice.length) return;
     const text = slice.map((p) => p.text).join('\n\n').trim();
-    if (text.length < 80) return;
+    // Do not drop short sections — that created gaps. Keep them; callers may merge.
     chunks.push(labelChunk({
-      unitTitle: sec.unitTitle,
+      unitTitle: sec.unitTitle || ('Part ' + (idx + 1)),
       startPage: slice[0].pageNum,
       endPage: slice[slice.length - 1].pageNum,
       pages: slice,
@@ -1887,8 +2038,22 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
   });
 
   if (chunks.length < 2) throw new Error('boundary chunks too few');
-  chunks.forEach((c, i) => { c.partNum = i + 1; });
-  return chunks;
+  // Final safety: absorb any remaining uncovered body pages into neighbors.
+  let sectionsOut = rematerializeSectionPages(chunks, pages);
+  if (!sectionsCoverAllBody(sectionsOut, pages)) {
+    sectionsOut = ensureContiguousBodyCoverage(sectionsOut, pages, banned);
+  }
+  const fixed = sectionsOut.map((sec, i) => labelChunk({
+    partNum: i + 1,
+    unitTitle: sec.unitTitle,
+    summary: sec.summary || '',
+    startPage: sec.startPage,
+    endPage: sec.endPage,
+    pages: sec.pages,
+    text: sec.text
+  }, banned));
+  if (fixed.length < 2) throw new Error('boundary chunks too few');
+  return fixed;
 }
 
 async function planChunksWithGemini(pages, options, onProgress) {
@@ -1952,6 +2117,9 @@ async function planChunksWithGemini(pages, options, onProgress) {
     planMode = 'target-count';
   } else {
     let sections = rematerializeSectionPages(chunks, bodyPages);
+    if (!sectionsCoverAllBody(sections, bodyPages)) {
+      sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+    }
     sections = carveAdjacentSections(sections, banned);
     chunks = sections.map((sec, idx) => labelChunk({
       partNum: idx + 1,
@@ -1983,13 +2151,32 @@ async function planChunksWithGemini(pages, options, onProgress) {
   chunks.forEach((c, i) => { c.partNum = i + 1; });
 
   // Teacher-requested count wins: re-enforce after back-matter filters.
-  if (targetN >= 2 && chunks.length !== targetN) {
-    chunks = enforceTargetChunkCount(chunks, bodyPages, targetN, banned, toc);
-    chunks.forEach((c, i) => {
-      c.partNum = i + 1;
-      c.planMode = 'target-count';
-    });
-    planMode = 'target-count';
+  // Also repair page gaps created by dropping non-content chunks.
+  if (targetN >= 2) {
+    if (chunks.length !== targetN || !sectionsCoverAllBody(rematerializeSectionPages(chunks, bodyPages), bodyPages)) {
+      chunks = enforceTargetChunkCount(chunks, bodyPages, targetN, banned, toc);
+      chunks.forEach((c, i) => {
+        c.partNum = i + 1;
+        c.planMode = 'target-count';
+      });
+      planMode = 'target-count';
+    }
+  } else {
+    let sections = rematerializeSectionPages(chunks, bodyPages);
+    if (!sectionsCoverAllBody(sections, bodyPages)) {
+      sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+      sections = carveAdjacentSections(sections, banned);
+      chunks = sections.map((sec, idx) => labelChunk({
+        partNum: idx + 1,
+        unitTitle: sec.unitTitle,
+        summary: sec.summary || '',
+        startPage: sec.startPage,
+        endPage: sec.endPage,
+        pages: sec.pages,
+        text: sec.text
+      }, banned));
+      chunks.forEach((c) => { c.planMode = planMode; });
+    }
   }
 
   if (!chunks.length) {
@@ -2011,6 +2198,31 @@ async function planChunksWithGemini(pages, options, onProgress) {
       c.partNum = i + 1;
       c.planMode = planMode;
     });
+  }
+
+  // Last-resort contiguous cover (heuristic fallback can still gap after filters).
+  {
+    let sections = rematerializeSectionPages(chunks, bodyPages);
+    if (sections.length && !sectionsCoverAllBody(sections, bodyPages)) {
+      if (targetN >= 2) {
+        chunks = enforceTargetChunkCount(chunks, bodyPages, targetN, banned, toc);
+      } else {
+        sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+        chunks = sections.map((sec, idx) => labelChunk({
+          partNum: idx + 1,
+          unitTitle: sec.unitTitle,
+          summary: sec.summary || '',
+          startPage: sec.startPage,
+          endPage: sec.endPage,
+          pages: sec.pages,
+          text: sec.text
+        }, banned));
+      }
+      chunks.forEach((c, i) => {
+        c.partNum = i + 1;
+        c.planMode = planMode;
+      });
+    }
   }
 
   return {
@@ -2834,7 +3046,19 @@ module.exports = {
   listMcTypes,
   listLevels,
   normalizeOptions,
-  MAX_PDF_BYTES
+  MAX_PDF_BYTES,
+  // Internals for contiguous-coverage regression checks
+  _test: {
+    sectionsCoverAllBody,
+    sectionsPartitionBody,
+    ensureContiguousBodyCoverage,
+    rematerializeSectionPages,
+    enforceTargetChunkCount,
+    evenSplitPages,
+    planTargetCountSections,
+    fitSectionsToTargetCount,
+    collectRunningHeaders
+  }
 };
 
 loadJobsFromDisk();
