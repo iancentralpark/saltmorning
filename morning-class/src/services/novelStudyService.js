@@ -156,6 +156,7 @@ function serializeJob(job) {
     googleDocsUrl: job.googleDocsUrl || null,
     originalName: job.originalName || null,
     planMode: job.planMode || null,
+    planReport: job.planReport || null,
     tocCount: job.tocCount || 0,
     skippedFront: job.skippedFront || 0,
     skippedBack: job.skippedBack || 0,
@@ -279,6 +280,7 @@ function hydrateJob(data) {
     googleDocsUrl: data.googleDocsUrl || null,
     originalName: data.originalName || null,
     planMode: data.planMode || null,
+    planReport: data.planReport || (data.meta && data.meta.planReport) || null,
     tocCount: data.tocCount || 0,
     skippedFront: data.skippedFront || 0,
     skippedBack: data.skippedBack || 0,
@@ -590,6 +592,7 @@ function toPublicJob(job, opts) {
     googleDocsUrl: job.googleDocsUrl || null,
     pageOverflowRisk: !!(job.options && job.options.pageOverflowRisk),
     planMode: job.planMode || null,
+    planReport: job.planReport || (job.meta && job.meta.planReport) || null,
     tocCount: job.tocCount || 0,
     skippedFront: job.skippedFront || 0,
     skippedBack: job.skippedBack || 0,
@@ -672,13 +675,18 @@ function normalizeOptions(body) {
   const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 2));
   const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 3));
   const reflectionCount = Math.max(0, Math.min(2, Number(body && body.reflectionCount) || 1));
-  // 0 / empty = auto chunk count from headings; default teacher request is 16 worksheets.
+  // 0 / empty / 'auto' = Gemini suggests a natural worksheet count (about 10–20).
+  // Explicit numbers still force that exact count for teachers who want it.
   const targetRaw = body && body.targetChunks;
-  let targetChunks = 16;
-  if (targetRaw === 0 || targetRaw === '0') {
+  let targetChunks = 0;
+  if (targetRaw === 0 || targetRaw === '0' || targetRaw === 'auto' ||
+      targetRaw === undefined || targetRaw === null || targetRaw === '') {
     targetChunks = 0;
-  } else if (targetRaw !== undefined && targetRaw !== null && targetRaw !== '') {
-    targetChunks = Math.max(2, Math.min(80, Number(targetRaw) || 16));
+  } else {
+    const n = Number(targetRaw);
+    targetChunks = Number.isFinite(n) && n > 0
+      ? Math.max(2, Math.min(80, Math.round(n)))
+      : 0;
   }
   let mcTypes = Array.isArray(body && body.mcTypes)
     ? body.mcTypes.map(String)
@@ -1499,6 +1507,281 @@ function planTargetCountSections(bodyPages, target, banned, toc) {
   return secs;
 }
 
+const SUGGEST_MIN = 10;
+const SUGGEST_MAX = 20;
+
+function defaultPlanCriteria() {
+  return [
+    'Prefer chapter, subtitle, and content-unit boundaries over an exact page count',
+    'Aim for about one class period per worksheet (roughly ' + SUGGEST_MIN + '–' + SUGGEST_MAX + ' parts)',
+    'Avoid cutting mid-paragraph or mid-scene when a nearby heading exists',
+    'Skip title/copyright/contents and back-matter pages'
+  ];
+}
+
+/** Fallback worksheet count from headings + page length when Gemini is unavailable. */
+function heuristicSuggestedCount(bodyPages, toc) {
+  const pageN = (bodyPages || []).length;
+  const headingN = (toc || []).length;
+  if (pageN < 1) return 2;
+  let n;
+  if (headingN >= SUGGEST_MIN && headingN <= SUGGEST_MAX) {
+    n = headingN;
+  } else if (headingN > SUGGEST_MAX) {
+    n = Math.round(headingN / Math.max(1, Math.ceil(headingN / 16)));
+  } else if (headingN >= 4) {
+    n = Math.max(headingN, Math.round(pageN / 5));
+  } else {
+    n = Math.round(pageN / 4);
+  }
+  const hardMax = Math.min(SUGGEST_MAX, Math.max(2, pageN));
+  if (pageN < 24) {
+    return Math.max(2, Math.min(hardMax, Math.max(2, Math.round(pageN / 3))));
+  }
+  const hardMin = Math.min(SUGGEST_MIN, hardMax);
+  return Math.max(hardMin, Math.min(hardMax, n || SUGGEST_MIN));
+}
+
+/**
+ * Ask Gemini for a natural worksheet count (~10–20) from structure signals.
+ */
+async function suggestWorksheetCountWithGemini(bodyPages, toc, options) {
+  const fallback = heuristicSuggestedCount(bodyPages, toc);
+  const headings = (toc || []).slice(0, 90).map((t) => ({
+    page: t.page,
+    title: String(t.title || t.heading || '').trim()
+  })).filter((t) => t.title);
+  const pageN = (bodyPages || []).length;
+  const pageMin = bodyPages[0] && bodyPages[0].pageNum;
+  const pageMax = bodyPages[bodyPages.length - 1] && bodyPages[bodyPages.length - 1].pageNum;
+
+  try {
+    const prompt = [
+      'You are planning Novel/Book Study worksheets for middle/high school ELA.',
+      'Suggest how many reading worksheets (chunks) this book body should have.',
+      'Return JSON ONLY:',
+      '{ "suggested_count": number, "criteria": string[], "summary": string, "notes": string }',
+      'Rules:',
+      '- Prefer a count between ' + SUGGEST_MIN + ' and ' + SUGGEST_MAX + ' when the book is long enough.',
+      '- Use chapters, subtitles, and clear content units — not a blind every-N-pages grid.',
+      '- Group very short chapters; split very long chapters at natural mid-chapter breaks when needed.',
+      '- Meaning boundaries matter more than hitting an exact number.',
+      '- criteria: 3–5 short bullets explaining what you optimized for.',
+      '- summary: 1–2 sentences for the teacher (plain English).',
+      'Book body pages: ' + pageN + ' (PDF pp. ' + pageMin + '–' + pageMax + ').',
+      'Level: ' + String((options && options.level) || 'middle') + '.',
+      'Detected headings: ' + JSON.stringify(headings)
+    ].join('\n');
+
+    const res = await askGemini(prompt, {
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+      responseMimeType: 'application/json',
+      systemInstruction: 'STRICT JSON only. Suggest a natural worksheet count for class periods.',
+      retries: 1
+    });
+    const parsed = extractJson(res.text || res.answer || '');
+    let count = Number(
+      (parsed && (parsed.suggested_count || parsed.suggestedCount || parsed.count)) || fallback
+    );
+    if (!Number.isFinite(count)) count = fallback;
+    count = Math.round(count);
+    count = Math.max(8, Math.min(22, count));
+    if (pageN < count) count = Math.max(2, pageN);
+    if (pageN >= 24) {
+      count = Math.max(SUGGEST_MIN, Math.min(SUGGEST_MAX, count));
+    }
+
+    const criteria = Array.isArray(parsed && parsed.criteria)
+      ? parsed.criteria.map((c) => String(c || '').trim()).filter(Boolean).slice(0, 8)
+      : defaultPlanCriteria();
+    const summary = String((parsed && (parsed.summary || parsed.rationale)) || '').trim()
+      || ('Suggested ' + count + ' worksheets from ' + headings.length +
+        ' detected headings across ' + pageN + ' content pages.');
+    return {
+      suggestedCount: count,
+      criteria: criteria.length ? criteria : defaultPlanCriteria(),
+      summary,
+      notes: String((parsed && parsed.notes) || '').trim(),
+      source: 'gemini'
+    };
+  } catch (e) {
+    console.warn('novelStudy suggest count failed', e.message);
+    return {
+      suggestedCount: fallback,
+      criteria: defaultPlanCriteria(),
+      summary: 'Suggested ' + fallback + ' worksheets from heading/page heuristics (' +
+        (toc || []).length + ' headings, ' + pageN + ' content pages).',
+      notes: 'AI suggestion unavailable — used structure heuristic.',
+      source: 'heuristic'
+    };
+  }
+}
+
+/**
+ * Nudge section count toward a soft target without forcing exact N.
+ * Prefer merging short neighbors and splitting only at heading pages.
+ */
+function softFitTowardCount(sections, softTarget, banned, tolerance) {
+  const want = Math.max(2, Math.min(80, Number(softTarget) || 0));
+  const tol = Math.max(1, Number(tolerance) || 2);
+  if (!want) return sections || [];
+  let secs = (sections || []).map((s) => ({
+    unitTitle: s.unitTitle || '',
+    startPage: s.startPage,
+    endPage: s.endPage,
+    pages: (s.pages || []).slice(),
+    text: s.text || '',
+    summary: s.summary || ''
+  })).filter((s) => s.pages && s.pages.length);
+  if (secs.length < 1) return sections || [];
+
+  const within = () => Math.abs(secs.length - want) <= tol;
+
+  while (secs.length > want + tol) {
+    let best = 0;
+    let bestCombined = Infinity;
+    for (let i = 0; i < secs.length - 1; i += 1) {
+      const combined = secs[i].pages.length + secs[i + 1].pages.length;
+      if (combined < bestCombined) {
+        bestCombined = combined;
+        best = i;
+      }
+    }
+    const a = secs[best];
+    const b = secs[best + 1];
+    secs.splice(best, 2, {
+      unitTitle: a.unitTitle || b.unitTitle,
+      startPage: a.startPage,
+      endPage: b.endPage,
+      pages: a.pages.concat(b.pages),
+      text: '',
+      summary: a.summary || b.summary || ''
+    });
+  }
+
+  while (secs.length < want - tol) {
+    let best = -1;
+    let bestLen = 0;
+    let bestSplit = -1;
+    for (let i = 0; i < secs.length; i += 1) {
+      const pages = secs[i].pages;
+      if (pages.length < 4) continue;
+      const minIdx = Math.max(1, Math.floor(pages.length * 0.3));
+      const maxIdx = Math.min(pages.length - 1, Math.ceil(pages.length * 0.7));
+      let splitAt = -1;
+      for (let j = minIdx; j <= maxIdx; j += 1) {
+        if (pageHasSectionBreak(pages[j].text, banned, secs[i].unitTitle) ||
+            guessHeading(pages[j].text, banned)) {
+          splitAt = j;
+          break;
+        }
+      }
+      if (splitAt > 0 && pages.length > bestLen) {
+        best = i;
+        bestLen = pages.length;
+        bestSplit = splitAt;
+      } else if (splitAt < 0 && pages.length > bestLen && pages.length >= 6) {
+        best = i;
+        bestLen = pages.length;
+        bestSplit = Math.floor(pages.length / 2);
+      }
+    }
+    if (best < 0 || bestSplit < 1) break;
+    const sec = secs[best];
+    const left = sec.pages.slice(0, bestSplit);
+    const right = sec.pages.slice(bestSplit);
+    if (!left.length || !right.length) break;
+    const rightHeading = guessHeading(right[0].text, banned) || (sec.unitTitle + ' (cont.)');
+    secs.splice(best, 1,
+      {
+        unitTitle: sec.unitTitle,
+        startPage: left[0].pageNum,
+        endPage: left[left.length - 1].pageNum,
+        pages: left,
+        text: '',
+        summary: ''
+      },
+      {
+        unitTitle: rightHeading,
+        startPage: right[0].pageNum,
+        endPage: right[right.length - 1].pageNum,
+        pages: right,
+        text: '',
+        summary: ''
+      }
+    );
+  }
+
+  if (!within() && secs.length > want + tol) {
+    // Still too many after soft merges — continue merging to upper bound only.
+    while (secs.length > want + tol) {
+      let best = 0;
+      let bestCombined = Infinity;
+      for (let i = 0; i < secs.length - 1; i += 1) {
+        const combined = secs[i].pages.length + secs[i + 1].pages.length;
+        if (combined < bestCombined) {
+          bestCombined = combined;
+          best = i;
+        }
+      }
+      const a = secs[best];
+      const b = secs[best + 1];
+      secs.splice(best, 2, {
+        unitTitle: a.unitTitle || b.unitTitle,
+        startPage: a.startPage,
+        endPage: b.endPage,
+        pages: a.pages.concat(b.pages),
+        text: '',
+        summary: a.summary || b.summary || ''
+      });
+    }
+  }
+
+  return secs.map((s) => {
+    s.text = s.pages.map((p) => p.text).join('\n\n').trim();
+    return s;
+  });
+}
+
+function buildPlanReport(opts) {
+  const o = opts || {};
+  const finalCount = Number(o.finalCount) || 0;
+  const suggested = Number(o.suggestedCount) || 0;
+  const hard = Number(o.hardTarget) || 0;
+  const criteria = Array.isArray(o.criteria) && o.criteria.length
+    ? o.criteria
+    : defaultPlanCriteria();
+  let howSplit = String(o.howSplit || '').trim();
+  if (!howSplit) {
+    if (hard >= 2) {
+      howSplit = 'Fitted to the teacher-requested count of ' + hard +
+        ' worksheets, snapping boundaries to nearby headings when possible.';
+    } else if (suggested >= 2) {
+      howSplit = 'AI suggested about ' + suggested +
+        ' worksheets; final plan has ' + finalCount +
+        ' parts along chapter/section meaning boundaries (exact count not forced).';
+    } else {
+      howSplit = 'Aligned to detected chapter/section headings where possible.';
+    }
+  }
+  return {
+    mode: o.mode || null,
+    suggestedCount: suggested || null,
+    finalCount: finalCount || null,
+    hardTarget: hard >= 2 ? hard : null,
+    countExact: hard >= 2,
+    criteria,
+    summary: String(o.summary || '').trim() || null,
+    howSplit,
+    notes: String(o.notes || '').trim() || null,
+    headingCount: Number(o.headingCount) || 0,
+    skippedFront: Number(o.skippedFront) || 0,
+    skippedBack: Number(o.skippedBack) || 0,
+    source: o.source || null
+  };
+}
+
 /**
  * Final authority when the teacher asked for N worksheets.
  */
@@ -1989,15 +2272,29 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
   });
 
   const targetN = Math.max(0, Number(options && options.targetChunks) || 0);
+  const softN = Math.max(0, Number(options && options.softTargetChunks) || 0);
+  let countRule;
+  let systemInstruction;
+  if (targetN >= 2) {
+    countRule = '- Create EXACTLY ' + targetN +
+      ' sections (teacher requested worksheet count). Prefer natural heading breaks; otherwise split at sensible paragraph/topic shifts.';
+    systemInstruction = 'STRICT JSON only. Return exactly ' + targetN + ' heading-aware sections.';
+  } else if (softN >= 2) {
+    countRule = '- Aim for about ' + softN +
+      ' sections (±2 is OK). Prefer chapter/subtitle/meaning boundaries over hitting the number exactly. Never cut mid-paragraph or mid-scene when a nearby heading exists.';
+    systemInstruction = 'STRICT JSON only. Prefer meaning-aligned boundaries near ' + softN + ' sections; exact count is secondary.';
+  } else {
+    countRule = '- Do NOT make every section exactly 4 pages. Typical length is ' +
+      TARGET_MIN + '-' + (TARGET_MAX + 2) + ' pages.';
+    systemInstruction = 'STRICT JSON only. Prefer heading-aligned boundaries. Avoid uniform page grids.';
+  }
   const prompt = [
     'Plan Novel/Book Study reading sections for one class period each.',
     'Return JSON ONLY:',
     '{ "sections": [{ "unit_title": string, "start_page": number, "end_page": number }] }',
     'Rules:',
     '- Align starts to REAL chapter/section headings whenever the outline shows them.',
-    targetN >= 2
-      ? ('- Create EXACTLY ' + targetN + ' sections (teacher requested worksheet count). Prefer natural heading breaks; otherwise split at sensible paragraph/topic shifts.')
-      : ('- Do NOT make every section exactly 4 pages. Typical length is ' + TARGET_MIN + '-' + (TARGET_MAX + 2) + ' pages.'),
+    countRule,
     '- Never invent page numbers outside ' + pages[0].pageNum + '..' + pages[pages.length - 1].pageNum + '.',
     '- Cover the whole book body with contiguous, non-overlapping sections.',
     '- unit_title must be descriptive (chapter/section name or clear topic). Never "Pages 12–15".',
@@ -2011,9 +2308,7 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
     temperature: 0.15,
     maxOutputTokens: 4096,
     responseMimeType: 'application/json',
-    systemInstruction: targetN >= 2
-      ? ('STRICT JSON only. Return exactly ' + targetN + ' heading-aware sections.')
-      : 'STRICT JSON only. Prefer heading-aligned boundaries. Avoid uniform page grids.',
+    systemInstruction,
     retries: 1
   });
   const parsed = extractJson(res.text || res.answer || '');
@@ -2030,9 +2325,11 @@ async function proposeBoundariesWithGemini(pages, options, toc) {
   const normalized = sections.map((s, i) => {
     let start = Math.max(pageMin, Math.min(pageMax, Number(s.start_page || s.startPage) || pageMin));
     let end = Math.max(start, Math.min(pageMax, Number(s.end_page || s.endPage) || start));
-    // Only clamp runaway spans when the teacher did NOT ask for an exact count.
+    // Only clamp runaway spans when neither hard nor soft target is set.
     // Truncating here was a primary gap source (next section kept its original start).
-    if (targetN < 2 && end - start + 1 > TARGET_MAX + 3) end = start + TARGET_MAX + 1;
+    if (targetN < 2 && softN < 2 && end - start + 1 > TARGET_MAX + 3) {
+      end = start + TARGET_MAX + 1;
+    }
     return {
       order: i,
       unitTitle: String(s.unit_title || s.unitTitle || '').trim(),
@@ -2123,6 +2420,7 @@ async function planChunksWithGemini(pages, options, onProgress) {
   const trimmed = trimToBookBody(pages);
   const bodyPages = trimmed.pages;
   const targetN = Math.max(0, Number(options && options.targetChunks) || 0);
+  const planOpts = Object.assign({}, options || {});
 
   report(22, 'Detecting chapter and section headings…');
   const banned = collectRunningHeaders(bodyPages);
@@ -2132,31 +2430,47 @@ async function planChunksWithGemini(pages, options, onProgress) {
   let planMode = quality === 'strong' || quality === 'ok'
     ? 'chapter-aware'
     : 'page-groups';
+  let suggestion = null;
+  let softTarget = 0;
 
   report(38, 'Identifying book title and author…');
-  let meta = await detectBookMetaWithGemini(pages, options, toc);
+  let meta = await detectBookMetaWithGemini(pages, planOpts, toc);
   if (!meta) {
     meta = {
-      title: cleanBookTitle(options.fallbackTitle, 'Untitled Book'),
+      title: cleanBookTitle(planOpts.fallbackTitle, 'Untitled Book'),
       author: 'Unknown',
-      genre: guessGenreFromText(options.fallbackTitle, '', options)
+      genre: guessGenreFromText(planOpts.fallbackTitle, '', planOpts)
     };
   }
 
-  // Target worksheet count → ask Gemini for that many sections.
-  // Otherwise: weak TOC or uniform 4-page grids → AI boundaries.
+  if (targetN < 2) {
+    report(48, 'Asking AI for a natural worksheet count (about 10–20)…');
+    suggestion = await suggestWorksheetCountWithGemini(bodyPages, toc, planOpts);
+    softTarget = suggestion.suggestedCount;
+    planOpts.softTargetChunks = softTarget;
+    report(52, 'Planning ~' + softTarget + ' worksheets along chapter/section boundaries…');
+  }
+
+  // Hard target, AI-auto soft target, weak TOC, or uniform 4-page grids → AI boundaries.
   const spans = chunks.map((c) => c.endPage - c.startPage + 1);
-  const mostlyFour = spans.length >= 6 && spans.filter((n) => n === TARGET_MAX).length >= Math.ceil(spans.length * 0.7);
-  const needAiBoundaries = targetN >= 2 || quality === 'weak' || mostlyFour;
+  const mostlyFour = spans.length >= 6 &&
+    spans.filter((n) => n === TARGET_MAX).length >= Math.ceil(spans.length * 0.7);
+  const needAiBoundaries = targetN >= 2 || softTarget >= 2 || quality === 'weak' || mostlyFour;
   if (needAiBoundaries) {
-    report(52, targetN >= 2
-      ? ('Asking AI to split the book into ' + targetN + ' worksheets…')
-      : 'Asking AI to align sections to chapter/section headings…');
+    if (targetN >= 2) {
+      report(52, 'Asking AI to split the book into ' + targetN + ' worksheets…');
+    } else if (softTarget >= 2) {
+      report(55, 'Asking AI to align ~' + softTarget + ' sections to meaning boundaries…');
+    } else {
+      report(52, 'Asking AI to align sections to chapter/section headings…');
+    }
     try {
-      const aiChunks = await proposeBoundariesWithGemini(bodyPages, options, toc);
+      const aiChunks = await proposeBoundariesWithGemini(bodyPages, planOpts, toc);
       if (aiChunks && aiChunks.length >= 2) {
         chunks = aiChunks;
-        planMode = targetN >= 2 ? 'target-count' : 'chapter-aware';
+        planMode = targetN >= 2
+          ? 'target-count'
+          : (softTarget >= 2 ? 'ai-suggested' : 'chapter-aware');
         quality = 'ok';
       }
     } catch (e) {
@@ -2177,6 +2491,14 @@ async function planChunksWithGemini(pages, options, onProgress) {
       sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
     }
     sections = carveAdjacentSections(sections, banned);
+    if (softTarget >= 2) {
+      report(66, 'Nudging toward ~' + softTarget + ' worksheets without mid-scene cuts…');
+      sections = softFitTowardCount(sections, softTarget, banned, 2);
+      if (!sectionsCoverAllBody(sections, bodyPages)) {
+        sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+      }
+      planMode = 'ai-suggested';
+    }
     chunks = sections.map((sec, idx) => labelChunk({
       partNum: idx + 1,
       unitTitle: sec.unitTitle,
@@ -2190,7 +2512,7 @@ async function planChunksWithGemini(pages, options, onProgress) {
 
   report(72, 'Writing section titles and blurbs…');
   try {
-    chunks = await enrichChunkLabelsWithGemini(chunks, meta, options, toc);
+    chunks = await enrichChunkLabelsWithGemini(chunks, meta, planOpts, toc);
   } catch (e) {
     console.warn('novelStudy enrich labels failed', e.message);
     chunks = chunks.map((c) => labelChunk(c, banned));
@@ -2222,17 +2544,24 @@ async function planChunksWithGemini(pages, options, onProgress) {
     if (!sectionsCoverAllBody(sections, bodyPages)) {
       sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
       sections = carveAdjacentSections(sections, banned);
-      chunks = sections.map((sec, idx) => labelChunk({
-        partNum: idx + 1,
-        unitTitle: sec.unitTitle,
-        summary: sec.summary || '',
-        startPage: sec.startPage,
-        endPage: sec.endPage,
-        pages: sec.pages,
-        text: sec.text
-      }, banned));
-      chunks.forEach((c) => { c.planMode = planMode; });
     }
+    if (softTarget >= 2) {
+      sections = softFitTowardCount(sections, softTarget, banned, 2);
+      if (!sectionsCoverAllBody(sections, bodyPages)) {
+        sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+      }
+      planMode = 'ai-suggested';
+    }
+    chunks = sections.map((sec, idx) => labelChunk({
+      partNum: idx + 1,
+      unitTitle: sec.unitTitle,
+      summary: sec.summary || '',
+      startPage: sec.startPage,
+      endPage: sec.endPage,
+      pages: sec.pages,
+      text: sec.text
+    }, banned));
+    chunks.forEach((c) => { c.planMode = planMode; });
   }
 
   if (!chunks.length) {
@@ -2246,7 +2575,15 @@ async function planChunksWithGemini(pages, options, onProgress) {
         pages: sec.pages,
         text: sec.text
       }, banned))
-      : planChunksHeuristic(bodyPages)
+      : (softTarget >= 2
+        ? softFitTowardCount(
+          rematerializeSectionPages(planChunksHeuristic(bodyPages), bodyPages),
+          softTarget,
+          banned,
+          2
+        )
+        : planChunksHeuristic(bodyPages)
+      )
         .filter((c) => !isNonContentChunk(c))
         .map((c, i) => Object.assign(labelChunk(c, banned), { partNum: i + 1 }))
     );
@@ -2264,6 +2601,12 @@ async function planChunksWithGemini(pages, options, onProgress) {
         chunks = enforceTargetChunkCount(chunks, bodyPages, targetN, banned, toc);
       } else {
         sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+        if (softTarget >= 2) {
+          sections = softFitTowardCount(sections, softTarget, banned, 2);
+          if (!sectionsCoverAllBody(sections, bodyPages)) {
+            sections = ensureContiguousBodyCoverage(sections, bodyPages, banned);
+          }
+        }
         chunks = sections.map((sec, idx) => labelChunk({
           partNum: idx + 1,
           unitTitle: sec.unitTitle,
@@ -2281,9 +2624,31 @@ async function planChunksWithGemini(pages, options, onProgress) {
     }
   }
 
+  const planReport = buildPlanReport({
+    mode: planMode,
+    suggestedCount: softTarget || (suggestion && suggestion.suggestedCount) || 0,
+    finalCount: chunks.length,
+    hardTarget: targetN,
+    criteria: suggestion && suggestion.criteria,
+    summary: suggestion && suggestion.summary,
+    notes: suggestion && suggestion.notes,
+    howSplit: targetN >= 2
+      ? ('Fitted exactly to ' + targetN +
+        ' teacher-requested worksheets; boundaries snapped to nearby headings when possible.')
+      : (softTarget >= 2
+        ? ('AI suggested ~' + softTarget + ' worksheets from chapters/subtitles; final plan has ' +
+          chunks.length + ' parts using meaning boundaries (exact count not forced).')
+        : 'Aligned to detected chapter/section headings where possible.'),
+    headingCount: toc.length,
+    skippedFront: trimmed.skippedFront || 0,
+    skippedBack: trimmed.skippedBack || 0,
+    source: suggestion ? suggestion.source : (targetN >= 2 ? 'teacher' : 'heuristic')
+  });
+
   return {
     meta,
     planMode,
+    planReport,
     tocCount: toc.length,
     skippedFront: trimmed.skippedFront || 0,
     skippedBack: trimmed.skippedBack || 0,
@@ -2769,21 +3134,30 @@ async function runPlanning(jobId, teacherId) {
     cleanupJobFiles(job);
     const modeNote = planned.planMode === 'target-count'
       ? ('Split into ' + planned.chunks.length + ' worksheets as requested.')
-      : (planned.planMode === 'chapter-aware'
-        ? 'Aligned to chapter/section headings where possible.'
-        : 'Few clear chapter headings found — grouped with content titles.');
+      : (planned.planMode === 'ai-suggested'
+        ? ('AI suggested ~' +
+          ((planned.planReport && planned.planReport.suggestedCount) || planned.chunks.length) +
+          ' worksheets; final plan has ' + planned.chunks.length +
+          ' parts along meaning boundaries.')
+        : (planned.planMode === 'chapter-aware'
+          ? 'Aligned to chapter/section headings where possible.'
+          : 'Few clear chapter headings found — grouped with content titles.'));
     const skipBits = [];
     if (planned.skippedFront) skipBits.push(planned.skippedFront + ' front-matter page(s) skipped');
     if (planned.skippedBack) skipBits.push(planned.skippedBack + ' back-matter page(s) skipped');
+    const reportBit = planned.planReport && planned.planReport.summary
+      ? ' ' + planned.planReport.summary
+      : '';
 
     touch(job, {
       status: 'ready',
       progress: 100,
       message: 'Chunk plan ready (' + planned.chunks.length + ' parts). ' + modeNote +
-        (skipBits.length ? ' ' + skipBits.join('; ') + '.' : ''),
+        (skipBits.length ? ' ' + skipBits.join('; ') + '.' : '') + reportBit,
       meta: planned.meta,
       chunks: planned.chunks,
       planMode: planned.planMode || null,
+      planReport: planned.planReport || null,
       tocCount: planned.tocCount || 0,
       skippedFront: planned.skippedFront || 0,
       skippedBack: planned.skippedBack || 0,
@@ -3115,6 +3489,9 @@ module.exports = {
     evenSplitPages,
     planTargetCountSections,
     fitSectionsToTargetCount,
+    softFitTowardCount,
+    heuristicSuggestedCount,
+    buildPlanReport,
     collectRunningHeaders
   }
 };

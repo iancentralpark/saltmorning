@@ -125,6 +125,25 @@
       border-radius: 999px; background: var(--sage-soft); color: var(--olive); margin-left: 0.35rem;
     }
     .plan-badge.weak { background: #fff7e8; color: #8a6418; }
+    .plan-report {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: linear-gradient(145deg, #f7fbfa 0%, #eef7f5 100%);
+      padding: 0.85rem 1rem;
+      margin: 0.65rem 0 0.85rem;
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+    .plan-report h3 {
+      margin: 0 0 0.35rem;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 1.15rem;
+      color: var(--olive);
+    }
+    .plan-report p { margin: 0.25rem 0; color: var(--muted); line-height: 1.4; }
+    .plan-report ul { margin: 0.4rem 0 0; padding-left: 1.15rem; color: var(--ink); }
+    .plan-report li { margin: 0.15rem 0; }
+    .plan-report .how { margin-top: 0.45rem; color: var(--olive-deep); font-weight: 600; }
     .meta-line { color: var(--muted); font-size: 0.88rem; margin: 0.25rem 0 0; }
     .history-list { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
     .history-row {
@@ -212,8 +231,8 @@
 
       <div class="counts" style="margin-top:0.75rem">
         <label>Worksheets (chunks)
-          <input type="number" id="targetChunks" min="0" max="80" value="16"
-            title="How many worksheets to create. 0 = auto from chapters/sections.">
+          <input type="number" id="targetChunks" min="0" max="80" value="0"
+            title="0 = AI suggests a natural count (~10–20) from chapters/subtitles. Or set an exact number.">
         </label>
         <label>Vocab / part
           <input type="number" id="vocabCount" min="0" max="8" value="4"
@@ -224,7 +243,8 @@
         <label>Extended write <input type="number" id="reflectionCount" min="0" max="2" value="1" title="AI picks reflection, critical thinking, factual, or inference"></label>
       </div>
       <p class="hint" style="margin-top:0.35rem">
-        Defaults: 16 worksheets · 4 vocab words/section · 2 MC · 3 short · 1 extended.
+        Defaults: AI worksheet count (~10–20) · 4 vocab words/section · 2 MC · 3 short · 1 extended.
+        Leave worksheets at 0 so Gemini can suggest a natural split from chapters/subtitles (meaning boundaries over exact N).
         Vocab is extracted per section after worksheets, then combined into one list right after the cover (not on each worksheet).
         Worksheet headers show chapter/section “find in your book” cues; PDF page numbers stay in this chunk list only.
       </p>
@@ -243,7 +263,8 @@
     <section class="card hidden" id="chunksCard">
       <h2>2. Chunk plan</h2>
       <p class="hint" id="bookMeta">—</p>
-      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. Chunks follow chapter/section headings when possible; mid-page headings keep the section text with the right worksheet. If you set a worksheet count, the plan is fitted to that number.</p>
+      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. With worksheets at 0, AI suggests ~10–20 parts and prefers chapter/subtitle meaning boundaries (exact count not forced). If you set a worksheet count, the plan is fitted to that number.</p>
+      <div class="plan-report hidden" id="planReport"></div>
       <div class="chunk-list" id="chunkList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
@@ -366,8 +387,8 @@
     var vocabCount = vocabRaw === '' || vocabRaw == null ? 4 : Number(vocabRaw);
     if (!Number.isFinite(vocabCount)) vocabCount = 4;
     var targetRaw = $('targetChunks').value;
-    var targetChunks = targetRaw === '' || targetRaw == null ? 16 : Number(targetRaw);
-    if (!Number.isFinite(targetChunks)) targetChunks = 16;
+    var targetChunks = targetRaw === '' || targetRaw == null ? 0 : Number(targetRaw);
+    if (!Number.isFinite(targetChunks)) targetChunks = 0;
     return {
       level: $('level').value || 'middle',
       genre: $('genre').value || 'auto',
@@ -820,7 +841,9 @@
     var meta = job.meta || {};
     var planMode = job.planMode || '';
     var badge = '';
-    if (planMode === 'chapter-aware') {
+    if (planMode === 'ai-suggested') {
+      badge = ' <span class="plan-badge">AI-suggested count</span>';
+    } else if (planMode === 'chapter-aware') {
       badge = ' <span class="plan-badge">chapter-aware</span>';
     } else if (planMode === 'target-count') {
       badge = ' <span class="plan-badge">target worksheet count</span>';
@@ -841,6 +864,38 @@
       ' · ' + (job.pageCount || 0) + ' pages · ' + (job.chunks || []).length + ' parts') +
       badge + escapeHtml(skipNote) +
       (job.pageOverflowRisk ? ' · page overflow risk' : '');
+
+    var reportEl = $('planReport');
+    var report = job.planReport || null;
+    if (reportEl) {
+      if (report && (report.summary || report.howSplit || (report.criteria && report.criteria.length))) {
+        var crit = (report.criteria || []).map(function (c) {
+          return '<li>' + escapeHtml(c) + '</li>';
+        }).join('');
+        var countLine = '';
+        if (report.countExact && report.hardTarget) {
+          countLine = 'Exact count: ' + report.hardTarget + ' worksheets (teacher request).';
+        } else if (report.suggestedCount) {
+          countLine = 'Suggested ~' + report.suggestedCount +
+            ' · final plan: ' + (report.finalCount || (job.chunks || []).length) + ' parts' +
+            (report.countExact ? '' : ' (exact count not forced)');
+        } else if (report.finalCount) {
+          countLine = 'Final plan: ' + report.finalCount + ' parts';
+        }
+        reportEl.classList.remove('hidden');
+        reportEl.innerHTML =
+          '<h3>How this plan was built</h3>' +
+          (countLine ? '<p>' + escapeHtml(countLine) + '</p>' : '') +
+          (report.summary ? '<p>' + escapeHtml(report.summary) + '</p>' : '') +
+          (crit ? '<ul>' + crit + '</ul>' : '') +
+          (report.howSplit ? '<p class="how">' + escapeHtml(report.howSplit) + '</p>' : '') +
+          (report.notes ? '<p>' + escapeHtml(report.notes) + '</p>' : '');
+      } else {
+        reportEl.classList.add('hidden');
+        reportEl.innerHTML = '';
+      }
+    }
+
     $('chunkList').innerHTML = (job.chunks || []).map(function (ch) {
       var blurb = ch.summary || '';
       var locator = ch.readingRange || '';
