@@ -490,8 +490,10 @@
     var last = units[units.length - 1];
     var sameChapter = units.every(function (u) { return u.chapterNum === first.chapterNum; });
     if (sameChapter) {
-      return (first.chapterTitle || 'Chapter') + ': ' +
-        units.map(function (u) { return u.title; }).filter(Boolean).slice(0, 3).join(' / ');
+      var subs = units.filter(function (u) { return u.kind !== 'chapter'; })
+        .map(function (u) { return u.title; }).filter(Boolean).slice(0, 3);
+      return (first.chapterTitle || first.title || 'Chapter') +
+        (subs.length ? (': ' + subs.join(' / ')) : '');
     }
     return (first.label || first.title) + ' → ' + (last.label || last.title);
   }
