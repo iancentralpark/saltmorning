@@ -900,6 +900,13 @@ function trimToBookBody(pages) {
     return { pages: all.slice(), skippedFront: 0, skippedBack: 0 };
   }
 
+  // Short PDFs (worksheets / slim chapter books): keep all pages. The long-book
+  // scanner's absMax floor of 8 previously dropped almost everything from a
+  // 6–12 page file, and short chapter pages often fail the prose heuristic.
+  if (all.length <= 12) {
+    return { pages: all.slice(), skippedFront: 0, skippedBack: 0 };
+  }
+
   const scanFront = Math.min(all.length - 1, Math.max(8, Math.ceil(all.length * 0.22)));
   let bodyStart = 0;
   for (let i = 0; i < scanFront; i += 1) {
@@ -3402,13 +3409,21 @@ function applyTeacherGroups(jobId, teacherId, body) {
     }
 
     const chapterNums = Array.from(new Set(selected.map((u) => u.chapterNum)));
+    const subtitleTitles = selected
+      .filter((u) => u.kind !== 'chapter')
+      .map((u) => u.title)
+      .filter(Boolean);
     const title = String((g && g.title) || '').trim()
       || (selected.length === 1
         ? selected[0].label
-        : (selected[0].chapterTitle
-          + (chapterNums.length === 1
-            ? (': ' + selected.map((u) => u.title).filter(Boolean).slice(0, 3).join(' / '))
-            : ' + more')));
+        : (chapterNums.length === 1
+          ? (
+            (selected[0].chapterTitle || selected[0].title || 'Chapter')
+            + (subtitleTitles.length
+              ? (': ' + subtitleTitles.slice(0, 3).join(' / '))
+              : '')
+          )
+          : (selected[0].label + ' → ' + selected[selected.length - 1].label)));
 
     const startPage = selected[0].startPage;
     const endPage = selected[selected.length - 1].endPage;
@@ -3802,7 +3817,14 @@ module.exports = {
     buildPlanReport,
     collectRunningHeaders,
     extractStructureUnits,
-    isChapterHeading
+    isChapterHeading,
+    trimToBookBody,
+    putJob(job) {
+      if (!job || !job.id) throw new Error('job.id required');
+      jobs.set(String(job.id), job);
+      return job;
+    },
+    applyTeacherGroups
   }
 };
 
