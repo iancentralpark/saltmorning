@@ -170,7 +170,7 @@ async function generateJeopardyBoard(opts) {
     throw err;
   }
   if (!isGeminiConfigured()) {
-    const err = new Error('Gemini is not configured on the server.');
+    const err = new Error('AI is not configured on the server.');
     err.statusCode = 503;
     throw err;
   }

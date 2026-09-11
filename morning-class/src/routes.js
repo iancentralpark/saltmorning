@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { isGeminiConfigured } = require('./services/geminiService');
+const { isGeminiConfigured, isClaudeConfigured, preferredProvider } = require('./services/geminiService');
 const { notifyNewMessage, notifyThreadRead } = require('./realtime');
 const { loginStudent, loginParent, loginTeacher, loginAdmin, loginUnified, switchParentActiveChild, changePassword, logoutSession, adminResetPassword } = require('./services/authService');
 const { requireRole, requirePerm } = require('./auth/tokenAuth');
@@ -457,6 +457,8 @@ router.get('/health', async (req, res) => {
     reportCardPrintVersion: REPORT_CARD_PRINT_VERSION,
     learningAnalyticsBuild: LEARNING_ANALYTICS_BUILD,
     gemini: isGeminiConfigured(),
+    claude: isClaudeConfigured(),
+    aiProvider: preferredProvider(),
     googleTeacherOAuth: {
       configured: googleTeacherAuth.isGoogleOAuthConfigured(),
       hasApiKey: !!process.env.GOOGLE_API_KEY
@@ -4384,6 +4386,8 @@ router.get('/novel-study/meta', requireRole('teacher', 'admin'), (req, res) => {
       mcTypes: listNovelStudyMcTypes(),
       defaults: normalizeNovelStudyOptions({}),
       geminiConfigured: isGeminiConfigured(),
+      claudeConfigured: isClaudeConfigured(),
+      aiProvider: preferredProvider(),
       maxPdfMb: Math.round(NOVEL_STUDY_MAX_PDF_BYTES / (1024 * 1024))
     });
   } catch (e) {

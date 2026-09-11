@@ -144,7 +144,7 @@ async function extractAssessmentsFromDocument(opts) {
     throw new Error('Only PDF or image scans are supported (PDF, JPG, PNG, WebP).');
   }
   if (!isGeminiConfigured()) {
-    throw new Error('AI is required to read PDF/scan imports. Ask an admin to configure Gemini.');
+    throw new Error('AI is required to read PDF/scan imports. Ask an admin to configure Claude or Gemini.');
   }
   if (!classId) throw new Error('Class is required.');
 

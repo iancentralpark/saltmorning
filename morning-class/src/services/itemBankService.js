@@ -334,7 +334,7 @@ Rules:
 
 async function generateQuestions(teacherId, opts) {
   if (!isGeminiConfigured()) {
-    const err = new Error('GEMINI_API_KEY is not configured.');
+    const err = new Error('AI is not configured (missing API key).');
     err.statusCode = 503;
     throw err;
   }
@@ -369,7 +369,7 @@ async function generateQuestions(teacherId, opts) {
 
 async function generateSimilarQuestion(teacherId, source) {
   if (!isGeminiConfigured()) {
-    const err = new Error('GEMINI_API_KEY is not configured.');
+    const err = new Error('AI is not configured (missing API key).');
     err.statusCode = 503;
     throw err;
   }
