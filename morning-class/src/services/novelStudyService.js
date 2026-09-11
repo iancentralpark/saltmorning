@@ -146,6 +146,7 @@ function serializeJob(job) {
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
       summary: ch.summary || '',
+      readingRange: ch.readingRange || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
       text: keepText ? String(ch.text || '') : ''
@@ -513,6 +514,7 @@ function stubPartWorksheet(chunk, options) {
   return {
     partNum: chunk.partNum,
     unitTitle: chunk.unitTitle,
+    readingRange: chunk.readingRange || '',
     startPage: chunk.startPage,
     endPage: chunk.endPage,
     vocab,
@@ -577,6 +579,7 @@ function toPublicJob(job, opts) {
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
       summary: ch.summary || '',
+      readingRange: ch.readingRange || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
       charCount: String(ch.text || '').length
@@ -666,14 +669,16 @@ function normalizeOptions(body) {
         ? 4
         : (Number(vocabRaw) || 4))
   ));
-  const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 4));
-  const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 2));
+  const mcCount = Math.max(1, Math.min(6, Number(body && body.mcCount) || 2));
+  const shortCount = Math.max(0, Math.min(3, Number(body && body.shortCount) || 3));
   const reflectionCount = Math.max(0, Math.min(2, Number(body && body.reflectionCount) || 1));
-  // 0 / empty = auto chunk count from headings; otherwise aim for N worksheets.
+  // 0 / empty = auto chunk count from headings; default teacher request is 16 worksheets.
   const targetRaw = body && body.targetChunks;
-  let targetChunks = 0;
-  if (targetRaw !== undefined && targetRaw !== null && targetRaw !== '' && targetRaw !== '0') {
-    targetChunks = Math.max(2, Math.min(80, Number(targetRaw) || 0));
+  let targetChunks = 16;
+  if (targetRaw === 0 || targetRaw === '0') {
+    targetChunks = 0;
+  } else if (targetRaw !== undefined && targetRaw !== null && targetRaw !== '') {
+    targetChunks = Math.max(2, Math.min(80, Number(targetRaw) || 16));
   }
   let mcTypes = Array.isArray(body && body.mcTypes)
     ? body.mcTypes.map(String)
@@ -689,7 +694,7 @@ function normalizeOptions(body) {
     shortCount,
     reflectionCount,
     mcTypes,
-    pageOverflowRisk: vocabCount > 5 || mcCount > 4 || shortCount > 2 || reflectionCount > 1
+    pageOverflowRisk: vocabCount > 5 || mcCount > 2 || shortCount > 3 || reflectionCount > 1
   };
 }
 
@@ -1632,6 +1637,54 @@ function makeChunkBlurb(text, banned) {
   return blurb.length > 150 ? blurb.slice(0, 147).trim() + '…' : blurb;
 }
 
+function clipQuote(s, maxLen) {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  if (t.length <= maxLen) return t;
+  return t.slice(0, maxLen - 1).replace(/\s+\S*$/, '').trim() + '…';
+}
+
+/**
+ * Book-friendly locator for hard copies (PDF page numbers often disagree).
+ * Prefer chapter/section headings; fall back to start/end passage quotes.
+ */
+function buildReadingRange(text, unitTitle, banned) {
+  const raw = String(text || '');
+  const lines = pageLines(raw);
+  const headings = [];
+  lines.forEach((line, i) => {
+    const fromBreak = i === 0 || !lines[i - 1] || lines[i - 1].length < 2;
+    if (!lineLooksLikeHeading(line, banned, fromBreak)) return;
+    if (isJunkHeading(line, banned)) return;
+    const cleaned = line.replace(/[?!:.…]+$/g, '').trim();
+    if (cleaned.length < 3 || cleaned.length > 90) return;
+    if (headings.length && normalizeLine(headings[headings.length - 1]) === normalizeLine(cleaned)) return;
+    headings.push(cleaned);
+  });
+  const prose = lines.filter((l) =>
+    l.length >= 35
+    && !isJunkHeading(l, banned)
+    && !lineLooksLikeHeading(l, banned, true)
+  );
+  const startQuote = clipQuote(prose[0] || '', 72);
+  const endQuote = clipQuote(prose[prose.length - 1] || '', 72);
+  const startHead = headings[0] || String(unitTitle || '').trim();
+  const endHead = headings.length > 1 ? headings[headings.length - 1] : '';
+
+  if (startHead && endHead && normalizeLine(startHead) !== normalizeLine(endHead)) {
+    return 'From “' + startHead + '” through “' + endHead + '”';
+  }
+  if (startHead && startQuote) {
+    return 'Section “' + startHead + '” — begins “' + startQuote + '”';
+  }
+  if (startHead) return 'Section “' + startHead + '”';
+  if (startQuote && endQuote && startQuote !== endQuote) {
+    return 'From “' + startQuote + '” … to “' + endQuote + '”';
+  }
+  if (startQuote) return 'Begins “' + startQuote + '”';
+  return String(unitTitle || '').trim() || '';
+}
+
 function labelChunk(sec, banned) {
   const text = sec.text || (sec.pages || []).map((p) => p.text).join('\n\n').trim();
   const start = sec.startPage;
@@ -1652,10 +1705,13 @@ function labelChunk(sec, banned) {
     title = title.slice(0, 72).trim() + '…';
   }
   const summary = String(sec.summary || '').trim() || makeChunkBlurb(text, banned);
+  const readingRange = String(sec.readingRange || '').trim()
+    || buildReadingRange(text, title, banned);
   return {
     partNum: sec.partNum || 0,
     unitTitle: title,
     summary: summary || ('Pages ' + start + '–' + end),
+    readingRange,
     startPage: start,
     endPage: end,
     text
@@ -2414,6 +2470,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
   return {
     partNum: chunk.partNum,
     unitTitle: chunk.unitTitle,
+    readingRange: chunk.readingRange || '',
     startPage: chunk.startPage,
     endPage: chunk.endPage,
     vocab,
@@ -2513,7 +2570,7 @@ async function enrichPartsVocabulary(job) {
     const part = job.parts[i];
     if (!chunk || !part) continue;
     touch(job, {
-      message: 'Building vocabulary for part ' + (i + 1) + '/' + total + '…',
+      message: 'Collecting vocabulary for the front list (' + (i + 1) + '/' + total + ')…',
       progress: 82 + Math.floor((i / Math.max(1, total)) * 6)
     });
     emit(job, 'status', toPublicJob(job, { includeParts: true }));
@@ -2840,6 +2897,7 @@ async function runGeneration(jobId, teacherId) {
       partNum: ch.partNum,
       unitTitle: ch.unitTitle,
       summary: ch.summary || '',
+      readingRange: ch.readingRange || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
       text: ''

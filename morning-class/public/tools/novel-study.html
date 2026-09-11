@@ -212,21 +212,21 @@
 
       <div class="counts" style="margin-top:0.75rem">
         <label>Worksheets (chunks)
-          <input type="number" id="targetChunks" min="0" max="80" value="0"
-            title="0 = auto from chapters/sections. Or set e.g. 20 to force that many worksheets.">
+          <input type="number" id="targetChunks" min="0" max="80" value="16"
+            title="How many worksheets to create. 0 = auto from chapters/sections.">
         </label>
         <label>Vocab / part
           <input type="number" id="vocabCount" min="0" max="8" value="4"
-            title="Target words per worksheet (about 3–5). 0 = skip vocabulary. May add a few extra essential words.">
+            title="Words extracted per section, then combined into a front vocabulary list. 0 = skip vocabulary.">
         </label>
-        <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="4"></label>
-        <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="2"></label>
+        <label>Multiple choice <input type="number" id="mcCount" min="1" max="6" value="2"></label>
+        <label>Short answer <input type="number" id="shortCount" min="0" max="3" value="3"></label>
         <label>Extended write <input type="number" id="reflectionCount" min="0" max="2" value="1" title="AI picks reflection, critical thinking, factual, or inference"></label>
       </div>
       <p class="hint" style="margin-top:0.35rem">
-        Worksheets 0 = AI/chapter auto-split. Set a number (e.g. 20) to force that many parts.
-        Vocab default 4 builds a master word list at the front plus 3–5 words per sheet (after worksheets are written). Vocab 0 skips words.
-        Extended write: AI chooses prompt type for ~1 paragraph.
+        Defaults: 16 worksheets · 4 vocab words/section · 2 MC · 3 short · 1 extended.
+        Vocab is extracted per section after worksheets, then combined into one list right after the cover (not on each worksheet).
+        Worksheet headers show chapter/section “find in your book” cues; PDF page numbers stay in this chunk list only.
       </p>
       <div class="warn hidden" id="overflowWarn">Raising item counts above defaults may overflow a single A4 page per worksheet.</div>
 
@@ -256,7 +256,7 @@
       <p class="meta-line" id="progressMsg">Starting…</p>
       <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <p class="meta-line" id="progressPct">0%</p>
-      <p class="hint" id="liveHint">Sheets appear below one by one as they finish — open any sheet to review it while the rest generate. Vocabulary lists are filled in at the end for every part, then the master list is built for the front of the workbook.</p>
+      <p class="hint" id="liveHint">Sheets appear below one by one as they finish — open any sheet to review it while the rest generate. After all worksheets, vocabulary is extracted per section and combined into one list at the front of the workbook (right after the cover).</p>
       <div class="live-feed" id="liveFeed"><p class="live-empty" id="liveEmpty">Waiting for the first worksheet…</p></div>
       <div class="error" id="genError"></div>
       <p class="hint hidden" id="genFailHint">Generation paused. Saved parts are kept — click <b>Retry generate</b> to continue from the failed part (not from the beginning). Or delete this workbook from Your workbooks.</p>
@@ -339,8 +339,8 @@
 
   function overflowRisk() {
     return Number($('vocabCount').value) > 5
-      || Number($('mcCount').value) > 4
-      || Number($('shortCount').value) > 2
+      || Number($('mcCount').value) > 2
+      || Number($('shortCount').value) > 3
       || Number($('reflectionCount').value) > 1;
   }
 
@@ -366,15 +366,15 @@
     var vocabCount = vocabRaw === '' || vocabRaw == null ? 4 : Number(vocabRaw);
     if (!Number.isFinite(vocabCount)) vocabCount = 4;
     var targetRaw = $('targetChunks').value;
-    var targetChunks = targetRaw === '' || targetRaw == null ? 0 : Number(targetRaw);
-    if (!Number.isFinite(targetChunks)) targetChunks = 0;
+    var targetChunks = targetRaw === '' || targetRaw == null ? 16 : Number(targetRaw);
+    if (!Number.isFinite(targetChunks)) targetChunks = 16;
     return {
       level: $('level').value || 'middle',
       genre: $('genre').value || 'auto',
       targetChunks: Math.max(0, Math.min(80, targetChunks)),
       vocabCount: Math.max(0, Math.min(8, vocabCount)),
-      mcCount: Number($('mcCount').value) || 4,
-      shortCount: Number($('shortCount').value) || 2,
+      mcCount: Number($('mcCount').value) || 2,
+      shortCount: Number($('shortCount').value) || 3,
       reflectionCount: Number($('reflectionCount').value) || 1,
       mcTypes: selectedMcTypes()
     };
@@ -586,13 +586,18 @@
         var type = q.type ? ' <span style="color:var(--olive)">[' + escapeHtml(String(q.type).replace(/_/g, ' ')) + ']</span>' : '';
         return '<li><b>' + (qi + 1) + '.</b>' + type + ' ' + escapeHtml(q.question || '') + '</li>';
       }).join('') || '<li class="muted">(none)</li>';
-      return '<article class="live-sheet' + (isNew ? ' new' : '') + '" data-part="' + escapeHtml(p.partNum) + '">' +
+      return '<article class="live-card' + (isNew ? ' is-new' : '') + '" data-part="' + escapeHtml(p.partNum) + '">' +
         '<h3>Part ' + escapeHtml(p.partNum) + ': ' + escapeHtml(p.unitTitle || 'Section') +
         (p.stubbed ? ' <span class="badge-status">fallback</span>' : '') + '</h3>' +
-        '<p class="live-meta">Pages ' + escapeHtml(p.startPage) + '–' + escapeHtml(p.endPage) +
+        '<p class="live-meta">' +
+          (p.readingRange
+            ? ('<b>Find:</b> ' + escapeHtml(p.readingRange) + ' · ')
+            : '') +
+          'PDF pp. ' + escapeHtml(p.startPage) + '–' + escapeHtml(p.endPage) +
         (p.groundingScore != null ? ' · grounding ' + escapeHtml(p.groundingScore) + '%' : '') + '</p>' +
-        '<details open>' +
-        '<summary>Vocabulary (' + (p.vocab || []).length + ')</summary><ul>' + vocabBits + '</ul></details>' +
+        ((p.vocab || []).length
+          ? ('<details><summary>Vocab for front list (' + (p.vocab || []).length + ')</summary><ul>' + vocabBits + '</ul></details>')
+          : '') +
         '<details open>' +
         '<summary>Multiple choice (' + (p.multipleChoice || []).length + ')</summary><ul>' + mcBits + '</ul></details>' +
         '<details>' +
@@ -838,13 +843,16 @@
       (job.pageOverflowRisk ? ' · page overflow risk' : '');
     $('chunkList').innerHTML = (job.chunks || []).map(function (ch) {
       var blurb = ch.summary || '';
+      var locator = ch.readingRange || '';
       return '<div class="chunk-row">' +
         '<div class="chunk-main">' +
           '<div class="chunk-title">Part ' + escapeHtml(ch.partNum) + ' — ' +
             escapeHtml(ch.unitTitle || 'Section') + '</div>' +
+          (locator ? '<div class="chunk-blurb"><b>Find:</b> ' + escapeHtml(locator) + '</div>' : '') +
           (blurb ? '<div class="chunk-blurb">' + escapeHtml(blurb) + '</div>' : '') +
         '</div>' +
-        '<div class="chunk-pages">pp. ' + escapeHtml(ch.startPage) + '–' + escapeHtml(ch.endPage) + '</div>' +
+        '<div class="chunk-pages" title="PDF page range (may differ from printed book pages)">PDF pp. ' +
+          escapeHtml(ch.startPage) + '–' + escapeHtml(ch.endPage) + '</div>' +
       '</div>';
     }).join('') || '<p class="hint">No chunks found.</p>';
     $('btnGenerate').disabled = !(job.chunks && job.chunks.length);

@@ -63,9 +63,15 @@ function pageBreak() {
  * Visible ruled lines that survive Word + Google Docs import.
  * Paragraph bottom borders often disappear; underscore runs do not.
  */
-function answerLine() {
+function answerLine(opts) {
+  const wide = !!(opts && opts.wide);
+  const long = !!(opts && opts.long);
   return new Paragraph({
-    spacing: { after: 40, before: 40, line: 360 },
+    spacing: {
+      after: wide ? (long ? 100 : 80) : 40,
+      before: wide ? (long ? 100 : 80) : 40,
+      line: wide ? (long ? 420 : 400) : 360
+    },
     children: [run('___________________________________________________________________________', {
       color: '334155',
       size: 18
@@ -73,9 +79,9 @@ function answerLine() {
   });
 }
 
-function answerLines(n) {
+function answerLines(n, opts) {
   const out = [];
-  for (let i = 0; i < n; i += 1) out.push(answerLine());
+  for (let i = 0; i < n; i += 1) out.push(answerLine(opts));
   return out;
 }
 
@@ -240,9 +246,10 @@ function buildMasterVocab(parts) {
   const items = collectMasterVocab(parts);
   if (!items.length) return [];
   const children = [
-    heading('Master Vocabulary List', HeadingLevel.HEADING_1),
+    heading('Vocabulary List', HeadingLevel.HEADING_1),
     p([run(
-      'Study these words from the whole book. Definitions are student-friendly English. ' +
+      'Study these words before you read. They were gathered from every worksheet section, ' +
+      'then placed here at the front of the workbook. Definitions are student-friendly English. ' +
       'Example sentences are new practice sentences (not copied from the book).',
       { italics: true, color: '5B6B7C' }
     )]),
@@ -253,28 +260,23 @@ function buildMasterVocab(parts) {
 }
 
 function buildPartWorksheet(part, options) {
-  const shortLines = 3;
-  const reflectionLines = 7;
-  const vocab = part.vocab || [];
-  const hasVocab = vocab.length > 0;
-  const letters = sectionLetters(hasVocab);
+  const shortLines = 2;
+  const reflectionLines = 4;
+  const letters = sectionLetters(false);
 
   const children = [
     heading(
       'Part ' + part.partNum + ': ' + (part.unitTitle || 'Section'),
       HeadingLevel.HEADING_1
-    ),
-    p([run(
-      'Pages ' + (part.startPage || '?') + '–' + (part.endPage || '?'),
-      { italics: true, color: '555555' }
-    )])
+    )
   ];
-
-  if (hasVocab) {
-    children.push(heading(letters.vocab + '. Vocabulary', HeadingLevel.HEADING_2));
-    children.push(buildVocabTable(vocab, { withExample: true, exampleLabel: 'Example sentence' }));
-    children.push(blank());
-  }
+  const locator = part.readingRange || part.contentSpan || '';
+  children.push(p([run(
+    locator
+      ? ('Find in your book: ' + locator)
+      : ('Read the section titled “' + (part.unitTitle || 'this part') + '” in your book.'),
+    { italics: true, color: locator ? '1A2332' : '555555' }
+  )]));
 
   children.push(heading(letters.mc + '. Multiple Choice', HeadingLevel.HEADING_2));
   (part.multipleChoice || []).forEach((q, i) => {
@@ -302,7 +304,7 @@ function buildPartWorksheet(part, options) {
       run((i + 1) + '. ', { bold: true }),
       run(q.question || '')
     ]));
-    children.push(...answerLines(shortLines));
+    children.push(...answerLines(shortLines, { wide: true }));
     children.push(blank());
   });
   if (!(part.shortAnswer || []).length) {
@@ -319,7 +321,7 @@ function buildPartWorksheet(part, options) {
         : []),
       run(q.question || '')
     ]));
-    children.push(...answerLines(reflectionLines));
+    children.push(...answerLines(reflectionLines, { wide: true, long: true }));
     children.push(blank());
   });
   if (!(part.reflection || []).length) {

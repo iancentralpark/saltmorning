@@ -42,10 +42,11 @@ function normalizeChoices(raw) {
   return [];
 }
 
-function answerLinesHtml(n) {
+function answerLinesHtml(n, kind) {
+  const cls = kind === 'long' ? 'write-line write-line-long' : 'write-line write-line-short';
   const lines = [];
   for (let i = 0; i < n; i += 1) {
-    lines.push('<div class="write-line"></div>');
+    lines.push('<div class="' + cls + '"></div>');
   }
   return lines.join('\n');
 }
@@ -108,21 +109,20 @@ function vocabTableHtml(items, opts) {
 }
 
 function buildPartHtml(part, options) {
-  const hasVocab = (part.vocab || []).length > 0;
-  const letters = sectionLetters(hasVocab);
+  // Vocabulary is printed only in the front master list — not on each worksheet.
+  const letters = sectionLetters(false);
   const bits = [];
   bits.push('<section class="sheet part-sheet">');
   bits.push('<header class="part-head">');
   bits.push('<h1>Part ' + esc(part.partNum) + ': ' + esc(part.unitTitle || 'Section') + '</h1>');
-  bits.push('<p class="pages">Pages ' + esc(part.startPage || '?') + '–' + esc(part.endPage || '?') + '</p>');
-  bits.push('</header>');
-
-  if (hasVocab) {
-    bits.push('<div class="keep section-block">');
-    bits.push('<h2>' + letters.vocab + '. Vocabulary</h2>');
-    bits.push(vocabTableHtml(part.vocab, { withExample: true, exampleLabel: 'Example sentence' }));
-    bits.push('</div>');
+  const locator = part.readingRange || part.contentSpan || '';
+  if (locator) {
+    bits.push('<p class="reading-range"><b>Find in your book:</b> ' + esc(locator) + '</p>');
+  } else {
+    bits.push('<p class="reading-range muted">Read the section titled “' +
+      esc(part.unitTitle || 'this part') + '” in your book.</p>');
   }
+  bits.push('</header>');
 
   bits.push('<div class="keep section-block">');
   bits.push('<h2>' + letters.mc + '. Multiple Choice</h2>');
@@ -153,7 +153,7 @@ function buildPartHtml(part, options) {
     shorts.forEach((q, i) => {
       bits.push('<div class="q keep">');
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' + esc(q.question || '') + '</p>');
-      bits.push(answerLinesHtml(3));
+      bits.push(answerLinesHtml(2, 'short'));
       bits.push('</div>');
     });
   }
@@ -171,8 +171,7 @@ function buildPartHtml(part, options) {
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
         (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
         esc(q.question || '') + '</p>');
-      // 5 ruled lines ≈ one paragraph; keeps the block on one printed page more reliably than 7.
-      bits.push(answerLinesHtml(5));
+      bits.push(answerLinesHtml(4, 'long'));
       bits.push('</div>');
     });
   }
@@ -362,10 +361,23 @@ function wrapHtmlDocument(title, bodyHtml) {
   }
   .choices li { margin: 0.12rem 0; padding-left: 0.25rem; }
   .type-tag { color: var(--teal-deep); font-weight: 700; font-size: 0.9em; }
+  .reading-range {
+    margin: 0.15rem 0 0.55rem;
+    color: var(--ink);
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+  .reading-range.muted { color: var(--muted); font-style: italic; }
   .write-line {
-    height: 1.35rem;
     border-bottom: 1.25px solid #2a3544;
-    margin: 0.08rem 0;
+  }
+  .write-line-short {
+    height: 1.75rem;
+    margin: 0.22rem 0;
+  }
+  .write-line-long {
+    height: 1.95rem;
+    margin: 0.28rem 0;
   }
   .muted { color: var(--muted); font-style: italic; }
   .note { font-size: 0.8rem; color: var(--muted); font-style: italic; margin-top: 0.75rem; }
@@ -419,7 +431,8 @@ function wrapHtmlDocument(title, bodyHtml) {
       break-after: avoid;
       page-break-after: avoid;
     }
-    .write-line { height: 1.28rem; }
+    .write-line-short { height: 1.7rem; margin: 0.2rem 0; }
+    .write-line-long { height: 1.9rem; margin: 0.25rem 0; }
     .no-print { display: none !important; }
   }
   @media screen and (max-width: 900px) {
@@ -465,8 +478,8 @@ function buildWorkbookHtml(job) {
 
   if (master.length) {
     body.push('<section class="sheet">');
-    body.push('<h1>Master Vocabulary List</h1>');
-    body.push('<p class="lede">Study these words from the whole book. Definitions are student-friendly English. Example sentences are new practice sentences (not copied from the book).</p>');
+    body.push('<h1>Vocabulary List</h1>');
+    body.push('<p class="lede">Study these words <b>before</b> you read. They were gathered from every worksheet section, then placed here at the front of the workbook. Definitions are student-friendly English. Example sentences are new practice sentences (not copied from the book).</p>');
     body.push(vocabTableHtml(master, { withExample: true, exampleLabel: 'Example sentence' }));
     body.push('</section>');
   }
