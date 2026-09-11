@@ -11,18 +11,20 @@ const { isOpsDbEnabled, query, table, SCHEMA } = require('./pool');
 const MIGRATIONS_DIR = path.join(__dirname, '..', '..', 'supabase', 'migrations');
 
 function sqlStatements(sql) {
-  return String(sql || '')
+  // Strip full-line -- comments first so a semicolon inside a comment
+  // (e.g. "deploys; /tmp alone…") cannot split a CREATE TABLE mid-file.
+  const withoutLineComments = String(sql || '')
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      return trimmed.startsWith('--') ? '' : line;
+    })
+    .join('\n');
+
+  return withoutLineComments
     .split(';')
     .map((s) => s.trim())
-    .filter((s) => {
-      if (!s) return false;
-      const body = s
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith('--'))
-        .join('\n');
-      return /[A-Za-z]/.test(body);
-    });
+    .filter((s) => /[A-Za-z]/.test(s));
 }
 
 async function currentVersion() {

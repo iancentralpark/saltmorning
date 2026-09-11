@@ -1,4 +1,4 @@
--- Durable Novel Study workbook jobs (survive Railway deploys; /tmp alone does not).
+-- Durable Novel Study workbook jobs (survive Railway deploys — /tmp alone does not).
 CREATE TABLE IF NOT EXISTS salt_morning.novel_study_jobs (
   id               TEXT PRIMARY KEY,
   teacher_id       TEXT NOT NULL,
