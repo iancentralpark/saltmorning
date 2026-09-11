@@ -76,6 +76,8 @@ async function getSpreadsheetMeta(force) {
 }
 
 async function ensureSheet(sheetName, headers) {
+  // Roster sheets are virtualized in Postgres once backfilled — skip Google create.
+  if (shouldUseRosterBridge(sheetName)) return;
   if (knownSheets.has(sheetName)) return;
   const meta = await getSpreadsheetMeta();
   const existing = new Set((meta.sheets || []).map((s) => s.properties.title));
@@ -121,8 +123,24 @@ async function fetchSheetRows(sheetName) {
   return res.data.values || [[]];
 }
 
+function shouldUseRosterBridge(sheetName, options) {
+  if (options && options.forceGoogle) return false;
+  try {
+    const { isOpsRosterReady } = require('./db/boot');
+    const { isRosterSheet } = require('./db/rosterBridge');
+    return !!(isOpsRosterReady() && isRosterSheet(sheetName));
+  } catch (_) {
+    return false;
+  }
+}
+
 async function getSheetRows(sheetName, options) {
-  const skipCache = options && options.skipCache;
+  if (shouldUseRosterBridge(sheetName, options)) {
+    const { readSheet } = require('./db/rosterBridge');
+    return readSheet(sheetName);
+  }
+
+  const skipCache = options && (options.skipCache || options.skipCache);
   if (!skipCache) {
     const cached = sheetRowsCache.get(sheetName);
     if (cached && Date.now() < cached.expires) return cached.data;
@@ -168,6 +186,10 @@ function enqueueWrite(fn) {
 }
 
 async function updateRange(sheetName, a1, values) {
+  if (shouldUseRosterBridge(sheetName)) {
+    const { writeRange } = require('./db/rosterBridge');
+    return writeRange(sheetName, a1, values || []);
+  }
   return enqueueWrite(async () => {
     const sheets = await getSheetsApi();
     await withRetry(() => sheets.spreadsheets.values.update({
@@ -181,6 +203,10 @@ async function updateRange(sheetName, a1, values) {
 }
 
 async function appendRows(sheetName, rows) {
+  if (shouldUseRosterBridge(sheetName)) {
+    const { appendSheetRows } = require('./db/rosterBridge');
+    return appendSheetRows(sheetName, rows || []);
+  }
   return enqueueWrite(async () => {
     const sheets = await getSheetsApi();
     await withRetry(() => sheets.spreadsheets.values.append({
@@ -196,6 +222,17 @@ async function appendRows(sheetName, rows) {
 
 async function batchUpdateRanges(updates) {
   if (!updates || !updates.length) return;
+  const rosterUpdates = [];
+  const sheetUpdates = [];
+  for (const u of updates) {
+    if (shouldUseRosterBridge(u.sheetName)) rosterUpdates.push(u);
+    else sheetUpdates.push(u);
+  }
+  for (const u of rosterUpdates) {
+    const { writeRange } = require('./db/rosterBridge');
+    await writeRange(u.sheetName, u.a1, u.values || []);
+  }
+  if (!sheetUpdates.length) return;
   return enqueueWrite(async () => {
     const sheets = await getSheetsApi();
     const touched = new Set();
@@ -203,19 +240,23 @@ async function batchUpdateRanges(updates) {
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
         valueInputOption: 'RAW',
-        data: updates.map((u) => ({
+        data: sheetUpdates.map((u) => ({
           range: sheetRange(u.sheetName, u.a1),
           values: u.values
         }))
       }
     }));
-    updates.forEach((u) => touched.add(u.sheetName));
+    sheetUpdates.forEach((u) => touched.add(u.sheetName));
     touched.forEach((name) => invalidateSheetRowsCache(name));
   });
 }
 
 /** Delete 1-based sheet rows (highest index first). */
 async function deleteRows(sheetName, rowIndices1Based) {
+  if (shouldUseRosterBridge(sheetName)) {
+    const { deleteSheetRows } = require('./db/rosterBridge');
+    return deleteSheetRows(sheetName, rowIndices1Based);
+  }
   const indices = (rowIndices1Based || [])
     .map((n) => Number(n))
     .filter((n) => Number.isFinite(n) && n >= 1)
