@@ -3028,7 +3028,7 @@ function emit(job, type, data) {
 
 async function createJobFromPdf(teacherId, file, body) {
   if (!isGeminiConfigured()) {
-    throw httpError('Gemini is not configured (missing GEMINI_API_KEY).', 503);
+    throw httpError('AI is not configured (set ANTHROPIC_API_KEY or GEMINI_API_KEY).', 503);
   }
   if (!file || !file.buffer || !file.buffer.length) {
     throw httpError('PDF file is required.', 400);
@@ -3195,7 +3195,7 @@ async function runGeneration(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
   if (job.status === 'generating') throw httpError('Generation is already running.', 409);
   if (!job.chunks || !job.chunks.length) throw httpError('No chunks to generate.', 400);
-  if (!isGeminiConfigured()) throw httpError('Gemini is not configured.', 503);
+  if (!isGeminiConfigured()) throw httpError('AI is not configured.', 503);
 
   // Resume from last successful part instead of restarting from part 1.
   const existingParts = Array.isArray(job.parts) ? job.parts.slice() : [];

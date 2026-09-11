@@ -371,7 +371,7 @@ async function translateChatMessage(text, targetLang) {
   text = String(text || '').trim();
   if (!text) throw new Error('Nothing to translate.');
   if (!isGeminiConfigured()) {
-    throw new Error('Translate is not configured (missing GEMINI_API_KEY).');
+    throw new Error('Translate is not configured (missing AI API key).');
   }
   const lang = String(targetLang || 'ko').toLowerCase() === 'en' ? 'en' : 'ko';
   const cached = getCachedTranslation(text, lang);
