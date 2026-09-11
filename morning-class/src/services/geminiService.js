@@ -40,6 +40,10 @@ function isClaudeConfigured() {
   return !!anthropicApiKey();
 }
 
+function hasGeminiKey() {
+  return !!geminiApiKey();
+}
+
 /** True when Salt Morning AI can run (Claude or Gemini). */
 function isGeminiConfigured() {
   return !!preferredProvider();
@@ -367,6 +371,7 @@ async function askGemini(prompt, historyOrOptions, maybeOptions) {
 module.exports = {
   isGeminiConfigured,
   isClaudeConfigured,
+  hasGeminiKey,
   preferredProvider,
   askGemini,
   formatGeminiClientError,
