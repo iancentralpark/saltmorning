@@ -1202,7 +1202,7 @@ function rematerializeSectionPages(chunks, bodyPages) {
   }).filter((s) => s.pages.length);
 }
 
-/** Merge/split page-backed sections until count is close to target. */
+/** Merge/split page-backed sections until count equals target (best-effort). */
 function fitSectionsToTargetCount(sections, target, banned) {
   const want = Math.max(2, Math.min(80, Number(target) || 0));
   if (!want) return sections;
@@ -1216,13 +1216,22 @@ function fitSectionsToTargetCount(sections, target, banned) {
   })).filter((s) => s.pages.length);
   if (secs.length < 1) return sections;
 
+  // When we have way more slices than wanted (heading explosion), greedy
+  // pairwise merges skew left. Prefer an even page split instead.
+  if (secs.length > want * 2) {
+    const pages = [];
+    secs.forEach((s) => s.pages.forEach((p) => pages.push(p)));
+    return evenSplitPages(pages, want, banned);
+  }
+
   while (secs.length > want) {
+    // Merge the adjacent pair with the smallest combined length (most even).
     let best = 0;
-    let bestSpan = Infinity;
+    let bestCombined = Infinity;
     for (let i = 0; i < secs.length - 1; i += 1) {
-      const span = secs[i].pages.length + secs[i + 1].pages.length;
-      if (span < bestSpan) {
-        bestSpan = span;
+      const combined = secs[i].pages.length + secs[i + 1].pages.length;
+      if (combined < bestCombined) {
+        bestCombined = combined;
         best = i;
       }
     }
@@ -1277,6 +1286,131 @@ function fitSectionsToTargetCount(sections, target, banned) {
     s.text = s.pages.map((p) => p.text).join('\n\n').trim();
     return s;
   });
+}
+
+/** Even contiguous page split — hard guarantee of exactly N sections. */
+function evenSplitPages(pages, target, banned) {
+  const want = Math.max(2, Math.min(80, Number(target) || 0));
+  const list = (pages || []).slice();
+  if (!want || list.length < 1) return [];
+  const n = Math.min(want, list.length);
+  const secs = [];
+  for (let i = 0; i < n; i += 1) {
+    const start = Math.floor((i * list.length) / n);
+    const end = Math.floor(((i + 1) * list.length) / n);
+    const slice = list.slice(start, end);
+    if (!slice.length) continue;
+    const heading = guessHeading(slice[0].text, banned) || ('Part ' + (secs.length + 1));
+    secs.push({
+      unitTitle: heading,
+      startPage: slice[0].pageNum,
+      endPage: slice[slice.length - 1].pageNum,
+      pages: slice,
+      text: slice.map((p) => p.text).join('\n\n').trim(),
+      summary: ''
+    });
+  }
+  return secs;
+}
+
+/**
+ * Build exactly N worksheet sections for a teacher-requested count.
+ * Starts from an even page split, then snaps each internal boundary to a
+ * nearby chapter/section heading when one exists within a small window.
+ */
+function planTargetCountSections(bodyPages, target, banned, toc) {
+  const want = Math.max(2, Math.min(80, Number(target) || 0));
+  const pages = (bodyPages || []).slice();
+  if (!want || pages.length < 1) return [];
+  const n = Math.min(want, pages.length);
+  const byNum = new Map(pages.map((p) => [p.pageNum, p]));
+  const pageNums = pages.map((p) => p.pageNum);
+  const headingPages = new Set();
+  (toc || []).forEach((t) => {
+    if (t && t.page != null) headingPages.add(Number(t.page));
+  });
+  pages.forEach((p) => {
+    if (guessHeading(p.text, banned)) headingPages.add(p.pageNum);
+  });
+
+  // Ideal start indexes into pageNums, then snap to a nearby heading page.
+  const starts = [];
+  for (let i = 0; i < n; i += 1) {
+    let idx = Math.floor((i * pageNums.length) / n);
+    if (i === 0) {
+      starts.push(0);
+      continue;
+    }
+    const idealPage = pageNums[idx];
+    const window = Math.max(1, Math.round(pageNums.length / n / 2));
+    let bestIdx = idx;
+    let bestDist = Infinity;
+    for (let j = Math.max(starts[i - 1] + 1, idx - window);
+      j <= Math.min(pageNums.length - (n - i), idx + window);
+      j += 1) {
+      const pnum = pageNums[j];
+      if (!headingPages.has(pnum)) continue;
+      const dist = Math.abs(pnum - idealPage);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = j;
+      }
+    }
+    // Keep starts strictly increasing.
+    starts.push(Math.max(starts[i - 1] + 1, bestIdx));
+  }
+
+  const secs = [];
+  for (let i = 0; i < n; i += 1) {
+    const from = starts[i];
+    const to = i + 1 < n ? starts[i + 1] : pageNums.length;
+    const slice = pageNums.slice(from, to).map((pn) => byNum.get(pn)).filter(Boolean);
+    if (!slice.length) continue;
+    const heading = guessHeading(slice[0].text, banned) || ('Part ' + (secs.length + 1));
+    secs.push({
+      unitTitle: heading,
+      startPage: slice[0].pageNum,
+      endPage: slice[slice.length - 1].pageNum,
+      pages: slice,
+      text: slice.map((p) => p.text).join('\n\n').trim(),
+      summary: ''
+    });
+  }
+  // If snapping collapsed a range, fall back to pure even split.
+  if (secs.length !== n) return evenSplitPages(pages, want, banned);
+  return secs;
+}
+
+/**
+ * Final authority when the teacher asked for N worksheets.
+ */
+function enforceTargetChunkCount(chunks, bodyPages, target, banned, toc) {
+  const want = Math.max(2, Math.min(80, Number(target) || 0));
+  if (!want) return chunks || [];
+  let sections = rematerializeSectionPages(chunks, bodyPages);
+  if (!sections.length || sections.length !== want) {
+    // Prefer even/snapped plan over merging a heading explosion.
+    if (!sections.length || sections.length > want * 2) {
+      sections = planTargetCountSections(bodyPages, want, banned, toc);
+    } else {
+      sections = fitSectionsToTargetCount(sections, want, banned);
+    }
+  }
+  if (sections.length !== want) {
+    sections = planTargetCountSections(bodyPages, want, banned, toc);
+  }
+  if (sections.length !== want) {
+    sections = evenSplitPages(bodyPages, want, banned);
+  }
+  return sections.map((sec, idx) => labelChunk({
+    partNum: idx + 1,
+    unitTitle: sec.unitTitle,
+    summary: sec.summary || '',
+    startPage: sec.startPage,
+    endPage: sec.endPage,
+    pages: sec.pages,
+    text: sec.text
+  }, banned));
 }
 
 function sliceSectionPages(sec, fromIdx, toIdxExclusive, banned) {
@@ -1811,21 +1945,24 @@ async function planChunksWithGemini(pages, options, onProgress) {
 
   // Rematerialize page lists, carve mid-page heading tails, fit target count.
   report(64, 'Refining page boundaries…');
-  let sections = rematerializeSectionPages(chunks, bodyPages);
-  sections = carveAdjacentSections(sections, banned);
   if (targetN >= 2) {
-    sections = fitSectionsToTargetCount(sections, targetN, banned);
+    // Teacher count is authoritative — do not keep a 100+ heading-slice plan.
+    report(64, 'Fitting plan to ' + targetN + ' worksheets…');
+    chunks = enforceTargetChunkCount(chunks, bodyPages, targetN, banned, toc);
     planMode = 'target-count';
+  } else {
+    let sections = rematerializeSectionPages(chunks, bodyPages);
+    sections = carveAdjacentSections(sections, banned);
+    chunks = sections.map((sec, idx) => labelChunk({
+      partNum: idx + 1,
+      unitTitle: sec.unitTitle,
+      summary: sec.summary || '',
+      startPage: sec.startPage,
+      endPage: sec.endPage,
+      pages: sec.pages,
+      text: sec.text
+    }, banned));
   }
-  chunks = sections.map((sec, idx) => labelChunk({
-    partNum: idx + 1,
-    unitTitle: sec.unitTitle,
-    summary: sec.summary || '',
-    startPage: sec.startPage,
-    endPage: sec.endPage,
-    pages: sec.pages,
-    text: sec.text
-  }, banned));
 
   report(72, 'Writing section titles and blurbs…');
   try {
@@ -1845,10 +1982,35 @@ async function planChunksWithGemini(pages, options, onProgress) {
     .filter((c) => !isNonContentChunk(c));
   chunks.forEach((c, i) => { c.partNum = i + 1; });
 
+  // Teacher-requested count wins: re-enforce after back-matter filters.
+  if (targetN >= 2 && chunks.length !== targetN) {
+    chunks = enforceTargetChunkCount(chunks, bodyPages, targetN, banned, toc);
+    chunks.forEach((c, i) => {
+      c.partNum = i + 1;
+      c.planMode = 'target-count';
+    });
+    planMode = 'target-count';
+  }
+
   if (!chunks.length) {
-    chunks = planChunksHeuristic(bodyPages)
-      .filter((c) => !isNonContentChunk(c))
-      .map((c, i) => Object.assign(labelChunk(c, banned), { partNum: i + 1, planMode }));
+    chunks = (targetN >= 2
+      ? evenSplitPages(bodyPages, targetN, banned).map((sec, i) => labelChunk({
+        partNum: i + 1,
+        unitTitle: sec.unitTitle,
+        summary: '',
+        startPage: sec.startPage,
+        endPage: sec.endPage,
+        pages: sec.pages,
+        text: sec.text
+      }, banned))
+      : planChunksHeuristic(bodyPages)
+        .filter((c) => !isNonContentChunk(c))
+        .map((c, i) => Object.assign(labelChunk(c, banned), { partNum: i + 1 }))
+    );
+    chunks.forEach((c, i) => {
+      c.partNum = i + 1;
+      c.planMode = planMode;
+    });
   }
 
   return {
@@ -2324,7 +2486,9 @@ async function runPlanning(jobId, teacherId) {
       {
         level: job.options.level,
         genre: job.options.genre === 'auto' ? '' : job.options.genre,
-        fallbackTitle
+        fallbackTitle,
+        // Must pass through — otherwise teacher worksheet count is ignored.
+        targetChunks: job.options.targetChunks || 0
       },
       (pct, message) => bump(pct, message, { status: 'planning' })
     );
@@ -2334,9 +2498,11 @@ async function runPlanning(jobId, teacherId) {
     }
 
     cleanupJobFiles(job);
-    const modeNote = planned.planMode === 'chapter-aware'
-      ? 'Aligned to chapter/section headings where possible.'
-      : 'Few clear chapter headings found — grouped with content titles.';
+    const modeNote = planned.planMode === 'target-count'
+      ? ('Split into ' + planned.chunks.length + ' worksheets as requested.')
+      : (planned.planMode === 'chapter-aware'
+        ? 'Aligned to chapter/section headings where possible.'
+        : 'Few clear chapter headings found — grouped with content titles.');
     const skipBits = [];
     if (planned.skippedFront) skipBits.push(planned.skippedFront + ' front-matter page(s) skipped');
     if (planned.skippedBack) skipBits.push(planned.skippedBack + ' back-matter page(s) skipped');
