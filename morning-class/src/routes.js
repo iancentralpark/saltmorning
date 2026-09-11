@@ -444,6 +444,12 @@ router.get('/health', async (req, res) => {
   } catch (e) {
     rosterStorage = { mode: 'unknown', ready: false, reason: e.message || String(e) };
   }
+  let sheetsStorage = null;
+  try {
+    sheetsStorage = require('./db/boot').getSheetsStoreStatus();
+  } catch (e) {
+    sheetsStorage = { mode: 'unknown', ready: false, reason: e.message || String(e) };
+  }
   const push = require('./services/pushService');
   res.json({
     ok: true,
@@ -460,6 +466,7 @@ router.get('/health', async (req, res) => {
     opsDb,
     gradesStorage,
     rosterStorage,
+    sheetsStorage,
     webPush: { enabled: push.isPushEnabled() },
     isolation: 'Salt Morning ops DB is separate from Mr.Park Supabase tables'
   });

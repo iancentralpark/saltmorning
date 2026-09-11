@@ -74,7 +74,7 @@ async function healthCheck() {
   try {
     const r = await query(
       'SELECT key, value FROM ' + table('meta') +
-        " WHERE key IN ('schema_version', 'grades_backfilled', 'roster_backfilled')"
+        " WHERE key IN ('schema_version', 'grades_backfilled', 'roster_backfilled', 'sheets_store_backfilled')"
     );
     const meta = {};
     r.rows.forEach((row) => { meta[row.key] = row.value; });
@@ -83,7 +83,8 @@ async function healthCheck() {
       schema: SCHEMA,
       version: meta.schema_version,
       gradesBackfilled: meta.grades_backfilled === '1',
-      rosterBackfilled: meta.roster_backfilled === '1'
+      rosterBackfilled: meta.roster_backfilled === '1',
+      sheetsStoreBackfilled: meta.sheets_store_backfilled === '1'
     };
   } catch (e) {
     return { ok: false, reason: e.message };
