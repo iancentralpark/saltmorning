@@ -144,6 +144,39 @@
     .plan-report ul { margin: 0.4rem 0 0; padding-left: 1.15rem; color: var(--ink); }
     .plan-report li { margin: 0.15rem 0; }
     .plan-report .how { margin-top: 0.45rem; color: var(--olive-deep); font-weight: 600; }
+    .structure-list { display: grid; gap: 0.35rem; margin-top: 0.55rem; max-height: 420px; overflow: auto; padding-right: 0.15rem; }
+    .structure-row {
+      display: flex; align-items: flex-start; gap: 0.55rem; border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.55rem 0.7rem; background: #fff; cursor: pointer;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .structure-row:hover { border-color: var(--olive); }
+    .structure-row.in-draft { background: #fff7e8; border-color: #e0b85a; }
+    .structure-row.grouped { background: var(--sage-soft); border-color: #9ad8cf; cursor: default; opacity: 0.92; }
+    .structure-row .idx {
+      flex: 0 0 auto; font-size: 0.72rem; font-weight: 700; color: var(--muted);
+      min-width: 1.6rem; margin-top: 0.15rem;
+    }
+    .structure-row .body { flex: 1; min-width: 0; }
+    .structure-row .label { font-weight: 700; color: var(--olive-deep); font-size: 0.92rem; }
+    .structure-row .sub { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+    .structure-row .tag {
+      flex: 0 0 auto; font-size: 0.7rem; font-weight: 700; padding: 0.12rem 0.4rem;
+      border-radius: 999px; background: #e8eef2; color: var(--muted); white-space: nowrap;
+    }
+    .structure-row.grouped .tag { background: #d8f3ee; color: var(--olive-deep); }
+    .draft-box {
+      border: 1px dashed #e0b85a; background: #fffaf0; border-radius: 12px;
+      padding: 0.7rem 0.85rem; margin: 0.65rem 0;
+    }
+    .draft-box h3 { margin: 0 0 0.35rem; font-size: 0.95rem; color: #8a6418; }
+    .group-list { display: grid; gap: 0.4rem; margin-top: 0.55rem; }
+    .group-card {
+      border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.75rem; background: #fff;
+    }
+    .group-card .gtitle { font-weight: 700; color: var(--olive-deep); }
+    .group-card .gitems { color: var(--muted); font-size: 0.84rem; margin-top: 0.2rem; }
+    .badge-status.structure_ready { background: var(--sage-soft); color: var(--olive); }
     .meta-line { color: var(--muted); font-size: 0.88rem; margin: 0.25rem 0 0; }
     .history-list { display: grid; gap: 0.45rem; margin-top: 0.5rem; }
     .history-row {
@@ -191,7 +224,7 @@
 <body>
 <div class="app">
   <div class="topbar">
-    <div class="brand">Novel Study Workbook <small>PDF → chapter chunks → A4 worksheets + answer key</small></div>
+    <div class="brand">Novel Study Workbook <small>PDF → group sections → A4 worksheets + answer key</small></div>
     <span class="status-pill" id="authStatus">Checking login…</span>
   </div>
 
@@ -203,8 +236,8 @@
     </section>
 
     <section class="card" id="setupCard">
-      <h2>1. Upload &amp; options</h2>
-      <p class="hint">Text-layer PDF only (not a scan). Default: Vocab <b>0</b> · MC <b>4</b> · Short Answer <b>2</b> · Extended write <b>1</b>. Prefer <b>Open printable HTML</b> for designed classroom copies.</p>
+      <h2>1. Upload book</h2>
+      <p class="hint">Text-layer PDF only (not a scan). AI will list chapters and subtitles so you can group them into worksheets.</p>
 
       <div class="drop" id="dropZone" tabindex="0" role="button" aria-label="Upload PDF">
         <strong id="dropLabel">Drop a PDF here or click to browse</strong>
@@ -229,11 +262,39 @@
         </label>
       </div>
 
+      <div class="toolbar">
+        <button type="button" class="btn btn-primary" id="btnUpload" disabled>Upload &amp; analyze structure</button>
+      </div>
+      <div class="error" id="setupError"></div>
+    </section>
+
+    <section class="card hidden" id="structureCard">
+      <h2>2. Group sections into worksheets</h2>
+      <p class="hint" id="bookMeta">—</p>
+      <p class="hint">Click sections in order to build the current part, then seal it. Repeat until every section is grouped. Cuts only happen at chapter/subtitle boundaries.</p>
+      <div class="draft-box" id="draftBox">
+        <h3>Current part <span id="draftPartNum">1</span></h3>
+        <p class="meta-line" id="draftItems">Click sections below to add them…</p>
+        <div class="toolbar" style="margin-top:0.55rem">
+          <button type="button" class="btn btn-primary" id="btnSealGroup" disabled>Seal this part</button>
+          <button type="button" class="btn btn-ghost" id="btnClearDraft" disabled>Clear</button>
+          <button type="button" class="btn btn-ghost" id="btnUndoGroup" disabled>Undo last part</button>
+        </div>
+      </div>
+      <div class="group-list" id="groupList"></div>
+      <div class="structure-list" id="structureList"></div>
+      <div class="toolbar">
+        <button type="button" class="btn btn-gold" id="btnConfirmGroups" disabled>Confirm groups → worksheet options</button>
+      </div>
+      <div class="error" id="structureError"></div>
+    </section>
+
+    <section class="card hidden" id="optionsCard">
+      <h2>3. Worksheet options</h2>
+      <p class="hint" id="optionsMeta">Choose how each part should look, then generate.</p>
+      <div class="plan-report hidden" id="planReport"></div>
+      <div class="chunk-list" id="chunkList"></div>
       <div class="counts" style="margin-top:0.75rem">
-        <label>Worksheets (chunks)
-          <input type="number" id="targetChunks" min="0" max="80" value="0"
-            title="0 = AI suggests a natural count (~10–20) from chapters/subtitles. Or set an exact number.">
-        </label>
         <label>Vocab / part
           <input type="number" id="vocabCount" min="0" max="8" value="4"
             title="Words extracted per section, then combined into a front vocabulary list. 0 = skip vocabulary.">
@@ -243,37 +304,22 @@
         <label>Extended write <input type="number" id="reflectionCount" min="0" max="2" value="1" title="AI picks reflection, critical thinking, factual, or inference"></label>
       </div>
       <p class="hint" style="margin-top:0.35rem">
-        Defaults: AI worksheet count (~10–20) · 4 vocab words/section · 2 MC · 3 short · 1 extended.
-        Leave worksheets at 0 so Gemini can suggest a natural split from chapters/subtitles (meaning boundaries over exact N).
-        Vocab is extracted per section after worksheets, then combined into one list right after the cover (not on each worksheet).
-        Worksheet headers show chapter/section “find in your book” cues; PDF page numbers stay in this chunk list only.
+        Defaults: 4 vocab words/section · 2 MC · 3 short · 1 extended.
+        Vocab is combined into one list after the cover (not on each worksheet).
       </p>
       <div class="warn hidden" id="overflowWarn">Raising item counts above defaults may overflow a single A4 page per worksheet.</div>
-
       <label style="margin-top:0.85rem">MC question types
         <div class="mc-types" id="mcTypes"></div>
       </label>
-
       <div class="toolbar">
-        <button type="button" class="btn btn-primary" id="btnUpload" disabled>Upload &amp; plan chunks</button>
-      </div>
-      <div class="error" id="setupError"></div>
-    </section>
-
-    <section class="card hidden" id="chunksCard">
-      <h2>2. Chunk plan</h2>
-      <p class="hint" id="bookMeta">—</p>
-      <p class="hint">Only the book’s main content is chunked — title page, copyright, contents, and similar front/back matter are skipped. With worksheets at 0, AI suggests ~10–20 parts and prefers chapter/subtitle meaning boundaries (exact count not forced). If you set a worksheet count, the plan is fitted to that number.</p>
-      <div class="plan-report hidden" id="planReport"></div>
-      <div class="chunk-list" id="chunkList"></div>
-      <div class="toolbar">
+        <button type="button" class="btn btn-ghost" id="btnBackToGroups">← Edit groups</button>
         <button type="button" class="btn btn-gold" id="btnGenerate" disabled>Generate workbook</button>
       </div>
       <div class="error" id="chunkError"></div>
     </section>
 
     <section class="card hidden" id="progressCard">
-      <h2>3. Generation</h2>
+      <h2>4. Generation</h2>
       <p class="meta-line" id="progressMsg">Starting…</p>
       <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
       <p class="meta-line" id="progressPct">0%</p>
@@ -284,7 +330,7 @@
     </section>
 
     <section class="card hidden" id="doneCard">
-      <h2>4. Get your workbook</h2>
+      <h2>5. Get your workbook</h2>
       <p class="hint">Best for class: <b>Open printable HTML</b> (designed layout, vocab tables, writing lines — then Print / Save as PDF). .docx download and Google Docs are also available.</p>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnHtml">Open printable HTML</button>
@@ -306,6 +352,11 @@
   var selectedFile = null;
   var latestPartsPreview = [];
   var lastTerminalKey = null;
+  var currentStructureUnits = [];
+  /** @type {string[]} */
+  var draftUnitIds = [];
+  /** @type {{ unitIds: string[], title: string }[]} */
+  var sealedGroups = [];
   var DEFAULT_MC = ['factual', 'inference', 'vocab', 'negative', 'craft', 'paraphrase'];
 
   function $(id) { return document.getElementById(id); }
@@ -386,19 +437,179 @@
     var vocabRaw = $('vocabCount').value;
     var vocabCount = vocabRaw === '' || vocabRaw == null ? 4 : Number(vocabRaw);
     if (!Number.isFinite(vocabCount)) vocabCount = 4;
-    var targetRaw = $('targetChunks').value;
-    var targetChunks = targetRaw === '' || targetRaw == null ? 0 : Number(targetRaw);
-    if (!Number.isFinite(targetChunks)) targetChunks = 0;
     return {
       level: $('level').value || 'middle',
       genre: $('genre').value || 'auto',
-      targetChunks: Math.max(0, Math.min(80, targetChunks)),
       vocabCount: Math.max(0, Math.min(8, vocabCount)),
       mcCount: Number($('mcCount').value) || 2,
       shortCount: Number($('shortCount').value) || 3,
       reflectionCount: Number($('reflectionCount').value) || 1,
       mcTypes: selectedMcTypes()
     };
+  }
+
+  function fillOptionsFromJob(job) {
+    var o = (job && job.options) || {};
+    if (o.level) $('level').value = o.level;
+    if (o.genre) $('genre').value = o.genre;
+    if (o.vocabCount != null) $('vocabCount').value = String(o.vocabCount);
+    if (o.mcCount != null) $('mcCount').value = String(o.mcCount);
+    if (o.shortCount != null) $('shortCount').value = String(o.shortCount);
+    if (o.reflectionCount != null) $('reflectionCount').value = String(o.reflectionCount);
+    if (Array.isArray(o.mcTypes) && o.mcTypes.length) {
+      Array.prototype.forEach.call(document.querySelectorAll('#mcTypes input'), function (el) {
+        el.checked = o.mcTypes.indexOf(el.value) >= 0;
+      });
+    }
+    updateOverflow();
+  }
+
+  function resetGroupingState() {
+    draftUnitIds = [];
+    sealedGroups = [];
+  }
+
+  function unitById(id) {
+    return currentStructureUnits.find(function (u) { return u.id === id; });
+  }
+
+  function usedUnitIds() {
+    var used = {};
+    draftUnitIds.forEach(function (id) { used[id] = true; });
+    sealedGroups.forEach(function (g) {
+      (g.unitIds || []).forEach(function (id) { used[id] = true; });
+    });
+    return used;
+  }
+
+  function groupTitleFromUnits(ids) {
+    var units = ids.map(unitById).filter(Boolean);
+    if (!units.length) return 'Part';
+    if (units.length === 1) return units[0].label || units[0].title || 'Part';
+    var first = units[0];
+    var last = units[units.length - 1];
+    var sameChapter = units.every(function (u) { return u.chapterNum === first.chapterNum; });
+    if (sameChapter) {
+      return (first.chapterTitle || 'Chapter') + ': ' +
+        units.map(function (u) { return u.title; }).filter(Boolean).slice(0, 3).join(' / ');
+    }
+    return (first.label || first.title) + ' → ' + (last.label || last.title);
+  }
+
+  function updateGroupControls() {
+    var used = usedUnitIds();
+    var remaining = currentStructureUnits.filter(function (u) { return !used[u.id]; }).length;
+    var allGrouped = currentStructureUnits.length > 0 &&
+      remaining === 0 && sealedGroups.length > 0 && draftUnitIds.length === 0;
+    $('btnSealGroup').disabled = draftUnitIds.length === 0;
+    $('btnClearDraft').disabled = draftUnitIds.length === 0;
+    $('btnUndoGroup').disabled = sealedGroups.length === 0;
+    $('btnConfirmGroups').disabled = !allGrouped;
+    $('draftPartNum').textContent = String(sealedGroups.length + 1);
+  }
+
+  function renderDraftBox() {
+    if (!draftUnitIds.length) {
+      $('draftItems').textContent = 'Click sections below to add them…';
+    } else {
+      $('draftItems').textContent = draftUnitIds.map(function (id) {
+        var u = unitById(id);
+        return u ? (u.label || u.title || id) : id;
+      }).join(' · ');
+    }
+    updateGroupControls();
+  }
+
+  function renderGroupList() {
+    $('groupList').innerHTML = sealedGroups.map(function (g, i) {
+      var labels = (g.unitIds || []).map(function (id) {
+        var u = unitById(id);
+        return u ? (u.label || u.title || id) : id;
+      }).join(' · ');
+      return '<div class="group-card">' +
+        '<div class="gtitle">Part ' + (i + 1) + ' — ' + escapeHtml(g.title || 'Untitled') + '</div>' +
+        '<div class="gitems">' + escapeHtml(labels) + '</div></div>';
+    }).join('');
+  }
+
+  function renderStructureList() {
+    var used = usedUnitIds();
+    $('structureList').innerHTML = currentStructureUnits.map(function (u, i) {
+      var inDraft = draftUnitIds.indexOf(u.id) >= 0;
+      var grouped = !!(used[u.id] && !inDraft);
+      var cls = 'structure-row' + (inDraft ? ' in-draft' : '') + (grouped ? ' grouped' : '');
+      var tag = grouped ? 'Part' : (inDraft ? 'Selected' : (u.kind === 'chapter' ? 'Chapter' : 'Subtitle'));
+      return '<button type="button" class="' + cls + '" data-id="' + escapeHtml(u.id) + '"' +
+        (grouped ? ' disabled' : '') + '>' +
+        '<span class="idx">' + (i + 1) + '</span>' +
+        '<span class="body">' +
+          '<div class="label">' + escapeHtml(u.label || u.title || 'Section') + '</div>' +
+          '<div class="sub">PDF pp. ' + escapeHtml(u.startPage) +
+            (u.endPage > u.startPage ? '–' + escapeHtml(u.endPage) : '') + '</div>' +
+        '</span>' +
+        '<span class="tag">' + tag + '</span>' +
+      '</button>';
+    }).join('') || '<p class="hint">No sections detected. Try another PDF with clear chapter headings.</p>';
+  }
+
+  function renderStructureUi() {
+    renderDraftBox();
+    renderGroupList();
+    renderStructureList();
+    updateGroupControls();
+  }
+
+  function hydrateGroupsFromJob(job) {
+    resetGroupingState();
+    var chunks = (job && job.chunks) || [];
+    if (!chunks.length) return;
+    sealedGroups = chunks.map(function (c) {
+      return {
+        unitIds: Array.isArray(c.unitIds) ? c.unitIds.slice() : [],
+        title: c.unitTitle || ''
+      };
+    }).filter(function (g) { return g.unitIds.length; });
+  }
+
+  function showStructureStep(job, keepGroups) {
+    currentStructureUnits = (job && job.structureUnits) || [];
+    if (keepGroups) {
+      if (!sealedGroups.length) hydrateGroupsFromJob(job);
+      draftUnitIds = [];
+    } else {
+      resetGroupingState();
+    }
+    fillOptionsFromJob(job);
+    var meta = (job && job.meta) || {};
+    var skipNote = '';
+    if (job.skippedFront || job.skippedBack) {
+      skipNote = ' · skipped ' +
+        [job.skippedFront ? (job.skippedFront + ' front') : '',
+          job.skippedBack ? (job.skippedBack + ' back') : ''].filter(Boolean).join(' / ') +
+        ' matter';
+    }
+    $('bookMeta').textContent =
+      (meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
+      ' · ' + (meta.genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
+      ' · ' + (job.pageCount || 0) + ' pages · ' +
+      currentStructureUnits.length + ' sections' + skipNote;
+    $('structureCard').classList.remove('hidden');
+    $('optionsCard').classList.add('hidden');
+    $('progressCard').classList.add('hidden');
+    $('doneCard').classList.add('hidden');
+    $('structureError').textContent = '';
+    renderStructureUi();
+  }
+
+  function showOptionsStep(job) {
+    fillOptionsFromJob(job);
+    $('structureCard').classList.add('hidden');
+    $('optionsCard').classList.remove('hidden');
+    $('progressCard').classList.add('hidden');
+    $('doneCard').classList.add('hidden');
+    renderChunks(job);
+    $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
+    $('btnGenerate').textContent = job.status === 'error' ? 'Retry generate' : 'Generate workbook';
   }
 
   function setFile(file) {
@@ -453,10 +664,18 @@
     }
     mount.innerHTML = jobs.map(function (j) {
       var title = (j.meta && j.meta.title) || 'Untitled book';
-      var parts = (j.partsDone || 0) + '/' + (j.partsTotal || 0) + ' parts';
+      var parts;
+      if (j.status === 'structure_ready') {
+        parts = ((j.structureUnits && j.structureUnits.length) || 0) + ' sections to group';
+      } else {
+        parts = (j.partsDone || 0) + '/' + (j.partsTotal || 0) + ' parts';
+      }
       var active = j.id === jobId ? ' active' : '';
+      var openLabel = j.status === 'structure_ready' ? 'Group'
+        : (j.status === 'ready' ? 'Options' : 'Open');
       var actions = '<div class="history-actions">' +
-        '<button type="button" class="btn btn-ghost hist-open" data-id="' + escapeHtml(j.id) + '">Open</button>';
+        '<button type="button" class="btn btn-ghost hist-open" data-id="' + escapeHtml(j.id) + '">' +
+        openLabel + '</button>';
       if (j.downloadReady) {
         actions += '<button type="button" class="btn btn-gold hist-html" data-id="' + escapeHtml(j.id) + '">Print HTML</button>';
         actions += '<button type="button" class="btn btn-primary hist-dl" data-id="' + escapeHtml(j.id) + '">.docx</button>';
@@ -570,9 +789,12 @@
       jobId = null;
       rememberJob('');
       latestPartsPreview = [];
+      currentStructureUnits = [];
+      resetGroupingState();
       $('progressCard').classList.add('hidden');
       $('doneCard').classList.add('hidden');
-      $('chunksCard').classList.add('hidden');
+      $('structureCard').classList.add('hidden');
+      $('optionsCard').classList.add('hidden');
       renderPartsPreview([]);
     }
     await refreshHistory();
@@ -703,6 +925,7 @@
     }
     eventSource.addEventListener('status', onStatus);
     eventSource.addEventListener('part', onPart);
+    eventSource.addEventListener('structure', onStatus);
     eventSource.addEventListener('planned', onStatus);
     eventSource.addEventListener('done', onDone);
     eventSource.addEventListener('error', function (ev) {
@@ -715,20 +938,26 @@
     if (!job) return;
     setProgress(job);
     if (job.partsPreview) renderPartsPreview(job.partsPreview, highlightPartNum);
+    if (job.status === 'structure_ready' && job.structureUnits && job.structureUnits.length) {
+      var structKey = 'structure:' + job.id;
+      if (lastTerminalKey !== structKey) {
+        lastTerminalKey = structKey;
+        stopLive();
+        $('btnUpload').disabled = !selectedFile;
+        $('btnUpload').textContent = 'Upload & analyze structure';
+        showStructureStep(job);
+        refreshHistory();
+      }
+      return;
+    }
     if (job.status === 'ready' && job.chunks && job.chunks.length) {
       var readyKey = 'ready:' + job.id;
       if (lastTerminalKey !== readyKey) {
         lastTerminalKey = readyKey;
         stopLive();
-        renderChunks(job);
-        $('progressCard').classList.remove('hidden');
-        $('progressMsg').textContent = job.message || 'Chunk plan ready.';
-        $('progressBar').style.width = '100%';
-        $('progressPct').textContent = '100%';
-        $('btnGenerate').disabled = false;
-        $('btnGenerate').textContent = 'Generate workbook';
         $('btnUpload').disabled = !selectedFile;
-        $('btnUpload').textContent = 'Upload & plan chunks';
+        $('btnUpload').textContent = 'Upload & analyze structure';
+        showOptionsStep(job);
         refreshHistory();
       }
       return;
@@ -746,13 +975,18 @@
       if (lastTerminalKey !== errKey) {
         lastTerminalKey = errKey;
         $('btnUpload').disabled = !selectedFile;
-        $('btnUpload').textContent = 'Upload & plan chunks';
+        $('btnUpload').textContent = 'Upload & analyze structure';
         if (job.chunks && job.chunks.length) showFailed(job);
-        else {
+        else if (job.structureUnits && job.structureUnits.length) {
+          stopLive();
+          showStructureStep(job);
+          $('structureError').textContent = job.error || job.message || 'Something failed.';
+          refreshHistory();
+        } else {
           stopLive();
           $('progressCard').classList.remove('hidden');
-          $('progressMsg').textContent = 'Planning failed.';
-          $('genError').textContent = job.error || job.message || 'Planning failed.';
+          $('progressMsg').textContent = 'Structure analysis failed.';
+          $('genError').textContent = job.error || job.message || 'Analysis failed.';
           refreshHistory();
         }
       }
@@ -765,12 +999,15 @@
   function applyJobToUi(job) {
     jobId = job.id;
     rememberJob(jobId);
-    renderChunks(job);
+    fillOptionsFromJob(job);
     $('genFailHint').classList.add('hidden');
     $('doneCard').classList.add('hidden');
     $('progressCard').classList.add('hidden');
+    $('structureCard').classList.add('hidden');
+    $('optionsCard').classList.add('hidden');
     $('genError').textContent = '';
-    $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
+    $('structureError').textContent = '';
+    $('chunkError').textContent = '';
     $('btnGenerate').textContent = job.status === 'error' ? 'Retry generate' : 'Generate workbook';
 
     if (job.partsPreview && job.partsPreview.length) {
@@ -787,11 +1024,21 @@
       pollJob();
     } else if (job.status === 'done' && job.downloadReady) {
       showDone(job);
-    } else if (job.status === 'error') {
-      $('progressCard').classList.remove('hidden');
-      showFailed(job);
+    } else if (job.status === 'structure_ready') {
+      showStructureStep(job);
     } else if (job.status === 'ready') {
-      $('progressMsg').textContent = job.message || 'Ready to generate.';
+      showOptionsStep(job);
+    } else if (job.status === 'error') {
+      if (job.chunks && job.chunks.length) {
+        showOptionsStep(job);
+        showFailed(job);
+      } else if (job.structureUnits && job.structureUnits.length) {
+        showStructureStep(job);
+        $('structureError').textContent = job.error || job.message || 'Something failed.';
+      } else {
+        $('progressCard').classList.remove('hidden');
+        showFailed(job);
+      }
     }
     refreshHistory();
   }
@@ -809,6 +1056,8 @@
     $('genFailHint').classList.add('hidden');
     $('btnGenerate').disabled = true;
     $('btnGenerate').textContent = 'Generating…';
+    $('optionsCard').classList.add('hidden');
+    $('structureCard').classList.add('hidden');
     $('progressCard').classList.remove('hidden');
     $('doneCard').classList.add('hidden');
     $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
@@ -816,10 +1065,11 @@
     $('progressPct').textContent = '5%';
     $('progressMsg').textContent = 'Starting generation… sheets will appear below as each part finishes.';
     renderPartsPreview([]);
+    lastTerminalKey = null;
     try {
       var start = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/generate', {
         method: 'POST',
-        body: {}
+        body: optionsPayload()
       });
       if (start && start.job && start.job.partsPreview) {
         renderPartsPreview(start.job.partsPreview);
@@ -830,6 +1080,7 @@
       pollJob();
       refreshHistory();
     } catch (e) {
+      $('optionsCard').classList.remove('hidden');
       $('chunkError').textContent = e.message || 'Could not start generation.';
       $('btnGenerate').disabled = false;
       $('btnGenerate').textContent = 'Generate workbook';
@@ -837,19 +1088,8 @@
   }
 
   function renderChunks(job) {
-    $('chunksCard').classList.remove('hidden');
+    $('optionsCard').classList.remove('hidden');
     var meta = job.meta || {};
-    var planMode = job.planMode || '';
-    var badge = '';
-    if (planMode === 'ai-suggested') {
-      badge = ' <span class="plan-badge">AI-suggested count</span>';
-    } else if (planMode === 'chapter-aware') {
-      badge = ' <span class="plan-badge">chapter-aware</span>';
-    } else if (planMode === 'target-count') {
-      badge = ' <span class="plan-badge">target worksheet count</span>';
-    } else if (planMode === 'page-groups') {
-      badge = ' <span class="plan-badge weak">page groups + titles</span>';
-    }
     var skipNote = '';
     if (job.skippedFront || job.skippedBack) {
       skipNote = ' · skipped ' +
@@ -858,12 +1098,10 @@
           job.skippedBack ? (job.skippedBack + ' back') : ''
         ].filter(Boolean).join(' / ') + ' matter';
     }
-    $('bookMeta').innerHTML =
-      escapeHtml((meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
-      ' · ' + (meta.genre === 'nonfiction' ? 'Nonfiction' : 'Fiction') +
-      ' · ' + (job.pageCount || 0) + ' pages · ' + (job.chunks || []).length + ' parts') +
-      badge + escapeHtml(skipNote) +
-      (job.pageOverflowRisk ? ' · page overflow risk' : '');
+    $('optionsMeta').textContent =
+      ((meta.title || 'Untitled') + ' · ' + (meta.author || 'Unknown') +
+      ' · ' + ((job.chunks || []).length) + ' worksheet parts' + skipNote) +
+      ' — choose vocab & question counts, then generate.';
 
     var reportEl = $('planReport');
     var report = job.planReport || null;
@@ -872,24 +1110,12 @@
         var crit = (report.criteria || []).map(function (c) {
           return '<li>' + escapeHtml(c) + '</li>';
         }).join('');
-        var countLine = '';
-        if (report.countExact && report.hardTarget) {
-          countLine = 'Exact count: ' + report.hardTarget + ' worksheets (teacher request).';
-        } else if (report.suggestedCount) {
-          countLine = 'Suggested ~' + report.suggestedCount +
-            ' · final plan: ' + (report.finalCount || (job.chunks || []).length) + ' parts' +
-            (report.countExact ? '' : ' (exact count not forced)');
-        } else if (report.finalCount) {
-          countLine = 'Final plan: ' + report.finalCount + ' parts';
-        }
         reportEl.classList.remove('hidden');
         reportEl.innerHTML =
-          '<h3>How this plan was built</h3>' +
-          (countLine ? '<p>' + escapeHtml(countLine) + '</p>' : '') +
+          '<h3>Your groups</h3>' +
           (report.summary ? '<p>' + escapeHtml(report.summary) + '</p>' : '') +
           (crit ? '<ul>' + crit + '</ul>' : '') +
-          (report.howSplit ? '<p class="how">' + escapeHtml(report.howSplit) + '</p>' : '') +
-          (report.notes ? '<p>' + escapeHtml(report.notes) + '</p>' : '');
+          (report.howSplit ? '<p class="how">' + escapeHtml(report.howSplit) + '</p>' : '');
       } else {
         reportEl.classList.add('hidden');
         reportEl.innerHTML = '';
@@ -909,7 +1135,7 @@
         '<div class="chunk-pages" title="PDF page range (may differ from printed book pages)">PDF pp. ' +
           escapeHtml(ch.startPage) + '–' + escapeHtml(ch.endPage) + '</div>' +
       '</div>';
-    }).join('') || '<p class="hint">No chunks found.</p>';
+    }).join('') || '<p class="hint">No parts yet — go back and group sections.</p>';
     $('btnGenerate').disabled = !(job.chunks && job.chunks.length);
   }
 
@@ -985,7 +1211,7 @@
         }).join('');
       }
       if (!data.geminiConfigured) {
-        $('setupError').textContent = 'Gemini is not configured on the server (GEMINI_API_KEY).';
+        $('setupError').textContent = 'AI is not configured on the server (ANTHROPIC_API_KEY or GEMINI_API_KEY).';
       }
     } catch (e) {
       renderMcTypes([
@@ -1037,16 +1263,101 @@
     });
   });
 
-  ['targetChunks', 'vocabCount', 'mcCount', 'shortCount', 'reflectionCount'].forEach(function (id) {
+  ['vocabCount', 'mcCount', 'shortCount', 'reflectionCount'].forEach(function (id) {
     $(id).addEventListener('input', updateOverflow);
     $(id).addEventListener('change', updateOverflow);
   });
   updateOverflow();
 
+  $('structureList').addEventListener('click', function (e) {
+    var row = e.target.closest('.structure-row');
+    if (!row || row.disabled) return;
+    var id = row.getAttribute('data-id');
+    if (!id) return;
+    var used = usedUnitIds();
+    if (used[id] && draftUnitIds.indexOf(id) < 0) return;
+    var idx = draftUnitIds.indexOf(id);
+    if (idx >= 0) {
+      draftUnitIds.splice(idx, 1);
+    } else {
+      draftUnitIds.push(id);
+      draftUnitIds.sort(function (a, b) {
+        var ua = unitById(a);
+        var ub = unitById(b);
+        return ((ua && ua.index) || 0) - ((ub && ub.index) || 0);
+      });
+    }
+    $('structureError').textContent = '';
+    renderStructureUi();
+  });
+
+  $('btnSealGroup').addEventListener('click', function () {
+    if (!draftUnitIds.length) return;
+    var ids = draftUnitIds.slice();
+    sealedGroups.push({ unitIds: ids, title: groupTitleFromUnits(ids) });
+    draftUnitIds = [];
+    $('structureError').textContent = '';
+    renderStructureUi();
+  });
+
+  $('btnClearDraft').addEventListener('click', function () {
+    draftUnitIds = [];
+    renderStructureUi();
+  });
+
+  $('btnUndoGroup').addEventListener('click', function () {
+    if (!sealedGroups.length) return;
+    sealedGroups.pop();
+    renderStructureUi();
+  });
+
+  $('btnConfirmGroups').addEventListener('click', async function () {
+    if (!jobId || !sealedGroups.length) return;
+    $('structureError').textContent = '';
+    $('btnConfirmGroups').disabled = true;
+    $('btnConfirmGroups').textContent = 'Saving groups…';
+    try {
+      var res = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId) + '/groups', {
+        method: 'POST',
+        body: {
+          groups: sealedGroups.map(function (g) {
+            return { unitIds: g.unitIds, title: g.title };
+          })
+        }
+      });
+      var job = res.job || {};
+      showOptionsStep(job);
+      refreshHistory();
+    } catch (e) {
+      $('structureError').textContent = e.message || 'Could not save groups.';
+      updateGroupControls();
+    } finally {
+      $('btnConfirmGroups').textContent = 'Confirm groups → worksheet options';
+      updateGroupControls();
+    }
+  });
+
+  $('btnBackToGroups').addEventListener('click', async function () {
+    if (!jobId) return;
+    $('chunkError').textContent = '';
+    try {
+      var data = await toolFetch('/api/novel-study/jobs/' + encodeURIComponent(jobId));
+      var job = data.job || {};
+      if (!(job.structureUnits || []).length) {
+        $('chunkError').textContent = 'No structure sections on this job. Re-upload the PDF.';
+        return;
+      }
+      showStructureStep(job, true);
+    } catch (e) {
+      $('chunkError').textContent = e.message || 'Could not reopen groups.';
+    }
+  });
+
   $('btnUpload').addEventListener('click', async function () {
     $('setupError').textContent = '';
     $('chunkError').textContent = '';
     $('genError').textContent = '';
+    $('structureError').textContent = '';
     if (!selectedFile) {
       $('setupError').textContent = 'Choose a PDF first.';
       return;
@@ -1058,7 +1369,8 @@
     $('btnUpload').disabled = true;
     $('btnUpload').textContent = 'Uploading…';
     $('doneCard').classList.add('hidden');
-    $('chunksCard').classList.add('hidden');
+    $('structureCard').classList.add('hidden');
+    $('optionsCard').classList.add('hidden');
     $('progressCard').classList.remove('hidden');
     $('genFailHint').classList.add('hidden');
     $('progressBar').style.background = 'linear-gradient(90deg, var(--olive), var(--sage))';
@@ -1066,6 +1378,8 @@
     $('progressPct').textContent = '3%';
     $('progressMsg').textContent = 'Uploading PDF…';
     renderPartsPreview([]);
+    resetGroupingState();
+    currentStructureUnits = [];
     lastTerminalKey = null;
     try {
       var fd = new FormData();
@@ -1078,8 +1392,8 @@
       var data = await toolFetch('/api/novel-study/jobs', { method: 'POST', body: fd });
       jobId = data.job && data.job.id;
       rememberJob(jobId);
-      setProgress(data.job || { progress: 5, message: 'Planning started…', status: 'parsing' });
-      $('btnUpload').textContent = 'Planning…';
+      setProgress(data.job || { progress: 5, message: 'Analyzing structure…', status: 'parsing' });
+      $('btnUpload').textContent = 'Analyzing…';
       stopLive();
       startEvents(jobId);
       pollTimer = setInterval(pollJob, 1500);
@@ -1089,7 +1403,7 @@
       $('setupError').textContent = e.message || 'Upload failed.';
       $('progressCard').classList.add('hidden');
       $('btnUpload').disabled = !selectedFile;
-      $('btnUpload').textContent = 'Upload & plan chunks';
+      $('btnUpload').textContent = 'Upload & analyze structure';
     }
   });
 
@@ -1197,14 +1511,19 @@
     rememberJob('');
     selectedFile = null;
     latestPartsPreview = [];
+    currentStructureUnits = [];
+    resetGroupingState();
     $('pdfInput').value = '';
     $('dropLabel').textContent = 'Drop a PDF here or click to browse';
     $('btnUpload').disabled = true;
-    $('chunksCard').classList.add('hidden');
+    $('btnUpload').textContent = 'Upload & analyze structure';
+    $('structureCard').classList.add('hidden');
+    $('optionsCard').classList.add('hidden');
     $('progressCard').classList.add('hidden');
     $('doneCard').classList.add('hidden');
     $('genFailHint').classList.add('hidden');
     $('setupError').textContent = '';
+    $('structureError').textContent = '';
     $('chunkError').textContent = '';
     $('genError').textContent = '';
     $('doneError').textContent = '';
@@ -1230,7 +1549,9 @@
       }) || null;
     }
     if (!resume) {
-      resume = (jobs || []).find(function (j) { return j.status === 'ready' || j.status === 'error'; }) || null;
+      resume = (jobs || []).find(function (j) {
+        return j.status === 'structure_ready' || j.status === 'ready' || j.status === 'error';
+      }) || null;
     }
     if (resume) {
       try { await openJob(resume.id); } catch (_) { /* ignore */ }

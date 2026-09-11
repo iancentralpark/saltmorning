@@ -132,6 +132,20 @@ async function ensureDocxBufferAsync(job) {
 
 function serializeJob(job) {
   const keepText = job.status !== 'done';
+  const structureUnits = Array.isArray(job.structureUnits) ? job.structureUnits.map((u) => ({
+    id: u.id,
+    index: u.index,
+    chapterNum: u.chapterNum || 0,
+    chapterTitle: u.chapterTitle || '',
+    title: u.title || '',
+    kind: u.kind || 'subtitle',
+    label: u.label || '',
+    startPage: u.startPage,
+    endPage: u.endPage,
+    text: keepText ? String(u.text || '') : ''
+  })) : [];
+  const meta = job.meta && typeof job.meta === 'object' ? Object.assign({}, job.meta) : {};
+  if (structureUnits.length) meta.structureUnits = structureUnits;
   return {
     id: job.id,
     teacherId: job.teacherId,
@@ -139,7 +153,7 @@ function serializeJob(job) {
     progress: job.progress,
     message: job.message,
     error: job.error || null,
-    meta: job.meta,
+    meta: Object.keys(meta).length ? meta : null,
     options: job.options,
     pageCount: job.pageCount || 0,
     chunks: (job.chunks || []).map((ch) => ({
@@ -149,7 +163,8 @@ function serializeJob(job) {
       readingRange: ch.readingRange || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
-      text: keepText ? String(ch.text || '') : ''
+      text: keepText ? String(ch.text || '') : '',
+      unitIds: Array.isArray(ch.unitIds) ? ch.unitIds.map(String) : []
     })),
     parts: job.parts || [],
     culminating: job.culminating || null,
@@ -157,6 +172,7 @@ function serializeJob(job) {
     originalName: job.originalName || null,
     planMode: job.planMode || null,
     planReport: job.planReport || null,
+    structureUnits,
     tocCount: job.tocCount || 0,
     skippedFront: job.skippedFront || 0,
     skippedBack: job.skippedBack || 0,
@@ -281,6 +297,9 @@ function hydrateJob(data) {
     originalName: data.originalName || null,
     planMode: data.planMode || null,
     planReport: data.planReport || (data.meta && data.meta.planReport) || null,
+    structureUnits: Array.isArray(data.structureUnits)
+      ? data.structureUnits
+      : ((data.meta && Array.isArray(data.meta.structureUnits)) ? data.meta.structureUnits : []),
     tocCount: data.tocCount || 0,
     skippedFront: data.skippedFront || 0,
     skippedBack: data.skippedBack || 0,
@@ -584,7 +603,8 @@ function toPublicJob(job, opts) {
       readingRange: ch.readingRange || '',
       startPage: ch.startPage,
       endPage: ch.endPage,
-      charCount: String(ch.text || '').length
+      charCount: String(ch.text || '').length,
+      unitIds: Array.isArray(ch.unitIds) ? ch.unitIds.map(String) : []
     })),
     partsDone: (job.parts || []).length,
     partsTotal: (job.chunks || []).length,
@@ -593,6 +613,17 @@ function toPublicJob(job, opts) {
     pageOverflowRisk: !!(job.options && job.options.pageOverflowRisk),
     planMode: job.planMode || null,
     planReport: job.planReport || (job.meta && job.meta.planReport) || null,
+    structureUnits: (job.structureUnits || []).map((u) => ({
+      id: u.id,
+      index: u.index,
+      chapterNum: u.chapterNum || 0,
+      chapterTitle: u.chapterTitle || '',
+      title: u.title || '',
+      kind: u.kind || 'subtitle',
+      label: u.label || '',
+      startPage: u.startPage,
+      endPage: u.endPage
+    })),
     tocCount: job.tocCount || 0,
     skippedFront: job.skippedFront || 0,
     skippedBack: job.skippedBack || 0,
@@ -1997,7 +2028,8 @@ function labelChunk(sec, banned) {
     readingRange,
     startPage: start,
     endPage: end,
-    text
+    text,
+    unitIds: Array.isArray(sec.unitIds) ? sec.unitIds.map(String) : []
   };
 }
 
@@ -2015,6 +2047,143 @@ function buildToc(pages, banned) {
     toc.push({ page: p.pageNum, heading: h });
   });
   return toc;
+}
+
+function isChapterHeading(title) {
+  const t = String(title || '').trim();
+  if (!t) return false;
+  if (/^(chapter|ch\.?|part|unit)\s*[ivxlc0-9]+/i.test(t)) return true;
+  if (/^(prologue|epilogue|introduction|preface|afterword|conclusion)\b/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Atomic structure units = one heading section each (no page-count merge/split).
+ * Classifies chapter vs subtitle so teachers can group within chapters.
+ */
+function extractStructureUnits(pages) {
+  const banned = collectRunningHeaders(pages);
+  const raw = [];
+  let cur = null;
+  (pages || []).forEach((p) => {
+    const mid = cur ? findMidPageHeadingBreak(p.text, banned, cur.unitTitle) : null;
+    if (mid && cur) {
+      if (mid.beforeText) {
+        cur.pages.push({ pageNum: p.pageNum, text: mid.beforeText });
+        cur.endPage = p.pageNum;
+      }
+      raw.push(cur);
+      cur = {
+        unitTitle: mid.heading,
+        startPage: p.pageNum,
+        endPage: p.pageNum,
+        pages: [{ pageNum: p.pageNum, text: mid.afterText }]
+      };
+      return;
+    }
+    const heading = guessHeading(p.text, banned);
+    const startNew = heading && (!cur || normalizeLine(heading) !== normalizeLine(cur.unitTitle));
+    if (!cur || startNew) {
+      if (cur) raw.push(cur);
+      cur = {
+        unitTitle: heading || '',
+        startPage: p.pageNum,
+        endPage: p.pageNum,
+        pages: [p]
+      };
+    } else {
+      cur.endPage = p.pageNum;
+      cur.pages.push(p);
+    }
+  });
+  if (cur) raw.push(cur);
+
+  let chapterNum = 0;
+  let chapterTitle = 'Opening';
+  const units = [];
+  raw.forEach((sec) => {
+    const title = String(sec.unitTitle || '').trim() || ('Section starting p.' + sec.startPage);
+    if (isChapterHeading(title)) {
+      chapterNum += 1;
+      chapterTitle = title;
+    } else if (chapterNum === 0) {
+      chapterNum = 1;
+      chapterTitle = 'Chapter 1';
+    }
+    const kind = isChapterHeading(title) ? 'chapter' : 'subtitle';
+    const label = kind === 'chapter'
+      ? title
+      : (chapterTitle + ' — ' + title);
+    const text = (sec.pages || []).map((p) => p.text).join('\n\n').trim();
+    units.push({
+      id: 'u' + (units.length + 1),
+      index: units.length,
+      chapterNum,
+      chapterTitle,
+      title,
+      kind,
+      label,
+      startPage: sec.startPage,
+      endPage: sec.endPage,
+      text
+    });
+  });
+  return { units, banned, tocCount: units.length };
+}
+
+/**
+ * Optional AI pass: refine chapter/subtitle labels from detected headings.
+ * Never invents new page ranges — only relabels / reassigns chapter buckets.
+ */
+async function refineStructureWithAi(units, options) {
+  if (!units || units.length < 2) return units;
+  const payload = units.map((u) => ({
+    id: u.id,
+    title: u.title,
+    kind: u.kind,
+    chapter_num: u.chapterNum,
+    chapter_title: u.chapterTitle,
+    start_page: u.startPage,
+    end_page: u.endPage
+  }));
+  try {
+    const prompt = [
+      'You organize a book into chapters and subtitles for a teacher.',
+      'Return JSON ONLY:',
+      '{ "items": [{ "id": string, "chapter_num": number, "chapter_title": string, "title": string, "kind": "chapter"|"subtitle" }] }',
+      'Rules:',
+      '- Keep the SAME ids and the same order. Do not add/remove items.',
+      '- chapter_num must be contiguous starting at 1 where possible.',
+      '- Do NOT move a subtitle into a different chapter if that would cross page order oddly; respect page order.',
+      '- kind=chapter for major chapter headings; kind=subtitle for sections under a chapter.',
+      '- title should be the section heading; chapter_title is the parent chapter name.',
+      'Detected items: ' + JSON.stringify(payload.slice(0, 120))
+    ].join('\n');
+    const res = await askGemini(prompt, {
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+      systemInstruction: 'STRICT JSON only. Preserve ids and reading order.',
+      retries: 1
+    });
+    const parsed = extractJson(res.text || res.answer || '');
+    const items = (parsed && parsed.items) || [];
+    if (!Array.isArray(items) || items.length !== units.length) return units;
+    const byId = new Map(items.map((it) => [String(it.id || ''), it]));
+    return units.map((u) => {
+      const hit = byId.get(String(u.id));
+      if (!hit) return u;
+      const chapterNum = Math.max(1, Number(hit.chapter_num) || u.chapterNum || 1);
+      const chapterTitle = String(hit.chapter_title || u.chapterTitle || '').trim() || u.chapterTitle;
+      const title = String(hit.title || u.title || '').trim() || u.title;
+      const kind = String(hit.kind || u.kind) === 'chapter' ? 'chapter' : 'subtitle';
+      const label = kind === 'chapter' ? title : (chapterTitle + ' — ' + title);
+      return Object.assign({}, u, { chapterNum, chapterTitle, title, kind, label });
+    });
+  } catch (e) {
+    console.warn('novelStudy structure refine failed', e.message);
+    return units;
+  }
 }
 
 function tocQuality(toc, pageCount) {
@@ -3077,6 +3246,9 @@ async function createJobFromPdf(teacherId, file, body) {
 
 async function runPlanning(jobId, teacherId) {
   const job = getJob(jobId, teacherId);
+  if (job.status === 'structure_ready' && (job.structureUnits || []).length) {
+    return toPublicJob(job);
+  }
   if (job.status === 'ready' && (job.chunks || []).length) {
     return toPublicJob(job);
   }
@@ -3105,7 +3277,7 @@ async function runPlanning(jobId, teacherId) {
     }
 
     const extracted = await extractPages(pdfBuffer);
-    bump(12, 'PDF parsed (' + extracted.pageCount + ' pages). Planning chunks…', {
+    bump(18, 'PDF parsed (' + extracted.pageCount + ' pages). Finding chapters & subtitles…', {
       status: 'planning',
       pages: extracted.pages,
       pageCount: extracted.pageCount
@@ -3115,71 +3287,205 @@ async function runPlanning(jobId, teacherId) {
       path.basename(String(job.originalName || 'book.pdf'), '.pdf'),
       'Untitled Book'
     );
-    const planned = await planChunksWithGemini(
-      extracted.pages,
-      {
-        level: job.options.level,
-        genre: job.options.genre === 'auto' ? '' : job.options.genre,
-        fallbackTitle,
-        // Must pass through — otherwise teacher worksheet count is ignored.
-        targetChunks: job.options.targetChunks || 0
-      },
-      (pct, message) => bump(pct, message, { status: 'planning' })
-    );
+    const planOpts = {
+      level: job.options.level,
+      genre: job.options.genre === 'auto' ? '' : job.options.genre,
+      fallbackTitle
+    };
 
+    bump(35, 'Skipping front/back matter…');
+    const trimmed = trimToBookBody(extracted.pages);
+    bump(50, 'Detecting chapter and subtitle headings…');
+    let extractedUnits = extractStructureUnits(trimmed.pages);
+    let units = extractedUnits.units;
+
+    bump(65, 'Identifying book title and author…');
+    let meta = await detectBookMetaWithGemini(extracted.pages, planOpts, units.map((u) => ({
+      page: u.startPage,
+      heading: u.title
+    })));
+    if (!meta) {
+      meta = {
+        title: cleanBookTitle(fallbackTitle, 'Untitled Book'),
+        author: 'Unknown',
+        genre: guessGenreFromText(fallbackTitle, '', planOpts)
+      };
+    }
     if (job.options.genre === 'fiction' || job.options.genre === 'nonfiction') {
-      planned.meta.genre = job.options.genre;
+      meta.genre = job.options.genre;
     }
 
-    cleanupJobFiles(job);
-    const modeNote = planned.planMode === 'target-count'
-      ? ('Split into ' + planned.chunks.length + ' worksheets as requested.')
-      : (planned.planMode === 'ai-suggested'
-        ? ('AI suggested ~' +
-          ((planned.planReport && planned.planReport.suggestedCount) || planned.chunks.length) +
-          ' worksheets; final plan has ' + planned.chunks.length +
-          ' parts along meaning boundaries.')
-        : (planned.planMode === 'chapter-aware'
-          ? 'Aligned to chapter/section headings where possible.'
-          : 'Few clear chapter headings found — grouped with content titles.'));
-    const skipBits = [];
-    if (planned.skippedFront) skipBits.push(planned.skippedFront + ' front-matter page(s) skipped');
-    if (planned.skippedBack) skipBits.push(planned.skippedBack + ' back-matter page(s) skipped');
-    const reportBit = planned.planReport && planned.planReport.summary
-      ? ' ' + planned.planReport.summary
-      : '';
+    bump(80, 'Organizing chapter → subtitle list…');
+    units = await refineStructureWithAi(units, planOpts);
 
+    cleanupJobFiles(job);
     touch(job, {
-      status: 'ready',
+      status: 'structure_ready',
       progress: 100,
-      message: 'Chunk plan ready (' + planned.chunks.length + ' parts). ' + modeNote +
-        (skipBits.length ? ' ' + skipBits.join('; ') + '.' : '') + reportBit,
-      meta: planned.meta,
-      chunks: planned.chunks,
-      planMode: planned.planMode || null,
-      planReport: planned.planReport || null,
-      tocCount: planned.tocCount || 0,
-      skippedFront: planned.skippedFront || 0,
-      skippedBack: planned.skippedBack || 0,
+      message: 'Structure ready — ' + units.length +
+        ' sections found. Click to group them into worksheet parts.',
+      meta,
+      structureUnits: units,
+      chunks: [],
+      planMode: 'teacher-groups',
+      planReport: null,
+      tocCount: units.length,
+      skippedFront: trimmed.skippedFront || 0,
+      skippedBack: trimmed.skippedBack || 0,
       pages: null,
       planningStarted: false,
       error: null
     });
     emit(job, 'status', toPublicJob(job));
-    emit(job, 'planned', toPublicJob(job));
+    emit(job, 'structure', toPublicJob(job));
     return toPublicJob(job);
   } catch (e) {
     cleanupJobFiles(job);
     touch(job, {
       status: 'error',
       progress: 100,
-      message: e.message || 'Planning failed.',
-      error: e.message || 'Planning failed.',
+      message: e.message || 'Structure analysis failed.',
+      error: e.message || 'Structure analysis failed.',
       planningStarted: false
     });
     emit(job, 'error', toPublicJob(job));
     throw e;
   }
+}
+
+/**
+ * Teacher-defined groups of structure unit ids → worksheet chunks.
+ * body.groups = [{ unitIds: ['u1','u2'], title?: string }]
+ */
+function applyTeacherGroups(jobId, teacherId, body) {
+  const job = getJob(jobId, teacherId);
+  if (!['structure_ready', 'ready'].includes(String(job.status || ''))) {
+    throw httpError('Group sections after structure analysis finishes.', 409);
+  }
+  const units = Array.isArray(job.structureUnits) ? job.structureUnits : [];
+  if (!units.length) throw httpError('No structure units to group. Re-upload the PDF.', 400);
+
+  const groups = Array.isArray(body && body.groups) ? body.groups : [];
+  if (groups.length < 1) throw httpError('Add at least one worksheet group.', 400);
+
+  const byId = new Map(units.map((u) => [String(u.id), u]));
+  const seen = new Set();
+  const orderedIds = [];
+  const chunks = [];
+
+  groups.forEach((g, gi) => {
+    const ids = Array.isArray(g && g.unitIds)
+      ? g.unitIds.map(String)
+      : (Array.isArray(g && g.unitIndexes)
+        ? g.unitIndexes.map((n) => {
+          const u = units[Number(n)];
+          return u ? String(u.id) : '';
+        }).filter(Boolean)
+        : []);
+    if (!ids.length) {
+      throw httpError('Group ' + (gi + 1) + ' has no sections.', 400);
+    }
+    const selected = ids.map((id) => {
+      if (seen.has(id)) throw httpError('Section ' + id + ' is in more than one group.', 400);
+      const u = byId.get(id);
+      if (!u) throw httpError('Unknown section id: ' + id, 400);
+      seen.add(id);
+      orderedIds.push(id);
+      return u;
+    });
+
+    // Groups must follow book order (no rearranging).
+    for (let i = 1; i < selected.length; i += 1) {
+      if (selected[i].index < selected[i - 1].index) {
+        throw httpError('Group ' + (gi + 1) + ' must keep sections in book order.', 400);
+      }
+    }
+
+    const chapterNums = Array.from(new Set(selected.map((u) => u.chapterNum)));
+    const title = String((g && g.title) || '').trim()
+      || (selected.length === 1
+        ? selected[0].label
+        : (selected[0].chapterTitle
+          + (chapterNums.length === 1
+            ? (': ' + selected.map((u) => u.title).filter(Boolean).slice(0, 3).join(' / '))
+            : ' + more')));
+
+    const startPage = selected[0].startPage;
+    const endPage = selected[selected.length - 1].endPage;
+    const text = selected.map((u) => u.text || '').filter(Boolean).join('\n\n').trim();
+    const readingRange = selected.length === 1
+      ? ('Section “' + selected[0].title + '”')
+      : ('From “' + selected[0].title + '” through “' + selected[selected.length - 1].title + '”');
+
+    chunks.push(labelChunk({
+      partNum: gi + 1,
+      unitTitle: title,
+      summary: selected.map((u) => u.title).filter(Boolean).join(' · '),
+      readingRange,
+      startPage,
+      endPage,
+      text,
+      unitIds: ids
+    }, new Set()));
+  });
+
+  if (seen.size !== units.length) {
+    throw httpError(
+      'Every section must be grouped before generating (' +
+      seen.size + '/' + units.length + ' used).',
+      400
+    );
+  }
+
+  // Ensure global order of groups follows book order.
+  for (let i = 1; i < orderedIds.length; i += 1) {
+    const a = byId.get(orderedIds[i - 1]);
+    const b = byId.get(orderedIds[i]);
+    if (a && b && b.index < a.index) {
+      throw httpError('Worksheet parts must follow book order.', 400);
+    }
+  }
+
+  touch(job, {
+    status: 'ready',
+    progress: 100,
+    message: 'Chunk plan ready (' + chunks.length +
+      ' parts). Choose worksheet options, then generate.',
+    chunks,
+    planMode: 'teacher-groups',
+    planReport: {
+      mode: 'teacher-groups',
+      finalCount: chunks.length,
+      countExact: true,
+      criteria: [
+        'Teacher grouped chapter/subtitle units manually',
+        'Cuts only at heading boundaries',
+        'All detected sections covered exactly once'
+      ],
+      summary: 'You grouped ' + units.length + ' sections into ' + chunks.length + ' worksheets.',
+      howSplit: 'Manual chapter/subtitle groups (no mid-section cuts).',
+      headingCount: units.length,
+      source: 'teacher'
+    },
+    error: null
+  });
+  emit(job, 'status', toPublicJob(job));
+  emit(job, 'planned', toPublicJob(job));
+  return toPublicJob(job);
+}
+
+function updateJobOptions(jobId, teacherId, body) {
+  const job = getJob(jobId, teacherId);
+  if (['generating', 'parsing', 'planning'].includes(String(job.status || ''))) {
+    throw httpError('Cannot change options while the job is busy.', 409);
+  }
+  const next = normalizeOptions(Object.assign({}, job.options || {}, body || {}));
+  // Preserve level/genre if body omitted them as empty.
+  if (body && body.level == null && job.options && job.options.level) next.level = job.options.level;
+  if (body && body.genre == null && job.options && job.options.genre) next.genre = job.options.genre;
+  touch(job, { options: next });
+  emit(job, 'status', toPublicJob(job));
+  return toPublicJob(job);
 }
 
 function subscribe(jobId, teacherId, listenerFn) {
@@ -3465,6 +3771,8 @@ async function uploadToGoogleDocs(jobId, teacherId) {
 module.exports = {
   createJobFromPdf,
   runPlanning,
+  applyTeacherGroups,
+  updateJobOptions,
   getJob,
   listJobsForTeacher,
   toPublicJob,
@@ -3492,7 +3800,9 @@ module.exports = {
     softFitTowardCount,
     heuristicSuggestedCount,
     buildPlanReport,
-    collectRunningHeaders
+    collectRunningHeaders,
+    extractStructureUnits,
+    isChapterHeading
   }
 };
 
