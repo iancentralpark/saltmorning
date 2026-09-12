@@ -20,7 +20,7 @@ const {
   VerticalAlign
 } = require('docx');
 
-const { normalizeChoices } = require('./novelStudyHtml');
+const { normalizeChoices, usefulReadingLocator } = require('./novelStudyHtml');
 
 const FONT = 'Calibri';
 const SIZE = 20; // 10pt
@@ -270,13 +270,13 @@ function buildPartWorksheet(part, options) {
       HeadingLevel.HEADING_1
     )
   ];
-  const locator = part.readingRange || part.contentSpan || '';
-  children.push(p([run(
-    locator
-      ? ('Find in your book: ' + locator)
-      : ('Read the section titled “' + (part.unitTitle || 'this part') + '” in your book.'),
-    { italics: true, color: locator ? '1A2332' : '555555' }
-  )]));
+  const locator = usefulReadingLocator(part);
+  if (locator) {
+    children.push(p([run(
+      'Find in your book: ' + locator,
+      { italics: true, color: '1A2332' }
+    )]));
+  }
 
   children.push(heading(letters.mc + '. Multiple Choice', HeadingLevel.HEADING_2));
   (part.multipleChoice || []).forEach((q, i) => {

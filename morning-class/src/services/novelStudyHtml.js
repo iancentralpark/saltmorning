@@ -51,6 +51,41 @@ function answerLinesHtml(n, kind) {
   return lines.join('\n');
 }
 
+/** Hide Find-in-book lines that only repeat the worksheet title. */
+function readingRangeIsRedundant(unitTitle, readingRange) {
+  const title = String(unitTitle || '').trim();
+  const range = String(readingRange || '').trim();
+  if (!range) return true;
+  if (!title) return false;
+  const norm = (s) => String(s || '')
+    .toLowerCase()
+    .replace(/[“”"‘’']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const t = norm(title);
+  const r = norm(range);
+  if (r === t) return true;
+  const sectionOnly = r.match(/^(?:section|read the section titled)\s+(.+?)\.?$/);
+  if (sectionOnly) {
+    const body = sectionOnly[1].trim();
+    if (t === body || t.endsWith(': ' + body) || t.includes(body)) return true;
+  }
+  const fromThrough = r.match(/^from\s+(.+?)\s+through\s+(.+)$/);
+  if (fromThrough) {
+    const a = fromThrough[1].trim();
+    const b = fromThrough[2].trim();
+    if (a && b && t.includes(a) && t.includes(b)) return true;
+  }
+  return false;
+}
+
+function usefulReadingLocator(part) {
+  const locator = String(part.readingRange || part.contentSpan || '').trim();
+  if (!locator) return '';
+  if (readingRangeIsRedundant(part.unitTitle, locator)) return '';
+  return locator;
+}
+
 function sectionLetters(hasVocab) {
   let i = 0;
   const next = () => String.fromCharCode(65 + (i++));
@@ -115,16 +150,16 @@ function buildPartHtml(part, options) {
   bits.push('<section class="sheet part-sheet">');
   bits.push('<header class="part-head">');
   bits.push('<h1>Part ' + esc(part.partNum) + ': ' + esc(part.unitTitle || 'Section') + '</h1>');
-  const locator = part.readingRange || part.contentSpan || '';
+  // Only show a locator when it adds info beyond the title (avoid repeating subtitles).
+  const locator = usefulReadingLocator(part);
   if (locator) {
     bits.push('<p class="reading-range"><b>Find in your book:</b> ' + esc(locator) + '</p>');
-  } else {
-    bits.push('<p class="reading-range muted">Read the section titled “' +
-      esc(part.unitTitle || 'this part') + '” in your book.</p>');
   }
   bits.push('</header>');
 
-  bits.push('<div class="keep section-block">');
+  // Do not wrap whole sections in .keep — that forces the entire block onto the next
+  // page when it barely overflows, leaving a large blank at the bottom of the prior page.
+  bits.push('<div class="section-block">');
   bits.push('<h2>' + letters.mc + '. Multiple Choice</h2>');
   const mc = part.multipleChoice || [];
   if (!mc.length) {
@@ -144,7 +179,7 @@ function buildPartHtml(part, options) {
   }
   bits.push('</div>');
 
-  bits.push('<div class="keep section-block">');
+  bits.push('<div class="section-block">');
   bits.push('<h2>' + letters.short + '. Short Answer</h2>');
   const shorts = part.shortAnswer || [];
   if (!shorts.length) {
@@ -159,7 +194,7 @@ function buildPartHtml(part, options) {
   }
   bits.push('</div>');
 
-  bits.push('<div class="keep section-block">');
+  bits.push('<div class="section-block">');
   bits.push('<h2>' + letters.reflection + '. Extended Response</h2>');
   const refs = part.reflection || [];
   if (!refs.length) {
@@ -167,8 +202,10 @@ function buildPartHtml(part, options) {
   } else {
     refs.forEach((q, i) => {
       const typeLabel = reflectionTypeLabel(q.type);
-      bits.push('<div class="q keep">');
-      bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
+      // Keep stem with its answer lines when possible, but allow the block to split
+      // across pages if it is too tall (avoids huge blank gaps).
+      bits.push('<div class="q q-extended">');
+      bits.push('<p class="q-stem keep-with-next"><b>' + (i + 1) + '.</b> ' +
         (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
         esc(q.question || '') + '</p>');
       bits.push(answerLinesHtml(4, 'long'));
@@ -321,6 +358,12 @@ function wrapHtmlDocument(title, bodyHtml) {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-size: 1.45rem; color: var(--header); margin: 0 0 0.3rem;
     border-bottom: 2px solid var(--teal); padding-bottom: 0.2rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.25;
   }
   h2 {
     font-family: 'Cormorant Garamond', Georgia, serif;
@@ -332,9 +375,13 @@ function wrapHtmlDocument(title, bodyHtml) {
   .part-head { break-after: avoid; page-break-after: avoid; }
   .part-head .pages { margin: 0; color: var(--muted); font-style: italic; font-size: 0.92rem; }
   .section-block { margin: 0 0 0.35rem; }
-  .keep {
+  .keep, .keep-with-next {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  .keep-with-next {
+    break-after: avoid;
+    page-break-after: avoid;
   }
   .vocab-table {
     width: 100%; border-collapse: collapse; margin: 0.3rem 0 0.5rem;
@@ -423,16 +470,26 @@ function wrapHtmlDocument(title, bodyHtml) {
       break-after: auto;
       page-break-after: auto;
     }
-    .keep, .q, .section-block {
+    /* Keep only small question units together — never whole sections. */
+    .keep, .q:not(.q-extended) {
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    h2, .part-head {
+    h2, .part-head, .keep-with-next {
       break-after: avoid;
       page-break-after: avoid;
     }
-    .write-line-short { height: 1.7rem; margin: 0.2rem 0; }
-    .write-line-long { height: 1.9rem; margin: 0.25rem 0; }
+    h1 {
+      font-size: 1.28rem;
+      line-height: 1.22;
+    }
+    h2 { margin: 0.55rem 0 0.25rem; }
+    .q { margin: 0.28rem 0 0.45rem; }
+    .q-stem { margin: 0 0 0.2rem; }
+    .choices li { margin: 0.08rem 0; }
+    .write-line-short { height: 1.55rem; margin: 0.14rem 0; }
+    .write-line-long { height: 1.7rem; margin: 0.16rem 0; }
+    .reading-range { margin: 0.1rem 0 0.35rem; font-size: 0.9rem; }
     .no-print { display: none !important; }
   }
   @media screen and (max-width: 900px) {
@@ -531,5 +588,7 @@ module.exports = {
   buildPartSheetHtml,
   buildPartHtml,
   normalizeChoices,
-  normalizeChoiceText
+  normalizeChoiceText,
+  usefulReadingLocator,
+  readingRangeIsRedundant
 };
