@@ -51,6 +51,75 @@ function answerLinesHtml(n, kind) {
   return lines.join('\n');
 }
 
+/** Hide Find-in-book lines that only repeat the worksheet title. */
+function readingRangeIsRedundant(unitTitle, readingRange) {
+  const title = String(unitTitle || '').trim();
+  const range = String(readingRange || '').trim();
+  if (!range) return true;
+  if (!title) return false;
+  const norm = (s) => String(s || '')
+    .toLowerCase()
+    .replace(/[“”"‘’']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const t = norm(title);
+  const r = norm(range);
+  if (r === t) return true;
+  const sectionOnly = r.match(/^(?:section|read the section titled)\s+(.+?)\.?$/);
+  if (sectionOnly) {
+    const body = sectionOnly[1].trim();
+    if (t === body || t.endsWith(': ' + body) || t.includes(body)) return true;
+  }
+  const fromThrough = r.match(/^from\s+(.+?)\s+through\s+(.+)$/);
+  if (fromThrough) {
+    const a = fromThrough[1].trim();
+    const b = fromThrough[2].trim();
+    if (a && b && t.includes(a) && t.includes(b)) return true;
+  }
+  return false;
+}
+
+function usefulReadingLocator(part) {
+  const locator = String(part.readingRange || part.contentSpan || '').trim();
+  if (!locator) return '';
+  if (readingRangeIsRedundant(part.unitTitle, locator)) return '';
+  return locator;
+}
+
+/**
+ * Extended-response prompts are often 3–4 stacked sub-questions. That height,
+ * combined with answer lines, forces the whole C section onto the next page.
+ * Keep one clear question (optional short lead-in) so A4 sheets can pack tightly.
+ */
+function compactExtendedPrompt(text, maxLen) {
+  // Keep student-facing prompts short so section C can share a page with A/B.
+  const max = Math.max(70, Number(maxLen) || 160);
+  let s = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!s || s.length <= max) return s;
+
+  const parts = s.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const qIdx = parts.findIndex((p) => /\?\s*$/.test(p));
+  if (qIdx >= 0) {
+    // Drop long setup sentences; keep the first real question only.
+    let out = parts[qIdx];
+    if (out.length > max) {
+      out = out.slice(0, max - 1).replace(/\s+\S*$/, '').trim();
+      if (!/\?\s*$/.test(out)) out += '?';
+    }
+    if (!/\b(use|evidence|example|text|support)\b/i.test(out)) {
+      out = out.replace(/\?\s*$/, '') + '? Use evidence from the text.';
+      if (out.length > max + 28) {
+        out = out.slice(0, max - 1).replace(/\s+\S*$/, '').trim() + '?';
+      }
+    }
+    return out;
+  }
+
+  let cut = s.slice(0, max - 1).replace(/\s+\S*$/, '').trim();
+  if (!/[.!?]$/.test(cut)) cut += '…';
+  return cut;
+}
+
 function sectionLetters(hasVocab) {
   let i = 0;
   const next = () => String.fromCharCode(65 + (i++));
@@ -115,16 +184,16 @@ function buildPartHtml(part, options) {
   bits.push('<section class="sheet part-sheet">');
   bits.push('<header class="part-head">');
   bits.push('<h1>Part ' + esc(part.partNum) + ': ' + esc(part.unitTitle || 'Section') + '</h1>');
-  const locator = part.readingRange || part.contentSpan || '';
+  // Only show a locator when it adds info beyond the title (avoid repeating subtitles).
+  const locator = usefulReadingLocator(part);
   if (locator) {
     bits.push('<p class="reading-range"><b>Find in your book:</b> ' + esc(locator) + '</p>');
-  } else {
-    bits.push('<p class="reading-range muted">Read the section titled “' +
-      esc(part.unitTitle || 'this part') + '” in your book.</p>');
   }
   bits.push('</header>');
 
-  bits.push('<div class="keep section-block">');
+  // Do not wrap whole sections in .keep — that forces the entire block onto the next
+  // page when it barely overflows, leaving a large blank at the bottom of the prior page.
+  bits.push('<div class="section-block">');
   bits.push('<h2>' + letters.mc + '. Multiple Choice</h2>');
   const mc = part.multipleChoice || [];
   if (!mc.length) {
@@ -144,7 +213,7 @@ function buildPartHtml(part, options) {
   }
   bits.push('</div>');
 
-  bits.push('<div class="keep section-block">');
+  bits.push('<div class="section-block">');
   bits.push('<h2>' + letters.short + '. Short Answer</h2>');
   const shorts = part.shortAnswer || [];
   if (!shorts.length) {
@@ -159,19 +228,23 @@ function buildPartHtml(part, options) {
   }
   bits.push('</div>');
 
-  bits.push('<div class="keep section-block">');
-  bits.push('<h2>' + letters.reflection + '. Extended Response</h2>');
+  bits.push('<div class="section-block section-extended">');
+  // allow-break: do NOT glue this heading to a tall prompt (that caused huge blank gaps).
+  bits.push('<h2 class="allow-break">' + letters.reflection + '. Extended Response</h2>');
   const refs = part.reflection || [];
   if (!refs.length) {
     bits.push('<p class="muted">(No extended-response prompts.)</p>');
   } else {
     refs.forEach((q, i) => {
       const typeLabel = reflectionTypeLabel(q.type);
-      bits.push('<div class="q keep">');
+      const prompt = compactExtendedPrompt(q.question || '', 160);
+      // Never keep-together the extended block — long critical-thinking stems must
+      // be allowed to start on the previous page and wrap onto the next.
+      bits.push('<div class="q q-extended">');
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
         (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
-        esc(q.question || '') + '</p>');
-      bits.push(answerLinesHtml(4, 'long'));
+        esc(prompt) + '</p>');
+      bits.push(answerLinesHtml(3, 'long'));
       bits.push('</div>');
     });
   }
@@ -321,12 +394,22 @@ function wrapHtmlDocument(title, bodyHtml) {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-size: 1.45rem; color: var(--header); margin: 0 0 0.3rem;
     border-bottom: 2px solid var(--teal); padding-bottom: 0.2rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.25;
   }
   h2 {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-size: 1.15rem; color: var(--teal-deep); margin: 0.85rem 0 0.35rem;
     break-after: avoid;
     page-break-after: avoid;
+  }
+  h2.allow-break {
+    break-after: auto;
+    page-break-after: auto;
   }
   h3 { font-size: 1rem; color: var(--header); margin: 0.75rem 0 0.3rem; }
   .part-head { break-after: avoid; page-break-after: avoid; }
@@ -335,6 +418,14 @@ function wrapHtmlDocument(title, bodyHtml) {
   .keep {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+  .q-extended, .q-extended .q-stem, .section-extended {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .q-extended .q-stem {
+    orphans: 1;
+    widows: 1;
   }
   .vocab-table {
     width: 100%; border-collapse: collapse; margin: 0.3rem 0 0.5rem;
@@ -423,16 +514,39 @@ function wrapHtmlDocument(title, bodyHtml) {
       break-after: auto;
       page-break-after: auto;
     }
-    .keep, .q, .section-block {
+    /* Keep only small MC/short items together — never extended-response blocks. */
+    .keep, .q:not(.q-extended) {
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    h2, .part-head {
+    .q-extended, .q-extended .q-stem, .section-extended, h2.allow-break {
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+      break-after: auto !important;
+      page-break-after: auto !important;
+    }
+    .q-extended .q-stem {
+      orphans: 1 !important;
+      widows: 1 !important;
+      line-height: 1.25;
+    }
+    /* A/B headings stay with their first question; C may start mid-page freely. */
+    h2:not(.allow-break), .part-head {
       break-after: avoid;
       page-break-after: avoid;
     }
-    .write-line-short { height: 1.7rem; margin: 0.2rem 0; }
-    .write-line-long { height: 1.9rem; margin: 0.25rem 0; }
+    h1 {
+      font-size: 1.18rem;
+      line-height: 1.18;
+    }
+    h2 { margin: 0.32rem 0 0.14rem; font-size: 1.02rem; }
+    .q { margin: 0.16rem 0 0.28rem; }
+    .q-stem { margin: 0 0 0.12rem; }
+    .choices li { margin: 0.05rem 0; }
+    .write-line-short { height: 1.28rem; margin: 0.08rem 0; }
+    .write-line-long { height: 1.38rem; margin: 0.1rem 0; }
+    .reading-range { margin: 0.06rem 0 0.22rem; font-size: 0.86rem; }
+    .sheet { padding: 9mm 10mm 9mm; }
     .no-print { display: none !important; }
   }
   @media screen and (max-width: 900px) {
@@ -531,5 +645,8 @@ module.exports = {
   buildPartSheetHtml,
   buildPartHtml,
   normalizeChoices,
-  normalizeChoiceText
+  normalizeChoiceText,
+  usefulReadingLocator,
+  readingRangeIsRedundant,
+  compactExtendedPrompt
 };

@@ -491,7 +491,7 @@
     var sameChapter = units.every(function (u) { return u.chapterNum === first.chapterNum; });
     if (sameChapter) {
       var subs = units.filter(function (u) { return u.kind !== 'chapter'; })
-        .map(function (u) { return u.title; }).filter(Boolean).slice(0, 3);
+        .map(function (u) { return u.title; }).filter(Boolean);
       return (first.chapterTitle || first.title || 'Chapter') +
         (subs.length ? (': ' + subs.join(' / ')) : '');
     }

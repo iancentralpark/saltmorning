@@ -2099,6 +2099,38 @@ function buildReadingRange(text, unitTitle, banned) {
   return String(unitTitle || '').trim() || '';
 }
 
+/**
+ * True when "Find in your book" only repeats titles already shown in the worksheet h1
+ * (e.g. "From “A” through “B”" when the header is "Chapter: A / B").
+ */
+function readingRangeIsRedundant(unitTitle, readingRange) {
+  const title = String(unitTitle || '').trim();
+  const range = String(readingRange || '').trim();
+  if (!title || !range) return !range;
+  const norm = (s) => String(s || '')
+    .toLowerCase()
+    .replace(/[“”"‘’']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const t = norm(title);
+  const r = norm(range);
+  if (!r) return true;
+  if (r === t) return true;
+  // "Section “Title”" / "Read … titled “Title”"
+  const sectionOnly = r.match(/^(?:section|read the section titled)\s+(.+?)\.?$/);
+  if (sectionOnly && (t === sectionOnly[1] || t.endsWith(': ' + sectionOnly[1]) || t.includes(sectionOnly[1]))) {
+    return true;
+  }
+  // "From “A” through “B”" when both A and B already appear in the title
+  const fromThrough = r.match(/^from\s+(.+?)\s+through\s+(.+)$/);
+  if (fromThrough) {
+    const a = fromThrough[1].trim();
+    const b = fromThrough[2].trim();
+    if (a && b && t.includes(a) && t.includes(b)) return true;
+  }
+  return false;
+}
+
 function labelChunk(sec, banned) {
   const text = sec.text || (sec.pages || []).map((p) => p.text).join('\n\n').trim();
   const start = sec.startPage;
@@ -2113,14 +2145,22 @@ function labelChunk(sec, banned) {
       title = snip
         ? snip.replace(/[.?!,:;]+\s*$/, '')
         : ('Reading ' + start + '–' + end);
-      if (title.length > 70) title = title.slice(0, 67).trim() + '…';
+      // Only truncate body-snippet fallbacks — never chop teacher/group titles
+      if (title.length > 90) title = title.slice(0, 87).trim() + '…';
     }
-  } else if (title.length > 72) {
-    title = title.slice(0, 72).trim() + '…';
   }
+  // Keep multi-subtitle worksheet titles intact (they wrap on the printable sheet).
   const summary = String(sec.summary || '').trim() || makeChunkBlurb(text, banned);
-  const readingRange = String(sec.readingRange || '').trim()
-    || buildReadingRange(text, title, banned);
+  // Explicit readingRange (including '') wins — do not rebuild a redundant locator.
+  let readingRange;
+  if (Object.prototype.hasOwnProperty.call(sec, 'readingRange')) {
+    readingRange = String(sec.readingRange || '').trim();
+  } else {
+    readingRange = buildReadingRange(text, title, banned);
+  }
+  if (readingRangeIsRedundant(title, readingRange)) {
+    readingRange = '';
+  }
   return {
     partNum: sec.partNum || 0,
     unitTitle: title,
@@ -3531,7 +3571,10 @@ async function enrichChunkLabelsWithGemini(chunks, metaSeed, options, toc) {
         let title = String(hit.unit_title || hit.unitTitle || '').trim();
         let summary = String(hit.summary || hit.blurb || '').trim();
         if (title && !isGenericTitle(title) && !isJunkHeading(title, banned)) {
-          c.unitTitle = title.length > 72 ? title.slice(0, 72).trim() + '…' : title;
+          // Keep multi-section titles intact for printable headers (they wrap).
+          c.unitTitle = (title.length > 180 && !/\s\/\s/.test(title))
+            ? (title.slice(0, 177).trim() + '…')
+            : title;
         }
         if (summary) {
           c.summary = summary.length > 160 ? summary.slice(0, 157).trim() + '…' : summary;
@@ -4042,7 +4085,8 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
         'personal_reflection, critical_thinking, factual, inference.',
         'Do NOT default to personal reflection — choose whichever fits the text best.',
         'Each reflection item must include: type, question, sampleAnswer, evidenceQuote.',
-        'The question must invite about one paragraph of writing (roughly 5–8 sentences), grounded in the section.'
+        'CRITICAL: the reflection QUESTION text itself must be SHORT — one clear question, max 2 sentences / ~35 words.',
+        'Do NOT stack multiple sub-questions in the prompt. Students will write a paragraph answer; keep the prompt brief and printable on one A4 page.'
       ].join(' ')
       : 'Set reflection to an empty array [].',
     !compact ? ('Prefer these MC types: ' + typeList) : '',
@@ -4080,7 +4124,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     return stubPartWorksheet(chunk, options);
   }
 
-  const { normalizeChoices } = require('./novelStudyHtml');
+  const { normalizeChoices, compactExtendedPrompt } = require('./novelStudyHtml');
 
   const vocab = options.vocabCount === 0
     ? []
@@ -4134,7 +4178,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
                 : 'critical_thinking');
       return {
         type,
-        question: String(q.question || '').trim(),
+        question: compactExtendedPrompt(String(q.question || '').trim(), 180),
         sampleAnswer: String(q.sampleAnswer || '').trim(),
         evidenceQuote: String(q.evidenceQuote || '').trim()
       };
@@ -4603,7 +4647,7 @@ function applyTeacherGroups(jobId, teacherId, body) {
           ? (
             (selected[0].chapterTitle || selected[0].title || 'Chapter')
             + (subtitleTitles.length
-              ? (': ' + subtitleTitles.slice(0, 3).join(' / '))
+              ? (': ' + subtitleTitles.join(' / '))
               : '')
           )
           : (selected[0].label + ' → ' + selected[selected.length - 1].label)));
@@ -4611,9 +4655,14 @@ function applyTeacherGroups(jobId, teacherId, body) {
     const startPage = selected[0].startPage;
     const endPage = selected[selected.length - 1].endPage;
     const text = selected.map((u) => u.text || '').filter(Boolean).join('\n\n').trim();
-    const readingRange = selected.length === 1
+    // Only keep a "Find in your book" locator when it adds info beyond the title
+    // (e.g. passage quotes). Pure "From A through B" repeats the header titles.
+    let readingRange = selected.length === 1
       ? ('Section “' + selected[0].title + '”')
       : ('From “' + selected[0].title + '” through “' + selected[selected.length - 1].title + '”');
+    if (readingRangeIsRedundant(title, readingRange)) {
+      readingRange = '';
+    }
 
     chunks.push(labelChunk({
       partNum: gi + 1,
