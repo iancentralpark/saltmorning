@@ -4348,6 +4348,8 @@ router.delete('/item-bank/exams/:id', requireRole('teacher', 'admin'), async (re
 const {
   createJobFromPdf,
   runPlanning: runNovelStudyPlanning,
+  applyTeacherGroups: applyNovelStudyTeacherGroups,
+  updateJobOptions: updateNovelStudyOptions,
   getJob: getNovelStudyJob,
   listJobsForTeacher: listNovelStudyJobs,
   toPublicJob,
@@ -4427,10 +4429,10 @@ router.post(
         }
         const teacherId = novelStudyTeacherId(req);
         const job = await createJobFromPdf(teacherId, req.file, body);
-        res.status(202).json({ ok: true, job, message: 'Planning started.' });
+        res.status(202).json({ ok: true, job, message: 'Structure analysis started.' });
         setImmediate(() => {
           runNovelStudyPlanning(job.id, teacherId).catch((e) => {
-            console.error('Novel Study planning failed', e);
+            console.error('Novel Study structure analysis failed', e);
           });
         });
       } catch (e) {
@@ -4489,12 +4491,52 @@ router.get('/novel-study/jobs/:id/events', requireRole('teacher', 'admin'), (req
   }
 });
 
+router.post('/novel-study/jobs/:id/groups', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = applyNovelStudyTeacherGroups(
+      req.params.id,
+      novelStudyTeacherId(req),
+      req.body || {}
+    );
+    res.json({ ok: true, job });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not save groups.' });
+  }
+});
+
+router.patch('/novel-study/jobs/:id/options', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const body = Object.assign({}, req.body || {});
+    if (typeof body.mcTypes === 'string') {
+      try { body.mcTypes = JSON.parse(body.mcTypes); } catch (_) {
+        body.mcTypes = String(body.mcTypes).split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+    const job = updateNovelStudyOptions(req.params.id, novelStudyTeacherId(req), body);
+    res.json({ ok: true, job });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || 'Could not update options.' });
+  }
+});
+
 router.post('/novel-study/jobs/:id/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
   try {
     const teacherId = novelStudyTeacherId(req);
+    const body = Object.assign({}, req.body || {});
+    if (typeof body.mcTypes === 'string') {
+      try { body.mcTypes = JSON.parse(body.mcTypes); } catch (_) {
+        body.mcTypes = String(body.mcTypes).split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+    if (body && Object.keys(body).length) {
+      updateNovelStudyOptions(req.params.id, teacherId, body);
+    }
     const job = getNovelStudyJob(req.params.id, teacherId);
     if (job.status === 'generating') {
       return res.status(409).json({ error: 'Generation is already running.', job: toPublicJob(job) });
+    }
+    if (job.status !== 'ready' || !(job.chunks || []).length) {
+      return res.status(400).json({ error: 'Group all sections into worksheet parts first.', job: toPublicJob(job) });
     }
     res.status(202).json({ ok: true, job: toPublicJob(job, { includeParts: true }), message: 'Generation started.' });
     setImmediate(() => {
