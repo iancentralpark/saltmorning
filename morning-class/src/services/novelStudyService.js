@@ -1048,60 +1048,141 @@ function isGenericTitle(title) {
   return false;
 }
 
-function guessHeading(pageText, banned) {
-  const lines = pageLines(pageText);
-  const candidates = [];
-  const consider = (line, fromBreak) => {
-    if (!line || line.length < 3 || line.length > 100) return;
-    if (isJunkHeading(line, banned)) return;
-    const cleaned = line.replace(/[?!:.…]+$/g, '').trim();
+/** Keep blank lines so "after blank" heading cues are real. */
+function pageLinesWithBreaks(pageText) {
+  return String(pageText || '')
+    .split('\n')
+    .map((l) => l.replace(/\s+/g, ' ').trim());
+}
+
+/**
+ * Body-prose fragments that must NEVER become chapter/subtitle titles.
+ * This was the main cause of 100+ fake "subtitles" (page-start sentence scraps).
+ */
+function isProseFragment(line) {
+  const s = String(line || '').replace(/[?!:.…]+$/g, '').trim();
+  if (!s) return true;
+  if (s.length > 90) return true;
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length > 12) return true;
+
+  // ALL CAPS / small-caps titles are headings, not prose ("WHAT ARE HUMANS")
+  const letters = s.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ]/g, '');
+  if (letters.length >= 3 && letters === letters.toUpperCase()) return false;
+
+  // Continues a sentence / clause
+  if (/^[a-zà-öø-ÿ]/.test(s)) return true;
+  if (/[,;]$/.test(s)) return true;
+  if (/\b(and|or|the|a|an|of|to|for|with|by|from|in|on|at|as|into|onto|than|then)$/i.test(s)) {
+    return true;
+  }
+  // Comma-heavy clause → almost always prose, not a heading
+  if ((s.match(/,/g) || []).length >= 1 && /[a-zà-öø-ÿ]/.test(s)) return true;
+
+  // Narrative / verb-y scraps — only when the line has lowercase body text.
+  // (Do not flag Title Case / ALL CAPS headings that happen to include "Are"/"Is".)
+  if (/[a-zà-öø-ÿ]/.test(s)) {
     if (
-      /^(chapter|part|unit|section|prologue|epilogue|introduction|preface|afterword)\b/i.test(cleaned)
-      || /^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned)
-      || /^(chapter|ch\.?)\s*\d+\b/i.test(cleaned)
+      /\b(they|them|their|were|was|have|has|had|said|says|ate|eat|look(?:ing|ed)?|happen(?:ed|s)?|wait(?:ed|ing)?|could|would|should|might|across|toward|towards)\b/i.test(s)
+      && !/^(chapter|part|unit|section|prologue|epilogue)\b/i.test(s)
+      && words.length >= 3
     ) {
+      return true;
+    }
+    // Mostly lowercase words → prose, not a title
+    if (words.length >= 3) {
+      const lower = words.filter((w) => /^[a-zà-öø-ÿ]/.test(w)).length;
+      if (lower / words.length >= 0.5) return true;
+    }
+  }
+  return false;
+}
+
+function isExplicitChapterHeading(line) {
+  const t = String(line || '').replace(/[?!:.…]+$/g, '').trim();
+  if (!t || t.length > 100) return false;
+  if (/^(chapter|ch\.?|part|unit)\s*[ivxlc0-9]+/i.test(t)) return true;
+  if (/^(prologue|epilogue|introduction|preface|afterword|conclusion)\b/i.test(t)) return true;
+  if (/^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(t) && t.split(/\s+/).length <= 12) return true;
+  return false;
+}
+
+/**
+ * Real subtitle / section title (ALL CAPS, tight Title Case, numbered) — not body text.
+ */
+function isStrongSubtitleTitle(line) {
+  const cleaned = String(line || '').replace(/[?!:.…]+$/g, '').trim();
+  if (!cleaned || cleaned.length < 3 || cleaned.length > 80) return false;
+  if (isProseFragment(cleaned)) return false;
+  if (isExplicitChapterHeading(cleaned)) return true;
+
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 10) return false;
+
+  // ALL CAPS / small-caps style titles ("WHAT ARE HUMANS")
+  if (
+    /^[A-ZÀ-ÖØ-Þ0-9][A-ZÀ-ÖØ-Þ0-9 ,.'’:\-]*$/.test(cleaned)
+    && /[A-ZÀ-ÖØ-Þ]/.test(cleaned)
+    && words.length <= 10
+  ) {
+    return true;
+  }
+
+  // Roman / letter numbered headings
+  if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned) && cleaned.length <= 80) {
+    return true;
+  }
+
+  // Strict Title Case: nearly every content word capitalized; no terminal period
+  // Allow leading The/A/An ("The Tree of Knowledge") when the rest is title-like.
+  const minor = /^(of|the|a|an|and|or|in|on|to|for|vs\.?|von|de|da|del|la|le)$/i;
+  const capped = words.filter((w) => /^[A-ZÀ-ÖØ-Þ]/.test(w) || minor.test(w)).length;
+  if (
+    words.length >= 2
+    && capped >= Math.ceil(words.length * 0.85)
+    && !/[.!?]$/.test(cleaned)
+    && !/^(and|but|or|so|then|when|after|before|this|that|these|those)\b/i.test(cleaned)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isRealHeading(line, banned) {
+  const cleaned = String(line || '').replace(/[?!:.…]+$/g, '').trim();
+  if (!cleaned || cleaned.length < 3 || cleaned.length > 100) return false;
+  if (isJunkHeading(cleaned, banned)) return false;
+  if (isProseFragment(cleaned)) return false;
+  return isExplicitChapterHeading(cleaned) || isStrongSubtitleTitle(cleaned);
+}
+
+function guessHeading(pageText, banned) {
+  const lines = pageLinesWithBreaks(pageText);
+  const candidates = [];
+  const consider = (line, afterBlank, nearTop) => {
+    if (!isRealHeading(line, banned)) return;
+    const cleaned = line.replace(/[?!:.…]+$/g, '').trim();
+    // Chapter headings win; ALL CAPS / title-case only if near top or after a blank line
+    if (isExplicitChapterHeading(cleaned)) {
       candidates.unshift(cleaned);
       return;
     }
-    if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned) && cleaned.length <= 80) {
-      candidates.push(cleaned);
-      return;
-    }
-    const words = cleaned.split(/\s+/);
-    const titleCase = words.length >= 2 && words.length <= 14
-      && words.filter((w) => /^[A-ZÀ-ÖØ-Þ]/.test(w)).length >= Math.ceil(words.length * 0.45)
-      && !/[.!?]$/.test(cleaned)
-      && !/^(the|a|an|and|but|or|so|then|when|after|before|this|that|these|those)\b/i.test(cleaned);
-    if (titleCase) candidates.push(cleaned);
-    if (
-      /^[A-ZÀ-ÖØ-Þ][A-Z0-9 À-ÖØ-Þ,.'’:\-]{2,60}$/.test(cleaned)
-      && !/[.!?]$/.test(cleaned)
-      && words.length <= 10
-    ) {
-      candidates.push(cleaned);
-    }
-    // Short stand-alone title after a blank line (common in illustrated nonfiction)
-    if (
-      fromBreak
-      && words.length >= 2
-      && words.length <= 10
-      && cleaned.length <= 70
-      && !/[.]$/.test(cleaned)
-      && /[A-Za-z]/.test(cleaned)
-      && !/^(however|therefore|meanwhile|suddenly|because)\b/i.test(cleaned)
-    ) {
-      candidates.push(cleaned);
-    }
+    if (nearTop || afterBlank) candidates.push(cleaned);
   };
 
-  // Prefer top-of-page headings, but also scan later stand-alone lines.
-  for (let i = 0; i < Math.min(lines.length, 16); i += 1) {
-    consider(lines[i], i === 0 || (i > 0 && lines[i - 1].length < 2));
+  for (let i = 0; i < Math.min(lines.length, 14); i += 1) {
+    if (!lines[i]) continue;
+    // Page-top line is "near top", but only a real blank line counts as afterBlank.
+    // (Previously i===0 was treated as afterBlank, which let body scraps become titles.)
+    const afterBlank = i > 0 && !lines[i - 1];
+    consider(lines[i], afterBlank, i <= 4);
   }
-  for (let i = 16; i < lines.length; i += 1) {
-    const fromBreak = i > 0 && lines[i - 1].length < 2;
-    if (!fromBreak) continue;
-    consider(lines[i], true);
+  // Deeper on-page headings only after a real blank line
+  for (let i = 14; i < lines.length; i += 1) {
+    if (!lines[i]) continue;
+    const afterBlank = i > 0 && !lines[i - 1];
+    if (!afterBlank) continue;
+    consider(lines[i], true, false);
   }
   return candidates[0] || '';
 }
@@ -1113,47 +1194,31 @@ function pageHasSectionBreak(pageText, banned, currentTitle) {
   return true;
 }
 
-/** True when a single line looks like a chapter/section heading. */
-function lineLooksLikeHeading(line, banned, fromBreak) {
+/** True when a single line is a real chapter/subtitle heading. */
+function lineLooksLikeHeading(line, banned, afterBlank) {
   const cleaned = String(line || '').replace(/[?!:.…]+$/g, '').trim();
-  if (!cleaned || cleaned.length < 3 || cleaned.length > 100) return false;
-  if (isJunkHeading(cleaned, banned)) return false;
-  if (
-    /^(chapter|part|unit|section|prologue|epilogue|introduction|preface|afterword)\b/i.test(cleaned)
-    || /^\d+\.\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned)
-    || /^(chapter|ch\.?)\s*\d+\b/i.test(cleaned)
-  ) return true;
-  if (/^([IVXLC]+\.|[A-Z]\.)\s+[A-ZÀ-ÖØ-Þ]/.test(cleaned) && cleaned.length <= 80) return true;
-  const words = cleaned.split(/\s+/);
-  const titleCase = words.length >= 2 && words.length <= 14
-    && words.filter((w) => /^[A-ZÀ-ÖØ-Þ]/.test(w)).length >= Math.ceil(words.length * 0.45)
-    && !/[.!?]$/.test(cleaned)
-    && !/^(the|a|an|and|but|or|so|then|when|after|before|this|that|these|those)\b/i.test(cleaned);
-  if (titleCase) return true;
-  if (
-    fromBreak
-    && words.length >= 2
-    && words.length <= 10
-    && cleaned.length <= 70
-    && !/[.]$/.test(cleaned)
-    && /[A-Za-z]/.test(cleaned)
-    && !/^(however|therefore|meanwhile|suddenly|because)\b/i.test(cleaned)
-  ) return true;
-  return false;
+  if (!isRealHeading(cleaned, banned)) return false;
+  if (isExplicitChapterHeading(cleaned)) return true;
+  // Non-chapter subtitles need a blank line (or caller already verified page-top)
+  return !!afterBlank;
 }
 
 /**
  * If a new heading starts mid-page (after real prose), return a text split.
- * Fixes worksheets that would otherwise miss the start of the next section.
+ * Only splits on strong headings after a blank line — never on body scraps.
  */
 function findMidPageHeadingBreak(pageText, banned, currentTitle) {
-  const lines = pageLines(pageText);
+  const lines = pageLinesWithBreaks(pageText);
   if (lines.length < 5) return null;
   for (let i = 2; i < lines.length - 1; i += 1) {
+    if (!lines[i]) continue;
+    const afterBlank = !lines[i - 1];
+    // Mid-page: require blank line before heading (chapter OR strong subtitle)
+    if (!afterBlank && !isExplicitChapterHeading(lines[i])) continue;
+    if (!isRealHeading(lines[i], banned)) continue;
+    const beforeLines = lines.slice(0, i).filter((l, idx) => l || (idx < i - 1));
     const beforeLen = lines.slice(0, i).join(' ').replace(/\s+/g, ' ').trim().length;
     if (beforeLen < 90) continue;
-    const fromBreak = lines[i - 1].length < 2;
-    if (!lineLooksLikeHeading(lines[i], banned, fromBreak || i > 3)) continue;
     const heading = lines[i].replace(/[?!:.…]+$/g, '').trim();
     if (currentTitle && normalizeLine(heading) === normalizeLine(currentTitle)) continue;
     const afterLen = lines.slice(i).join(' ').replace(/\s+/g, ' ').trim().length;
@@ -2065,6 +2130,47 @@ function isChapterHeading(title) {
 }
 
 /**
+ * Split one PDF page into heading-bounded segments (chapter + subtitles on same page).
+ * Only cuts on real headings after blank lines (or page-top chapter/ALL CAPS/Title Case).
+ */
+function splitPageByHeadings(pageText, banned) {
+  const lines = pageLinesWithBreaks(pageText);
+  if (!lines.length) return [{ heading: '', text: '' }];
+  const cuts = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!lines[i]) continue;
+    const afterBlank = i === 0 || !lines[i - 1];
+    const nearTop = i <= 4;
+    if (!isRealHeading(lines[i], banned)) continue;
+    const cleaned = lines[i].replace(/[?!:.…]+$/g, '').trim();
+    if (isExplicitChapterHeading(cleaned)) {
+      cuts.push({ index: i, heading: cleaned });
+      continue;
+    }
+    // Subtitles: page-top or after blank only
+    if (nearTop || afterBlank) cuts.push({ index: i, heading: cleaned });
+  }
+  if (!cuts.length) {
+    return [{ heading: '', text: lines.join('\n').trim() }];
+  }
+  // If first cut isn't at line 0, keep a lead-in segment under empty heading
+  const segments = [];
+  if (cuts[0].index > 0) {
+    const lead = lines.slice(0, cuts[0].index).join('\n').trim();
+    if (lead) segments.push({ heading: '', text: lead });
+  }
+  for (let c = 0; c < cuts.length; c += 1) {
+    const start = cuts[c].index;
+    const end = c + 1 < cuts.length ? cuts[c + 1].index : lines.length;
+    segments.push({
+      heading: cuts[c].heading,
+      text: lines.slice(start, end).join('\n').trim()
+    });
+  }
+  return segments.filter((seg) => seg.text);
+}
+
+/**
  * Atomic structure units = one heading section each (no page-count merge/split).
  * Classifies chapter vs subtitle so teachers can group within chapters.
  */
@@ -2073,35 +2179,27 @@ function extractStructureUnits(pages) {
   const raw = [];
   let cur = null;
   (pages || []).forEach((p) => {
-    const mid = cur ? findMidPageHeadingBreak(p.text, banned, cur.unitTitle) : null;
-    if (mid && cur) {
-      if (mid.beforeText) {
-        cur.pages.push({ pageNum: p.pageNum, text: mid.beforeText });
+    const segments = splitPageByHeadings(p.text, banned);
+    segments.forEach((seg) => {
+      const heading = String(seg.heading || '').trim();
+      const startNew = heading && (!cur || normalizeLine(heading) !== normalizeLine(cur.unitTitle));
+      if (!cur || startNew) {
+        if (cur) raw.push(cur);
+        cur = {
+          unitTitle: heading || (cur ? cur.unitTitle : ''),
+          startPage: p.pageNum,
+          endPage: p.pageNum,
+          pages: [{ pageNum: p.pageNum, text: seg.text }]
+        };
+        // If we opened a continuation with no heading, keep prior title
+        if (!heading && raw.length && !cur.unitTitle) {
+          cur.unitTitle = raw[raw.length - 1].unitTitle || '';
+        }
+      } else {
         cur.endPage = p.pageNum;
+        cur.pages.push({ pageNum: p.pageNum, text: seg.text });
       }
-      raw.push(cur);
-      cur = {
-        unitTitle: mid.heading,
-        startPage: p.pageNum,
-        endPage: p.pageNum,
-        pages: [{ pageNum: p.pageNum, text: mid.afterText }]
-      };
-      return;
-    }
-    const heading = guessHeading(p.text, banned);
-    const startNew = heading && (!cur || normalizeLine(heading) !== normalizeLine(cur.unitTitle));
-    if (!cur || startNew) {
-      if (cur) raw.push(cur);
-      cur = {
-        unitTitle: heading || '',
-        startPage: p.pageNum,
-        endPage: p.pageNum,
-        pages: [p]
-      };
-    } else {
-      cur.endPage = p.pageNum;
-      cur.pages.push(p);
-    }
+    });
   });
   if (cur) raw.push(cur);
 
@@ -2109,19 +2207,23 @@ function extractStructureUnits(pages) {
   let chapterTitle = 'Opening';
   const units = [];
   raw.forEach((sec) => {
-    const title = String(sec.unitTitle || '').trim() || ('Section starting p.' + sec.startPage);
-    if (isChapterHeading(title)) {
+    let title = String(sec.unitTitle || '').trim() || ('Section starting p.' + sec.startPage);
+    // Drop leftover prose-looking titles (safety net)
+    if (isProseFragment(title) && !isExplicitChapterHeading(title)) {
+      title = 'Section starting p.' + sec.startPage;
+    }
+    if (isChapterHeading(title) || isExplicitChapterHeading(title)) {
       chapterNum += 1;
       chapterTitle = title;
     } else if (chapterNum === 0) {
       chapterNum = 1;
       chapterTitle = 'Chapter 1';
     }
-    const kind = isChapterHeading(title) ? 'chapter' : 'subtitle';
+    const kind = (isChapterHeading(title) || isExplicitChapterHeading(title)) ? 'chapter' : 'subtitle';
     const label = kind === 'chapter'
       ? title
       : (chapterTitle + ' — ' + title);
-    const text = (sec.pages || []).map((p) => p.text).join('\n\n').trim();
+    const text = (sec.pages || []).map((pg) => pg.text).join('\n\n').trim();
     units.push({
       id: 'u' + (units.length + 1),
       index: units.length,
@@ -2135,14 +2237,131 @@ function extractStructureUnits(pages) {
       text
     });
   });
-  return { units, banned, tocCount: units.length };
+
+  const collapsed = collapseWeakStructureUnits(units);
+  return { units: collapsed, banned, tocCount: collapsed.length };
+}
+
+/**
+ * Merge units whose titles still look like body prose into the previous real heading.
+ * Caps runaway page-per-scrap splits if any slip past the heading detector.
+ */
+function collapseWeakStructureUnits(units) {
+  const list = Array.isArray(units) ? units : [];
+  if (list.length <= 1) return list;
+  const out = [];
+  list.forEach((u) => {
+    const title = String(u.title || '').trim();
+    const strong = isExplicitChapterHeading(title)
+      || isChapterHeading(title)
+      || isStrongSubtitleTitle(title);
+    if (!out.length || strong) {
+      out.push(Object.assign({}, u, {
+        pages: undefined,
+        text: u.text || ''
+      }));
+      return;
+    }
+    // Weak / placeholder title → absorb into previous unit
+    const prev = out[out.length - 1];
+    prev.endPage = Math.max(prev.endPage || 0, u.endPage || 0);
+    prev.text = [prev.text || '', u.text || ''].filter(Boolean).join('\n\n').trim();
+  });
+  // Re-index / rebuild labels
+  let chapterNum = 0;
+  let chapterTitle = 'Opening';
+  return out.map((u, i) => {
+    const title = String(u.title || '').trim() || ('Section starting p.' + u.startPage);
+    if (isChapterHeading(title) || isExplicitChapterHeading(title)) {
+      chapterNum += 1;
+      chapterTitle = title;
+    } else if (chapterNum === 0) {
+      chapterNum = 1;
+      chapterTitle = 'Chapter 1';
+    }
+    const kind = (isChapterHeading(title) || isExplicitChapterHeading(title)) ? 'chapter' : 'subtitle';
+    return {
+      id: 'u' + (i + 1),
+      index: i,
+      chapterNum,
+      chapterTitle,
+      title,
+      kind,
+      label: kind === 'chapter' ? title : (chapterTitle + ' — ' + title),
+      startPage: u.startPage,
+      endPage: u.endPage,
+      text: u.text || ''
+    };
+  });
 }
 
 /**
  * Optional AI pass: refine chapter/subtitle labels from detected headings.
- * Never invents new page ranges — only relabels / reassigns chapter buckets.
+ * When too many units remain (false splits), ask AI which ids are REAL headings
+ * and merge the rest into the previous real heading — never invent page ranges.
  */
 async function refineStructureWithAi(units, options) {
+  if (!units || units.length < 2) return units;
+  const pageSpan = Math.max(
+    1,
+    (units[units.length - 1].endPage || 0) - (units[0].startPage || 0) + 1
+  );
+  const tooMany = units.length > 40 || units.length > Math.max(24, Math.ceil(pageSpan * 0.55));
+
+  if (tooMany) {
+    try {
+      const payload = units.map((u) => ({
+        id: u.id,
+        title: u.title,
+        kind: u.kind,
+        start_page: u.startPage,
+        end_page: u.endPage
+      }));
+      const prompt = [
+        'A PDF heading detector over-split a book into too many scraps.',
+        'Return JSON ONLY:',
+        '{ "keep_ids": ["u1","u3", ...] }',
+        'Rules:',
+        '- keep_ids = ONLY real chapter titles or real section/subtitle headings.',
+        '- DROP sentence fragments, mid-sentence scraps, and body prose used as titles.',
+        '- Keep order. Always keep the first id. Prefer ~1 heading per real chapter/section.',
+        '- Typical novels/nonfiction have far fewer headings than pages.',
+        'Candidates: ' + JSON.stringify(payload.slice(0, 180))
+      ].join('\n');
+      const res = await askGemini(prompt, {
+        temperature: 0.1,
+        maxOutputTokens: 4096,
+        responseMimeType: 'application/json',
+        systemInstruction: 'STRICT JSON only. keep_ids must be a subset of candidate ids in order.',
+        retries: 1
+      });
+      const parsed = extractJson(res.text || res.answer || '');
+      const keepIds = Array.isArray(parsed && parsed.keep_ids)
+        ? parsed.keep_ids.map(String)
+        : [];
+      const keepSet = new Set(keepIds);
+      if (keepSet.size >= 1 && keepSet.size < units.length) {
+        const merged = [];
+        units.forEach((u, i) => {
+          const keep = i === 0 || keepSet.has(String(u.id));
+          if (!merged.length || keep) {
+            merged.push(Object.assign({}, u, { text: u.text || '' }));
+            return;
+          }
+          const prev = merged[merged.length - 1];
+          prev.endPage = Math.max(prev.endPage || 0, u.endPage || 0);
+          prev.text = [prev.text || '', u.text || ''].filter(Boolean).join('\n\n').trim();
+        });
+        units = collapseWeakStructureUnits(merged);
+      } else {
+        units = collapseWeakStructureUnits(units);
+      }
+    } catch (e) {
+      console.warn('novelStudy structure collapse failed', e.message);
+      units = collapseWeakStructureUnits(units);
+    }
+  }
+
   if (!units || units.length < 2) return units;
   const payload = units.map((u) => ({
     id: u.id,
@@ -2164,6 +2383,7 @@ async function refineStructureWithAi(units, options) {
       '- Do NOT move a subtitle into a different chapter if that would cross page order oddly; respect page order.',
       '- kind=chapter for major chapter headings; kind=subtitle for sections under a chapter.',
       '- title should be the section heading; chapter_title is the parent chapter name.',
+      '- Never invent sentence-fragment titles.',
       'Detected items: ' + JSON.stringify(payload.slice(0, 120))
     ].join('\n');
     const res = await askGemini(prompt, {
@@ -2182,7 +2402,9 @@ async function refineStructureWithAi(units, options) {
       if (!hit) return u;
       const chapterNum = Math.max(1, Number(hit.chapter_num) || u.chapterNum || 1);
       const chapterTitle = String(hit.chapter_title || u.chapterTitle || '').trim() || u.chapterTitle;
-      const title = String(hit.title || u.title || '').trim() || u.title;
+      let title = String(hit.title || u.title || '').trim() || u.title;
+      // Reject AI-invented prose titles
+      if (isProseFragment(title) && !isExplicitChapterHeading(title)) title = u.title;
       const kind = String(hit.kind || u.kind) === 'chapter' ? 'chapter' : 'subtitle';
       const label = kind === 'chapter' ? title : (chapterTitle + ' — ' + title);
       return Object.assign({}, u, { chapterNum, chapterTitle, title, kind, label });
@@ -3818,6 +4040,13 @@ module.exports = {
     collectRunningHeaders,
     extractStructureUnits,
     isChapterHeading,
+    isProseFragment,
+    isStrongSubtitleTitle,
+    isExplicitChapterHeading,
+    isRealHeading,
+    guessHeading,
+    splitPageByHeadings,
+    collapseWeakStructureUnits,
     trimToBookBody,
     putJob(job) {
       if (!job || !job.id) throw new Error('job.id required');
