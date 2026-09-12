@@ -15,6 +15,19 @@ const { askGemini, isGeminiConfigured } = require('./geminiService');
 const { buildWorkbookDocx } = require('./novelStudyDocx');
 const { isOpsDbEnabled, query, table } = require('../db/pool');
 
+/** Lazily load the PDF.js build bundled inside pdf-parse (no extra dependency). */
+let cachedPdfJs = null;
+function loadPdfJs() {
+  if (cachedPdfJs) return cachedPdfJs;
+  // pdf-parse ships Mozilla PDF.js; reuse it for annotations / destinations.
+  // eslint-disable-next-line import/no-dynamic-require, global-require
+  cachedPdfJs = require('pdf-parse/lib/pdf.js/v1.10.100/build/pdf.js');
+  if (cachedPdfJs && cachedPdfJs.PDFJS) {
+    cachedPdfJs.PDFJS.disableWorker = true;
+  }
+  return cachedPdfJs;
+}
+
 const TMP_ROOT = path.join(os.tmpdir(), 'salt-novel-study');
 const JOBS_DIR = path.join(TMP_ROOT, 'jobs');
 /** Keep finished workbooks available for reopen/download. */
@@ -2364,11 +2377,238 @@ function parseBookToc(pages) {
 }
 
 /**
+ * Resolve a PDF.js link destination to a 1-based PDF page number.
+ */
+async function resolvePdfDestPage(doc, dest) {
+  try {
+    let d = dest;
+    if (typeof d === 'string') d = await doc.getDestination(d);
+    if (!Array.isArray(d) || !d[0]) return null;
+    const idx = await doc.getPageIndex(d[0]);
+    if (typeof idx !== 'number' || idx < 0) return null;
+    return idx + 1;
+  } catch (_) {
+    return null;
+  }
+}
+
+function textItemsOverlappingRect(items, rect) {
+  if (!rect || rect.length < 4) return [];
+  const x1 = Math.min(rect[0], rect[2]);
+  const x2 = Math.max(rect[0], rect[2]);
+  const y1 = Math.min(rect[1], rect[3]);
+  const y2 = Math.max(rect[1], rect[3]);
+  const pad = 3;
+  return (items || []).filter((it) => {
+    const str = String(it.str || '').trim();
+    if (!str) return false;
+    const x = it.transform ? it.transform[4] : null;
+    const y = it.transform ? it.transform[5] : null;
+    if (x == null || y == null) return false;
+    const w = typeof it.width === 'number' ? it.width : str.length * 5;
+    const midY = y;
+    const midX = x + w / 2;
+    return midY >= (y1 - pad) && midY <= (y2 + pad) && midX >= (x1 - 8) && midX <= (x2 + 8);
+  });
+}
+
+function isNonChapterTocTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return true;
+  if (/^(contents|table of contents)$/i.test(t)) return true;
+  if (/^(timeline|acknowledg|about (this|the) book|about the author|index|glossary|bibliography|introduction)\b/i.test(t)) {
+    return true;
+  }
+  if (/^introduction\s*:/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Read TOC chapter anchors from PDF hyperlink annotations (and outline, if any).
+ * Many kids' books list chapters without printed page numbers but wire each TOC
+ * line to a GoTo destination — that destination is the ground-truth start page.
+ *
+ * Returns [{ chapterNum, title, page, pageIsPdf: true, sections: [] }]
+ */
+async function extractPdfTocLinks(pdfBuffer) {
+  const buf = pdfBuffer && Buffer.isBuffer(pdfBuffer) ? pdfBuffer : null;
+  if (!buf || !buf.length) return [];
+  let doc = null;
+  try {
+    const pdfjsLib = loadPdfJs();
+    doc = await pdfjsLib.getDocument(new Uint8Array(buf));
+    const pageCount = doc.numPages || 0;
+    if (pageCount < 2) return [];
+
+    const entries = [];
+    const seenPages = new Set();
+    const scanN = Math.min(pageCount, Math.max(10, Math.ceil(pageCount * 0.18)));
+
+    for (let p = 1; p <= scanN; p += 1) {
+      const page = await doc.getPage(p);
+      let annots = [];
+      let textContent = { items: [] };
+      try {
+        annots = await page.getAnnotations();
+      } catch (_) { annots = []; }
+      try {
+        textContent = await page.getTextContent();
+      } catch (_) { textContent = { items: [] }; }
+
+      const items = textContent.items || [];
+      const pageText = items.map((it) => String(it.str || '')).join('\n');
+      const tocish = looksLikeTocPage(pageText)
+        || /contents/i.test(pageText)
+        || (annots || []).filter((a) => a && a.subtype === 'Link' && a.dest).length >= 3;
+      if (!tocish && p > 6) continue;
+
+      for (let ai = 0; ai < (annots || []).length; ai += 1) {
+        const a = annots[ai];
+        if (!a || a.subtype !== 'Link' || !a.dest) continue;
+        const destPage = await resolvePdfDestPage(doc, a.dest);
+        if (!destPage || destPage < 1 || destPage > pageCount) continue;
+        // Skip links that jump to the same TOC page / nearby front matter
+        if (destPage <= p) continue;
+
+        const hitItems = textItemsOverlappingRect(items, a.rect);
+        let title = hitItems.map((it) => String(it.str || '').trim()).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        if (!title) {
+          // Fallback: nearest text item by Y center of the link rect
+          const yMid = a.rect ? (Math.min(a.rect[1], a.rect[3]) + Math.max(a.rect[1], a.rect[3])) / 2 : null;
+          if (yMid != null) {
+            let best = null;
+            let bestDist = Infinity;
+            items.forEach((it) => {
+              const str = String(it.str || '').trim();
+              if (!str || str.length < 3) return;
+              const y = it.transform ? it.transform[5] : null;
+              if (y == null) return;
+              const d = Math.abs(y - yMid);
+              if (d < bestDist) {
+                bestDist = d;
+                best = str;
+              }
+            });
+            if (best && bestDist <= 24) title = best;
+          }
+        }
+        title = cleanHeadingTitle(title) || title;
+        if (!title || title.length < 3) continue;
+        if (isNonChapterTocTitle(title)) continue;
+
+        const parsed = parseTocEntryLine(title) || { title, chapterNum: null, isChapter: false };
+        const key = normalizeTitleKey(parsed.title || title) + '=>' + destPage;
+        if (seenPages.has(key)) continue;
+        seenPages.add(key);
+        entries.push({
+          title: parsed.title || title,
+          page: destPage,
+          pageIsPdf: true,
+          chapterNum: parsed.chapterNum,
+          isChapter: !!(parsed.isChapter || parsed.chapterNum != null)
+        });
+      }
+    }
+
+    // Document outline (bookmarks) as a secondary signal
+    try {
+      const outline = await doc.getOutline();
+      const walk = async (nodes, depth) => {
+        if (!nodes || !nodes.length || depth > 3) return;
+        for (const node of nodes) {
+          const title = cleanHeadingTitle(node && node.title) || String(node && node.title || '').trim();
+          if (!title || isNonChapterTocTitle(title)) {
+            if (node && node.items) await walk(node.items, depth + 1);
+            continue;
+          }
+          let destPage = null;
+          if (node.dest) destPage = await resolvePdfDestPage(doc, node.dest);
+          if (!destPage && node.url) {
+            // ignore external
+          }
+          if (destPage) {
+            const parsed = parseTocEntryLine(title) || { title, chapterNum: null, isChapter: false };
+            const key = normalizeTitleKey(parsed.title || title) + '=>' + destPage;
+            if (!seenPages.has(key) && !isNonChapterTocTitle(parsed.title || title)) {
+              seenPages.add(key);
+              entries.push({
+                title: parsed.title || title,
+                page: destPage,
+                pageIsPdf: true,
+                chapterNum: parsed.chapterNum,
+                isChapter: !!(parsed.isChapter || parsed.chapterNum != null || depth === 0)
+              });
+            }
+          }
+          if (node.items) await walk(node.items, depth + 1);
+        }
+      };
+      await walk(outline, 0);
+    } catch (_) { /* outline optional */ }
+
+    if (entries.length < 2) return [];
+
+    // Prefer numbered chapter entries when present ("1: HUMANS ARE ANIMALS")
+    const numbered = entries.filter((e) => e.isChapter || e.chapterNum != null);
+    const use = numbered.length >= 2 ? numbered : entries;
+    const chapters = [];
+    const usedDest = new Set();
+    use.forEach((e) => {
+      if (usedDest.has(e.page)) return;
+      usedDest.add(e.page);
+      chapters.push({
+        chapterNum: e.chapterNum || (chapters.length + 1),
+        title: e.title,
+        page: e.page,
+        pageIsPdf: true,
+        sections: []
+      });
+    });
+    // Renumber sequentially if chapterNum missing/gapped
+    chapters.sort((a, b) => (a.page || 0) - (b.page || 0));
+    chapters.forEach((c, i) => {
+      if (!c.chapterNum) c.chapterNum = i + 1;
+    });
+    return chapters.slice(0, 40);
+  } catch (e) {
+    console.warn('[novel-study] TOC link extract failed', e && e.message);
+    return [];
+  } finally {
+    try {
+      if (doc && typeof doc.destroy === 'function') doc.destroy();
+    } catch (_) { /* ignore */ }
+  }
+}
+
+/**
+ * Merge text-parsed TOC with hyperlink-parsed TOC.
+ * Link destinations win for page numbers (already PDF page indices).
+ */
+function mergeBookToc(textToc, linkToc) {
+  const links = Array.isArray(linkToc) ? linkToc : [];
+  const texts = Array.isArray(textToc) ? textToc : [];
+  if (links.length >= 2) {
+    // Fill missing titles from text TOC when needed
+    return links.map((ch) => {
+      if (ch.title && normalizeTitleKey(ch.title).length >= 4) return ch;
+      const hit = texts.find((t) => t.chapterNum === ch.chapterNum || titlesFuzzyMatch(t.title, ch.title));
+      return hit ? Object.assign({}, ch, { title: ch.title || hit.title }) : ch;
+    });
+  }
+  if (texts.length >= 2) return texts;
+  return links.length ? links : texts;
+}
+
+/**
  * Map printed TOC page numbers onto PDF page numbers using title matches,
  * falling back to first-chapter alignment when needed.
  */
 function calibrateTocPdfOffset(tocChapters, units, pages) {
   const chapters = tocChapters || [];
+  // Hyperlink destinations are already PDF page numbers — do not shift them.
+  if (chapters.some((ch) => ch.pageIsPdf) && chapters.filter((ch) => ch.page != null).length >= 2) {
+    return 0;
+  }
   const list = units || [];
   for (let i = 0; i < chapters.length; i += 1) {
     const ch = chapters[i];
@@ -2378,9 +2618,6 @@ function calibrateTocPdfOffset(tocChapters, units, pages) {
       if (titlesFuzzyMatch(ch.title, u.title)) {
         return (u.startPage || 0) - ch.page;
       }
-      (ch.sections || []).forEach((sec) => {
-        // section match handled below
-      });
     }
     for (let j = 0; j < list.length; j += 1) {
       const u = list[j];
@@ -4224,9 +4461,19 @@ async function runPlanning(jobId, teacherId) {
     };
 
     bump(35, 'Reading table of contents…');
-    const bookToc = parseBookToc(extracted.pages);
+    const textToc = parseBookToc(extracted.pages);
+    let linkToc = [];
+    try {
+      linkToc = await extractPdfTocLinks(pdfBuffer);
+    } catch (e) {
+      console.warn('[novel-study] TOC hyperlink parse skipped', e && e.message);
+      linkToc = [];
+    }
+    const bookToc = mergeBookToc(textToc, linkToc);
     bump(42, bookToc.length
-      ? ('Found ' + bookToc.length + ' TOC chapter(s). Skipping front/back matter…')
+      ? ('Found ' + bookToc.length + ' TOC chapter(s)'
+        + (linkToc.length >= 2 ? ' (via PDF links)' : '')
+        + '. Skipping front/back matter…')
       : 'Skipping front/back matter…');
     const trimmed = trimToBookBody(extracted.pages);
     bump(55, 'Detecting chapter and subtitle headings…');
@@ -4754,6 +5001,8 @@ module.exports = {
     collectRunningHeaders,
     extractStructureUnits,
     parseBookToc,
+    extractPdfTocLinks,
+    mergeBookToc,
     applyTocChapterBoundaries,
     calibrateTocPdfOffset,
     parseTocEntryLine,
