@@ -1205,18 +1205,33 @@ function lineLooksLikeHeading(line, banned, afterBlank) {
 
 /**
  * If a new heading starts mid-page (after real prose), return a text split.
- * Only splits on strong headings after a blank line — never on body scraps.
+ * Accepts blank-line cues OR body-prose → stackable title (no blank required).
  */
 function findMidPageHeadingBreak(pageText, banned, currentTitle) {
   const lines = pageLinesWithBreaks(pageText);
   if (lines.length < 5) return null;
   for (let i = 2; i < lines.length - 1; i += 1) {
     if (!lines[i]) continue;
+    // Prefer stacked multi-line titles when mid-page start is allowed
+    if (canStartHeadingAt(lines, i, banned)) {
+      const stacked = collectStackedHeading(lines, i, banned);
+      if (stacked) {
+        const beforeLen = lines.slice(0, stacked.startIndex).join(' ').replace(/\s+/g, ' ').trim().length;
+        if (beforeLen < 80) continue;
+        if (currentTitle && normalizeLine(stacked.heading) === normalizeLine(currentTitle)) continue;
+        const afterLen = lines.slice(stacked.startIndex).join(' ').replace(/\s+/g, ' ').trim().length;
+        if (afterLen < 40) continue;
+        return {
+          heading: stacked.heading,
+          beforeText: lines.slice(0, stacked.startIndex).join('\n').trim(),
+          afterText: lines.slice(stacked.startIndex).join('\n').trim()
+        };
+      }
+    }
+    // Fallback: single strong heading after blank / explicit chapter
     const afterBlank = !lines[i - 1];
-    // Mid-page: require blank line before heading (chapter OR strong subtitle)
     if (!afterBlank && !isExplicitChapterHeading(lines[i])) continue;
     if (!isRealHeading(lines[i], banned)) continue;
-    const beforeLines = lines.slice(0, i).filter((l, idx) => l || (idx < i - 1));
     const beforeLen = lines.slice(0, i).join(' ').replace(/\s+/g, ' ').trim().length;
     if (beforeLen < 90) continue;
     const heading = lines[i].replace(/[?!:.…]+$/g, '').trim();
@@ -2138,8 +2153,13 @@ function cleanHeadingTitle(raw) {
   if (!s) return '';
   // Collapse spaced single letters (common in kids' picture-book PDFs)
   s = s.replace(/\b((?:[A-ZÀ-ÖØ-Þ]\s+){2,}[A-ZÀ-ÖØ-Þ])\b/g, (m) => m.replace(/\s+/g, ''));
-  // Normalize fancy dashes
-  s = s.replace(/\s*[–—\-]+\s*/g, ' — ').replace(/\s{2,}/g, ' ').trim();
+  // Normalize separator dashes only — keep compound hyphens ("GROWN-UPS") intact.
+  // Spaced hyphen/en/em → em dash; bare en/em (not ASCII hyphen between letters) → em dash.
+  s = s
+    .replace(/\s+[–—\-]+\s+/g, ' — ')
+    .replace(/([^\s])[–—]+([^\s])/g, '$1 — $2')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
   // Drop duplicated tail after em dash when it repeats the end of the left side
   const dash = s.split(/\s+—\s+/);
   if (dash.length === 2) {
@@ -2226,10 +2246,61 @@ function collectStackedHeading(lines, startIdx, banned) {
   return { heading, startIndex: startIdx, endIndex: end };
 }
 
+/** Previous non-empty line index, or -1. */
+function prevNonEmptyIndex(lines, i) {
+  for (let j = i - 1; j >= 0; j -= 1) {
+    if (lines[j]) return j;
+  }
+  return -1;
+}
+
+/**
+ * Body prose line (not a heading). Used to spot mid-page title starts when
+ * PDF text has no blank line between the previous section and a new subtitle.
+ */
+function looksLikeBodyProseLine(line) {
+  const s = String(line || '').trim();
+  if (!s) return false;
+  if (isExplicitChapterHeading(s) || isStrongSubtitleTitle(s)) return false;
+  const words = s.split(/\s+/).filter(Boolean);
+  // Long line, or sentence-like ending, or clearly narrative
+  if (s.length >= 45) return true;
+  if (words.length >= 8) return true;
+  if (/[.!?]["')\]]*$/.test(s) && words.length >= 4) return true;
+  if (isProseFragment(s) && words.length >= 4) return true;
+  return false;
+}
+
+/**
+ * May a heading stack start at line i?
+ * - Page top / after blank / explicit chapter: yes
+ * - Mid-page: yes if prior line is body prose and this line is a stackable title
+ *   (fixes subtitles like "STORIES THAT / GROWN-UPS / BELIEVE" that start mid-page
+ *   without a blank line in the PDF text layer)
+ */
+function canStartHeadingAt(lines, i, banned) {
+  if (!lines[i]) return false;
+  if (isExplicitChapterHeading(lines[i])) return true;
+  const afterBlank = i === 0 || !lines[i - 1];
+  const nearTop = i <= 6;
+  if (nearTop || afterBlank) return isStackableTitleLine(lines[i], banned);
+
+  if (!isStackableTitleLine(lines[i], banned)) return false;
+  const prevIdx = prevNonEmptyIndex(lines, i);
+  if (prevIdx < 0) return false;
+  // Don't start a new heading in the middle of an existing title stack
+  if (isStackableTitleLine(lines[prevIdx], banned)) return false;
+  // Need real body before this (not page chrome)
+  if (!looksLikeBodyProseLine(lines[prevIdx])) return false;
+  // Enough content above so this is truly mid-page, not a delayed top title
+  const beforeLen = lines.slice(0, i).join(' ').replace(/\s+/g, ' ').trim().length;
+  return beforeLen >= 80;
+}
+
 /**
  * Split one PDF page into heading-bounded segments.
- * Multi-line visual titles ("WE USED TO" / "BE WILD") become ONE heading —
- * this stops the same page from appearing as 2–3 duplicate units.
+ * Multi-line visual titles ("WE USED TO" / "BE WILD") become ONE heading.
+ * Also detects mid-page subtitles that start after body prose (no blank line required).
  */
 function splitPageByHeadings(pageText, banned) {
   const lines = pageLinesWithBreaks(pageText);
@@ -2242,9 +2313,7 @@ function splitPageByHeadings(pageText, banned) {
       i += 1;
       continue;
     }
-    const afterBlank = i === 0 || !lines[i - 1];
-    const nearTop = i <= 6;
-    if (!(nearTop || afterBlank || isExplicitChapterHeading(lines[i]))) {
+    if (!canStartHeadingAt(lines, i, banned)) {
       i += 1;
       continue;
     }
@@ -2254,28 +2323,41 @@ function splitPageByHeadings(pageText, banned) {
       continue;
     }
     // Require real heading quality after stacking (allow short ALL CAPS stacks)
-    if (
-      !isExplicitChapterHeading(stacked.heading)
-      && !isStrongSubtitleTitle(stacked.heading)
-      && !isStackableTitleLine(stacked.heading, banned)
-    ) {
-      i += 1;
-      continue;
+    let accepted = stacked;
+    const headingOk = (h) => (
+      isExplicitChapterHeading(h)
+      || isStrongSubtitleTitle(h)
+      || isStackableTitleLine(h, banned)
+    );
+    if (!headingOk(stacked.heading)) {
+      // Multi-line join can fail quality (e.g. odd punctuation) — fall back to first strong line
+      const firstLine = String(lines[stacked.startIndex] || '').replace(/[?!:.…]+$/g, '').trim();
+      if (stacked.endIndex > stacked.startIndex && headingOk(firstLine)) {
+        accepted = {
+          heading: cleanHeadingTitle(firstLine),
+          startIndex: stacked.startIndex,
+          endIndex: stacked.startIndex
+        };
+      } else {
+        // Skip past the whole attempted stack so mid-page orphans don't block later cuts
+        i = stacked.endIndex + 1;
+        continue;
+      }
     }
     // Skip duplicate cut if same heading just added
     if (
       cuts.length
-      && normalizeLine(cuts[cuts.length - 1].heading) === normalizeLine(stacked.heading)
+      && normalizeLine(cuts[cuts.length - 1].heading) === normalizeLine(accepted.heading)
     ) {
-      i = stacked.endIndex + 1;
+      i = accepted.endIndex + 1;
       continue;
     }
     cuts.push({
-      index: stacked.startIndex,
-      endIndex: stacked.endIndex,
-      heading: stacked.heading
+      index: accepted.startIndex,
+      endIndex: accepted.endIndex,
+      heading: accepted.heading
     });
-    i = stacked.endIndex + 1;
+    i = accepted.endIndex + 1;
   }
 
   if (!cuts.length) {
