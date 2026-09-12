@@ -168,9 +168,21 @@
     .draft-box {
       border: 1px dashed #e0b85a; background: #fffaf0; border-radius: 12px;
       padding: 0.7rem 0.85rem; margin: 0.65rem 0;
+      position: sticky; top: var(--topbar-h, 64px); z-index: 15;
+      box-shadow: 0 8px 18px rgba(15,23,42,0.1);
     }
     .draft-box h3 { margin: 0 0 0.35rem; font-size: 0.95rem; color: #8a6418; }
-    .group-list { display: grid; gap: 0.4rem; margin-top: 0.55rem; }
+    .group-summary { margin: 0.65rem 0; }
+    .group-summary-toggle {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      background: var(--sage-soft); border: 1px solid #9ad8cf; border-radius: 10px;
+      padding: 0.5rem 0.75rem; font: inherit; font-weight: 700; color: var(--olive-deep);
+      cursor: pointer; text-align: left;
+    }
+    .group-summary-toggle .chev { transition: transform .15s ease; font-size: 0.85em; }
+    .group-summary.collapsed .chev { transform: rotate(-90deg); }
+    .group-summary.collapsed .group-list { display: none; }
+    .group-list { display: grid; gap: 0.4rem; margin-top: 0.5rem; }
     .group-card {
       border: 1px solid var(--border); border-radius: 10px; padding: 0.55rem 0.75rem; background: #fff;
     }
@@ -281,7 +293,13 @@
           <button type="button" class="btn btn-ghost" id="btnUndoGroup" disabled>Undo last part</button>
         </div>
       </div>
-      <div class="group-list" id="groupList"></div>
+      <div class="group-summary collapsed" id="groupSummary">
+        <button type="button" class="group-summary-toggle" id="groupToggle">
+          <span id="groupSummaryText">0 parts sealed</span>
+          <span class="chev">▾</span>
+        </button>
+        <div class="group-list" id="groupList"></div>
+      </div>
       <div class="structure-list" id="structureList"></div>
       <div class="toolbar">
         <button type="button" class="btn btn-gold" id="btnConfirmGroups" disabled>Confirm groups → worksheet options</button>
@@ -357,7 +375,16 @@
   var draftUnitIds = [];
   /** @type {{ unitIds: string[], title: string }[]} */
   var sealedGroups = [];
+  var groupListCollapsed = true;
   var DEFAULT_MC = ['factual', 'inference', 'vocab', 'negative', 'craft', 'paraphrase'];
+
+  function syncTopbarHeight() {
+    var bar = document.querySelector('.topbar');
+    if (bar) {
+      document.documentElement.style.setProperty('--topbar-h', bar.offsetHeight + 'px');
+    }
+  }
+  window.addEventListener('resize', syncTopbarHeight);
 
   function $(id) { return document.getElementById(id); }
   function token() {
@@ -467,6 +494,7 @@
   function resetGroupingState() {
     draftUnitIds = [];
     sealedGroups = [];
+    groupListCollapsed = true;
   }
 
   function unitById(id) {
@@ -532,6 +560,15 @@
         '<div class="gtitle">Part ' + (i + 1) + ' — ' + escapeHtml(g.title || 'Untitled') + '</div>' +
         '<div class="gitems">' + escapeHtml(labels) + '</div></div>';
     }).join('');
+
+    var summary = $('groupSummary');
+    var n = sealedGroups.length;
+    summary.classList.toggle('hidden', n === 0);
+    summary.classList.toggle('collapsed', groupListCollapsed);
+    $('groupSummaryText').textContent = n === 0
+      ? 'No parts sealed yet'
+      : (n + (n === 1 ? ' part sealed' : ' parts sealed') + ' — tap to ' +
+        (groupListCollapsed ? 'review' : 'hide'));
   }
 
   function renderStructureList() {
@@ -601,6 +638,7 @@
     $('doneCard').classList.add('hidden');
     $('structureError').textContent = '';
     renderStructureUi();
+    syncTopbarHeight();
   }
 
   function showOptionsStep(job) {
@@ -1300,6 +1338,10 @@
     draftUnitIds = [];
     $('structureError').textContent = '';
     renderStructureUi();
+    // Jump straight to the next ungrouped section instead of leaving the
+    // teacher stranded next to the (now taller) sealed-parts summary.
+    var nextRow = document.querySelector('.structure-row:not(.grouped)');
+    if (nextRow) nextRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 
   $('btnClearDraft').addEventListener('click', function () {
@@ -1311,6 +1353,11 @@
     if (!sealedGroups.length) return;
     sealedGroups.pop();
     renderStructureUi();
+  });
+
+  $('groupToggle').addEventListener('click', function () {
+    groupListCollapsed = !groupListCollapsed;
+    renderGroupList();
   });
 
   $('btnConfirmGroups').addEventListener('click', async function () {
@@ -1537,6 +1584,7 @@
   });
 
   async function boot() {
+    syncTopbarHeight();
     await checkAuth();
     await initMeta();
     var jobs = await refreshHistory();
