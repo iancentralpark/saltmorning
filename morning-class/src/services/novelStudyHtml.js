@@ -543,13 +543,16 @@ function wrapHtmlDocument(title, bodyHtml) {
       font-size: 1.18rem;
       line-height: 1.18;
     }
-    h2 { margin: 0.4rem 0 0.2rem; font-size: 1.05rem; }
-    .q { margin: 0.22rem 0 0.4rem; }
-    .q-stem { margin: 0 0 0.2rem; }
-    .choices li { margin: 0.08rem 0; }
+    h2 { margin: 0.5rem 0 0.25rem; font-size: 1.05rem; }
+    /* A bit more breathing room between questions — fills leftover page space
+       instead of leaving it all as one blank gap at the bottom. */
+    .q { margin: 0.35rem 0 0.7rem; }
+    .q-stem { margin: 0 0 0.26rem; }
+    .choices li { margin: 0.13rem 0; }
+    .section-block { margin: 0 0 0.5rem; }
     /* Generous enough for a student to actually write on when printed. */
-    .write-line-short { height: 1.55rem; margin: 0.2rem 0; }
-    .write-line-long { height: 1.65rem; margin: 0.22rem 0; }
+    .write-line-short { height: 1.55rem; margin: 0.22rem 0; }
+    .write-line-long { height: 1.65rem; margin: 0.24rem 0; }
     .reading-range { margin: 0.06rem 0 0.22rem; font-size: 0.86rem; }
     .sheet { padding: 9mm 10mm 9mm; }
     .no-print { display: none !important; }
