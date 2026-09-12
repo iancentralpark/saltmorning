@@ -86,6 +86,40 @@ function usefulReadingLocator(part) {
   return locator;
 }
 
+/**
+ * Extended-response prompts are often 3–4 stacked sub-questions. That height,
+ * combined with answer lines, forces the whole C section onto the next page.
+ * Keep one clear question (optional short lead-in) so A4 sheets can pack tightly.
+ */
+function compactExtendedPrompt(text, maxLen) {
+  // Keep student-facing prompts short so section C can share a page with A/B.
+  const max = Math.max(70, Number(maxLen) || 160);
+  let s = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!s || s.length <= max) return s;
+
+  const parts = s.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const qIdx = parts.findIndex((p) => /\?\s*$/.test(p));
+  if (qIdx >= 0) {
+    // Drop long setup sentences; keep the first real question only.
+    let out = parts[qIdx];
+    if (out.length > max) {
+      out = out.slice(0, max - 1).replace(/\s+\S*$/, '').trim();
+      if (!/\?\s*$/.test(out)) out += '?';
+    }
+    if (!/\b(use|evidence|example|text|support)\b/i.test(out)) {
+      out = out.replace(/\?\s*$/, '') + '? Use evidence from the text.';
+      if (out.length > max + 28) {
+        out = out.slice(0, max - 1).replace(/\s+\S*$/, '').trim() + '?';
+      }
+    }
+    return out;
+  }
+
+  let cut = s.slice(0, max - 1).replace(/\s+\S*$/, '').trim();
+  if (!/[.!?]$/.test(cut)) cut += '…';
+  return cut;
+}
+
 function sectionLetters(hasVocab) {
   let i = 0;
   const next = () => String.fromCharCode(65 + (i++));
@@ -194,21 +228,23 @@ function buildPartHtml(part, options) {
   }
   bits.push('</div>');
 
-  bits.push('<div class="section-block">');
-  bits.push('<h2>' + letters.reflection + '. Extended Response</h2>');
+  bits.push('<div class="section-block section-extended">');
+  // allow-break: do NOT glue this heading to a tall prompt (that caused huge blank gaps).
+  bits.push('<h2 class="allow-break">' + letters.reflection + '. Extended Response</h2>');
   const refs = part.reflection || [];
   if (!refs.length) {
     bits.push('<p class="muted">(No extended-response prompts.)</p>');
   } else {
     refs.forEach((q, i) => {
       const typeLabel = reflectionTypeLabel(q.type);
-      // Keep stem with its answer lines when possible, but allow the block to split
-      // across pages if it is too tall (avoids huge blank gaps).
+      const prompt = compactExtendedPrompt(q.question || '', 160);
+      // Never keep-together the extended block — long critical-thinking stems must
+      // be allowed to start on the previous page and wrap onto the next.
       bits.push('<div class="q q-extended">');
-      bits.push('<p class="q-stem keep-with-next"><b>' + (i + 1) + '.</b> ' +
+      bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
         (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
-        esc(q.question || '') + '</p>');
-      bits.push(answerLinesHtml(4, 'long'));
+        esc(prompt) + '</p>');
+      bits.push(answerLinesHtml(3, 'long'));
       bits.push('</div>');
     });
   }
@@ -371,17 +407,25 @@ function wrapHtmlDocument(title, bodyHtml) {
     break-after: avoid;
     page-break-after: avoid;
   }
+  h2.allow-break {
+    break-after: auto;
+    page-break-after: auto;
+  }
   h3 { font-size: 1rem; color: var(--header); margin: 0.75rem 0 0.3rem; }
   .part-head { break-after: avoid; page-break-after: avoid; }
   .part-head .pages { margin: 0; color: var(--muted); font-style: italic; font-size: 0.92rem; }
   .section-block { margin: 0 0 0.35rem; }
-  .keep, .keep-with-next {
+  .keep {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  .keep-with-next {
-    break-after: avoid;
-    page-break-after: avoid;
+  .q-extended, .q-extended .q-stem, .section-extended {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+  .q-extended .q-stem {
+    orphans: 1;
+    widows: 1;
   }
   .vocab-table {
     width: 100%; border-collapse: collapse; margin: 0.3rem 0 0.5rem;
@@ -470,26 +514,39 @@ function wrapHtmlDocument(title, bodyHtml) {
       break-after: auto;
       page-break-after: auto;
     }
-    /* Keep only small question units together — never whole sections. */
+    /* Keep only small MC/short items together — never extended-response blocks. */
     .keep, .q:not(.q-extended) {
       break-inside: avoid;
       page-break-inside: avoid;
     }
-    h2, .part-head, .keep-with-next {
+    .q-extended, .q-extended .q-stem, .section-extended, h2.allow-break {
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+      break-after: auto !important;
+      page-break-after: auto !important;
+    }
+    .q-extended .q-stem {
+      orphans: 1 !important;
+      widows: 1 !important;
+      line-height: 1.25;
+    }
+    /* A/B headings stay with their first question; C may start mid-page freely. */
+    h2:not(.allow-break), .part-head {
       break-after: avoid;
       page-break-after: avoid;
     }
     h1 {
-      font-size: 1.28rem;
-      line-height: 1.22;
+      font-size: 1.18rem;
+      line-height: 1.18;
     }
-    h2 { margin: 0.55rem 0 0.25rem; }
-    .q { margin: 0.28rem 0 0.45rem; }
-    .q-stem { margin: 0 0 0.2rem; }
-    .choices li { margin: 0.08rem 0; }
-    .write-line-short { height: 1.55rem; margin: 0.14rem 0; }
-    .write-line-long { height: 1.7rem; margin: 0.16rem 0; }
-    .reading-range { margin: 0.1rem 0 0.35rem; font-size: 0.9rem; }
+    h2 { margin: 0.32rem 0 0.14rem; font-size: 1.02rem; }
+    .q { margin: 0.16rem 0 0.28rem; }
+    .q-stem { margin: 0 0 0.12rem; }
+    .choices li { margin: 0.05rem 0; }
+    .write-line-short { height: 1.28rem; margin: 0.08rem 0; }
+    .write-line-long { height: 1.38rem; margin: 0.1rem 0; }
+    .reading-range { margin: 0.06rem 0 0.22rem; font-size: 0.86rem; }
+    .sheet { padding: 9mm 10mm 9mm; }
     .no-print { display: none !important; }
   }
   @media screen and (max-width: 900px) {
@@ -590,5 +647,6 @@ module.exports = {
   normalizeChoices,
   normalizeChoiceText,
   usefulReadingLocator,
-  readingRangeIsRedundant
+  readingRangeIsRedundant,
+  compactExtendedPrompt
 };

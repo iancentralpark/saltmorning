@@ -4085,7 +4085,8 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
         'personal_reflection, critical_thinking, factual, inference.',
         'Do NOT default to personal reflection — choose whichever fits the text best.',
         'Each reflection item must include: type, question, sampleAnswer, evidenceQuote.',
-        'The question must invite about one paragraph of writing (roughly 5–8 sentences), grounded in the section.'
+        'CRITICAL: the reflection QUESTION text itself must be SHORT — one clear question, max 2 sentences / ~35 words.',
+        'Do NOT stack multiple sub-questions in the prompt. Students will write a paragraph answer; keep the prompt brief and printable on one A4 page.'
       ].join(' ')
       : 'Set reflection to an empty array [].',
     !compact ? ('Prefer these MC types: ' + typeList) : '',
@@ -4123,7 +4124,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
     return stubPartWorksheet(chunk, options);
   }
 
-  const { normalizeChoices } = require('./novelStudyHtml');
+  const { normalizeChoices, compactExtendedPrompt } = require('./novelStudyHtml');
 
   const vocab = options.vocabCount === 0
     ? []
@@ -4177,7 +4178,7 @@ async function generatePartWorksheet(chunk, meta, options, attempt) {
                 : 'critical_thinking');
       return {
         type,
-        question: String(q.question || '').trim(),
+        question: compactExtendedPrompt(String(q.question || '').trim(), 180),
         sampleAnswer: String(q.sampleAnswer || '').trim(),
         evidenceQuote: String(q.evidenceQuote || '').trim()
       };
