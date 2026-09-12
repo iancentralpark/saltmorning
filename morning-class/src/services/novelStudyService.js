@@ -2192,6 +2192,312 @@ function isChapterUnit(title, pageText) {
   return false;
 }
 
+/** Normalize titles for fuzzy TOC ↔ unit matching. */
+function normalizeTitleKey(title) {
+  return normalizeLine(String(title || ''))
+    .replace(/^chapter\s*(\d+|[ivxlc]+)\s*:?\s*/i, '')
+    .replace(/^part\s*(\d+|[ivxlc]+)\s*:?\s*/i, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function titlesFuzzyMatch(a, b) {
+  const na = normalizeTitleKey(a);
+  const nb = normalizeTitleKey(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.length >= 8 && nb.length >= 8 && (na.includes(nb) || nb.includes(na))) return true;
+  return false;
+}
+
+function looksLikeTocPage(pageText) {
+  const raw = String(pageText || '');
+  if (!raw.trim()) return false;
+  const lower = raw.toLowerCase();
+  if (/table of contents/.test(lower)) return true;
+  if (/(^|\n)\s*contents\s*(\n|$)/i.test(raw) && pageCharCount(raw) < 2500) return true;
+  const lines = pageLines(raw);
+  if (lines.length < 4) return false;
+  const dotted = lines.filter((l) => /\.{2,}\s*\d{1,3}\s*$/.test(l) || /\s{2,}\d{1,3}\s*$/.test(l)).length;
+  // Classic TOC layout: several short entries ending in page numbers, little prose
+  if (dotted >= 3 && pageCharCount(raw) < 2200) return true;
+  if (dotted >= 2 && /contents/i.test(lower) && pageCharCount(raw) < 2500) return true;
+  return false;
+}
+
+function parseRomanOrInt(token) {
+  const t = String(token || '').trim();
+  if (/^\d+$/.test(t)) return Number(t);
+  const map = {
+    i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8, ix: 9, x: 10,
+    xi: 11, xii: 12, xiii: 13, xiv: 14, xv: 15, xvi: 16, xvii: 17, xviii: 18, xix: 19, xx: 20
+  };
+  const n = map[t.toLowerCase()];
+  return n || null;
+}
+
+/**
+ * Parse one TOC line into { title, page, chapterNum, isChapter }.
+ * Handles: "Chapter 2: Title .... 35", "2. Title  35", "The Sapiens' Superpower ...... 35"
+ */
+function parseTocEntryLine(line) {
+  let s = String(line || '').replace(/\s+/g, ' ').trim();
+  if (!s || s.length > 120) return null;
+  if (/^(contents|table of contents|page|pagina)$/i.test(s)) return null;
+  if (/^(acknowledg|about the author|index|glossary|bibliography)/i.test(s)) return null;
+
+  let page = null;
+  const pageMatch = s.match(/(?:\.{2,}|\s{2,}|\t+)\s*(\d{1,3})\s*$/)
+    || s.match(/\s+(\d{1,3})\s*$/);
+  if (pageMatch) {
+    const n = Number(pageMatch[1]);
+    // Prefer dotted/spaced leaders; bare trailing numbers only when plausible page
+    if (/\.{2,}|\s{2,}|\t/.test(pageMatch[0]) || (n >= 1 && n <= 400 && s.length - pageMatch[0].length >= 4)) {
+      page = n;
+      s = s.slice(0, pageMatch.index).replace(/[\s.]+$/g, '').trim();
+    }
+  }
+  if (!s || s.length < 3) return null;
+
+  let chapterNum = null;
+  let isChapter = false;
+  const chMatch = s.match(/^(?:chapter|ch\.?|part|unit)\s*(\d{1,2}|[ivxlc]+)\b\s*[.:\-–—]?\s*(.*)$/i);
+  if (chMatch) {
+    chapterNum = parseRomanOrInt(chMatch[1]);
+    s = String(chMatch[2] || '').trim() || s;
+    isChapter = true;
+  } else {
+    const numMatch = s.match(/^(\d{1,2})(?:\s*[.|)\]:\-–—]\s*|\s+)(.{3,})$/);
+    if (numMatch) {
+      const n = Number(numMatch[1]);
+      if (n >= 1 && n <= 40) {
+        chapterNum = n;
+        s = numMatch[2].trim();
+        isChapter = true;
+      }
+    }
+  }
+  if (!s || s.length < 3 || /^\d+$/.test(s)) return null;
+  // Skip prose-y TOC junk
+  if (/[.!?]$/.test(s) && s.split(/\s+/).length > 8) return null;
+
+  return {
+    title: cleanHeadingTitle(s) || s,
+    page,
+    chapterNum,
+    isChapter
+  };
+}
+
+/**
+ * Read the book's real Table of Contents from early PDF pages (before body trim).
+ * Returns chapter anchors: [{ chapterNum, title, page, sections: [{title,page}] }]
+ */
+function parseBookToc(pages) {
+  const all = pages || [];
+  if (!all.length) return [];
+  const scanN = Math.min(all.length, Math.max(14, Math.ceil(all.length * 0.22)));
+  const tocTexts = [];
+  for (let i = 0; i < scanN; i += 1) {
+    const text = all[i] && all[i].text;
+    if (!looksLikeTocPage(text)) continue;
+    tocTexts.push(String(text || ''));
+    // Include an immediate following page if it continues TOC entries
+    const next = all[i + 1];
+    if (next && !looksLikeTocPage(next.text)) {
+      const nxtLines = pageLines(next.text);
+      const cont = nxtLines.filter((l) => parseTocEntryLine(l)).length;
+      if (cont >= 2 && pageCharCount(next.text) < 2200) {
+        tocTexts.push(String(next.text || ''));
+      }
+    }
+  }
+  if (!tocTexts.length) return [];
+
+  const entries = [];
+  const seen = new Set();
+  tocTexts.forEach((text) => {
+    pageLines(text).forEach((line) => {
+      const e = parseTocEntryLine(line);
+      if (!e || !e.title) return;
+      const key = normalizeTitleKey(e.title) + '|' + (e.page || '');
+      if (seen.has(key)) return;
+      seen.add(key);
+      entries.push(e);
+    });
+  });
+  if (entries.length < 2) return [];
+
+  const numbered = entries.filter((e) => e.isChapter || e.chapterNum != null);
+  const chapters = [];
+  if (numbered.length >= 2) {
+    let current = null;
+    entries.forEach((e) => {
+      if (e.isChapter || e.chapterNum != null) {
+        current = {
+          chapterNum: e.chapterNum || (chapters.length + 1),
+          title: e.title,
+          page: e.page == null ? null : e.page,
+          sections: []
+        };
+        chapters.push(current);
+      } else if (current) {
+        current.sections.push({ title: e.title, page: e.page == null ? null : e.page });
+      }
+    });
+  } else {
+    // Flat TOC (e.g. Unstoppable Us publisher contents): each titled entry is a chapter
+    const withPages = entries.filter((e) => e.page != null);
+    const use = withPages.length >= 2 ? withPages : entries;
+    use.forEach((e, i) => {
+      chapters.push({
+        chapterNum: i + 1,
+        title: e.title,
+        page: e.page == null ? null : e.page,
+        sections: []
+      });
+    });
+  }
+
+  return chapters
+    .filter((c) => c && c.title && normalizeTitleKey(c.title).length >= 4)
+    .slice(0, 40);
+}
+
+/**
+ * Map printed TOC page numbers onto PDF page numbers using title matches,
+ * falling back to first-chapter alignment when needed.
+ */
+function calibrateTocPdfOffset(tocChapters, units, pages) {
+  const chapters = tocChapters || [];
+  const list = units || [];
+  for (let i = 0; i < chapters.length; i += 1) {
+    const ch = chapters[i];
+    if (ch.page == null) continue;
+    for (let j = 0; j < list.length; j += 1) {
+      const u = list[j];
+      if (titlesFuzzyMatch(ch.title, u.title)) {
+        return (u.startPage || 0) - ch.page;
+      }
+      (ch.sections || []).forEach((sec) => {
+        // section match handled below
+      });
+    }
+    for (let j = 0; j < list.length; j += 1) {
+      const u = list[j];
+      const hit = (ch.sections || []).find((sec) => sec.page != null && titlesFuzzyMatch(sec.title, u.title));
+      if (hit) return (u.startPage || 0) - hit.page;
+    }
+  }
+
+  // Search sparse early/body pages for chapter title text (divider pages).
+  // Skip TOC pages themselves — they list every chapter title and would bias offset.
+  const pageList = pages || [];
+  for (let i = 0; i < chapters.length; i += 1) {
+    const ch = chapters[i];
+    if (ch.page == null) continue;
+    const key = normalizeTitleKey(ch.title);
+    if (key.length < 6) continue;
+    for (let j = 0; j < pageList.length; j += 1) {
+      const p = pageList[j];
+      const raw = String(p && p.text || '');
+      if (!raw || pageCharCount(raw) > 500) continue;
+      if (looksLikeTocPage(raw)) continue;
+      if (normalizeTitleKey(raw).includes(key) || titlesFuzzyMatch(ch.title, raw.slice(0, 180))) {
+        const pdfPage = p.pageNum || p.page || (j + 1);
+        return pdfPage - ch.page;
+      }
+    }
+  }
+
+  // Last resort: align first TOC chapter page to first unit page when TOC starts near 1
+  if (chapters[0] && chapters[0].page != null && chapters[0].page <= 5 && list[0] && list[0].startPage) {
+    return list[0].startPage - chapters[0].page;
+  }
+  return 0;
+}
+
+/**
+ * Re-label structure units using the book's Table of Contents chapter anchors.
+ * Authoritative for chapterNum / chapterTitle even when stylized divider pages
+ * have no extractable text (so BANANA ADVENTURES nests under Chapter 2).
+ */
+function applyTocChapterBoundaries(units, tocChapters, pages) {
+  const list = Array.isArray(units) ? units : [];
+  const chapters = Array.isArray(tocChapters) ? tocChapters : [];
+  if (list.length < 1 || chapters.length < 2) return list;
+
+  const offset = calibrateTocPdfOffset(chapters, list, pages);
+  const anchors = chapters.map((ch) => ({
+    chapterNum: ch.chapterNum || 0,
+    title: ch.title,
+    pdfPage: ch.page == null ? null : (ch.page + offset),
+    sections: ch.sections || []
+  }));
+
+  let activeIdx = 0;
+  const out = list.map((u, i) => {
+    const title = String(u.title || '').trim();
+
+    // 1) Title match against a TOC chapter (or its first section) wins
+    for (let ci = 0; ci < anchors.length; ci += 1) {
+      if (titlesFuzzyMatch(title, anchors[ci].title)) {
+        activeIdx = ci;
+        break;
+      }
+      const firstSec = anchors[ci].sections[0];
+      if (firstSec && titlesFuzzyMatch(title, firstSec.title)) {
+        activeIdx = ci;
+        break;
+      }
+    }
+
+    // 2) Page-based advance: once unit reaches next chapter's PDF page, switch
+    while (
+      activeIdx + 1 < anchors.length
+      && anchors[activeIdx + 1].pdfPage != null
+      && (u.startPage || 0) >= anchors[activeIdx + 1].pdfPage
+    ) {
+      activeIdx += 1;
+    }
+
+    const active = anchors[activeIdx] || anchors[0];
+    const chapterNum = active.chapterNum || (activeIdx + 1);
+    const chapterTitle = 'Chapter ' + chapterNum;
+    const matchedChapter = titlesFuzzyMatch(title, active.title);
+    let kind = u.kind === 'chapter' ? 'chapter' : 'subtitle';
+    if (matchedChapter) kind = 'chapter';
+    else if (isChapterUnit(title, u.text) || isChapterHeading(title) || isExplicitChapterHeading(title)) {
+      kind = 'chapter';
+    } else {
+      kind = 'subtitle';
+    }
+
+    // If this unit is a chapter opener that matched TOC, prefer a clean title
+    let finalTitle = title;
+    if (matchedChapter && active.title) {
+      finalTitle = (/^chapter\s+\d+/i.test(title))
+        ? title
+        : ('Chapter ' + chapterNum + ': ' + active.title);
+      kind = 'chapter';
+    }
+
+    return {
+      id: 'u' + (i + 1),
+      index: i,
+      chapterNum,
+      chapterTitle,
+      title: finalTitle,
+      kind,
+      label: kind === 'chapter' ? finalTitle : (chapterTitle + ' — ' + title),
+      startPage: u.startPage,
+      endPage: u.endPage,
+      text: u.text || ''
+    };
+  });
+
+  return out;
+}
+
 /**
  * Collapse OCR / design spaced-letter runs: "A L L A B O U T" → "ALL ABOUT"
  * and strip duplicated title tails: "WE USED TO BE WILD — BE WILD" → "WE USED TO BE WILD"
@@ -2689,6 +2995,7 @@ async function refineStructureWithAi(units, options) {
     end_page: u.endPage,
     preview: String(u.text || '').replace(/\s+/g, ' ').trim().slice(0, 160)
   }));
+  const tocHint = Array.isArray(options && options.bookToc) ? options.bookToc : [];
 
   try {
     const prompt = [
@@ -2703,11 +3010,21 @@ async function refineStructureWithAi(units, options) {
       '- kind=chapter for major chapter dividers (e.g. "Chapter 1", "Chapter 1: HUMANS ARE ANIMALS", numbered chapter openers).',
       '- Also kind=chapter for stylized divider pages that are mostly empty except a lone number ("2") and/or a short ALL CAPS chapter title (e.g. "THE SAPIENS\' SUPERPOWER") — these open a new chapter even without the word "Chapter".',
       '- kind=subtitle for section headings under a chapter (e.g. "BANANA ADVENTURES", "WE USED TO BE WILD").',
+      '- If the book Table of Contents is provided below, treat those chapter titles/pages as ground truth for chapter boundaries. Section titles listed under a TOC chapter are subtitles, not new chapters.',
       '- If the book has NO chapters (only section titles), mark all kept items as subtitle.',
       '- If the book has ONLY chapter titles (no subtitles), mark all kept items as chapter.',
       '- Clean titles: no duplicated tails like "TITLE — TITLE", no spaced letters like "A L L A B O U T".',
       '- Keep reading order. ids MUST be from the candidate list. Do not invent ids or pages.',
       '- Prefer fewer clean sections over many overlapping scraps.',
+      '',
+      tocHint.length
+        ? ('Book Table of Contents chapters (ground truth): ' + JSON.stringify(tocHint.slice(0, 30).map((c) => ({
+          chapterNum: c.chapterNum,
+          title: c.title,
+          page: c.page,
+          sections: (c.sections || []).slice(0, 12).map((s) => ({ title: s.title, page: s.page }))
+        }))))
+        : 'Book Table of Contents chapters: (not detected)',
       '',
       'Candidates: ' + JSON.stringify(payload.slice(0, 160))
     ].join('\n');
@@ -3906,11 +4223,19 @@ async function runPlanning(jobId, teacherId) {
       fallbackTitle
     };
 
-    bump(35, 'Skipping front/back matter…');
+    bump(35, 'Reading table of contents…');
+    const bookToc = parseBookToc(extracted.pages);
+    bump(42, bookToc.length
+      ? ('Found ' + bookToc.length + ' TOC chapter(s). Skipping front/back matter…')
+      : 'Skipping front/back matter…');
     const trimmed = trimToBookBody(extracted.pages);
-    bump(50, 'Detecting chapter and subtitle headings…');
+    bump(55, 'Detecting chapter and subtitle headings…');
     let extractedUnits = extractStructureUnits(trimmed.pages);
     let units = extractedUnits.units;
+    // Apply TOC chapter boundaries early so labels are already chapter-aware
+    if (bookToc.length >= 2) {
+      units = applyTocChapterBoundaries(units, bookToc, extracted.pages);
+    }
 
     bump(65, 'Identifying book title and author…');
     let meta = await detectBookMetaWithGemini(extracted.pages, planOpts, units.map((u) => ({
@@ -3929,7 +4254,12 @@ async function runPlanning(jobId, teacherId) {
     }
 
     bump(80, 'AI classifying chapters vs subtitles…');
-    units = await refineStructureWithAi(units, planOpts);
+    units = await refineStructureWithAi(units, Object.assign({}, planOpts, { bookToc }));
+    // TOC is ground truth for chapter nesting — re-apply after AI so divider-less
+    // chapter opens (e.g. orange "2 / THE SAPIENS' SUPERPOWER") still shift labels.
+    if (bookToc.length >= 2) {
+      units = applyTocChapterBoundaries(units, bookToc, extracted.pages);
+    }
 
     cleanupJobFiles(job);
     touch(job, {
@@ -4423,6 +4753,11 @@ module.exports = {
     buildPlanReport,
     collectRunningHeaders,
     extractStructureUnits,
+    parseBookToc,
+    applyTocChapterBoundaries,
+    calibrateTocPdfOffset,
+    parseTocEntryLine,
+    looksLikeTocPage,
     isChapterHeading,
     isChapterUnit,
     isLoneChapterNumber,
