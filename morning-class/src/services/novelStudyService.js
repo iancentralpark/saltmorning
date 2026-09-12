@@ -2130,30 +2130,158 @@ function isChapterHeading(title) {
 }
 
 /**
- * Split one PDF page into heading-bounded segments (chapter + subtitles on same page).
- * Only cuts on real headings after blank lines (or page-top chapter/ALL CAPS/Title Case).
+ * Collapse OCR / design spaced-letter runs: "A L L A B O U T" → "ALL ABOUT"
+ * and strip duplicated title tails: "WE USED TO BE WILD — BE WILD" → "WE USED TO BE WILD"
+ */
+function cleanHeadingTitle(raw) {
+  let s = String(raw || '').replace(/[?!:.…]+$/g, '').trim();
+  if (!s) return '';
+  // Collapse spaced single letters (common in kids' picture-book PDFs)
+  s = s.replace(/\b((?:[A-ZÀ-ÖØ-Þ]\s+){2,}[A-ZÀ-ÖØ-Þ])\b/g, (m) => m.replace(/\s+/g, ''));
+  // Normalize fancy dashes
+  s = s.replace(/\s*[–—\-]+\s*/g, ' — ').replace(/\s{2,}/g, ' ').trim();
+  // Drop duplicated tail after em dash when it repeats the end of the left side
+  const dash = s.split(/\s+—\s+/);
+  if (dash.length === 2) {
+    const left = dash[0].trim();
+    const right = dash[1].trim();
+    const leftNorm = normalizeLine(left);
+    const rightNorm = normalizeLine(right);
+    if (rightNorm && (leftNorm.endsWith(rightNorm) || leftNorm.includes(rightNorm))) {
+      s = left;
+    }
+  }
+  return s.replace(/\s{2,}/g, ' ').trim();
+}
+
+/** Short stacked title line (ALL CAPS / title-case scrap used as one visual line of a multi-line heading). */
+function isStackableTitleLine(line, banned) {
+  let s = String(line || '').trim();
+  if (!s || s.length > 60) return false;
+  // Collapse spaced-letter design lines before other checks: "A L L A B O U T" → "ALLABOUT"
+  const tokens = s.split(/\s+/).filter(Boolean);
+  if (tokens.length >= 3 && tokens.filter((w) => /^[A-ZÀ-ÖØ-Þ]$/i.test(w)).length >= Math.ceil(tokens.length * 0.7)) {
+    s = tokens.join('');
+  }
+  // Lone chapter number on a divider page ("1") — check BEFORE junk page-number filter
+  if (/^[0-9IVXLC]{1,4}$/i.test(s)) return true;
+  if (isJunkHeading(s, banned)) return false;
+  if (isProseFragment(s)) return false;
+  const words = s.split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 6) return false;
+  if (isExplicitChapterHeading(s) || isStrongSubtitleTitle(s)) return true;
+  // Short ALL CAPS line even if incomplete ("WE USED TO", "BE WILD")
+  if (
+    /^[A-ZÀ-ÖØ-Þ0-9][A-ZÀ-ÖØ-Þ0-9 ,.'’:\-]*$/.test(s)
+    && /[A-ZÀ-ÖØ-Þ]/.test(s)
+    && words.length <= 5
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * From startIdx, absorb consecutive stackable title lines (blank lines allowed)
+ * into one multi-line heading. Stops at body prose / drop-cap paragraph.
+ */
+function collectStackedHeading(lines, startIdx, banned) {
+  if (!lines[startIdx] || !isStackableTitleLine(lines[startIdx], banned)) return null;
+  const parts = [];
+  let i = startIdx;
+  let end = startIdx;
+  while (i < lines.length && i < startIdx + 8) {
+    if (!lines[i]) {
+      // blank between stacked title lines is OK; blank then prose stops
+      i += 1;
+      continue;
+    }
+    if (!isStackableTitleLine(lines[i], banned)) break;
+    // Don't glue a new explicit chapter heading onto a prior subtitle stack
+    if (parts.length && isExplicitChapterHeading(lines[i]) && !/^[0-9IVXLC]{1,4}$/i.test(lines[i])) {
+      break;
+    }
+    parts.push(lines[i].replace(/[?!:.…]+$/g, '').trim());
+    end = i;
+    i += 1;
+  }
+  if (!parts.length) return null;
+  // Collapse spaced-letter parts when joining ("A L L A B O U T" → "ALL ABOUT")
+  const joinedParts = parts.map((p) => {
+    const toks = p.split(/\s+/).filter(Boolean);
+    if (toks.length >= 3 && toks.filter((w) => /^[A-ZÀ-ÖØ-Þ]$/i.test(w)).length >= Math.ceil(toks.length * 0.7)) {
+      return toks.join('');
+    }
+    return p;
+  });
+  let heading = cleanHeadingTitle(joinedParts.join(' '));
+  // If first token is only a chapter number, keep it in title ("1 HUMANS ARE ANIMALS")
+  // but prefer "Chapter 1: HUMANS ARE ANIMALS" when number + words
+  if (parts.length >= 2 && /^[0-9IVXLC]{1,4}$/i.test(parts[0])) {
+    const rest = cleanHeadingTitle(joinedParts.slice(1).join(' '));
+    heading = /^\d+$/.test(parts[0])
+      ? ('Chapter ' + parts[0] + (rest ? (': ' + rest) : ''))
+      : cleanHeadingTitle(joinedParts.join(' '));
+  }
+  return { heading, startIndex: startIdx, endIndex: end };
+}
+
+/**
+ * Split one PDF page into heading-bounded segments.
+ * Multi-line visual titles ("WE USED TO" / "BE WILD") become ONE heading —
+ * this stops the same page from appearing as 2–3 duplicate units.
  */
 function splitPageByHeadings(pageText, banned) {
   const lines = pageLinesWithBreaks(pageText);
   if (!lines.length) return [{ heading: '', text: '' }];
+
   const cuts = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    if (!lines[i]) continue;
-    const afterBlank = i === 0 || !lines[i - 1];
-    const nearTop = i <= 4;
-    if (!isRealHeading(lines[i], banned)) continue;
-    const cleaned = lines[i].replace(/[?!:.…]+$/g, '').trim();
-    if (isExplicitChapterHeading(cleaned)) {
-      cuts.push({ index: i, heading: cleaned });
+  let i = 0;
+  while (i < lines.length) {
+    if (!lines[i]) {
+      i += 1;
       continue;
     }
-    // Subtitles: page-top or after blank only
-    if (nearTop || afterBlank) cuts.push({ index: i, heading: cleaned });
+    const afterBlank = i === 0 || !lines[i - 1];
+    const nearTop = i <= 6;
+    if (!(nearTop || afterBlank || isExplicitChapterHeading(lines[i]))) {
+      i += 1;
+      continue;
+    }
+    const stacked = collectStackedHeading(lines, i, banned);
+    if (!stacked) {
+      i += 1;
+      continue;
+    }
+    // Require real heading quality after stacking (allow short ALL CAPS stacks)
+    if (
+      !isExplicitChapterHeading(stacked.heading)
+      && !isStrongSubtitleTitle(stacked.heading)
+      && !isStackableTitleLine(stacked.heading, banned)
+    ) {
+      i += 1;
+      continue;
+    }
+    // Skip duplicate cut if same heading just added
+    if (
+      cuts.length
+      && normalizeLine(cuts[cuts.length - 1].heading) === normalizeLine(stacked.heading)
+    ) {
+      i = stacked.endIndex + 1;
+      continue;
+    }
+    cuts.push({
+      index: stacked.startIndex,
+      endIndex: stacked.endIndex,
+      heading: stacked.heading
+    });
+    i = stacked.endIndex + 1;
   }
+
   if (!cuts.length) {
     return [{ heading: '', text: lines.join('\n').trim() }];
   }
-  // If first cut isn't at line 0, keep a lead-in segment under empty heading
+
   const segments = [];
   if (cuts[0].index > 0) {
     const lead = lines.slice(0, cuts[0].index).join('\n').trim();
@@ -2239,7 +2367,105 @@ function extractStructureUnits(pages) {
   });
 
   const collapsed = collapseWeakStructureUnits(units);
-  return { units: collapsed, banned, tocCount: collapsed.length };
+  const deduped = mergeTitleFragmentUnits(collapsed);
+  return { units: deduped, banned, tocCount: deduped.length };
+}
+
+/**
+ * Merge incomplete title fragments into the following full title.
+ * Fixes: "WE USED TO" (p.13) + "WE USED TO BE WILD" (p.13–23) → one unit,
+ * and overlapping page ranges that make the same page appear 2–3 times.
+ */
+function mergeTitleFragmentUnits(units) {
+  const list = Array.isArray(units) ? units.slice() : [];
+  if (list.length <= 1) return list;
+
+  const norm = (t) => normalizeLine(String(t || '').replace(/^chapter\s*\d+\s*:?\s*/i, ''));
+  const out = [];
+
+  for (let i = 0; i < list.length; i += 1) {
+    const cur = Object.assign({}, list[i], { text: list[i].text || '' });
+    const curN = norm(cur.title);
+    const next = list[i + 1];
+    if (next) {
+      const nextN = norm(next.title);
+      const sameOrTouch =
+        cur.startPage === next.startPage
+        || cur.endPage === next.startPage
+        || cur.startPage + 1 === next.startPage;
+      const curIsPrefix = curN && nextN && nextN.startsWith(curN) && nextN.length > curN.length;
+      const nextIsPrefix = curN && nextN && curN.startsWith(nextN) && curN.length > nextN.length;
+      const curIsTailOfNext = curN && nextN && nextN.endsWith(curN) && nextN.length > curN.length + 2;
+      // Incomplete first line of a multi-line title sitting on the same page as the full title
+      if (sameOrTouch && (curIsPrefix || curIsTailOfNext)) {
+        // Absorb cur into next (prefer the longer/complete title)
+        list[i + 1] = Object.assign({}, next, {
+          startPage: Math.min(cur.startPage || 0, next.startPage || 0),
+          endPage: Math.max(cur.endPage || 0, next.endPage || 0),
+          text: [cur.text || '', next.text || ''].filter(Boolean).join('\n\n').trim(),
+          title: cleanHeadingTitle(next.title || cur.title)
+        });
+        continue;
+      }
+      if (sameOrTouch && nextIsPrefix) {
+        // Next is the fragment; keep cur and absorb next now
+        cur.endPage = Math.max(cur.endPage || 0, next.endPage || 0);
+        cur.text = [cur.text || '', next.text || ''].filter(Boolean).join('\n\n').trim();
+        cur.title = cleanHeadingTitle(cur.title);
+        out.push(cur);
+        i += 1; // skip next
+        continue;
+      }
+    }
+    // Also merge if current title is a pure prefix fragment of previous (rare reverse order)
+    if (out.length) {
+      const prev = out[out.length - 1];
+      const prevN = norm(prev.title);
+      if (
+        curN && prevN
+        && (prevN.startsWith(curN) || curN.startsWith(prevN))
+        && (cur.startPage === prev.startPage || cur.startPage === prev.endPage)
+        && Math.abs((prev.title || '').length - (cur.title || '').length) >= 3
+      ) {
+        const longer = (prev.title || '').length >= (cur.title || '').length ? prev.title : cur.title;
+        prev.title = cleanHeadingTitle(longer);
+        prev.endPage = Math.max(prev.endPage || 0, cur.endPage || 0);
+        prev.text = [prev.text || '', cur.text || ''].filter(Boolean).join('\n\n').trim();
+        continue;
+      }
+    }
+    out.push(cur);
+  }
+
+  // Rebuild chapter/subtitle labels after merges
+  let chapterNum = 0;
+  let chapterTitle = 'Opening';
+  return out.map((u, i) => {
+    let title = cleanHeadingTitle(u.title || '') || ('Section starting p.' + u.startPage);
+    // Sparse divider titles with "Chapter N:" are chapters
+    const kind = (isChapterHeading(title) || isExplicitChapterHeading(title) || /^chapter\s+\d+/i.test(title))
+      ? 'chapter'
+      : 'subtitle';
+    if (kind === 'chapter') {
+      chapterNum += 1;
+      chapterTitle = title;
+    } else if (chapterNum === 0) {
+      chapterNum = 1;
+      chapterTitle = 'Chapter 1';
+    }
+    return {
+      id: 'u' + (i + 1),
+      index: i,
+      chapterNum,
+      chapterTitle,
+      title,
+      kind,
+      label: kind === 'chapter' ? title : (chapterTitle + ' — ' + title),
+      startPage: u.startPage,
+      endPage: u.endPage,
+      text: u.text || ''
+    };
+  });
 }
 
 /**
@@ -2296,122 +2522,130 @@ function collapseWeakStructureUnits(units) {
 }
 
 /**
- * Optional AI pass: refine chapter/subtitle labels from detected headings.
- * When too many units remain (false splits), ask AI which ids are REAL headings
- * and merge the rest into the previous real heading — never invent page ranges.
+ * Always-on AI structure pass.
+ * Heuristics only propose candidates; AI decides the real outline for mixed formats:
+ * numbered chapters, named chapters, chapter+subtitle kids' books, or no chapters.
+ * Never invents page ranges — only keeps/merges candidate units and cleans titles.
  */
 async function refineStructureWithAi(units, options) {
-  if (!units || units.length < 2) return units;
-  const pageSpan = Math.max(
-    1,
-    (units[units.length - 1].endPage || 0) - (units[0].startPage || 0) + 1
-  );
-  const tooMany = units.length > 40 || units.length > Math.max(24, Math.ceil(pageSpan * 0.55));
+  if (!units || !units.length) return units;
+  let next = mergeTitleFragmentUnits(collapseWeakStructureUnits(units));
+  if (next.length < 1) return next;
 
-  if (tooMany) {
-    try {
-      const payload = units.map((u) => ({
-        id: u.id,
-        title: u.title,
-        kind: u.kind,
-        start_page: u.startPage,
-        end_page: u.endPage
-      }));
-      const prompt = [
-        'A PDF heading detector over-split a book into too many scraps.',
-        'Return JSON ONLY:',
-        '{ "keep_ids": ["u1","u3", ...] }',
-        'Rules:',
-        '- keep_ids = ONLY real chapter titles or real section/subtitle headings.',
-        '- DROP sentence fragments, mid-sentence scraps, and body prose used as titles.',
-        '- Keep order. Always keep the first id. Prefer ~1 heading per real chapter/section.',
-        '- Typical novels/nonfiction have far fewer headings than pages.',
-        'Candidates: ' + JSON.stringify(payload.slice(0, 180))
-      ].join('\n');
-      const res = await askGemini(prompt, {
-        temperature: 0.1,
-        maxOutputTokens: 4096,
-        responseMimeType: 'application/json',
-        systemInstruction: 'STRICT JSON only. keep_ids must be a subset of candidate ids in order.',
-        retries: 1
-      });
-      const parsed = extractJson(res.text || res.answer || '');
-      const keepIds = Array.isArray(parsed && parsed.keep_ids)
-        ? parsed.keep_ids.map(String)
-        : [];
-      const keepSet = new Set(keepIds);
-      if (keepSet.size >= 1 && keepSet.size < units.length) {
-        const merged = [];
-        units.forEach((u, i) => {
-          const keep = i === 0 || keepSet.has(String(u.id));
-          if (!merged.length || keep) {
-            merged.push(Object.assign({}, u, { text: u.text || '' }));
-            return;
-          }
-          const prev = merged[merged.length - 1];
-          prev.endPage = Math.max(prev.endPage || 0, u.endPage || 0);
-          prev.text = [prev.text || '', u.text || ''].filter(Boolean).join('\n\n').trim();
-        });
-        units = collapseWeakStructureUnits(merged);
-      } else {
-        units = collapseWeakStructureUnits(units);
-      }
-    } catch (e) {
-      console.warn('novelStudy structure collapse failed', e.message);
-      units = collapseWeakStructureUnits(units);
-    }
-  }
-
-  if (!units || units.length < 2) return units;
-  const payload = units.map((u) => ({
+  const payload = next.map((u) => ({
     id: u.id,
     title: u.title,
-    kind: u.kind,
-    chapter_num: u.chapterNum,
-    chapter_title: u.chapterTitle,
+    kind_guess: u.kind,
     start_page: u.startPage,
-    end_page: u.endPage
+    end_page: u.endPage,
+    preview: String(u.text || '').replace(/\s+/g, ' ').trim().slice(0, 160)
   }));
+
   try {
     const prompt = [
-      'You organize a book into chapters and subtitles for a teacher.',
+      'You are structuring a PDF book for a teacher worksheet tool.',
+      'Candidates were detected by a heuristic (may include duplicates or split multi-line titles).',
       'Return JSON ONLY:',
-      '{ "items": [{ "id": string, "chapter_num": number, "chapter_title": string, "title": string, "kind": "chapter"|"subtitle" }] }',
-      'Rules:',
-      '- Keep the SAME ids and the same order. Do not add/remove items.',
-      '- chapter_num must be contiguous starting at 1 where possible.',
-      '- Do NOT move a subtitle into a different chapter if that would cross page order oddly; respect page order.',
-      '- kind=chapter for major chapter headings; kind=subtitle for sections under a chapter.',
-      '- title should be the section heading; chapter_title is the parent chapter name.',
-      '- Never invent sentence-fragment titles.',
-      'Detected items: ' + JSON.stringify(payload.slice(0, 120))
+      '{ "sections": [{ "id": string, "title": string, "kind": "chapter"|"subtitle" }] }',
+      '',
+      'What to do:',
+      '- Keep ONLY real structural headings. Drop body-prose scraps and incomplete title fragments.',
+      '- If two candidates are parts of ONE visual title (e.g. "WE USED TO" + "BE WILD"), keep a SINGLE section with the full title "WE USED TO BE WILD" (use the later/longer id; earlier fragment ids are dropped and will be merged).',
+      '- kind=chapter for major chapter dividers (e.g. "Chapter 1", "Chapter 1: HUMANS ARE ANIMALS", numbered chapter openers).',
+      '- kind=subtitle for section headings under a chapter (e.g. "WE USED TO BE WILD").',
+      '- If the book has NO chapters (only section titles), mark all kept items as subtitle.',
+      '- If the book has ONLY chapter titles (no subtitles), mark all kept items as chapter.',
+      '- Clean titles: no duplicated tails like "TITLE — TITLE", no spaced letters like "A L L A B O U T".',
+      '- Keep reading order. ids MUST be from the candidate list. Do not invent ids or pages.',
+      '- Prefer fewer clean sections over many overlapping scraps.',
+      '',
+      'Candidates: ' + JSON.stringify(payload.slice(0, 160))
     ].join('\n');
+
     const res = await askGemini(prompt, {
       temperature: 0.1,
       maxOutputTokens: 4096,
       responseMimeType: 'application/json',
-      systemInstruction: 'STRICT JSON only. Preserve ids and reading order.',
+      systemInstruction: 'STRICT JSON only. sections[].id must be subset of candidate ids in order.',
       retries: 1
     });
     const parsed = extractJson(res.text || res.answer || '');
-    const items = (parsed && parsed.items) || [];
-    if (!Array.isArray(items) || items.length !== units.length) return units;
-    const byId = new Map(items.map((it) => [String(it.id || ''), it]));
-    return units.map((u) => {
-      const hit = byId.get(String(u.id));
-      if (!hit) return u;
-      const chapterNum = Math.max(1, Number(hit.chapter_num) || u.chapterNum || 1);
-      const chapterTitle = String(hit.chapter_title || u.chapterTitle || '').trim() || u.chapterTitle;
-      let title = String(hit.title || u.title || '').trim() || u.title;
-      // Reject AI-invented prose titles
-      if (isProseFragment(title) && !isExplicitChapterHeading(title)) title = u.title;
-      const kind = String(hit.kind || u.kind) === 'chapter' ? 'chapter' : 'subtitle';
-      const label = kind === 'chapter' ? title : (chapterTitle + ' — ' + title);
-      return Object.assign({}, u, { chapterNum, chapterTitle, title, kind, label });
+    const sections = Array.isArray(parsed && parsed.sections) ? parsed.sections : [];
+    if (!sections.length) {
+      return mergeTitleFragmentUnits(next);
+    }
+
+    const byId = new Map(next.map((u) => [String(u.id), u]));
+    const keepIds = [];
+    const metaById = new Map();
+    sections.forEach((sec) => {
+      const id = String(sec && sec.id || '');
+      if (!id || !byId.has(id) || metaById.has(id)) return;
+      keepIds.push(id);
+      metaById.set(id, {
+        title: cleanHeadingTitle(sec.title || byId.get(id).title || ''),
+        kind: String(sec.kind || '').toLowerCase() === 'chapter' ? 'chapter' : 'subtitle'
+      });
     });
+    if (!keepIds.length) return mergeTitleFragmentUnits(next);
+
+    // Merge dropped candidates into the previous kept section (page-order sweep)
+    const keepSet = new Set(keepIds);
+    const merged = [];
+    next.forEach((u, i) => {
+      const id = String(u.id);
+      const keep = keepSet.has(id) || (i === 0 && !merged.length && !keepSet.size);
+      if (keepSet.has(id)) {
+        const meta = metaById.get(id) || {};
+        merged.push(Object.assign({}, u, {
+          title: meta.title || cleanHeadingTitle(u.title),
+          kind: meta.kind || u.kind,
+          text: u.text || ''
+        }));
+        return;
+      }
+      if (!merged.length) {
+        // Leading junk before first kept heading — skip empty scraps, else hold until first keep
+        return;
+      }
+      const prev = merged[merged.length - 1];
+      prev.endPage = Math.max(prev.endPage || 0, u.endPage || 0);
+      prev.text = [prev.text || '', u.text || ''].filter(Boolean).join('\n\n').trim();
+    });
+
+    if (!merged.length) return mergeTitleFragmentUnits(next);
+
+    // Rebuild chapter nesting from AI kinds
+    let chapterNum = 0;
+    let chapterTitle = 'Opening';
+    const rebuilt = merged.map((u, i) => {
+      let title = cleanHeadingTitle(u.title || '') || ('Section starting p.' + u.startPage);
+      let kind = u.kind === 'chapter' ? 'chapter' : 'subtitle';
+      if (kind === 'chapter' || isExplicitChapterHeading(title) || isChapterHeading(title)) {
+        kind = 'chapter';
+        chapterNum += 1;
+        chapterTitle = title;
+      } else if (chapterNum === 0) {
+        chapterNum = 1;
+        chapterTitle = 'Chapter 1';
+      }
+      return {
+        id: 'u' + (i + 1),
+        index: i,
+        chapterNum,
+        chapterTitle,
+        title,
+        kind,
+        label: kind === 'chapter' ? title : (chapterTitle + ' — ' + title),
+        startPage: u.startPage,
+        endPage: u.endPage,
+        text: u.text || ''
+      };
+    });
+    return mergeTitleFragmentUnits(rebuilt);
   } catch (e) {
-    console.warn('novelStudy structure refine failed', e.message);
-    return units;
+    console.warn('novelStudy structure classify failed', e.message);
+    return mergeTitleFragmentUnits(next);
   }
 }
 
@@ -3544,7 +3778,7 @@ async function runPlanning(jobId, teacherId) {
       meta.genre = job.options.genre;
     }
 
-    bump(80, 'Organizing chapter → subtitle list…');
+    bump(80, 'AI classifying chapters vs subtitles…');
     units = await refineStructureWithAi(units, planOpts);
 
     cleanupJobFiles(job);
@@ -4044,9 +4278,12 @@ module.exports = {
     isStrongSubtitleTitle,
     isExplicitChapterHeading,
     isRealHeading,
+    isStackableTitleLine,
     guessHeading,
     splitPageByHeadings,
     collapseWeakStructureUnits,
+    mergeTitleFragmentUnits,
+    cleanHeadingTitle,
     trimToBookBody,
     putJob(job) {
       if (!job || !job.id) throw new Error('job.id required');
