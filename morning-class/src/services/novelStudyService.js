@@ -2136,11 +2136,59 @@ function buildToc(pages, banned) {
   return toc;
 }
 
+/** Lone chapter number as printed on stylized divider pages ("2", "IV"). */
+function isLoneChapterNumber(title) {
+  const t = String(title || '').trim();
+  if (!t) return false;
+  if (/^\d{1,2}$/.test(t)) {
+    const n = Number(t);
+    return n >= 1 && n <= 40;
+  }
+  // Roman numerals used as chapter numbers (avoid matching short ALL CAPS words)
+  return /^(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)$/i.test(t);
+}
+
+/**
+ * Stylized chapter divider pages often have almost no body — just a number and/or
+ * a short ALL CAPS title on an otherwise empty/colored page (e.g. "2" + "THE SAPIENS' SUPERPOWER").
+ */
+function isSparseChapterDividerText(pageText) {
+  const raw = String(pageText || '');
+  const compact = pageCharCount(raw);
+  if (!compact || compact > 140) return false;
+  const lines = pageLinesWithBreaks(raw).filter(Boolean);
+  if (!lines.length || lines.length > 8) return false;
+  // Must not look like normal prose paragraphs
+  if (lines.some((l) => looksLikeBodyProseLine(l))) return false;
+  const titleLike = lines.every((l) => (
+    isLoneChapterNumber(l)
+    || isStackableTitleLine(l, null)
+    || isStrongSubtitleTitle(l)
+    || isExplicitChapterHeading(l)
+  ));
+  if (!titleLike) return false;
+  // Need either a chapter number or a real ALL CAPS / strong title
+  return lines.some((l) => isLoneChapterNumber(l) || isStrongSubtitleTitle(l) || isExplicitChapterHeading(l));
+}
+
 function isChapterHeading(title) {
   const t = String(title || '').trim();
   if (!t) return false;
   if (/^(chapter|ch\.?|part|unit)\s*[ivxlc0-9]+/i.test(t)) return true;
   if (/^(prologue|epilogue|introduction|preface|afterword|conclusion)\b/i.test(t)) return true;
+  if (isLoneChapterNumber(t)) return true;
+  return false;
+}
+
+/** True when this unit should open a new chapter (explicit heading or sparse divider page). */
+function isChapterUnit(title, pageText) {
+  const t = String(title || '').trim();
+  if (isChapterHeading(t) || isExplicitChapterHeading(t)) return true;
+  if (pageText != null && isSparseChapterDividerText(pageText) && (
+    isStrongSubtitleTitle(t) || isChapterHeading(t) || isLoneChapterNumber(t)
+  )) {
+    return true;
+  }
   return false;
 }
 
@@ -2235,13 +2283,19 @@ function collectStackedHeading(lines, startIdx, banned) {
     return p;
   });
   let heading = cleanHeadingTitle(joinedParts.join(' '));
-  // If first token is only a chapter number, keep it in title ("1 HUMANS ARE ANIMALS")
-  // but prefer "Chapter 1: HUMANS ARE ANIMALS" when number + words
-  if (parts.length >= 2 && /^[0-9IVXLC]{1,4}$/i.test(parts[0])) {
-    const rest = cleanHeadingTitle(joinedParts.slice(1).join(' '));
-    heading = /^\d+$/.test(parts[0])
-      ? ('Chapter ' + parts[0] + (rest ? (': ' + rest) : ''))
-      : cleanHeadingTitle(joinedParts.join(' '));
+  // Lone chapter number on a divider page ("2") → "Chapter 2"
+  // Number + title ("2" / "THE SAPIENS'" / "SUPERPOWER") → "Chapter 2: THE SAPIENS' SUPERPOWER"
+  if (parts.length >= 1 && isLoneChapterNumber(parts[0])) {
+    const rest = parts.length >= 2
+      ? cleanHeadingTitle(joinedParts.slice(1).join(' '))
+      : '';
+    if (/^\d+$/.test(parts[0])) {
+      heading = 'Chapter ' + parts[0] + (rest ? (': ' + rest) : '');
+    } else {
+      heading = rest
+        ? cleanHeadingTitle(parts[0] + ' ' + rest)
+        : cleanHeadingTitle(parts[0]);
+    }
   }
   return { heading, startIndex: startIdx, endIndex: end };
 }
@@ -2418,18 +2472,23 @@ function extractStructureUnits(pages) {
   const units = [];
   raw.forEach((sec) => {
     let title = String(sec.unitTitle || '').trim() || ('Section starting p.' + sec.startPage);
+    const pageText = (sec.pages || []).map((pg) => pg.text).join('\n');
     // Drop leftover prose-looking titles (safety net)
-    if (isProseFragment(title) && !isExplicitChapterHeading(title)) {
+    if (isProseFragment(title) && !isExplicitChapterHeading(title) && !isLoneChapterNumber(title)) {
       title = 'Section starting p.' + sec.startPage;
     }
-    if (isChapterHeading(title) || isExplicitChapterHeading(title)) {
+    // Normalize bare divider numbers before classification
+    if (isLoneChapterNumber(title)) {
+      title = /^\d+$/.test(title.trim()) ? ('Chapter ' + title.trim()) : title;
+    }
+    if (isChapterUnit(title, pageText)) {
       chapterNum += 1;
       chapterTitle = title;
     } else if (chapterNum === 0) {
       chapterNum = 1;
       chapterTitle = 'Chapter 1';
     }
-    const kind = (isChapterHeading(title) || isExplicitChapterHeading(title)) ? 'chapter' : 'subtitle';
+    const kind = isChapterUnit(title, pageText) ? 'chapter' : 'subtitle';
     const label = kind === 'chapter'
       ? title
       : (chapterTitle + ' — ' + title);
@@ -2524,8 +2583,11 @@ function mergeTitleFragmentUnits(units) {
   let chapterTitle = 'Opening';
   return out.map((u, i) => {
     let title = cleanHeadingTitle(u.title || '') || ('Section starting p.' + u.startPage);
-    // Sparse divider titles with "Chapter N:" are chapters
-    const kind = (isChapterHeading(title) || isExplicitChapterHeading(title) || /^chapter\s+\d+/i.test(title))
+    if (isLoneChapterNumber(title)) {
+      title = /^\d+$/.test(title.trim()) ? ('Chapter ' + title.trim()) : title;
+    }
+    // Sparse divider titles (number-only / title-only chapter pages) stay chapters
+    const kind = isChapterUnit(title, u.text) || /^chapter\s+\d+/i.test(title)
       ? 'chapter'
       : 'subtitle';
     if (kind === 'chapter') {
@@ -2560,9 +2622,11 @@ function collapseWeakStructureUnits(units) {
   const out = [];
   list.forEach((u) => {
     const title = String(u.title || '').trim();
-    const strong = isExplicitChapterHeading(title)
+    const strong = isChapterUnit(title, u.text)
+      || isExplicitChapterHeading(title)
       || isChapterHeading(title)
-      || isStrongSubtitleTitle(title);
+      || isStrongSubtitleTitle(title)
+      || isLoneChapterNumber(title);
     if (!out.length || strong) {
       out.push(Object.assign({}, u, {
         pages: undefined,
@@ -2579,15 +2643,18 @@ function collapseWeakStructureUnits(units) {
   let chapterNum = 0;
   let chapterTitle = 'Opening';
   return out.map((u, i) => {
-    const title = String(u.title || '').trim() || ('Section starting p.' + u.startPage);
-    if (isChapterHeading(title) || isExplicitChapterHeading(title)) {
+    let title = String(u.title || '').trim() || ('Section starting p.' + u.startPage);
+    if (isLoneChapterNumber(title)) {
+      title = /^\d+$/.test(title.trim()) ? ('Chapter ' + title.trim()) : title;
+    }
+    const kind = isChapterUnit(title, u.text) ? 'chapter' : 'subtitle';
+    if (kind === 'chapter') {
       chapterNum += 1;
       chapterTitle = title;
     } else if (chapterNum === 0) {
       chapterNum = 1;
       chapterTitle = 'Chapter 1';
     }
-    const kind = (isChapterHeading(title) || isExplicitChapterHeading(title)) ? 'chapter' : 'subtitle';
     return {
       id: 'u' + (i + 1),
       index: i,
@@ -2634,7 +2701,8 @@ async function refineStructureWithAi(units, options) {
       '- Keep ONLY real structural headings. Drop body-prose scraps and incomplete title fragments.',
       '- If two candidates are parts of ONE visual title (e.g. "WE USED TO" + "BE WILD"), keep a SINGLE section with the full title "WE USED TO BE WILD" (use the later/longer id; earlier fragment ids are dropped and will be merged).',
       '- kind=chapter for major chapter dividers (e.g. "Chapter 1", "Chapter 1: HUMANS ARE ANIMALS", numbered chapter openers).',
-      '- kind=subtitle for section headings under a chapter (e.g. "WE USED TO BE WILD").',
+      '- Also kind=chapter for stylized divider pages that are mostly empty except a lone number ("2") and/or a short ALL CAPS chapter title (e.g. "THE SAPIENS\' SUPERPOWER") — these open a new chapter even without the word "Chapter".',
+      '- kind=subtitle for section headings under a chapter (e.g. "BANANA ADVENTURES", "WE USED TO BE WILD").',
       '- If the book has NO chapters (only section titles), mark all kept items as subtitle.',
       '- If the book has ONLY chapter titles (no subtitles), mark all kept items as chapter.',
       '- Clean titles: no duplicated tails like "TITLE — TITLE", no spaced letters like "A L L A B O U T".',
@@ -2703,7 +2771,7 @@ async function refineStructureWithAi(units, options) {
     const rebuilt = merged.map((u, i) => {
       let title = cleanHeadingTitle(u.title || '') || ('Section starting p.' + u.startPage);
       let kind = u.kind === 'chapter' ? 'chapter' : 'subtitle';
-      if (kind === 'chapter' || isExplicitChapterHeading(title) || isChapterHeading(title)) {
+      if (kind === 'chapter' || isChapterUnit(title, u.text) || isExplicitChapterHeading(title) || isChapterHeading(title)) {
         kind = 'chapter';
         chapterNum += 1;
         chapterTitle = title;
@@ -4356,6 +4424,9 @@ module.exports = {
     collectRunningHeaders,
     extractStructureUnits,
     isChapterHeading,
+    isChapterUnit,
+    isLoneChapterNumber,
+    isSparseChapterDividerText,
     isProseFragment,
     isStrongSubtitleTitle,
     isExplicitChapterHeading,
