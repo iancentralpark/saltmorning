@@ -312,7 +312,7 @@ function buildPartWorksheet(part, options) {
 
   children.push(heading(letters.reflection + '. Extended Response', HeadingLevel.HEADING_2));
   const refs = part.reflection || [];
-  const reflectionLines = refs.length > 1 ? 5 : 6;
+  const reflectionLines = refs.length > 1 ? 5 : 7;
   refs.forEach((q, i) => {
     const typeLabel = reflectionTypeLabel(q.type);
     children.push(p([

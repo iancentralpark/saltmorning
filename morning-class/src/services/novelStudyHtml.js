@@ -235,10 +235,10 @@ function buildPartHtml(part, options) {
   if (!refs.length) {
     bits.push('<p class="muted">(No extended-response prompts.)</p>');
   } else {
-    // A one-paragraph answer needs real room to write: 6 lines for a single
+    // A one-paragraph answer needs real room to write: 7 lines for a single
     // prompt, 5 when there are two (page-break rules above let this section
     // flow onto the next page rather than forcing a blank-space jump).
-    const linesPerPrompt = refs.length > 1 ? 5 : 6;
+    const linesPerPrompt = refs.length > 1 ? 5 : 7;
     refs.forEach((q, i) => {
       const typeLabel = reflectionTypeLabel(q.type);
       const prompt = compactExtendedPrompt(q.question || '', 160);
@@ -543,18 +543,20 @@ function wrapHtmlDocument(title, bodyHtml) {
       font-size: 1.18rem;
       line-height: 1.18;
     }
-    h2 { margin: 0.5rem 0 0.25rem; font-size: 1.05rem; }
-    /* A bit more breathing room between questions — fills leftover page space
-       instead of leaving it all as one blank gap at the bottom. */
-    .q { margin: 0.35rem 0 0.7rem; }
-    .q-stem { margin: 0 0 0.26rem; }
-    .choices li { margin: 0.13rem 0; }
-    .section-block { margin: 0 0 0.5rem; }
-    /* Generous enough for a student to actually write on when printed. */
-    .write-line-short { height: 1.55rem; margin: 0.22rem 0; }
-    .write-line-long { height: 1.65rem; margin: 0.24rem 0; }
+    h2 { margin: 0.6rem 0 0.32rem; font-size: 1.05rem; }
+    /* Print preview is the source of truth: give questions real breathing room
+       so leftover A4 space is absorbed between items, not dumped as one blank
+       gap under section C. Tuned so Part 6 stays on 1 page (~7.5% trailing blank). */
+    .q { margin: 0.5rem 0 0.95rem; }
+    .q-stem { margin: 0 0 0.32rem; }
+    .choices li { margin: 0.18rem 0; }
+    .section-block { margin: 0 0 0.7rem; }
+    /* Match on-screen write-line height — earlier print CSS shrunk lines vs
+       screen, which made the bottom look emptier in Chrome print preview. */
+    .write-line-short { height: 1.75rem; margin: 0.28rem 0; }
+    .write-line-long { height: 1.85rem; margin: 0.3rem 0; }
     .reading-range { margin: 0.06rem 0 0.22rem; font-size: 0.86rem; }
-    .sheet { padding: 9mm 10mm 9mm; }
+    .sheet { padding: 8.5mm 10mm 8.5mm; }
     .no-print { display: none !important; }
   }
   @media screen and (max-width: 900px) {
