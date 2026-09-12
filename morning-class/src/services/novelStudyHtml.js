@@ -235,6 +235,10 @@ function buildPartHtml(part, options) {
   if (!refs.length) {
     bits.push('<p class="muted">(No extended-response prompts.)</p>');
   } else {
+    // A one-paragraph answer needs real room to write: 6 lines for a single
+    // prompt, 5 when there are two (page-break rules above let this section
+    // flow onto the next page rather than forcing a blank-space jump).
+    const linesPerPrompt = refs.length > 1 ? 5 : 6;
     refs.forEach((q, i) => {
       const typeLabel = reflectionTypeLabel(q.type);
       const prompt = compactExtendedPrompt(q.question || '', 160);
@@ -244,7 +248,7 @@ function buildPartHtml(part, options) {
       bits.push('<p class="q-stem"><b>' + (i + 1) + '.</b> ' +
         (typeLabel ? '<span class="type-tag">[' + esc(typeLabel) + ']</span> ' : '') +
         esc(prompt) + '</p>');
-      bits.push(answerLinesHtml(3, 'long'));
+      bits.push(answerLinesHtml(linesPerPrompt, 'long'));
       bits.push('</div>');
     });
   }
@@ -539,12 +543,13 @@ function wrapHtmlDocument(title, bodyHtml) {
       font-size: 1.18rem;
       line-height: 1.18;
     }
-    h2 { margin: 0.32rem 0 0.14rem; font-size: 1.02rem; }
-    .q { margin: 0.16rem 0 0.28rem; }
-    .q-stem { margin: 0 0 0.12rem; }
-    .choices li { margin: 0.05rem 0; }
-    .write-line-short { height: 1.28rem; margin: 0.08rem 0; }
-    .write-line-long { height: 1.38rem; margin: 0.1rem 0; }
+    h2 { margin: 0.4rem 0 0.2rem; font-size: 1.05rem; }
+    .q { margin: 0.22rem 0 0.4rem; }
+    .q-stem { margin: 0 0 0.2rem; }
+    .choices li { margin: 0.08rem 0; }
+    /* Generous enough for a student to actually write on when printed. */
+    .write-line-short { height: 1.55rem; margin: 0.2rem 0; }
+    .write-line-long { height: 1.65rem; margin: 0.22rem 0; }
     .reading-range { margin: 0.06rem 0 0.22rem; font-size: 0.86rem; }
     .sheet { padding: 9mm 10mm 9mm; }
     .no-print { display: none !important; }

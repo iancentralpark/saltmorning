@@ -261,7 +261,6 @@ function buildMasterVocab(parts) {
 
 function buildPartWorksheet(part, options) {
   const shortLines = 2;
-  const reflectionLines = 3;
   const letters = sectionLetters(false);
 
   const children = [
@@ -312,7 +311,9 @@ function buildPartWorksheet(part, options) {
   }
 
   children.push(heading(letters.reflection + '. Extended Response', HeadingLevel.HEADING_2));
-  (part.reflection || []).forEach((q, i) => {
+  const refs = part.reflection || [];
+  const reflectionLines = refs.length > 1 ? 5 : 6;
+  refs.forEach((q, i) => {
     const typeLabel = reflectionTypeLabel(q.type);
     children.push(p([
       run((i + 1) + '. ', { bold: true }),
