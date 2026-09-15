@@ -121,11 +121,57 @@ async function clearWithdrawnMarkRange(classId, studentName, fromDateStr, toDate
   if (error) throw new Error(error.message || 'Could not clear withdrawn marks.');
 }
 
+/**
+ * Move mark history from oldName → newName. Upserts under the new name first
+ * so PK conflicts (same date already under newName) keep the newer/existing row,
+ * then deletes the old-name rows.
+ */
+async function renameStudentMarks(classId, oldName, newName) {
+  const db = getSupabase();
+  classId = String(classId);
+  oldName = String(oldName || '').trim();
+  newName = String(newName || '').trim();
+  if (!oldName || !newName || oldName === newName) return { updated: 0 };
+
+  const { data, error } = await db
+    .from('class_log_student_marks')
+    .select('log_date, mark')
+    .eq('class_id', classId)
+    .eq('student_name', oldName);
+  if (error) throw new Error(error.message || 'Could not load marks for rename.');
+  const rows = data || [];
+  if (!rows.length) return { updated: 0 };
+
+  const upsertRows = rows.map(function(r) {
+    return {
+      class_id: classId,
+      student_name: newName,
+      log_date: r.log_date,
+      mark: r.mark,
+      updated_at: isoNow()
+    };
+  });
+  const { error: upErr } = await db.from('class_log_student_marks').upsert(upsertRows, {
+    onConflict: 'class_id,student_name,log_date'
+  });
+  if (upErr) throw new Error(upErr.message || 'Could not rename marks.');
+
+  const { error: delErr } = await db
+    .from('class_log_student_marks')
+    .delete()
+    .eq('class_id', classId)
+    .eq('student_name', oldName);
+  if (delErr) throw new Error(delErr.message || 'Could not clear old mark name.');
+
+  return { updated: rows.length };
+}
+
 module.exports = {
   saveClassLogEntry,
   getDaily,
   upsertStudentMark,
   backfillMarkRange,
   clearWithdrawnMarkRange,
+  renameStudentMarks,
   upsertDaily
 };
