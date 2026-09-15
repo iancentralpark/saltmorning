@@ -138,6 +138,52 @@ function englishNameTokens(name) {
     .map(function(t) { return t.toLowerCase(); });
 }
 
+function editDistance(a, b) {
+  const s = String(a || '');
+  const t = String(b || '');
+  if (s === t) return 0;
+  if (!s.length) return t.length;
+  if (!t.length) return s.length;
+  const prev = new Array(t.length + 1);
+  const cur = new Array(t.length + 1);
+  for (let j = 0; j <= t.length; j++) prev[j] = j;
+  for (let i = 1; i <= s.length; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= t.length; j++) {
+      const cost = s.charCodeAt(i - 1) === t.charCodeAt(j - 1) ? 0 : 1;
+      cur[j] = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= t.length; j++) prev[j] = cur[j];
+  }
+  return prev[t.length];
+}
+
+/**
+ * True when two English "First Last" names look like a rename of the same person
+ * (e.g. Diane Nam → Dayeon Nam). Requires shared last name + similar first name.
+ * Surname uniqueness across the roster is enforced by matchStudentName.
+ */
+function isLikelyNameRename(nameA, nameB) {
+  const aToks = englishNameTokens(nameA);
+  const bToks = englishNameTokens(nameB);
+  if (aToks.length < 2 || bToks.length < 2) return false;
+  const aLast = aToks[aToks.length - 1];
+  const bLast = bToks[bToks.length - 1];
+  if (aLast !== bLast || aLast.length < 2) return false;
+  const aFirst = aToks[0];
+  const bFirst = bToks[0];
+  if (aFirst === bFirst) return false; // identical given name — not a rename signal
+  if (aFirst.charAt(0) !== bFirst.charAt(0)) return false;
+  const dist = editDistance(aFirst, bFirst);
+  const maxLen = Math.max(aFirst.length, bFirst.length);
+  return dist > 0 && dist <= Math.max(3, Math.ceil(maxLen * 0.55));
+}
+
+function lastEnglishToken(name) {
+  const toks = englishNameTokens(name);
+  return toks.length ? toks[toks.length - 1] : '';
+}
+
 /** True when sheet English tokens safely align with a roster English name. */
 function englishTokensCompatible(rosterToks, sheetToks) {
   if (!rosterToks.length || !sheetToks.length) return false;
@@ -158,6 +204,8 @@ function englishTokensCompatible(rosterToks, sheetToks) {
  * Exact / full-name contains, plus historical "한글 EnglishFirst" ↔ "EnglishFirst Last"
  * when that English token set uniquely identifies one roster student
  * (so "Paul Lee" must not hit "Sean Lee").
+ * Also treats clear given-name renames with the same unique surname
+ * (Diane Nam → Dayeon Nam) as the same student so history stays on one row.
  */
 function matchStudentName(backendName, logName, roster) {
   const bn = normalizeCell(backendName);
@@ -168,15 +216,26 @@ function matchStudentName(backendName, logName, roster) {
 
   const bToks = englishNameTokens(backendName);
   const lToks = englishNameTokens(logName);
-  if (!englishTokensCompatible(bToks, lToks)) return false;
+  if (englishTokensCompatible(bToks, lToks)) {
+    if (!Array.isArray(roster) || !roster.length) return true;
+    const hits = roster.filter(function(s) {
+      return englishTokensCompatible(englishNameTokens(s.name), lToks);
+    });
+    if (hits.length === 1 && normalizeCell(hits[0].name) === bn) return true;
+  }
 
+  // Given-name rename with shared surname (Diane Nam ↔ Dayeon Nam).
+  if (!isLikelyNameRename(backendName, logName)) return false;
   if (!Array.isArray(roster) || !roster.length) return true;
-
-  const hits = roster.filter(function(s) {
-    return englishTokensCompatible(englishNameTokens(s.name), lToks);
+  const last = lastEnglishToken(logName);
+  if (!last) return false;
+  const surnameHits = roster.filter(function(s) {
+    return lastEnglishToken(s.name) === last;
   });
-  if (hits.length !== 1) return false;
-  return normalizeCell(hits[0].name) === bn;
+  // Only auto-match when this surname uniquely identifies one enrolled student.
+  if (surnameHits.length !== 1) return false;
+  if (normalizeCell(surnameHits[0].name) !== bn) return false;
+  return isLikelyNameRename(surnameHits[0].name, logName);
 }
 
 async function resolveBlockEnd(tabName, monthStart0) {
@@ -363,11 +422,63 @@ async function readPackedStudentNameRows(tabName, monthStart0, config) {
   return { startRow1, end0, nameRows };
 }
 
+async function renameStudentMarksInStore(classId, oldName, newName) {
+  oldName = String(oldName || '').trim();
+  newName = String(newName || '').trim();
+  if (!oldName || !newName || normalizeCell(oldName) === normalizeCell(newName)) return { updated: 0 };
+  try {
+    const { isSupabaseEnabled } = require('./supabaseClient');
+    if (!isSupabaseEnabled()) return { updated: 0 };
+    return await require('./supabaseClassLogStore').renameStudentMarks(classId, oldName, newName);
+  } catch (err) {
+    console.error('renameStudentMarksInStore', err.message || err);
+    return { updated: 0, error: err.message || String(err) };
+  }
+}
+
+/**
+ * Rename a student across every month block on their class-log tab, and mirror
+ * Supabase mark rows. Preserves all O/X history on the same sheet row.
+ */
+async function renameStudentInClassLog(classId, oldName, newName) {
+  classId = String(classId || '').trim();
+  oldName = String(oldName || '').trim();
+  newName = String(newName || '').trim();
+  if (!classId || !oldName || !newName) {
+    return { renamed: 0, reason: 'missing_args' };
+  }
+  if (normalizeCell(oldName) === normalizeCell(newName)) {
+    return { renamed: 0, reason: 'same_name' };
+  }
+
+  const config = getTabConfig(classId);
+  let sheetRenamed = 0;
+  if (config) {
+    const colA = await getClassLogColumnA(config.tab, 500);
+    const target = normalizeCell(oldName);
+    for (let i = 0; i < colA.length; i++) {
+      const cell = colA[i] && colA[i][0];
+      if (!cell || !String(cell).trim()) continue;
+      if (MONTH_HEADER_RE.test(String(cell).trim())) continue;
+      if (normalizeCell(cell) !== target) continue;
+      await updateClassLogRange(config.tab, `A${i + 1}`, [[newName]]);
+      sheetRenamed += 1;
+    }
+  }
+
+  const storeResult = await renameStudentMarksInStore(classId, oldName, newName);
+  return {
+    renamed: sheetRenamed,
+    storeUpdated: (storeResult && storeResult.updated) || 0,
+    tab: config ? config.tab : null
+  };
+}
+
 /**
  * Keep one row per roster student. Only delete *duplicate* rows of a matched
  * student. Never delete unmatched historical names (e.g. "호윤혁 Ethan" when
  * the roster says "Ethan Ho") and never delete trailing blank padding.
- * Fuzzy-matched rows are renamed in place so marks stay intact.
+ * Fuzzy-matched / likely-rename rows are renamed in place so marks stay intact.
  * New students get one row with prior date columns left blank.
  */
 async function ensureStudentRows(tabName, monthStart0, config, blockEnd0, classId, monthFirstDay) {
@@ -1178,6 +1289,8 @@ module.exports = {
   getClassLogEntry,
   getTabConfig,
   matchStudentName,
+  isLikelyNameRename,
+  renameStudentInClassLog,
   getClassLogRosterForMonth,
   backfillWithdrawnInClassLog,
   clearWithdrawnMarksInClassLog,

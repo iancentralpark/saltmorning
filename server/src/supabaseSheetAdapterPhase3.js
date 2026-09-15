@@ -605,11 +605,20 @@ async function appendRows(sheetName, rows) {
   if (!bodyRows.length) return;
 
   if (sheetName === STUDENT_LIST_SHEET) {
+    const existingStudents = await queryStudents(db, { orderBy: 'sort_order' }).catch(function() { return []; });
+    const oldNameById = {};
+    (existingStudents || []).forEach(function(s) {
+      if (s && s.id != null) oldNameById[String(s.id)] = String(s.name || '').trim();
+    });
+
     const payload = [];
+    const pendingRenames = [];
     for (const row of bodyRows) {
       const plain = String(row[5] || '');
       const passwordHash = plain ? await hashPassword(plain) : '';
       const classId = String(row[2] || '');
+      const studentId = String(row[0] || '');
+      const newName = String(row[1] || '').trim();
       let sortOrder = row[6] != null && String(row[6]).trim() !== ''
         ? Number(row[6]) || 0
         : null;
@@ -619,9 +628,13 @@ async function appendRows(sheetName, rows) {
           return Math.max(max, Number(s.sort_order) || 0);
         }, -1) + 1;
       }
+      const oldName = oldNameById[studentId] || '';
+      if (oldName && newName && oldName.toLowerCase() !== newName.toLowerCase()) {
+        pendingRenames.push({ classId: classId, oldName: oldName, newName: newName });
+      }
       payload.push({
-        id: String(row[0]),
-        name: String(row[1] || ''),
+        id: studentId,
+        name: newName,
         class_id: classId,
         status: String(row[3] || ''),
         login_id: String(row[4] || ''),
@@ -632,6 +645,17 @@ async function appendRows(sheetName, rows) {
     }
     const { error } = await db.from('students').upsert(payload, { onConflict: 'id' });
     if (error) throw new Error(error.message);
+
+    if (pendingRenames.length) {
+      const { renameStudentInClassLog } = require('./classLogService');
+      for (const r of pendingRenames) {
+        try {
+          await renameStudentInClassLog(r.classId, r.oldName, r.newName);
+        } catch (e) {
+          console.error('renameStudentInClassLog after Student_List upsert', r, e.message || e);
+        }
+      }
+    }
     return;
   }
 
