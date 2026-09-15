@@ -23,6 +23,7 @@ const {
   deleteTeacherRecord
 } = require('./teacherRegistryService');
 const { parseHomeroomClassIds, serializeHomeroomClassIds } = require('./teacherPortalService');
+const { isOpsDbEnabled, table, query } = require('../db/pool');
 const crypto = require('crypto');
 
 function newId(prefix) {
@@ -200,21 +201,51 @@ async function getMonitoringFeed(options) {
 
   const items = [];
 
-  const att = await getSheetRows(ATTENDANCE_SHEET);
-  for (let i = 1; i < att.length; i++) {
-    const classId = String(att[i][1]);
-    if (classFilter && classId !== classFilter) continue;
-    const studentId = String(att[i][2]);
-    items.push({
-      type: 'attendance',
-      at: formatSheetDate(att[i][0]) + 'T12:00:00',
-      date: formatSheetDate(att[i][0]),
-      classId,
-      className: nameMaps.class[classId] || classId,
-      studentId,
-      studentName: nameMaps.student[studentId] || studentId,
-      summary: String(att[i][3] || '') + (att[i][5] ? ' (excuse)' : '')
+  // Daily attendance lives in Postgres when ops DB is enabled (same as teacher save path).
+  if (isOpsDbEnabled()) {
+    const params = [];
+    let sql =
+      'SELECT record_date, class_id, student_id, attendance, excuse, updated_at FROM ' +
+      table('attendance_records');
+    if (classFilter) {
+      params.push(classFilter);
+      sql += ' WHERE class_id = $1';
+    }
+    sql += ' ORDER BY record_date DESC, updated_at DESC LIMIT ' + Math.max(limit * 3, 120);
+    const r = await query(sql, params);
+    r.rows.forEach((row) => {
+      const classId = String(row.class_id || '');
+      const studentId = String(row.student_id || '');
+      const date = formatSheetDate(row.record_date);
+      const excuse = String(row.excuse || '').trim();
+      items.push({
+        type: 'attendance',
+        at: (row.updated_at ? new Date(row.updated_at).toISOString() : date + 'T12:00:00'),
+        date,
+        classId,
+        className: nameMaps.class[classId] || classId,
+        studentId,
+        studentName: nameMaps.student[studentId] || studentId,
+        summary: String(row.attendance || '') + (excuse ? ' (excuse)' : '')
+      });
     });
+  } else {
+    const att = await getSheetRows(ATTENDANCE_SHEET);
+    for (let i = 1; i < att.length; i++) {
+      const classId = String(att[i][1]);
+      if (classFilter && classId !== classFilter) continue;
+      const studentId = String(att[i][2]);
+      items.push({
+        type: 'attendance',
+        at: formatSheetDate(att[i][0]) + 'T12:00:00',
+        date: formatSheetDate(att[i][0]),
+        classId,
+        className: nameMaps.class[classId] || classId,
+        studentId,
+        studentName: nameMaps.student[studentId] || studentId,
+        summary: String(att[i][3] || '') + (att[i][5] ? ' (excuse)' : '')
+      });
+    }
   }
 
   const grades = await getSheetRows(GRADES_DAILY_SHEET);
