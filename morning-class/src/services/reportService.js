@@ -9,13 +9,64 @@ const { getHolidaysForMonth } = require('../holiday');
 const { countsAsPresent, parseAttendanceRow, normalizeAllowedDays } = require('./attendanceService');
 const { getPlannedForClassMonth } = require('./plannedAttendanceService');
 const { listEntries, resolveDay } = require('./schoolCalendarService');
+const { isOpsDbEnabled, table, query } = require('../db/pool');
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const ATT_MAP = {
   '출석': { label: 'O', cls: 'att-present' },
   '지각': { label: '△', cls: 'att-tardy' },
-  '결석': { label: 'X', cls: 'att-absent' }
+  '결석': { label: 'X', cls: 'att-absent' },
+  '조퇴': { label: 'O', cls: 'att-present' }
 };
+
+/**
+ * Load attendance rows for a month into recordMap[classId][date][studentId].
+ * When ops DB is on, daily Present/Tardy/Absent writes go to Postgres — the
+ * monthly report must read the same store (Sheets alone looks empty).
+ */
+async function loadAttendanceRecordMap(monthPrefix, from, to, classId) {
+  const recordMap = {};
+
+  if (isOpsDbEnabled()) {
+    const params = [from, to];
+    let sql =
+      'SELECT record_date, class_id, student_id, attendance, note, excuse FROM ' +
+      table('attendance_records') +
+      ' WHERE record_date >= $1::date AND record_date <= $2::date';
+    if (classId && classId !== 'ALL') {
+      params.push(String(classId));
+      sql += ' AND class_id = $' + params.length;
+    }
+    const r = await query(sql, params);
+    r.rows.forEach((row) => {
+      const rDate = formatSheetDate(row.record_date);
+      if (rDate.slice(0, 7) !== monthPrefix) return;
+      const cid = String(row.class_id || '');
+      const sid = String(row.student_id || '');
+      if (!cid || !sid) return;
+      if (!recordMap[cid]) recordMap[cid] = {};
+      if (!recordMap[cid][rDate]) recordMap[cid][rDate] = {};
+      recordMap[cid][rDate][sid] = {
+        attendance: String(row.attendance || ''),
+        note: String(row.note == null ? '' : row.note).trim(),
+        excuse: String(row.excuse || '').trim()
+      };
+    });
+    return recordMap;
+  }
+
+  const attendData = await getSheetRows(ATTENDANCE_SHEET);
+  for (let i = 1; i < attendData.length; i++) {
+    const rDate = formatSheetDate(attendData[i][0]);
+    if (rDate.slice(0, 7) !== monthPrefix) continue;
+    const cid = attendData[i][1];
+    const sid = attendData[i][2];
+    if (!recordMap[cid]) recordMap[cid] = {};
+    if (!recordMap[cid][rDate]) recordMap[cid][rDate] = {};
+    recordMap[cid][rDate][sid] = parseAttendanceRow(attendData[i]);
+  }
+  return recordMap;
+}
 
 async function getMonthlyReport(classId, year, month) {
   const y = Number(year);
@@ -49,17 +100,7 @@ async function getMonthlyReport(classId, year, month) {
     studentsByClass[cid].push({ id: sid, name: studentData[i][1] });
   }
 
-  const attendData = await getSheetRows(ATTENDANCE_SHEET);
-  const recordMap = {};
-  for (let i = 1; i < attendData.length; i++) {
-    const rDate = formatSheetDate(attendData[i][0]);
-    if (rDate.slice(0, 7) !== monthPrefix) continue;
-    const cid = attendData[i][1];
-    const sid = attendData[i][2];
-    if (!recordMap[cid]) recordMap[cid] = {};
-    if (!recordMap[cid][rDate]) recordMap[cid][rDate] = {};
-    recordMap[cid][rDate][sid] = parseAttendanceRow(attendData[i]);
-  }
+  const recordMap = await loadAttendanceRecordMap(monthPrefix, from, to, classId);
 
   const plannedByClass = {};
   const entriesByClass = {};
