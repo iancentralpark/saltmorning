@@ -601,7 +601,10 @@ router.post('/auth/admin/login', async (req, res) => {
 
 router.post('/auth/login', loginRateLimiter, async (req, res) => {
   try {
-    const result = await loginUnified(req.body.loginId, req.body.password);
+    const body = req.body || {};
+    const staySignedIn = body.staySignedIn !== false && body.staySignedIn !== 0 &&
+      body.staySignedIn !== '0' && body.staySignedIn !== 'false';
+    const result = await loginUnified(body.loginId, body.password, { staySignedIn });
     res.json(result);
   } catch (e) {
     res.status(400).json({ error: e.message || 'Login failed.' });

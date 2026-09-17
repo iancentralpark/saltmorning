@@ -582,7 +582,7 @@
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/app.js?v=20260817mobile1"></script>
+<script src="/js/app.js?v=20260917session1"></script>
 <script src="/js/i18n.js?v=20260910msg1"></script>
 <script src="/js/change-password.js?v=20260813gap27"></script>
 <script src="/js/material-requests.js?v=20260813ux1"></script>
@@ -858,8 +858,11 @@
 
   function doLogout() {
     api('/api/auth/logout', { method: 'POST' }, role).catch(() => {});
-    setToken(role, '');
-    setProfile(role, null);
+    if (SaltApp.clearAllAuth) SaltApp.clearAllAuth();
+    else {
+      setToken(role, '');
+      setProfile(role, null);
+    }
     location.href = '/';
   }
 

@@ -59,7 +59,7 @@
         <div class="login-options">
           <label class="login-check">
             <input type="checkbox" id="staySignedIn" checked>
-            <span>Stay signed in</span>
+            <span>Stay signed in on this device</span>
           </label>
         </div>
         <div class="error" id="loginError"></div>
@@ -69,7 +69,7 @@
     </div>
   </main>
 
-<script src="/js/app.js?v=20260817mobile1"></script>
+<script src="/js/app.js?v=20260917session1"></script>
 <script>
 (function() {
   const {
@@ -105,6 +105,13 @@
 
   stayEl.checked = authPersistEnabled();
 
+  // Came here after a 401 redirect — make it obvious why.
+  try {
+    if (/(?:^|[?&])reauth=1(?:&|$)/.test(String(location.search || ''))) {
+      $('loginError').textContent = 'Session expired. Please log in again.';
+    }
+  } catch (_) { /* ignore */ }
+
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     $('loginError').textContent = '';
@@ -117,7 +124,7 @@
     try {
       const data = await api('/api/auth/login', {
         method: 'POST',
-        body: { loginId: loginId, password: password }
+        body: { loginId: loginId, password: password, staySignedIn: stay }
       });
       const role = data.role;
       if (!role || !DEST[role]) throw new Error('Unknown account type.');

@@ -2,10 +2,30 @@ const crypto = require('crypto');
 const { AUTH_SECRET } = require('../config');
 const { hasPermission } = require('../services/staffPermissionService');
 
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Browser-close session when Stay signed in is off. */
+const TOKEN_TTL_SHORT_MS = 24 * 60 * 60 * 1000;
+/** Stay signed in on this device. */
+const TOKEN_TTL_LONG_MS = 90 * 24 * 60 * 60 * 1000;
+/** @deprecated use TOKEN_TTL_LONG_MS — kept for callers that still pass nothing */
+const TOKEN_TTL_MS = TOKEN_TTL_LONG_MS;
 
-function signToken(payload) {
-  const body = Object.assign({ exp: Date.now() + TOKEN_TTL_MS }, payload);
+function resolveTtlMs(options) {
+  options = options || {};
+  if (options.ttlMs != null && Number.isFinite(Number(options.ttlMs))) {
+    return Math.max(60 * 1000, Number(options.ttlMs));
+  }
+  if (options.staySignedIn === false) return TOKEN_TTL_SHORT_MS;
+  return TOKEN_TTL_LONG_MS;
+}
+
+function signToken(payload, options) {
+  options = options || {};
+  const staySignedIn = options.staySignedIn !== false;
+  const ttlMs = resolveTtlMs(options);
+  const body = Object.assign({}, payload, {
+    exp: Date.now() + ttlMs,
+    stay: staySignedIn ? 1 : 0
+  });
   const data = Buffer.from(JSON.stringify(body)).toString('base64url');
   const sig = crypto.createHmac('sha256', AUTH_SECRET).update(data).digest('base64url');
   return data + '.' + sig;
@@ -122,5 +142,8 @@ module.exports = {
   readBearerToken,
   requireRole,
   requirePerm,
-  isAdminPortalRole
+  isAdminPortalRole,
+  TOKEN_TTL_MS,
+  TOKEN_TTL_SHORT_MS,
+  TOKEN_TTL_LONG_MS
 };

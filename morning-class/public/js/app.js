@@ -95,6 +95,25 @@
     return perms.indexOf(key) >= 0;
   }
 
+  let authRedirectScheduled = false;
+  function redirectToLogin() {
+    if (authRedirectScheduled) return;
+    const path = String((location && location.pathname) || '/');
+    // Already on the public login page — just clear tokens, don't reload-loop.
+    if (path === '/' || path === '/index.html') {
+      try { clearAllAuth(); } catch (_) { /* ignore */ }
+      return;
+    }
+    authRedirectScheduled = true;
+    try { clearAllAuth(); } catch (_) { /* ignore */ }
+    location.replace('/?reauth=1');
+  }
+
+  function isAuthLoginPath(path) {
+    const p = String(path || '');
+    return /\/auth\/(?:login|student\/login|parent\/login|teacher\/login|admin\/login)(?:\?|$)/.test(p);
+  }
+
   async function api(path, options, role) {
     const opts = Object.assign({ headers: { Accept: 'application/json' } }, options || {});
     const token = getToken(role);
@@ -108,6 +127,9 @@
     let data = {};
     try { data = text ? JSON.parse(text) : {}; } catch (e) { /* ignore */ }
     if (!res.ok) {
+      if (res.status === 401 && !isAuthLoginPath(path)) {
+        redirectToLogin();
+      }
       const detail = data.error || data.message || data.detail;
       throw new Error(detail || (res.statusText ? (res.statusText + ' (' + res.status + ')') : ('Request failed (' + res.status + ')')));
     }
