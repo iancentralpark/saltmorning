@@ -5,7 +5,7 @@ const {
   ADMIN_LIST_SHEET
 } = require('../config');
 const { getSheetRows, updateRange } = require('../sheets');
-const { signToken } = require('../auth/tokenAuth');
+const { signToken, verifyToken } = require('../auth/tokenAuth');
 const {
   resolveMustChangePassword,
   setMustChange,
@@ -29,10 +29,10 @@ const PASSWORD_TARGETS = {
   admin: { sheet: ADMIN_LIST_SHEET, idCol: 0, passwordCol: 3, idKey: 'adminId', a1Col: 'D' }
 };
 
-async function issueToken(role, accountId, payload) {
+async function issueToken(role, accountId, payload, options) {
   const flagRole = normalizeFlagRole(role);
   const tv = await getTokenVersion(flagRole, accountId).catch(() => 0);
-  return signToken(Object.assign({}, payload, { tv: Number(tv) || 0 }));
+  return signToken(Object.assign({}, payload, { tv: Number(tv) || 0 }), options || {});
 }
 
 async function loginStudent(loginId, password) {
@@ -384,7 +384,9 @@ async function loginAdmin(loginId, password) {
   throw new Error('Login ID or password is incorrect.');
 }
 
-async function loginUnified(loginId, password) {
+async function loginUnified(loginId, password, options) {
+  options = options || {};
+  const staySignedIn = options.staySignedIn !== false;
   // Teacher first: most frequent portal users; avoids Admin_List ensure/reads
   // when the account is a teacher (and skips parent/student sheet walks).
   const attempts = [
@@ -399,8 +401,20 @@ async function loginUnified(loginId, password) {
     try {
       const result = await a.fn(loginId, password);
       // loginTeacher may return principal
-      const role = (result.token && require('../auth/tokenAuth').verifyToken(result.token).role) || a.role;
-      return { ...result, role };
+      const session = result.token ? verifyToken(result.token) : null;
+      const role = (session && session.role) || a.role;
+      if (session) {
+        const accountId = session.adminId || session.teacherId || session.parentId ||
+          session.studentId || session.principalId || '';
+        const payload = Object.assign({}, session);
+        delete payload.exp;
+        delete payload.tv;
+        delete payload.stay;
+        if (accountId) {
+          result.token = await issueToken(role, accountId, payload, { staySignedIn });
+        }
+      }
+      return { ...result, role, staySignedIn };
     } catch (e) {
       lastError = e.message || lastError;
       if (/quota exceeded/i.test(String(e.message || ''))) {
@@ -486,11 +500,13 @@ async function changePassword(session, currentPassword, newPassword, confirmPass
     exp: undefined
   });
   delete tokenPayload.exp;
+  const staySignedIn = session.stay !== 0;
   const token = await issueToken(flagRole === 'teacher' && (role === 'principal' || role === 'staff')
     ? 'teacher'
     : role,
   resolvedId,
-  Object.assign({}, tokenPayload, { role }));
+  Object.assign({}, tokenPayload, { role }),
+  { staySignedIn });
 
   try {
     const { writeAuditFromSession } = require('./auditService');
@@ -501,13 +517,13 @@ async function changePassword(session, currentPassword, newPassword, confirmPass
 }
 
 async function logoutSession(session) {
+  // Do NOT bump token version on logout — that used to invalidate every other
+  // device still using Stay signed in. Client clears its own token; password
+  // changes / admin resets still bump TV and force a re-login everywhere.
   if (!session || !session.role) return { ok: true };
   const role = normalizeFlagRole(session.role);
   const accountId = session.adminId || session.teacherId || session.parentId ||
     session.studentId || session.principalId || '';
-  if (accountId) {
-    await bumpTokenVersion(role, accountId).catch(() => 0);
-  }
   try {
     const { writeAuditFromSession } = require('./auditService');
     await writeAuditFromSession(session, 'logout', role, accountId, {});
