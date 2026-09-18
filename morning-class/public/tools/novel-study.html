@@ -889,7 +889,7 @@
         '<summary>Extended response (' + (p.reflection || []).length + ')</summary><ul>' + refBits + '</ul></details>' +
         '<div class="live-actions">' +
         '<button type="button" class="btn btn-ghost part-preview" data-part="' + escapeHtml(p.partNum) +
-        '">Open full sheet</button></div></article>';
+        '">Open this part only</button></div></article>';
     }).join('');
     if (highlightPartNum != null) {
       var el = mount.querySelector('[data-part="' + highlightPartNum + '"]');
@@ -1002,7 +1002,7 @@
       }
       return;
     }
-    if (job.status === 'done' && job.downloadReady) {
+    if (job.status === 'done' && (job.downloadReady || (job.partsPreview && job.partsPreview.length))) {
       var doneKey = 'done:' + job.id;
       if (lastTerminalKey !== doneKey) {
         lastTerminalKey = doneKey;
@@ -1062,7 +1062,7 @@
       startEvents(jobId);
       pollTimer = setInterval(pollJob, 2500);
       pollJob();
-    } else if (job.status === 'done' && job.downloadReady) {
+    } else if (job.status === 'done' && (job.downloadReady || (job.partsPreview && job.partsPreview.length))) {
       showDone(job);
     } else if (job.status === 'structure_ready') {
       showStructureStep(job);
