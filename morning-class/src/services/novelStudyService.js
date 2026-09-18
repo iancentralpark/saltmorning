@@ -107,7 +107,15 @@ function hasDocxOnDisk(job) {
 }
 
 function jobHasDownload(job) {
-  return !!(job && ((job.docxBuffer && job.docxBuffer.length) || hasDocxOnDisk(job)));
+  if (!job) return false;
+  if ((job.docxBuffer && job.docxBuffer.length) || hasDocxOnDisk(job)) return true;
+  // After Railway redeploy, /tmp docx is gone but DB still has parts (+ optional
+  // BYTEA). Rebuildable completed jobs must stay downloadReady so Open shows
+  // the full workbook (vocab + sheets + culminating + answer key), not only
+  // per-part previews.
+  if (job.hasDocx) return true;
+  if (String(job.status) === 'done' && Array.isArray(job.parts) && job.parts.length) return true;
+  return false;
 }
 
 function ensureDocxBuffer(job) {
@@ -131,6 +139,7 @@ async function ensureDocxBufferAsync(job) {
     const buf = r.rows[0] && r.rows[0].docx;
     if (buf && buf.length) {
       job.docxBuffer = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+      job.hasDocx = true;
       try {
         ensureTmp();
         fs.writeFileSync(jobDocxPath(job.id), job.docxBuffer);
@@ -319,14 +328,16 @@ function hydrateJob(data) {
     pages: null,
     pdfPath: null,
     docxBuffer: null,
+    hasDocx: !!data.hasDocx,
     listeners: [],
     createdAt: data.createdAt || nowIso(),
     updatedAt: data.updatedAt || nowIso()
   };
-  if (data.hasDocx || hasDocxOnDisk(job)) {
+  if (job.hasDocx || hasDocxOnDisk(job)) {
     try {
       if (fs.existsSync(jobDocxPath(job.id))) {
         job.docxBuffer = fs.readFileSync(jobDocxPath(job.id));
+        job.hasDocx = true;
       }
     } catch (_) { /* ignore */ }
   }
@@ -4867,6 +4878,7 @@ async function rebuildDocxBuffer(job) {
   const { buildWorkbookDocx } = require('./novelStudyDocx');
   const buf = await buildWorkbookDocx(job);
   job.docxBuffer = buf;
+  job.hasDocx = true;
   try {
     ensureTmp();
     fs.writeFileSync(jobDocxPath(job.id), buf);
