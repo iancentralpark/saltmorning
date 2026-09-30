@@ -232,7 +232,10 @@
 
     <div id="panelGrades" class="card hidden grades-panel">
       <div id="gradeSubjectPicker" class="grade-subject-picker hidden">
-        <p class="muted small" id="gradeSubjectPickerHint">Select a subject to view the gradebook.</p>
+        <div class="grade-subject-picker-head">
+          <p class="muted small" id="gradeSubjectPickerHint">Select a subject to view the gradebook.</p>
+          <button type="button" class="btn btn-ghost btn-sm hidden" id="gradeExportAllBtn">Export all (Excel)</button>
+        </div>
         <div id="gradeSubjectList" class="grade-subject-list"></div>
       </div>
       <div id="gradebookSection" class="hidden">
@@ -240,6 +243,7 @@
           <button type="button" class="btn btn-ghost hidden" id="gradeBackToSubjectsBtn">← Subjects</button>
           <button type="button" class="btn btn-primary" id="gradeAddColumnBtn">+ Add column</button>
           <button type="button" class="btn btn-ghost" id="gradeWeightsBtn">Grade weights</button>
+          <button type="button" class="btn btn-ghost" id="gradeExportBtn">Export (Excel)</button>
           <span id="gradeContextLabel" class="muted small"></span>
           <span id="gradeReadOnlyBadge" class="grade-ro-badge hidden">View only</span>
         </div>
@@ -590,7 +594,7 @@
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script src="/js/push-client.js?v=20260814ux2"></script>
 <script src="/js/teacher-attendance.js?v=20260908plan1"></script>
-<script src="/js/teacher-grades.js?v=20260909gbhide2"></script>
+<script src="/js/teacher-grades.js?v=20260330gexport1"></script>
 <script src="/js/report-card-print.js?v=20260831rc3"></script>
 <script src="/js/teacher-reportcard.js?v=20260831rc3"></script>
 <script src="/js/teacher-analytics.js?v=20260902la3"></script>

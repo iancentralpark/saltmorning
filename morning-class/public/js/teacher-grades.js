@@ -10,6 +10,7 @@ window.SaltGrades = (function() {
   let canEditGrades = true;
   let showSubjectPicker = false;
   let subjectCatalog = [];
+  let isHomeroomClass = false;
   /** Client-only column view: { hiddenCats: { [categoryKey]: true }, hideFrom: 'YYYY-MM-DD', hideTo: 'YYYY-MM-DD' } */
   let columnView = { hiddenCats: {}, hideFrom: '', hideTo: '' };
 
@@ -70,12 +71,91 @@ window.SaltGrades = (function() {
     $('gradeColumnForm').addEventListener('submit', submitColumn);
     const backBtn = $('gradeBackToSubjectsBtn');
     if (backBtn) backBtn.addEventListener('click', showPicker);
+    const exportBtn = $('gradeExportBtn');
+    if (exportBtn) exportBtn.addEventListener('click', () => exportGrades({ scope: 'subject' }));
+    const exportAllBtn = $('gradeExportAllBtn');
+    if (exportAllBtn) exportAllBtn.addEventListener('click', () => exportGrades({ scope: 'all' }));
     const clearBtn = $('gradeFiltersClear');
     if (clearBtn) clearBtn.addEventListener('click', clearColumnFilters);
     const hideFrom = $('gradeHideFrom');
     const hideTo = $('gradeHideTo');
     if (hideFrom) hideFrom.addEventListener('change', onHideDateChange);
     if (hideTo) hideTo.addEventListener('change', onHideDateChange);
+  }
+
+  function filenameFromDisposition(header, fallback) {
+    if (!header) return fallback;
+    const utf = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    if (utf) {
+      try { return decodeURIComponent(utf[1].trim()); } catch (e) { /* ignore */ }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(header);
+    return plain ? plain[1].trim() : fallback;
+  }
+
+  async function exportGrades(opts) {
+    opts = opts || {};
+    const cls = getClass();
+    const err = $('gradesError');
+    if (!cls) return;
+    const t = term();
+    if (!t) {
+      if (err) err.textContent = 'Term not configured. Contact admin before exporting.';
+      return;
+    }
+    if (err) err.textContent = '';
+
+    const params = new URLSearchParams();
+    params.set('term', t);
+    if (opts.scope === 'all') {
+      params.set('scope', 'all');
+    } else {
+      const subj = subject();
+      if (!subj) {
+        if (err) err.textContent = 'Open a subject first, or use Export all.';
+        return;
+      }
+      params.set('subject', subj);
+    }
+
+    const path = '/api/teacher/class/' + encodeURIComponent(cls.classId) +
+      '/grades/export?' + params.toString();
+    const token = (window.SaltApp && SaltApp.getToken)
+      ? SaltApp.getToken('teacher')
+      : '';
+    const base = (window.SaltApp && SaltApp.API) ? SaltApp.API : location.origin;
+
+    try {
+      const res = await fetch(base + path, {
+        headers: {
+          Accept: 'text/csv',
+          ...(token ? { Authorization: 'Bearer ' + token } : {})
+        }
+      });
+      if (!res.ok) {
+        let msg = 'Export failed (' + res.status + ').';
+        try {
+          const data = await res.json();
+          if (data && data.error) msg = data.error;
+        } catch (e) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const fallback = opts.scope === 'all'
+        ? 'grades_' + (cls.className || cls.classId) + '_' + t + '_all.csv'
+        : 'grades_' + (cls.className || cls.classId) + '_' + t + '_' + subject() + '.csv';
+      const name = filenameFromDisposition(res.headers.get('Content-Disposition'), fallback);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      if (err) err.textContent = e.message || 'Could not export grades.';
+    }
   }
 
   function setEditMode(editable) {
@@ -191,30 +271,48 @@ window.SaltGrades = (function() {
     await Promise.all([loadGradebook(), loadLessonWeights()]);
   }
 
+  function updateExportAllButton() {
+    const btn = $('gradeExportAllBtn');
+    if (!btn) return;
+    const show = showSubjectPicker && subjectCatalog.length > 0;
+    btn.classList.toggle('hidden', !show);
+    if (isHomeroomClass) {
+      btn.textContent = 'Export all subjects (Excel)';
+      btn.title = 'Download every subject gradebook for this class as CSV (opens in Excel).';
+    } else {
+      btn.textContent = 'Export my subjects (Excel)';
+      btn.title = 'Download gradebooks for subjects you teach as CSV (opens in Excel).';
+    }
+  }
+
   async function onClassOpen() {
     const cls = getClass();
     if (!cls) return;
     $('gradesError').textContent = '';
     subjectCatalog = [];
     showSubjectPicker = false;
+    isHomeroomClass = false;
     setEditMode(true);
     const list = $('gradeSubjectList');
     if (list) list.innerHTML = '<p class="muted">Loading subjects…</p>';
     showPicker();
+    updateExportAllButton();
 
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(cls.classId) + '/grades/subjects');
       subjectCatalog = data.subjects || [];
-      const isHomeroom = !!data.isHomeroom;
-      showSubjectPicker = isHomeroom || subjectCatalog.length > 1;
+      isHomeroomClass = !!data.isHomeroom;
+      showSubjectPicker = isHomeroomClass || subjectCatalog.length > 1;
 
       if (showSubjectPicker) {
-        renderSubjectPicker(subjectCatalog, isHomeroom, data.source);
+        renderSubjectPicker(subjectCatalog, isHomeroomClass, data.source);
         showPicker();
+        updateExportAllButton();
         loadActiveTerm();
         return;
       }
 
+      updateExportAllButton();
       if (subjectCatalog.length === 1) {
         await openSubject(subjectCatalog[0].subject, !!subjectCatalog[0].canEdit);
         return;
@@ -224,6 +322,7 @@ window.SaltGrades = (function() {
       await openSubject(fallback, true);
     } catch (e) {
       $('gradesError').textContent = e.message || 'Could not load subjects.';
+      updateExportAllButton();
       const fallback = (cls.subjects && cls.subjects.length) ? cls.subjects[0] : 'English';
       await openSubject(fallback, true);
     }

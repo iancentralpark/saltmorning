@@ -1099,6 +1099,132 @@ async function updateAssessment(assessmentId, classId, teacherId, payload) {
   };
 }
 
+function csvEscape(value) {
+  const s = value == null ? '' : String(value);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function letterFromPercent(pct) {
+  if (pct == null || pct === '' || Number.isNaN(Number(pct))) return '';
+  const p = Number(pct);
+  if (p >= 93) return 'A';
+  if (p >= 90) return 'A-';
+  if (p >= 87) return 'B+';
+  if (p >= 83) return 'B';
+  if (p >= 80) return 'B-';
+  if (p >= 77) return 'C+';
+  if (p >= 73) return 'C';
+  if (p >= 70) return 'C-';
+  if (p >= 67) return 'D+';
+  if (p >= 60) return 'D';
+  return 'F';
+}
+
+/**
+ * Wide gradebook CSV for one subject (Excel-friendly, UTF-8 BOM).
+ */
+function buildGradebookCsv(book, meta) {
+  meta = meta || {};
+  const columns = book.columns || [];
+  const students = book.students || [];
+  const header = [
+    'Class ID',
+    'Class',
+    'Term',
+    'Subject',
+    'Student ID',
+    'Student Name',
+    'Final %',
+    'Letter'
+  ];
+  columns.forEach((col) => {
+    const cat = col.categoryLabel || col.categoryKey || '';
+    const title = col.title || cat;
+    const max = col.maxScore != null ? col.maxScore : '';
+    const date = col.date || '';
+    header.push(
+      [cat, title, date ? '(' + date + ')' : '', max !== '' ? '[/' + max + ']' : '']
+        .filter(Boolean)
+        .join(' ')
+        .trim()
+    );
+  });
+
+  const lines = [header.map(csvEscape).join(',')];
+  const classId = meta.classId || '';
+  const className = meta.className || classId;
+  const term = book.term || meta.term || '';
+  const subject = book.subject || meta.subject || '';
+
+  students.forEach((st) => {
+    const finalPct = st.finalGrade != null && st.finalGrade !== '' ? Number(st.finalGrade) : null;
+    const row = [
+      classId,
+      className,
+      term,
+      subject,
+      st.studentId || '',
+      st.name || '',
+      finalPct != null && !Number.isNaN(finalPct) ? finalPct : '',
+      letterFromPercent(finalPct)
+    ];
+    columns.forEach((col) => {
+      const cell = st.cells && st.cells[col.assessmentId];
+      if (!cell || cell.score == null || cell.score === '') {
+        row.push('');
+      } else {
+        row.push(cell.score);
+      }
+    });
+    lines.push(row.map(csvEscape).join(','));
+  });
+
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * Build export CSV for one or more subjects. Returns { csv, filename, subjectCount }.
+ */
+async function buildGradesExport(classId, term, subjects, students, meta) {
+  meta = meta || {};
+  const list = (subjects || []).map((s) => String(s || '').trim()).filter(Boolean);
+  if (!list.length) throw new Error('No subjects to export.');
+  if (!term) throw new Error('term is required.');
+
+  const className = meta.className || classId;
+  const parts = [];
+  for (let i = 0; i < list.length; i++) {
+    const subject = list[i];
+    const book = await getGradebook(classId, term, subject, students);
+    const block = buildGradebookCsv(book, {
+      classId,
+      className,
+      term,
+      subject
+    });
+    // Strip BOM from subsequent blocks when concatenating.
+    parts.push(i === 0 ? block : block.replace(/^\uFEFF/, ''));
+    if (i < list.length - 1) parts.push('\r\n');
+  }
+
+  const safe = (s) => String(s || '')
+    .replace(/[^\w\-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 40) || 'export';
+  const filename = list.length === 1
+    ? 'grades_' + safe(className || classId) + '_' + safe(term) + '_' + safe(list[0]) + '.csv'
+    : 'grades_' + safe(className || classId) + '_' + safe(term) + '_all.csv';
+
+  return {
+    csv: parts.join(''),
+    filename,
+    subjectCount: list.length,
+    subjects: list
+  };
+}
+
 module.exports = {
   listGradeEntries,
   listDailyGrades,
@@ -1119,7 +1245,9 @@ module.exports = {
   ensureGradesColumns,
   ensureAssessmentSheet,
   clearGradebookCache,
-  getStudentGradeSummary
+  getStudentGradeSummary,
+  buildGradebookCsv,
+  buildGradesExport
 };
 
 /**

@@ -80,7 +80,8 @@ const {
   deleteAssessment,
   listAssessments,
   syncReportCardFromGrades,
-  buildReportCardFromGrades
+  buildReportCardFromGrades,
+  buildGradesExport
 } = require('./services/gradeService');
 const {
   listReportCardFields,
@@ -931,6 +932,63 @@ router.get('/teacher/class/:classId/grades/gradebook', requireRole('teacher'), a
     res.json({ ...book, canEdit: access.canEdit, isHomeroom: access.isHomeroom });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load gradebook.' });
+  }
+});
+
+/**
+ * Export gradebook CSV (Excel-openable, UTF-8 BOM).
+ * - ?subject=X → that subject (must canView)
+ * - ?scope=all (or no subject) → homeroom: every subject; subject teacher: only taught subjects
+ */
+router.get('/teacher/class/:classId/grades/export', requireRole('teacher'), async (req, res) => {
+  try {
+    const classId = req.params.classId;
+    const term = String(req.query.term || '').trim();
+    if (!term) return res.status(400).json({ error: 'term is required.' });
+    const subject = String(req.query.subject || '').trim();
+    const scopeAll = String(req.query.scope || '').toLowerCase() === 'all' || !subject;
+
+    let subjects = [];
+    if (subject && !scopeAll) {
+      const access = await getTeacherGradeAccess(req.session.teacherId, classId, subject);
+      if (!access.canView) {
+        return res.status(403).json({ error: 'You cannot export grades for this subject.' });
+      }
+      subjects = [subject];
+    } else {
+      // Class assignment check (empty subject); catalog already scopes subjects.
+      await getTeacherGradeAccess(req.session.teacherId, classId, '');
+      const catalog = await listClassGradeSubjects(req.session.teacherId, classId);
+      if (catalog.isHomeroom) {
+        subjects = (catalog.subjects || []).map((s) => s.subject);
+      } else {
+        subjects = (catalog.taughtSubjects || catalog.subjects || [])
+          .map((s) => (typeof s === 'string' ? s : s.subject))
+          .filter(Boolean);
+      }
+      if (!subjects.length) {
+        return res.status(400).json({ error: 'No subjects available to export.' });
+      }
+    }
+
+    const students = await getClassRoster(classId);
+    let className = classId;
+    try {
+      const { getClassNameMap } = require('./services/teacherPortalService');
+      const names = await getClassNameMap();
+      if (names && names[classId]) className = names[classId];
+    } catch (_) { /* optional label */ }
+
+    const exported = await buildGradesExport(classId, term, subjects, students, { className });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="' + exported.filename.replace(/"/g, '') + '"'
+    );
+    res.send(exported.csv);
+  } catch (e) {
+    const status = /not assigned|only view grades/i.test(String(e.message || '')) ? 403 : 500;
+    res.status(status).json({ error: e.message || 'Could not export grades.' });
   }
 });
 
