@@ -1376,6 +1376,15 @@ textarea { min-height: 100px; resize: vertical; }
   font-weight: 600;
 }
 .grade-subject-picker { margin-bottom: 0.5rem; }
+.grade-subject-picker-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.grade-subject-picker-head #gradeSubjectPickerHint { margin: 0; flex: 1; min-width: 12rem; }
 .grade-subject-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, 9.75rem);
