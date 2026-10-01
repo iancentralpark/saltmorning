@@ -122,11 +122,10 @@ async function getClassWorkData(classId, dateStr) {
   const students = roster.map((s) => {
     const rec = existing[s.studentId] || {};
     const planned = plannedMap[s.studentId];
-    let attendance = rec.attendance || (schedule.scheduledDay ? '출석' : '');
-    let excuse = rec.excuse || '';
-    if (!rec.attendance && planned) {
-      attendance = planned.type;
-    }
+    // Only return a status that was actually saved. Do not default unmarked
+    // class days to Present (or to a planned notice) — UI stays unselected.
+    const attendance = rec.attendance || '';
+    const excuse = rec.excuse || '';
     return {
       studentId: s.studentId,
       name: s.name,
