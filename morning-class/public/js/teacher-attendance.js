@@ -237,8 +237,9 @@ window.SaltAttendance = (function() {
   function renderStudentCard(std) {
     const key = std.studentId;
     const editable = !!(workData && workData.scheduledDay);
-    const att = std.attendance || (editable ? ATT.present : '');
-    const attKey = ATT_REV[att] || (editable ? 'present' : '');
+    // Do not default unmarked days to Present — only highlight a status that was saved.
+    const att = std.attendance || '';
+    const attKey = ATT_REV[att] || '';
     const showExcuse = att === ATT.tardy || att === ATT.absent || att === ATT.earlyLeave;
     const hasExcuse = !!(std.excuse && std.excuse.trim());
     const planned = std.plannedNotice
@@ -268,7 +269,9 @@ window.SaltAttendance = (function() {
     } else {
       attBlock =
         '<div class="att-readonly">' +
-          '<span class="att-status-pill att-' + attKey + '">' + attLabel(attKey) + '</span>' +
+          (attKey
+            ? '<span class="att-status-pill att-' + attKey + '">' + attLabel(attKey) + '</span>'
+            : '<span class="muted small">Not marked</span>') +
           (excusedBadge || '') +
           (planned || '') +
           '<span class="muted small">Homeroom only</span>' +
@@ -536,6 +539,10 @@ window.SaltAttendance = (function() {
 
     const attendance = patch.attendance != null ? patch.attendance : card.dataset.attendance;
     const excuse = patch.excuse != null ? patch.excuse : readExcuse(card);
+    if (!attendance) {
+      setSaveStatus(studentId, 'Pick a status first', false);
+      return;
+    }
 
     if (saving[studentId]) return;
     saving[studentId] = true;
