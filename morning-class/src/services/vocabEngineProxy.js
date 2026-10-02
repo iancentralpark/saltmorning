@@ -239,6 +239,63 @@ async function tryEngine(enginePath, opts) {
   }
 }
 
+/**
+ * Pass-through for every learner call: /api/student/{vocab|reading}/* → engine /api/vocab/v1/{vocab|reading}/*.
+ * New engine endpoints work here with no Salt Morning change. Non-JSON (pronounce audio) is relayed as bytes.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {{ enginePath: string, studentId: string, classId: string, name?: string }} ctx
+ * @returns {Promise<{ status: number, data: any } | null>} null when the response was already relayed
+ */
+async function forwardStudentRequest(req, res, ctx) {
+  const origin = engineOrigin();
+  const token = engineToken();
+  if (!origin || !token) {
+    const err = new Error('Vocab Booster engine is not configured (VOCAB_ENGINE_URL + VOCAB_ENGINE_TOKEN).');
+    err.statusCode = 503;
+    err.code = 'ENGINE_NOT_CONFIGURED';
+    throw err;
+  }
+  const qi = req.originalUrl.indexOf('?');
+  const qs = qi >= 0 ? req.originalUrl.slice(qi) : '';
+  const method = String(req.method || 'GET').toUpperCase();
+  const headers = {
+    Accept: String(req.headers.accept || 'application/json'),
+    Authorization: 'Bearer ' + token,
+    'X-Vocab-Tenant': TENANT_ID,
+    'X-Vocab-Student-Id': String(ctx.studentId || ''),
+    'X-Vocab-Class-Id': String(ctx.classId || '')
+  };
+  if (ctx.name) headers['X-Vocab-Student-Name'] = encodeURIComponent(String(ctx.name));
+  const init = { method, headers };
+  if (method !== 'GET' && method !== 'HEAD') {
+    headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(req.body || {});
+  }
+
+  let upstream;
+  try {
+    upstream = await fetch(origin + '/api/vocab/v1' + ctx.enginePath + qs, init);
+  } catch (netErr) {
+    const err = new Error('Vocab Booster engine unreachable: ' + (netErr.message || netErr));
+    err.statusCode = 502;
+    err.code = 'ENGINE_DOWN';
+    throw err;
+  }
+
+  const contentType = upstream.headers.get('content-type') || '';
+  if (!/application\/json/i.test(contentType)) {
+    res.status(upstream.status);
+    if (contentType) res.set('Content-Type', contentType);
+    const cache = upstream.headers.get('cache-control');
+    if (cache) res.set('Cache-Control', cache);
+    res.send(Buffer.from(await upstream.arrayBuffer()));
+    return null;
+  }
+  return { status: upstream.status, data: await parseJson(upstream) };
+}
+
 module.exports = {
   TENANT_ID,
   engineOrigin,
@@ -246,6 +303,7 @@ module.exports = {
   isConfigured,
   engineFetch,
   tryEngine,
+  forwardStudentRequest,
   probeHealth,
   mintStudentSession
 };

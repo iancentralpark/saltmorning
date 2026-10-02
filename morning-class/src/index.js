@@ -30,6 +30,16 @@ app.get('/uploads/signatures/:file', (req, res) => {
   res.redirect(302, '/api/signatures/' + encodeURIComponent(id));
 });
 
+// Vocab + Reading Booster UI is owned by the Mr.Park engine: relay its live build so
+// every Mr.Park update shows here too (Mr.Park serves /js and /css with a 5-min cache).
+const VOCAB_UI_ASSETS = /^\/(js\/vocab-learn\.js|js\/vocab-mock-data\.js|css\/vocab-learn\.css|img\/(oli|livi)[a-z-]*\.png|img\/badges\/[a-z0-9_-]+\.webp)$/i;
+app.get(VOCAB_UI_ASSETS, (req, res, next) => {
+  const origin = require('./services/vocabEngineProxy').engineOrigin();
+  if (!origin) return next();
+  const qi = req.originalUrl.indexOf('?');
+  res.redirect(302, origin + req.path + (qi >= 0 ? req.originalUrl.slice(qi) : ''));
+});
+
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: '7d',
   etag: true,

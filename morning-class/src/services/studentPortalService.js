@@ -56,7 +56,10 @@ async function getStudentDashboard(session) {
   }
 
   try {
-    vocab = await getStudentVocabSummary(studentId, classId);
+    const engine = require('./vocabEngineProxy');
+    vocab = engine.isConfigured()
+      ? (await engine.engineFetch('/summary', { studentId, classId })).data
+      : await getStudentVocabSummary(studentId, classId);
     if (vocab && vocab.available == null) vocab.available = true;
   } catch (e) {
     vocab = { available: false, message: 'Vocab Booster unavailable.' };

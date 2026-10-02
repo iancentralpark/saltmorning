@@ -270,27 +270,12 @@ const {
 } = require('./services/homeworkService');
 const googleTeacherAuth = require('./services/googleTeacherAuthService');
 const {
-  getStudentVocabSummary,
-  isPlacementDone,
-  buildPlacementItem,
-  processPlacementNext,
-  savePlacementResult,
-  getDailyQueue,
-  recordReview,
-  recordDailyTestResult,
   getClassVocabOverview,
   overrideStudentVocab,
-  scorePlacement,
-  deepDiveWord,
-  getPlacementMeta,
-  getPromotionTestStatus,
-  startPromotionTest,
-  submitPromotionTest,
-  ackPromotionTest,
   getVocabEngineInfo
 } = require('./services/vocabShared');
 const {
-  tryEngine,
+  forwardStudentRequest,
   probeHealth,
   TENANT_ID: VOCAB_TENANT_ID,
   isConfigured: isVocabEngineConfigured
@@ -2337,27 +2322,47 @@ router.post('/student/homework/complete', requireRole('student'), async (req, re
   }
 });
 
-router.get('/student/vocab', requireRole('student'), async (req, res) => {
+/**
+ * Vocab + Reading Booster — every learner call is relayed to the Mr.Park engine
+ * (/api/vocab/v1, tenant salt-morning). New engine features need no change here.
+ * Dollars: the engine returns dollarBonus { amount, creditedBy: 'guest' } and we credit our own ledger.
+ * Lucky Draw is off for this tenant (engine never issues tickets).
+ */
+async function relayVocabRequest(req, res, enginePath) {
+  const sid = req.session.studentId;
+  const cid = req.session.classId;
   try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/summary', { studentId: sid, classId: cid, name: req.session.name });
-    res.json(remote || await getStudentVocabSummary(sid, cid));
+    const out = await forwardStudentRequest(req, res, {
+      enginePath,
+      studentId: sid,
+      classId: cid,
+      name: req.session.name
+    });
+    if (!out) return;
+    const data = out.data || {};
+    const bonus = data.dollarBonus;
+    if (out.status < 300 && bonus && bonus.creditedBy === 'guest' && Number(bonus.amount) > 0) {
+      try {
+        const credited = await applyDollarAdjustment(
+          cid,
+          sid,
+          Number(bonus.amount),
+          bonus.note || ('Vocab Booster (' + enginePath + ')')
+        );
+        bonus.localDollarApplied = true;
+        if (credited && credited.balance != null) bonus.localBalance = credited.balance;
+      } catch (dollarErr) {
+        console.warn('[vocab relay] local dollar', dollarErr.message || dollarErr);
+        bonus.localDollarApplied = false;
+      }
+    }
+    res.status(out.status).json(data);
   } catch (e) {
-    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load vocab.' });
+    res.status(e.statusCode || 502).json({ error: e.message || 'Vocab Booster unavailable.', code: e.code || null });
   }
-});
+}
 
-router.get('/student/vocab/summary', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/summary', { studentId: sid, classId: cid, name: req.session.name });
-    res.json(remote || await getStudentVocabSummary(sid, cid));
-  } catch (e) {
-    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load vocab.' });
-  }
-});
+router.get('/student/vocab', requireRole('student'), (req, res) => relayVocabRequest(req, res, '/vocab/summary'));
 
 /**
  * Platform admin directory lookup (name / school / class) for this host tenant.
@@ -2431,333 +2436,9 @@ router.post('/student/vocab/central-session', requireRole('student'), async (req
   }
 });
 
-router.post('/student/vocab/placement/item', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const body = req.body || {};
-    const remote = await tryEngine('/placement/item', {
-      method: 'POST',
-      body,
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    if (remote) return res.json(remote);
-    res.json(await buildPlacementItem({
-      abilityGrade: body.abilityGrade,
-      questionIndex: body.questionIndex,
-      avoidWordIds: body.avoidWordIds,
-      abilityTrail: body.abilityTrail
-    }));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not build placement item.' });
-  }
-});
-
-router.post('/student/vocab/placement/next', requireRole('student'), async (req, res) => {
-  try {
-    const remote = await tryEngine('/placement/next', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: req.session.studentId,
-      classId: req.session.classId,
-      name: req.session.name
-    });
-    if (remote) return res.json(remote);
-    res.json(processPlacementNext(req.body || {}));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not adapt difficulty.' });
-  }
-});
-
-router.get('/student/vocab/placement/meta', requireRole('student'), async (req, res) => {
-  try {
-    const remote = await tryEngine('/placement/meta', {
-      studentId: req.session.studentId,
-      classId: req.session.classId,
-      name: req.session.name
-    });
-    res.json(remote || getPlacementMeta());
-  } catch (e) {
-    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load placement meta.' });
-  }
-});
-
-router.post('/student/vocab/placement/score', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/placement/score', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    if (remote) return res.json(remote);
-
-    if (await isPlacementDone(sid)) {
-      return res.status(409).json({ error: 'Placement already completed.', code: 'PLACEMENT_ALREADY_DONE' });
-    }
-    const result = scorePlacement(req.body || {});
-    try {
-      await savePlacementResult(sid, cid, result);
-      result.persisted = true;
-    } catch (persistErr) {
-      console.error('savePlacementResult', persistErr.message || persistErr);
-      result.persisted = false;
-    }
-    res.json(result);
-  } catch (e) {
-    const status = e.code === 'PLACEMENT_ALREADY_DONE' ? 409 : (e.statusCode || 400);
-    res.status(status).json({ error: e.message || 'Could not score placement.', code: e.code });
-  }
-});
-
-router.get('/student/vocab/daily-queue', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/daily-queue', {
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    res.json(remote || await getDailyQueue(sid, cid));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not load daily queue.' });
-  }
-});
-
-router.post('/student/vocab/review', requireRole('student'), async (req, res) => {
-  try {
-    const { wordId, correct } = req.body || {};
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/review', {
-      method: 'POST',
-      body: { wordId, correct },
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    res.json(remote || await recordReview(sid, cid, wordId, correct));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not record review.' });
-  }
-});
-
-router.post('/student/vocab/daily-test/submit', requireRole('student'), async (req, res) => {
-  try {
-    const body = req.body || {};
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/daily-test/submit', {
-      method: 'POST',
-      body,
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    if (remote) return res.json(remote);
-    res.json(await recordDailyTestResult(
-      sid,
-      cid,
-      body.correctCount,
-      body.totalCount,
-      body.answers
-    ));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit daily test.' });
-  }
-});
-
-router.get('/student/vocab/promotion-test/status', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/promotion-test/status', {
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    res.json(remote || await getPromotionTestStatus(sid));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not load promotion test.' });
-  }
-});
-
-router.post('/student/vocab/promotion-test/start', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/promotion-test/start', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    res.json(remote || await startPromotionTest(sid, cid));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({
-      error: e.message || 'Could not start promotion test.',
-      code: e.code
-    });
-  }
-});
-
-router.post('/student/vocab/promotion-test/submit', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/promotion-test/submit', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    res.json(remote || await submitPromotionTest(sid, req.body || {}));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit promotion test.' });
-  }
-});
-
-router.post('/student/vocab/promotion-test/ack', requireRole('student'), async (req, res) => {
-  try {
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/promotion-test/ack', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    res.json(remote || await ackPromotionTest(sid, req.body || {}));
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not ack promotion test.' });
-  }
-});
-
-router.post('/student/vocab/deep-dive', requireRole('student'), async (req, res) => {
-  try {
-    const body = req.body || {};
-    const sid = req.session.studentId;
-    const cid = req.session.classId;
-    const remote = await tryEngine('/deep-dive', {
-      method: 'POST',
-      body,
-      studentId: sid,
-      classId: cid,
-      name: req.session.name
-    });
-    if (remote) {
-      const text = typeof remote === 'string'
-        ? remote
-        : String((remote && (remote.text || remote.answer || remote.explanation)) || '');
-      return res.json({ text, ...(typeof remote === 'object' && remote ? remote : {}) });
-    }
-    const result = await deepDiveWord({
-      word: body.word,
-      partOfSpeech: body.partOfSpeech || body.part_of_speech,
-      focus: body.focus,
-      levelHint: body.levelHint,
-      studentLevel: body.studentLevel
-    });
-    const text = typeof result === 'string'
-      ? result
-      : String((result && (result.text || result.answer || result.explanation)) || '');
-    res.json({ text, ...(typeof result === 'object' && result ? result : {}) });
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Deep-dive unavailable.' });
-  }
-});
-
-/** Sunday dollar dungeon — engine-only (no local Sheets reimplementation). */
-router.get('/student/vocab/dungeon/status', requireRole('student'), async (req, res) => {
-  try {
-    const remote = await tryEngine('/dungeon/status', {
-      studentId: req.session.studentId,
-      classId: req.session.classId,
-      name: req.session.name
-    });
-    if (!remote) {
-      return res.status(503).json({
-        error: 'Dungeon requires Mr.Park Vocab engine v1 (/dungeon). Engine not available yet.',
-        code: 'ENGINE_ROUTE_MISSING'
-      });
-    }
-    res.json(remote);
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not load dungeon.' });
-  }
-});
-
-router.post('/student/vocab/dungeon/stage/start', requireRole('student'), async (req, res) => {
-  try {
-    const remote = await tryEngine('/dungeon/stage/start', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: req.session.studentId,
-      classId: req.session.classId,
-      name: req.session.name
-    });
-    if (!remote) {
-      return res.status(503).json({
-        error: 'Dungeon requires Mr.Park Vocab engine v1.',
-        code: 'ENGINE_ROUTE_MISSING'
-      });
-    }
-    res.json(remote);
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not start dungeon stage.' });
-  }
-});
-
-router.post('/student/vocab/dungeon/stage/submit', requireRole('student'), async (req, res) => {
-  try {
-    const remote = await tryEngine('/dungeon/stage/submit', {
-      method: 'POST',
-      body: req.body || {},
-      studentId: req.session.studentId,
-      classId: req.session.classId,
-      name: req.session.name
-    });
-    if (!remote) {
-      return res.status(503).json({
-        error: 'Dungeon requires Mr.Park Vocab engine v1.',
-        code: 'ENGINE_ROUTE_MISSING'
-      });
-    }
-    res.json(remote);
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Could not submit dungeon stage.' });
-  }
-});
-
-router.get('/student/vocab/pronounce', requireRole('student'), async (req, res) => {
-  try {
-    const word = String(req.query.word || '').trim();
-    const remote = await tryEngine('/pronounce', {
-      query: 'word=' + encodeURIComponent(word),
-      studentId: req.session.studentId,
-      classId: req.session.classId,
-      name: req.session.name
-    });
-    if (!remote) {
-      return res.status(503).json({
-        error: 'Pronounce requires Mr.Park Vocab engine v1.',
-        code: 'ENGINE_ROUTE_MISSING'
-      });
-    }
-    res.json(remote);
-  } catch (e) {
-    res.status(e.statusCode || 400).json({ error: e.message || 'Pronounce unavailable.' });
-  }
-});
+router.all(/^\/student\/(vocab|reading)\/(.+)$/, requireRole('student'), (req, res) =>
+  relayVocabRequest(req, res, '/' + req.params[0] + '/' + req.params[1])
+);
 
 router.get('/teacher/class/:classId/vocab', requireRole('teacher'), async (req, res) => {
   try {
