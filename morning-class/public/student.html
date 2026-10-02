@@ -125,6 +125,12 @@
       </div>
     </div>
 
+    <div class="card stu-card hidden" id="sectionLucky">
+      <div class="card-title"><i class="fa-solid fa-ticket"></i> Prize tickets</div>
+      <p class="muted small" style="margin:0 0 0.5rem">Win tickets in Vocab Booster. Show this to your homeroom teacher to get your prize!</p>
+      <div id="stuLuckyList"></div>
+    </div>
+
     <div class="card stu-card" id="sectionLostFound">
       <div class="card-title"><i class="fa-solid fa-box-open"></i> <span data-i18n="nav.lostAndFound">Lost &amp; Found</span></div>
       <p class="muted small" data-i18n="student.laf.help">Items turned in to the office. Ask a parent to claim yours, or stop by the office.</p>
@@ -237,6 +243,39 @@
       return Promise.resolve();
     }
   };
+
+  let luckyOpenCount = null;
+
+  async function loadLuckyTickets() {
+    const card = $('sectionLucky');
+    try {
+      const data = await api('/api/student/lucky/tickets', {}, role);
+      const open = data.open || [];
+      const redeemed = data.redeemed || [];
+      if (!data.enabled && !open.length && !redeemed.length) {
+        card.classList.add('hidden');
+        luckyOpenCount = null;
+        renderHome();
+        return;
+      }
+      card.classList.remove('hidden');
+      luckyOpenCount = open.length;
+      const item = (t, got) => '<li><strong>' + escapeHtml(t.tier) + '</strong> — ' + escapeHtml(t.prizeText) +
+        (got ? ' <span class="muted small">✓ received</span>' : '') + '</li>';
+      let html = open.length
+        ? '<ul class="stu-list">' + open.map((t) => item(t, false)).join('') + '</ul>'
+        : '<p class="muted">No tickets waiting. Clear a Vocab set to win one!</p>';
+      if (redeemed.length) {
+        html += '<details style="margin-top:0.5rem"><summary class="muted small">Received (' + redeemed.length + ')</summary>' +
+          '<ul class="stu-list">' + redeemed.slice(0, 10).map((t) => item(t, true)).join('') + '</ul></details>';
+      }
+      $('stuLuckyList').innerHTML = html;
+      renderHome();
+    } catch (e) {
+      card.classList.add('hidden');
+    }
+  }
+  window.refreshStudentLuckyDraw = loadLuckyTickets;
 
   function chip(label, value, targetId) {
     const tag = targetId ? 'button' : 'div';
@@ -402,7 +441,8 @@
       chip('Messages', s.unreadMessages || 0, 'messages') +
       chip('Homework', s.pendingHomework || 0, 'sectionHomework') +
       chip('Dollars', s.dollars == null ? '—' : s.dollars, 'sectionDollars') +
-      chip('Vocab Booster', v.placementDone ? (v.tierLabel || v.tierName || v.tier || 'Ready') : 'Place first', 'vocabShell');
+      chip('Vocab Booster', v.placementDone ? (v.tierLabel || v.tierName || v.tier || 'Ready') : 'Place first', 'vocabShell') +
+      (luckyOpenCount != null ? chip('Prize tickets', luckyOpenCount, 'sectionLucky') : '');
     wireHomeChips();
   }
 
@@ -725,6 +765,7 @@
     });
   }
   loadDashboard();
+  loadLuckyTickets();
   loadStudentAnnouncements();
   loadGrades();
   loadReportCards();

@@ -345,6 +345,12 @@
       <p class="muted small">Vocab Booster progress. Reset placement or adjust level if needed.</p>
       <div id="vocabTeacherList"><p class="muted">Loading…</p></div>
       <div class="error" id="vocabTeacherError"></div>
+      <div id="luckyTeacherBox" class="hidden" style="margin-top:1.25rem">
+        <h3 style="margin:0 0 0.25rem">🎟️ Prize tickets</h3>
+        <p class="muted small" style="margin:0 0 0.6rem">Students win these in Vocab / Reading Booster. Hand out the prize, then tap “Handed out”.</p>
+        <div id="luckyTeacherList"></div>
+        <div class="error" id="luckyTeacherError"></div>
+      </div>
     </div>
 
     <div id="panelReport" class="card hidden">
@@ -1693,6 +1699,68 @@
     });
   }
 
+  let vocabStudentNames = {};
+
+  function luckyDate(iso) {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
+  async function loadLuckyTickets() {
+    if (!currentClass) return;
+    const wrap = $('luckyTeacherBox');
+    const box = $('luckyTeacherList');
+    const err = $('luckyTeacherError');
+    const classId = currentClass.classId;
+    err.textContent = '';
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(classId) + '/lucky-tickets', {}, role);
+      if (!currentClass || currentClass.classId !== classId) return;
+      const tickets = data.tickets || [];
+      if (!data.enabled && !tickets.length) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      const open = tickets.filter((t) => !t.redeemedAt);
+      const done = tickets.filter((t) => t.redeemedAt).slice(0, 20);
+      const nameOf = (t) => vocabStudentNames[String(t.studentId)] || t.studentId;
+      const row = (t, isOpen) => '<tr><td>' + escapeHtml(nameOf(t)) + '</td><td><strong>' + escapeHtml(t.tier) +
+        '</strong> — ' + escapeHtml(t.prizeText) + '</td><td>' + escapeHtml(luckyDate(isOpen ? t.drawnAt : t.redeemedAt)) +
+        '</td><td style="white-space:nowrap"><button type="button" class="btn ' + (isOpen ? '' : 'btn-ghost ') +
+        'lucky-redeem" data-tid="' + escapeHtml(t.ticketId) + '" data-redeem="' + (isOpen ? '1' : '0') + '">' +
+        (isOpen ? 'Handed out' : 'Undo') + '</button></td></tr>';
+      let html = open.length
+        ? '<div class="table-wrap"><table class="grades-table"><thead><tr><th>Student</th><th>Prize</th><th>Won</th><th></th></tr></thead><tbody>' +
+          open.map((t) => row(t, true)).join('') + '</tbody></table></div>'
+        : '<p class="muted">No prizes waiting.' + (data.enabled ? '' : ' (Lucky Draw is off for this school.)') + '</p>';
+      if (done.length) {
+        html += '<details style="margin-top:0.6rem"><summary class="muted small">Recently handed out (' + done.length + ')</summary>' +
+          '<div class="table-wrap"><table class="grades-table"><tbody>' + done.map((t) => row(t, false)).join('') +
+          '</tbody></table></div></details>';
+      }
+      box.innerHTML = html;
+      box.querySelectorAll('.lucky-redeem').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            await api('/api/teacher/class/' + encodeURIComponent(classId) + '/lucky-tickets/' +
+              encodeURIComponent(btn.dataset.tid) + '/redeem', {
+              method: 'POST',
+              body: { redeemed: btn.dataset.redeem === '1' }
+            }, role);
+            loadLuckyTickets();
+          } catch (e) {
+            btn.disabled = false;
+            err.textContent = e.message;
+          }
+        });
+      });
+    } catch (e) {
+      wrap.classList.add('hidden');
+    }
+  }
+
   async function loadVocabOverview() {
     if (!currentClass) return;
     const box = $('vocabTeacherList');
@@ -1702,6 +1770,9 @@
     try {
       const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/vocab', {}, role);
       const students = data.students || [];
+      vocabStudentNames = {};
+      students.forEach((s) => { vocabStudentNames[String(s.studentId)] = s.name; });
+      loadLuckyTickets();
       if (!students.length) {
         box.innerHTML = '<p class="muted">No students.</p>';
         return;

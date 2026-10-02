@@ -296,6 +296,43 @@ async function forwardStudentRequest(req, res, ctx) {
   return { status: upstream.status, data: await parseJson(upstream) };
 }
 
+/**
+ * Non-student engine call (teacher tools). Returns the engine status as-is, no session fallback.
+ * @param {string} enginePath e.g. '/lucky/class-tickets'
+ * @param {{ method?: string, query?: object, body?: object, headers?: object }} [opts]
+ */
+async function engineCall(enginePath, opts) {
+  opts = opts || {};
+  const origin = engineOrigin();
+  const token = engineToken();
+  if (!origin || !token) {
+    const err = new Error('Vocab Booster engine is not configured (VOCAB_ENGINE_URL + VOCAB_ENGINE_TOKEN).');
+    err.statusCode = 503;
+    throw err;
+  }
+  const qs = opts.query ? '?' + new URLSearchParams(opts.query).toString() : '';
+  const method = String(opts.method || 'GET').toUpperCase();
+  const headers = Object.assign({
+    Accept: 'application/json',
+    Authorization: 'Bearer ' + token,
+    'X-Vocab-Tenant': TENANT_ID
+  }, opts.headers || {});
+  const init = { method, headers };
+  if (opts.body != null) {
+    headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(opts.body);
+  }
+  let upstream;
+  try {
+    upstream = await fetch(origin + '/api/vocab/v1' + enginePath + qs, init);
+  } catch (netErr) {
+    const err = new Error('Vocab Booster engine unreachable: ' + (netErr.message || netErr));
+    err.statusCode = 502;
+    throw err;
+  }
+  return { status: upstream.status, data: await parseJson(upstream) };
+}
+
 module.exports = {
   TENANT_ID,
   engineOrigin,
@@ -304,6 +341,7 @@ module.exports = {
   engineFetch,
   tryEngine,
   forwardStudentRequest,
+  engineCall,
   probeHealth,
   mintStudentSession
 };

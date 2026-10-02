@@ -276,6 +276,7 @@ const {
 } = require('./services/vocabShared');
 const {
   forwardStudentRequest,
+  engineCall: vocabEngineCall,
   probeHealth,
   TENANT_ID: VOCAB_TENANT_ID,
   isConfigured: isVocabEngineConfigured
@@ -2439,6 +2440,42 @@ router.post('/student/vocab/central-session', requireRole('student'), async (req
 router.all(/^\/student\/(vocab|reading)\/(.+)$/, requireRole('student'), (req, res) =>
   relayVocabRequest(req, res, '/' + req.params[0] + '/' + req.params[1])
 );
+
+/** Prize tickets from the central Lucky Draw (on/off + prize table set in the Vocab platform console). */
+router.get('/student/lucky/tickets', requireRole('student'), (req, res) =>
+  relayVocabRequest(req, res, '/lucky/tickets')
+);
+
+router.get('/teacher/class/:classId/lucky-tickets', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    const out = await vocabEngineCall('/lucky/class-tickets', {
+      query: { classId: req.params.classId, limit: '300' }
+    });
+    res.status(out.status).json(out.data);
+  } catch (e) {
+    const status = /homeroom|not assigned|access/i.test(e.message || '') ? 403 : (e.statusCode || 500);
+    res.status(status).json({ error: e.message || 'Could not load prize tickets.' });
+  }
+});
+
+router.post('/teacher/class/:classId/lucky-tickets/:ticketId/redeem', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertHomeroomOfClass(req.session.teacherId, req.params.classId);
+    const out = await vocabEngineCall('/lucky/tickets/' + encodeURIComponent(req.params.ticketId) + '/redeem', {
+      method: 'POST',
+      body: {
+        classId: req.params.classId,
+        redeemed: !(req.body && req.body.redeemed === false),
+        redeemedBy: req.session.teacherName || req.session.name || req.session.teacherId || ''
+      }
+    });
+    res.status(out.status).json(out.data);
+  } catch (e) {
+    const status = /homeroom|not assigned|access/i.test(e.message || '') ? 403 : (e.statusCode || 500);
+    res.status(status).json({ error: e.message || 'Could not update the ticket.' });
+  }
+});
 
 router.get('/teacher/class/:classId/vocab', requireRole('teacher'), async (req, res) => {
   try {
