@@ -3978,6 +3978,7 @@ router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (re
     res.json({
       units: grammarClinic.listCatalog({
         grade: req.query.grade,
+        category: req.query.category,
         q: req.query.q
       }),
       categories: grammarClinic.listCategories(),
