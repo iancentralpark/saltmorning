@@ -83,7 +83,17 @@ function clampCount(n) {
 }
 
 /** Claude batch size — larger sets are generated in chunks then merged. */
-const GENERATE_CHUNK_SIZE = 8;
+const GENERATE_CHUNK_SIZE = 6;
+/** Keep finished/failed jobs briefly so the UI can poll the result. */
+const JOB_TTL_MS = 45 * 60 * 1000;
+const generateJobs = new Map();
+
+function pruneGenerateJobs() {
+  const now = Date.now();
+  for (const [id, job] of generateJobs.entries()) {
+    if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) generateJobs.delete(id);
+  }
+}
 
 function normalizeGrade(raw) {
   const s = String(raw || '').toUpperCase();
@@ -451,6 +461,9 @@ async function generateExamPaper(opts) {
   const difficulty = normalizeDifficulty(opts.difficulty);
   const count = clampCount(opts.questionCount || opts.totalQuestions || 10);
   const unitIds = Array.isArray(opts.unitIds) ? opts.unitIds.map(String) : [];
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null;
+  // Large sets: one repair pass only — retries dominate wall time and cause proxy 502s.
+  const maxRepairPasses = count >= 20 ? 1 : 2;
   if (unitIds.length < 1) {
     const err = new Error('문법 요소를 하나 이상 선택하세요.');
     err.statusCode = 400;
@@ -474,8 +487,20 @@ async function generateExamPaper(opts) {
   const items = [];
   const warnings = [];
   let paperTitle = title;
+  const totalChunks = Math.ceil(count / GENERATE_CHUNK_SIZE);
+
+  const report = (message, extra) => {
+    if (!onProgress) return;
+    onProgress(Object.assign({
+      itemsReady: items.length,
+      target: count,
+      message
+    }, extra || {}));
+  };
+  report('출제 시작…', { chunk: 0, totalChunks });
 
   for (let offset = 0; offset < count; offset += GENERATE_CHUNK_SIZE) {
+    const chunkIndex = Math.floor(offset / GENERATE_CHUNK_SIZE) + 1;
     const sliceTypes = typePlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
     const sliceUnits = unitPlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
     const chunkUnits = [];
@@ -485,6 +510,10 @@ async function generateExamPaper(opts) {
       seen.add(id);
       if (unitMap[id]) chunkUnits.push(unitMap[id]);
     });
+    report(
+      '청크 ' + chunkIndex + '/' + totalChunks + ' 생성 중… (' + items.length + '/' + count + ')',
+      { chunk: chunkIndex, totalChunks }
+    );
     const prompt = buildGenerateUserPrompt({
       title,
       grade,
@@ -493,9 +522,26 @@ async function generateExamPaper(opts) {
       typePlan: sliceTypes,
       unitPlan: sliceUnits
     });
-    const parsed = await askJson(prompt, {
-      maxOutputTokens: Math.min(16000, 2048 + sliceTypes.length * 900)
-    });
+    let parsed;
+    try {
+      parsed = await askJson(prompt, {
+        maxOutputTokens: Math.min(12000, 1800 + sliceTypes.length * 700)
+      });
+    } catch (chunkErr) {
+      // Config / hard AI failures should surface immediately.
+      if (chunkErr && (chunkErr.statusCode === 503 || /not configured|ANTHROPIC/i.test(chunkErr.message || ''))) {
+        throw chunkErr;
+      }
+      // One chunk failure should not kill a 50-item paper — skip and continue.
+      warnings.push({
+        index: offset + 1,
+        warnings: ['chunk_failed'],
+        error: chunkErr.message,
+        soft: false
+      });
+      report('청크 ' + chunkIndex + ' 실패 — 다음 청크 계속', { chunk: chunkIndex, totalChunks });
+      continue;
+    }
     if (offset === 0 && parsed.title) paperTitle = String(parsed.title).trim() || title;
     const rawItems = Array.isArray(parsed.items)
       ? parsed.items
@@ -514,35 +560,26 @@ async function generateExamPaper(opts) {
 
       let check = validateItem(item, unitMap);
       if (!check.ok) {
-        try {
-          const unit = unitMap[item.unitId] || units[0];
-          item = await regenerateOneItem({
-            unit,
-            questionType: sliceTypes[j],
-            difficulty,
-            grade,
-            reason: check.warnings.join(',')
-          });
-          check = validateItem(item, unitMap);
-          if (!check.ok) {
-            try {
-              item = await regenerateOneItem({
-                unit,
-                questionType: sliceTypes[j],
-                difficulty,
-                grade,
-                reason: 'second_retry:' + check.warnings.join(',')
-              });
-              check = validateItem(item, unitMap);
-            } catch (e2) { /* keep first retry result */ }
+        for (let pass = 0; pass < maxRepairPasses && !check.ok; pass++) {
+          try {
+            const unit = unitMap[item.unitId] || units[0];
+            item = await regenerateOneItem({
+              unit,
+              questionType: sliceTypes[j],
+              difficulty,
+              grade,
+              reason: (pass ? 'retry_' + (pass + 1) + ':' : '') + check.warnings.join(',')
+            });
+            check = validateItem(item, unitMap);
+          } catch (e) {
+            warnings.push({
+              index: i + 1,
+              warnings: (check.warnings || []).concat(['retry_failed']),
+              error: e.message
+            });
+            check = { ok: false, warnings: (check.warnings || []).concat(['retry_failed']) };
+            break;
           }
-        } catch (e) {
-          warnings.push({
-            index: i + 1,
-            warnings: (check.warnings || []).concat(['retry_failed']),
-            error: e.message
-          });
-          check = { ok: false, warnings: (check.warnings || []).concat(['retry_failed']) };
         }
       }
 
@@ -554,6 +591,9 @@ async function generateExamPaper(opts) {
         warnings.push({ index: i + 1, warnings: check.warnings, soft: true });
       }
       items.push(item);
+      if (items.length % 5 === 0 || items.length === count) {
+        report(items.length + '/' + count + ' 문항 확보', { chunk: chunkIndex, totalChunks });
+      }
     }
   }
 
@@ -562,6 +602,8 @@ async function generateExamPaper(opts) {
     err.statusCode = 502;
     throw err;
   }
+
+  report('시험지 조립 중… (' + items.length + '문항)', { chunk: totalChunks, totalChunks });
 
   const paper = {
     title: paperTitle,
@@ -589,6 +631,83 @@ async function generateExamPaper(opts) {
     htmlAnswers: renderAnswersHtml(paper),
     warnings
   };
+}
+
+/**
+ * Start background generation so Railway/proxy timeouts do not kill 30–50 item runs.
+ * Returns immediately with a jobId; poll getGenerateJob().
+ */
+function startGenerateJob(opts, ownerKey) {
+  pruneGenerateJobs();
+  const id = newId('gcjob');
+  const target = clampCount((opts && (opts.questionCount || opts.totalQuestions)) || 10);
+  const job = {
+    id,
+    ownerKey: String(ownerKey || ''),
+    status: 'running',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    progress: {
+      itemsReady: 0,
+      target,
+      chunk: 0,
+      totalChunks: Math.ceil(target / GENERATE_CHUNK_SIZE),
+      message: '대기열에 등록됨…'
+    },
+    result: null,
+    error: null
+  };
+  generateJobs.set(id, job);
+
+  setImmediate(() => {
+    generateExamPaper(Object.assign({}, opts || {}, {
+      onProgress(p) {
+        job.progress = Object.assign({}, job.progress, p || {});
+        job.updatedAt = Date.now();
+      }
+    })).then((result) => {
+      job.status = 'done';
+      job.result = result;
+      job.progress = Object.assign({}, job.progress, {
+        itemsReady: (result.paper && result.paper.totalQuestions) || 0,
+        message: '완료'
+      });
+      job.updatedAt = Date.now();
+    }).catch((e) => {
+      job.status = 'error';
+      job.error = e.message || '생성 실패';
+      job.progress = Object.assign({}, job.progress, { message: job.error });
+      job.updatedAt = Date.now();
+      console.error('grammarClinic job', id, e);
+    });
+  });
+
+  return { jobId: id, status: job.status, progress: job.progress };
+}
+
+function getGenerateJob(jobId, ownerKey) {
+  pruneGenerateJobs();
+  const job = generateJobs.get(String(jobId || ''));
+  if (!job) return null;
+  if (ownerKey && job.ownerKey && job.ownerKey !== String(ownerKey)) {
+    const err = new Error('Job not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  const out = {
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    error: job.error || undefined
+  };
+  if (job.status === 'done' && job.result) {
+    out.ok = true;
+    out.paper = job.result.paper;
+    out.htmlQuestions = job.result.htmlQuestions;
+    out.htmlAnswers = job.result.htmlAnswers;
+    out.warnings = job.result.warnings || [];
+  }
+  return out;
 }
 
 function escapeHtml(s) {
@@ -885,6 +1004,8 @@ module.exports = {
   listCategories,
   getUnitsByIds,
   generateExamPaper,
+  startGenerateJob,
+  getGenerateJob,
   renderQuestionsHtml,
   renderAnswersHtml,
   validateItem,

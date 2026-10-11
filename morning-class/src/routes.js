@@ -3996,24 +3996,41 @@ router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (re
 router.post('/grammar-clinic/generate', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const body = req.body || {};
-    const result = await grammarClinic.generateExamPaper({
+    const ownerKey = String(
+      (req.session && (req.session.teacherId || req.session.userId || req.session.email)) || 'anon'
+    );
+    // Always async: 30–50 item runs exceed Railway/proxy request timeouts (HTTP 502).
+    const started = grammarClinic.startGenerateJob({
       title: body.title,
       grade: body.grade,
       unitIds: body.unitIds,
       questionCount: body.questionCount || body.totalQuestions,
       difficulty: body.difficulty,
       questionTypes: body.questionTypes
-    });
-    res.json({
+    }, ownerKey);
+    res.status(202).json({
       ok: true,
-      paper: result.paper,
-      htmlQuestions: result.htmlQuestions,
-      htmlAnswers: result.htmlAnswers,
-      warnings: result.warnings || []
+      async: true,
+      jobId: started.jobId,
+      status: started.status,
+      progress: started.progress
     });
   } catch (e) {
     console.error('POST /grammar-clinic/generate', e);
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate grammar exam.' });
+  }
+});
+
+router.get('/grammar-clinic/jobs/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const ownerKey = String(
+      (req.session && (req.session.teacherId || req.session.userId || req.session.email)) || 'anon'
+    );
+    const job = grammarClinic.getGenerateJob(req.params.id, ownerKey);
+    if (!job) return res.status(404).json({ error: 'Job not found.' });
+    res.json(job);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load job.' });
   }
 });
 
