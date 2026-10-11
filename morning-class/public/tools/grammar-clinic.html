@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내신 문법 Generator — Salt Morning</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1f2e;
+      --muted: #5c6578;
+      --line: #d8deea;
+      --paper: #f4f6fb;
+      --card: #ffffff;
+      --accent: #1e4d8c;
+      --accent-soft: #e8f0fa;
+      --coral: #c45d55;
+      --ok: #2f6b4f;
+      --chip: #eef2f8;
+      --chip-on: #1e4d8c;
+      --shadow: 0 10px 28px rgba(26, 31, 46, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Noto Sans KR', system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(30, 77, 140, 0.10), transparent 36%),
+        radial-gradient(circle at 100% 80%, rgba(196, 93, 85, 0.08), transparent 40%),
+        linear-gradient(165deg, #eef2f8 0%, var(--paper) 50%, #e9edf5 100%);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+      padding: 0.7rem 1.1rem; background: rgba(255,255,255,0.92); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px);
+    }
+    .brand {
+      font-family: Fraunces, Georgia, serif; font-size: 1.35rem; font-weight: 700; color: var(--accent);
+      line-height: 1.15;
+    }
+    .brand small {
+      display: block; font-family: 'Noto Sans KR', sans-serif; font-size: 0.7rem; color: var(--muted);
+      font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .btn {
+      border: none; border-radius: 10px; padding: 0.48rem 0.85rem; font-weight: 700; cursor: pointer;
+      font: inherit; display: inline-flex; align-items: center; gap: 0.35rem;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #24599e, var(--accent)); color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid var(--line); color: var(--accent); }
+    .btn-ok { background: #e7f3ea; color: var(--ok); border: 1px solid #c9e3d0; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.82rem; border-radius: 8px; }
+    .pane { flex: 1; padding: 1rem 1.1rem 2rem; }
+    .layout {
+      display: grid; grid-template-columns: minmax(280px, 340px) 1fr; gap: 1rem; align-items: start;
+    }
+    @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+    .side, .main {
+      background: rgba(255,255,255,0.9); border: 1px solid var(--line); border-radius: 16px;
+      box-shadow: var(--shadow); padding: 1rem;
+    }
+    .side h2, .main h2 {
+      font-family: Fraunces, Georgia, serif; margin: 0 0 0.65rem; font-size: 1.25rem; color: var(--accent);
+    }
+    .form-grid { display: grid; gap: 0.55rem; margin-bottom: 0.85rem; }
+    label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+    input, select {
+      border: 1px solid var(--line); border-radius: 9px; padding: 0.45rem 0.55rem; font: inherit; color: var(--ink);
+      background: #fff;
+    }
+    .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 0.6rem; line-height: 1.4; }
+    .grade-tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.55rem; }
+    .grade-tab {
+      border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 0.28rem 0.7rem;
+      font-weight: 700; font-size: 0.8rem; cursor: pointer; color: var(--muted);
+    }
+    .grade-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cat-block { margin-bottom: 0.75rem; }
+    .cat-title {
+      font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.04em; margin-bottom: 0.35rem;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .chip {
+      border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+      border-radius: 999px; padding: 0.32rem 0.65rem; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; transition: 0.15s ease;
+    }
+    .chip:hover { border-color: var(--accent); }
+    .chip.on { background: var(--chip-on); color: #fff; border-color: var(--chip-on); }
+    .selected-bar {
+      display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
+      margin: 0.5rem 0 0.75rem; min-height: 1.6rem;
+    }
+    .selected-bar .tag {
+      font-size: 0.72rem; background: var(--accent-soft); color: var(--accent);
+      border-radius: 999px; padding: 0.2rem 0.5rem; font-weight: 700;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.5rem; }
+    .status { font-size: 0.85rem; margin-top: 0.65rem; color: var(--muted); min-height: 1.2em; }
+    .status.error { color: var(--coral); font-weight: 600; }
+    .status.ok { color: var(--ok); font-weight: 600; }
+    .preview-toolbar {
+      display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;
+      justify-content: space-between; margin-bottom: 0.75rem;
+    }
+    .tabs { display: flex; gap: 0.35rem; }
+    .tab {
+      border: 1px solid var(--line); background: #fff; border-radius: 999px;
+      padding: 0.35rem 0.8rem; font-weight: 700; cursor: pointer; color: var(--accent); font: inherit;
+    }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .preview-frame {
+      width: 100%; min-height: 70vh; border: 1px solid var(--line); border-radius: 12px;
+      background: #fff; overflow: auto;
+    }
+    .empty {
+      padding: 2.5rem 1rem; text-align: center; color: var(--muted); font-size: 0.95rem;
+    }
+    .empty strong { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.35rem; color: var(--accent); margin-bottom: 0.35rem; }
+    .spinner {
+      display: inline-block; width: 0.9em; height: 0.9em; border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">내신 문법 Generator<small>Class Tools · K-Middle School</small></div>
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost btn-sm" id="btnClear">선택 초기화</button>
+        <button type="button" class="btn btn-primary" id="btnGenerate">Generate</button>
+      </div>
+    </header>
+
+    <div class="pane">
+      <div class="layout">
+        <aside class="side">
+          <h2>출제 설정</h2>
+          <p class="hint">문법 포인트를 여러 개 고른 뒤 Generate하세요. 한국 중학 내신 유형(A~H)으로 문제지·정답지가 만들어집니다.</p>
+          <div class="form-grid">
+            <label>시험지 제목
+              <input type="text" id="titleInput" placeholder="예: 중2 비교급·가주어 문법 클리닉">
+            </label>
+            <label>기본 학년 필터
+              <select id="gradeSelect">
+                <option value="">전체 (중1–중3)</option>
+                <option value="M1">중1</option>
+                <option value="M2" selected>중2</option>
+                <option value="M3">중3</option>
+              </select>
+            </label>
+            <label>문항 수
+              <select id="countSelect">
+                <option value="6">6</option>
+                <option value="8">8</option>
+                <option value="10" selected>10</option>
+                <option value="12">12</option>
+                <option value="15">15</option>
+              </select>
+            </label>
+            <label>난이도
+              <select id="diffSelect">
+                <option value="EASY">Easy</option>
+                <option value="MEDIUM" selected>Medium</option>
+                <option value="HARD">Hard</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grade-tabs" id="quickGrades">
+            <button type="button" class="grade-tab" data-grade="">전체</button>
+            <button type="button" class="grade-tab" data-grade="M1">중1</button>
+            <button type="button" class="grade-tab active" data-grade="M2">중2</button>
+            <button type="button" class="grade-tab" data-grade="M3">중3</button>
+          </div>
+
+          <div class="selected-bar" id="selectedBar"><span class="hint" style="margin:0">선택된 문법 없음</span></div>
+          <div id="catalogMount"><p class="hint">문법 목록 불러오는 중…</p></div>
+          <div class="actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="btnPickMid2">중2 추천 세트</button>
+            <button type="button" class="btn btn-primary" id="btnGenerate2">Generate</button>
+          </div>
+          <div class="status" id="status"></div>
+        </aside>
+
+        <section class="main">
+          <div class="preview-toolbar">
+            <div class="tabs">
+              <button type="button" class="tab active" data-view="questions">문제지</button>
+              <button type="button" class="tab" data-view="answers">정답·해설</button>
+            </div>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+              <button type="button" class="btn btn-ok btn-sm" id="btnPrint" disabled>인쇄 / PDF</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnOpenTab" disabled>새 탭에서 열기</button>
+            </div>
+          </div>
+          <div id="emptyState" class="empty">
+            <strong>시험지 미리보기</strong>
+            왼쪽에서 문법을 선택하고 Generate를 누르면<br>
+            세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.
+          </div>
+          <iframe id="previewFrame" class="preview-frame hidden" title="시험지 미리보기"></iframe>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  'use strict';
+
+  var catalog = [];
+  var selected = {};
+  var filterGrade = 'M2';
+  var view = 'questions';
+  var last = null; // { htmlQuestions, htmlAnswers, paper }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function toolFetch(url, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    var headers = opts.headers || {};
+    try {
+      var token = localStorage.getItem('salt_teacher_token') ||
+        sessionStorage.getItem('salt_teacher_token') ||
+        localStorage.getItem('salt_admin_token') ||
+        sessionStorage.getItem('salt_admin_token') ||
+        localStorage.getItem('mrpark_teacher_token') || '';
+      if (token) headers.Authorization = 'Bearer ' + token;
+    } catch (e) { /* ignore */ }
+    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    opts.headers = headers;
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+
+  function setStatus(msg, kind) {
+    var el = $('status');
+    el.textContent = msg || '';
+    el.classList.remove('error', 'ok');
+    if (kind === 'error') el.classList.add('error');
+    if (kind === 'ok') el.classList.add('ok');
+  }
+
+  function selectedIds() {
+    return Object.keys(selected).filter(function (k) { return selected[k]; });
+  }
+
+  function renderSelectedBar() {
+    var ids = selectedIds();
+    var bar = $('selectedBar');
+    if (!ids.length) {
+      bar.innerHTML = '<span class="hint" style="margin:0">선택된 문법 없음</span>';
+      return;
+    }
+    bar.innerHTML = ids.map(function (id) {
+      var u = catalog.find(function (x) { return x.unitId === id; });
+      var label = u ? u.subCategory : id;
+      return '<span class="tag">' + escapeHtml(label) + '</span>';
+    }).join('') +
+      '<span class="hint" style="margin:0">' + ids.length + '개 선택</span>';
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function renderCatalog() {
+    var mount = $('catalogMount');
+    var rows = catalog.filter(function (u) {
+      return !filterGrade || u.grade === filterGrade;
+    });
+    if (!rows.length) {
+      mount.innerHTML = '<p class="hint">이 학년에 등록된 문법이 없습니다.</p>';
+      return;
+    }
+    var byCat = {};
+    rows.forEach(function (u) {
+      if (!byCat[u.category]) byCat[u.category] = [];
+      byCat[u.category].push(u);
+    });
+    mount.innerHTML = Object.keys(byCat).map(function (cat) {
+      return '<div class="cat-block"><div class="cat-title">' + escapeHtml(cat) + '</div><div class="chips">' +
+        byCat[cat].map(function (u) {
+          var on = selected[u.unitId] ? ' on' : '';
+          return '<button type="button" class="chip' + on + '" data-unit="' + escapeHtml(u.unitId) + '" title="' +
+            escapeHtml((u.coreRules || []).join(' / ')) + '">' +
+            escapeHtml(u.subCategory) +
+            ' <small style="opacity:.75">' + escapeHtml(u.grade.replace('M', '중')) + '</small></button>';
+        }).join('') + '</div></div>';
+    }).join('');
+
+    mount.querySelectorAll('.chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-unit');
+        selected[id] = !selected[id];
+        btn.classList.toggle('on', !!selected[id]);
+        renderSelectedBar();
+      });
+    });
+  }
+
+  function syncGradeTabs() {
+    document.querySelectorAll('#quickGrades .grade-tab').forEach(function (btn) {
+      btn.classList.toggle('active', (btn.getAttribute('data-grade') || '') === filterGrade);
+    });
+    $('gradeSelect').value = filterGrade;
+  }
+
+  function showPreview() {
+    var empty = $('emptyState');
+    var frame = $('previewFrame');
+    var html = last && (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
+    if (!html) {
+      empty.classList.remove('hidden');
+      frame.classList.add('hidden');
+      $('btnPrint').disabled = true;
+      $('btnOpenTab').disabled = true;
+      return;
+    }
+    empty.classList.add('hidden');
+    frame.classList.remove('hidden');
+    frame.srcdoc = html;
+    $('btnPrint').disabled = false;
+    $('btnOpenTab').disabled = false;
+  }
+
+  function loadCatalog() {
+    return toolFetch('/api/grammar-clinic/catalog').then(function (data) {
+      catalog = data.units || [];
+      renderCatalog();
+      renderSelectedBar();
+    });
+  }
+
+  function generate() {
+    var ids = selectedIds();
+    if (!ids.length) {
+      setStatus('문법 요소를 하나 이상 선택하세요.', 'error');
+      return;
+    }
+    var body = {
+      title: String($('titleInput').value || '').trim(),
+      grade: filterGrade || $('gradeSelect').value || 'M2',
+      unitIds: ids,
+      questionCount: Number($('countSelect').value) || 10,
+      difficulty: $('diffSelect').value || 'MEDIUM'
+    };
+    setStatus('Claude로 내신 유형 출제 중… 30~60초 정도 걸릴 수 있습니다.');
+    $('btnGenerate').disabled = true;
+    $('btnGenerate2').disabled = true;
+    var label = $('btnGenerate').innerHTML;
+    $('btnGenerate').innerHTML = '<span class="spinner"></span> Generating';
+    toolFetch('/api/grammar-clinic/generate', { method: 'POST', body: body })
+      .then(function (data) {
+        last = data;
+        view = 'questions';
+        document.querySelectorAll('.tab').forEach(function (t) {
+          t.classList.toggle('active', t.getAttribute('data-view') === 'questions');
+        });
+        showPreview();
+        var soft = (data.warnings || []).filter(function (w) { return w.soft; }).length;
+        var hard = (data.warnings || []).filter(function (w) { return !w.soft; }).length;
+        var msg = '생성 완료 — ' + ((data.paper && data.paper.totalQuestions) || 0) + '문항';
+        if (hard) msg += ' (일부 문항 검증 경고 ' + hard + ')';
+        else if (soft) msg += ' (경미한 경고 ' + soft + ')';
+        setStatus(msg, 'ok');
+      })
+      .catch(function (err) {
+        setStatus(err.message || '생성 실패', 'error');
+      })
+      .finally(function () {
+        $('btnGenerate').disabled = false;
+        $('btnGenerate2').disabled = false;
+        $('btnGenerate').innerHTML = label;
+      });
+  }
+
+  function printCurrent() {
+    if (!last) return;
+    var html = view === 'answers' ? last.htmlAnswers : last.htmlQuestions;
+    var w = window.open('', '_blank');
+    if (!w) {
+      setStatus('팝업이 차단되었습니다. 새 탭 허용 후 다시 시도하세요.', 'error');
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(function () {
+      try { w.focus(); w.print(); } catch (e) { /* ignore */ }
+    }, 350);
+  }
+
+  function openTab() {
+    if (!last) return;
+    var html = view === 'answers' ? last.htmlAnswers : last.htmlQuestions;
+    var w = window.open('', '_blank');
+    if (!w) return;
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  $('gradeSelect').addEventListener('change', function () {
+    filterGrade = $('gradeSelect').value || '';
+    syncGradeTabs();
+    renderCatalog();
+  });
+  document.querySelectorAll('#quickGrades .grade-tab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filterGrade = btn.getAttribute('data-grade') || '';
+      syncGradeTabs();
+      renderCatalog();
+    });
+  });
+  $('btnClear').addEventListener('click', function () {
+    selected = {};
+    renderCatalog();
+    renderSelectedBar();
+  });
+  $('btnPickMid2').addEventListener('click', function () {
+    filterGrade = 'M2';
+    syncGradeTabs();
+    var picks = [
+      'M2_TO_INF_DUMMY_IT',
+      'M2_THE_COMPARATIVE',
+      'M2_INFINITIVE_ROLES',
+      'M2_GERUND',
+      'M2_TOO_ENOUGH'
+    ];
+    picks.forEach(function (id) { selected[id] = true; });
+    renderCatalog();
+    renderSelectedBar();
+    if (!$('titleInput').value) {
+      $('titleInput').value = '중2 가주어·비교급 문법 맞춤 클리닉';
+    }
+  });
+  $('btnGenerate').addEventListener('click', generate);
+  $('btnGenerate2').addEventListener('click', generate);
+  $('btnPrint').addEventListener('click', printCurrent);
+  $('btnOpenTab').addEventListener('click', openTab);
+  document.querySelectorAll('.tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      view = tab.getAttribute('data-view') || 'questions';
+      document.querySelectorAll('.tab').forEach(function (t) {
+        t.classList.toggle('active', t === tab);
+      });
+      showPreview();
+    });
+  });
+
+  loadCatalog().catch(function (err) {
+    setStatus(err.message || '목록을 불러오지 못했습니다. 로그인 상태를 확인하세요.', 'error');
+    $('catalogMount').innerHTML = '<p class="hint">카탈로그를 불러오지 못했습니다. 선생님 계정으로 로그인한 뒤 이 창을 다시 열어 주세요.</p>';
+  });
+})();
+  </script>
+</body>
+</html>

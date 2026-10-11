@@ -330,7 +330,19 @@ async function runWithRetries(models, runner, options) {
  */
 async function askGemini(prompt, historyOrOptions, maybeOptions) {
   const options = normalizeOptions(historyOrOptions, maybeOptions);
-  const provider = preferredProvider();
+  const forced = String(options.provider || options.forceProvider || '').trim().toLowerCase();
+  let provider = preferredProvider();
+  if (forced === 'claude' || forced === 'anthropic') {
+    if (!anthropicApiKey()) {
+      throw new Error('Claude is not configured (set ANTHROPIC_API_KEY).');
+    }
+    provider = 'claude';
+  } else if (forced === 'gemini' || forced === 'google') {
+    if (!geminiApiKey()) {
+      throw new Error('Gemini is not configured (set GEMINI_API_KEY).');
+    }
+    provider = 'gemini';
+  }
   if (!provider) {
     throw new Error('AI is not configured (set ANTHROPIC_API_KEY or GEMINI_API_KEY).');
   }
@@ -349,7 +361,9 @@ async function askGemini(prompt, historyOrOptions, maybeOptions) {
         options
       );
     } catch (claudeErr) {
-      if (!geminiApiKey() || options.noGeminiFallback) throw claudeErr;
+      if (!geminiApiKey() || options.noGeminiFallback || forced === 'claude' || forced === 'anthropic') {
+        throw claudeErr;
+      }
       console.warn('Claude failed; falling back to Gemini:', claudeErr.message);
     }
   }

@@ -53,6 +53,7 @@
         <div class="teacher-nav-dropdown-panel hidden" id="classToolsMenuPanel" role="menu">
           <button type="button" class="teacher-nav-dropdown-item" id="openJeopardyBtn" role="menuitem">AI Jeopardy</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openGrammarClinicBtn" role="menuitem">내신 문법 Generator</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openNovelStudyBtn" role="menuitem">Novel Study Workbook</button>
         </div>
       </div>
@@ -1873,6 +1874,13 @@
     openItemBankBtn.addEventListener('click', () => {
       closeClassToolsMenu();
       window.open('/tools/item-bank', 'saltItemBank', 'noopener,width=1440,height=900');
+    });
+  }
+  const openGrammarClinicBtn = $('openGrammarClinicBtn');
+  if (openGrammarClinicBtn) {
+    openGrammarClinicBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/grammar-clinic', 'saltGrammarClinic', 'noopener,width=1440,height=900');
     });
   }
   const openNovelStudyBtn = $('openNovelStudyBtn');

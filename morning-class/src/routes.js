@@ -3971,6 +3971,51 @@ const {
   createBlankJeopardyBoard
 } = require('./services/jeopardyService');
 
+const grammarClinic = require('./services/grammarClinicService');
+
+router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json({
+      units: grammarClinic.listCatalog({
+        grade: req.query.grade,
+        q: req.query.q
+      }),
+      categories: grammarClinic.listCategories(),
+      questionTypes: grammarClinic.QUESTION_TYPES,
+      mvpTypes: grammarClinic.MVP_TYPES,
+      aiConfigured: grammarClinic.isClaudeConfigured(),
+      aiProvider: 'claude',
+      model: grammarClinic.claudeModel()
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load grammar catalog.' });
+  }
+});
+
+router.post('/grammar-clinic/generate', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const result = await grammarClinic.generateExamPaper({
+      title: body.title,
+      grade: body.grade,
+      unitIds: body.unitIds,
+      questionCount: body.questionCount || body.totalQuestions,
+      difficulty: body.difficulty,
+      questionTypes: body.questionTypes
+    });
+    res.json({
+      ok: true,
+      paper: result.paper,
+      htmlQuestions: result.htmlQuestions,
+      htmlAnswers: result.htmlAnswers,
+      warnings: result.warnings || []
+    });
+  } catch (e) {
+    console.error('POST /grammar-clinic/generate', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not generate grammar exam.' });
+  }
+});
+
 router.post('/jeopardy/generate', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const body = req.body || {};
