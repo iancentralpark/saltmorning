@@ -166,6 +166,11 @@
                 <option value="10" selected>10</option>
                 <option value="12">12</option>
                 <option value="15">15</option>
+                <option value="20">20</option>
+                <option value="25">25</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
               </select>
             </label>
             <label>난이도
@@ -366,7 +371,12 @@
       questionCount: Number($('countSelect').value) || 10,
       difficulty: $('diffSelect').value || 'MEDIUM'
     };
-    setStatus('Claude로 내신 유형 출제 중… 30~60초 정도 걸릴 수 있습니다.');
+    var n = Number($('countSelect').value) || 10;
+    setStatus(
+      n > 15
+        ? ('Claude로 ' + n + '문항 출제 중… 청크 생성으로 1~3분 걸릴 수 있습니다.')
+        : 'Claude로 내신 유형 출제 중… 30~60초 정도 걸릴 수 있습니다.'
+    );
     $('btnGenerate').disabled = true;
     $('btnGenerate2').disabled = true;
     var label = $('btnGenerate').innerHTML;
@@ -445,15 +455,22 @@
     var picks = [
       'M2_TO_INF_DUMMY_IT',
       'M2_THE_COMPARATIVE',
-      'M2_INFINITIVE_ROLES',
+      'M2_TO_INF_ADJ',
       'M2_GERUND',
-      'M2_TOO_ENOUGH'
+      'M2_PASSIVE',
+      'M2_RELATIVE_SUBJECT',
+      'M2_RELATIVE_OBJECT',
+      'M2_CAUSATIVE',
+      'M2_PERCEPTION_VERBS',
+      'M2_PRESENT_PERFECT',
+      'M2_IF_CONDITION',
+      'M2_INDIRECT_QUESTION'
     ];
     picks.forEach(function (id) { selected[id] = true; });
     renderCatalog();
     renderSelectedBar();
     if (!$('titleInput').value) {
-      $('titleInput').value = '중2 가주어·비교급 문법 맞춤 클리닉';
+      $('titleInput').value = '중2 내신 문법 맞춤 클리닉';
     }
   });
   $('btnGenerate').addEventListener('click', generate);

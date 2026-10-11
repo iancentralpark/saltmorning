@@ -69,8 +69,11 @@ function claudeModel() {
 
 function clampCount(n) {
   const x = Math.round(Number(n) || 10);
-  return Math.max(4, Math.min(20, x));
+  return Math.max(4, Math.min(50, x));
 }
+
+/** Claude batch size — larger sets are generated in chunks then merged. */
+const GENERATE_CHUNK_SIZE = 8;
 
 function normalizeGrade(raw) {
   const s = String(raw || '').toUpperCase();
@@ -386,50 +389,75 @@ async function generateExamPaper(opts) {
   const unitMap = {};
   units.forEach((u) => { unitMap[u.unitId] = u; });
 
-  const prompt = buildGenerateUserPrompt({
-    title, grade, difficulty, units, typePlan, unitPlan
-  });
-  const parsed = await askJson(prompt);
-  let rawItems = Array.isArray(parsed.items)
-    ? parsed.items
-    : (Array.isArray(parsed) ? parsed : []);
-
-  // pad / trim to plan length
   const items = [];
   const warnings = [];
-  for (let i = 0; i < count; i++) {
-    const fallback = {
-      unitId: unitPlan[i],
-      questionType: typePlan[i],
-      difficulty
-    };
-    let item = coerceItem(rawItems[i] || {}, fallback);
-    if (!item.unitId) item.unitId = unitPlan[i];
-    if (!QUESTION_TYPES.includes(item.questionType)) item.questionType = typePlan[i];
+  let paperTitle = title;
 
-    let check = validateItem(item, unitMap);
-    if (!check.ok) {
-      try {
-        const unit = unitMap[item.unitId] || units[0];
-        item = await regenerateOneItem({
-          unit,
-          questionType: typePlan[i],
-          difficulty,
-          grade
-        });
-        check = validateItem(item, unitMap);
-        if (!check.ok) warnings.push({ index: i + 1, warnings: check.warnings, retried: true });
-      } catch (e) {
-        warnings.push({ index: i + 1, warnings: check.warnings.concat(['retry_failed']), error: e.message });
+  for (let offset = 0; offset < count; offset += GENERATE_CHUNK_SIZE) {
+    const sliceTypes = typePlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
+    const sliceUnits = unitPlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
+    const chunkUnits = [];
+    const seen = new Set();
+    sliceUnits.forEach((id) => {
+      if (seen.has(id)) return;
+      seen.add(id);
+      if (unitMap[id]) chunkUnits.push(unitMap[id]);
+    });
+    const prompt = buildGenerateUserPrompt({
+      title,
+      grade,
+      difficulty,
+      units: chunkUnits.length ? chunkUnits : units,
+      typePlan: sliceTypes,
+      unitPlan: sliceUnits
+    });
+    const parsed = await askJson(prompt, {
+      maxOutputTokens: Math.min(16000, 2048 + sliceTypes.length * 900)
+    });
+    if (offset === 0 && parsed.title) paperTitle = String(parsed.title).trim() || title;
+    const rawItems = Array.isArray(parsed.items)
+      ? parsed.items
+      : (Array.isArray(parsed) ? parsed : []);
+
+    for (let j = 0; j < sliceTypes.length; j++) {
+      const i = offset + j;
+      const fallback = {
+        unitId: sliceUnits[j],
+        questionType: sliceTypes[j],
+        difficulty
+      };
+      let item = coerceItem(rawItems[j] || {}, fallback);
+      if (!item.unitId) item.unitId = sliceUnits[j];
+      if (!QUESTION_TYPES.includes(item.questionType)) item.questionType = sliceTypes[j];
+
+      let check = validateItem(item, unitMap);
+      if (!check.ok) {
+        try {
+          const unit = unitMap[item.unitId] || units[0];
+          item = await regenerateOneItem({
+            unit,
+            questionType: sliceTypes[j],
+            difficulty,
+            grade
+          });
+          check = validateItem(item, unitMap);
+          if (!check.ok) warnings.push({ index: i + 1, warnings: check.warnings, retried: true });
+        } catch (e) {
+          warnings.push({
+            index: i + 1,
+            warnings: check.warnings.concat(['retry_failed']),
+            error: e.message
+          });
+        }
+      } else if (check.warnings.length) {
+        warnings.push({ index: i + 1, warnings: check.warnings, soft: true });
       }
-    } else if (check.warnings.length) {
-      warnings.push({ index: i + 1, warnings: check.warnings, soft: true });
+      items.push(item);
     }
-    items.push(item);
   }
 
   const paper = {
-    title: String(parsed.title || title).trim() || title,
+    title: paperTitle,
     schoolGrade: grade,
     totalQuestions: items.length,
     selectedUnits: units.map((u) => ({
