@@ -462,54 +462,72 @@
   }
 
   function pollGenerateJob(jobId, label) {
-    var tries = 0;
-    var maxTries = 180; // ~6 min at 2s
+    var startedAt = Date.now();
+    var lastProgressKey = '';
+    var lastProgressAt = Date.now();
+    var hardMs = 20 * 60 * 1000; // absolute cap
+    var idleMs = 5 * 60 * 1000; // only stop if progress stalls
+    var failStreak = 0;
+
+    function finishUi() {
+      $('btnGenerate').disabled = false;
+      $('btnGenerate2').disabled = false;
+      $('btnGenerate').innerHTML = label;
+    }
+
     function tick() {
-      tries += 1;
       toolFetch('/api/grammar-clinic/jobs/' + encodeURIComponent(jobId))
         .then(function (job) {
+          failStreak = 0;
           if (job.status === 'done' && job.paper) {
             applyGenerateResult(job);
-            $('btnGenerate').disabled = false;
-            $('btnGenerate2').disabled = false;
-            $('btnGenerate').innerHTML = label;
+            finishUi();
             return;
           }
           if (job.status === 'error') {
             setStatus(job.error || '생성 실패', 'error');
-            $('btnGenerate').disabled = false;
-            $('btnGenerate2').disabled = false;
-            $('btnGenerate').innerHTML = label;
+            finishUi();
             return;
           }
           var p = job.progress || {};
           var ready = p.itemsReady != null ? p.itemsReady : 0;
           var target = p.target != null ? p.target : '?';
+          var key = String(ready) + '|' + String(p.chunk || '') + '|' + String(p.message || '');
+          if (key !== lastProgressKey) {
+            lastProgressKey = key;
+            lastProgressAt = Date.now();
+          }
+          var elapsedMin = Math.max(1, Math.round((Date.now() - startedAt) / 60000));
           setStatus(
             (p.message || '출제 중…') + ' — ' + ready + '/' + target +
-            (p.chunk ? ' (청크 ' + p.chunk + '/' + (p.totalChunks || '?') + ')' : '')
+            (p.chunk ? ' (청크 ' + p.chunk + '/' + (p.totalChunks || '?') + ')' : '') +
+            ' · ' + elapsedMin + '분 경과 (창을 닫지 마세요)'
           );
-          if (tries >= maxTries) {
-            setStatus('시간이 너무 오래 걸립니다. 문항 수를 줄이거나 다시 시도해 주세요.', 'error');
-            $('btnGenerate').disabled = false;
-            $('btnGenerate2').disabled = false;
-            $('btnGenerate').innerHTML = label;
+          var now = Date.now();
+          if (now - startedAt > hardMs) {
+            setStatus('20분이 지나 중단했습니다. 문항 수를 줄이거나 다시 시도해 주세요.', 'error');
+            finishUi();
+            return;
+          }
+          if (now - lastProgressAt > idleMs) {
+            setStatus('진행이 멈춘 것 같습니다. 다시 Generate 해 주세요. (서버가 재시작됐을 수 있어요)', 'error');
+            finishUi();
             return;
           }
           setTimeout(tick, 2000);
         })
         .catch(function (err) {
-          if (tries < 3) {
-            setTimeout(tick, 2500);
+          failStreak += 1;
+          if (failStreak < 8 && (Date.now() - startedAt) < hardMs) {
+            setStatus('연결 재시도 중… (' + failStreak + ') ' + (err.message || ''));
+            setTimeout(tick, 3000);
             return;
           }
           setStatus(err.message || '생성 상태 확인 실패', 'error');
-          $('btnGenerate').disabled = false;
-          $('btnGenerate2').disabled = false;
-          $('btnGenerate').innerHTML = label;
+          finishUi();
         });
     }
-    setTimeout(tick, 1200);
+    setTimeout(tick, 1000);
   }
 
   function generate() {
@@ -527,9 +545,11 @@
     };
     var n = Number($('countSelect').value) || 10;
     setStatus(
-      n >= 20
-        ? ('Claude로 ' + n + '문항 백그라운드 출제 중… 2~5분 걸릴 수 있습니다. 창을 닫지 마세요.')
-        : 'Claude로 내신 유형 출제 중… 잠시만 기다려 주세요.'
+      n >= 30
+        ? ('Claude로 ' + n + '문항 출제 중… 보통 5~12분 걸립니다. 진행률이 올라가는 동안 창을 닫지 마세요.')
+        : n >= 20
+          ? ('Claude로 ' + n + '문항 백그라운드 출제 중… 몇 분 걸릴 수 있습니다. 창을 닫지 마세요.')
+          : 'Claude로 내신 유형 출제 중… 잠시만 기다려 주세요.'
     );
     $('btnGenerate').disabled = true;
     $('btnGenerate2').disabled = true;

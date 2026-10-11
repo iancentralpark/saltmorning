@@ -83,10 +83,23 @@ function clampCount(n) {
 }
 
 /** Claude batch size — larger sets are generated in chunks then merged. */
-const GENERATE_CHUNK_SIZE = 6;
+const GENERATE_CHUNK_SIZE = 5;
+/** Parallel Claude chunk calls for large papers (keeps 50-item runs under ~10 min). */
+const GENERATE_PARALLEL = 3;
 /** Keep finished/failed jobs briefly so the UI can poll the result. */
-const JOB_TTL_MS = 45 * 60 * 1000;
+const JOB_TTL_MS = 60 * 60 * 1000;
 const generateJobs = new Map();
+
+/** Faster / more reliable types when generating many items. */
+const FAST_TYPES_FOR_LARGE = [
+  'SENTENCE_AUTHENTICITY_SINGLE',
+  'SENTENCE_AUTHENTICITY_SINGLE',
+  'SENTENCE_AUTHENTICITY_COMBINED',
+  'UNDERLINE_CORRECTION',
+  'BLANK_COMPLETION',
+  'DESCRIPTIVE_CORRECTION',
+  'SENTENCE_TRANSFORM'
+];
 
 function pruneGenerateJobs() {
   const now = Date.now();
@@ -111,9 +124,15 @@ function normalizeDifficulty(raw) {
 
 /** Build a mix of question types for N items. */
 function buildTypePlan(count, preferredTypes) {
-  const pool = (preferredTypes && preferredTypes.length)
-    ? preferredTypes.filter((t) => QUESTION_TYPES.includes(t))
-    : MVP_TYPES.slice();
+  let pool;
+  if (preferredTypes && preferredTypes.length) {
+    pool = preferredTypes.filter((t) => QUESTION_TYPES.includes(t));
+  } else if (count >= 25) {
+    // Skip slow/fragile types (ordering, multi-select, full composition) on big papers.
+    pool = FAST_TYPES_FOR_LARGE.slice();
+  } else {
+    pool = MVP_TYPES.slice();
+  }
   if (!pool.length) pool.push(...MVP_TYPES);
   const weights = {
     SENTENCE_AUTHENTICITY_SINGLE: 3,
@@ -129,7 +148,7 @@ function buildTypePlan(count, preferredTypes) {
   };
   const expanded = [];
   pool.forEach((t) => {
-    const w = weights[t] || 1;
+    const w = count >= 25 ? 1 : (weights[t] || 1);
     for (let i = 0; i < w; i++) expanded.push(t);
   });
   const plan = [];
@@ -462,8 +481,9 @@ async function generateExamPaper(opts) {
   const count = clampCount(opts.questionCount || opts.totalQuestions || 10);
   const unitIds = Array.isArray(opts.unitIds) ? opts.unitIds.map(String) : [];
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null;
-  // Large sets: one repair pass only — retries dominate wall time and cause proxy 502s.
-  const maxRepairPasses = count >= 20 ? 1 : 2;
+  // Large sets: skip/limit repairs — retries dominate wall time.
+  const maxRepairPasses = count >= 30 ? 0 : (count >= 20 ? 1 : 2);
+  const parallel = count >= 20 ? GENERATE_PARALLEL : 1;
   if (unitIds.length < 1) {
     const err = new Error('문법 요소를 하나 이상 선택하세요.');
     err.statusCode = 400;
@@ -484,25 +504,36 @@ async function generateExamPaper(opts) {
   const unitMap = {};
   units.forEach((u) => { unitMap[u.unitId] = u; });
 
-  const items = [];
+  const chunkSpecs = [];
+  for (let offset = 0; offset < count; offset += GENERATE_CHUNK_SIZE) {
+    const sliceTypes = typePlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
+    const sliceUnits = unitPlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
+    chunkSpecs.push({
+      offset,
+      chunkIndex: Math.floor(offset / GENERATE_CHUNK_SIZE) + 1,
+      sliceTypes,
+      sliceUnits
+    });
+  }
+  const totalChunks = chunkSpecs.length;
+
+  const itemsByIndex = new Array(count);
   const warnings = [];
   let paperTitle = title;
-  const totalChunks = Math.ceil(count / GENERATE_CHUNK_SIZE);
+  let itemsReady = 0;
 
   const report = (message, extra) => {
     if (!onProgress) return;
     onProgress(Object.assign({
-      itemsReady: items.length,
+      itemsReady,
       target: count,
       message
     }, extra || {}));
   };
-  report('출제 시작…', { chunk: 0, totalChunks });
+  report('출제 시작… (병렬 ' + parallel + ')', { chunk: 0, totalChunks });
 
-  for (let offset = 0; offset < count; offset += GENERATE_CHUNK_SIZE) {
-    const chunkIndex = Math.floor(offset / GENERATE_CHUNK_SIZE) + 1;
-    const sliceTypes = typePlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
-    const sliceUnits = unitPlan.slice(offset, offset + GENERATE_CHUNK_SIZE);
+  async function runOneChunk(spec) {
+    const { offset, chunkIndex, sliceTypes, sliceUnits } = spec;
     const chunkUnits = [];
     const seen = new Set();
     sliceUnits.forEach((id) => {
@@ -510,10 +541,6 @@ async function generateExamPaper(opts) {
       seen.add(id);
       if (unitMap[id]) chunkUnits.push(unitMap[id]);
     });
-    report(
-      '청크 ' + chunkIndex + '/' + totalChunks + ' 생성 중… (' + items.length + '/' + count + ')',
-      { chunk: chunkIndex, totalChunks }
-    );
     const prompt = buildGenerateUserPrompt({
       title,
       grade,
@@ -525,27 +552,30 @@ async function generateExamPaper(opts) {
     let parsed;
     try {
       parsed = await askJson(prompt, {
-        maxOutputTokens: Math.min(12000, 1800 + sliceTypes.length * 700)
+        maxOutputTokens: Math.min(10000, 1500 + sliceTypes.length * 650)
       });
     } catch (chunkErr) {
-      // Config / hard AI failures should surface immediately.
       if (chunkErr && (chunkErr.statusCode === 503 || /not configured|ANTHROPIC/i.test(chunkErr.message || ''))) {
         throw chunkErr;
       }
-      // One chunk failure should not kill a 50-item paper — skip and continue.
-      warnings.push({
-        index: offset + 1,
-        warnings: ['chunk_failed'],
-        error: chunkErr.message,
-        soft: false
-      });
-      report('청크 ' + chunkIndex + ' 실패 — 다음 청크 계속', { chunk: chunkIndex, totalChunks });
-      continue;
+      return {
+        chunkIndex,
+        title: null,
+        warnings: [{
+          index: offset + 1,
+          warnings: ['chunk_failed'],
+          error: chunkErr.message,
+          soft: false
+        }],
+        placed: []
+      };
     }
-    if (offset === 0 && parsed.title) paperTitle = String(parsed.title).trim() || title;
+
     const rawItems = Array.isArray(parsed.items)
       ? parsed.items
       : (Array.isArray(parsed) ? parsed : []);
+    const placed = [];
+    const localWarnings = [];
 
     for (let j = 0; j < sliceTypes.length; j++) {
       const i = offset + j;
@@ -559,7 +589,7 @@ async function generateExamPaper(opts) {
       if (!QUESTION_TYPES.includes(item.questionType)) item.questionType = sliceTypes[j];
 
       let check = validateItem(item, unitMap);
-      if (!check.ok) {
+      if (!check.ok && maxRepairPasses > 0) {
         for (let pass = 0; pass < maxRepairPasses && !check.ok; pass++) {
           try {
             const unit = unitMap[item.unitId] || units[0];
@@ -572,7 +602,7 @@ async function generateExamPaper(opts) {
             });
             check = validateItem(item, unitMap);
           } catch (e) {
-            warnings.push({
+            localWarnings.push({
               index: i + 1,
               warnings: (check.warnings || []).concat(['retry_failed']),
               error: e.message
@@ -584,19 +614,49 @@ async function generateExamPaper(opts) {
       }
 
       if (!check.ok) {
-        warnings.push({ index: i + 1, warnings: check.warnings, dropped: true });
-        continue; // do not put incomplete items on the paper
+        localWarnings.push({ index: i + 1, warnings: check.warnings, dropped: true });
+        continue;
       }
       if (check.warnings && check.warnings.length) {
-        warnings.push({ index: i + 1, warnings: check.warnings, soft: true });
+        localWarnings.push({ index: i + 1, warnings: check.warnings, soft: true });
       }
-      items.push(item);
-      if (items.length % 5 === 0 || items.length === count) {
-        report(items.length + '/' + count + ' 문항 확보', { chunk: chunkIndex, totalChunks });
-      }
+      placed.push({ index: i, item });
     }
+
+    return {
+      chunkIndex,
+      title: parsed.title ? String(parsed.title).trim() : null,
+      warnings: localWarnings,
+      placed
+    };
   }
 
+  for (let batchStart = 0; batchStart < chunkSpecs.length; batchStart += parallel) {
+    const batch = chunkSpecs.slice(batchStart, batchStart + parallel);
+    const from = batch[0].chunkIndex;
+    const to = batch[batch.length - 1].chunkIndex;
+    report(
+      '청크 ' + from + (to !== from ? '–' + to : '') + '/' + totalChunks + ' 생성 중… (' + itemsReady + '/' + count + ')',
+      { chunk: to, totalChunks }
+    );
+    const results = await Promise.all(batch.map((spec) => runOneChunk(spec)));
+    results
+      .slice()
+      .sort((a, b) => a.chunkIndex - b.chunkIndex)
+      .forEach((res) => {
+        if (res.title && batchStart === 0 && res.chunkIndex === 1) {
+          paperTitle = res.title || paperTitle;
+        }
+        (res.warnings || []).forEach((w) => warnings.push(w));
+        (res.placed || []).forEach((p) => {
+          itemsByIndex[p.index] = p.item;
+        });
+      });
+    itemsReady = itemsByIndex.filter(Boolean).length;
+    report(itemsReady + '/' + count + ' 문항 확보', { chunk: to, totalChunks });
+  }
+
+  const items = itemsByIndex.filter(Boolean);
   if (!items.length) {
     const err = new Error('완전한 문항을 만들지 못했습니다. 문법 포인트를 바꿔 다시 시도해 주세요.');
     err.statusCode = 502;
@@ -652,7 +712,7 @@ function startGenerateJob(opts, ownerKey) {
       target,
       chunk: 0,
       totalChunks: Math.ceil(target / GENERATE_CHUNK_SIZE),
-      message: '대기열에 등록됨…'
+      message: '대기열에 등록됨… (50문항은 수 분 소요)'
     },
     result: null,
     error: null
