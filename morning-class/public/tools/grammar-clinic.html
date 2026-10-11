@@ -446,6 +446,72 @@
     });
   }
 
+  function applyGenerateResult(data) {
+    last = data;
+    view = 'questions';
+    document.querySelectorAll('.tab').forEach(function (t) {
+      t.classList.toggle('active', t.getAttribute('data-view') === 'questions');
+    });
+    showPreview();
+    var soft = (data.warnings || []).filter(function (w) { return w.soft; }).length;
+    var hard = (data.warnings || []).filter(function (w) { return !w.soft; }).length;
+    var msg = '생성 완료 — ' + ((data.paper && data.paper.totalQuestions) || 0) + '문항';
+    if (hard) msg += ' (일부 문항 검증 경고 ' + hard + ')';
+    else if (soft) msg += ' (경미한 경고 ' + soft + ')';
+    setStatus(msg, 'ok');
+  }
+
+  function pollGenerateJob(jobId, label) {
+    var tries = 0;
+    var maxTries = 180; // ~6 min at 2s
+    function tick() {
+      tries += 1;
+      toolFetch('/api/grammar-clinic/jobs/' + encodeURIComponent(jobId))
+        .then(function (job) {
+          if (job.status === 'done' && job.paper) {
+            applyGenerateResult(job);
+            $('btnGenerate').disabled = false;
+            $('btnGenerate2').disabled = false;
+            $('btnGenerate').innerHTML = label;
+            return;
+          }
+          if (job.status === 'error') {
+            setStatus(job.error || '생성 실패', 'error');
+            $('btnGenerate').disabled = false;
+            $('btnGenerate2').disabled = false;
+            $('btnGenerate').innerHTML = label;
+            return;
+          }
+          var p = job.progress || {};
+          var ready = p.itemsReady != null ? p.itemsReady : 0;
+          var target = p.target != null ? p.target : '?';
+          setStatus(
+            (p.message || '출제 중…') + ' — ' + ready + '/' + target +
+            (p.chunk ? ' (청크 ' + p.chunk + '/' + (p.totalChunks || '?') + ')' : '')
+          );
+          if (tries >= maxTries) {
+            setStatus('시간이 너무 오래 걸립니다. 문항 수를 줄이거나 다시 시도해 주세요.', 'error');
+            $('btnGenerate').disabled = false;
+            $('btnGenerate2').disabled = false;
+            $('btnGenerate').innerHTML = label;
+            return;
+          }
+          setTimeout(tick, 2000);
+        })
+        .catch(function (err) {
+          if (tries < 3) {
+            setTimeout(tick, 2500);
+            return;
+          }
+          setStatus(err.message || '생성 상태 확인 실패', 'error');
+          $('btnGenerate').disabled = false;
+          $('btnGenerate2').disabled = false;
+          $('btnGenerate').innerHTML = label;
+        });
+    }
+    setTimeout(tick, 1200);
+  }
+
   function generate() {
     var ids = selectedIds();
     if (!ids.length) {
@@ -461,9 +527,9 @@
     };
     var n = Number($('countSelect').value) || 10;
     setStatus(
-      n > 15
-        ? ('Claude로 ' + n + '문항 출제 중… 청크 생성으로 1~3분 걸릴 수 있습니다.')
-        : 'Claude로 내신 유형 출제 중… 30~60초 정도 걸릴 수 있습니다.'
+      n >= 20
+        ? ('Claude로 ' + n + '문항 백그라운드 출제 중… 2~5분 걸릴 수 있습니다. 창을 닫지 마세요.')
+        : 'Claude로 내신 유형 출제 중… 잠시만 기다려 주세요.'
     );
     $('btnGenerate').disabled = true;
     $('btnGenerate2').disabled = true;
@@ -471,23 +537,20 @@
     $('btnGenerate').innerHTML = '<span class="spinner"></span> Generating';
     toolFetch('/api/grammar-clinic/generate', { method: 'POST', body: body })
       .then(function (data) {
-        last = data;
-        view = 'questions';
-        document.querySelectorAll('.tab').forEach(function (t) {
-          t.classList.toggle('active', t.getAttribute('data-view') === 'questions');
-        });
-        showPreview();
-        var soft = (data.warnings || []).filter(function (w) { return w.soft; }).length;
-        var hard = (data.warnings || []).filter(function (w) { return !w.soft; }).length;
-        var msg = '생성 완료 — ' + ((data.paper && data.paper.totalQuestions) || 0) + '문항';
-        if (hard) msg += ' (일부 문항 검증 경고 ' + hard + ')';
-        else if (soft) msg += ' (경미한 경고 ' + soft + ')';
-        setStatus(msg, 'ok');
+        // Legacy sync response (if any proxy still returns full paper)
+        if (data.paper && data.htmlQuestions) {
+          applyGenerateResult(data);
+          $('btnGenerate').disabled = false;
+          $('btnGenerate2').disabled = false;
+          $('btnGenerate').innerHTML = label;
+          return;
+        }
+        if (!data.jobId) throw new Error('생성 작업을 시작하지 못했습니다.');
+        setStatus('출제 작업 시작됨… 진행 상황을 확인합니다.');
+        pollGenerateJob(data.jobId, label);
       })
       .catch(function (err) {
         setStatus(err.message || '생성 실패', 'error');
-      })
-      .finally(function () {
         $('btnGenerate').disabled = false;
         $('btnGenerate2').disabled = false;
         $('btnGenerate').innerHTML = label;
