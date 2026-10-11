@@ -19,6 +19,7 @@ const {
 
 const SYSTEM_PROMPT = `당신은 대한민국 중학교 영어 내신 기출문제를 전문적으로 출제하는 수석 출제위원입니다.
 제공된 GrammarRuleSpec과 QuestionType에 정확히 부합하는 평가 문항을 생성하십시오.
+각 문항은 할당된 unitId의 문법만 다루십시오. 다른 문법을 섞지 마십시오.
 
 [출제 필수 규칙]
 1. 난이도 및 어휘 통제: 중학교 교육과정 수준(중1~중3) 기본 어휘만 사용. 고난도 수능 어휘 금지.
@@ -28,8 +29,17 @@ const SYSTEM_PROMPT = `당신은 대한민국 중학교 영어 내신 기출문�
 4. 오답 트랩: 각 GrammarRuleSpec.errorTraps의 전형적 내신 오답을 1개 이상 주입.
 5. 출력 형식: 지정 JSON만 반환. 마크다운 코드펜스 금지. 순수 JSON만.
 
+[문항 완전성 — 절대 어기지 말 것]
+- 모든 문항에 한국어 instruction(발문)을 반드시 채울 것. 빈 문자열 금지.
+- contextBox를 쓰는 유형은 content를 실제로 채울 것. 빈 배열/빈 문자열/빈 박스 금지.
+- SENTENCE_AUTHENTICITY_COMBINED / MULTIPLE: contextBox.type=SENTENCE_LIST, content에 ⓐ~ⓔ 문장 5개.
+- UNDERLINE_CORRECTION / USAGE_CLASSIFICATION: 선지 또는 context 문장 안에 밑줄 부분을 <u>...</u>로 표시. 발문에 '밑줄'이 있으면 반드시 밑줄 존재.
+- BLANK_COMPLETION: 본문/선지에 빈칸을 ______ 로 명시. 빈칸 없는 빈칸 문제 금지.
+- FULL_SENTENCE_COMPOSITION / ORDERING_WITH_CONDITIONS: koreanPrompt 필수. ORDERING은 VOCAB_POOL(단어 목록) 필수.
+- 객관식은 choices 5개, 각 text 비어 있지 않게.
+- 할당된 문법(예: should have p.p.만, 관계대명사 which만) 외의 문법을 정답 포인트로 쓰지 말 것.
+
 선지 기호는 객관식에서 ①②③④⑤ 텍스트 대신 choices[].number 1~5와 text만 사용.
-밑줄/기호 문장 목록은 contextBox.content 배열에 "ⓐ ...", "ⓑ ..." 형태로.
 서술형 조건은 conditions 배열에 한국어로.`;
 
 function newId(prefix) {
@@ -165,12 +175,16 @@ function coerceItem(raw, fallback) {
 
   let contextBox = raw && raw.contextBox ? raw.contextBox : undefined;
   if (contextBox) {
-    contextBox = {
-      type: String(contextBox.type || 'SENTENCE_LIST'),
-      content: Array.isArray(contextBox.content)
-        ? contextBox.content.map((x) => String(x || '').trim()).filter(Boolean)
-        : String(contextBox.content || '').trim()
-    };
+    const content = Array.isArray(contextBox.content)
+      ? contextBox.content.map((x) => String(x || '').trim()).filter(Boolean)
+      : String(contextBox.content || '').trim();
+    const empty = Array.isArray(content) ? !content.length : !content;
+    contextBox = empty
+      ? undefined
+      : {
+        type: String(contextBox.type || 'SENTENCE_LIST'),
+        content
+      };
   }
 
   return {
@@ -198,6 +212,28 @@ function coerceItem(raw, fallback) {
   };
 }
 
+function itemPlainText(item) {
+  const parts = [item.instruction, item.koreanPrompt, item.explanation];
+  if (item.contextBox) {
+    const c = item.contextBox.content;
+    if (Array.isArray(c)) parts.push(c.join('\n'));
+    else parts.push(c);
+  }
+  (item.choices || []).forEach((ch) => parts.push(ch.text));
+  (item.conditions || []).forEach((c) => parts.push(c));
+  return parts.filter(Boolean).join('\n');
+}
+
+function hasUnderlineMarkup(text) {
+  const s = String(text || '');
+  return /<u>[\s\S]+?<\/u>/i.test(s) || /_{2,}/.test(s) || /‾|＿/.test(s);
+}
+
+function hasBlankMarkup(text) {
+  const s = String(text || '');
+  return /_{3,}|□|\[\s*\]|（\s*）|\(\s*\)/.test(s) || /빈칸/.test(s);
+}
+
 function isObjectiveType(type) {
   return /AUTHENTICITY|UNDERLINE|USAGE|BLANK/.test(String(type || ''));
 }
@@ -208,14 +244,54 @@ function isDescriptiveType(type) {
 
 function validateItem(item, unitMap) {
   const warnings = [];
-  if (!item.instruction) warnings.push('missing_instruction');
+  const type = item.questionType;
+  const plain = itemPlainText(item);
+
+  if (!item.instruction || item.instruction.length < 6) warnings.push('missing_instruction');
   if (!item.explanation) warnings.push('missing_explanation');
   if (!item.unitId || !unitMap[item.unitId]) warnings.push('unknown_unit');
 
-  if (isObjectiveType(item.questionType)) {
+  const needsSentenceList = type === 'SENTENCE_AUTHENTICITY_COMBINED'
+    || type === 'SENTENCE_AUTHENTICITY_MULTIPLE'
+    || type === 'DESCRIPTIVE_CORRECTION';
+  if (needsSentenceList) {
+    const lines = item.contextBox && Array.isArray(item.contextBox.content)
+      ? item.contextBox.content
+      : [];
+    if (lines.length < 4) warnings.push('missing_sentence_list');
+  }
+
+  if (type === 'UNDERLINE_CORRECTION' || type === 'USAGE_CLASSIFICATION') {
+    if (!hasUnderlineMarkup(plain)) warnings.push('missing_underline');
+  } else if (/밑줄/.test(item.instruction || '') && !hasUnderlineMarkup(plain)) {
+    warnings.push('missing_underline');
+  }
+
+  if (type === 'BLANK_COMPLETION' && !hasBlankMarkup(plain)) {
+    warnings.push('missing_blank');
+  }
+
+  if (type === 'ORDERING_WITH_CONDITIONS') {
+    if (!item.koreanPrompt) warnings.push('missing_korean_prompt');
+    const pool = item.contextBox && item.contextBox.content;
+    const poolOk = Array.isArray(pool) ? pool.length >= 1 : !!(pool && String(pool).trim());
+    if (!poolOk) warnings.push('missing_word_pool');
+  }
+
+  if (type === 'FULL_SENTENCE_COMPOSITION' && !item.koreanPrompt) {
+    warnings.push('missing_korean_prompt');
+  }
+
+  if (type === 'SENTENCE_TRANSFORM') {
+    const hasSrc = !!(item.contextBox && item.contextBox.content) || !!item.koreanPrompt;
+    if (!hasSrc) warnings.push('missing_transform_source');
+  }
+
+  if (isObjectiveType(type)) {
     if (item.choices.length < 4) warnings.push('few_choices');
+    if (item.choices.some((c) => !c.text)) warnings.push('empty_choice_text');
     const corrects = (item.answer.correctChoiceNumbers || []).length;
-    if (item.questionType === 'SENTENCE_AUTHENTICITY_MULTIPLE') {
+    if (type === 'SENTENCE_AUTHENTICITY_MULTIPLE') {
       if (corrects < 2) warnings.push('need_multi_key');
     } else if (corrects < 1) {
       warnings.push('missing_key');
@@ -225,7 +301,7 @@ function validateItem(item, unitMap) {
     });
   }
 
-  if (isDescriptiveType(item.questionType)) {
+  if (isDescriptiveType(type)) {
     const hasDesc = (item.answer.descriptiveAnswers && item.answer.descriptiveAnswers.length)
       || (item.answer.acceptableAlternatives && item.answer.acceptableAlternatives.length);
     if (!hasDesc && !(item.answer.correctChoiceNumbers || []).length) {
@@ -245,11 +321,10 @@ function validateItem(item, unitMap) {
     }
   }
 
-  // soft layout: instruction length
   if (item.instruction.length > 220) warnings.push('instruction_long');
 
   const hardFail = warnings.some((w) =>
-    /missing_instruction|missing_key|need_multi_key|unknown_unit|few_choices|missing_descriptive/.test(w)
+    /missing_instruction|missing_key|need_multi_key|unknown_unit|few_choices|missing_descriptive|missing_sentence_list|missing_underline|missing_blank|missing_korean_prompt|missing_word_pool|missing_transform_source|empty_choice_text/.test(w)
   );
   return { ok: !hardFail, warnings };
 }
@@ -346,19 +421,26 @@ function buildGenerateUserPrompt({ title, grade, difficulty, units, typePlan, un
     '',
     'items 길이는 반드시 ' + typePlan.length + '개.',
     '객관식은 choices 5개. 서술형은 choices를 빈 배열로.',
-    '각 문항은 할당된 unitId의 errorTraps를 반영할 것.'
+    '각 문항은 할당된 unitId의 문법만 다루고 errorTraps를 반영할 것.',
+    'instruction·필요한 contextBox·밑줄·빈칸·koreanPrompt를 빠짐없이 채울 것. 빈 박스 금지.'
   ].join('\n');
 }
 
-async function regenerateOneItem({ unit, questionType, difficulty, grade }) {
+async function regenerateOneItem({ unit, questionType, difficulty, grade, reason }) {
   const parsed = await askJson([
     '다음 단일 문항만 재생성하라. JSON 객체 하나(AssessmentItem)만 반환.',
+    '이전 문항이 불완전했다. 반드시 고쳐서 완전한 문항으로 낼 것.',
+    '실패 사유: ' + (reason || 'incomplete'),
     'grade: ' + grade,
     'difficulty: ' + difficulty,
     'questionType: ' + questionType,
+    '이 unitId의 문법만 다룰 것: ' + unit.unitId + ' (' + unit.subCategory + ')',
     'GrammarRuleSpec: ' + JSON.stringify(unit),
-    '스키마는 AssessmentItem과 동일. 객관식이면 choices 5개.'
-  ].join('\n'), { temperature: 0.45, maxOutputTokens: 4096 });
+    '스키마는 AssessmentItem과 동일. 객관식이면 choices 5개.',
+    'instruction 필수. COMBINED/MULTIPLE는 ⓐ~ⓔ SENTENCE_LIST 필수.',
+    'UNDERLINE/USAGE는 <u>밑줄</u> 필수. BLANK는 ______ 필수.',
+    '영작/배열은 koreanPrompt 필수. 빈 contextBox 금지.'
+  ].join('\n'), { temperature: 0.4, maxOutputTokens: 4096 });
   const raw = parsed.items ? parsed.items[0] : parsed;
   return coerceItem(raw, { unitId: unit.unitId, questionType, difficulty });
 }
@@ -438,22 +520,47 @@ async function generateExamPaper(opts) {
             unit,
             questionType: sliceTypes[j],
             difficulty,
-            grade
+            grade,
+            reason: check.warnings.join(',')
           });
           check = validateItem(item, unitMap);
-          if (!check.ok) warnings.push({ index: i + 1, warnings: check.warnings, retried: true });
+          if (!check.ok) {
+            try {
+              item = await regenerateOneItem({
+                unit,
+                questionType: sliceTypes[j],
+                difficulty,
+                grade,
+                reason: 'second_retry:' + check.warnings.join(',')
+              });
+              check = validateItem(item, unitMap);
+            } catch (e2) { /* keep first retry result */ }
+          }
         } catch (e) {
           warnings.push({
             index: i + 1,
-            warnings: check.warnings.concat(['retry_failed']),
+            warnings: (check.warnings || []).concat(['retry_failed']),
             error: e.message
           });
+          check = { ok: false, warnings: (check.warnings || []).concat(['retry_failed']) };
         }
-      } else if (check.warnings.length) {
+      }
+
+      if (!check.ok) {
+        warnings.push({ index: i + 1, warnings: check.warnings, dropped: true });
+        continue; // do not put incomplete items on the paper
+      }
+      if (check.warnings && check.warnings.length) {
         warnings.push({ index: i + 1, warnings: check.warnings, soft: true });
       }
       items.push(item);
     }
+  }
+
+  if (!items.length) {
+    const err = new Error('완전한 문항을 만들지 못했습니다. 문법 포인트를 바꿔 다시 시도해 주세요.');
+    err.statusCode = 502;
+    throw err;
   }
 
   const paper = {
@@ -538,15 +645,15 @@ function renderItemHtml(item, index) {
   }
   if (item.contextBox) {
     const c = item.contextBox.content;
-    if (Array.isArray(c)) {
+    if (Array.isArray(c) && c.length) {
       html += '<div class="q-box">';
       c.forEach((line) => {
-        html += '<div class="q-box-line">' + escapeHtml(line) + '</div>';
+        html += '<div class="q-box-line">' + formatInstruction(line) + '</div>';
       });
       html += '</div>';
-    } else if (c) {
+    } else if (c && String(c).trim()) {
       html += '<div class="q-box"><div class="q-box-line">' +
-        escapeHtml(c).replace(/\n/g, '<br>') + '</div></div>';
+        formatInstruction(String(c)).replace(/\n/g, '<br>') + '</div></div>';
     }
   }
   if (item.choices && item.choices.length) {
@@ -556,7 +663,7 @@ function renderItemHtml(item, index) {
       .sort((a, b) => a.number - b.number)
       .forEach((ch) => {
         html += '<div class="q-choice">' + choiceGlyph(ch.number) + ' ' +
-          escapeHtml(ch.text) + '</div>';
+          formatInstruction(ch.text) + '</div>';
       });
     html += '</div>';
   } else if (isDescriptiveType(item.questionType)) {

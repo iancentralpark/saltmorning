@@ -21,13 +21,15 @@ const QUESTION_TYPES = [
 
 const MVP_TYPES = QUESTION_TYPES.slice();
 
-function unit(unitId, grade, category, subCategory, coreRules, traps) {
+function unit(unitId, grade, category, subCategory, coreRules, traps, keywords) {
+  const kw = Array.isArray(keywords) ? keywords : [];
   return {
     unitId,
     grade,
     category,
     subCategory,
     coreRules: coreRules || [],
+    keywords: kw,
     errorTraps: (traps || []).map((t, i) => ({
       trapId: t.trapId || (unitId.toLowerCase() + '_' + (i + 1)),
       description: t.description,
@@ -68,18 +70,34 @@ const CATALOG = [
       trap('did 뒤 과거형', 'Did you went there?', 'Did you go there?'),
       trap('과거 -ed 누락', 'Yesterday I visit my aunt.', 'Yesterday I visited my aunt.')
     ]),
-  unit('M1_FUTURE_WILL_GOING', 'M1', '시제', '미래 will / be going to',
-    ['will + 동사원형', 'be going to + 동사원형'],
-    [
-      trap('will + to-V', 'I will to call you tonight.', 'I will call you tonight.'),
-      trap('going to 뒤 -ing', 'She is going to visiting Busan.', 'She is going to visit Busan.')
-    ]),
-  unit('M1_MODALS_CAN_WILL', 'M1', '조동사', '조동사 can / will',
-    ['조동사 + 동사원형', '조동사 뒤 to 불가'],
-    [
-      trap('조동사 + to-V', 'You can to swim well.', 'You can swim well.'),
-      trap('조동사 + -ing', 'She will going home.', 'She will go home.')
-    ]),
+  unit('M1_FUTURE_WILL', 'M1', '시제', '미래 will',
+    ['will + 동사원형', '부정 will not / won’t'],
+    [trap('will + to-V', 'I will to call you tonight.', 'I will call you tonight.')],
+    ['will', '미래']),
+  unit('M1_FUTURE_GOING_TO', 'M1', '시제', '미래 be going to',
+    ['be going to + 동사원형', '계획·예측'],
+    [trap('going to 뒤 -ing', 'She is going to visiting Busan.', 'She is going to visit Busan.')],
+    ['going to', 'be going to', '미래']),
+  unit('M1_MODAL_CAN', 'M1', '조동사', '조동사 can',
+    ['can + 동사원형', '능력·허가'],
+    [trap('can + to-V', 'You can to swim well.', 'You can swim well.')],
+    ['can', '조동사']),
+  unit('M1_MODAL_WILL', 'M1', '조동사', '조동사 will',
+    ['will + 동사원형', '의지·미래'],
+    [trap('will + -ing', 'She will going home.', 'She will go home.')],
+    ['will', '조동사']),
+  unit('M1_MODAL_MUST', 'M1', '조동사', '조동사 must',
+    ['must + 동사원형', 'must not = 금지'],
+    [trap('must + to-V', 'You must to wear a seat belt.', 'You must wear a seat belt.')],
+    ['must', '조동사']),
+  unit('M1_MODAL_SHOULD', 'M1', '조동사', '조동사 should',
+    ['should + 동사원형', '조언·의무'],
+    [trap('should + to-V', 'You should to study harder.', 'You should study harder.')],
+    ['should', '조동사']),
+  unit('M1_MODAL_MAY_MIGHT', 'M1', '조동사', '조동사 may / might',
+    ['may/might + 동사원형', '허가·추측'],
+    [trap('may + to-V', 'It may to rain tomorrow.', 'It may rain tomorrow.')],
+    ['may', 'might', '조동사']),
   unit('M1_IMPERATIVE', 'M1', '문장의 종류', '명령문',
     ['동사원형으로 시작', '부정 명령: Don’t + 동사원형'],
     [
@@ -114,24 +132,32 @@ const CATALOG = [
     [
       trap('목적 to 대신 for -ing (단순화 맥락)', 'I study hard for passing the test.', 'I study hard to pass the test.')
     ]),
-  unit('M1_COMPARATIVE_SUPERLATIVE', 'M1', '비교', '비교급과 최상급',
-    ['단기 -er/-est, 장기 more/most', '비교급 + than / 최상급 앞 the'],
-    [
-      trap('이중 비교', 'This book is more better.', 'This book is better.'),
-      trap('최상급 the 누락', 'He is tallest in our class.', 'He is the tallest in our class.')
-    ]),
+  unit('M1_COMPARATIVE', 'M1', '비교', '비교급 (-er / more)',
+    ['단기 -er, 장기 more + 형/부', '비교급 + than'],
+    [trap('이중 비교', 'This book is more better.', 'This book is better.')],
+    ['비교급', 'comparative', '-er', 'more']),
+  unit('M1_SUPERLATIVE', 'M1', '비교', '최상급 (-est / most)',
+    ['단기 -est, 장기 most', '최상급 앞 the'],
+    [trap('최상급 the 누락', 'He is tallest in our class.', 'He is the tallest in our class.')],
+    ['최상급', 'superlative', '-est', 'most']),
   unit('M1_SENSORY_VERB', 'M1', '동사구', '감각동사 (look/sound/feel/smell/taste + 형)',
     ['감각동사 + 형용사 (부사 아님)', 'look happy / sound good'],
     [
       trap('감각동사 + 부사', 'She looks happily today.', 'She looks happy today.'),
       trap('feel + 명사만으로 상태 오류', 'The soup tastes well.', 'The soup tastes good.')
     ]),
-  unit('M1_CONJ_WHEN', 'M1', '접속사', '접속사 when / after / before',
-    ['접속사 + 주어 + 동사', '시간 접속사 절에서는 미래 대신 현재'],
-    [
-      trap('when 절 will', 'I will call you when I will arrive.', 'I will call you when I arrive.'),
-      trap('접속사 뒤 동명사만', 'After finish homework, I played.', 'After I finished homework, I played.')
-    ]),
+  unit('M1_CONJ_WHEN', 'M1', '접속사', '접속사 when',
+    ['when + 주어 + 동사', '시간절에서 will 대신 현재'],
+    [trap('when 절 will', 'I will call you when I will arrive.', 'I will call you when I arrive.')],
+    ['when', '접속사']),
+  unit('M1_CONJ_AFTER', 'M1', '접속사', '접속사 after',
+    ['after + 절 / after + V-ing', '시간 선후'],
+    [trap('after + 원형만', 'After finish homework, I played.', 'After I finished homework, I played.')],
+    ['after', '접속사']),
+  unit('M1_CONJ_BEFORE', 'M1', '접속사', '접속사 before',
+    ['before + 절 / before + V-ing'],
+    [trap('before 절 will', 'Finish it before you will leave.', 'Finish it before you leave.')],
+    ['before', '접속사']),
   unit('M1_CONJ_THAT', 'M1', '접속사', '접속사 that (명사절)',
     ['동사/형용사 뒤 that + 절', 'that 생략 가능한 경우 있음'],
     [
@@ -149,12 +175,14 @@ const CATALOG = [
       trap('재귀 형태 오류', 'He hurt hisself.', 'He hurt himself.'),
       trap('일반 목적격 대용 오류', 'I made myself a sandwich. → I made me a sandwich.', 'I made myself a sandwich.')
     ]),
-  unit('M1_EXCLAMATORY', 'M1', '문장의 종류', '감탄문 (What / How)',
-    ['What (+a/an) + 형 + 명 (+ S + V)!', 'How + 형/부 (+ S + V)!'],
-    [
-      trap('What/How 혼동', 'How a beautiful flower it is!', 'What a beautiful flower it is!'),
-      trap('어순 오류', 'What beautiful is the day!', 'What a beautiful day it is!')
-    ]),
+  unit('M1_EXCLAM_WHAT', 'M1', '문장의 종류', '감탄문 What',
+    ['What (+a/an) + 형 + 명 (+ S + V)!'],
+    [trap('What/How 혼동', 'How a beautiful flower it is!', 'What a beautiful flower it is!')],
+    ['what', '감탄문']),
+  unit('M1_EXCLAM_HOW', 'M1', '문장의 종류', '감탄문 How',
+    ['How + 형/부 (+ S + V)!'],
+    [trap('How 어순', 'How beautiful is the day!', 'How beautiful the day is!')],
+    ['how', '감탄문']),
   unit('M1_WH_QUESTIONS', 'M1', '의문', '의문사 who/what/where/when/why/how',
     ['의문사 + 조동사/be + 주어…', '주어 의문사는 도치 없음'],
     [
@@ -248,13 +276,21 @@ const CATALOG = [
       trap('call as', 'We call him as Tom.', 'We call him Tom.'),
       trap('보어 형용사 오류 맥락', 'They named the baby is Mina.', 'They named the baby Mina.')
     ]),
-  unit('M2_CAUSATIVE', 'M2', '동사구', '사역동사 make/have/let + O + 원형',
-    ['make/have/let + O + 동사원형', 'get/ask + O + to-V와 구별', '수동: be made to-V'],
+  unit('M2_CAUSATIVE_MAKE', 'M2', '동사구', '사역동사 make + O + 원형',
+    ['make + O + 동사원형', '수동: be made to-V'],
     [
-      trap('사역 + to-V', 'She made me to cry.', 'She made me cry.'),
-      trap('let + -ing', 'Let him going first.', 'Let him go first.'),
+      trap('make + to-V', 'She made me to cry.', 'She made me cry.'),
       trap('수동 to 누락', 'I was made clean the room.', 'I was made to clean the room.')
-    ]),
+    ],
+    ['make', '사역동사']),
+  unit('M2_CAUSATIVE_HAVE', 'M2', '동사구', '사역동사 have + O + 원형',
+    ['have + O + 동사원형', '시킴·부탁'],
+    [trap('have + to-V', 'I had him to fix the bike.', 'I had him fix the bike.')],
+    ['have', '사역동사']),
+  unit('M2_CAUSATIVE_LET', 'M2', '동사구', '사역동사 let + O + 원형',
+    ['let + O + 동사원형', '허락'],
+    [trap('let + -ing', 'Let him going first.', 'Let him go first.')],
+    ['let', '사역동사']),
   unit('M2_PERCEPTION_VERBS', 'M2', '동사구', '지각동사 see/hear + O + 원형/-ing',
     ['see/hear/watch + O + 원형(전체) 또는 -ing(진행)', 'to-V 불가'],
     [
@@ -279,12 +315,17 @@ const CATALOG = [
       trap('used to + -ing', 'I used to playing soccer.', 'I used to play soccer.'),
       trap('be used to 혼동', 'I am used to get up early. (익숙)', 'I am used to getting up early.')
     ]),
-  unit('M2_HAVE_TO', 'M2', '조동사', 'have to / must',
-    ['have/has to + 원형', '부정: don’t/doesn’t have to ≠ must not'],
+  unit('M2_HAVE_TO', 'M2', '조동사', 'have to',
+    ['have/has to + 원형', 'don’t have to = 안 해도 됨'],
     [
       trap('have to + to-V 중복', 'I have to to leave now.', 'I have to leave now.'),
       trap('3인칭 has to', 'She have to study more.', 'She has to study more.')
-    ]),
+    ],
+    ['have to', '조동사']),
+  unit('M2_MUST', 'M2', '조동사', 'must',
+    ['must + 원형', 'must not = 금지 (don’t have to와 구별)'],
+    [trap('must + to-V', 'You must to finish it.', 'You must finish it.')],
+    ['must', '조동사']),
   unit('M2_INDIRECT_QUESTION', 'M2', '의문', '간접의문문',
     ['의문사 + 주어 + 동사 (평서 어순)', 'if/whether + 주어 + 동사'],
     [
@@ -303,24 +344,49 @@ const CATALOG = [
       trap('although + but', 'Although he was tired, but he worked.', 'Although he was tired, he worked.'),
       trap('although + 명사만', 'Although the rain, we went out.', 'Although it rained, we went out. / Despite the rain…')
     ]),
-  unit('M2_BOTH_AND', 'M2', '접속사', '상관접속사 both A and B 등',
-    ['both A and B → 복수 동사', 'either A or B / neither A nor B 수일치'],
+  unit('M2_BOTH_AND', 'M2', '접속사', '상관접속사 both A and B',
+    ['both A and B → 복수 동사'],
     [
       trap('both and 단수 동사', 'Both Tom and Jane is here.', 'Both Tom and Jane are here.'),
       trap('형태 오류', 'Both of Tom and Jane like music.', 'Both Tom and Jane like music.')
-    ]),
-  unit('M2_RELATIVE_SUBJECT', 'M2', '관계사', '주격 관계대명사 who/which/that',
-    ['사람 who/that, 사물 which/that', '관계대명사 + 동사 (주어 역할)'],
+    ],
+    ['both', 'and', '상관접속사']),
+  unit('M2_EITHER_OR', 'M2', '접속사', '상관접속사 either A or B',
+    ['either A or B', '동사는 or 뒤 주어에 일치'],
+    [trap('either or 수일치', 'Either the students or the teacher are late.', 'Either the students or the teacher is late.')],
+    ['either', 'or', '상관접속사']),
+  unit('M2_NEITHER_NOR', 'M2', '접속사', '상관접속사 neither A nor B',
+    ['neither A nor B', '동사는 nor 뒤 주어에 일치'],
+    [trap('neither nor 수일치', 'Neither Tom nor his friends is coming. (friends에 맞춤)', 'Neither Tom nor his friends are coming.')],
+    ['neither', 'nor', '상관접속사']),
+  unit('M2_REL_WHO', 'M2', '관계사', '관계대명사 who (주격)',
+    ['사람 선행사 + who + 동사', '주격 who'],
     [
       trap('what + 선행사', 'I have a friend what lives in Busan.', 'I have a friend who lives in Busan.'),
       trap('중복 주어', 'The boy who he won is my cousin.', 'The boy who won is my cousin.')
-    ]),
-  unit('M2_RELATIVE_OBJECT', 'M2', '관계사', '목적격 관계대명사',
-    ['목적격 who(m)/which/that', '목적격 생략 가능(제한적)'],
+    ],
+    ['who', '관계대명사', '주격']),
+  unit('M2_REL_WHICH', 'M2', '관계사', '관계대명사 which',
+    ['사물·동물 선행사 + which', '주격/목적격 which'],
     [
-      trap('중복 목적어', 'This is the book which I bought it.', 'This is the book which I bought.'),
-      trap('전치사 잔존 오류', 'The man who I talked is kind. (to 필요)', 'The man who I talked to is kind.')
-    ]),
+      trap('사람에게 which', 'I met a girl which can sing well.', 'I met a girl who can sing well.'),
+      trap('중복 목적어', 'This is the book which I bought it.', 'This is the book which I bought.')
+    ],
+    ['which', '관계대명사']),
+  unit('M2_REL_THAT', 'M2', '관계사', '관계대명사 that',
+    ['사람·사물 that', '계속적 용법(콤마)에는 that 불가'],
+    [
+      trap('계속적 that', 'I met Tom, that is my cousin.', 'I met Tom, who is my cousin.'),
+      trap('전치사 + that', 'This is the house in that I lived.', 'This is the house in which I lived. / that I lived in.')
+    ],
+    ['that', '관계대명사']),
+  unit('M2_REL_WHOM', 'M2', '관계사', '관계대명사 whom (목적격)',
+    ['사람 목적격 whom', '전치사 + whom'],
+    [
+      trap('주격 자리에 whom', 'The girl whom won is my sister.', 'The girl who won is my sister.'),
+      trap('전치사 잔존', 'The man whom I talked is kind.', 'The man whom I talked to is kind. / to whom I talked')
+    ],
+    ['whom', '관계대명사', '목적격']),
   unit('M2_THE_COMPARATIVE', 'M2', '비교', 'The + 비교급 ~, the + 비교급 …',
     ['The + 비교급 …, the + 비교급 …', '올바른 비교급 형태·어순'],
     [
@@ -340,18 +406,22 @@ const CATALOG = [
       trap('very + 비교급', 'This is very better than that.', 'This is much better than that.'),
       trap('more 중첩', 'She is much more kinder.', 'She is much kinder.')
     ]),
-  unit('M2_SO_THAT', 'M2', '구문', 'so ~ that / such ~ that',
-    ['so + 형/부 + that', 'such + (a/an) + 형 + 명 + that'],
-    [
-      trap('so + 명사', 'It was so a good movie that I cried.', 'It was such a good movie that I cried.'),
-      trap('such + 형만', 'She was such tired that she slept.', 'She was so tired that she slept.')
-    ]),
-  unit('M2_TOO_ENOUGH', 'M2', '구문', 'too ~ to-V / enough to-V',
-    ['too + 형/부 + to-V', '형/부 + enough + to-V'],
-    [
-      trap('enough 위치', 'He is enough tall to reach it.', 'He is tall enough to reach it.'),
-      trap('too + 명사 직접', 'There are too students in the room. (many 필요)', 'There are too many students in the room.')
-    ]),
+  unit('M2_SO_THAT', 'M2', '구문', 'so ~ that',
+    ['so + 형/부 + that'],
+    [trap('so + 명사', 'It was so a good movie that I cried.', 'It was such a good movie that I cried.')],
+    ['so that', 'so']),
+  unit('M2_SUCH_THAT', 'M2', '구문', 'such ~ that',
+    ['such + (a/an) + 형 + 명 + that'],
+    [trap('such + 형만', 'She was such tired that she slept.', 'She was so tired that she slept.')],
+    ['such that', 'such']),
+  unit('M2_TOO_TO', 'M2', '구문', 'too ~ to-V',
+    ['too + 형/부 + to-V'],
+    [trap('too + 명사 직접', 'There are too students.', 'There are too many students.')],
+    ['too', 'too to']),
+  unit('M2_ENOUGH_TO', 'M2', '구문', 'enough to-V',
+    ['형/부 + enough + to-V', 'enough + 명사'],
+    [trap('enough 위치', 'He is enough tall to reach it.', 'He is tall enough to reach it.')],
+    ['enough']),
   unit('M2_PARTICIPLE_FEELING', 'M2', '준동사', '감정 분사 (-ed / -ing)',
     ['-ing: 감정을 유발하는 쪽', '-ed: 감정을 느끼는 쪽'],
     [
@@ -390,12 +460,22 @@ const CATALOG = [
       trap('선행사 + what', 'I believe the thing what he said.', 'I believe what he said. / the thing that he said.'),
       trap('what 절 동사 수일치', 'What he needs are money. (단수 취급 흔함)', 'What he needs is money.')
     ]),
-  unit('M3_RELATIVE_ADVERB', 'M3', '관계사', '관계부사 where/when/why/how',
-    ['장소 where, 때 when, 이유 why', '전치사 + which와 전환'],
-    [
-      trap('where 대신 which 전치사 누락', 'This is the school which I studied.', 'This is the school where I studied.'),
-      trap('when 중복', 'I remember the day when I met him on it.', 'I remember the day when I met him.')
-    ]),
+  unit('M3_REL_WHERE', 'M3', '관계사', '관계부사 where',
+    ['장소 선행사 + where', 'in/at which와 전환'],
+    [trap('where 대신 which 전치사 누락', 'This is the school which I studied.', 'This is the school where I studied.')],
+    ['where', '관계부사']),
+  unit('M3_REL_WHEN', 'M3', '관계사', '관계부사 when',
+    ['시간 선행사 + when'],
+    [trap('when 중복', 'I remember the day when I met him on it.', 'I remember the day when I met him.')],
+    ['when', '관계부사']),
+  unit('M3_REL_WHY', 'M3', '관계사', '관계부사 why',
+    ['the reason why / why 생략'],
+    [trap('why + because 중복', 'The reason why he left is because he was tired.', 'The reason why he left is that he was tired.')],
+    ['why', '관계부사']),
+  unit('M3_REL_HOW', 'M3', '관계사', '관계부사 how',
+    ['how = the way (the way how 불가)'],
+    [trap('the way how', 'This is the way how he solved it.', 'This is how he solved it. / the way he solved it.')],
+    ['how', '관계부사']),
   unit('M3_RELATIVE_CONTINUATIVE', 'M3', '관계사', '관계대명사 계속적 용법',
     [', who/which … (콤마) 계속적 용법', 'that은 계속적 용법에 안 씀'],
     [
@@ -450,12 +530,18 @@ const CATALOG = [
       trap('wish + will/현재', 'I wish I am taller.', 'I wish I were taller.'),
       trap('wish 과거완료', 'I wish I studied harder yesterday.', 'I wish I had studied harder yesterday.')
     ]),
-  unit('M3_SHOULD_HAVE', 'M3', '조동사', 'should/must/may + have p.p.',
-    ['should have p.p. = …했어야 했는데', 'must have p.p. = …했음에 틀림없다'],
-    [
-      trap('should have + 원형', 'You should have study harder.', 'You should have studied harder.'),
-      trap('must have 의미 혼동 문장', 'He must be arrived by now.', 'He must have arrived by now.')
-    ]),
+  unit('M3_SHOULD_HAVE', 'M3', '조동사', 'should have + p.p.',
+    ['should have p.p. = …했어야 했는데'],
+    [trap('should have + 원형', 'You should have study harder.', 'You should have studied harder.')],
+    ['should have', 'should', '조동사', '완료']),
+  unit('M3_MUST_HAVE', 'M3', '조동사', 'must have + p.p.',
+    ['must have p.p. = …했음에 틀림없다'],
+    [trap('must have 형태', 'He must be arrived by now.', 'He must have arrived by now.')],
+    ['must have', 'must', '조동사', '완료']),
+  unit('M3_MAY_HAVE', 'M3', '조동사', 'may/might have + p.p.',
+    ['may/might have p.p. = …했을지도 모른다'],
+    [trap('may have + 원형', 'She may have go already.', 'She may have gone already.')],
+    ['may have', 'might have', 'may', 'might', '조동사', '완료']),
   unit('M3_IT_SEEM_THAT', 'M3', '구문', 'It seems that / S seem to-V',
     ['It seems that + 절', '주어 + seem(s) to-V 전환'],
     [
@@ -519,17 +605,30 @@ function listCatalog(filters) {
     const g = String(filters.grade).toUpperCase();
     rows = rows.filter((r) => r.grade === g);
   }
+  if (filters.category) {
+    const cat = String(filters.category).trim();
+    rows = rows.filter((r) => r.category === cat);
+  }
   if (filters.q) {
-    const q = String(filters.q).toLowerCase();
-    rows = rows.filter((r) =>
-      (r.unitId + ' ' + r.category + ' ' + r.subCategory).toLowerCase().includes(q)
-    );
+    const q = String(filters.q).toLowerCase().trim();
+    rows = rows.filter((r) => {
+      // Labels/keywords only — trap/coreRules prose often mentions related
+      // forms (e.g. which inside a what unit) and should not broaden the pick.
+      const hay = [
+        r.unitId.replace(/_/g, ' '),
+        r.category,
+        r.subCategory,
+        (r.keywords || []).join(' ')
+      ].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
   }
   return rows.map((r) => ({
     unitId: r.unitId,
     grade: r.grade,
     category: r.category,
     subCategory: r.subCategory,
+    keywords: (r.keywords || []).slice(),
     coreRules: r.coreRules.slice(),
     errorTraps: r.errorTraps.map((t) => ({ ...t })),
     trapCount: r.errorTraps.length
@@ -543,6 +642,7 @@ function getUnitsByIds(unitIds) {
     grade: r.grade,
     category: r.category,
     subCategory: r.subCategory,
+    keywords: (r.keywords || []).slice(),
     coreRules: r.coreRules.slice(),
     errorTraps: r.errorTraps.map((t) => ({ ...t }))
   }));
