@@ -4034,6 +4034,96 @@ router.get('/grammar-clinic/jobs/:id', requireRole('teacher', 'admin'), async (r
   }
 });
 
+const bibleSlides = require('./services/bibleSlidesService');
+
+function bibleOwnerKey(req) {
+  return String(
+    (req.session && (req.session.teacherId || req.session.adminId || req.session.userId || req.session.email)) || 'anon'
+  );
+}
+
+router.get('/bible-slides/options', requireRole('teacher', 'admin'), (req, res) => {
+  const toList = (map) => Object.keys(map).map((k) => ({ key: k, label: map[k].label }));
+  res.json({
+    styles: toList(bibleSlides.STYLE_PRESETS),
+    audiences: toList(bibleSlides.AUDIENCE_PRESETS),
+    languages: toList(bibleSlides.LANGUAGE_PRESETS),
+    claudeConfigured: bibleSlides.isClaudeConfigured(),
+    imagesConfigured: bibleSlides.isImageGenConfigured()
+  });
+});
+
+router.post('/bible-slides/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const started = bibleSlides.startJob({
+      topic: body.topic,
+      slideCount: body.slideCount,
+      audience: body.audience,
+      language: body.language,
+      style: body.style
+    }, bibleOwnerKey(req));
+    res.status(202).json(started);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not start slide generation.' });
+  }
+});
+
+router.get('/bible-slides/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Job not found.' });
+    res.json(bibleSlides.publicJob(job, { includeImages: req.query.images === '1' }));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load job.' });
+  }
+});
+
+router.get('/bible-slides/jobs/:id/deck', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
+    if (!job || !job.script) return res.status(404).send('Not found');
+    res.set('Cache-Control', 'no-store');
+    res.type('html').send(bibleSlides.renderDeckHtml(job));
+  } catch (e) {
+    res.status(e.statusCode || 500).send(e.message || 'Could not render deck.');
+  }
+});
+
+router.get('/bible-slides/jobs/:id/pdf', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
+    if (!job || !job.script) return res.status(404).json({ error: 'Not found' });
+    const pdf = await bibleSlides.renderDeckPdf(job);
+    const name = bibleSlides.safeFilename(job.script.title) + '.pdf';
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(pdf);
+  } catch (e) {
+    console.error('GET /bible-slides/jobs/:id/pdf', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PDF.' });
+  }
+});
+
+router.post('/bible-slides/jobs/:id/slides/:n/image', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const out = await bibleSlides.regenerateSlideImage(
+      req.params.id, bibleOwnerKey(req), req.params.n, (req.body || {}).imagePrompt
+    );
+    res.json(out);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not regenerate image.' });
+  }
+});
+
+router.patch('/bible-slides/jobs/:id/slides/:n/caption', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    res.json(bibleSlides.updateCaption(req.params.id, bibleOwnerKey(req), req.params.n, (req.body || {}).caption));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not update caption.' });
+  }
+});
+
 router.post('/jeopardy/generate', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const body = req.body || {};

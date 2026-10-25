@@ -83,6 +83,11 @@ app.get('/tools/grammar-clinic', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'grammar-clinic.html'));
 });
 
+app.get('/tools/bible-slides', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'bible-slides.html'));
+});
+
 app.get('/tools/novel-study', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'novel-study.html'));
