@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>어린이 설교 슬라이드 — Salt Morning</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1f1a2e;
+      --muted: #6a637d;
+      --line: #e3dcee;
+      --paper: #f8f5fc;
+      --card: #ffffff;
+      --accent: #6a3fb5;
+      --accent-2: #f0a04b;
+      --accent-soft: #efe8fb;
+      --coral: #c45d55;
+      --ok: #2f6b4f;
+      --shadow: 0 10px 28px rgba(60, 40, 100, 0.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: 'Noto Sans KR', system-ui, sans-serif; color: var(--ink); min-height: 100vh;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(106, 63, 181, 0.12), transparent 38%),
+        radial-gradient(circle at 100% 85%, rgba(240, 160, 75, 0.14), transparent 40%),
+        linear-gradient(165deg, #f3eefb 0%, var(--paper) 50%, #f8f1e8 100%);
+    }
+    .hidden { display: none !important; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;
+      padding: 0.7rem 1.1rem; background: rgba(255,255,255,0.92); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 30; backdrop-filter: blur(8px);
+    }
+    .brand { font-family: Fraunces, Georgia, serif; font-size: 1.35rem; font-weight: 700; color: var(--accent); line-height: 1.15; }
+    .brand small { display: block; font-family: 'Noto Sans KR', sans-serif; font-size: 0.7rem; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .btn { border: none; border-radius: 10px; padding: 0.5rem 0.9rem; font-weight: 700; cursor: pointer; font: inherit; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #7b4fd0, var(--accent)); color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid var(--line); color: var(--accent); }
+    .btn-warm { background: linear-gradient(135deg, #f5b56a, var(--accent-2)); color: #3b2a12; }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.82rem; border-radius: 8px; }
+    .pane { flex: 1; padding: 1rem 1.1rem 2rem; }
+    .layout { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 1rem; align-items: start; }
+    @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+    .side, .main { background: rgba(255,255,255,0.92); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 1rem; }
+    .side h2, .main h2 { font-family: Fraunces, Georgia, serif; margin: 0 0 0.65rem; font-size: 1.25rem; color: var(--accent); }
+    .hint { font-size: 0.8rem; color: var(--muted); margin: 0 0 0.6rem; line-height: 1.45; }
+    label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+    input, select, textarea { border: 1px solid var(--line); border-radius: 9px; padding: 0.5rem 0.6rem; font: inherit; color: var(--ink); background: #fff; }
+    textarea { min-height: 92px; resize: vertical; line-height: 1.45; }
+    .form-grid { display: grid; gap: 0.6rem; margin-bottom: 0.8rem; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .examples { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.2rem 0 0.8rem; }
+    .ex { border: 1px solid var(--line); background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0.22rem 0.6rem; font-size: 0.76rem; font-weight: 700; cursor: pointer; }
+    .ex:hover { background: #e4d9f8; }
+    .status { font-size: 0.85rem; margin-top: 0.65rem; color: var(--muted); min-height: 1.2em; line-height: 1.4; }
+    .status.error { color: var(--coral); font-weight: 600; }
+    .status.ok { color: var(--ok); font-weight: 600; }
+    .progress { height: 8px; background: #ece6f6; border-radius: 999px; overflow: hidden; margin-top: 0.5rem; }
+    .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .4s ease; }
+    .preview-toolbar { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+    .deck-meta { font-size: 0.85rem; color: var(--muted); }
+    .deck-meta strong { color: var(--ink); font-size: 1rem; }
+    .frame-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0b0d12; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+    .frame-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .empty { padding: 3rem 1rem; text-align: center; color: var(--muted); font-size: 0.95rem; }
+    .empty strong { display: block; font-family: Fraunces, Georgia, serif; font-size: 1.35rem; color: var(--accent); margin-bottom: 0.35rem; }
+    .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
+    .thumb { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+    .thumb .img { position: relative; aspect-ratio: 16/9; background: linear-gradient(135deg, #efe8fb, #fbe9d6); }
+    .thumb .img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb .img .n { position: absolute; left: 6px; top: 6px; background: rgba(0,0,0,0.55); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; }
+    .thumb .img .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; color: var(--muted); }
+    .thumb .cap { font-size: 0.74rem; line-height: 1.35; padding: 0.45rem 0.5rem 0.2rem; white-space: pre-line; min-height: 2.6em; }
+    .thumb textarea { font-size: 0.74rem; margin: 0.3rem 0.4rem; min-height: 56px; }
+    .thumb .acts { display: flex; gap: 0.3rem; padding: 0.3rem 0.45rem 0.5rem; flex-wrap: wrap; }
+    .thumb .acts .btn { font-size: 0.7rem; padding: 0.22rem 0.5rem; }
+    .thumb.working .img::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.55); }
+    .spinner { display: inline-block; width: 0.9em; height: 0.9em; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pill { font-size: 0.72rem; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 0.2rem 0.55rem; font-weight: 700; }
+    .pill.warn { background: #fdecec; color: var(--coral); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">어린이 설교 슬라이드<small>Class Tools · Bible Story Slides</small></div>
+      <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center">
+        <span class="pill" id="aiPill">AI 상태 확인 중…</span>
+        <button type="button" class="btn btn-primary" id="btnGenerate">슬라이드 만들기</button>
+      </div>
+    </header>
+
+    <div class="pane">
+      <div class="layout">
+        <aside class="side">
+          <h2>말씀 입력</h2>
+          <p class="hint">성경 구절(예: 요한복음 3:16)이나 이야기 제목(예: 다윗과 골리앗)을 적으면 Claude가 어린이용 대본을 쓰고, 각 장면을 그림으로 그려 16:9 슬라이드를 만듭니다.</p>
+          <div class="form-grid">
+            <label>성경 말씀 / 이야기
+              <textarea id="topicInput" placeholder="예) 다윗과 골리앗 (사무엘상 17장)&#10;예) 누가복음 15:11-32 돌아온 탕자&#10;예) 예수님이 오천 명을 먹이신 이야기"></textarea>
+            </label>
+            <div class="examples" id="examples">
+              <button type="button" class="ex" data-ex="다윗과 골리앗 (사무엘상 17장)">다윗과 골리앗</button>
+              <button type="button" class="ex" data-ex="노아의 방주 (창세기 6-9장)">노아의 방주</button>
+              <button type="button" class="ex" data-ex="요나와 큰 물고기 (요나서)">요나</button>
+              <button type="button" class="ex" data-ex="돌아온 탕자 (누가복음 15:11-32)">돌아온 탕자</button>
+              <button type="button" class="ex" data-ex="오병이어 — 예수님이 오천 명을 먹이심 (요한복음 6:1-15)">오병이어</button>
+              <button type="button" class="ex" data-ex="선한 사마리아인 (누가복음 10:25-37)">선한 사마리아인</button>
+              <button type="button" class="ex" data-ex="다니엘과 사자굴 (다니엘 6장)">다니엘과 사자굴</button>
+              <button type="button" class="ex" data-ex="예수님의 탄생 (누가복음 2:1-20)">예수님의 탄생</button>
+            </div>
+            <div class="two">
+              <label>슬라이드 수
+                <select id="countSelect">
+                  <option value="8">8장</option>
+                  <option value="10" selected>10장</option>
+                  <option value="12">12장</option>
+                </select>
+              </label>
+              <label>대상
+                <select id="audienceSelect"></select>
+              </label>
+            </div>
+            <div class="two">
+              <label>자막 언어
+                <select id="languageSelect"></select>
+              </label>
+              <label>그림 스타일
+                <select id="styleSelect"></select>
+              </label>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" id="btnGenerate2" style="width:100%;justify-content:center">슬라이드 만들기</button>
+          <div class="progress hidden" id="progress"><div id="progressBar"></div></div>
+          <div class="status" id="status"></div>
+          <p class="hint" style="margin-top:0.9rem">구성: 1장 제목+말씀 → 이야기 장면들 → 마지막 적용·기도. 각 장면은 그림이 화면을 꽉 채우고, 하단에 1~3줄 자막이 들어갑니다. 완성 후 자막 수정·그림 다시 그리기가 가능합니다.</p>
+        </aside>
+
+        <section class="main">
+          <div class="preview-toolbar">
+            <div class="deck-meta" id="deckMeta">미리보기</div>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+              <button type="button" class="btn btn-warm btn-sm" id="btnPresent" disabled>▶ 발표 모드 (새 탭)</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnPdf" disabled>PDF 다운로드</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnReload" disabled>미리보기 새로고침</button>
+            </div>
+          </div>
+          <div id="emptyState" class="empty">
+            <strong>슬라이드 미리보기</strong>
+            왼쪽에 말씀이나 이야기를 입력하고 「슬라이드 만들기」를 누르세요.<br>
+            대본 작성 약 20~40초, 그림 10장 약 1~3분 걸립니다.
+          </div>
+          <div class="frame-wrap hidden" id="frameWrap"><iframe id="previewFrame" title="슬라이드 미리보기"></iframe></div>
+          <div class="thumbs" id="thumbs"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var currentJobId = null;
+  var currentJob = null;
+  var pollTimer = null;
+
+  function token() {
+    try {
+      return localStorage.getItem('salt_teacher_token') ||
+        sessionStorage.getItem('salt_teacher_token') ||
+        localStorage.getItem('salt_admin_token') ||
+        sessionStorage.getItem('salt_admin_token') || '';
+    } catch (e) { return ''; }
+  }
+
+  function toolFetch(url, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    var headers = opts.headers || {};
+    var t = token();
+    if (t) headers.Authorization = 'Bearer ' + t;
+    if (opts.body && typeof opts.body === 'object') {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    opts.headers = headers;
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+
+  function withToken(url) {
+    var t = token();
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'access_token=' + encodeURIComponent(t);
+  }
+
+  function setStatus(msg, kind) {
+    var el = $('status');
+    el.textContent = msg || '';
+    el.classList.remove('error', 'ok');
+    if (kind) el.classList.add(kind);
+  }
+
+  function setBusy(busy) {
+    $('btnGenerate').disabled = busy;
+    $('btnGenerate2').disabled = busy;
+    $('btnGenerate').innerHTML = busy ? '<span class="spinner"></span> 만드는 중' : '슬라이드 만들기';
+    $('btnGenerate2').innerHTML = busy ? '<span class="spinner"></span> 만드는 중' : '슬라이드 만들기';
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function fillSelect(id, list, def) {
+    var sel = $(id);
+    sel.innerHTML = list.map(function (o) {
+      return '<option value="' + escapeHtml(o.key) + '"' + (o.key === def ? ' selected' : '') + '>' + escapeHtml(o.label) + '</option>';
+    }).join('');
+  }
+
+  function loadOptions() {
+    return toolFetch('/api/bible-slides/options').then(function (o) {
+      fillSelect('audienceSelect', o.audiences || [], 'lower');
+      fillSelect('languageSelect', o.languages || [], 'ko');
+      fillSelect('styleSelect', o.styles || [], 'storybook');
+      var pill = $('aiPill');
+      if (!o.claudeConfigured) {
+        pill.textContent = 'Claude 미설정'; pill.classList.add('warn');
+      } else if (!o.imagesConfigured) {
+        pill.textContent = 'Claude ✓ · 그림 생성 미설정'; pill.classList.add('warn');
+      } else {
+        pill.textContent = 'Claude ✓ · 그림 생성 ✓';
+      }
+    }).catch(function (e) {
+      $('aiPill').textContent = '로그인 필요';
+      $('aiPill').classList.add('warn');
+      setStatus('교사 로그인 후 다시 열어 주세요. (' + e.message + ')', 'error');
+    });
+  }
+
+  function showDeck(job) {
+    currentJob = job;
+    var s = job.script || {};
+    $('deckMeta').innerHTML = '<strong>' + escapeHtml(s.title || '') + '</strong> · ' +
+      escapeHtml(s.scriptureRef || '') + ' · ' + ((s.slides || []).length) + '장';
+    $('emptyState').classList.add('hidden');
+    $('frameWrap').classList.remove('hidden');
+    $('previewFrame').src = withToken(job.deckUrl);
+    $('btnPresent').disabled = false;
+    $('btnPdf').disabled = false;
+    $('btnReload').disabled = false;
+    renderThumbs(job);
+  }
+
+  function renderThumbs(job) {
+    var s = job.script || {};
+    var mount = $('thumbs');
+    mount.innerHTML = (s.slides || []).map(function (sl) {
+      var img = sl.imageUrl
+        ? '<img src="' + sl.imageUrl + '" alt="">'
+        : '<div class="ph">' + (sl.hasImage ? '' : '그림 대기 중…') + '</div>';
+      var kind = sl.kind === 'title' ? '표지' : (sl.kind === 'closing' ? '마무리' : '장면');
+      return '<div class="thumb" data-n="' + sl.index + '">' +
+        '<div class="img">' + img + '<span class="n">' + sl.index + ' · ' + kind + (sl.placeholder ? ' · 그림 실패' : '') + '</span></div>' +
+        '<div class="cap">' + escapeHtml(sl.caption) + '</div>' +
+        '<textarea class="capEdit hidden">' + escapeHtml(sl.caption) + '</textarea>' +
+        '<div class="acts">' +
+          '<button type="button" class="btn btn-ghost btn-edit">자막 수정</button>' +
+          '<button type="button" class="btn btn-ghost btn-save hidden">저장</button>' +
+          '<button type="button" class="btn btn-ghost btn-redraw">그림 다시</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    mount.querySelectorAll('.thumb').forEach(function (card) {
+      var n = card.getAttribute('data-n');
+      var ta = card.querySelector('.capEdit');
+      var cap = card.querySelector('.cap');
+      card.querySelector('.btn-edit').addEventListener('click', function () {
+        ta.classList.toggle('hidden');
+        card.querySelector('.btn-save').classList.toggle('hidden');
+      });
+      card.querySelector('.btn-save').addEventListener('click', function () {
+        toolFetch('/api/bible-slides/jobs/' + currentJobId + '/slides/' + n + '/caption', {
+          method: 'PATCH', body: { caption: ta.value }
+        }).then(function (r) {
+          cap.textContent = r.slide.caption;
+          ta.classList.add('hidden');
+          card.querySelector('.btn-save').classList.add('hidden');
+          reloadPreview();
+          setStatus('자막을 저장했습니다.', 'ok');
+        }).catch(function (e) { setStatus(e.message, 'error'); });
+      });
+      card.querySelector('.btn-redraw').addEventListener('click', function () {
+        card.classList.add('working');
+        setStatus(n + '번 그림을 다시 그리는 중… (20~40초)');
+        toolFetch('/api/bible-slides/jobs/' + currentJobId + '/slides/' + n + '/image', { method: 'POST', body: {} })
+          .then(function (r) {
+            card.querySelector('.img').innerHTML = '<img src="' + r.slide.imageUrl + '" alt=""><span class="n">' + n + '</span>';
+            reloadPreview();
+            setStatus(n + '번 그림을 새로 그렸습니다.', 'ok');
+          })
+          .catch(function (e) { setStatus('그림 다시 그리기 실패: ' + e.message, 'error'); })
+          .finally(function () { card.classList.remove('working'); });
+      });
+    });
+  }
+
+  function reloadPreview() {
+    if (!currentJob) return;
+    var f = $('previewFrame');
+    var hash = '';
+    try { hash = f.contentWindow.location.hash || ''; } catch (e) { /* ignore */ }
+    f.src = withToken(currentJob.deckUrl) + hash;
+  }
+
+  function poll() {
+    if (!currentJobId) return;
+    toolFetch('/api/bible-slides/jobs/' + currentJobId + '?images=1').then(function (job) {
+      var p = job.progress || {};
+      var pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+      if (job.phase === 'script') pct = 8;
+      $('progress').classList.remove('hidden');
+      $('progressBar').style.width = Math.max(4, pct) + '%';
+      if (job.script && !currentJob) {
+        // show captions as soon as the script exists; images fill in as they land
+        $('deckMeta').innerHTML = '<strong>' + escapeHtml(job.script.title) + '</strong> · ' + escapeHtml(job.script.scriptureRef || '') + ' · 그림 생성 중';
+        renderThumbs(job);
+      } else if (job.script && job.status !== 'done') {
+        renderThumbs(job);
+      }
+      if (job.status === 'done') {
+        $('progressBar').style.width = '100%';
+        showDeck(job);
+        var failed = (job.warnings || []).filter(function (w) { return w.code === 'image_failed'; }).length;
+        setStatus('완성! ' + (job.script.slides.length) + '장' + (failed ? ' (그림 ' + failed + '장 실패 — 「그림 다시」로 재시도)' : ''), 'ok');
+        setBusy(false);
+        return;
+      }
+      if (job.status === 'error') {
+        setStatus(job.error || '생성 실패', 'error');
+        setBusy(false);
+        return;
+      }
+      setStatus(p.message || '진행 중…');
+      pollTimer = setTimeout(poll, 2500);
+    }).catch(function (e) {
+      setStatus('상태 확인 실패: ' + e.message, 'error');
+      setBusy(false);
+    });
+  }
+
+  function generate() {
+    var topic = String($('topicInput').value || '').trim();
+    if (topic.length < 2) {
+      setStatus('성경 구절이나 이야기를 입력해 주세요.', 'error');
+      return;
+    }
+    clearTimeout(pollTimer);
+    currentJob = null;
+    currentJobId = null;
+    $('thumbs').innerHTML = '';
+    $('frameWrap').classList.add('hidden');
+    $('emptyState').classList.remove('hidden');
+    $('btnPresent').disabled = true; $('btnPdf').disabled = true; $('btnReload').disabled = true;
+    setBusy(true);
+    $('progress').classList.remove('hidden');
+    $('progressBar').style.width = '4%';
+    setStatus('Claude가 대본을 쓰는 중…');
+    toolFetch('/api/bible-slides/generate', {
+      method: 'POST',
+      body: {
+        topic: topic,
+        slideCount: Number($('countSelect').value) || 10,
+        audience: $('audienceSelect').value,
+        language: $('languageSelect').value,
+        style: $('styleSelect').value
+      }
+    }).then(function (job) {
+      currentJobId = job.jobId;
+      pollTimer = setTimeout(poll, 1500);
+    }).catch(function (e) {
+      setStatus(e.message || '시작 실패', 'error');
+      setBusy(false);
+    });
+  }
+
+  $('btnGenerate').addEventListener('click', generate);
+  $('btnGenerate2').addEventListener('click', generate);
+  $('btnPresent').addEventListener('click', function () {
+    if (!currentJob) return;
+    window.open(withToken(currentJob.deckUrl), '_blank');
+  });
+  $('btnPdf').addEventListener('click', function () {
+    if (!currentJob) return;
+    setStatus('PDF를 만드는 중… (10~30초)');
+    var a = document.createElement('a');
+    a.href = withToken(currentJob.pdfUrl);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { setStatus('PDF가 열리지 않으면 발표 모드에서 인쇄 → PDF로 저장하세요.'); }, 4000);
+  });
+  $('btnReload').addEventListener('click', reloadPreview);
+  $('examples').addEventListener('click', function (e) {
+    var b = e.target.closest('.ex');
+    if (!b) return;
+    $('topicInput').value = b.getAttribute('data-ex');
+    $('topicInput').focus();
+  });
+
+  loadOptions();
+})();
+  </script>
+</body>
+</html>

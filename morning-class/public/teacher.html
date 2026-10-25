@@ -55,6 +55,7 @@
           <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openGrammarClinicBtn" role="menuitem">내신 문법 Generator</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openNovelStudyBtn" role="menuitem">Novel Study Workbook</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openBibleSlidesBtn" role="menuitem">어린이 설교 슬라이드</button>
         </div>
       </div>
       <button type="button" class="btn btn-ghost" id="langToggleBtn" data-i18n="lang.toggle" data-i18n-title="lang.toggle.title">한국어</button>
@@ -1888,6 +1889,13 @@
     openNovelStudyBtn.addEventListener('click', () => {
       closeClassToolsMenu();
       window.open('/tools/novel-study', 'saltNovelStudy', 'noopener,width=1280,height=900');
+    });
+  }
+  const openBibleSlidesBtn = $('openBibleSlidesBtn');
+  if (openBibleSlidesBtn) {
+    openBibleSlidesBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/bible-slides', 'saltBibleSlides', 'noopener,width=1440,height=900');
     });
   }
 
