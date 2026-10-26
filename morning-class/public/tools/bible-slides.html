@@ -147,9 +147,11 @@
           <div class="preview-toolbar">
             <div class="deck-meta" id="deckMeta">미리보기</div>
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-              <button type="button" class="btn btn-warm btn-sm" id="btnPresent" disabled>▶ 발표 모드 (새 탭)</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="btnPdf" disabled>PDF 다운로드</button>
-              <button type="button" class="btn btn-ghost btn-sm" id="btnReload" disabled>미리보기 새로고침</button>
+              <button type="button" class="btn btn-warm btn-sm" id="btnPresent" disabled>▶ 발표 모드</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnPdf" disabled>PDF</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnPptx" disabled>PPT</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnGoogle" disabled>Google 슬라이드</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnReload" disabled>새로고침</button>
             </div>
           </div>
           <div id="emptyState" class="empty">
@@ -252,18 +254,64 @@
     });
   }
 
+  function setExportEnabled(on) {
+    $('btnPresent').disabled = !on;
+    $('btnPdf').disabled = !on;
+    $('btnPptx').disabled = !on;
+    $('btnGoogle').disabled = !on;
+    $('btnReload').disabled = !on;
+  }
+
+  function rememberJob(jobId) {
+    try { localStorage.setItem('salt_bible_slides_job', jobId || ''); } catch (e) { /* ignore */ }
+  }
+
   function showDeck(job) {
     currentJob = job;
+    currentJobId = job.jobId || currentJobId;
+    rememberJob(currentJobId);
     var s = job.script || {};
     $('deckMeta').innerHTML = '<strong>' + escapeHtml(s.title || '') + '</strong> · ' +
       escapeHtml(s.scriptureRef || '') + ' · ' + ((s.slides || []).length) + '장';
     $('emptyState').classList.add('hidden');
     $('frameWrap').classList.remove('hidden');
     $('previewFrame').src = withToken(job.deckUrl);
-    $('btnPresent').disabled = false;
-    $('btnPdf').disabled = false;
-    $('btnReload').disabled = false;
+    setExportEnabled(true);
     renderThumbs(job);
+  }
+
+  function downloadBinary(url, filename, label) {
+    setStatus((label || '파일') + ' 준비 중…');
+    return fetch(url, {
+      credentials: 'same-origin',
+      headers: { Authorization: 'Bearer ' + token() }
+    }).then(function (r) {
+      return r.blob().then(function (blob) {
+        if (!r.ok) {
+          return blob.text().then(function (t) {
+            var msg = t;
+            try { msg = (JSON.parse(t).error) || t; } catch (e) { /* ignore */ }
+            throw new Error(msg || ('HTTP ' + r.status));
+          });
+        }
+        var a = document.createElement('a');
+        var obj = URL.createObjectURL(blob);
+        a.href = obj;
+        a.download = filename || 'bible-slides';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(obj); }, 2000);
+        setStatus((label || '파일') + ' 다운로드 완료', 'ok');
+      });
+    }).catch(function (e) {
+      setStatus((label || '다운로드') + ' 실패: ' + e.message, 'error');
+    });
+  }
+
+  function filenameFromJob(ext) {
+    var title = (currentJob && currentJob.script && currentJob.script.title) || 'bible-slides';
+    return String(title).replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) + ext;
   }
 
   function renderThumbs(job) {
@@ -376,7 +424,7 @@
     $('thumbs').innerHTML = '';
     $('frameWrap').classList.add('hidden');
     $('emptyState').classList.remove('hidden');
-    $('btnPresent').disabled = true; $('btnPdf').disabled = true; $('btnReload').disabled = true;
+    setExportEnabled(false);
     setBusy(true);
     $('progress').classList.remove('hidden');
     $('progressBar').style.width = '4%';
@@ -407,13 +455,29 @@
   });
   $('btnPdf').addEventListener('click', function () {
     if (!currentJob) return;
-    setStatus('PDF를 만드는 중… (10~30초)');
-    var a = document.createElement('a');
-    a.href = withToken(currentJob.pdfUrl);
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { setStatus('PDF가 열리지 않으면 발표 모드에서 인쇄 → PDF로 저장하세요.'); }, 4000);
+    downloadBinary(currentJob.pdfUrl, filenameFromJob('.pdf'), 'PDF');
+  });
+  $('btnPptx').addEventListener('click', function () {
+    if (!currentJob) return;
+    downloadBinary(currentJob.pptxUrl, filenameFromJob('.pptx'), 'PPT');
+  });
+  $('btnGoogle').addEventListener('click', function () {
+    if (!currentJobId) return;
+    setStatus('Google 슬라이드로 내보내는 중… (PPT 변환 후 Drive 업로드)');
+    $('btnGoogle').disabled = true;
+    toolFetch('/api/bible-slides/jobs/' + currentJobId + '/google-slides', { method: 'POST', body: {} })
+      .then(function (r) {
+        setStatus('Google 슬라이드가 만들어졌습니다. 새 탭에서 엽니다.', 'ok');
+        if (r.url) window.open(r.url, '_blank', 'noopener');
+      })
+      .catch(function (e) {
+        if (e.message && /Google|연결|Connect|reconnect/i.test(e.message)) {
+          setStatus(e.message + ' — 교사 포털에서 Google 계정을 연결한 뒤 다시 시도하세요.', 'error');
+        } else {
+          setStatus('Google 슬라이드 내보내기 실패: ' + e.message, 'error');
+        }
+      })
+      .finally(function () { $('btnGoogle').disabled = false; });
   });
   $('btnReload').addEventListener('click', reloadPreview);
   $('examples').addEventListener('click', function (e) {
@@ -423,7 +487,18 @@
     $('topicInput').focus();
   });
 
-  loadOptions();
+  loadOptions().then(function () {
+    var last = '';
+    try { last = localStorage.getItem('salt_bible_slides_job') || ''; } catch (e) { /* ignore */ }
+    if (!last) return;
+    toolFetch('/api/bible-slides/jobs/' + last + '?images=1').then(function (job) {
+      if (job && job.status === 'done' && job.script) {
+        currentJobId = last;
+        showDeck(job);
+        setStatus('이전 작업을 불러왔습니다. PDF / PPT / Google 슬라이드로 내보낼 수 있어요.', 'ok');
+      }
+    }).catch(function () { /* expired — ignore */ });
+  });
 })();
   </script>
 </body>

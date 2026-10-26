@@ -4,15 +4,181 @@
  * Children's Bible story slides (Class Tools).
  * Claude writes the title + scripture + ~10 picture-book captions and image
  * prompts; Gemini image models paint each full-bleed illustration.
+ *
+ * Jobs are kept in memory and mirrored to disk so PDF/PPTX/Google export still
+ * work after a process recycle or a long wait.
  */
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { Readable } = require('stream');
 const { askGemini, isClaudeConfigured, formatGeminiClientError } = require('./geminiService');
 const { generateImage, isImageGenConfigured } = require('./imageGenService');
 
-const JOB_TTL_MS = 90 * 60 * 1000;
-const MAX_JOBS = 24;
+const JOB_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_JOBS = 40;
 const IMAGE_PARALLEL = 3;
+const TMP_ROOT = path.join(os.tmpdir(), 'salt-bible-slides');
+const JOBS_DIR = path.join(TMP_ROOT, 'jobs');
 const jobs = new Map();
+const persistTimers = new Map();
+
+function ensureJobsDir() {
+  if (!fs.existsSync(JOBS_DIR)) fs.mkdirSync(JOBS_DIR, { recursive: true });
+}
+
+function jobDir(id) {
+  return path.join(JOBS_DIR, String(id));
+}
+
+function jobMetaPath(id) {
+  return path.join(jobDir(id), 'meta.json');
+}
+
+function slideImagePath(id, index, mimeType) {
+  const ext = /jpeg|jpg/i.test(mimeType || '') ? '.jpg'
+    : /webp/i.test(mimeType || '') ? '.webp'
+      : /svg/i.test(mimeType || '') ? '.svg'
+        : '.png';
+  return path.join(jobDir(id), 'slide-' + String(index).padStart(2, '0') + ext);
+}
+
+function writeSlideImage(id, index, img) {
+  if (!img || !img.data) return;
+  ensureJobsDir();
+  const dir = jobDir(id);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  // Remove previous extension variants for this slide index.
+  try {
+    fs.readdirSync(dir).forEach((f) => {
+      if (new RegExp('^slide-' + String(index).padStart(2, '0') + '\\.').test(f)) {
+        fs.unlinkSync(path.join(dir, f));
+      }
+    });
+  } catch (_) { /* ignore */ }
+  fs.writeFileSync(slideImagePath(id, index, img.mimeType), Buffer.from(img.data, 'base64'));
+}
+
+function readSlideImage(id, index) {
+  const dir = jobDir(id);
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir).filter((f) =>
+    new RegExp('^slide-' + String(index).padStart(2, '0') + '\\.').test(f)
+  );
+  if (!files.length) return null;
+  const file = files[0];
+  const ext = path.extname(file).toLowerCase();
+  const mime = ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg'
+    : ext === '.webp' ? 'image/webp'
+      : ext === '.svg' ? 'image/svg+xml'
+        : 'image/png';
+  return {
+    mimeType: mime,
+    data: fs.readFileSync(path.join(dir, file)).toString('base64'),
+    placeholder: false
+  };
+}
+
+function serializeJob(job) {
+  return {
+    id: job.id,
+    ownerKey: job.ownerKey,
+    status: job.status,
+    phase: job.phase,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    input: job.input,
+    progress: job.progress,
+    script: job.script,
+    warnings: job.warnings || [],
+    error: job.error || null,
+    imageMeta: (job.images || []).map((img, i) => (img ? {
+      index: i + 1,
+      mimeType: img.mimeType,
+      placeholder: !!img.placeholder,
+      model: img.model || null
+    } : null))
+  };
+}
+
+function persistJobNow(job) {
+  if (!job || !job.id) return;
+  try {
+    ensureJobsDir();
+    const dir = jobDir(job.id);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    (job.images || []).forEach((img, i) => {
+      if (img && img.data) writeSlideImage(job.id, i + 1, img);
+    });
+    fs.writeFileSync(jobMetaPath(job.id), JSON.stringify(serializeJob(job)));
+  } catch (e) {
+    console.warn('bibleSlides disk persist failed', job.id, e.message);
+  }
+}
+
+function schedulePersist(job, immediate) {
+  if (!job || !job.id) return;
+  if (immediate) {
+    if (persistTimers.has(job.id)) {
+      clearTimeout(persistTimers.get(job.id));
+      persistTimers.delete(job.id);
+    }
+    persistJobNow(job);
+    return;
+  }
+  if (persistTimers.has(job.id)) return;
+  persistTimers.set(job.id, setTimeout(() => {
+    persistTimers.delete(job.id);
+    persistJobNow(job);
+  }, 800));
+}
+
+function loadJobFromDisk(jobId) {
+  const metaFile = jobMetaPath(jobId);
+  if (!fs.existsSync(metaFile)) return null;
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+    const images = [];
+    const n = (meta.script && meta.script.slides && meta.script.slides.length) || 0;
+    for (let i = 1; i <= n; i++) {
+      const img = readSlideImage(jobId, i);
+      if (img && meta.imageMeta && meta.imageMeta[i - 1] && meta.imageMeta[i - 1].placeholder) {
+        img.placeholder = true;
+      }
+      images.push(img);
+    }
+    const job = {
+      id: meta.id,
+      ownerKey: meta.ownerKey,
+      status: meta.status,
+      phase: meta.phase,
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+      input: meta.input,
+      progress: meta.progress,
+      script: meta.script,
+      images,
+      warnings: meta.warnings || [],
+      error: meta.error || null,
+      fromDisk: true
+    };
+    jobs.set(job.id, job);
+    return job;
+  } catch (e) {
+    console.warn('bibleSlides disk load failed', jobId, e.message);
+    return null;
+  }
+}
+
+function deleteJobDisk(jobId) {
+  const dir = jobDir(jobId);
+  if (!fs.existsSync(dir)) return;
+  try {
+    fs.readdirSync(dir).forEach((f) => fs.unlinkSync(path.join(dir, f)));
+    fs.rmdirSync(dir);
+  } catch (_) { /* ignore */ }
+}
 
 const STYLE_PRESETS = {
   storybook: {
@@ -283,19 +449,38 @@ async function runPool(items, limit, worker) {
 function pruneJobs() {
   const now = Date.now();
   for (const [id, job] of jobs.entries()) {
-    if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) jobs.delete(id);
+    if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) {
+      jobs.delete(id);
+      deleteJobDisk(id);
+    }
   }
   if (jobs.size > MAX_JOBS) {
     const sorted = Array.from(jobs.values()).sort((a, b) => a.updatedAt - b.updatedAt);
     while (jobs.size > MAX_JOBS && sorted.length) {
-      jobs.delete(sorted.shift().id);
+      const old = sorted.shift();
+      jobs.delete(old.id);
+      if (old.status !== 'done') deleteJobDisk(old.id);
     }
   }
+  // Also prune orphaned disk jobs older than TTL.
+  try {
+    ensureJobsDir();
+    fs.readdirSync(JOBS_DIR).forEach((id) => {
+      const meta = jobMetaPath(id);
+      if (!fs.existsSync(meta)) return;
+      try {
+        const st = fs.statSync(meta);
+        if (now - st.mtimeMs > JOB_TTL_MS) deleteJobDisk(id);
+      } catch (_) { /* ignore */ }
+    });
+  } catch (_) { /* ignore */ }
 }
 
 function touch(job, patch) {
   Object.assign(job, patch || {});
   job.updatedAt = Date.now();
+  const immediate = job.status === 'done' || job.status === 'error' || (patch && patch.script);
+  schedulePersist(job, immediate);
 }
 
 function startJob(opts, ownerKey) {
@@ -333,6 +518,7 @@ function startJob(opts, ownerKey) {
   };
   jobs.set(id, job);
 
+  schedulePersist(job, true);
   setImmediate(() => runJob(job).catch((e) => {
     touch(job, { status: 'error', error: e.message || '생성 실패', phase: 'error' });
     console.error('bibleSlides job', id, e);
@@ -386,14 +572,24 @@ async function runJob(job) {
 
 function getJob(jobId, ownerKey) {
   pruneJobs();
-  const job = jobs.get(String(jobId || ''));
+  const id = String(jobId || '');
+  let job = jobs.get(id);
+  if (!job) job = loadJobFromDisk(id);
   if (!job) return null;
   if (ownerKey && job.ownerKey && job.ownerKey !== String(ownerKey)) {
-    const err = new Error('Job not found.');
+    const err = new Error('이 슬라이드 작업에 접근할 수 없습니다.');
     err.statusCode = 404;
     throw err;
   }
   return job;
+}
+
+function jobNotFoundError() {
+  const err = new Error(
+    '슬라이드 작업을 찾을 수 없습니다. 서버가 재시작됐거나 오래되어 만료됐을 수 있어요. 「슬라이드 만들기」로 다시 생성해 주세요.'
+  );
+  err.statusCode = 404;
+  return err;
 }
 
 function dataUri(img) {
@@ -432,17 +628,15 @@ function publicJob(job, opts) {
   if (job.status === 'done') {
     out.deckUrl = '/api/bible-slides/jobs/' + job.id + '/deck';
     out.pdfUrl = '/api/bible-slides/jobs/' + job.id + '/pdf';
+    out.pptxUrl = '/api/bible-slides/jobs/' + job.id + '/pptx';
+    out.googleSlidesUrl = '/api/bible-slides/jobs/' + job.id + '/google-slides';
   }
   return out;
 }
 
 async function regenerateSlideImage(jobId, ownerKey, slideIndex, overridePrompt) {
   const job = getJob(jobId, ownerKey);
-  if (!job || !job.script) {
-    const err = new Error('Job not found.');
-    err.statusCode = 404;
-    throw err;
-  }
+  if (!job || !job.script) throw jobNotFoundError();
   const i = Number(slideIndex) - 1;
   const slide = job.script.slides[i];
   if (!slide) {
@@ -456,16 +650,13 @@ async function regenerateSlideImage(jobId, ownerKey, slideIndex, overridePrompt)
   const img = await paintSlide(job.script, slide, job.input.styleKey);
   job.images[i] = img;
   touch(job, {});
+  schedulePersist(job, true);
   return { ok: true, slide: { index: slide.index, imageUrl: dataUri(img) } };
 }
 
 function updateCaption(jobId, ownerKey, slideIndex, caption) {
   const job = getJob(jobId, ownerKey);
-  if (!job || !job.script) {
-    const err = new Error('Job not found.');
-    err.statusCode = 404;
-    throw err;
-  }
+  if (!job || !job.script) throw jobNotFoundError();
   const slide = job.script.slides[Number(slideIndex) - 1];
   if (!slide) {
     const err = new Error('Slide not found.');
@@ -474,6 +665,7 @@ function updateCaption(jobId, ownerKey, slideIndex, caption) {
   }
   slide.caption = normalizeCaption(caption);
   touch(job, {});
+  schedulePersist(job, true);
   return { ok: true, slide: { index: slide.index, caption: slide.caption } };
 }
 
@@ -652,7 +844,7 @@ async function renderDeckPdf(job) {
     chromium = require('@sparticuz/chromium');
     puppeteer = require('puppeteer-core');
   } catch (e) {
-    const err = new Error('PDF engine is not installed on this server. Use 인쇄 → PDF 저장 instead.');
+    const err = new Error('PDF engine is not installed on this server. Use 발표 모드 → 인쇄 → PDF로 저장 하세요.');
     err.statusCode = 503;
     throw err;
   }
@@ -666,7 +858,7 @@ async function renderDeckPdf(job) {
   });
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 90000 });
     const pdf = await page.pdf({
       width: '338.67mm',
       height: '190.5mm',
@@ -678,6 +870,133 @@ async function renderDeckPdf(job) {
   } finally {
     await browser.close().catch(() => {});
   }
+}
+
+function pptxImageData(img) {
+  if (!img || !img.data) return null;
+  if (/svg/i.test(img.mimeType || '')) return null; // pptxgenjs needs raster
+  const mime = img.mimeType || 'image/png';
+  return 'data:' + mime + ';base64,' + img.data;
+}
+
+async function renderDeckPptx(job) {
+  const PptxGenJS = require('pptxgenjs');
+  const pptx = new PptxGenJS();
+  pptx.defineLayout({ name: 'WIDE16x9', width: 13.333, height: 7.5 });
+  pptx.layout = 'WIDE16x9';
+  pptx.author = 'Salt Morning Class Tools';
+  pptx.title = (job.script && job.script.title) || 'Bible Slides';
+
+  const script = job.script;
+  script.slides.forEach((s, i) => {
+    const slide = pptx.addSlide();
+    const imgData = pptxImageData(job.images[i]);
+    if (imgData) {
+      slide.addImage({ data: imgData, x: 0, y: 0, w: '100%', h: '100%' });
+    } else {
+      slide.addShape(pptx.ShapeType.rect, {
+        x: 0, y: 0, w: '100%', h: '100%',
+        fill: { color: '1A1F2E' }
+      });
+    }
+
+    // Soft gradient bar at bottom for captions (simulate with semi-opaque rect)
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0, y: 5.15, w: '100%', h: 2.35,
+      fill: { color: '0A0C14', transparency: 35 }
+    });
+
+    if (s.kind === 'title') {
+      slide.addText(script.title || '', {
+        x: 0.6, y: 2.2, w: 12.1, h: 1.4,
+        fontSize: 40, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle',
+        fontFace: 'Arial',
+        shadow: { type: 'outer', color: '000000', blur: 8, opacity: 0.45 }
+      });
+      if (script.scriptureRef) {
+        slide.addText(script.scriptureRef, {
+          x: 0.6, y: 3.55, w: 12.1, h: 0.45,
+          fontSize: 18, bold: true, color: 'FFE08A', align: 'center', fontFace: 'Arial'
+        });
+      }
+      if (script.scriptureText) {
+        slide.addText('“' + script.scriptureText + '”', {
+          x: 1.2, y: 4.15, w: 10.9, h: 0.9,
+          fontSize: 16, color: 'FFFFFF', align: 'center', fontFace: 'Arial', italic: true
+        });
+      }
+    } else {
+      const lines = String(s.caption || '').split('\n').filter(Boolean);
+      slide.addText(lines.map((t) => ({ text: t, options: { breakLine: true } })), {
+        x: 0.7, y: 5.45, w: 11.9, h: 1.7,
+        fontSize: lines.length >= 3 ? 18 : 22,
+        bold: true, color: 'FFFFFF', align: 'center', valign: 'middle',
+        fontFace: 'Arial',
+        shadow: { type: 'outer', color: '000000', blur: 6, opacity: 0.5 }
+      });
+    }
+
+    slide.addText((i + 1) + ' / ' + script.slides.length, {
+      x: 11.6, y: 0.18, w: 1.5, h: 0.35,
+      fontSize: 11, color: 'FFFFFF', align: 'right', fontFace: 'Arial',
+      transparency: 20
+    });
+  });
+
+  const buf = await pptx.write({ outputType: 'nodebuffer' });
+  return Buffer.from(buf);
+}
+
+async function uploadToGoogleSlides(job, teacherId) {
+  const {
+    getGoogleStatus,
+    getAccessToken,
+    shareDriveFile
+  } = require('./googleTeacherAuthService');
+
+  let status;
+  try {
+    status = await getGoogleStatus(teacherId);
+  } catch (_) {
+    status = { connected: false };
+  }
+  if (!status || !status.connected) {
+    const err = new Error('교사 포털에서 Google 계정을 먼저 연결해 주세요. (Drive)');
+    err.statusCode = 400;
+    err.code = 'GOOGLE_NOT_CONNECTED';
+    throw err;
+  }
+
+  const pptxBuf = await renderDeckPptx(job);
+  const { google } = require('googleapis');
+  const tokenInfo = await getAccessToken(teacherId);
+  const auth = new google.auth.OAuth2();
+  auth.setCredentials({ access_token: tokenInfo.accessToken });
+  const drive = google.drive({ version: 'v3', auth });
+  const name = ((job.script && job.script.title) || 'Bible Slides') + ' — 어린이 설교';
+  const created = await drive.files.create({
+    requestBody: {
+      name,
+      mimeType: 'application/vnd.google-apps.presentation'
+    },
+    media: {
+      mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      body: Readable.from(pptxBuf)
+    },
+    fields: 'id, webViewLink, name'
+  });
+  const fileId = created.data && created.data.id;
+  let webViewLink = created.data && created.data.webViewLink;
+  try {
+    const shared = await shareDriveFile(teacherId, fileId);
+    webViewLink = shared.webViewLink || webViewLink;
+  } catch (_) { /* optional */ }
+
+  return {
+    url: webViewLink || ('https://docs.google.com/presentation/d/' + fileId + '/edit'),
+    fileId,
+    name: (created.data && created.data.name) || name
+  };
 }
 
 function safeFilename(title) {
@@ -696,6 +1015,9 @@ module.exports = {
   updateCaption,
   renderDeckHtml,
   renderDeckPdf,
+  renderDeckPptx,
+  uploadToGoogleSlides,
+  jobNotFoundError,
   safeFilename,
   isClaudeConfigured,
   isImageGenConfigured

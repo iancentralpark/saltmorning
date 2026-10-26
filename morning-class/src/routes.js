@@ -4082,7 +4082,10 @@ router.get('/bible-slides/jobs/:id', requireRole('teacher', 'admin'), (req, res)
 router.get('/bible-slides/jobs/:id/deck', requireRole('teacher', 'admin'), (req, res) => {
   try {
     const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
-    if (!job || !job.script) return res.status(404).send('Not found');
+    if (!job || !job.script) {
+      const e = bibleSlides.jobNotFoundError();
+      return res.status(404).type('html').send('<!doctype html><meta charset=utf-8><title>만료</title><p>' + e.message + '</p>');
+    }
     res.set('Cache-Control', 'no-store');
     res.type('html').send(bibleSlides.renderDeckHtml(job));
   } catch (e) {
@@ -4093,7 +4096,7 @@ router.get('/bible-slides/jobs/:id/deck', requireRole('teacher', 'admin'), (req,
 router.get('/bible-slides/jobs/:id/pdf', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
-    if (!job || !job.script) return res.status(404).json({ error: 'Not found' });
+    if (!job || !job.script) throw bibleSlides.jobNotFoundError();
     const pdf = await bibleSlides.renderDeckPdf(job);
     const name = bibleSlides.safeFilename(job.script.title) + '.pdf';
     res.set('Content-Type', 'application/pdf');
@@ -4102,6 +4105,42 @@ router.get('/bible-slides/jobs/:id/pdf', requireRole('teacher', 'admin'), async 
   } catch (e) {
     console.error('GET /bible-slides/jobs/:id/pdf', e);
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PDF.' });
+  }
+});
+
+router.get('/bible-slides/jobs/:id/pptx', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
+    if (!job || !job.script) throw bibleSlides.jobNotFoundError();
+    const pptx = await bibleSlides.renderDeckPptx(job);
+    const name = bibleSlides.safeFilename(job.script.title) + '.pptx';
+    res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(pptx);
+  } catch (e) {
+    console.error('GET /bible-slides/jobs/:id/pptx', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PPTX.' });
+  }
+});
+
+router.post('/bible-slides/jobs/:id/google-slides', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = bibleSlides.getJob(req.params.id, bibleOwnerKey(req));
+    if (!job || !job.script) throw bibleSlides.jobNotFoundError();
+    const teacherId = String(
+      (req.session && (req.session.teacherId || req.session.adminId || req.session.userId)) || ''
+    );
+    if (!teacherId) {
+      return res.status(400).json({ error: '교사 계정으로 로그인해 주세요.' });
+    }
+    const out = await bibleSlides.uploadToGoogleSlides(job, teacherId);
+    res.json({ ok: true, url: out.url, fileId: out.fileId, name: out.name });
+  } catch (e) {
+    console.error('POST /bible-slides/jobs/:id/google-slides', e);
+    res.status(e.statusCode || 500).json({
+      error: e.message || 'Could not export to Google Slides.',
+      code: e.code || null
+    });
   }
 });
 
