@@ -143,13 +143,19 @@ TRANSFORM 전환 공식 / CONCEPT_CHECK 간단한 개념확인 / QUIZ 내신형 
    - FORMULA: 학생이 외울 규칙 문장(한국어). 예: "단모음+단자음 → 자음 한 번 더 + -er"
    - FORMS: 원급↔비교급 같은 예시 표. 규칙 문장만 있고 예가 없거나, 예만 있고 규칙이 없으면 불합격.
 2) 예만 보여 주고 규칙을 강사 판서에 맡기지 마세요. 화면(lines)에 규칙을 씁니다.
-3) 퀴즈는 두 종류를 모두 넣습니다(유닛당 최소 각 1장):
+3) ★ 예시 중복 금지 (중요): 앞 슬라이드에 이미 쓴 영어 단어·쌍·문장을 다음 슬라이드에서 거의 그대로 반복하지 마세요.
+   - FORMULA에서 규칙을 설명할 때 예시가 필요하면 대표 1개만 (예: good → better).
+   - 바로 뒤 FORMS/ONE_LINER/examples에는 앞에서 안 쓴 새 예시로 확장 (예: little→less, far→farther/further, 문장 예 등).
+   - "불규칙 비교급"처럼 목록이 짧아도: 규칙 장 = 핵심 3쌍만 한 줄씩, 예시 장 = 다른 쌍·문장·활용으로 새로 보여 주기.
+   - 같은 good/better · bad/worse · many/more 표를 규칙 장과 예시 장에 복붙하면 불합격.
+   - 슬라이드를 넘겼을 때 학생이 새로운 정보를 얻어야 합니다.
+4) 퀴즈는 두 종류를 모두 넣습니다(유닛당 최소 각 1장):
    - CONCEPT_CHECK: O/X 또는 짧은 선택으로 "개념이 잡혔는지" 확인
    - QUIZ: 내신형(어법·빈칸·고르기 등)
-4) 정답·해설은 CONCEPT_CHECK/QUIZ의 notes(발표자 노트)에만. 화면에는 문제·보기만.
-5) title로 시작. 유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
-6) 한 슬라이드 = 블록 1개. 규칙은 굵고 짧게(장당 lines 최대 6) 하되, 공통 규칙은 생략하지 말고 여러 FORMULA 장으로 나누세요.
-7) 한국어 규칙 + 영어 예문. 중학생 눈높이. 출력은 JSON만.`;
+5) 정답·해설은 CONCEPT_CHECK/QUIZ의 notes(발표자 노트)에만. 화면에는 문제·보기만.
+6) title로 시작. 유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
+7) 한 슬라이드 = 블록 1개. 규칙은 굵고 짧게(장당 lines 최대 6) 하되, 공통 규칙은 생략하지 말고 여러 FORMULA 장으로 나누세요.
+8) 한국어 규칙 + 영어 예문. 중학생 눈높이. 출력은 JSON만.`;
 
 const SLIDE_SCHEMA_HINT = {
   title: '강의 제목',
@@ -193,6 +199,7 @@ function buildGeneratePrompt({ title, units, grade }) {
     '  (예: 비교급 → 단기 -er / CVC 자음 중복+-er / y→ier / 3음절+ more / than / 이중비교 금지 등)',
     '- FORMULA에 규칙, FORMS에 대응 예시. 규칙 없는 예시 표만 두지 말 것.',
     '- 유닛마다 CONCEPT_CHECK ≥1, QUIZ(내신) ≥1.',
+    '- 예시 중복 금지: FORMULA lines에 이미 나온 영어 쌍(예: good→better)을 바로 뒤 FORMS columns/examples에 다시 나열하지 말 것. FORMS는 새 단어·문장으로 확장.',
     '',
     'JSON 스키마:',
     JSON.stringify(SLIDE_SCHEMA_HINT, null, 2),
@@ -208,6 +215,7 @@ function buildRestylePrompt({ title, extractedText, unitHint }) {
     '아래는 교사가 업로드한 기존 문법 PPT에서 추출한 텍스트이다.',
     '내용을 보존하되, Pattern B(규칙 FORMULA → 예 FORMS)와 CONCEPT_CHECK+내신 QUIZ 체계로 재구성하라.',
     '교과서·참고서 공통 규칙이 원문에 약하면 보완하라. 예만 있고 규칙이 없으면 FORMULA를 추가.',
+    '규칙 장과 예시 장에 같은 영어 쌍·문장을 복붙하지 말 것. FORMS는 새 예시로.',
     'CONCEPT_CHECK/QUIZ 정답은 notes에만.',
     title ? ('희망 제목: ' + title) : '',
     unitHint ? ('힌트 문법: ' + unitHint) : '',
@@ -223,6 +231,7 @@ function buildRestylePrompt({ title, extractedText, unitHint }) {
 const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재 감수자입니다.
 인강 슬라이드 JSON을 검수하고, 누락된 공통 규칙·개념확인·내신퀴즈를 보완한 최종 JSON만 출력합니다.
 Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 장을 앞에 추가하세요.
+인접 슬라이드에 같은 영어 예시(단어 쌍·문장)가 반복되면 FORMS/examples를 새 예시로 교체하세요.
 정답은 notes에만. 화면은 굵고 짧게. JSON만.`;
 
 function buildReviewPrompt({ title, units, grade, draft }) {
@@ -245,6 +254,9 @@ function buildReviewPrompt({ title, units, grade, draft }) {
     '3) 유닛마다 CONCEPT_CHECK ≥1, QUIZ ≥1, 정답은 notes만인가?',
     '4) catalog coreRules·errorTraps가 화면에 반영되었는가?',
     '5) 불필요하게 장황하면 나누거나 줄이되, 공통 규칙은 삭제하지 말 것.',
+    '6) ★ 예시 중복: FORMULA(또는 직전 장)에 이미 나온 영어 쌍·문장이 FORMS/ONE_LINER/examples에 다시 나오면, FORMS를 새 예시로 바꾸거나 FORMULA의 예시를 1개만 남기고 줄일 것.',
+    '   나쁜 예: 규칙 장 good→better, bad→worse, many→more / 예시 장에도 동일 3쌍.',
+    '   좋은 예: 규칙 장에 대표 1~2쌍만 → 예시 장에 little→less, far→farther, 문장 활용 등 새 내용.',
     '',
     '초안 JSON:',
     JSON.stringify(draft, null, 2),
