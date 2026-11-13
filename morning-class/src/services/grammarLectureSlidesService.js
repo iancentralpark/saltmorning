@@ -4,7 +4,7 @@
  * Grammar lecture slides (인강용 PPT) for Class Tools / grammar-clinic.
  *
  * Mode A: pick up to 2 catalog units → Claude picks content blocks → chalkboard PPTX
- * Mode B: upload .pptx/.ppt → extract text → restyle into the same template
+ * Mode B: free-text custom topic (e.g. 8품사 개요) when not in the catalog
  *
  * Layout contract (all slides):
  * - 16:9
@@ -177,8 +177,8 @@ const SLIDE_SCHEMA_HINT = {
   }]
 };
 
-function buildGeneratePrompt({ title, units, grade }) {
-  const specs = units.map((u) => ({
+function buildGeneratePrompt({ title, units, grade, customTopic }) {
+  const specs = (units || []).map((u) => ({
     unitId: u.unitId,
     grade: u.grade,
     category: u.category,
@@ -186,20 +186,39 @@ function buildGeneratePrompt({ title, units, grade }) {
     coreRules: u.coreRules,
     errorTraps: u.errorTraps
   }));
-  return [
-    '다음 문법으로 인강 슬라이드 대본을 작성하라. Pattern B(규칙→예) + 개념확인 + 내신퀴즈.',
+  const custom = String(customTopic || '').trim();
+  const parts = [
+    '다음 문법/주제로 인강 슬라이드 대본을 작성하라. Pattern B(규칙→예) + 개념확인 + 내신퀴즈.',
     'title: ' + title,
-    'schoolGrade: ' + grade,
-    'units (최대 2개):',
-    JSON.stringify(specs, null, 2),
+    'schoolGrade: ' + grade
+  ];
+  if (custom) {
+    parts.push(
+      'customTopic (카탈로그에 없는 직접 주제 — 이 주제를 중심으로 강의하라):',
+      custom,
+      '',
+      '직접 주제 가이드:',
+      '- 중등 영어 수업에서 통하는 표준 개요·정의·구분·대표 예를 빠짐없이.',
+      '- 개요형(예: 8품사)이면 큰 지도(목록·한줄 정의) → 각 항목 핵심 → 비교/함정 → 개념확인·퀴즈 흐름.',
+      '- 한 장에 모든 품사를 우겨 넣지 말고 section/FORMULA/FORMS로 나누되 전체 최대 28장.'
+    );
+  }
+  if (specs.length) {
+    parts.push('catalog units (최대 2개' + (custom ? ' — 보조 힌트' : '') + '):', JSON.stringify(specs, null, 2));
+  } else {
+    parts.push('catalog units: (없음 — customTopic만 사용)');
+  }
+  parts.push(
     '',
     '필수 커버리지:',
-    '- catalog의 coreRules·errorTraps는 반드시 화면에 반영.',
-    '- 그와 별도로, 한국 중등 교과서·참고서가 이 문법에서 공통으로 가르치는 규칙·형태·예외·짝꿍 표현이 있으면 누락하지 말 것.',
+    specs.length
+      ? '- catalog의 coreRules·errorTraps는 반드시 화면에 반영.'
+      : '- customTopic에 대해 교과서·참고서가 공통으로 다루는 정의·분류·예·예외를 빠뜨리지 말 것.',
+    '- 한국 중등 교과서·참고서가 이 주제에서 공통으로 가르치는 규칙·형태·예외·짝꿍 표현이 있으면 누락하지 말 것.',
     '  (예: 비교급 → 단기 -er / CVC 자음 중복+-er / y→ier / 3음절+ more / than / 이중비교 금지 등)',
     '- FORMULA에 규칙, FORMS에 대응 예시. 규칙 없는 예시 표만 두지 말 것.',
-    '- 유닛마다 CONCEPT_CHECK ≥1, QUIZ(내신) ≥1.',
-    '- 예시 중복 금지: FORMULA lines에 이미 나온 영어 쌍(예: good→better)을 바로 뒤 FORMS columns/examples에 다시 나열하지 말 것. FORMS는 새 단어·문장으로 확장.',
+    '- 주제(또는 유닛)마다 CONCEPT_CHECK ≥1, QUIZ(내신) ≥1.',
+    '- 예시 중복 금지: FORMULA lines에 이미 나온 영어 쌍을 바로 뒤 FORMS에 다시 나열하지 말 것.',
     '',
     'JSON 스키마:',
     JSON.stringify(SLIDE_SCHEMA_HINT, null, 2),
@@ -207,25 +226,8 @@ function buildGeneratePrompt({ title, units, grade }) {
     'columns / examples / wrongRight / quiz 는 해당 블록에만 채우고 나머지는 생략 가능.',
     'TRAP은 wrongRight 필수. USAGE·FORMS는 columns 2열 권장.',
     'CONCEPT_CHECK·QUIZ는 quiz+notes 필수. CONCEPT_CHECK는 보기 2~3개 또는 O/X로 단순하게.'
-  ].join('\n');
-}
-
-function buildRestylePrompt({ title, extractedText, unitHint }) {
-  return [
-    '아래는 교사가 업로드한 기존 문법 PPT에서 추출한 텍스트이다.',
-    '내용을 보존하되, Pattern B(규칙 FORMULA → 예 FORMS)와 CONCEPT_CHECK+내신 QUIZ 체계로 재구성하라.',
-    '교과서·참고서 공통 규칙이 원문에 약하면 보완하라. 예만 있고 규칙이 없으면 FORMULA를 추가.',
-    '규칙 장과 예시 장에 같은 영어 쌍·문장을 복붙하지 말 것. FORMS는 새 예시로.',
-    'CONCEPT_CHECK/QUIZ 정답은 notes에만.',
-    title ? ('희망 제목: ' + title) : '',
-    unitHint ? ('힌트 문법: ' + unitHint) : '',
-    '',
-    '추출 텍스트:',
-    String(extractedText || '').slice(0, 24000),
-    '',
-    '출력 JSON 스키마:',
-    JSON.stringify(SLIDE_SCHEMA_HINT, null, 2)
-  ].filter(Boolean).join('\n');
+  );
+  return parts.join('\n');
 }
 
 const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재 감수자입니다.
@@ -234,35 +236,35 @@ Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 
 인접 슬라이드에 같은 영어 예시(단어 쌍·문장)가 반복되면 FORMS/examples를 새 예시로 교체하세요.
 정답은 notes에만. 화면은 굵고 짧게. JSON만.`;
 
-function buildReviewPrompt({ title, units, grade, draft }) {
+function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
   const specs = (units || []).map((u) => ({
     unitId: u.unitId,
     subCategory: u.subCategory,
     coreRules: u.coreRules,
     errorTraps: u.errorTraps
   }));
+  const custom = String(customTopic || '').trim();
   return [
     '아래 초안 슬라이드를 상업용 퀄리티로 검수·보완하라.',
     'title: ' + title,
     'grade: ' + grade,
+    custom ? ('customTopic: ' + custom) : '',
     'units:',
     JSON.stringify(specs, null, 2),
     '',
     '체크리스트 (미달이면 slides를 고쳐 최종본을 다시 작성):',
-    '1) 각 문법의 교과서·참고서 공통 규칙이 FORMULA lines에 명시되어 있는가?',
+    '1) 주제/문법의 교과서·참고서 공통 규칙·정의가 FORMULA lines에 명시되어 있는가?',
     '2) 형태/규칙이 있으면 FORMULA 바로 뒤에 FORMS(또는 예)가 있는가? 예만 단독으로 있지 않은가?',
-    '3) 유닛마다 CONCEPT_CHECK ≥1, QUIZ ≥1, 정답은 notes만인가?',
-    '4) catalog coreRules·errorTraps가 화면에 반영되었는가?',
+    '3) CONCEPT_CHECK ≥1, QUIZ ≥1, 정답은 notes만인가?',
+    '4) catalog가 있으면 coreRules·errorTraps 반영. customTopic이면 표준 개요·분류 누락 없는가?',
     '5) 불필요하게 장황하면 나누거나 줄이되, 공통 규칙은 삭제하지 말 것.',
-    '6) ★ 예시 중복: FORMULA(또는 직전 장)에 이미 나온 영어 쌍·문장이 FORMS/ONE_LINER/examples에 다시 나오면, FORMS를 새 예시로 바꾸거나 FORMULA의 예시를 1개만 남기고 줄일 것.',
-    '   나쁜 예: 규칙 장 good→better, bad→worse, many→more / 예시 장에도 동일 3쌍.',
-    '   좋은 예: 규칙 장에 대표 1~2쌍만 → 예시 장에 little→less, far→farther, 문장 활용 등 새 내용.',
+    '6) ★ 예시 중복: FORMULA에 이미 나온 영어 쌍·문장이 FORMS에 다시 나오면 새 예시로 교체.',
     '',
     '초안 JSON:',
     JSON.stringify(draft, null, 2),
     '',
     '출력: 최종 { title, grade, slides[] } JSON만. 스키마는 초안과 동일.'
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 function coerceSlide(raw, idx) {
@@ -351,12 +353,10 @@ function coerceDeck(parsed, fallbackTitle, grade) {
   };
 }
 
-async function generateThenReview({ title, units, grade, mode, extractedText, unitHint, onProgress }) {
+async function generateThenReview({ title, units, grade, customTopic, onProgress }) {
   const report = typeof onProgress === 'function' ? onProgress : () => {};
-  const firstPrompt = mode === 'restyle'
-    ? buildRestylePrompt({ title, extractedText, unitHint })
-    : buildGeneratePrompt({ title, units, grade });
-  report({ message: mode === 'restyle' ? '업로드 PPT를 재구성 중…' : 'Claude가 인강 대본을 쓰는 중…', pct: 20 });
+  const firstPrompt = buildGeneratePrompt({ title, units, grade, customTopic });
+  report({ message: 'Claude가 인강 대본을 쓰는 중…', pct: 20 });
   const draft = await askClaudeJson(SYSTEM_SCRIPT, firstPrompt, {
     temperature: 0.4,
     maxOutputTokens: 10000
@@ -366,7 +366,7 @@ async function generateThenReview({ title, units, grade, mode, extractedText, un
   try {
     finalDoc = await askClaudeJson(
       SYSTEM_REVIEW,
-      buildReviewPrompt({ title, units: units || [], grade, draft }),
+      buildReviewPrompt({ title, units: units || [], grade, draft, customTopic }),
       { temperature: 0.2, maxOutputTokens: 10000 }
     );
   } catch (e) {
@@ -423,26 +423,39 @@ function getJob(jobId, ownerKey) {
 
 function startGenerateJob(opts, ownerKey) {
   pruneJobs();
+  const customTopic = String((opts && opts.customTopic) || '').trim();
   const unitIds = Array.isArray(opts && opts.unitIds) ? opts.unitIds.map(String) : [];
-  if (!unitIds.length) {
-    const err = new Error('문법 요소를 1~2개 선택하세요.');
-    err.statusCode = 400;
-    throw err;
-  }
   if (unitIds.length > MAX_UNITS) {
     const err = new Error('인강 슬라이드는 문법을 최대 2개까지 선택할 수 있습니다.');
     err.statusCode = 400;
     throw err;
   }
-  const units = getUnitsByIds(unitIds);
-  if (!units.length) {
+  if (!customTopic && !unitIds.length) {
+    const err = new Error('카탈로그 문법을 1~2개 고르거나, 직접 주제를 입력하세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (customTopic && customTopic.length < 2) {
+    const err = new Error('직접 주제를 조금 더 구체적으로 적어 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (customTopic.length > 500) {
+    const err = new Error('직접 주제는 500자 이내로 적어 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const units = unitIds.length ? getUnitsByIds(unitIds) : [];
+  if (unitIds.length && !units.length) {
     const err = new Error('선택한 문법 유닛을 찾을 수 없습니다.');
     err.statusCode = 400;
     throw err;
   }
-  const grade = String((opts && opts.grade) || units[0].grade || 'M2').toUpperCase();
+  const grade = String((opts && opts.grade) || (units[0] && units[0].grade) || 'M2').toUpperCase();
   const title = String((opts && opts.title) || '').trim()
-    || units.map((u) => u.subCategory).join(' · ') + ' 인강';
+    || (customTopic
+      ? (customTopic.length > 40 ? customTopic.slice(0, 40) + '…' : customTopic) + ' 인강'
+      : units.map((u) => u.subCategory).join(' · ') + ' 인강');
 
   const id = newId('gl');
   const job = {
@@ -453,7 +466,7 @@ function startGenerateJob(opts, ownerKey) {
     createdAt: Date.now(),
     updatedAt: Date.now(),
     progress: { message: 'Claude가 인강 대본을 쓰는 중…', pct: 10 },
-    input: { title, grade, unitIds },
+    input: { title, grade, unitIds, customTopic: customTopic || undefined },
     deck: null,
     htmlPreview: null,
     pptxBuffer: null,
@@ -468,7 +481,7 @@ function startGenerateJob(opts, ownerKey) {
         title,
         units,
         grade,
-        mode: 'generate',
+        customTopic,
         onProgress: (p) => touch(job, { progress: p })
       });
       if (parsed && parsed.__reviewError) {
@@ -489,71 +502,6 @@ function startGenerateJob(opts, ownerKey) {
     })().catch((e) => {
       touch(job, { status: 'error', error: e.message || '생성 실패', progress: { message: e.message, pct: 100 } });
       console.error('grammar lecture job', id, e);
-    });
-  });
-
-  return publicJob(job);
-}
-
-function startRestyleJob(opts, ownerKey) {
-  pruneJobs();
-  const extractedText = String((opts && opts.extractedText) || '').trim();
-  if (extractedText.length < 40) {
-    const err = new Error('PPT에서 텍스트를 충분히 읽지 못했습니다. 다른 파일을 올려 보세요.');
-    err.statusCode = 400;
-    throw err;
-  }
-  const title = String((opts && opts.title) || '').trim() || '문법 인강 (재구성)';
-  const unitHint = String((opts && opts.unitHint) || '').trim();
-  const grade = String((opts && opts.grade) || 'M2').toUpperCase();
-
-  const id = newId('glr');
-  const job = {
-    id,
-    ownerKey: String(ownerKey || ''),
-    mode: 'restyle',
-    status: 'running',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    progress: { message: '업로드 PPT를 분석·재구성 중…', pct: 15 },
-    input: { title, grade, unitHint },
-    deck: null,
-    htmlPreview: null,
-    pptxBuffer: null,
-    error: null,
-    warnings: []
-  };
-  jobs.set(id, job);
-
-  setImmediate(() => {
-    (async () => {
-      const parsed = await generateThenReview({
-        title,
-        units: [],
-        grade,
-        mode: 'restyle',
-        extractedText,
-        unitHint,
-        onProgress: (p) => touch(job, { progress: p })
-      });
-      if (parsed && parsed.__reviewError) {
-        job.warnings.push('검수 패스 실패 — 초안을 사용합니다: ' + parsed.__reviewError);
-        delete parsed.__reviewError;
-      }
-      touch(job, { progress: { message: '칠판 템플릿으로 재배치 중…', pct: 78 } });
-      const deck = coerceDeck(parsed, title, grade);
-      const htmlPreview = renderDeckHtml(deck);
-      const pptxBuffer = await renderDeckPptx(deck);
-      touch(job, {
-        status: 'done',
-        deck,
-        htmlPreview,
-        pptxBuffer,
-        progress: { message: '완료', pct: 100 }
-      });
-    })().catch((e) => {
-      touch(job, { status: 'error', error: e.message || '재구성 실패', progress: { message: e.message, pct: 100 } });
-      console.error('grammar lecture restyle', id, e);
     });
   });
 
@@ -1060,10 +1008,8 @@ module.exports = {
   BLOCK_TYPES,
   BLOCK_LABEL,
   startGenerateJob,
-  startRestyleJob,
   getJob,
   publicJob,
-  extractTextFromUpload,
   renderDeckHtml,
   renderDeckPptx,
   renderDeckPdf,

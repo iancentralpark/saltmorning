@@ -4035,10 +4035,6 @@ router.get('/grammar-clinic/jobs/:id', requireRole('teacher', 'admin'), async (r
 });
 
 const grammarLecture = require('./services/grammarLectureSlidesService');
-const lectureUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024, files: 1 }
-});
 
 function grammarOwnerKey(req) {
   return String(
@@ -4052,39 +4048,14 @@ router.post('/grammar-clinic/lecture/generate', requireRole('teacher', 'admin'),
     const started = grammarLecture.startGenerateJob({
       title: body.title,
       grade: body.grade,
-      unitIds: body.unitIds
+      unitIds: body.unitIds,
+      customTopic: body.customTopic
     }, grammarOwnerKey(req));
     res.status(202).json(started);
   } catch (e) {
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not start lecture slides.' });
   }
 });
-
-router.post(
-  '/grammar-clinic/lecture/restyle',
-  requireRole('teacher', 'admin'),
-  novelStudyJobLimiter,
-  (req, res) => {
-    lectureUpload.single('file')(req, res, async (err) => {
-      if (err) return res.status(400).json({ error: err.message || 'Invalid upload.' });
-      try {
-        const text = await grammarLecture.extractTextFromUpload(req.file);
-        const started = grammarLecture.startRestyleJob({
-          title: (req.body && req.body.title) || '',
-          grade: (req.body && req.body.grade) || 'M2',
-          unitHint: (req.body && req.body.unitHint) || '',
-          extractedText: text
-        }, grammarOwnerKey(req));
-        res.status(202).json(started);
-      } catch (e) {
-        res.status(e.statusCode || 500).json({
-          error: e.message || 'Could not restyle PPT.',
-          code: e.code || null
-        });
-      }
-    });
-  }
-);
 
 router.get('/grammar-clinic/lecture/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
   try {

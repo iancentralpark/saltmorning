@@ -216,13 +216,10 @@
               </select>
             </label>
           </div>
-          <div class="upload-box lecture-only hidden" id="uploadBox">
-            <label style="margin:0">기존 PPT 업로드 → 칠판 포맷으로 재제작
-              <input type="file" id="pptUpload" accept=".pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint">
-            </label>
-            <p class="hint" style="margin:0.4rem 0 0">PPTX 권장. 구형 PPT는 서버에 LibreOffice가 있으면 변환합니다.</p>
-            <button type="button" class="btn btn-ghost btn-sm" id="btnRestyle" style="margin-top:0.45rem">업로드 PPT 재구성</button>
-          </div>
+          <label class="lecture-only hidden" id="customTopicWrap">카탈로그에 없는 주제 (직접 입력)
+            <textarea id="customTopic" rows="3" placeholder="예: 영어 8품사 개요 — 명사·대명사·동사·형용사·부사·전치사·접속사·감탄사 한눈에 보기" style="resize:vertical;min-height:4.2rem"></textarea>
+            <span class="hint" style="margin:0.25rem 0 0;font-weight:500">목록에 없는 개념(개요·총정리 등)은 여기에 적고 슬라이드 만들기. 카탈로그 선택과 함께 써도 됩니다(직접 입력이 중심).</span>
+          </label>
 
           <div class="grade-tabs" id="quickGrades">
             <button type="button" class="grade-tab" data-grade="">전체</button>
@@ -313,7 +310,7 @@
     });
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
     $('modeHint').innerHTML = lecture
-      ? '문법을 <strong>최대 2개</strong>까지. <strong>규칙→예</strong>, 개념확인+내신 퀴즈, 공통 규칙 검수. 발표는 <strong>HTML</strong>(원본 그대로) 권장 · PDF도 가능 · PPT는 대략본. 퀴즈 정답은 발표자 노트만.'
+      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요(예: 8품사 개요). 규칙→예 · 개념확인+내신 퀴즈 · 공통 규칙 검수. 발표는 <strong>HTML</strong> 권장.'
       : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
     $('titleInput').placeholder = lecture
@@ -321,7 +318,7 @@
       : '예: 중2 should / which 문법 클리닉';
     $('emptyTitle').textContent = lecture ? '인강 슬라이드 미리보기' : '시험지 미리보기';
     $('emptyBody').innerHTML = lecture
-      ? '왼쪽에서 문법 1~2개를 고르고 슬라이드를 만드세요.<br>규칙→예, 개념확인·내신 퀴즈가 포함됩니다. PPT 업로드 재구성도 가능합니다.'
+      ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 규칙→예 · 개념확인·내신 퀴즈 포함.'
       : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.';
     $('btnGenerate').textContent = lecture ? '슬라이드 만들기' : 'Generate';
     $('btnGenerate2').textContent = lecture ? '슬라이드 만들기' : 'Generate';
@@ -642,7 +639,6 @@
   function setBusy(busy, label) {
     $('btnGenerate').disabled = busy;
     $('btnGenerate2').disabled = busy;
-    if ($('btnRestyle')) $('btnRestyle').disabled = busy;
     if (!busy) {
       $('btnGenerate').innerHTML = mode === 'lecture' ? '슬라이드 만들기' : (label || 'Generate');
       $('btnGenerate2').textContent = mode === 'lecture' ? '슬라이드 만들기' : 'Generate';
@@ -685,12 +681,13 @@
 
   function generateLecture() {
     var ids = selectedIds();
-    if (!ids.length) {
-      setStatus('문법 요소를 1~2개 선택하세요.', 'error');
+    var customTopic = String(($('customTopic') && $('customTopic').value) || '').trim();
+    if (!customTopic && !ids.length) {
+      setStatus('카탈로그 문법을 1~2개 고르거나, 직접 주제를 입력하세요.', 'error');
       return;
     }
     if (ids.length > 2) {
-      setStatus('인강 슬라이드는 최대 2개까지입니다.', 'error');
+      setStatus('인강 슬라이드는 카탈로그 문법을 최대 2개까지입니다.', 'error');
       return;
     }
     var label = $('btnGenerate').innerHTML;
@@ -699,63 +696,21 @@
     $('progress').classList.remove('hidden');
     $('progressBar').style.width = '8%';
     setStatus('Claude가 인강 대본을 쓰는 중…');
+    var body = {
+      title: String($('titleInput').value || '').trim(),
+      grade: filterGrade || $('gradeSelect').value || 'M2',
+      unitIds: ids
+    };
+    if (customTopic) body.customTopic = customTopic;
     toolFetch('/api/grammar-clinic/lecture/generate', {
       method: 'POST',
-      body: {
-        title: String($('titleInput').value || '').trim(),
-        grade: filterGrade || $('gradeSelect').value || 'M2',
-        unitIds: ids
-      }
+      body: body
     }).then(function (data) {
       if (!data.jobId) throw new Error('작업을 시작하지 못했습니다.');
       lectureJobId = data.jobId;
       pollLectureJob(data.jobId, label);
     }).catch(function (err) {
       setStatus(err.message || '생성 실패', 'error');
-      setBusy(false, label);
-    });
-  }
-
-  function restyleUpload() {
-    var fileInput = $('pptUpload');
-    if (!fileInput.files || !fileInput.files[0]) {
-      setStatus('PPTX 또는 PPT 파일을 선택하세요.', 'error');
-      return;
-    }
-    var label = $('btnGenerate').innerHTML;
-    setBusy(true, label);
-    $('btnGenerate').innerHTML = '<span class="spinner"></span> 재구성 중';
-    $('progress').classList.remove('hidden');
-    $('progressBar').style.width = '8%';
-    setStatus('PPT 업로드·분석 중…');
-    var fd = new FormData();
-    fd.append('file', fileInput.files[0]);
-    fd.append('title', String($('titleInput').value || '').trim());
-    fd.append('grade', filterGrade || $('gradeSelect').value || 'M2');
-    var ids = selectedIds();
-    if (ids.length) {
-      var hints = ids.map(function (id) {
-        var u = catalog.find(function (x) { return x.unitId === id; });
-        return u ? u.subCategory : id;
-      });
-      fd.append('unitHint', hints.join(', '));
-    }
-    fetch('/api/grammar-clinic/lecture/restyle', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { Authorization: 'Bearer ' + token() },
-      body: fd
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (data) {
-        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
-        return data;
-      });
-    }).then(function (data) {
-      if (!data.jobId) throw new Error('재구성 작업을 시작하지 못했습니다.');
-      lectureJobId = data.jobId;
-      pollLectureJob(data.jobId, label);
-    }).catch(function (err) {
-      setStatus(err.message || '재구성 실패', 'error');
       setBusy(false, label);
     });
   }
@@ -979,7 +934,6 @@
   if ($('btnHtml')) $('btnHtml').addEventListener('click', downloadLectureHtml);
   if ($('btnPdf')) $('btnPdf').addEventListener('click', downloadLecturePdf);
   if ($('btnPptx')) $('btnPptx').addEventListener('click', downloadLecturePptx);
-  if ($('btnRestyle')) $('btnRestyle').addEventListener('click', restyleUpload);
   document.querySelectorAll('#previewTabs .tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       view = tab.getAttribute('data-view') || 'questions';
