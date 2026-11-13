@@ -311,7 +311,7 @@
     });
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
     $('modeHint').innerHTML = lecture
-      ? '문법을 <strong>최대 2개</strong>까지 고르고 Generate하면 칠판 스타일 인강 PPT가 만들어집니다. 오른쪽 1/4은 강사 존(여백)입니다. 퀴즈 정답은 발표자 노트에만 들어갑니다.'
+      ? '문법을 <strong>최대 2개</strong>까지 고르면 칠판 인강 PPT를 만듭니다. <strong>규칙 장 → 예 장</strong>, 개념확인+내신 퀴즈, 교과서 공통 규칙 검수가 들어갑니다. 오른쪽 1/4은 강사 존. 퀴즈 정답은 발표자 노트만.'
       : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
     $('titleInput').placeholder = lecture
@@ -319,7 +319,7 @@
       : '예: 중2 should / which 문법 클리닉';
     $('emptyTitle').textContent = lecture ? '인강 슬라이드 미리보기' : '시험지 미리보기';
     $('emptyBody').innerHTML = lecture
-      ? '왼쪽에서 문법 1~2개를 고르고 Generate하세요.<br>또는 기존 PPT를 올려 칠판 포맷으로 재구성할 수 있습니다.'
+      ? '왼쪽에서 문법 1~2개를 고르고 슬라이드를 만드세요.<br>규칙→예, 개념확인·내신 퀴즈가 포함됩니다. PPT 업로드 재구성도 가능합니다.'
       : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.';
     $('btnGenerate').textContent = lecture ? '슬라이드 만들기' : 'Generate';
     $('btnGenerate2').textContent = lecture ? '슬라이드 만들기' : 'Generate';

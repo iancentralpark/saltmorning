@@ -133,11 +133,23 @@ const CATALOG = [
       trap('목적 to 대신 for -ing (단순화 맥락)', 'I study hard for passing the test.', 'I study hard to pass the test.')
     ]),
   unit('M1_COMPARATIVE', 'M1', '비교', '비교급 (-er / more)',
-    ['단기 -er, 장기 more + 형/부', '비교급 + than'],
+    [
+      '1·2음절 대부분: 원급 + -er (+ than)',
+      '단모음+단자음(CVC): 자음 한 번 더 쓰고 -er (big → bigger)',
+      '자음+y: y→i + -er (easy → easier)',
+      '3음절 이상·-ful/-ous 등: more + 원급 (beautiful → more beautiful)',
+      '비교급 + than / 이중 비교 금지 (more better ✕)'
+    ],
     [trap('이중 비교', 'This book is more better.', 'This book is better.')],
-    ['비교급', 'comparative', '-er', 'more']),
+    ['비교급', 'comparative', '-er', 'more', 'bigger', 'easier']),
   unit('M1_SUPERLATIVE', 'M1', '비교', '최상급 (-est / most)',
-    ['단기 -est, 장기 most', '최상급 앞 the'],
+    [
+      '1·2음절 대부분: the + 원급 + -est',
+      '단모음+단자음(CVC): 자음 중복 + -est (big → the biggest)',
+      '자음+y: y→i + -est (easy → the easiest)',
+      '3음절 이상: the most + 원급',
+      '최상급 앞 the / in·of 범위 표현'
+    ],
     [trap('최상급 the 누락', 'He is tallest in our class.', 'He is the tallest in our class.')],
     ['최상급', 'superlative', '-est', 'most']),
   unit('M1_SENSORY_VERB', 'M1', '동사구', '감각동사 (look/sound/feel/smell/taste + 형)',

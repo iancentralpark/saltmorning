@@ -28,21 +28,22 @@ const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const jobs = new Map();
 
 const BLOCK_TYPES = [
-  'HOOK',        // 도입예문
-  'FORMULA',     // 핵심 공식
-  'ONE_LINER',   // 한줄 예문
-  'USAGE',       // 용법 구분
-  'PAIR',        // 짝꿍 표현
-  'FORMS',       // 형태 변화
-  'TRAP',        // 비문 ↔ 정문
-  'BAN',         // 같이 못 씀 / 예외
-  'TRANSFORM',   // 전환 공식
-  'QUIZ'         // 미니 퀴즈
+  'HOOK',           // 도입예문
+  'FORMULA',        // 핵심 규칙·공식 (예보다 먼저)
+  'ONE_LINER',      // 한줄 예문
+  'USAGE',          // 용법 구분
+  'PAIR',           // 짝꿍 표현
+  'FORMS',          // 형태 변화 예시 표 (규칙 장 다음에)
+  'TRAP',           // 비문 ↔ 정문
+  'BAN',            // 같이 못 씀 / 예외
+  'TRANSFORM',      // 전환 공식
+  'CONCEPT_CHECK',  // 간단한 개념확인 (O/X·짧은 선택)
+  'QUIZ'            // 내신형 미니 퀴즈
 ];
 
 const BLOCK_LABEL = {
   HOOK: '도입예문',
-  FORMULA: '핵심 공식',
+  FORMULA: '핵심 규칙',
   ONE_LINER: '한줄 예문',
   USAGE: '용법 구분',
   PAIR: '짝꿍 표현',
@@ -50,7 +51,8 @@ const BLOCK_LABEL = {
   TRAP: '비문 ↔ 정문',
   BAN: '예외·금지',
   TRANSFORM: '전환 공식',
-  QUIZ: '미니 퀴즈'
+  CONCEPT_CHECK: '개념 확인',
+  QUIZ: '내신 퀴즈'
 };
 
 /** Chalkboard palette — light chalk only */
@@ -128,21 +130,46 @@ async function askClaudeJson(system, prompt, opts) {
   }
 }
 
-const SYSTEM_SCRIPT = `당신은 한국 중학교 영어 내신 인강 강사입니다.
-선택한 문법 포인트만으로 전자칠판용 강의 슬라이드 대본을 JSON으로 만듭니다.
+const SYSTEM_SCRIPT = `당신은 한국 중학교 영어 문법 인강·내신 전문 강사입니다.
+전자칠판용 강의 슬라이드 대본을 JSON으로만 만듭니다. 상업용 퀄리티: 교과서·참고서가 공통으로 다루는 개념·규칙은 빠뜨리지 마세요.
 
-[콘텐츠 블록 — 문법에 맞는 것만 고르세요. 전부 넣을 필요 없음]
-HOOK 도입예문 / FORMULA 핵심 공식 / ONE_LINER 한줄 예문 / USAGE 용법 구분 /
-PAIR 짝꿍 표현 / FORMS 형태 변화 / TRAP 비문↔정문 / BAN 예외·금지 /
-TRANSFORM 전환 공식 / QUIZ 미니 퀴즈(내신 스타일)
+[콘텐츠 블록]
+HOOK 도입예문 / FORMULA 핵심 규칙·공식 / ONE_LINER 한줄 예문 / USAGE 용법 구분 /
+PAIR 짝꿍 표현 / FORMS 형태·예시 표 / TRAP 비문↔정문 / BAN 예외·금지 /
+TRANSFORM 전환 공식 / CONCEPT_CHECK 간단한 개념확인 / QUIZ 내신형 퀴즈
 
-[규칙]
-- 문법 unit당 대략 6~10장. 전체 최대 22장.
-- 한 슬라이드 = 블록 1개. 정보는 최소. 글은 굵고 짧게.
-- title 슬라이드(kind=title)로 시작, 유닛이 2개면 중간에 section 구분 슬라이드.
-- QUIZ의 정답·해설은 반드시 notes(발표자 노트)에만 넣고, 화면 bullets/lines에는 넣지 말 것.
-- 한국어 설명 + 영어 예문. 중학생 눈높이.
-- 출력은 JSON만.`;
+[구성 원칙 — Pattern B]
+1) 규칙 먼저, 예는 다음: 형태·규칙이 있는 문법은 반드시 FORMULA(규칙) 슬라이드 뒤에 FORMS(예시 표)를 둡니다.
+   - FORMULA: 학생이 외울 규칙 문장(한국어). 예: "단모음+단자음 → 자음 한 번 더 + -er"
+   - FORMS: 원급↔비교급 같은 예시 표. 규칙 문장만 있고 예가 없거나, 예만 있고 규칙이 없으면 불합격.
+2) 예만 보여 주고 규칙을 강사 판서에 맡기지 마세요. 화면(lines)에 규칙을 씁니다.
+3) 퀴즈는 두 종류를 모두 넣습니다(유닛당 최소 각 1장):
+   - CONCEPT_CHECK: O/X 또는 짧은 선택으로 "개념이 잡혔는지" 확인
+   - QUIZ: 내신형(어법·빈칸·고르기 등)
+4) 정답·해설은 CONCEPT_CHECK/QUIZ의 notes(발표자 노트)에만. 화면에는 문제·보기만.
+5) title로 시작. 유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
+6) 한 슬라이드 = 블록 1개. 규칙은 굵고 짧게(장당 lines 최대 6) 하되, 공통 규칙은 생략하지 말고 여러 FORMULA 장으로 나누세요.
+7) 한국어 규칙 + 영어 예문. 중학생 눈높이. 출력은 JSON만.`;
+
+const SLIDE_SCHEMA_HINT = {
+  title: '강의 제목',
+  grade: 'M2',
+  slides: [{
+    kind: 'title|section|content',
+    unitId: 'optional unit id for content/section',
+    blockType: 'HOOK|FORMULA|ONE_LINER|USAGE|PAIR|FORMS|TRAP|BAN|TRANSFORM|CONCEPT_CHECK|QUIZ|null for title/section',
+    heading: '슬라이드 큰 제목 (짧게)',
+    lines: ['화면에 보이는 줄들 — 최대 6줄. FORMULA면 규칙 문장.'],
+    columns: [['왼쪽 헤더+항목'], ['오른쪽 헤더+항목']],
+    examples: [{ en: '...', ko: '...' }],
+    wrongRight: [{ wrong: '...', right: '...' }],
+    quiz: {
+      prompt: '문제 (CONCEPT_CHECK 또는 QUIZ)',
+      choices: ['① …', '② …']
+    },
+    notes: '발표자 노트. CONCEPT_CHECK/QUIZ면 정답·해설만 여기.'
+  }]
+};
 
 function buildGeneratePrompt({ title, units, grade }) {
   const specs = units.map((u) => ({
@@ -154,49 +181,76 @@ function buildGeneratePrompt({ title, units, grade }) {
     errorTraps: u.errorTraps
   }));
   return [
-    '다음 문법으로 인강 슬라이드 대본을 작성하라.',
+    '다음 문법으로 인강 슬라이드 대본을 작성하라. Pattern B(규칙→예) + 개념확인 + 내신퀴즈.',
     'title: ' + title,
     'schoolGrade: ' + grade,
     'units (최대 2개):',
     JSON.stringify(specs, null, 2),
     '',
+    '필수 커버리지:',
+    '- catalog의 coreRules·errorTraps는 반드시 화면에 반영.',
+    '- 그와 별도로, 한국 중등 교과서·참고서가 이 문법에서 공통으로 가르치는 규칙·형태·예외·짝꿍 표현이 있으면 누락하지 말 것.',
+    '  (예: 비교급 → 단기 -er / CVC 자음 중복+-er / y→ier / 3음절+ more / than / 이중비교 금지 등)',
+    '- FORMULA에 규칙, FORMS에 대응 예시. 규칙 없는 예시 표만 두지 말 것.',
+    '- 유닛마다 CONCEPT_CHECK ≥1, QUIZ(내신) ≥1.',
+    '',
     'JSON 스키마:',
-    JSON.stringify({
-      title: '강의 제목',
-      grade: 'M2',
-      slides: [{
-        kind: 'title|section|content',
-        unitId: 'optional unit id for content/section',
-        blockType: 'HOOK|FORMULA|ONE_LINER|USAGE|PAIR|FORMS|TRAP|BAN|TRANSFORM|QUIZ|null for title/section',
-        heading: '슬라이드 큰 제목 (짧게)',
-        lines: ['화면에 보이는 줄들 — 최대 6줄, 각 줄 짧게'],
-        columns: [['왼쪽'], ['오른쪽']],
-        examples: [{ en: '...', ko: '...' }],
-        wrongRight: [{ wrong: '...', right: '...' }],
-        quiz: { prompt: '문제', choices: ['①', '②', '③', '④', '⑤'] },
-        notes: '발표자 노트. QUIZ면 정답·해설만 여기.'
-      }]
-    }, null, 2),
+    JSON.stringify(SLIDE_SCHEMA_HINT, null, 2),
     '',
     'columns / examples / wrongRight / quiz 는 해당 블록에만 채우고 나머지는 생략 가능.',
-    'TRAP은 wrongRight 필수. USAGE는 columns 2열 권장. QUIZ는 quiz+notes 필수.'
+    'TRAP은 wrongRight 필수. USAGE·FORMS는 columns 2열 권장.',
+    'CONCEPT_CHECK·QUIZ는 quiz+notes 필수. CONCEPT_CHECK는 보기 2~3개 또는 O/X로 단순하게.'
   ].join('\n');
 }
 
 function buildRestylePrompt({ title, extractedText, unitHint }) {
   return [
     '아래는 교사가 업로드한 기존 문법 PPT에서 추출한 텍스트이다.',
-    '내용을 보존하되, 우리 인강 칠판 템플릿용 슬라이드 JSON으로 재구성하라.',
-    '불필요한 장식 문구는 버리고, 위 콘텐츠 블록 체계에 맞게 재배치하라.',
-    'QUIZ 정답은 notes에만.',
+    '내용을 보존하되, Pattern B(규칙 FORMULA → 예 FORMS)와 CONCEPT_CHECK+내신 QUIZ 체계로 재구성하라.',
+    '교과서·참고서 공통 규칙이 원문에 약하면 보완하라. 예만 있고 규칙이 없으면 FORMULA를 추가.',
+    'CONCEPT_CHECK/QUIZ 정답은 notes에만.',
     title ? ('희망 제목: ' + title) : '',
     unitHint ? ('힌트 문법: ' + unitHint) : '',
     '',
     '추출 텍스트:',
     String(extractedText || '').slice(0, 24000),
     '',
-    '출력 JSON 스키마는 generate와 동일 (title, grade, slides[]).'
+    '출력 JSON 스키마:',
+    JSON.stringify(SLIDE_SCHEMA_HINT, null, 2)
   ].filter(Boolean).join('\n');
+}
+
+const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재 감수자입니다.
+인강 슬라이드 JSON을 검수하고, 누락된 공통 규칙·개념확인·내신퀴즈를 보완한 최종 JSON만 출력합니다.
+Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 장을 앞에 추가하세요.
+정답은 notes에만. 화면은 굵고 짧게. JSON만.`;
+
+function buildReviewPrompt({ title, units, grade, draft }) {
+  const specs = (units || []).map((u) => ({
+    unitId: u.unitId,
+    subCategory: u.subCategory,
+    coreRules: u.coreRules,
+    errorTraps: u.errorTraps
+  }));
+  return [
+    '아래 초안 슬라이드를 상업용 퀄리티로 검수·보완하라.',
+    'title: ' + title,
+    'grade: ' + grade,
+    'units:',
+    JSON.stringify(specs, null, 2),
+    '',
+    '체크리스트 (미달이면 slides를 고쳐 최종본을 다시 작성):',
+    '1) 각 문법의 교과서·참고서 공통 규칙이 FORMULA lines에 명시되어 있는가?',
+    '2) 형태/규칙이 있으면 FORMULA 바로 뒤에 FORMS(또는 예)가 있는가? 예만 단독으로 있지 않은가?',
+    '3) 유닛마다 CONCEPT_CHECK ≥1, QUIZ ≥1, 정답은 notes만인가?',
+    '4) catalog coreRules·errorTraps가 화면에 반영되었는가?',
+    '5) 불필요하게 장황하면 나누거나 줄이되, 공통 규칙은 삭제하지 말 것.',
+    '',
+    '초안 JSON:',
+    JSON.stringify(draft, null, 2),
+    '',
+    '출력: 최종 { title, grade, slides[] } JSON만. 스키마는 초안과 동일.'
+  ].join('\n');
 }
 
 function coerceSlide(raw, idx) {
@@ -233,6 +287,15 @@ function coerceSlide(raw, idx) {
         : []
     };
   }
+  // CONCEPT_CHECK / QUIZ without quiz payload → keep as content with lines only if present
+  if ((blockType === 'CONCEPT_CHECK' || blockType === 'QUIZ') && (!quiz || !quiz.prompt)) {
+    if (lines.length) {
+      quiz = {
+        prompt: lines[0],
+        choices: lines.slice(1)
+      };
+    }
+  }
   return {
     index: idx + 1,
     kind,
@@ -250,9 +313,10 @@ function coerceSlide(raw, idx) {
 
 function coerceDeck(parsed, fallbackTitle, grade) {
   const slidesRaw = Array.isArray(parsed && parsed.slides) ? parsed.slides : [];
-  const slides = slidesRaw.map(coerceSlide).filter((s) =>
+  let slides = slidesRaw.map(coerceSlide).filter((s) =>
     s.heading || s.lines.length || (s.quiz && s.quiz.prompt) || s.kind === 'title'
   );
+  if (slides.length > 28) slides = slides.slice(0, 28);
   if (slides.length < 3) {
     const err = new Error('슬라이드 대본이 너무 짧습니다. 문법을 바꿔 다시 시도해 주세요.');
     err.statusCode = 502;
@@ -273,6 +337,32 @@ function coerceDeck(parsed, fallbackTitle, grade) {
     grade: String((parsed && parsed.grade) || grade || 'M2').toUpperCase(),
     slides
   };
+}
+
+async function generateThenReview({ title, units, grade, mode, extractedText, unitHint, onProgress }) {
+  const report = typeof onProgress === 'function' ? onProgress : () => {};
+  const firstPrompt = mode === 'restyle'
+    ? buildRestylePrompt({ title, extractedText, unitHint })
+    : buildGeneratePrompt({ title, units, grade });
+  report({ message: mode === 'restyle' ? '업로드 PPT를 재구성 중…' : 'Claude가 인강 대본을 쓰는 중…', pct: 20 });
+  const draft = await askClaudeJson(SYSTEM_SCRIPT, firstPrompt, {
+    temperature: 0.4,
+    maxOutputTokens: 10000
+  });
+  let finalDoc = draft;
+  report({ message: '교과서 공통 규칙 검수·보완 중…', pct: 55 });
+  try {
+    finalDoc = await askClaudeJson(
+      SYSTEM_REVIEW,
+      buildReviewPrompt({ title, units: units || [], grade, draft }),
+      { temperature: 0.2, maxOutputTokens: 10000 }
+    );
+  } catch (e) {
+    // Review failure → keep draft (still usable); caller may record warning
+    finalDoc = draft;
+    finalDoc.__reviewError = e.message || 'review failed';
+  }
+  return finalDoc;
 }
 
 function pruneJobs() {
@@ -360,11 +450,18 @@ function startGenerateJob(opts, ownerKey) {
 
   setImmediate(() => {
     (async () => {
-      const parsed = await askClaudeJson(
-        SYSTEM_SCRIPT,
-        buildGeneratePrompt({ title, units, grade })
-      );
-      touch(job, { progress: { message: '칠판 슬라이드 조립 중…', pct: 70 } });
+      const parsed = await generateThenReview({
+        title,
+        units,
+        grade,
+        mode: 'generate',
+        onProgress: (p) => touch(job, { progress: p })
+      });
+      if (parsed && parsed.__reviewError) {
+        job.warnings.push('검수 패스 실패 — 초안을 사용합니다: ' + parsed.__reviewError);
+        delete parsed.__reviewError;
+      }
+      touch(job, { progress: { message: '칠판 슬라이드 조립 중…', pct: 78 } });
       const deck = coerceDeck(parsed, title, grade);
       const htmlPreview = renderDeckHtml(deck);
       const pptxBuffer = await renderDeckPptx(deck);
@@ -416,11 +513,20 @@ function startRestyleJob(opts, ownerKey) {
 
   setImmediate(() => {
     (async () => {
-      const parsed = await askClaudeJson(
-        SYSTEM_SCRIPT,
-        buildRestylePrompt({ title, extractedText, unitHint })
-      );
-      touch(job, { progress: { message: '칠판 템플릿으로 재배치 중…', pct: 70 } });
+      const parsed = await generateThenReview({
+        title,
+        units: [],
+        grade,
+        mode: 'restyle',
+        extractedText,
+        unitHint,
+        onProgress: (p) => touch(job, { progress: p })
+      });
+      if (parsed && parsed.__reviewError) {
+        job.warnings.push('검수 패스 실패 — 초안을 사용합니다: ' + parsed.__reviewError);
+        delete parsed.__reviewError;
+      }
+      touch(job, { progress: { message: '칠판 템플릿으로 재배치 중…', pct: 78 } });
       const deck = coerceDeck(parsed, title, grade);
       const htmlPreview = renderDeckHtml(deck);
       const pptxBuffer = await renderDeckPptx(deck);
@@ -633,11 +739,12 @@ h2 { margin: 0 0 1.4vw; font-size: 2.8vw; font-weight: 900; color: #FFE08A; line
 }
 
 function renderSlideBody(slide) {
+  const lines = Array.isArray(slide.lines) ? slide.lines : [];
   if (slide.kind === 'title') {
     return '<div class="badge">GRAMMAR LECTURE</div>'
       + '<h1>' + escapeHtml(slide.heading) + '</h1>'
-      + (slide.lines.length
-        ? '<ul class="lines">' + slide.lines.map((l) => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>'
+      + (lines.length
+        ? '<ul class="lines">' + lines.map((l) => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>'
         : '');
   }
   if (slide.kind === 'section') {
@@ -648,13 +755,12 @@ function renderSlideBody(slide) {
     html += '<div class="badge">' + escapeHtml(BLOCK_LABEL[slide.blockType]) + '</div>';
   }
   html += '<h2>' + escapeHtml(slide.heading) + '</h2>';
-  if (slide.blockType === 'FORMULA' && slide.lines.length) {
-    html += '<div class="formula">' + escapeHtml(slide.lines[0]) + '</div>';
-    if (slide.lines.length > 1) {
-      html += '<ul class="lines">' + slide.lines.slice(1).map((l) => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>';
-    }
-  } else if (slide.lines.length) {
-    html += '<ul class="lines">' + slide.lines.map((l) => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>';
+  if (slide.blockType === 'FORMULA' && lines.length === 1) {
+    html += '<div class="formula">' + escapeHtml(lines[0]) + '</div>';
+  } else if (slide.blockType === 'FORMULA' && lines.length > 1) {
+    html += '<ul class="lines">' + lines.map((l) => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>';
+  } else if (lines.length) {
+    html += '<ul class="lines">' + lines.map((l) => '<li>' + escapeHtml(l) + '</li>').join('') + '</ul>';
   }
   if (slide.columns && slide.columns.length) {
     html += '<div class="columns">' + slide.columns.map((col, i) =>
@@ -674,7 +780,8 @@ function renderSlideBody(slide) {
       + '<div class="r">⭕ ' + escapeHtml(w.right) + '</div></div>'
     ).join('');
   }
-  if (slide.quiz && slide.quiz.prompt) {
+  if ((slide.blockType === 'CONCEPT_CHECK' || slide.blockType === 'QUIZ' || slide.quiz)
+    && slide.quiz && slide.quiz.prompt) {
     html += '<div class="quiz"><div class="q">' + escapeHtml(slide.quiz.prompt) + '</div>'
       + (slide.quiz.choices || []).map((c) => '<div class="c">' + escapeHtml(c) + '</div>').join('')
       + '</div>';
