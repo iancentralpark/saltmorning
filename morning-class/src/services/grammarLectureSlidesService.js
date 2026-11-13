@@ -401,8 +401,10 @@ function publicJob(job) {
   if (job.deck) {
     out.deck = job.deck;
     out.htmlPreview = job.htmlPreview;
-    out.pptxUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/pptx';
+    out.htmlUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/html';
     out.deckUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/deck';
+    out.pdfUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/pdf';
+    out.pptxUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/pptx';
   }
   return out;
 }
@@ -819,9 +821,10 @@ function renderDeckHtml(deck) {
 <body>
 <div class="stage">${slides}
 <div class="hud">
-  <button type="button" id="prev">‹</button>
+  <button type="button" id="prev" title="이전">‹</button>
   <span id="c">1 / ${deck.slides.length}</span>
-  <button type="button" id="next">›</button>
+  <button type="button" id="next" title="다음">›</button>
+  <button type="button" id="fs" title="전체화면" style="width:auto;padding:0 10px;font-size:12px">전체화면</button>
 </div></div>
 <script>
 (function(){
@@ -831,13 +834,55 @@ function renderDeckHtml(deck) {
     document.getElementById('c').textContent=(i+1)+' / '+slides.length; }
   document.getElementById('prev').onclick=function(){show(i-1);};
   document.getElementById('next').onclick=function(){show(i+1);};
+  var fsBtn=document.getElementById('fs');
+  if(fsBtn) fsBtn.onclick=function(){
+    var el=document.documentElement;
+    if(!document.fullscreenElement){ if(el.requestFullscreen) el.requestFullscreen(); }
+    else if(document.exitFullscreen) document.exitFullscreen();
+  };
   document.addEventListener('keydown',function(e){
-    if(e.key==='ArrowRight'||e.key===' ') show(i+1);
+    if(e.key==='ArrowRight'||e.key===' ') { e.preventDefault(); show(i+1); }
     if(e.key==='ArrowLeft') show(i-1);
+    if(e.key==='f'||e.key==='F') { if(fsBtn) fsBtn.click(); }
   });
 })();
 </script>
 </body></html>`;
+}
+
+async function renderDeckPdf(deck) {
+  let chromium;
+  let puppeteer;
+  try {
+    chromium = require('@sparticuz/chromium');
+    puppeteer = require('puppeteer-core');
+  } catch (e) {
+    const err = new Error('PDF 엔진이 없습니다. HTML을 연 뒤 브라우저 인쇄 → PDF로 저장하세요.');
+    err.statusCode = 503;
+    throw err;
+  }
+  const html = renderDeckHtml(deck);
+  const executablePath = await chromium.executablePath();
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: { width: 1600, height: 900 },
+    executablePath,
+    headless: chromium.headless
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 90000 });
+    const pdf = await page.pdf({
+      width: '338.67mm',
+      height: '190.5mm',
+      printBackground: true,
+      margin: { top: '0', right: '0', bottom: '0', left: '0' },
+      preferCSSPageSize: true
+    });
+    return Buffer.from(pdf);
+  } finally {
+    await browser.close().catch(() => {});
+  }
 }
 
 function boardBgDataUri() {
@@ -1021,6 +1066,7 @@ module.exports = {
   extractTextFromUpload,
   renderDeckHtml,
   renderDeckPptx,
+  renderDeckPdf,
   safeFilename,
   isClaudeConfigured
 };

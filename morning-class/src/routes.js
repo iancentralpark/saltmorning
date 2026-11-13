@@ -4107,6 +4107,35 @@ router.get('/grammar-clinic/lecture/jobs/:id/deck', requireRole('teacher', 'admi
   }
 });
 
+router.get('/grammar-clinic/lecture/jobs/:id/html', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job || !job.htmlPreview) return res.status(404).json({ error: 'Job not found.' });
+    const name = grammarLecture.safeFilename((job.deck && job.deck.title) || 'grammar-lecture') + '.html';
+    res.set('Cache-Control', 'no-store');
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(job.htmlPreview);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not download HTML.' });
+  }
+});
+
+router.get('/grammar-clinic/lecture/jobs/:id/pdf', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job || !job.deck) return res.status(404).json({ error: 'Job not found.' });
+    const buf = await grammarLecture.renderDeckPdf(job.deck);
+    const name = grammarLecture.safeFilename(job.deck.title) + '.pdf';
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(buf);
+  } catch (e) {
+    console.error('GET /grammar-clinic/lecture/jobs/:id/pdf', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PDF.' });
+  }
+});
+
 router.get('/grammar-clinic/lecture/jobs/:id/pptx', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));

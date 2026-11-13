@@ -257,9 +257,11 @@
               <button type="button" class="tab lecture-only hidden" data-view="lecture">인강 미리보기</button>
             </div>
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+              <button type="button" class="btn btn-ok btn-sm lecture-only hidden" id="btnHtml" disabled>HTML 다운로드</button>
+              <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPdf" disabled>PDF 다운로드</button>
               <button type="button" class="btn btn-ok btn-sm exam-only" id="btnPrint" disabled>인쇄 / PDF</button>
               <button type="button" class="btn btn-ghost btn-sm" id="btnOpenTab" disabled>새 탭에서 열기</button>
-              <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPptx" disabled>PPT 다운로드</button>
+              <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPptx" disabled title="서식이 다를 수 있음">PPT (대략)</button>
             </div>
           </div>
           <div id="emptyState" class="empty">
@@ -311,7 +313,7 @@
     });
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
     $('modeHint').innerHTML = lecture
-      ? '문법을 <strong>최대 2개</strong>까지 고르면 칠판 인강 PPT를 만듭니다. <strong>규칙 장 → 예 장</strong>, 개념확인+내신 퀴즈, 교과서 공통 규칙 검수가 들어갑니다. 오른쪽 1/4은 강사 존. 퀴즈 정답은 발표자 노트만.'
+      ? '문법을 <strong>최대 2개</strong>까지. <strong>규칙→예</strong>, 개념확인+내신 퀴즈, 공통 규칙 검수. 발표는 <strong>HTML</strong>(원본 그대로) 권장 · PDF도 가능 · PPT는 대략본. 퀴즈 정답은 발표자 노트만.'
       : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
     $('titleInput').placeholder = lecture
@@ -528,6 +530,8 @@
       frame.classList.add('hidden');
       $('btnPrint').disabled = true;
       $('btnOpenTab').disabled = true;
+      if ($('btnHtml')) $('btnHtml').disabled = true;
+      if ($('btnPdf')) $('btnPdf').disabled = true;
       if ($('btnPptx')) $('btnPptx').disabled = true;
       return;
     }
@@ -536,7 +540,10 @@
     frame.srcdoc = html;
     $('btnPrint').disabled = mode === 'lecture';
     $('btnOpenTab').disabled = false;
-    if ($('btnPptx')) $('btnPptx').disabled = !(mode === 'lecture' && last && last.pptxUrl);
+    var lectureReady = mode === 'lecture' && last && last.htmlPreview;
+    if ($('btnHtml')) $('btnHtml').disabled = !lectureReady;
+    if ($('btnPdf')) $('btnPdf').disabled = !(lectureReady && last.pdfUrl);
+    if ($('btnPptx')) $('btnPptx').disabled = !(lectureReady && last.pptxUrl);
   }
 
   function loadCatalog() {
@@ -753,10 +760,24 @@
     });
   }
 
-  function downloadLecturePptx() {
-    if (!last || !last.pptxUrl) return;
-    setStatus('PPT 준비 중…');
-    fetch(last.pptxUrl, {
+  function lectureBaseName() {
+    return ((last && last.deck && last.deck.title) || 'grammar-lecture')
+      .replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'grammar-lecture';
+  }
+
+  function downloadBlob(blob, filename) {
+    var a = document.createElement('a');
+    var url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  }
+
+  function fetchLectureFile(url, filename, label) {
+    if (!url) return;
+    setStatus(label + ' 준비 중…');
+    fetch(url, {
       credentials: 'same-origin',
       headers: { Authorization: 'Bearer ' + token() }
     }).then(function (r) {
@@ -768,17 +789,32 @@
             throw new Error(msg || ('HTTP ' + r.status));
           });
         }
-        var a = document.createElement('a');
-        var url = URL.createObjectURL(blob);
-        a.href = url;
-        a.download = ((last.deck && last.deck.title) || 'grammar-lecture') + '.pptx';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
-        setStatus('PPT 다운로드 완료', 'ok');
+        downloadBlob(blob, filename);
+        setStatus(label + ' 다운로드 완료', 'ok');
       });
     }).catch(function (e) {
-      setStatus('PPT 다운로드 실패: ' + e.message, 'error');
+      setStatus(label + ' 실패: ' + e.message, 'error');
     });
+  }
+
+  function downloadLectureHtml() {
+    if (!last || !last.htmlPreview) return;
+    // Prefer exact in-memory HTML (same as preview). Fallback to server attachment.
+    try {
+      var blob = new Blob([last.htmlPreview], { type: 'text/html;charset=utf-8' });
+      downloadBlob(blob, lectureBaseName() + '.html');
+      setStatus('HTML 다운로드 완료 — 브라우저로 열어 전체화면(F)으로 발표하세요.', 'ok');
+    } catch (e) {
+      fetchLectureFile(last.htmlUrl, lectureBaseName() + '.html', 'HTML');
+    }
+  }
+
+  function downloadLecturePdf() {
+    fetchLectureFile(last && last.pdfUrl, lectureBaseName() + '.pdf', 'PDF');
+  }
+
+  function downloadLecturePptx() {
+    fetchLectureFile(last && last.pptxUrl, lectureBaseName() + '.pptx', 'PPT');
   }
 
   function generate() {
@@ -833,7 +869,10 @@
 
   function printCurrent() {
     if (!last) return;
-    var html = view === 'answers' ? last.htmlAnswers : last.htmlQuestions;
+    var html = mode === 'lecture'
+      ? last.htmlPreview
+      : (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
+    if (!html) return;
     var w = window.open('', '_blank');
     if (!w) {
       setStatus('팝업이 차단되었습니다. 새 탭 허용 후 다시 시도하세요.', 'error');
@@ -937,6 +976,8 @@
   $('btnGenerate2').addEventListener('click', generate);
   $('btnPrint').addEventListener('click', printCurrent);
   $('btnOpenTab').addEventListener('click', openTab);
+  if ($('btnHtml')) $('btnHtml').addEventListener('click', downloadLectureHtml);
+  if ($('btnPdf')) $('btnPdf').addEventListener('click', downloadLecturePdf);
   if ($('btnPptx')) $('btnPptx').addEventListener('click', downloadLecturePptx);
   if ($('btnRestyle')) $('btnRestyle').addEventListener('click', restyleUpload);
   document.querySelectorAll('#previewTabs .tab').forEach(function (tab) {
