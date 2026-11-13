@@ -4034,6 +4034,94 @@ router.get('/grammar-clinic/jobs/:id', requireRole('teacher', 'admin'), async (r
   }
 });
 
+const grammarLecture = require('./services/grammarLectureSlidesService');
+const lectureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024, files: 1 }
+});
+
+function grammarOwnerKey(req) {
+  return String(
+    (req.session && (req.session.teacherId || req.session.userId || req.session.email)) || 'anon'
+  );
+}
+
+router.post('/grammar-clinic/lecture/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const started = grammarLecture.startGenerateJob({
+      title: body.title,
+      grade: body.grade,
+      unitIds: body.unitIds
+    }, grammarOwnerKey(req));
+    res.status(202).json(started);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not start lecture slides.' });
+  }
+});
+
+router.post(
+  '/grammar-clinic/lecture/restyle',
+  requireRole('teacher', 'admin'),
+  novelStudyJobLimiter,
+  (req, res) => {
+    lectureUpload.single('file')(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'Invalid upload.' });
+      try {
+        const text = await grammarLecture.extractTextFromUpload(req.file);
+        const started = grammarLecture.startRestyleJob({
+          title: (req.body && req.body.title) || '',
+          grade: (req.body && req.body.grade) || 'M2',
+          unitHint: (req.body && req.body.unitHint) || '',
+          extractedText: text
+        }, grammarOwnerKey(req));
+        res.status(202).json(started);
+      } catch (e) {
+        res.status(e.statusCode || 500).json({
+          error: e.message || 'Could not restyle PPT.',
+          code: e.code || null
+        });
+      }
+    });
+  }
+);
+
+router.get('/grammar-clinic/lecture/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Job not found.' });
+    res.json(grammarLecture.publicJob(job));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load job.' });
+  }
+});
+
+router.get('/grammar-clinic/lecture/jobs/:id/deck', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job || !job.htmlPreview) return res.status(404).send('Not found');
+    res.set('Cache-Control', 'no-store');
+    res.type('html').send(job.htmlPreview);
+  } catch (e) {
+    res.status(e.statusCode || 500).send(e.message || 'Could not render deck.');
+  }
+});
+
+router.get('/grammar-clinic/lecture/jobs/:id/pptx', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job || !job.deck) return res.status(404).json({ error: 'Job not found.' });
+    const buf = job.pptxBuffer || await grammarLecture.renderDeckPptx(job.deck);
+    const name = grammarLecture.safeFilename(job.deck.title) + '.pptx';
+    res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(buf);
+  } catch (e) {
+    console.error('GET /grammar-clinic/lecture/jobs/:id/pptx', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PPTX.' });
+  }
+});
+
 const bibleSlides = require('./services/bibleSlidesService');
 
 function bibleOwnerKey(req) {
