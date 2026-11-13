@@ -508,6 +508,175 @@ function startGenerateJob(opts, ownerKey) {
   return publicJob(job);
 }
 
+const SYSTEM_PATCH = `당신은 중등 영어 인강 슬라이드 편집자입니다.
+기존 덱 JSON에서 사용자가 말한 부분만 고칩니다. 전체 재작성 금지.
+출력은 JSON만.
+
+[규칙]
+- 사용자가 지칭한 슬라이드(번호·제목·내용)만 변경.
+- 언급 없는 슬라이드는 손대지 말 것.
+- Pattern B·예시 중복 금지·퀴즈 정답은 notes만 — 기존 품질 규칙 유지.
+- 번호는 1부터 (화면에 보이는 N / 총장수).
+- op: replace | insertAfter | delete
+- replace/insertAfter의 slide는 기존 스키마(kind, blockType, heading, lines, columns, examples, wrongRight, quiz, notes).`;
+
+function buildPatchPrompt({ deck, instruction, slideIndexes }) {
+  const indexes = Array.isArray(slideIndexes)
+    ? slideIndexes.map((n) => Number(n)).filter((n) => n >= 1)
+    : [];
+  return [
+    '아래 인강 덱을 부분 수정하라. 전체 재생성 금지.',
+    '사용자 지시:',
+    String(instruction || '').trim(),
+    indexes.length ? ('명시적 대상 슬라이드 번호(1-based): ' + indexes.join(', ')) : '대상 번호가 지시문에 있으면 따르고, 없으면 지시에서 추론.',
+    '',
+    '현재 덱 JSON:',
+    JSON.stringify({
+      title: deck.title,
+      grade: deck.grade,
+      slides: deck.slides
+    }, null, 2),
+    '',
+    '출력 JSON 스키마:',
+    JSON.stringify({
+      summary: '무엇을 바꿨는지 한 줄',
+      ops: [
+        { op: 'replace', index: 5, slide: { kind: 'content', blockType: 'FORMS', heading: '…', lines: [], notes: '' } },
+        { op: 'insertAfter', index: 5, slide: { kind: 'content', blockType: 'ONE_LINER', heading: '…', lines: [], notes: '' } },
+        { op: 'delete', index: 8 }
+      ]
+    }, null, 2),
+    '',
+    'ops는 1개 이상. 불필요하면 빈 배열 금지 — 최소 한 장은 고쳐야 함.',
+    'replace의 index는 수정 전 덱 기준. 여러 op면 원래 번호 기준으로 적고, 서버가 안전하게 적용한다.'
+  ].join('\n');
+}
+
+function applyDeckOps(deck, ops) {
+  const slides = (deck.slides || []).map((s) => Object.assign({}, s));
+  const list = Array.isArray(ops) ? ops : [];
+  if (!list.length) {
+    const err = new Error('수정할 내용이 없습니다. 지시를 더 구체적으로 적어 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  // Prefer replace-first (most teacher edits). Then delete high→low, then insertAfter high→low.
+  const deletes = list.filter((o) => o && o.op === 'delete').map((o) => Number(o.index)).filter((n) => n >= 1);
+  const replaces = list.filter((o) => o && o.op === 'replace' && o.slide);
+  const inserts = list.filter((o) => o && o.op === 'insertAfter' && o.slide);
+
+  replaces.forEach((o) => {
+    const idx = Number(o.index);
+    if (idx < 1 || idx > slides.length) return;
+    slides[idx - 1] = coerceSlide(o.slide, idx - 1);
+  });
+
+  deletes.sort((a, b) => b - a).forEach((idx) => {
+    if (idx >= 1 && idx <= slides.length) slides.splice(idx - 1, 1);
+  });
+
+  inserts
+    .slice()
+    .sort((a, b) => Number(b.index) - Number(a.index))
+    .forEach((o) => {
+      let idx = Number(o.index);
+      if (!Number.isFinite(idx) || idx < 0) idx = slides.length;
+      if (idx > slides.length) idx = slides.length;
+      // insertAfter N (1-based) → splice at N (0-based)
+      slides.splice(idx, 0, coerceSlide(o.slide, idx));
+    });
+
+  if (slides.length < 3) {
+    const err = new Error('수정 결과 슬라이드가 너무 적어졌습니다. 지시를 바꿔 다시 시도해 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (slides.length > 28) slides.length = 28;
+  slides.forEach((s, i) => { s.index = i + 1; });
+  return {
+    title: deck.title,
+    grade: deck.grade,
+    slides
+  };
+}
+
+function startPatchJob(jobId, opts, ownerKey) {
+  pruneJobs();
+  const job = getJob(jobId, ownerKey);
+  if (!job || !job.deck || !job.deck.slides || !job.deck.slides.length) {
+    const err = new Error('수정할 인강 덱이 없습니다. 먼저 슬라이드를 만들어 주세요.');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (job.status === 'running') {
+    const err = new Error('이미 작업 중입니다. 잠시 후 다시 시도해 주세요.');
+    err.statusCode = 409;
+    throw err;
+  }
+  const instruction = String((opts && opts.instruction) || '').trim();
+  if (instruction.length < 2) {
+    const err = new Error('어떻게 고칠지 자연어로 적어 주세요. 예: 「5번 예시만 little→less로 바꿔줘」');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (instruction.length > 1000) {
+    const err = new Error('수정 지시는 1000자 이내로 적어 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const slideIndexes = Array.isArray(opts && opts.slideIndexes) ? opts.slideIndexes : [];
+
+  touch(job, {
+    status: 'running',
+    mode: 'patch',
+    error: null,
+    progress: { message: '지정한 슬라이드만 수정 중…', pct: 20 }
+  });
+
+  const deckSnapshot = {
+    title: job.deck.title,
+    grade: job.deck.grade,
+    slides: job.deck.slides.map((s) => Object.assign({}, s))
+  };
+
+  setImmediate(() => {
+    (async () => {
+      const parsed = await askClaudeJson(
+        SYSTEM_PATCH,
+        buildPatchPrompt({ deck: deckSnapshot, instruction, slideIndexes }),
+        { temperature: 0.25, maxOutputTokens: 8000 }
+      );
+      touch(job, { progress: { message: '수정 내용 적용·조립 중…', pct: 70 } });
+      const nextDeck = applyDeckOps(deckSnapshot, parsed && parsed.ops);
+      const htmlPreview = renderDeckHtml(nextDeck);
+      const pptxBuffer = await renderDeckPptx(nextDeck);
+      const summary = String((parsed && parsed.summary) || '').trim();
+      touch(job, {
+        status: 'done',
+        deck: nextDeck,
+        htmlPreview,
+        pptxBuffer,
+        progress: { message: summary ? ('수정 완료 — ' + summary) : '수정 완료', pct: 100 }
+      });
+      if (summary) job.warnings = (job.warnings || []).concat(['patch: ' + summary]).slice(-8);
+    })().catch((e) => {
+      // Restore previous deck on failure
+      touch(job, {
+        status: 'done',
+        deck: deckSnapshot,
+        htmlPreview: job.htmlPreview || renderDeckHtml(deckSnapshot),
+        error: undefined,
+        progress: { message: '수정 실패 — 이전 덱 유지: ' + (e.message || 'error'), pct: 100 }
+      });
+      job.warnings = (job.warnings || []).concat(['patch failed: ' + (e.message || 'error')]).slice(-8);
+      console.error('grammar lecture patch', job.id, e);
+    });
+  });
+
+  return publicJob(job);
+}
+
 /* ───────── PPTX / PPT text extraction ───────── */
 
 function stripXml(s) {
@@ -1008,6 +1177,7 @@ module.exports = {
   BLOCK_TYPES,
   BLOCK_LABEL,
   startGenerateJob,
+  startPatchJob,
   getJob,
   publicJob,
   renderDeckHtml,

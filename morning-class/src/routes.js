@@ -4057,6 +4057,19 @@ router.post('/grammar-clinic/lecture/generate', requireRole('teacher', 'admin'),
   }
 });
 
+router.post('/grammar-clinic/lecture/jobs/:id/patch', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const started = grammarLecture.startPatchJob(req.params.id, {
+      instruction: body.instruction,
+      slideIndexes: body.slideIndexes
+    }, grammarOwnerKey(req));
+    res.status(202).json(started);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not patch lecture slides.' });
+  }
+});
+
 router.get('/grammar-clinic/lecture/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
   try {
     const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
