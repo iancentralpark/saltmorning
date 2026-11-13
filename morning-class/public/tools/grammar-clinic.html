@@ -161,6 +161,15 @@
     .chip.disabled { opacity: 0.45; cursor: not-allowed; }
     .progress { height: 8px; background: #e8eef8; border-radius: 999px; overflow: hidden; margin-top: 0.45rem; }
     .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #5a8fd4); transition: width .35s; }
+    .patch-box {
+      margin-top: 0.75rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 12px;
+      background: #f7faff;
+    }
+    .patch-box textarea {
+      width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 0.5rem 0.55rem;
+      font: inherit; color: var(--ink); resize: vertical; min-height: 3.2rem;
+    }
+    .patch-box .row { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin-top: 0.45rem; }
   </style>
 </head>
 <body>
@@ -266,6 +275,15 @@
             <span id="emptyBody">왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.</span>
           </div>
           <iframe id="previewFrame" class="preview-frame hidden" title="미리보기"></iframe>
+          <div class="patch-box lecture-only hidden" id="patchBox">
+            <label style="margin:0">일부만 수정 (자연어)
+              <textarea id="patchInstruction" placeholder="예: 5번 슬라이드 예시를 little→less, far→farther로 바꿔줘 / 3번 규칙 장에 CVC 규칙 한 줄 더 넣어줘 / 7번 퀴즈만 더 쉽게"></textarea>
+            </label>
+            <div class="row">
+              <button type="button" class="btn btn-primary btn-sm" id="btnPatch" disabled>선택 수정 적용</button>
+              <span class="hint" style="margin:0">전체 재생성 없이, 말한 슬라이드만 고칩니다.</span>
+            </div>
+          </div>
         </section>
       </div>
     </div>
@@ -541,6 +559,7 @@
     if ($('btnHtml')) $('btnHtml').disabled = !lectureReady;
     if ($('btnPdf')) $('btnPdf').disabled = !(lectureReady && last.pdfUrl);
     if ($('btnPptx')) $('btnPptx').disabled = !(lectureReady && last.pptxUrl);
+    syncPatchUi();
   }
 
   function loadCatalog() {
@@ -639,6 +658,7 @@
   function setBusy(busy, label) {
     $('btnGenerate').disabled = busy;
     $('btnGenerate2').disabled = busy;
+    if ($('btnPatch')) $('btnPatch').disabled = busy || !(mode === 'lecture' && last && last.jobId && last.htmlPreview);
     if (!busy) {
       $('btnGenerate').innerHTML = mode === 'lecture' ? '슬라이드 만들기' : (label || 'Generate');
       $('btnGenerate2').textContent = mode === 'lecture' ? '슬라이드 만들기' : 'Generate';
@@ -646,7 +666,16 @@
     }
   }
 
-  function pollLectureJob(jobId, label) {
+  function syncPatchUi() {
+    var box = $('patchBox');
+    if (!box) return;
+    var show = mode === 'lecture' && last && last.htmlPreview && last.jobId;
+    box.classList.toggle('hidden', !show);
+    if ($('btnPatch')) $('btnPatch').disabled = !show;
+  }
+
+  function pollLectureJob(jobId, label, opts) {
+    opts = opts || {};
     function tick() {
       toolFetch('/api/grammar-clinic/lecture/jobs/' + encodeURIComponent(jobId))
         .then(function (job) {
@@ -660,7 +689,13 @@
             view = 'lecture';
             $('progressBar').style.width = '100%';
             showPreview();
-            setStatus('인강 슬라이드 완성 — ' + ((job.deck && job.deck.slides && job.deck.slides.length) || 0) + '장', 'ok');
+            syncPatchUi();
+            var n = (job.deck && job.deck.slides && job.deck.slides.length) || 0;
+            var msg = opts.patched
+              ? ((p.message && p.message.indexOf('수정') !== -1) ? p.message : ('부분 수정 완료 — 현재 ' + n + '장'))
+              : ('인강 슬라이드 완성 — ' + n + '장');
+            var failedKeep = p.message && p.message.indexOf('수정 실패') !== -1;
+            setStatus(msg, failedKeep ? 'error' : 'ok');
             setBusy(false, label);
             return;
           }
@@ -677,6 +712,36 @@
         });
     }
     setTimeout(tick, 800);
+  }
+
+  function patchLecture() {
+    if (!last || !last.jobId) {
+      setStatus('먼저 슬라이드를 만들어 주세요.', 'error');
+      return;
+    }
+    var instruction = String(($('patchInstruction') && $('patchInstruction').value) || '').trim();
+    if (instruction.length < 2) {
+      setStatus('어떻게 고칠지 적어 주세요. 예: 「5번 예시만 다른 단어로」', 'error');
+      return;
+    }
+    var label = $('btnGenerate').innerHTML;
+    setBusy(true, label);
+    if ($('btnPatch')) $('btnPatch').disabled = true;
+    $('progress').classList.remove('hidden');
+    $('progressBar').style.width = '8%';
+    setStatus('지정한 슬라이드만 수정 중…');
+    toolFetch('/api/grammar-clinic/lecture/jobs/' + encodeURIComponent(last.jobId) + '/patch', {
+      method: 'POST',
+      body: { instruction: instruction }
+    }).then(function (data) {
+      if (!data.jobId) throw new Error('수정 작업을 시작하지 못했습니다.');
+      lectureJobId = data.jobId;
+      pollLectureJob(data.jobId, label, { patched: true });
+    }).catch(function (err) {
+      setStatus(err.message || '수정 실패', 'error');
+      setBusy(false, label);
+      syncPatchUi();
+    });
   }
 
   function generateLecture() {
@@ -934,6 +999,7 @@
   if ($('btnHtml')) $('btnHtml').addEventListener('click', downloadLectureHtml);
   if ($('btnPdf')) $('btnPdf').addEventListener('click', downloadLecturePdf);
   if ($('btnPptx')) $('btnPptx').addEventListener('click', downloadLecturePptx);
+  if ($('btnPatch')) $('btnPatch').addEventListener('click', patchLecture);
   document.querySelectorAll('#previewTabs .tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       view = tab.getAttribute('data-view') || 'questions';
