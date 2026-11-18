@@ -329,8 +329,9 @@ async function listForStudent(classId, studentId) {
       .filter((a) => a.isVerified !== false)
       .map((a) => {
         const sess = statusByAssignment[a.id];
-        const status = sess === 'completed' ? 'completed' : (sess === 'active' ? 'in_progress' : 'assigned');
-        return { ...a, status, canStartOral: true };
+        const raw = sess && sess.status;
+        const status = raw === 'completed' ? 'completed' : (raw === 'active' ? 'in_progress' : 'assigned');
+        return { ...a, status, reportReleased: !!(sess && sess.reportReleased), canStartOral: true };
       })
   };
 }

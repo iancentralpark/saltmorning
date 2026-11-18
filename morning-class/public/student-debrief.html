@@ -45,6 +45,16 @@
     .tools { display:flex; justify-content:space-between; align-items:center; margin-top:.6rem; gap:.5rem; flex-wrap:wrap; }
     .tools label { font-size:.82rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; }
     .done-card { background:var(--teal-soft); border:1px solid #bfe3da; border-radius:14px; padding:1rem; margin:1rem 0; text-align:center; }
+    .report { background:#fff; border:1px solid var(--line); border-radius:16px; padding:1rem; margin:1rem 0; }
+    .report h2 { margin:.1rem 0 .6rem; font-size:1.1rem; color:var(--navy); display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
+    .report .score { font-size:1.6rem; font-weight:800; color:var(--teal); }
+    .dim { padding:.55rem 0; border-top:1px solid #eef1f7; }
+    .dim .row { display:flex; justify-content:space-between; font-weight:700; }
+    .dim .pips { color:var(--teal); letter-spacing:.1em; }
+    .dim p { margin:.25rem 0 0; color:var(--muted); font-size:.92rem; line-height:1.45; }
+    .report h3 { font-size:.95rem; margin:.9rem 0 .25rem; color:var(--navy); }
+    .report ul { margin:.2rem 0 0 1.1rem; padding:0; line-height:1.5; }
+    .feedback { background:var(--teal-soft); border-radius:12px; padding:.75rem .9rem; margin-top:.8rem; line-height:1.55; }
     .error-card { background:#fdeceb; border:1px solid #f3c5c1; color:var(--coral); border-radius:14px; padding:1rem; margin:1rem 0; }
   </style>
 </head>
@@ -127,8 +137,11 @@
     if (busy) html += '<div class="thinking"><i class="fa-solid fa-ellipsis fa-fade"></i> Listening…</div>';
     if (session.status === 'completed') {
       html += '<div class="done-card"><strong>Session complete.</strong><br>' +
-        'Great job! Your teacher will review your conversation.<br><br>' +
-        '<a class="btn btn-primary" href="/student.html" style="text-decoration:none;display:inline-block">Back to home</a></div>';
+        (session.reportReleased && session.grade
+          ? 'Your teacher released your report below.'
+          : 'Great job! Your teacher will review your conversation and share your report.') +
+        '<br><br><a class="btn btn-primary" href="/student.html" style="text-decoration:none;display:inline-block">Back to home</a></div>';
+      if (session.reportReleased && session.grade) html += renderReport(session.grade);
     }
     chat.innerHTML = html;
     chat.scrollTop = chat.scrollHeight;
@@ -139,6 +152,23 @@
     $('dock').classList.toggle('hidden', session.status === 'completed');
     $('micRow').classList.toggle('hidden', !sttConfigured);
     $('micBtn').disabled = busy || !sttConfigured || session.status !== 'active';
+  }
+
+  var DIM_LABELS = { comprehension: 'Understanding the story', evidence: 'Using evidence', criticalThinking: 'Thinking critically', oralFluency: 'Speaking fluency' };
+  function pips(n) { return n == null ? '—' : '●'.repeat(n) + '○'.repeat(4 - n); }
+  function renderReport(g) {
+    var html = '<div class="report"><h2><span>Your Oral Debrief Report</span><span class="score">' +
+      (g.total != null ? esc(g.total) + '<small style="font-size:.9rem;color:var(--muted)">/100</small>' : '') + '</span></h2>';
+    ['comprehension', 'evidence', 'criticalThinking', 'oralFluency'].forEach(function (k) {
+      var d = (g.dimensions || {})[k];
+      if (!d || d.score == null) return;
+      html += '<div class="dim"><div class="row"><span>' + DIM_LABELS[k] + '</span><span class="pips">' + pips(d.score) + '</span></div>' +
+        (d.rationale ? '<p>' + esc(d.rationale) + '</p>' : '') + '</div>';
+    });
+    if ((g.strengths || []).length) html += '<h3>What you did well</h3><ul>' + g.strengths.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if ((g.improvements || []).length) html += '<h3>Next time, try</h3><ul>' + g.improvements.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if (g.studentFeedback) html += '<div class="feedback">' + esc(g.studentFeedback) + '</div>';
+    return html + '</div>';
   }
 
   function applyResult(data, speakReply) {

@@ -5033,6 +5033,48 @@ router.delete('/debrief/assignments/:assignmentId/sessions/:sessionId', requireR
   }
 });
 
+const debriefGrading = require('./services/debriefGradingService');
+const debriefGradeLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyFn: (req) => 'debrief-grade:' + debriefTeacherId(req),
+  message: '채점 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
+});
+
+async function loadDebriefSessionForStaff(req) {
+  const a = await loadDebriefAssignmentForStaff(req);
+  await debriefSessions.getForTeacher(req.params.sessionId, a.id);
+  return a;
+}
+
+router.post('/debrief/assignments/:assignmentId/sessions/:sessionId/grade', requireRole('teacher', 'admin'), debriefGradeLimiter, async (req, res) => {
+  try {
+    await loadDebriefSessionForStaff(req);
+    res.json(await debriefGrading.gradeSession(req.params.sessionId, { force: false }));
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not grade session.' });
+  }
+});
+
+router.patch('/debrief/assignments/:assignmentId/sessions/:sessionId/grade', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadDebriefSessionForStaff(req);
+    res.json(await debriefGrading.updateGrade(req.params.sessionId, req.body || {}));
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not update grade.' });
+  }
+});
+
+router.post('/debrief/assignments/:assignmentId/sessions/:sessionId/grade/release', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadDebriefSessionForStaff(req);
+    const released = !(req.body && (req.body.released === false || req.body.released === 'false' || req.body.released === 0));
+    res.json(await debriefGrading.setReleased(req.params.sessionId, released));
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not update release.' });
+  }
+});
+
 /* ── Consent forms (admin) ──────────────────────────────────── */
 router.get('/admin/consent-templates', requireRole('admin'), async (req, res) => {
   try {
