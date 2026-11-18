@@ -65,6 +65,12 @@
       <div id="homeworkList"></div>
     </div>
 
+    <div class="card stu-card" id="sectionDebrief">
+      <div class="card-title"><i class="fa-solid fa-comments"></i> Oral Debrief</div>
+      <p class="muted small" id="debriefStatus">Loading…</p>
+      <div id="debriefList"></div>
+    </div>
+
     <div class="card stu-card" id="sectionGrades">
       <div class="card-title"><i class="fa-solid fa-chart-simple"></i> <span data-i18n="nav.parentGrades">Grades</span></div>
       <div id="stuGrades"><p class="muted" data-i18n="common.loading">Loading…</p></div>
@@ -440,10 +446,42 @@
     $('homeSummary').innerHTML =
       chip('Messages', s.unreadMessages || 0, 'messages') +
       chip('Homework', s.pendingHomework || 0, 'sectionHomework') +
+      chip('Oral Debrief', s.pendingDebrief || 0, 'sectionDebrief') +
       chip('Dollars', s.dollars == null ? '—' : s.dollars, 'sectionDollars') +
       chip('Vocab Booster', v.placementDone ? (v.tierLabel || v.tierName || v.tier || 'Ready') : 'Place first', 'vocabShell') +
       (luckyOpenCount != null ? chip('Prize tickets', luckyOpenCount, 'sectionLucky') : '');
     wireHomeChips();
+  }
+
+  function renderDebrief() {
+    const box = $('debriefList');
+    const status = $('debriefStatus');
+    if (!box || !status) return;
+    const d = (dashboard && dashboard.debrief) || {};
+    const list = d.assignments || [];
+    if (!d.available || !list.length) {
+      status.textContent = 'No oral debrief assigned yet.';
+      box.innerHTML = '';
+      return;
+    }
+    status.textContent = list.length + ' book debrief' + (list.length === 1 ? '' : 's') + ' assigned';
+    box.innerHTML = '<ul class="stu-list">' + list.map((a) => {
+      const book = a.bookTitle || a.title || 'Book';
+      const due = a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '';
+      const hook = a.oneSentenceHook
+        ? '<div class="muted small">' + escapeHtml(a.oneSentenceHook) + '</div>'
+        : '';
+      const instr = a.customInstructions
+        ? '<div class="muted small">' + escapeHtml(a.customInstructions) + '</div>'
+        : '';
+      const cta = a.canStartOral
+        ? '<div><button type="button" class="btn btn-primary btn-sm" disabled>Start oral debrief</button></div>'
+        : '<div class="muted small">Oral session opens soon — profile ready</div>';
+      return '<li><strong>' + escapeHtml(a.title || book) + '</strong>' +
+        '<div class="muted small">' + escapeHtml(book) +
+        (a.bookAuthor ? ' · ' + escapeHtml(a.bookAuthor) : '') + due + '</div>' +
+        hook + instr + cta + '</li>';
+    }).join('') + '</ul>';
   }
 
   function renderHomework() {
@@ -646,6 +684,7 @@
       $('classLabel').textContent = p.className || '';
       renderHome();
       renderHomework();
+      renderDebrief();
       renderDollars();
       if (window.SaltTimetable && $('stuTimetableMount')) {
         SaltTimetable.renderReadOnly(

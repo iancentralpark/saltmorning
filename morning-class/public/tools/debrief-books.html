@@ -85,6 +85,18 @@
       border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .assign-box {
+      margin-top: 1rem; padding: .9rem; border: 1px dashed #b9c6dc; border-radius: 12px; background: #f7f9fd;
+    }
+    .assign-box h3 { margin: 0 0 .45rem; font-size: .95rem; color: var(--accent); font-family: Fraunces, Georgia, serif; }
+    .assign-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+    @media (max-width: 720px) { .assign-row { grid-template-columns: 1fr; } }
+    .assign-list { display: grid; gap: .4rem; margin-top: .55rem; }
+    .assign-item {
+      display: flex; justify-content: space-between; gap: .5rem; align-items: flex-start;
+      background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font-size: .84rem;
+    }
+    .assign-item .meta { margin-top: .15rem; }
   </style>
 </head>
 <body>
@@ -133,6 +145,30 @@
         </div>
         <div id="emptyDetail" class="empty">왼쪽에서 책을 만들거나 목록에서 선택하세요.</div>
         <div id="detailMount" class="profile-view hidden"></div>
+        <div id="assignBox" class="assign-box hidden">
+          <h3>반에 과제 부여</h3>
+          <p class="hint" id="assignHint">Verified 책만 반에 Oral Debrief 과제로 줄 수 있습니다.</p>
+          <div id="assignForm">
+            <div class="assign-row">
+              <label>반 선택
+                <select id="assignClassSelect"><option value="">불러오는 중…</option></select>
+              </label>
+              <label>마감일 (선택)
+                <input type="date" id="assignDueDate">
+              </label>
+            </div>
+            <label>과제 제목
+              <input type="text" id="assignTitle" placeholder="Oral Debrief: …" maxlength="160">
+            </label>
+            <label>학생 안내 (선택)
+              <textarea id="assignInstructions" style="min-height:4rem" placeholder="예: Ch.1–5까지 읽고 오라 / 한국어 섞어도 됨"></textarea>
+            </label>
+            <div class="actions">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAssign">이 반에 부여</button>
+            </div>
+          </div>
+          <div class="assign-list" id="assignList"></div>
+        </div>
       </section>
     </div>
   </div>
@@ -144,6 +180,8 @@
   var books = [];
   var current = null;
   var pollTimer = null;
+  var classOptions = [];
+  var currentAssignments = [];
 
   function token() {
     try {
@@ -152,6 +190,12 @@
         localStorage.getItem('salt_admin_token') ||
         sessionStorage.getItem('salt_admin_token') || '';
     } catch (e) { return ''; }
+  }
+
+  function isAdminSession() {
+    try {
+      return !!(localStorage.getItem('salt_admin_token') || sessionStorage.getItem('salt_admin_token'));
+    } catch (e) { return false; }
   }
 
   function setStatus(msg, kind) {
@@ -220,6 +264,99 @@
     }).join('') + '</ul>';
   }
 
+  function classLabel(classId) {
+    var hit = classOptions.find(function (c) { return String(c.classId) === String(classId); });
+    return hit ? (hit.className || hit.name || classId) : classId;
+  }
+
+  function renderAssignPanel(book) {
+    var box = $('assignBox');
+    if (!book || !book.id || book.status !== 'ready') {
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    var verified = !!book.isVerified;
+    $('assignForm').classList.toggle('hidden', !verified);
+    $('assignHint').textContent = verified
+      ? 'Verified 프로필을 반에 Oral Debrief 과제로 부여합니다. 학생 포털에 바로 표시됩니다.'
+      : '먼저 Verified로 표시한 뒤에 반에 부여할 수 있습니다.';
+    if (verified) {
+      $('assignTitle').value = 'Oral Debrief: ' + (book.title || '');
+      $('assignInstructions').value = '';
+      $('assignDueDate').value = '';
+    }
+    loadAssignments(book.id);
+  }
+
+  function renderAssignments() {
+    var mount = $('assignList');
+    if (!currentAssignments.length) {
+      mount.innerHTML = '<p class="hint">아직 이 책이 부여된 반이 없습니다.</p>';
+      return;
+    }
+    mount.innerHTML = currentAssignments.map(function (a) {
+      return '<div class="assign-item" data-id="' + escapeHtml(a.id) + '">' +
+        '<div><strong>' + escapeHtml(classLabel(a.classId)) + '</strong>' +
+        '<div class="meta">' + escapeHtml(a.title || '') +
+        (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
+        '<button type="button" class="btn btn-ghost btn-sm assign-del" data-id="' + escapeHtml(a.id) + '">해제</button></div>';
+    }).join('');
+    mount.querySelectorAll('.assign-del').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-id');
+        if (!confirm('이 반의 디브리프 과제를 해제할까요?')) return;
+        api('/api/debrief/assignments/' + encodeURIComponent(id), { method: 'DELETE' }).then(function () {
+          setStatus('과제 해제됨', 'ok');
+          loadAssignments(current && current.id);
+        }).catch(function (e) { setStatus(e.message, 'error'); });
+      });
+    });
+  }
+
+  function loadAssignments(bookId) {
+    if (!bookId) return Promise.resolve();
+    return api('/api/debrief/books/' + encodeURIComponent(bookId) + '/assignments').then(function (data) {
+      currentAssignments = data.assignments || [];
+      renderAssignments();
+    }).catch(function () {
+      currentAssignments = [];
+      renderAssignments();
+    });
+  }
+
+  function loadClassOptions() {
+    var sel = $('assignClassSelect');
+    var req = isAdminSession()
+      ? api('/api/admin/classes')
+      : api('/api/teacher/classes');
+    return req.then(function (data) {
+      var seen = {};
+      var opts = [];
+      function push(c) {
+        if (!c) return;
+        var id = c.classId || c.id;
+        var name = c.className || c.name || id;
+        if (!id || seen[id]) return;
+        seen[id] = true;
+        opts.push({ classId: id, className: name });
+      }
+      (data.classes || []).forEach(push);
+      (data.homeroom || []).forEach(push);
+      (data.assigned || []).forEach(push);
+      classOptions = opts;
+      if (!opts.length) {
+        sel.innerHTML = '<option value="">배정된 반이 없습니다</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">반 선택…</option>' + opts.map(function (c) {
+        return '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.className) + '</option>';
+      }).join('');
+    }).catch(function () {
+      sel.innerHTML = '<option value="">반 목록을 불러오지 못했습니다</option>';
+    });
+  }
+
   function renderDetail(book) {
     current = book;
     $('detailTitle').textContent = book.title || '프로필 미리보기';
@@ -231,6 +368,7 @@
       $('emptyDetail').classList.remove('hidden');
       $('emptyDetail').textContent = book.message || (book.status === 'generating' ? '생성 중…' : '프로필이 없습니다.');
       $('detailMount').classList.add('hidden');
+      $('assignBox').classList.add('hidden');
       renderList();
       return;
     }
@@ -258,6 +396,7 @@
     html += '<h3>Interview opening</h3><p>' + escapeHtml(p.interviewOpening || '') + '</p>';
     html += '<h3>Interview closing</h3><p>' + escapeHtml(p.interviewClosing || '') + '</p>';
     $('detailMount').innerHTML = html;
+    renderAssignPanel(book);
     renderList();
   }
 
@@ -390,6 +529,7 @@
     api('/api/debrief/books/' + encodeURIComponent(current.id), { method: 'DELETE' }).then(function () {
       current = null;
       $('detailMount').classList.add('hidden');
+      $('assignBox').classList.add('hidden');
       $('emptyDetail').classList.remove('hidden');
       $('emptyDetail').textContent = '왼쪽에서 책을 만들거나 목록에서 선택하세요.';
       $('btnVerify').disabled = true;
@@ -400,10 +540,35 @@
       .catch(function (e) { setStatus(e.message, 'error'); });
   });
 
+  $('btnAssign').addEventListener('click', function () {
+    if (!current || !current.isVerified) {
+      setStatus('Verified 책만 부여할 수 있습니다.', 'error');
+      return;
+    }
+    var classId = String($('assignClassSelect').value || '').trim();
+    if (!classId) { setStatus('반을 선택하세요.', 'error'); return; }
+    var title = String($('assignTitle').value || '').trim();
+    var customInstructions = String($('assignInstructions').value || '').trim();
+    var dueDate = String($('assignDueDate').value || '').trim();
+    $('btnAssign').disabled = true;
+    api('/api/debrief/books/' + encodeURIComponent(current.id) + '/assign', {
+      method: 'POST',
+      body: { classId: classId, title: title, customInstructions: customInstructions, dueDate: dueDate || null }
+    }).then(function () {
+      setStatus(classLabel(classId) + ' 반에 부여됨 — 학생 포털에 표시됩니다.', 'ok');
+      return loadAssignments(current.id);
+    }).catch(function (e) {
+      setStatus(e.message || '부여 실패', 'error');
+    }).then(function () {
+      $('btnAssign').disabled = false;
+    });
+  });
+
   api('/api/debrief/books/meta').then(function (meta) {
     if (!meta.aiConfigured) setStatus('Claude API 키가 없습니다. 서버에 ANTHROPIC_API_KEY를 설정하세요.', 'error');
   }).catch(function () {});
 
+  loadClassOptions();
   loadList().catch(function (e) {
     setStatus(e.message || '목록을 불러오지 못했습니다. 로그인 상태를 확인하세요.', 'error');
     $('bookList').innerHTML = '<p class="hint">교사 계정으로 로그인한 뒤 다시 열어 주세요.</p>';
