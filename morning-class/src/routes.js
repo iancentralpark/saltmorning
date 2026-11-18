@@ -4680,6 +4680,125 @@ router.post('/novel-study/jobs/:id/google-docs', requireRole('teacher', 'admin')
   }
 });
 
+/* ── Oral Debrief Book Profiles (Phase 1) ───────────────────── */
+const debriefBooks = require('./services/debriefBookService');
+const debriefPdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 40 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mime = String(file.mimetype || '').toLowerCase();
+    const name = String(file.originalname || '').toLowerCase();
+    const ok = mime === 'application/pdf' || name.endsWith('.pdf');
+    cb(ok ? null : new Error('Only PDF files are accepted.'), ok);
+  }
+});
+
+function debriefTeacherId(req) {
+  return String(
+    (req.session && (req.session.teacherId || req.session.adminId || req.session.userId || req.session.email)) || 'anon'
+  );
+}
+
+router.get('/debrief/books/meta', requireRole('teacher', 'admin'), (req, res) => {
+  res.json({
+    gradeBands: Object.keys(debriefBooks.GRADE_BANDS),
+    aiConfigured: debriefBooks.isClaudeConfigured(),
+    opsDb: !!(process.env.DATABASE_URL || process.env.OPS_DATABASE_URL)
+  });
+});
+
+router.get('/debrief/books', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const list = await debriefBooks.listBooks({
+      limit: req.query.limit,
+      verifiedOnly: String(req.query.verified || '') === '1',
+      includeProfile: String(req.query.profile || '') === '1'
+    });
+    res.json({ books: list });
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not list books.' });
+  }
+});
+
+router.post('/debrief/books/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const started = debriefBooks.startGenerateJob({
+      title: body.title,
+      author: body.author,
+      gradeBand: body.gradeBand,
+      lexileLevel: body.lexileLevel,
+      text: body.text,
+      novelStudyJobId: body.novelStudyJobId,
+      sourceType: 'text'
+    }, debriefTeacherId(req));
+    res.status(202).json(started);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not start book profile.' });
+  }
+});
+
+router.post(
+  '/debrief/books/generate-pdf',
+  requireRole('teacher', 'admin'),
+  novelStudyJobLimiter,
+  (req, res) => {
+    debriefPdfUpload.single('pdf')(req, res, async (err) => {
+      if (err) return res.status(400).json({ error: err.message || 'Invalid PDF upload.' });
+      try {
+        const body = req.body || {};
+        const started = await debriefBooks.startGenerateFromPdf({
+          title: body.title,
+          author: body.author,
+          gradeBand: body.gradeBand,
+          lexileLevel: body.lexileLevel,
+          novelStudyJobId: body.novelStudyJobId
+        }, debriefTeacherId(req), req.file);
+        res.status(202).json(started);
+      } catch (e) {
+        res.status(e.statusCode || 500).json({ error: e.message || 'Could not start PDF profile.' });
+      }
+    });
+  }
+);
+
+router.get('/debrief/books/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const book = await debriefBooks.getBook(req.params.id, null);
+    if (!book) return res.status(404).json({ error: 'Book not found.' });
+    res.json(debriefBooks.publicBook(book));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load book.' });
+  }
+});
+
+router.post('/debrief/books/:id/verify', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const verified = !!(req.body && (req.body.verified === true || req.body.verified === '1' || req.body.verified === 1));
+    const book = await debriefBooks.setVerified(req.params.id, verified, debriefTeacherId(req));
+    res.json(book);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not update verification.' });
+  }
+});
+
+router.patch('/debrief/books/:id/profile', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const book = await debriefBooks.updateProfile(req.params.id, (req.body && req.body.profile) || req.body || {}, debriefTeacherId(req));
+    res.json(book);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not update profile.' });
+  }
+});
+
+router.delete('/debrief/books/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json(await debriefBooks.deleteBook(req.params.id, debriefTeacherId(req)));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not delete book.' });
+  }
+});
+
 /* ── Consent forms (admin) ──────────────────────────────────── */
 router.get('/admin/consent-templates', requireRole('admin'), async (req, res) => {
   try {

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oral Debrief Books — Salt Morning</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1a1f2e; --muted: #5c6578; --line: #d8deea; --paper: #f4f6fb;
+      --accent: #1e4d8c; --accent-soft: #e8f0fa; --coral: #c45d55; --ok: #2f6b4f;
+      --shadow: 0 10px 28px rgba(26, 31, 46, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: 'Noto Sans KR', system-ui, sans-serif; color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(30,77,140,.10), transparent 40%),
+        linear-gradient(165deg, #eef2f8 0%, var(--paper) 55%, #e9edf5 100%);
+      min-height: 100vh;
+    }
+    .hidden { display: none !important; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap;
+      padding: .7rem 1.1rem; background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px);
+    }
+    .brand { font-family: Fraunces, Georgia, serif; font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+    .brand small { display: block; font-family: 'Noto Sans KR', sans-serif; font-size: .68rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+    .pane { padding: 1rem 1.1rem 2rem; }
+    .layout { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 1rem; align-items: start; }
+    @media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+    .side, .main {
+      background: rgba(255,255,255,.92); border: 1px solid var(--line); border-radius: 16px;
+      box-shadow: var(--shadow); padding: 1rem;
+    }
+    h2 { font-family: Fraunces, Georgia, serif; margin: 0 0 .65rem; font-size: 1.2rem; color: var(--accent); }
+    label { display: flex; flex-direction: column; gap: .25rem; font-size: .75rem; font-weight: 700; color: var(--muted); margin-bottom: .55rem; }
+    input, select, textarea {
+      border: 1px solid var(--line); border-radius: 9px; padding: .45rem .55rem; font: inherit; color: var(--ink); background: #fff;
+    }
+    textarea { min-height: 9rem; resize: vertical; }
+    .hint { font-size: .8rem; color: var(--muted); line-height: 1.4; margin: 0 0 .65rem; }
+    .btn {
+      border: none; border-radius: 10px; padding: .48rem .85rem; font-weight: 700; cursor: pointer; font: inherit;
+      display: inline-flex; align-items: center; gap: .35rem;
+    }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #24599e, var(--accent)); color: #fff; }
+    .btn-ghost { background: #fff; border: 1px solid var(--line); color: var(--accent); }
+    .btn-ok { background: #e7f3ea; color: var(--ok); border: 1px solid #c9e3d0; }
+    .btn-sm { padding: .3rem .65rem; font-size: .82rem; border-radius: 8px; }
+    .actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .5rem; }
+    .status { font-size: .85rem; margin-top: .65rem; color: var(--muted); min-height: 1.2em; }
+    .status.error { color: var(--coral); font-weight: 600; }
+    .status.ok { color: var(--ok); font-weight: 600; }
+    .progress { height: 8px; background: #e8eef8; border-radius: 999px; overflow: hidden; margin-top: .45rem; }
+    .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #5a8fd4); transition: width .35s; }
+    .book-list { display: grid; gap: .55rem; }
+    .book-card {
+      border: 1px solid var(--line); border-radius: 12px; padding: .7rem .8rem; background: #fff; cursor: pointer;
+    }
+    .book-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .book-card strong { display: block; font-size: .95rem; }
+    .meta { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+    .pill {
+      display: inline-block; font-size: .68rem; font-weight: 800; padding: .12rem .45rem; border-radius: 999px;
+      background: #eef2f8; color: var(--muted); margin-right: .25rem;
+    }
+    .pill.ok { background: #e7f3ea; color: var(--ok); }
+    .pill.warn { background: #fff3e6; color: #a65d1a; }
+    .pill.err { background: #fdeceb; color: var(--coral); }
+    .profile-view {
+      font-size: .86rem; line-height: 1.45; max-height: 70vh; overflow: auto;
+      background: #f8fafc; border: 1px solid var(--line); border-radius: 12px; padding: .85rem;
+    }
+    .profile-view h3 { margin: .9rem 0 .35rem; font-size: .95rem; color: var(--accent); }
+    .profile-view h3:first-child { margin-top: 0; }
+    .profile-view ul { margin: .2rem 0 .5rem 1.1rem; padding: 0; }
+    .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; }
+    .spinner {
+      display: inline-block; width: .9em; height: .9em; border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Oral Debrief Books<small>Class Tools · Book Profile</small></div>
+    <button type="button" class="btn btn-ghost btn-sm" id="btnRefresh">목록 새로고침</button>
+  </header>
+  <div class="pane">
+    <div class="layout">
+      <aside class="side">
+        <h2>새 프로필 만들기</h2>
+        <p class="hint">원서 텍스트 또는 PDF를 넣으면 AI가 인터뷰·채점용 <strong>Book Debrief Profile</strong>을 만듭니다. 원문 전체는 저장하지 않고 짧은 발췌만 남깁니다.</p>
+        <label>제목 <input type="text" id="titleInput" placeholder="예: Charlotte's Web"></label>
+        <label>저자 <input type="text" id="authorInput" placeholder="예: E. B. White"></label>
+        <label>학년대
+          <select id="gradeSelect">
+            <option value="elementary">초등 고학년</option>
+            <option value="middle" selected>중등</option>
+            <option value="high">고등</option>
+          </select>
+        </label>
+        <label>본문 붙여넣기
+          <textarea id="textInput" placeholder="책 텍스트를 붙여넣으세요 (최소 약 200자). PDF를 쓸 경우 비워도 됩니다."></textarea>
+        </label>
+        <label>또는 PDF 업로드
+          <input type="file" id="pdfInput" accept=".pdf,application/pdf">
+        </label>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="btnGenerate">프로필 만들기</button>
+        </div>
+        <div class="progress hidden" id="progress"><div id="progressBar"></div></div>
+        <div class="status" id="status"></div>
+
+        <h2 style="margin-top:1.25rem">저장된 책</h2>
+        <div class="book-list" id="bookList"><p class="hint">불러오는 중…</p></div>
+      </aside>
+
+      <section class="main">
+        <div class="actions" style="justify-content:space-between;margin-top:0;margin-bottom:.75rem">
+          <h2 style="margin:0" id="detailTitle">프로필 미리보기</h2>
+          <div class="actions" style="margin:0">
+            <button type="button" class="btn btn-ok btn-sm" id="btnVerify" disabled>Verified 표시</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnUnverify" disabled>검수 취소</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="btnDelete" disabled>삭제</button>
+          </div>
+        </div>
+        <div id="emptyDetail" class="empty">왼쪽에서 책을 만들거나 목록에서 선택하세요.</div>
+        <div id="detailMount" class="profile-view hidden"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var books = [];
+  var current = null;
+  var pollTimer = null;
+
+  function token() {
+    try {
+      return localStorage.getItem('salt_teacher_token') ||
+        sessionStorage.getItem('salt_teacher_token') ||
+        localStorage.getItem('salt_admin_token') ||
+        sessionStorage.getItem('salt_admin_token') || '';
+    } catch (e) { return ''; }
+  }
+
+  function setStatus(msg, kind) {
+    var el = $('status');
+    el.textContent = msg || '';
+    el.classList.remove('error', 'ok');
+    if (kind === 'error') el.classList.add('error');
+    if (kind === 'ok') el.classList.add('ok');
+  }
+
+  function api(url, opts) {
+    opts = opts || {};
+    opts.credentials = 'same-origin';
+    var headers = opts.headers || {};
+    var t = token();
+    if (t) headers.Authorization = 'Bearer ' + t;
+    if (opts.body && typeof opts.body === 'object' && !(opts.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(opts.body);
+    }
+    opts.headers = headers;
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function statusPill(book) {
+    if (book.status === 'generating') return '<span class="pill warn">생성 중 ' + (book.progress || 0) + '%</span>';
+    if (book.status === 'error') return '<span class="pill err">실패</span>';
+    if (book.isVerified) return '<span class="pill ok">Verified</span>';
+    return '<span class="pill warn">초안</span>';
+  }
+
+  function renderList() {
+    var mount = $('bookList');
+    if (!books.length) {
+      mount.innerHTML = '<p class="hint">아직 저장된 책이 없습니다.</p>';
+      return;
+    }
+    mount.innerHTML = books.map(function (b) {
+      var on = current && current.id === b.id ? ' active' : '';
+      return '<div class="book-card' + on + '" data-id="' + escapeHtml(b.id) + '">' +
+        '<strong>' + escapeHtml(b.title) + '</strong>' +
+        '<div class="meta">' + statusPill(b) + escapeHtml(b.author || '—') +
+        ' · ' + escapeHtml(b.gradeBand || '') + '</div></div>';
+    }).join('');
+    mount.querySelectorAll('.book-card').forEach(function (el) {
+      el.addEventListener('click', function () { selectBook(el.getAttribute('data-id')); });
+    });
+  }
+
+  function qList(arr, key) {
+    key = key || 'q';
+    if (!arr || !arr.length) return '<p class="hint">없음</p>';
+    return '<ul>' + arr.map(function (item) {
+      if (typeof item === 'string') return '<li>' + escapeHtml(item) + '</li>';
+      return '<li>' + escapeHtml(item[key] || item.question || JSON.stringify(item)) + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderDetail(book) {
+    current = book;
+    $('detailTitle').textContent = book.title || '프로필 미리보기';
+    var ready = book.status === 'ready' && book.debriefProfile;
+    $('btnVerify').disabled = !ready || !!book.isVerified;
+    $('btnUnverify').disabled = !ready || !book.isVerified;
+    $('btnDelete').disabled = !book.id || book.status === 'generating';
+    if (!book.debriefProfile) {
+      $('emptyDetail').classList.remove('hidden');
+      $('emptyDetail').textContent = book.message || (book.status === 'generating' ? '생성 중…' : '프로필이 없습니다.');
+      $('detailMount').classList.add('hidden');
+      renderList();
+      return;
+    }
+    $('emptyDetail').classList.add('hidden');
+    $('detailMount').classList.remove('hidden');
+    var p = book.debriefProfile;
+    var html = '';
+    html += '<div>' + statusPill(book) + ' <span class="meta">' + escapeHtml(book.message || '') + '</span></div>';
+    if (p.oneSentenceHook) html += '<p><em>' + escapeHtml(p.oneSentenceHook) + '</em></p>';
+    html += '<h3>Summary</h3><p>' + escapeHtml(p.summary || '') + '</p>';
+    html += '<h3>Themes</h3><p>' + escapeHtml((p.themes || []).join(' · ')) + '</p>';
+    html += '<h3>Characters</h3><ul>' + (p.characters || []).map(function (c) {
+      return '<li><strong>' + escapeHtml(c.name) + '</strong> (' + escapeHtml(c.role || '') + ') — ' +
+        escapeHtml((c.traits || []).join(', ')) +
+        (c.arc ? '<br><span class="meta">' + escapeHtml(c.arc) + '</span>' : '') + '</li>';
+    }).join('') + '</ul>';
+    html += '<h3>Plot beats</h3><ul>' + (p.plotBeats || []).map(function (b) {
+      return '<li><strong>' + escapeHtml(b.label) + '</strong> — ' + escapeHtml(b.summary || '') + '</li>';
+    }).join('') + '</ul>';
+    html += '<h3>Comprehension</h3>' + qList(p.questionBank && p.questionBank.comprehension);
+    html += '<h3>Evidence</h3>' + qList(p.questionBank && p.questionBank.evidence);
+    html += '<h3>Critical thinking</h3>' + qList(p.questionBank && p.questionBank.criticalThinking);
+    html += '<h3>Socratic follow-ups</h3>' + qList(p.questionBank && p.questionBank.socraticFollowups);
+    html += '<h3>Proper nouns (STT hints)</h3><p>' + escapeHtml((p.properNouns || []).join(', ')) + '</p>';
+    html += '<h3>Interview opening</h3><p>' + escapeHtml(p.interviewOpening || '') + '</p>';
+    html += '<h3>Interview closing</h3><p>' + escapeHtml(p.interviewClosing || '') + '</p>';
+    $('detailMount').innerHTML = html;
+    renderList();
+  }
+
+  function loadList() {
+    return api('/api/debrief/books?profile=0').then(function (data) {
+      books = data.books || [];
+      renderList();
+    });
+  }
+
+  function selectBook(id) {
+    setStatus('불러오는 중…');
+    api('/api/debrief/books/' + encodeURIComponent(id)).then(function (book) {
+      var idx = books.findIndex(function (b) { return b.id === book.id; });
+      if (idx >= 0) books[idx] = Object.assign({}, books[idx], book);
+      else books.unshift(book);
+      renderDetail(book);
+      setStatus('');
+      if (book.status === 'generating') startPoll(book.id);
+    }).catch(function (e) {
+      setStatus(e.message || '불러오기 실패', 'error');
+    });
+  }
+
+  function startPoll(id) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(function () {
+      api('/api/debrief/books/' + encodeURIComponent(id)).then(function (book) {
+        var idx = books.findIndex(function (b) { return b.id === book.id; });
+        if (idx >= 0) books[idx] = Object.assign({}, books[idx], book);
+        if (current && current.id === book.id) renderDetail(book);
+        else renderList();
+        $('progress').classList.remove('hidden');
+        $('progressBar').style.width = Math.max(8, Number(book.progress) || 10) + '%';
+        setStatus(book.message || '진행 중…');
+        if (book.status === 'ready' || book.status === 'error') {
+          clearInterval(pollTimer); pollTimer = null;
+          $('progress').classList.add('hidden');
+          $('btnGenerate').disabled = false;
+          $('btnGenerate').textContent = '프로필 만들기';
+          setStatus(book.status === 'ready' ? '초안 완료 — 검수해 Verified로 표시하세요.' : (book.error || '실패'), book.status === 'ready' ? 'ok' : 'error');
+          loadList().then(function () {
+            if (book.status === 'ready') selectBook(book.id);
+          });
+        }
+      }).catch(function () { /* keep polling */ });
+    }, 1600);
+  }
+
+  function generate() {
+    var title = String($('titleInput').value || '').trim();
+    var author = String($('authorInput').value || '').trim();
+    var gradeBand = $('gradeSelect').value || 'middle';
+    var text = String($('textInput').value || '').trim();
+    var file = $('pdfInput').files && $('pdfInput').files[0];
+    if (!title) { setStatus('제목을 입력하세요.', 'error'); return; }
+    if (!text && !file) { setStatus('본문 텍스트 또는 PDF가 필요합니다.', 'error'); return; }
+
+    $('btnGenerate').disabled = true;
+    $('btnGenerate').innerHTML = '<span class="spinner"></span> 생성 중';
+    $('progress').classList.remove('hidden');
+    $('progressBar').style.width = '8%';
+    setStatus('Claude가 Book Debrief Profile을 만드는 중…');
+
+    var req;
+    if (file) {
+      var fd = new FormData();
+      fd.append('pdf', file);
+      fd.append('title', title);
+      fd.append('author', author);
+      fd.append('gradeBand', gradeBand);
+      req = fetch('/api/debrief/books/generate-pdf', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { Authorization: 'Bearer ' + token() },
+        body: fd
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+          return data;
+        });
+      });
+    } else {
+      req = api('/api/debrief/books/generate', {
+        method: 'POST',
+        body: { title: title, author: author, gradeBand: gradeBand, text: text }
+      });
+    }
+
+    req.then(function (book) {
+      books = [book].concat(books.filter(function (b) { return b.id !== book.id; }));
+      renderDetail(book);
+      startPoll(book.id);
+    }).catch(function (e) {
+      setStatus(e.message || '생성 실패', 'error');
+      $('btnGenerate').disabled = false;
+      $('btnGenerate').textContent = '프로필 만들기';
+      $('progress').classList.add('hidden');
+    });
+  }
+
+  $('btnGenerate').addEventListener('click', generate);
+  $('btnRefresh').addEventListener('click', function () {
+    loadList().then(function () { setStatus('목록 갱신', 'ok'); }).catch(function (e) {
+      setStatus(e.message || '목록 실패', 'error');
+    });
+  });
+  $('btnVerify').addEventListener('click', function () {
+    if (!current) return;
+    api('/api/debrief/books/' + encodeURIComponent(current.id) + '/verify', {
+      method: 'POST', body: { verified: true }
+    }).then(function (book) {
+      renderDetail(book);
+      loadList();
+      setStatus('Verified 처리됨', 'ok');
+    }).catch(function (e) { setStatus(e.message, 'error'); });
+  });
+  $('btnUnverify').addEventListener('click', function () {
+    if (!current) return;
+    api('/api/debrief/books/' + encodeURIComponent(current.id) + '/verify', {
+      method: 'POST', body: { verified: false }
+    }).then(function (book) {
+      renderDetail(book);
+      loadList();
+      setStatus('검수 취소됨', 'ok');
+    }).catch(function (e) { setStatus(e.message, 'error'); });
+  });
+  $('btnDelete').addEventListener('click', function () {
+    if (!current) return;
+    if (!confirm('이 Book Profile을 삭제할까요?')) return;
+    api('/api/debrief/books/' + encodeURIComponent(current.id), { method: 'DELETE' }).then(function () {
+      current = null;
+      $('detailMount').classList.add('hidden');
+      $('emptyDetail').classList.remove('hidden');
+      $('emptyDetail').textContent = '왼쪽에서 책을 만들거나 목록에서 선택하세요.';
+      $('btnVerify').disabled = true;
+      $('btnUnverify').disabled = true;
+      $('btnDelete').disabled = true;
+      return loadList();
+    }).then(function () { setStatus('삭제됨', 'ok'); })
+      .catch(function (e) { setStatus(e.message, 'error'); });
+  });
+
+  api('/api/debrief/books/meta').then(function (meta) {
+    if (!meta.aiConfigured) setStatus('Claude API 키가 없습니다. 서버에 ANTHROPIC_API_KEY를 설정하세요.', 'error');
+  }).catch(function () {});
+
+  loadList().catch(function (e) {
+    setStatus(e.message || '목록을 불러오지 못했습니다. 로그인 상태를 확인하세요.', 'error');
+    $('bookList').innerHTML = '<p class="hint">교사 계정으로 로그인한 뒤 다시 열어 주세요.</p>';
+  });
+})();
+  </script>
+</body>
+</html>
