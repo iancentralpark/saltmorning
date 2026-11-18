@@ -56,6 +56,7 @@
           <button type="button" class="teacher-nav-dropdown-item" id="openGrammarClinicBtn" role="menuitem">내신 문법 Generator</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openNovelStudyBtn" role="menuitem">Novel Study Workbook</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openDebriefBooksBtn" role="menuitem">Oral Debrief Books</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openLmsLessonsBtn" role="menuitem">Online Lessons (영상 강의)</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openBibleSlidesBtn" role="menuitem">어린이 설교 슬라이드</button>
         </div>
       </div>
@@ -1897,6 +1898,13 @@
     openDebriefBooksBtn.addEventListener('click', () => {
       closeClassToolsMenu();
       window.open('/tools/debrief-books', 'saltDebriefBooks', 'noopener,width=1280,height=900');
+    });
+  }
+  const openLmsLessonsBtn = $('openLmsLessonsBtn');
+  if (openLmsLessonsBtn) {
+    openLmsLessonsBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/lms-lessons', 'saltLmsLessons', 'noopener,width=1280,height=900');
     });
   }
   const openBibleSlidesBtn = $('openBibleSlidesBtn');
