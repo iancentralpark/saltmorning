@@ -4799,6 +4799,112 @@ router.delete('/debrief/books/:id', requireRole('teacher', 'admin'), async (req,
   }
 });
 
+/* ── Oral Debrief Assignments (Phase 2) ─────────────────────── */
+const debriefAssignments = require('./services/debriefAssignmentService');
+
+router.get('/debrief/books/:id/assignments', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const book = await debriefBooks.getBook(req.params.id, null);
+    if (!book) return res.status(404).json({ error: 'Book not found.' });
+    res.json({ assignments: await debriefAssignments.listByBook(req.params.id) });
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not list assignments.' });
+  }
+});
+
+router.post('/debrief/books/:id/assign', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const classId = String(body.classId || '').trim();
+    if (!classId) return res.status(400).json({ error: 'classId is required.' });
+
+    // Teachers must own the class; admins may assign to any class.
+    if (req.session && req.session.role === 'teacher') {
+      await assertTeacherClassAccess(req.session.teacherId, classId);
+    }
+
+    const assignment = await debriefAssignments.createAssignment({
+      classId,
+      bookId: req.params.id,
+      title: body.title,
+      customInstructions: body.customInstructions,
+      dueDate: body.dueDate
+    }, debriefTeacherId(req));
+    res.status(201).json(assignment);
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not assign book.' });
+  }
+});
+
+router.get('/teacher/class/:classId/debrief-assignments', requireRole('teacher'), async (req, res) => {
+  try {
+    res.json({ assignments: await debriefAssignments.listByClass(req.params.classId) });
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load debrief assignments.' });
+  }
+});
+
+router.post('/teacher/class/:classId/debrief-assignments', requireRole('teacher'), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const assignment = await debriefAssignments.createAssignment({
+      classId: req.params.classId,
+      bookId: body.bookId,
+      title: body.title,
+      customInstructions: body.customInstructions,
+      dueDate: body.dueDate
+    }, debriefTeacherId(req));
+    res.status(201).json(assignment);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not create debrief assignment.' });
+  }
+});
+
+router.patch('/teacher/class/:classId/debrief-assignments/:assignmentId', requireRole('teacher'), async (req, res) => {
+  try {
+    const existing = await debriefAssignments.getAssignment(req.params.assignmentId);
+    if (!existing || String(existing.classId) !== String(req.params.classId)) {
+      return res.status(404).json({ error: 'Assignment not found for this class.' });
+    }
+    res.json(await debriefAssignments.updateAssignment(req.params.assignmentId, req.body || {}, debriefTeacherId(req)));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not update assignment.' });
+  }
+});
+
+router.delete('/teacher/class/:classId/debrief-assignments/:assignmentId', requireRole('teacher'), async (req, res) => {
+  try {
+    const existing = await debriefAssignments.getAssignment(req.params.assignmentId);
+    if (!existing || String(existing.classId) !== String(req.params.classId)) {
+      return res.status(404).json({ error: 'Assignment not found for this class.' });
+    }
+    res.json(await debriefAssignments.deleteAssignment(req.params.assignmentId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not delete assignment.' });
+  }
+});
+
+router.delete('/debrief/assignments/:assignmentId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const existing = await debriefAssignments.getAssignment(req.params.assignmentId);
+    if (!existing) return res.status(404).json({ error: 'Assignment not found.' });
+    if (req.session && req.session.role === 'teacher') {
+      await assertTeacherClassAccess(req.session.teacherId, existing.classId);
+    }
+    res.json(await debriefAssignments.deleteAssignment(req.params.assignmentId));
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not delete assignment.' });
+  }
+});
+
+router.get('/student/debrief-assignments', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await debriefAssignments.listForStudent(req.session.classId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load debrief assignments.' });
+  }
+});
+
 /* ── Consent forms (admin) ──────────────────────────────────── */
 router.get('/admin/consent-templates', requireRole('admin'), async (req, res) => {
   try {

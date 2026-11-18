@@ -4,6 +4,7 @@ const { getUnreadCount } = require('./messageService');
 const { getStudentDollars } = require('./dollarService');
 const { getStudentHomeworkStatus } = require('./homeworkService');
 const { getStudentVocabSummary } = require('./vocabShared');
+const { listForStudent: listDebriefAssignments } = require('./debriefAssignmentService');
 
 /**
  * Student home dashboard.
@@ -18,6 +19,7 @@ async function getStudentDashboard(session) {
   let buddy = null;
   let dollars = { available: false, balance: 0, transactions: [] };
   let homework = { available: false, today: [], pending: [], completed: [] };
+  let debrief = { available: false, assignments: [] };
   let vocab = {
     available: false,
     status: 'coming_soon',
@@ -56,6 +58,12 @@ async function getStudentDashboard(session) {
   }
 
   try {
+    debrief = await listDebriefAssignments(classId);
+  } catch (e) {
+    debrief = { available: false, assignments: [] };
+  }
+
+  try {
     const engine = require('./vocabEngineProxy');
     vocab = engine.isConfigured()
       ? (await engine.engineFetch('/summary', { studentId, classId })).data
@@ -64,6 +72,8 @@ async function getStudentDashboard(session) {
   } catch (e) {
     vocab = { available: false, message: 'Vocab Booster unavailable.' };
   }
+
+  const debriefPending = (debrief.assignments || []).filter((a) => a.status !== 'completed').length;
 
   return {
     profile: {
@@ -75,10 +85,12 @@ async function getStudentDashboard(session) {
     summary: {
       unreadMessages: Number(unreadMessages) || 0,
       pendingHomework: (homework.pending || []).length,
+      pendingDebrief: debriefPending,
       dollars: dollars.available ? dollars.balance : null,
       vocabReady: !!(vocab && vocab.available !== false)
     },
     homework,
+    debrief,
     dollars,
     vocab,
     buddy: {

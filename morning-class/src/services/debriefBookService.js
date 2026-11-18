@@ -530,6 +530,29 @@ async function deleteBook(id, ownerKey) {
     err.statusCode = 404;
     throw err;
   }
+  // Avoid FK RESTRICT surprises when class assignments still reference this book.
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT COUNT(*)::int AS n FROM ' + table('debrief_assignments') + ' WHERE book_id = $1',
+      [String(id)]
+    );
+    if ((Number(r.rows[0] && r.rows[0].n) || 0) > 0) {
+      const err = new Error('반에 부여된 과제가 있어 삭제할 수 없습니다. 먼저 과제를 삭제하세요.');
+      err.statusCode = 409;
+      throw err;
+    }
+  } else {
+    try {
+      const { countByBook } = require('./debriefAssignmentService');
+      if ((await countByBook(id)) > 0) {
+        const err = new Error('반에 부여된 과제가 있어 삭제할 수 없습니다. 먼저 과제를 삭제하세요.');
+        err.statusCode = 409;
+        throw err;
+      }
+    } catch (e) {
+      if (e.statusCode) throw e;
+    }
+  }
   books.delete(String(id));
   if (isOpsDbEnabled()) {
     await query('DELETE FROM ' + table('debrief_books') + ' WHERE id = $1', [String(id)]);
