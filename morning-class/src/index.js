@@ -98,6 +98,11 @@ app.get('/tools/debrief-books', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'debrief-books.html'));
 });
 
+app.get('/tools/lms-lessons', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'lms-lessons.html'));
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });

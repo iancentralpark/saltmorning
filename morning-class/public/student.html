@@ -65,6 +65,12 @@
       <div id="homeworkList"></div>
     </div>
 
+    <div class="card stu-card" id="sectionLessons">
+      <div class="card-title"><i class="fa-solid fa-circle-play"></i> Online Lessons</div>
+      <p class="muted small" id="lessonsStatus">Loading…</p>
+      <div id="lessonsList"></div>
+    </div>
+
     <div class="card stu-card" id="sectionDebrief">
       <div class="card-title"><i class="fa-solid fa-comments"></i> Oral Debrief</div>
       <p class="muted small" id="debriefStatus">Loading…</p>
@@ -491,6 +497,31 @@
     }).join('') + '</ul>';
   }
 
+  async function loadLessons() {
+    const box = $('lessonsList');
+    const status = $('lessonsStatus');
+    if (!box || !status) return;
+    try {
+      const d = await api('/api/student/lms/lessons', {}, role);
+      const list = d.lessons || [];
+      if (!list.length) {
+        status.textContent = 'No lessons shared yet.';
+        box.innerHTML = '';
+        return;
+      }
+      const done = list.filter((l) => l.completed).length;
+      status.textContent = done + ' of ' + list.length + ' watched';
+      box.innerHTML = '<ul class="stu-list">' + list.map((l) => {
+        const meta = l.completed ? 'Completed' : (l.percent ? l.percent + '% watched' : 'New');
+        return '<li><a href="/student-lesson.html?lesson=' + encodeURIComponent(l.id) + '"><strong>' +
+          escapeHtml(l.title) + '</strong></a><div class="muted small">' + escapeHtml(meta) + '</div></li>';
+      }).join('') + '</ul>';
+    } catch (e) {
+      status.textContent = 'Could not load lessons.';
+      box.innerHTML = '';
+    }
+  }
+
   function renderHomework() {
     const hw = (dashboard && dashboard.homework) || {};
     if (!hw.available) {
@@ -692,6 +723,7 @@
       renderHome();
       renderHomework();
       renderDebrief();
+      loadLessons();
       renderDollars();
       if (window.SaltTimetable && $('stuTimetableMount')) {
         SaltTimetable.renderReadOnly(
