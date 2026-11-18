@@ -309,22 +309,29 @@ async function listByBook(bookId) {
 }
 
 /**
- * Student view: assignments for their class, with book summary fields.
- * Phase 3 will attach session completion status.
+ * Student view: assignments for their class, with book summary fields and the
+ * student's own oral-session status (assigned | in_progress | completed).
  */
-async function listForStudent(classId) {
+async function listForStudent(classId, studentId) {
   const list = await listByClass(classId);
   const enriched = [];
   for (const a of list) {
     enriched.push(await enrichFromBook(a));
   }
+  let statusByAssignment = {};
+  try {
+    const { statusMapForStudent } = require('./debriefSessionService');
+    statusByAssignment = await statusMapForStudent(studentId, enriched.map((a) => a.id));
+  } catch (_) { /* sessions optional for listing */ }
   return {
     available: true,
-    assignments: enriched.map((a) => ({
-      ...a,
-      status: 'assigned', // Phase 3: pending | in_progress | completed
-      canStartOral: false // Phase 3 flips this on
-    }))
+    assignments: enriched
+      .filter((a) => a.isVerified !== false)
+      .map((a) => {
+        const sess = statusByAssignment[a.id];
+        const status = sess === 'completed' ? 'completed' : (sess === 'active' ? 'in_progress' : 'assigned');
+        return { ...a, status, canStartOral: true };
+      })
   };
 }
 

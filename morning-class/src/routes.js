@@ -4899,9 +4899,137 @@ router.delete('/debrief/assignments/:assignmentId', requireRole('teacher', 'admi
 
 router.get('/student/debrief-assignments', requireRole('student'), async (req, res) => {
   try {
-    res.json(await debriefAssignments.listForStudent(req.session.classId));
+    res.json(await debriefAssignments.listForStudent(req.session.classId, req.session.studentId));
   } catch (e) {
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not load debrief assignments.' });
+  }
+});
+
+/* ── Oral Debrief sessions (Phase 3) ────────────────────────── */
+const debriefSessions = require('./services/debriefSessionService');
+const debriefStt = require('./services/debriefSttService');
+const { createRateLimiter } = require('./middleware/rateLimit');
+
+const debriefTurnLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyFn: (req) => 'debrief:' + ((req.session && req.session.studentId) || req.ip || 'unknown'),
+  message: '잠시 후 다시 시도해 주세요.'
+});
+
+const debriefAudioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: debriefStt.MAX_AUDIO_BYTES },
+  fileFilter: (req, file, cb) => {
+    const mime = String(file.mimetype || '').toLowerCase();
+    cb(mime.startsWith('audio/') || mime === 'video/webm' ? null : new Error('Audio files only.'), true);
+  }
+});
+
+function debriefStudent(req) {
+  return {
+    studentId: String(req.session.studentId || ''),
+    classId: String(req.session.classId || ''),
+    name: String(req.session.name || '')
+  };
+}
+
+router.get('/student/debrief/meta', requireRole('student'), (req, res) => {
+  res.json({ sttConfigured: debriefStt.isSttConfigured() });
+});
+
+router.post('/student/debrief/assignments/:assignmentId/session', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await debriefSessions.startSession(req.params.assignmentId, debriefStudent(req)));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not start session.' });
+  }
+});
+
+router.get('/student/debrief/sessions/:id', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await debriefSessions.getForStudent(req.params.id, req.session.studentId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load session.' });
+  }
+});
+
+router.post('/student/debrief/sessions/:id/turn', requireRole('student'), debriefTurnLimiter, async (req, res) => {
+  try {
+    res.json(await debriefSessions.submitAnswer(
+      req.params.id, req.session.studentId, req.body && req.body.text, 'text'
+    ));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not submit answer.' });
+  }
+});
+
+router.post('/student/debrief/sessions/:id/audio', requireRole('student'), debriefTurnLimiter, (req, res) => {
+  debriefAudioUpload.single('audio')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Invalid audio upload.' });
+    try {
+      if (!req.file) return res.status(400).json({ error: '녹음 파일이 없습니다.' });
+      const nouns = await debriefSessions.properNounsFor(req.params.id, req.session.studentId);
+      const text = await debriefStt.transcribe(req.file.buffer, req.file.mimetype, { properNouns: nouns });
+      if (!text) {
+        return res.status(422).json({ error: '말씀이 잘 들리지 않았어요. 다시 한 번 말해 주세요.' });
+      }
+      const result = await debriefSessions.submitAnswer(req.params.id, req.session.studentId, text, 'voice');
+      res.json(Object.assign({ transcript: text }, result));
+    } catch (e) {
+      res.status(e.statusCode || 500).json({ error: e.message || 'Could not process audio.' });
+    }
+  });
+});
+
+router.post('/student/debrief/sessions/:id/end', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await debriefSessions.endSession(req.params.id, req.session.studentId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not end session.' });
+  }
+});
+
+async function loadDebriefAssignmentForStaff(req) {
+  const a = await debriefAssignments.getAssignment(req.params.assignmentId);
+  if (!a) {
+    const err = new Error('Assignment not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (req.session && req.session.role === 'teacher') {
+    await assertTeacherClassAccess(req.session.teacherId, a.classId);
+  }
+  return a;
+}
+
+router.get('/debrief/assignments/:assignmentId/sessions', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const a = await loadDebriefAssignmentForStaff(req);
+    const sessionList = await debriefSessions.listByAssignment(a.id);
+    let roster = [];
+    try { roster = await getClassRoster(a.classId); } catch (_) { /* roster optional */ }
+    res.json({ assignment: a, sessions: sessionList, roster });
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not load sessions.' });
+  }
+});
+
+router.get('/debrief/assignments/:assignmentId/sessions/:sessionId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const a = await loadDebriefAssignmentForStaff(req);
+    res.json(await debriefSessions.getForTeacher(req.params.sessionId, a.id));
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not load session.' });
+  }
+});
+
+router.delete('/debrief/assignments/:assignmentId/sessions/:sessionId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const a = await loadDebriefAssignmentForStaff(req);
+    res.json(await debriefSessions.resetSession(req.params.sessionId, a.id));
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not reset session.' });
   }
 });
 

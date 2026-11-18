@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Oral Debrief — Salt Morning</title>
+  <meta name="theme-color" content="#0D2748">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root { --ink:#16233a; --muted:#5d6b82; --line:#d7e0ee; --navy:#0D2748; --teal:#12806f; --teal-soft:#e4f4f0; --coral:#c24a40; --paper:#f3f6fb; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin:0; font-family: system-ui, -apple-system, 'Noto Sans KR', sans-serif; color:var(--ink); background:var(--paper); display:flex; flex-direction:column; }
+    .hidden { display:none !important; }
+    header { background:var(--navy); color:#fff; padding:.7rem 1rem; display:flex; align-items:center; gap:.75rem; padding-top:calc(.7rem + env(safe-area-inset-top)); }
+    header a { color:#cfe0f5; text-decoration:none; font-size:.9rem; }
+    header .title { font-weight:700; font-size:1rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .progress { height:4px; background:#cfd9ea; }
+    .progress > div { height:100%; width:0; background:var(--teal); transition:width .4s; }
+    main { flex:1; overflow-y:auto; padding:1rem; max-width:760px; width:100%; margin:0 auto; }
+    .msg { display:flex; margin:.55rem 0; }
+    .msg .bubble { max-width:86%; padding:.65rem .85rem; border-radius:16px; line-height:1.45; font-size:1rem; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .msg.ai .bubble { background:#fff; border:1px solid var(--line); border-top-left-radius:4px; }
+    .msg.student { justify-content:flex-end; }
+    .msg.student .bubble { background:var(--teal); color:#fff; border-top-right-radius:4px; }
+    .msg .who { font-size:.7rem; color:var(--muted); margin:0 .3rem .15rem; }
+    .msg.student .who { text-align:right; }
+    .thinking { color:var(--muted); font-size:.9rem; padding:.4rem .2rem; }
+    .dock { background:#fff; border-top:1px solid var(--line); padding:.75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); }
+    .dock-inner { max-width:760px; margin:0 auto; }
+    .mic-row { display:flex; align-items:center; gap:.75rem; justify-content:center; }
+    .mic { width:72px; height:72px; border-radius:50%; border:none; background:var(--teal); color:#fff; font-size:1.6rem; cursor:pointer; box-shadow:0 6px 16px rgba(18,128,111,.35); }
+    .mic.rec { background:var(--coral); animation:pulse 1.2s infinite; box-shadow:0 6px 16px rgba(194,74,64,.4); }
+    .mic:disabled { opacity:.5; cursor:not-allowed; animation:none; }
+    @keyframes pulse { 50% { transform:scale(1.07); } }
+    .hint { text-align:center; color:var(--muted); font-size:.85rem; margin:.45rem 0 0; min-height:1.2em; }
+    .hint.error { color:var(--coral); font-weight:600; }
+    .text-row { display:flex; gap:.5rem; margin-top:.6rem; }
+    .text-row textarea { flex:1; resize:none; border:1px solid var(--line); border-radius:12px; padding:.55rem .7rem; font:inherit; min-height:44px; max-height:120px; }
+    .btn { border:none; border-radius:12px; padding:.55rem .9rem; font:inherit; font-weight:700; cursor:pointer; }
+    .btn-primary { background:var(--navy); color:#fff; }
+    .btn-ghost { background:#fff; border:1px solid var(--line); color:var(--navy); }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+    .tools { display:flex; justify-content:space-between; align-items:center; margin-top:.6rem; gap:.5rem; flex-wrap:wrap; }
+    .tools label { font-size:.82rem; color:var(--muted); display:flex; align-items:center; gap:.35rem; }
+    .done-card { background:var(--teal-soft); border:1px solid #bfe3da; border-radius:14px; padding:1rem; margin:1rem 0; text-align:center; }
+    .error-card { background:#fdeceb; border:1px solid #f3c5c1; color:var(--coral); border-radius:14px; padding:1rem; margin:1rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/student.html" id="backLink"><i class="fa-solid fa-chevron-left"></i> Back</a>
+    <div class="title" id="titleText">Oral Debrief</div>
+  </header>
+  <div class="progress"><div id="progressBar"></div></div>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <div class="dock" id="dock">
+    <div class="dock-inner">
+      <div class="mic-row" id="micRow">
+        <button type="button" class="mic" id="micBtn" aria-label="Record answer"><i class="fa-solid fa-microphone"></i></button>
+      </div>
+      <div class="hint" id="hint"></div>
+      <div class="text-row">
+        <textarea id="textInput" rows="1" placeholder="Or type your answer in English…" maxlength="2000"></textarea>
+        <button type="button" class="btn btn-primary" id="sendBtn">Send</button>
+      </div>
+      <div class="tools">
+        <label><input type="checkbox" id="ttsToggle" checked> Read questions aloud</label>
+        <button type="button" class="btn btn-ghost" id="endBtn">Finish early</button>
+      </div>
+    </div>
+  </div>
+
+<script src="/js/app.js?v=20260917session1"></script>
+<script>
+(function () {
+  'use strict';
+  var role = 'student';
+  var api = SaltApp.api, getToken = SaltApp.getToken, esc = SaltApp.escapeHtml;
+  var $ = function (id) { return document.getElementById(id); };
+
+  if (!getToken(role)) { location.replace('/'); return; }
+
+  var params = new URLSearchParams(location.search);
+  var assignmentId = params.get('assignment') || '';
+  var session = null;
+  var busy = false;
+  var sttConfigured = false;
+  var recorder = null, chunks = [], recStream = null, recTimer = null, recStarted = 0;
+  var MAX_REC_SEC = 90;
+
+  function setHint(msg, isError) {
+    $('hint').textContent = msg || '';
+    $('hint').classList.toggle('error', !!isError);
+  }
+
+  function setBusy(v) {
+    busy = v;
+    $('micBtn').disabled = v || !sttConfigured || !session || session.status !== 'active';
+    $('sendBtn').disabled = v;
+    $('textInput').disabled = v;
+  }
+
+  function speak(text) {
+    if (!$('ttsToggle').checked || !('speechSynthesis' in window) || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* optional */ }
+  }
+
+  function render() {
+    var chat = $('chat');
+    var html = '';
+    (session.turns || []).forEach(function (t) {
+      var isAi = t.role === 'ai';
+      html += '<div class="msg ' + (isAi ? 'ai' : 'student') + '"><div>' +
+        '<div class="who">' + (isAi ? 'Teacher' : 'You') + '</div>' +
+        '<div class="bubble">' + esc(t.text) + '</div></div></div>';
+    });
+    if (busy) html += '<div class="thinking"><i class="fa-solid fa-ellipsis fa-fade"></i> Listening…</div>';
+    if (session.status === 'completed') {
+      html += '<div class="done-card"><strong>Session complete.</strong><br>' +
+        'Great job! Your teacher will review your conversation.<br><br>' +
+        '<a class="btn btn-primary" href="/student.html" style="text-decoration:none;display:inline-block">Back to home</a></div>';
+    }
+    chat.innerHTML = html;
+    chat.scrollTop = chat.scrollHeight;
+
+    var total = session.planTotal || 0;
+    var pct = session.status === 'completed' ? 100 : (total ? Math.min(95, Math.round((session.planAsked - 1) / total * 100)) : 5);
+    $('progressBar').style.width = pct + '%';
+    $('dock').classList.toggle('hidden', session.status === 'completed');
+    $('micRow').classList.toggle('hidden', !sttConfigured);
+    $('micBtn').disabled = busy || !sttConfigured || session.status !== 'active';
+  }
+
+  function applyResult(data, speakReply) {
+    if (data.session) session = data.session;
+    render();
+    if (speakReply && data.reply) speak(data.reply);
+  }
+
+  async function sendText() {
+    var text = $('textInput').value.trim();
+    if (!text || busy || !session) return;
+    $('textInput').value = '';
+    session.turns.push({ role: 'student', text: text });
+    setBusy(true); setHint(''); render();
+    try {
+      var data = await api('/api/student/debrief/sessions/' + encodeURIComponent(session.id) + '/turn',
+        { method: 'POST', body: { text: text } }, role);
+      setBusy(false);
+      applyResult(data, true);
+    } catch (e) {
+      session.turns.pop();
+      $('textInput').value = text;
+      setBusy(false); render();
+      setHint(e.message || 'Could not send. Try again.', true);
+    }
+  }
+
+  function pickMime() {
+    var opts = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+    for (var i = 0; i < opts.length; i++) {
+      if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(opts[i])) return opts[i];
+    }
+    return '';
+  }
+
+  function stopTracks() {
+    if (recStream) { recStream.getTracks().forEach(function (t) { t.stop(); }); recStream = null; }
+    if (recTimer) { clearInterval(recTimer); recTimer = null; }
+  }
+
+  async function startRecording() {
+    if (busy || !session || session.status !== 'active') return;
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      setHint('This browser cannot record audio. Please type your answer.', true);
+      return;
+    }
+    try {
+      window.speechSynthesis && window.speechSynthesis.cancel();
+      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      setHint('Microphone permission is needed. You can type instead.', true);
+      return;
+    }
+    var mime = pickMime();
+    chunks = [];
+    recorder = mime ? new MediaRecorder(recStream, { mimeType: mime }) : new MediaRecorder(recStream);
+    recorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) chunks.push(ev.data); };
+    recorder.onstop = onRecordingStopped;
+    recorder.start();
+    recStarted = Date.now();
+    $('micBtn').classList.add('rec');
+    $('micBtn').innerHTML = '<i class="fa-solid fa-stop"></i>';
+    recTimer = setInterval(function () {
+      var sec = Math.floor((Date.now() - recStarted) / 1000);
+      setHint('Recording… ' + sec + 's — tap to stop');
+      if (sec >= MAX_REC_SEC) stopRecording();
+    }, 250);
+  }
+
+  function stopRecording() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }
+
+  async function onRecordingStopped() {
+    var mime = (recorder && recorder.mimeType) || 'audio/webm';
+    var blob = new Blob(chunks, { type: mime });
+    var tooShort = (Date.now() - recStarted) < 700;
+    stopTracks();
+    $('micBtn').classList.remove('rec');
+    $('micBtn').innerHTML = '<i class="fa-solid fa-microphone"></i>';
+    if (tooShort || !blob.size) { setHint('Too short — tap and speak a little longer.', true); return; }
+
+    setBusy(true); setHint('Understanding your answer…'); render();
+    try {
+      var fd = new FormData();
+      fd.append('audio', blob, 'answer.webm');
+      var data = await api('/api/student/debrief/sessions/' + encodeURIComponent(session.id) + '/audio',
+        { method: 'POST', body: fd }, role);
+      setBusy(false); setHint('');
+      applyResult(data, true);
+    } catch (e) {
+      setBusy(false); render();
+      setHint(e.message || 'Could not understand. Try again or type.', true);
+    }
+  }
+
+  $('micBtn').addEventListener('click', function () {
+    if (recorder && recorder.state === 'recording') stopRecording();
+    else startRecording();
+  });
+  $('sendBtn').addEventListener('click', sendText);
+  $('textInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendText(); }
+  });
+  $('endBtn').addEventListener('click', async function () {
+    if (!session || busy) return;
+    if (!confirm('Finish the session now? You cannot restart it.')) return;
+    setBusy(true);
+    try {
+      session = await api('/api/student/debrief/sessions/' + encodeURIComponent(session.id) + '/end',
+        { method: 'POST' }, role);
+      setBusy(false); render();
+    } catch (e) { setBusy(false); setHint(e.message, true); }
+  });
+
+  async function boot() {
+    if (!assignmentId) {
+      $('chat').innerHTML = '<div class="error-card">No assignment selected.</div>';
+      $('dock').classList.add('hidden');
+      return;
+    }
+    try {
+      var meta = await api('/api/student/debrief/meta', {}, role);
+      sttConfigured = !!meta.sttConfigured;
+      session = await api('/api/student/debrief/assignments/' + encodeURIComponent(assignmentId) + '/session',
+        { method: 'POST' }, role);
+      render();
+      setHint(sttConfigured ? 'Tap the microphone and answer out loud.' : 'Type your answers in English.');
+      var last = session.turns[session.turns.length - 1];
+      if (session.status === 'active' && last && last.role === 'ai' && session.turns.length === 1) speak(last.text);
+    } catch (e) {
+      $('chat').innerHTML = '<div class="error-card">' + esc(e.message || 'Could not start.') + '</div>';
+      $('dock').classList.add('hidden');
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
