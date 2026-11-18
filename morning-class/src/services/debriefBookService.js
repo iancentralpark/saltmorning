@@ -571,5 +571,6 @@ module.exports = {
   setVerified,
   updateProfile,
   deleteBook,
-  extractPdfText
+  extractPdfText,
+  askClaudeJson
 };

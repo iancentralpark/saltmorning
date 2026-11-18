@@ -97,6 +97,14 @@
       background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font-size: .84rem;
     }
     .assign-item .meta { margin-top: .15rem; }
+    .results-box { margin-top: .75rem; padding: .8rem; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+    .results-box h4 { margin: 0 0 .5rem; font-size: .9rem; color: var(--accent); }
+    .res-row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid #eef1f7; font-size: .84rem; }
+    .res-row:last-child { border-bottom: 0; }
+    .transcript { margin-top: .6rem; padding: .7rem; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; max-height: 50vh; overflow: auto; font-size: .84rem; line-height: 1.45; }
+    .turn { margin: .35rem 0; }
+    .turn b { color: var(--accent); }
+    .turn.student b { color: var(--ok); }
   </style>
 </head>
 <body>
@@ -168,6 +176,7 @@
             </div>
           </div>
           <div class="assign-list" id="assignList"></div>
+          <div class="results-box hidden" id="resultsBox"></div>
         </div>
       </section>
     </div>
@@ -276,6 +285,7 @@
       return;
     }
     box.classList.remove('hidden');
+    $('resultsBox').classList.add('hidden');
     var verified = !!book.isVerified;
     $('assignForm').classList.toggle('hidden', !verified);
     $('assignHint').textContent = verified
@@ -300,8 +310,13 @@
         '<div><strong>' + escapeHtml(classLabel(a.classId)) + '</strong>' +
         '<div class="meta">' + escapeHtml(a.title || '') +
         (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
-        '<button type="button" class="btn btn-ghost btn-sm assign-del" data-id="' + escapeHtml(a.id) + '">해제</button></div>';
+        '<div class="actions" style="margin:0">' +
+        '<button type="button" class="btn btn-ghost btn-sm assign-results" data-id="' + escapeHtml(a.id) + '">결과 보기</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm assign-del" data-id="' + escapeHtml(a.id) + '">해제</button></div></div>';
     }).join('');
+    mount.querySelectorAll('.assign-results').forEach(function (btn) {
+      btn.addEventListener('click', function () { showResults(btn.getAttribute('data-id')); });
+    });
     mount.querySelectorAll('.assign-del').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = btn.getAttribute('data-id');
@@ -311,6 +326,81 @@
           loadAssignments(current && current.id);
         }).catch(function (e) { setStatus(e.message, 'error'); });
       });
+    });
+  }
+
+  function fmtTime(ms) {
+    if (!ms) return '';
+    try { return new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+
+  function sessionPill(s) {
+    if (!s) return '<span class="pill">미시작</span>';
+    if (s.status === 'completed') return '<span class="pill ok">완료</span>';
+    return '<span class="pill warn">진행 중</span>';
+  }
+
+  function showResults(assignmentId) {
+    var box = $('resultsBox');
+    box.classList.remove('hidden');
+    box.innerHTML = '<p class="hint">불러오는 중…</p>';
+    api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions').then(function (data) {
+      var sessions = data.sessions || [];
+      var byStudent = {};
+      sessions.forEach(function (s) { byStudent[s.studentId] = s; });
+      var rows = [];
+      (data.roster || []).forEach(function (st) {
+        rows.push({ studentId: st.studentId, name: st.name, session: byStudent[st.studentId] });
+        delete byStudent[st.studentId];
+      });
+      Object.keys(byStudent).forEach(function (sid) {
+        var s = byStudent[sid];
+        rows.push({ studentId: sid, name: s.studentName || sid, session: s });
+      });
+      var done = sessions.filter(function (s) { return s.status === 'completed'; }).length;
+      var html = '<h4>' + escapeHtml((data.assignment && data.assignment.title) || '') + ' — ' +
+        done + '/' + (rows.length || sessions.length) + ' 완료</h4>';
+      if (!rows.length) html += '<p class="hint">아직 시작한 학생이 없습니다.</p>';
+      html += rows.map(function (r) {
+        var s = r.session;
+        return '<div class="res-row"><div><strong>' + escapeHtml(r.name) + '</strong> ' + sessionPill(s) +
+          (s ? '<span class="meta"> 답변 ' + (s.studentTurns || 0) + '개 · ' + fmtTime(s.updatedAt) + '</span>' : '') + '</div>' +
+          (s ? '<div class="actions" style="margin:0">' +
+            '<button type="button" class="btn btn-ghost btn-sm res-view" data-sid="' + escapeHtml(s.id) + '">대화 보기</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm res-reset" data-sid="' + escapeHtml(s.id) + '">초기화</button></div>' : '') +
+          '</div>';
+      }).join('');
+      html += '<div id="transcriptMount"></div>';
+      box.innerHTML = html;
+      box.querySelectorAll('.res-view').forEach(function (b) {
+        b.addEventListener('click', function () { showTranscript(assignmentId, b.getAttribute('data-sid')); });
+      });
+      box.querySelectorAll('.res-reset').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (!confirm('이 학생의 세션을 삭제하고 처음부터 다시 하게 할까요?')) return;
+          api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(b.getAttribute('data-sid')), { method: 'DELETE' })
+            .then(function () { setStatus('세션 초기화됨', 'ok'); showResults(assignmentId); })
+            .catch(function (e) { setStatus(e.message, 'error'); });
+        });
+      });
+    }).catch(function (e) {
+      box.innerHTML = '<p class="hint">' + escapeHtml(e.message || '결과를 불러오지 못했습니다.') + '</p>';
+    });
+  }
+
+  function showTranscript(assignmentId, sessionId) {
+    var mount = $('transcriptMount');
+    mount.innerHTML = '<p class="hint">불러오는 중…</p>';
+    api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(sessionId)).then(function (s) {
+      mount.innerHTML = '<div class="transcript"><strong>' + escapeHtml(s.studentName || '') + '</strong>' +
+        (s.turns || []).map(function (t) {
+          var ai = t.role === 'ai';
+          return '<div class="turn ' + (ai ? 'ai' : 'student') + '"><b>' + (ai ? 'AI' : '학생') +
+            (t.source === 'voice' ? ' 🎤' : '') + ':</b> ' + escapeHtml(t.text) + '</div>';
+        }).join('') + '</div>';
+    }).catch(function (e) {
+      mount.innerHTML = '<p class="hint">' + escapeHtml(e.message) + '</p>';
     });
   }
 

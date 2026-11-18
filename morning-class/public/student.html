@@ -464,7 +464,10 @@
       box.innerHTML = '';
       return;
     }
-    status.textContent = list.length + ' book debrief' + (list.length === 1 ? '' : 's') + ' assigned';
+    const open = list.filter((a) => a.status !== 'completed').length;
+    status.textContent = open
+      ? open + ' book debrief' + (open === 1 ? '' : 's') + ' to do'
+      : 'All debriefs completed!';
     box.innerHTML = '<ul class="stu-list">' + list.map((a) => {
       const book = a.bookTitle || a.title || 'Book';
       const due = a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '';
@@ -474,9 +477,12 @@
       const instr = a.customInstructions
         ? '<div class="muted small">' + escapeHtml(a.customInstructions) + '</div>'
         : '';
+      const label = a.status === 'completed' ? 'View my conversation'
+        : (a.status === 'in_progress' ? 'Continue oral debrief' : 'Start oral debrief');
       const cta = a.canStartOral
-        ? '<div><button type="button" class="btn btn-primary btn-sm" disabled>Start oral debrief</button></div>'
-        : '<div class="muted small">Oral session opens soon — profile ready</div>';
+        ? '<div style="margin-top:.4rem"><a class="btn btn-primary btn-sm" href="/student-debrief.html?assignment=' +
+          encodeURIComponent(a.id) + '">' + label + '</a></div>'
+        : '<div class="muted small">Oral session is not available yet</div>';
       return '<li><strong>' + escapeHtml(a.title || book) + '</strong>' +
         '<div class="muted small">' + escapeHtml(book) +
         (a.bookAuthor ? ' · ' + escapeHtml(a.bookAuthor) : '') + due + '</div>' +

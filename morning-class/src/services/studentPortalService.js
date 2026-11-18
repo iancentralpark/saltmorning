@@ -58,7 +58,7 @@ async function getStudentDashboard(session) {
   }
 
   try {
-    debrief = await listDebriefAssignments(classId);
+    debrief = await listDebriefAssignments(classId, studentId);
   } catch (e) {
     debrief = { available: false, assignments: [] };
   }
