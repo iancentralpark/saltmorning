@@ -4934,8 +4934,30 @@ function debriefStudent(req) {
   };
 }
 
+const debriefTts = require('./services/debriefTtsService');
+const debriefTtsLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyFn: (req) => 'debrief-tts:' + ((req.session && req.session.studentId) || req.ip || 'unknown'),
+  message: '잠시 후 다시 시도해 주세요.'
+});
+
 router.get('/student/debrief/meta', requireRole('student'), (req, res) => {
-  res.json({ sttConfigured: debriefStt.isSttConfigured() });
+  res.json({
+    sttConfigured: debriefStt.isSttConfigured(),
+    ttsConfigured: debriefTts.isConfigured()
+  });
+});
+
+router.post('/student/debrief/tts', requireRole('student'), debriefTtsLimiter, async (req, res) => {
+  try {
+    const out = await debriefTts.synthesize(req.body && req.body.text);
+    res.set('Content-Type', out.mimeType);
+    res.set('Cache-Control', 'no-store');
+    res.send(out.buffer);
+  } catch (e) {
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not synthesize speech.' });
+  }
 });
 
 router.post('/student/debrief/assignments/:assignmentId/session', requireRole('student'), async (req, res) => {
