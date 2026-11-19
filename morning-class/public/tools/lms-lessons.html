@@ -67,6 +67,14 @@
     .progress-box .pr:last-child { border-bottom: 0; }
     .empty { text-align: center; color: var(--muted); padding: 1.5rem .5rem; }
     .banner { background: #fff4d8; border: 1px solid #f0dca0; color: var(--warn); border-radius: 12px; padding: .7rem .9rem; margin-bottom: 1rem; font-size: .88rem; }
+    .student-pick {
+      max-height: 11rem; overflow: auto; border: 1px solid var(--line); border-radius: 10px;
+      padding: .45rem .55rem; background: #fff; margin-top: .25rem;
+    }
+    .student-pick label {
+      display: flex; flex-direction: row; align-items: center; gap: .45rem;
+      font-size: .82rem; font-weight: 500; color: var(--ink); margin: .2rem 0;
+    }
   </style>
 </head>
 <body>
@@ -90,6 +98,9 @@
         <label>영상 파일 <input type="file" id="fileInput" accept="video/*"></label>
       </div>
       <label>설명 (선택) <textarea id="descInput" maxlength="2000" placeholder="학생에게 보여줄 안내 / 숙제 / 자료 링크"></textarea></label>
+      <label>배정 학생 (비우면 반 전체)
+        <div id="lessonStudentPick" class="student-pick"><span class="hint">반을 선택하면 명단이 표시됩니다.</span></div>
+      </label>
       <div class="actions">
         <button type="button" class="btn btn-primary" id="btnUpload" disabled>업로드</button>
       </div>
@@ -116,6 +127,7 @@
   var pollTimer = null;
   var uploading = false;
   var MAX_BYTES = 200 * 1024 * 1024;
+  var rosterByClass = {};
 
   function token() {
     try {
@@ -158,6 +170,51 @@
     return m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  function selectedLessonStudentIds() {
+    var box = $('lessonStudentPick');
+    if (!box) return null;
+    var ids = Array.prototype.map.call(box.querySelectorAll('input[type=checkbox]:checked'), function (el) {
+      return el.value;
+    }).filter(Boolean);
+    return ids.length ? ids : null;
+  }
+
+  function renderLessonStudentPick(students) {
+    var box = $('lessonStudentPick');
+    if (!box) return;
+    students = students || [];
+    if (!classId) {
+      box.innerHTML = '<span class="hint">반을 선택하면 명단이 표시됩니다.</span>';
+      return;
+    }
+    if (!students.length) {
+      box.innerHTML = '<span class="hint">이 반에 학생이 없습니다.</span>';
+      return;
+    }
+    box.innerHTML = students.map(function (st) {
+      var id = st.studentId || st.id;
+      return '<label><input type="checkbox" value="' + esc(id) + '"> ' +
+        esc(st.name || id) + ' <span style="color:var(--muted);font-size:.75rem">(' + esc(id) + ')</span></label>';
+    }).join('');
+  }
+
+  function loadRosterForLesson(cid) {
+    cid = String(cid || '').trim();
+    if (!cid) { renderLessonStudentPick([]); return Promise.resolve(); }
+    if (rosterByClass[cid]) { renderLessonStudentPick(rosterByClass[cid]); return Promise.resolve(); }
+    $('lessonStudentPick').innerHTML = '<span class="hint">명단 불러오는 중…</span>';
+    var url = isAdminSession()
+      ? '/api/admin/classes/' + encodeURIComponent(cid)
+      : '/api/teacher/class/' + encodeURIComponent(cid) + '/roster';
+    return api(url).then(function (data) {
+      var students = data.students || (data.class && data.class.students) || [];
+      rosterByClass[cid] = students;
+      renderLessonStudentPick(students);
+    }).catch(function () {
+      $('lessonStudentPick').innerHTML = '<span class="hint">명단을 불러오지 못했습니다.</span>';
+    });
+  }
+
   function statePill(l) {
     if (l.status === 'ready') return l.published ? '<span class="pill ok">공개 중</span>' : '<span class="pill gray">비공개</span>';
     if (l.status === 'error') return '<span class="pill err">처리 실패</span>';
@@ -173,6 +230,9 @@
       var dur = l.durationSeconds ? '<span>' + fmtDuration(l.durationSeconds) + '</span>' : '';
       var seen = l.status === 'ready'
         ? '<span>시청 시작 ' + l.startedCount + '명 · 완료 ' + l.completedCount + '명</span>' : '';
+      var target = l.targeted
+        ? '<span class="pill gray">' + ((l.studentIds || []).length) + '명 지정</span>'
+        : '<span class="pill gray">반 전체</span>';
       var err = l.statusMessage ? '<div class="desc" style="color:var(--coral)">' + esc(l.statusMessage) + '</div>' : '';
       var toggle = l.status === 'ready'
         ? (l.published
@@ -182,13 +242,14 @@
       return '<div class="lesson" data-id="' + esc(l.id) + '">' +
         '<div class="no">' + (i + 1) + '</div>' +
         '<div><h3>' + esc(l.title) + '</h3>' +
-        '<div class="meta">' + statePill(l) + dur + seen + '</div>' +
+        '<div class="meta">' + statePill(l) + target + dur + seen + '</div>' +
         (l.description ? '<div class="desc">' + esc(l.description) + '</div>' : '') + err +
         '<div id="prog_' + esc(l.id) + '"></div></div>' +
         '<div class="lesson-actions">' + toggle +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="rename" data-id="' + esc(l.id) + '">제목 수정</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="up" data-id="' + esc(l.id) + '"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="down" data-id="' + esc(l.id) + '"' + (i === lessons.length - 1 ? ' disabled' : '') + '>▼</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="targets" data-id="' + esc(l.id) + '">배정 학생</button>' +
         (l.status === 'ready' ? '<button type="button" class="btn btn-ghost btn-sm" data-act="progress" data-id="' + esc(l.id) + '">시청 현황</button>' : '') +
         '<button type="button" class="btn btn-danger btn-sm" data-act="delete" data-id="' + esc(l.id) + '">삭제</button>' +
         '</div></div>';
@@ -246,6 +307,7 @@
   function onClassChange() {
     classId = $('classSelect').value;
     updateUploadState();
+    loadRosterForLesson(classId);
     loadLessons();
   }
 
@@ -274,8 +336,9 @@
     $('uploadBar').style.width = '0%';
     setStatus('업로드 준비 중…');
     var created = null;
+    var studentIds = selectedLessonStudentIds();
     api('/api/lms/classes/' + encodeURIComponent(classId) + '/lessons', {
-      method: 'POST', body: { title: title, description: $('descInput').value }
+      method: 'POST', body: { title: title, description: $('descInput').value, studentIds: studentIds }
     }).then(function (r) {
       created = r;
       setStatus('업로드 중… 창을 닫지 마세요.');
@@ -333,7 +396,18 @@
         .then(loadLessons).catch(function (e) { setStatus(e.message, 'error'); });
     } else if (act === 'up') move(id, -1);
     else if (act === 'down') move(id, 1);
-    else if (act === 'progress') showProgress(id);
+    else if (act === 'targets' && l) {
+      var current = (l.studentIds || []).slice();
+      var pick = window.prompt(
+        '배정할 학생 ID를 쉼표로 입력하세요. 비우면 반 전체.\n현재: ' + (current.length ? current.join(', ') : '반 전체'),
+        current.join(', ')
+      );
+      if (pick == null) return;
+      var ids = pick.split(/[,\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      api('/api/lms/lessons/' + encodeURIComponent(id) + '/students', {
+        method: 'PUT', body: { studentIds: ids }
+      }).then(loadLessons).catch(function (e) { setStatus(e.message, 'error'); });
+    } else if (act === 'progress') showProgress(id);
     else if (act === 'delete' && l) {
       if (!window.confirm('"' + l.title + '" 강의를 삭제할까요? 영상과 학생 시청 기록이 모두 사라집니다.')) return;
       api('/api/lms/lessons/' + encodeURIComponent(id), { method: 'DELETE' })
