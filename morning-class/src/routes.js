@@ -5006,13 +5006,11 @@ router.get('/student/debrief/sessions/:id', requireRole('student'), async (req, 
 });
 
 router.post('/student/debrief/sessions/:id/turn', requireRole('student'), debriefTurnLimiter, async (req, res) => {
-  try {
-    res.json(await debriefSessions.submitAnswer(
-      req.params.id, req.session.studentId, req.body && req.body.text, 'text'
-    ));
-  } catch (e) {
-    res.status(e.statusCode || 500).json({ error: e.message || 'Could not submit answer.' });
-  }
+  // Oral Debrief is voice-only; typed answers are rejected so the UI cannot be bypassed.
+  return res.status(403).json({
+    error: 'Please answer out loud with the microphone.',
+    code: 'voice_only'
+  });
 });
 
 router.post('/student/debrief/sessions/:id/audio', requireRole('student'), debriefTurnLimiter, (req, res) => {

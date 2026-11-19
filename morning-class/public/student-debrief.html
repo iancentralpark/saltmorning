@@ -45,9 +45,9 @@
     .mic-label { font-size:.8rem; font-weight:700; color:var(--navy); text-align:center; margin-top:.7rem; min-height:1.1em; }
     .hint { text-align:center; color:var(--muted); font-size:.85rem; margin:.45rem 0 0; min-height:1.2em; }
     .hint.error { color:var(--coral); font-weight:600; }
-    .text-row { display:flex; gap:.5rem; margin-top:.6rem; }
-    .text-row textarea { flex:1; resize:none; border:1px solid var(--line); border-radius:12px; padding:.55rem .7rem; font:inherit; min-height:44px; max-height:120px; }
     .btn { border:none; border-radius:12px; padding:.55rem .9rem; font:inherit; font-weight:700; cursor:pointer; }
+    .bubble .caret { display:inline-block; width:.08em; height:1em; margin-left:.05em; background:currentColor; vertical-align:-.1em; animation:blink 1s step-end infinite; }
+    @keyframes blink { 50% { opacity:0; } }
     .btn-primary { background:var(--navy); color:#fff; }
     .btn-ghost { background:#fff; border:1px solid var(--line); color:var(--navy); }
     .btn:disabled { opacity:.5; cursor:not-allowed; }
@@ -83,10 +83,6 @@
       </div>
       <div class="mic-label" id="micLabel"></div>
       <div class="hint" id="hint"></div>
-      <div class="text-row">
-        <textarea id="textInput" rows="1" placeholder="Or type your answer in English…" maxlength="2000"></textarea>
-        <button type="button" class="btn btn-primary" id="sendBtn">Send</button>
-      </div>
       <div class="tools">
         <label><input type="checkbox" id="ttsToggle" checked> Read questions aloud (natural voice)</label>
         <button type="button" class="btn btn-ghost" id="endBtn">Finish early</button>
@@ -111,6 +107,16 @@
   var sttConfigured = false;
   var ttsConfigured = false;
   var preferredVoice = null;
+  /* Stagger student transcript vs teacher reply; type the AI bubble while it speaks. */
+  var reveal = {
+    hideLastAi: false,
+    typing: false,
+    full: '',
+    shown: 0,
+    timer: null,
+    gen: 0,
+    onDone: null
+  };
 
   function setHint(msg, isError) {
     $('hint').textContent = msg || '';
@@ -121,8 +127,6 @@
 
   function setBusy(v) {
     busy = v;
-    $('sendBtn').disabled = v;
-    $('textInput').disabled = v;
     refreshMic();
   }
 
@@ -183,9 +187,61 @@
     clearSpeech();
   }
 
+  function cancelTypewriter(finishText) {
+    if (reveal.timer) { clearInterval(reveal.timer); reveal.timer = null; }
+    var done = reveal.onDone;
+    reveal.onDone = null;
+    if (reveal.typing) {
+      reveal.typing = false;
+      if (finishText && reveal.full) reveal.shown = reveal.full.length;
+      reveal.hideLastAi = false;
+      render();
+    }
+    reveal.gen++;
+    if (done) done();
+  }
+
+  function startTypewriter(text, thenSpeak) {
+    cancelTypewriter(false);
+    var gen = ++reveal.gen;
+    reveal.full = String(text || '');
+    reveal.shown = 0;
+    reveal.typing = true;
+    reveal.hideLastAi = false;
+    reveal.onDone = null;
+    render();
+    // ~14 chars/sec tracks a natural speaking pace for short teacher lines.
+    var ms = Math.max(22, Math.min(55, Math.round(900 / Math.max(8, reveal.full.length / 12))));
+    reveal.timer = setInterval(function () {
+      if (gen !== reveal.gen) return;
+      reveal.shown = Math.min(reveal.full.length, reveal.shown + 1);
+      // Patch only the live bubble when possible to avoid rebuilding the whole chat.
+      var bubble = document.getElementById('liveAiBubble');
+      if (bubble) {
+        bubble.innerHTML = esc(reveal.full.slice(0, reveal.shown)) +
+          (reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '');
+        $('chat').scrollTop = $('chat').scrollHeight;
+      } else {
+        render();
+      }
+      if (reveal.shown >= reveal.full.length) {
+        clearInterval(reveal.timer); reveal.timer = null;
+        reveal.typing = false;
+        render();
+        var voiceBusy = !!(speechTimer || ttsAbort || liveVoice);
+        if (hf.on && (hf.state === 'speaking' || hf.state === 'thinking') && !voiceBusy) {
+          setState('listening');
+        }
+      }
+    }, ms);
+    if (thenSpeak) thenSpeak();
+  }
+
   function finishSpeech(gen) {
     if (gen !== speechGen) return;
     stopSpeech();
+    // Keep the mic closed until the bubble has finished typing.
+    if (reveal.typing) return;
     if (hf.on && hf.state === 'speaking') setState('listening');
   }
 
@@ -571,12 +627,12 @@
     if (res && res.status === 422) {
       hf.misses++;
       msg = hf.misses >= 2
-        ? 'Still hard to hear you. Move closer to the microphone, or type your answer.'
+        ? 'Still hard to hear you. Move closer to the microphone, then try again.'
         : "I didn't catch that. Please say it again.";
     } else if (res && res.status === 429) {
-      msg = 'The voice service is busy. Wait a few seconds and say it again, or type.';
+      msg = 'The voice service is busy. Wait a few seconds and say it again, then try again.';
     } else {
-      msg = (data && data.error) || 'Could not send your answer. Please say it again or type.';
+      msg = (data && data.error) || 'Could not send your answer. Please say it again then try again.';
     }
     if (hf.on) setState('listening', msg, true); else setHint(msg, true);
   }
@@ -590,7 +646,7 @@
     if (hf.on || hf.starting || !sessionActive()) return;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AC) {
-      setHint('This browser cannot use the microphone. Please type your answer.', true);
+      setHint('This browser cannot use the microphone. Please use the microphone.', true);
       return;
     }
     hf.starting = true; refreshMic();
@@ -600,7 +656,7 @@
       });
     } catch (e) {
       hf.starting = false; refreshMic();
-      setHint('Microphone permission is needed. You can type instead.', true);
+      setHint('Microphone permission is needed. Please allow the microphone to continue.', true);
       return;
     }
     try {
@@ -633,7 +689,7 @@
       });
     } catch (e) {
       hf.starting = false;
-      stopHandsFree('Could not start the microphone. Please type your answer.', true);
+      stopHandsFree('Could not start the microphone. Please use the microphone.', true);
       return;
     }
     hf.starting = false;
@@ -663,21 +719,36 @@
 
   function onMicTap() {
     if (!hf.on) { startHandsFree(); return; }
-    if (hf.state === 'speaking') { stopSpeech(); setState('listening'); }
+    if (hf.state === 'speaking') {
+      stopSpeech();
+      if (reveal.typing) { reveal.shown = reveal.full.length; cancelTypewriter(true); }
+      setState('listening');
+    }
     else if (hf.state === 'hearing') { hf.silenceMs = 0; finishUtterance(); }
-    else if (hf.state === 'listening') { stopSpeech(); stopHandsFree('Microphone is off. Tap it to talk again, or type.'); }
+    else if (hf.state === 'listening') { stopSpeech(); stopHandsFree('Microphone is off. Tap it to talk again, then try again.'); }
   }
 
   function render() {
     var chat = $('chat');
     var html = '';
-    (session.turns || []).forEach(function (t) {
+    var turns = session.turns || [];
+    turns.forEach(function (t, idx) {
       var isAi = t.role === 'ai';
+      var isLast = idx === turns.length - 1;
+      if (reveal.hideLastAi && isLast && isAi) return;
+      var text = t.text;
+      var live = false;
+      if (reveal.typing && isLast && isAi) {
+        text = reveal.full.slice(0, reveal.shown);
+        live = true;
+      }
       html += '<div class="msg ' + (isAi ? 'ai' : 'student') + '"><div>' +
         '<div class="who">' + (isAi ? 'Teacher' : 'You') + '</div>' +
-        '<div class="bubble">' + esc(t.text) + '</div></div></div>';
+        '<div class="bubble"' + (live ? ' id="liveAiBubble"' : '') + '>' + esc(text) +
+        (live && reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '') +
+        '</div></div></div>';
     });
-    if (busy) html += '<div class="thinking"><i class="fa-solid fa-ellipsis fa-fade"></i> Thinking…</div>';
+    if (busy || reveal.hideLastAi) html += '<div class="thinking"><i class="fa-solid fa-ellipsis fa-fade"></i> Thinking…</div>';
     if (session.status === 'completed') {
       html += '<div class="done-card"><strong>Session complete.</strong><br>' +
         (session.reportReleased && session.grade
@@ -716,39 +787,31 @@
 
   function applyResult(data, speakReply) {
     if (data.session) session = data.session;
-    if (!sessionActive()) {
-      if (hf.on) stopHandsFree('');
+    var reply = (speakReply && data.reply) ? String(data.reply) : '';
+    var done = !sessionActive();
+    if (done && hf.on) stopHandsFree('');
+
+    if (!reply) {
+      reveal.hideLastAi = false;
+      cancelTypewriter(true);
       render();
-      if (speakReply && data.reply) speak(data.reply);
+      if (hf.on && sessionActive()) setState('listening');
       return;
     }
-    render();
-    // Listening resumes right away, so a student who starts answering before the
-    // voice has loaded is heard and the late voice is dropped.
-    if (hf.on) setState('listening');
-    if (speakReply && data.reply) speak(data.reply);
-  }
 
-  async function sendText() {
-    var text = $('textInput').value.trim();
-    if (!text || busy || !session) return;
-    $('textInput').value = '';
-    session.turns.push({ role: 'student', text: text });
-    stopSpeech();
-    if (hf.on) setState('thinking'); else setHint('');
-    setBusy(true); render();
-    try {
-      var data = await api('/api/student/debrief/sessions/' + encodeURIComponent(session.id) + '/turn',
-        { method: 'POST', body: { text: text } }, role);
-      setBusy(false);
-      applyResult(data, true);
-    } catch (e) {
-      session.turns.pop();
-      $('textInput').value = text;
-      setBusy(false); render();
-      var msg = e.message || 'Could not send. Try again.';
-      if (hf.on) setState('listening', msg, true); else setHint(msg, true);
-    }
+    // 1) Show the student's transcript first (hide the new AI turn briefly).
+    reveal.hideLastAi = true;
+    cancelTypewriter(false);
+    render();
+    if (hf.on && sessionActive()) setState('thinking', 'Teacher is thinking…');
+
+    var delay = done ? 400 : 700;
+    setTimeout(function () {
+      if (!session) return;
+      // 2) Reveal the AI bubble by typing while the voice plays.
+      startTypewriter(reply, function () { speak(reply); });
+      if (hf.on && sessionActive()) setState('speaking');
+    }, delay);
   }
 
   $('micBtn').addEventListener('click', onMicTap);
@@ -757,17 +820,13 @@
     stopSpeech();
     if (hf.on && hf.state === 'speaking') setState('listening');
   });
-  window.addEventListener('pagehide', function () { stopSpeech(); if (hf.on) stopHandsFree(); });
+  window.addEventListener('pagehide', function () { stopSpeech(); cancelTypewriter(false); if (hf.on) stopHandsFree(); });
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || !hf.on || !hf.ctx) return;
     // Phones suspend audio capture in the background; pick it back up on return.
     if (hf.ctx.state !== 'running') hf.ctx.resume().catch(function () {
       stopHandsFree('Microphone stopped. Tap it to talk again.', true);
     });
-  });
-  $('sendBtn').addEventListener('click', sendText);
-  $('textInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendText(); }
   });
   $('endBtn').addEventListener('click', async function () {
     if (!session || busy) return;
@@ -796,9 +855,16 @@
       session = await api('/api/student/debrief/assignments/' + encodeURIComponent(assignmentId) + '/session',
         { method: 'POST' }, role);
       render();
-      setHint(sttConfigured ? STATE_TEXT.off[1] : 'Type your answers in English.');
+      if (!sttConfigured) {
+        setHint('Voice recognition is not available right now. Please try again later.', true);
+        $('micRow').classList.add('hidden');
+      } else {
+        setHint(STATE_TEXT.off[1]);
+      }
       var last = session.turns[session.turns.length - 1];
-      if (session.status === 'active' && last && last.role === 'ai' && session.turns.length === 1) speak(last.text);
+      if (session.status === 'active' && last && last.role === 'ai' && session.turns.length === 1) {
+        startTypewriter(last.text, function () { speak(last.text); });
+      }
     } catch (e) {
       $('chat').innerHTML = '<div class="error-card">' + esc(e.message || 'Could not start.') + '</div>';
       $('dock').classList.add('hidden');
