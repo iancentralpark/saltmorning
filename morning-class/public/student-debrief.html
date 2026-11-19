@@ -168,7 +168,7 @@
     refreshMic();
   }
 
-  /* Salt buddy avatar — emotion sprites + talking loop synced to TTS. */
+  /* Salt buddy avatar — emotion sprites + Higgsfield loops synced to TTS. */
   var BUDDY = {
     idle: '/img/salt-buddy/idle-512.png',
     listening: '/img/salt-buddy/listening.png',
@@ -176,8 +176,92 @@
     happy: '/img/salt-buddy/happy.png',
     talking: '/img/salt-buddy/talking.png'
   };
+  /* Per-mood video bases (Higgsfield). speaking uses talking-loop (always shipped).
+     Extra moods light up after generate-salt-buddy-higgsfield.sh writes *-loop.mp4. */
+  var BUDDY_VIDEO = {
+    speaking: '/img/salt-buddy/talking-loop',
+    listening: '/img/salt-buddy/listening-loop',
+    thinking: '/img/salt-buddy/thinking-loop',
+    happy: '/img/salt-buddy/happy-loop'
+  };
   var buddyMood = 'idle';
   var buddyTalkTimer = null;
+  var buddyVideoBase = '';
+  var buddyVideoOk = { speaking: true }; // talking-loop always present
+
+  function probeBuddyVideos() {
+    ['listening', 'thinking', 'happy'].forEach(function (mood) {
+      var base = BUDDY_VIDEO[mood];
+      if (!base) return;
+      fetch(base + '.mp4', { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+        if (r.ok) buddyVideoOk[mood] = true;
+      }).catch(function () {});
+    });
+  }
+  probeBuddyVideos();
+
+  function setBuddyVideoSources(base) {
+    var vid = $('buddyVideo');
+    if (!vid || !base || base === buddyVideoBase) return;
+    buddyVideoBase = base;
+    try { vid.pause(); } catch (e) {}
+    while (vid.firstChild) vid.removeChild(vid.firstChild);
+    var webm = document.createElement('source');
+    webm.src = base + '.webm';
+    webm.type = 'video/webm';
+    var mp4 = document.createElement('source');
+    mp4.src = base + '.mp4';
+    mp4.type = 'video/mp4';
+    vid.appendChild(webm);
+    vid.appendChild(mp4);
+    vid.poster = (BUDDY[moodForBase(base)] || BUDDY.idle);
+    vid.load();
+  }
+
+  function moodForBase(base) {
+    if (base.indexOf('talking') >= 0) return 'talking';
+    if (base.indexOf('listening') >= 0) return 'listening';
+    if (base.indexOf('thinking') >= 0) return 'thinking';
+    if (base.indexOf('happy') >= 0) return 'happy';
+    return 'idle';
+  }
+
+  function playBuddyVideo(mood, fallbackStill) {
+    var img = $('buddyImg');
+    var vid = $('buddyVideo');
+    var frame = $('buddyFrame');
+    var base = BUDDY_VIDEO[mood];
+    if (!base || !buddyVideoOk[mood]) {
+      frame.classList.remove('is-speaking');
+      try { vid.pause(); } catch (e) {}
+      vid.classList.add('hidden');
+      img.classList.remove('hidden');
+      img.src = BUDDY[fallbackStill] || BUDDY.idle;
+      return;
+    }
+    setBuddyVideoSources(base);
+    if (mood === 'speaking') frame.classList.add('is-speaking');
+    else frame.classList.remove('is-speaking');
+    img.classList.add('hidden');
+    vid.classList.remove('hidden');
+    try {
+      var p = vid.play();
+      if (p && p.catch) p.catch(function () {
+        vid.classList.add('hidden');
+        img.classList.remove('hidden');
+        if (mood === 'speaking') {
+          var open = false;
+          img.src = BUDDY.idle;
+          buddyTalkTimer = setInterval(function () {
+            open = !open;
+            img.src = open ? BUDDY.talking : BUDDY.idle;
+          }, 140);
+        } else {
+          img.src = BUDDY[fallbackStill] || BUDDY.idle;
+        }
+      });
+    } catch (e) {}
+  }
 
   function setBuddy(mood, caption) {
     var img = $('buddyImg');
@@ -191,23 +275,11 @@
     if (buddyTalkTimer) { clearInterval(buddyTalkTimer); buddyTalkTimer = null; }
 
     if (mood === 'speaking') {
-      frame.classList.add('is-speaking');
-      img.classList.add('hidden');
-      vid.classList.remove('hidden');
-      try {
-        var p = vid.play();
-        if (p && p.catch) p.catch(function () {
-          // Autoplay blocked — flap still images instead.
-          vid.classList.add('hidden');
-          img.classList.remove('hidden');
-          var open = false;
-          img.src = BUDDY.idle;
-          buddyTalkTimer = setInterval(function () {
-            open = !open;
-            img.src = open ? BUDDY.talking : BUDDY.idle;
-          }, 140);
-        });
-      } catch (e) {}
+      playBuddyVideo('speaking', 'talking');
+      return;
+    }
+    if (mood === 'listening' || mood === 'thinking' || mood === 'happy') {
+      playBuddyVideo(mood, mood);
       return;
     }
 
