@@ -78,7 +78,7 @@
         <button type="button" class="btn btn-primary" id="sendBtn">Send</button>
       </div>
       <div class="tools">
-        <label><input type="checkbox" id="ttsToggle" checked> Read questions aloud</label>
+        <label><input type="checkbox" id="ttsToggle" checked> Read questions aloud (natural voice)</label>
         <button type="button" class="btn btn-ghost" id="endBtn">Finish early</button>
       </div>
     </div>
@@ -99,6 +99,9 @@
   var session = null;
   var busy = false;
   var sttConfigured = false;
+  var ttsConfigured = false;
+  var ttsAudio = null;
+  var preferredVoice = null;
   var recorder = null, chunks = [], recStream = null, recTimer = null, recStarted = 0;
   var MAX_REC_SEC = 90;
 
@@ -114,15 +117,80 @@
     $('textInput').disabled = v;
   }
 
-  function speak(text) {
-    if (!$('ttsToggle').checked || !('speechSynthesis' in window) || !text) return;
+  function stopSpeech() {
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    if (ttsAudio) {
+      try { ttsAudio.pause(); ttsAudio.src = ''; } catch (e) {}
+      ttsAudio = null;
+    }
+  }
+
+  function pickBrowserVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    if (preferredVoice) return preferredVoice;
+    var voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return null;
+    var score = function (v) {
+      var n = ((v.name || '') + ' ' + (v.voiceURI || '')).toLowerCase();
+      var lang = String(v.lang || '').toLowerCase();
+      var s = 0;
+      if (lang.indexOf('en') === 0) s += 10;
+      if (lang === 'en-us' || lang === 'en_us') s += 4;
+      if (/natural|neural|premium|enhanced|online/.test(n)) s += 8;
+      if (/google|microsoft|samantha|karen|moira|ava|jenny|aria|sara|susan|zira/.test(n)) s += 6;
+      if (/female|woman|girl/.test(n)) s += 2;
+      if (/male|man|david|mark|fred|daniel|grandpa|elderly/.test(n)) s -= 4;
+      if (v.localService === false) s += 2;
+      return s;
+    };
+    preferredVoice = voices.slice().sort(function (a, b) { return score(b) - score(a); })[0] || null;
+    return preferredVoice;
+  }
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = function () { preferredVoice = null; pickBrowserVoice(); };
+  }
+
+  function speakBrowser(text) {
+    if (!('speechSynthesis' in window) || !text) return;
     try {
       window.speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(text);
       u.lang = 'en-US';
-      u.rate = 0.95;
+      u.rate = 1.05;
+      u.pitch = 1.05;
+      var v = pickBrowserVoice();
+      if (v) u.voice = v;
       window.speechSynthesis.speak(u);
     } catch (e) { /* optional */ }
+  }
+
+  function speak(text) {
+    if (!$('ttsToggle').checked || !text) return;
+    stopSpeech();
+    if (!ttsConfigured) {
+      speakBrowser(text);
+      return;
+    }
+    var token = getToken(role);
+    fetch('/api/student/debrief/tts', {
+      method: 'POST',
+      headers: {
+        Accept: 'audio/*, application/json',
+        'Content-Type': 'application/json',
+        Authorization: token ? ('Bearer ' + token) : ''
+      },
+      body: JSON.stringify({ text: text })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('tts');
+      return r.blob();
+    }).then(function (blob) {
+      if (!$('ttsToggle').checked) return;
+      var url = URL.createObjectURL(blob);
+      ttsAudio = new Audio(url);
+      ttsAudio.onended = function () { URL.revokeObjectURL(url); };
+      ttsAudio.onerror = function () { URL.revokeObjectURL(url); speakBrowser(text); };
+      return ttsAudio.play();
+    }).catch(function () { speakBrowser(text); });
   }
 
   function render() {
@@ -216,7 +284,7 @@
       return;
     }
     try {
-      window.speechSynthesis && window.speechSynthesis.cancel();
+      stopSpeech();
       recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
       setHint('Microphone permission is needed. You can type instead.', true);
@@ -276,6 +344,7 @@
   $('endBtn').addEventListener('click', async function () {
     if (!session || busy) return;
     if (!confirm('Finish the session now? You cannot restart it.')) return;
+    stopSpeech();
     setBusy(true);
     try {
       session = await api('/api/student/debrief/sessions/' + encodeURIComponent(session.id) + '/end',
@@ -293,6 +362,7 @@
     try {
       var meta = await api('/api/student/debrief/meta', {}, role);
       sttConfigured = !!meta.sttConfigured;
+      ttsConfigured = !!meta.ttsConfigured;
       session = await api('/api/student/debrief/assignments/' + encodeURIComponent(assignmentId) + '/session',
         { method: 'POST' }, role);
       render();
