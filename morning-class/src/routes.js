@@ -4992,10 +4992,22 @@ router.post('/student/debrief/sessions/:id/audio', requireRole('student'), debri
     try {
       if (!req.file) return res.status(400).json({ error: '녹음 파일이 없습니다.' });
       const nouns = await debriefSessions.properNounsFor(req.params.id, req.session.studentId);
-      const text = await debriefStt.transcribe(req.file.buffer, req.file.mimetype, { properNouns: nouns });
-      if (!text) {
-        return res.status(422).json({ error: '말씀이 잘 들리지 않았어요. 다시 한 번 말해 주세요.' });
+      const heard = await debriefStt.transcribeDetailed(req.file.buffer, req.file.mimetype, { properNouns: nouns });
+      if (!heard.ok) {
+        // Unclear audio must not reach submitAnswer: that would spend one of the student's turns.
+        console.warn('[debrief-stt] rejected', JSON.stringify({
+          reason: heard.reason,
+          avgLogprob: heard.avgLogprob == null ? null : Number(heard.avgLogprob.toFixed(3)),
+          words: heard.words,
+          bytes: req.file.size
+        }));
+        return res.status(422).json({
+          error: "I didn't catch that. Please say it again.",
+          code: 'unclear_audio',
+          retry: true
+        });
       }
+      const text = heard.text;
       const result = await debriefSessions.submitAnswer(req.params.id, req.session.studentId, text, 'voice');
       res.json(Object.assign({ transcript: text }, result));
     } catch (e) {
