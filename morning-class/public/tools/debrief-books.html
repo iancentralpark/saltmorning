@@ -105,6 +105,15 @@
     .turn { margin: .35rem 0; }
     .turn b { color: var(--accent); }
     .turn.student b { color: var(--ok); }
+    .grade-panel { margin-top: .6rem; padding: .8rem; border: 1px solid #c9d6ec; border-radius: 12px; background: #f4f8fe; }
+    .grade-panel h5 { margin: 0 0 .5rem; font-size: .9rem; color: var(--accent); display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .grade-dim { display: grid; grid-template-columns: 8.5rem 4.2rem 1fr; gap: .45rem; align-items: start; margin-bottom: .5rem; font-size: .82rem; }
+    @media (max-width: 720px) { .grade-dim { grid-template-columns: 1fr 4.2rem; } .grade-dim .gd-why { grid-column: 1 / -1; } }
+    .grade-dim label { margin: 0; }
+    .grade-dim textarea, .grade-panel textarea { min-height: 3.2rem; font-size: .82rem; width: 100%; }
+    .grade-panel .quotes { font-size: .75rem; color: var(--muted); font-style: italic; margin-top: .15rem; }
+    .grade-panel .total { font-size: 1.05rem; font-weight: 800; color: var(--accent); }
+    .grade-panel label.block { display: block; margin: .5rem 0 .2rem; }
   </style>
 </head>
 <body>
@@ -341,7 +350,102 @@
     return '<span class="pill warn">진행 중</span>';
   }
 
-  function showResults(assignmentId) {
+  function gradePill(s) {
+    if (s.status !== 'completed') return '';
+    if (s.gradeStatus === 'released') return '<span class="pill ok">공개 ' + (s.total != null ? s.total + '점' : '') + '</span>';
+    if (s.gradeStatus === 'draft') return '<span class="pill warn">검수 대기 ' + (s.total != null ? s.total + '점' : '') + '</span>';
+    return '<span class="pill">채점 전</span>';
+  }
+
+  var DIM_LABELS = { comprehension: '내용 이해', evidence: '근거 제시', criticalThinking: '비판적 사고', oralFluency: '구술 유창성' };
+  var DIM_KEYS = ['comprehension', 'evidence', 'criticalThinking', 'oralFluency'];
+
+  function lines(v) { return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }
+
+  function renderGradePanel(assignmentId, s) {
+    var g = s.grade;
+    var released = s.gradeStatus === 'released';
+    var html = '<div class="grade-panel" id="gradePanel">';
+    if (!g) {
+      html += '<h5>성적</h5><p class="hint">' + (s.status !== 'completed' ? '세션이 끝나면 채점할 수 있습니다.' :
+        (s.gradeError ? '자동 채점 실패: ' + escapeHtml(s.gradeError) : '아직 채점되지 않았습니다.')) + '</p>';
+      if (s.status === 'completed') html += '<div class="actions"><button type="button" class="btn btn-primary btn-sm" id="btnGrade">AI 채점</button></div>';
+      html += '</div>';
+      return html;
+    }
+    html += '<h5>성적 ' + (released ? '<span class="pill ok">학생에게 공개됨</span>' : '<span class="pill warn">초안 · 학생에게 안 보임</span>') +
+      '<span class="total" id="gradeTotal">' + (g.total != null ? g.total + '점' : '—') + '</span>' +
+      (g.aiGenerated && !g.edited ? '<span class="meta">AI 초안</span>' : (g.edited ? '<span class="meta">교사 수정됨</span>' : '')) + '</h5>';
+    DIM_KEYS.forEach(function (k) {
+      var d = g.dimensions[k] || {};
+      html += '<div class="grade-dim"><div><strong>' + DIM_LABELS[k] + '</strong></div>' +
+        '<select data-dim="' + k + '" class="gd-score"><option value="">—</option>' +
+        [1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (d.score === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select>' +
+        '<div class="gd-why"><textarea data-dim="' + k + '" class="gd-rationale">' + escapeHtml(d.rationale || '') + '</textarea>' +
+        ((d.quotes || []).length ? '<div class="quotes">“' + (d.quotes || []).map(escapeHtml).join('” · “') + '”</div>' : '') + '</div></div>';
+    });
+    html += '<label class="block">잘한 점 (한 줄에 하나)</label><textarea id="gStrengths">' + escapeHtml((g.strengths || []).join('\n')) + '</textarea>';
+    html += '<label class="block">보완할 점 (한 줄에 하나)</label><textarea id="gImprove">' + escapeHtml((g.improvements || []).join('\n')) + '</textarea>';
+    html += '<label class="block">학생에게 보이는 피드백</label><textarea id="gFeedback" style="min-height:5rem">' + escapeHtml(g.studentFeedback || '') + '</textarea>';
+    html += '<label class="block">교사 메모 (학생에게 안 보임)</label><textarea id="gNotes">' + escapeHtml(g.teacherNotes || '') + '</textarea>';
+    html += '<div class="actions">' +
+      '<button type="button" class="btn btn-primary btn-sm" id="btnSaveGrade">저장</button>' +
+      (released
+        ? '<button type="button" class="btn btn-ghost btn-sm" id="btnUnrelease">공개 취소</button>'
+        : '<button type="button" class="btn btn-ok btn-sm" id="btnRelease">학생에게 공개</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" id="btnGrade">AI 재채점</button>') +
+      '</div>';
+    if (released) html += '<p class="hint">공개된 성적을 저장하면 학생 화면에 바로 반영됩니다. AI 재채점은 공개를 취소한 뒤에 가능합니다.</p>';
+    html += '</div>';
+    return html;
+  }
+
+  function collectGradePatch() {
+    var dims = {};
+    document.querySelectorAll('#gradePanel .gd-score').forEach(function (el) {
+      var k = el.getAttribute('data-dim'); dims[k] = dims[k] || {};
+      dims[k].score = el.value === '' ? null : Number(el.value);
+    });
+    document.querySelectorAll('#gradePanel .gd-rationale').forEach(function (el) {
+      var k = el.getAttribute('data-dim'); dims[k] = dims[k] || {};
+      dims[k].rationale = el.value;
+    });
+    return {
+      dimensions: dims,
+      strengths: lines($('gStrengths').value),
+      improvements: lines($('gImprove').value),
+      studentFeedback: $('gFeedback').value,
+      teacherNotes: $('gNotes').value
+    };
+  }
+
+  function wireGradePanel(assignmentId, sessionId) {
+    var base = '/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(sessionId) + '/grade';
+    function done(msg) { setStatus(msg, 'ok'); showResults(assignmentId, sessionId); }
+    function fail(e) { setStatus(e.message || '실패', 'error'); }
+    var bg = $('btnGrade');
+    if (bg) bg.addEventListener('click', function () {
+      bg.disabled = true; bg.innerHTML = '<span class="spinner"></span> 채점 중';
+      api(base, { method: 'POST' }).then(function () { done('AI 채점 완료 — 검수 후 공개하세요.'); }).catch(function (e) { fail(e); bg.disabled = false; bg.textContent = 'AI 채점'; });
+    });
+    var bs = $('btnSaveGrade');
+    if (bs) bs.addEventListener('click', function () {
+      api(base, { method: 'PATCH', body: collectGradePatch() }).then(function () { done('저장됨'); }).catch(fail);
+    });
+    var br = $('btnRelease');
+    if (br) br.addEventListener('click', function () {
+      if (!confirm('이 학생에게 성적과 피드백을 공개할까요?')) return;
+      api(base, { method: 'PATCH', body: collectGradePatch() })
+        .then(function () { return api(base + '/release', { method: 'POST', body: { released: true } }); })
+        .then(function () { done('학생에게 공개됨'); }).catch(fail);
+    });
+    var bu = $('btnUnrelease');
+    if (bu) bu.addEventListener('click', function () {
+      api(base + '/release', { method: 'POST', body: { released: false } }).then(function () { done('공개 취소됨'); }).catch(fail);
+    });
+  }
+
+  function showResults(assignmentId, openSessionId) {
     var box = $('resultsBox');
     box.classList.remove('hidden');
     box.innerHTML = '<p class="hint">불러오는 중…</p>';
@@ -365,6 +469,7 @@
       html += rows.map(function (r) {
         var s = r.session;
         return '<div class="res-row"><div><strong>' + escapeHtml(r.name) + '</strong> ' + sessionPill(s) +
+          (s ? gradePill(s) : '') +
           (s ? '<span class="meta"> 답변 ' + (s.studentTurns || 0) + '개 · ' + fmtTime(s.updatedAt) + '</span>' : '') + '</div>' +
           (s ? '<div class="actions" style="margin:0">' +
             '<button type="button" class="btn btn-ghost btn-sm res-view" data-sid="' + escapeHtml(s.id) + '">대화 보기</button>' +
@@ -376,6 +481,7 @@
       box.querySelectorAll('.res-view').forEach(function (b) {
         b.addEventListener('click', function () { showTranscript(assignmentId, b.getAttribute('data-sid')); });
       });
+      if (openSessionId) showTranscript(assignmentId, openSessionId);
       box.querySelectorAll('.res-reset').forEach(function (b) {
         b.addEventListener('click', function () {
           if (!confirm('이 학생의 세션을 삭제하고 처음부터 다시 하게 할까요?')) return;
@@ -393,12 +499,13 @@
     var mount = $('transcriptMount');
     mount.innerHTML = '<p class="hint">불러오는 중…</p>';
     api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(sessionId)).then(function (s) {
-      mount.innerHTML = '<div class="transcript"><strong>' + escapeHtml(s.studentName || '') + '</strong>' +
+      mount.innerHTML = renderGradePanel(assignmentId, s) + '<div class="transcript"><strong>' + escapeHtml(s.studentName || '') + '</strong>' +
         (s.turns || []).map(function (t) {
           var ai = t.role === 'ai';
           return '<div class="turn ' + (ai ? 'ai' : 'student') + '"><b>' + (ai ? 'AI' : '학생') +
             (t.source === 'voice' ? ' 🎤' : '') + ':</b> ' + escapeHtml(t.text) + '</div>';
         }).join('') + '</div>';
+      wireGradePanel(assignmentId, sessionId);
     }).catch(function (e) {
       mount.innerHTML = '<p class="hint">' + escapeHtml(e.message) + '</p>';
     });

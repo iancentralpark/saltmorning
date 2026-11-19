@@ -66,8 +66,15 @@ function wordCount(text) {
   return String(text || '').trim().split(/\s+/).filter(Boolean).length;
 }
 
+function studentSafeGrade(grade) {
+  if (!grade) return null;
+  const { teacherNotes, aiGenerated, model, ...rest } = grade;
+  return rest;
+}
+
 function publicSession(s, opts) {
   opts = opts || {};
+  const released = s.gradeStatus === 'released';
   const out = {
     id: s.id,
     assignmentId: s.assignmentId,
@@ -81,9 +88,20 @@ function publicSession(s, opts) {
     studentTurns: s.turns.filter((t) => t.role === 'student').length,
     startedAt: s.startedAt,
     endedAt: s.endedAt || null,
-    updatedAt: s.updatedAt
+    updatedAt: s.updatedAt,
+    reportReleased: released
   };
   if (opts.includeTurns !== false) out.turns = s.turns;
+  if (opts.forStaff) {
+    out.gradeStatus = s.gradeStatus || 'none';
+    out.gradedAt = s.gradedAt || null;
+    out.releasedAt = s.releasedAt || null;
+    out.gradeError = s.gradeError || null;
+    out.total = s.grade && s.grade.total != null ? s.grade.total : null;
+    if (opts.includeGrade !== false) out.grade = s.grade || null;
+  } else if (released) {
+    out.grade = studentSafeGrade(s.grade);
+  }
   return out;
 }
 
@@ -101,7 +119,11 @@ function rowToSession(row) {
     planTotal: Number(row.plan_total) || 0,
     startedAt: row.started_at ? new Date(row.started_at).getTime() : Date.now(),
     endedAt: row.ended_at ? new Date(row.ended_at).getTime() : null,
-    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
+    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+    grade: row.grade || null,
+    gradeStatus: row.grade_status || 'none',
+    gradedAt: row.graded_at ? new Date(row.graded_at).getTime() : null,
+    releasedAt: row.released_at ? new Date(row.released_at).getTime() : null
   };
 }
 
@@ -111,17 +133,25 @@ async function persist(s) {
   if (!isOpsDbEnabled()) return;
   await query(
     'INSERT INTO ' + table('debrief_sessions') + ' (' +
-      'id, assignment_id, book_id, class_id, student_id, student_name, status, turns, plan_asked, started_at, ended_at, updated_at' +
+      'id, assignment_id, book_id, class_id, student_id, student_name, status, turns, plan_asked, started_at, ended_at, updated_at, ' +
+      'grade, grade_status, graded_at, released_at' +
     ') VALUES (' +
       '$1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,to_timestamp($10/1000.0),' +
-      'CASE WHEN $11::bigint IS NULL THEN NULL ELSE to_timestamp($11/1000.0) END,to_timestamp($12/1000.0)' +
+      'CASE WHEN $11::bigint IS NULL THEN NULL ELSE to_timestamp($11/1000.0) END,to_timestamp($12/1000.0),' +
+      '$13::jsonb,$14,' +
+      'CASE WHEN $15::bigint IS NULL THEN NULL ELSE to_timestamp($15/1000.0) END,' +
+      'CASE WHEN $16::bigint IS NULL THEN NULL ELSE to_timestamp($16/1000.0) END' +
     ') ON CONFLICT (id) DO UPDATE SET ' +
       'status = EXCLUDED.status, turns = EXCLUDED.turns, plan_asked = EXCLUDED.plan_asked, ' +
-      'student_name = EXCLUDED.student_name, ended_at = EXCLUDED.ended_at, updated_at = EXCLUDED.updated_at',
+      'student_name = EXCLUDED.student_name, ended_at = EXCLUDED.ended_at, updated_at = EXCLUDED.updated_at, ' +
+      'grade = EXCLUDED.grade, grade_status = EXCLUDED.grade_status, ' +
+      'graded_at = EXCLUDED.graded_at, released_at = EXCLUDED.released_at',
     [
       s.id, s.assignmentId, s.bookId, s.classId, s.studentId, s.studentName || '',
       s.status, JSON.stringify(s.turns), s.planAsked, s.startedAt,
-      s.endedAt || null, s.updatedAt
+      s.endedAt || null, s.updatedAt,
+      s.grade ? JSON.stringify(s.grade) : null, s.gradeStatus || 'none',
+      s.gradedAt || null, s.releasedAt || null
     ]
   );
 }
@@ -165,15 +195,19 @@ async function statusMapForStudent(studentId, assignmentIds) {
   if (!ids.length || !studentId) return out;
   if (isOpsDbEnabled()) {
     const r = await query(
-      'SELECT assignment_id, status FROM ' + table('debrief_sessions') +
+      'SELECT assignment_id, status, grade_status FROM ' + table('debrief_sessions') +
         ' WHERE student_id = $1 AND assignment_id = ANY($2::text[])',
       [String(studentId), ids]
     );
-    r.rows.forEach((row) => { out[row.assignment_id] = row.status; });
+    r.rows.forEach((row) => {
+      out[row.assignment_id] = { status: row.status, reportReleased: row.grade_status === 'released' };
+    });
     return out;
   }
   for (const s of sessions.values()) {
-    if (s.studentId === String(studentId) && ids.includes(s.assignmentId)) out[s.assignmentId] = s.status;
+    if (s.studentId === String(studentId) && ids.includes(s.assignmentId)) {
+      out[s.assignmentId] = { status: s.status, reportReleased: s.gradeStatus === 'released' };
+    }
   }
   return out;
 }
@@ -376,6 +410,7 @@ async function submitAnswer(sessionId, studentId, rawText, source) {
       s.endedAt = Date.now();
     }
     await persist(s);
+    if (s.status === 'completed') scheduleAutoGrade(s.id);
     return { session: publicSession(s), reply: decision.reply, done: s.status === 'completed' };
   });
 }
@@ -396,7 +431,19 @@ async function endSession(sessionId, studentId) {
     s.status = 'completed';
     s.endedAt = Date.now();
     await persist(s);
+    scheduleAutoGrade(s.id);
     return publicSession(s);
+  });
+}
+
+function scheduleAutoGrade(sessionId) {
+  setImmediate(() => {
+    try {
+      require('./debriefGradingService').autoGrade(sessionId)
+        .catch((e) => console.warn('[debrief] auto-grade failed', sessionId, e.message));
+    } catch (e) {
+      console.warn('[debrief] auto-grade unavailable', e.message);
+    }
   });
 }
 
@@ -418,19 +465,19 @@ async function listByAssignment(assignmentId) {
     );
     return r.rows.map((row) => {
       const s = rowToSession(row);
-      return publicSession(s, { includeTurns: false });
+      return publicSession(s, { includeTurns: false, forStaff: true, includeGrade: false });
     });
   }
   return Array.from(sessions.values())
     .filter((s) => s.assignmentId === String(assignmentId))
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .map((s) => publicSession(s, { includeTurns: false }));
+    .map((s) => publicSession(s, { includeTurns: false, forStaff: true, includeGrade: false }));
 }
 
 async function getForTeacher(sessionId, assignmentId) {
   const s = await loadById(sessionId);
   if (!s || s.assignmentId !== String(assignmentId)) throw httpError(404, '세션을 찾을 수 없습니다.');
-  return publicSession(s);
+  return publicSession(s, { forStaff: true });
 }
 
 async function resetSession(sessionId, assignmentId) {
@@ -453,5 +500,10 @@ module.exports = {
   listByAssignment,
   getForTeacher,
   resetSession,
-  buildPlan
+  buildPlan,
+  loadById,
+  persist,
+  withLock,
+  publicSession,
+  httpError
 };

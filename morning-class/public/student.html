@@ -477,13 +477,14 @@
       const instr = a.customInstructions
         ? '<div class="muted small">' + escapeHtml(a.customInstructions) + '</div>'
         : '';
-      const label = a.status === 'completed' ? 'View my conversation'
+      const label = a.status === 'completed' ? (a.reportReleased ? 'View my report' : 'View my conversation')
         : (a.status === 'in_progress' ? 'Continue oral debrief' : 'Start oral debrief');
       const cta = a.canStartOral
         ? '<div style="margin-top:.4rem"><a class="btn btn-primary btn-sm" href="/student-debrief.html?assignment=' +
           encodeURIComponent(a.id) + '">' + label + '</a></div>'
         : '<div class="muted small">Oral session is not available yet</div>';
-      return '<li><strong>' + escapeHtml(a.title || book) + '</strong>' +
+      const badge = a.reportReleased ? ' <span class="hw-google-badge">Report ready</span>' : '';
+      return '<li><strong>' + escapeHtml(a.title || book) + '</strong>' + badge +
         '<div class="muted small">' + escapeHtml(book) +
         (a.bookAuthor ? ' · ' + escapeHtml(a.bookAuthor) : '') + due + '</div>' +
         hook + instr + cta + '</li>';
