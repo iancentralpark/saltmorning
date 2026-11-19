@@ -69,8 +69,9 @@
   }
 
   function collectAllowedDays() {
-    const boxes = mountEl.querySelectorAll('.cr-form-days input[type="checkbox"]:checked');
-    const days = Array.from(boxes).map((b) => Number(b.value));
+    // Only day chips — not content-flag checkboxes in .cr-content-flags.
+    const boxes = mountEl.querySelectorAll('.cr-form-days-row input[type="checkbox"]:checked');
+    const days = Array.from(boxes).map((b) => Number(b.value)).filter((n) => n >= 1 && n <= 7);
     return days.length ? days : [1, 2, 3, 4, 5];
   }
 

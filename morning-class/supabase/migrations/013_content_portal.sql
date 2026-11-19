@@ -1,5 +1,6 @@
 -- Content-only class portal: per-student targeting for Oral Debrief + LMS lessons,
--- and portal_mode on the roster classes table (Sheets remains source of truth for mode).
+-- and portal_mode / content_flags on salt_morning.classes (roster Postgres bridge).
+-- rosterBridge.js also ADD COLUMN IF NOT EXISTS these on first read/write.
 
 ALTER TABLE salt_morning.classes
   ADD COLUMN IF NOT EXISTS portal_mode TEXT NOT NULL DEFAULT 'full';
