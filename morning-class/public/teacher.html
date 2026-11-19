@@ -744,6 +744,222 @@
       '</div>';
   }
 
+
+  let contentOverviewCache = null;
+  let contentRosterCache = [];
+
+  async function loadContentRoster() {
+    if (!currentClass) return [];
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/roster', {}, role);
+      contentRosterCache = data.students || [];
+    } catch (_) {
+      contentRosterCache = [];
+    }
+    return contentRosterCache;
+  }
+
+  function contentStudentChecks(selectedIds) {
+    const selected = new Set((selectedIds || []).map(String));
+    const roster = contentRosterCache || [];
+    if (!roster.length) return '<p class="muted small">No students in this class.</p>';
+    return '<div class="cr-form-days-row" style="flex-wrap:wrap;gap:.35rem">' + roster.map((st) => {
+      const id = String(st.studentId || st.id || '');
+      const checked = selected.size ? (selected.has(id) ? ' checked' : '') : '';
+      return '<label class="cr-day-chip"><input type="checkbox" value="' + escapeHtml(id) + '"' + checked + '> ' +
+        escapeHtml(st.name || id) + '</label>';
+    }).join('') + '</div>' +
+      '<p class="muted small" style="margin:.35rem 0 0">Leave all unchecked = whole class.</p>';
+  }
+
+  function collectChecks(root) {
+    if (!root) return null;
+    const ids = Array.from(root.querySelectorAll('input[type=checkbox]:checked')).map((el) => el.value).filter(Boolean);
+    return ids.length ? ids : null;
+  }
+
+  async function loadContentOverview() {
+    const mount = $('contentOverviewMount');
+    if (!mount || !currentClass) return;
+    mount.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/content-overview', {}, role);
+      contentOverviewCache = data;
+      const students = data.students || [];
+      if (!students.length) {
+        mount.innerHTML = '<p class="muted">No students in this class yet.</p>';
+        return;
+      }
+      let html = '<div class="table-wrap"><table class="grades-table"><thead><tr>' +
+        '<th>Student</th><th>Oral Debrief</th><th>Avg score</th><th>Online Lessons</th><th></th></tr></thead><tbody>';
+      students.forEach((st, idx) => {
+        const d = st.debrief || {};
+        const l = st.lessons || {};
+        const dLabel = (d.completed || 0) + ' / ' + (d.total || 0) + ' done';
+        const lLabel = (l.completed || 0) + ' / ' + (l.total || 0) + ' watched';
+        const score = d.avgScore != null ? (d.avgScore + '') : '—';
+        html += '<tr data-idx="' + idx + '">' +
+          '<td><strong>' + escapeHtml(st.name || st.studentId) + '</strong>' +
+          '<div class="muted small">' + escapeHtml(st.studentId) + '</div></td>' +
+          '<td>' + escapeHtml(dLabel) +
+          (d.graded ? '<div class="muted small">' + d.graded + ' graded</div>' : '') + '</td>' +
+          '<td><strong>' + escapeHtml(score) + '</strong></td>' +
+          '<td>' + escapeHtml(lLabel) + '</td>' +
+          '<td><button type="button" class="btn btn-ghost btn-sm content-stu-detail" data-idx="' + idx + '">Detail</button></td></tr>';
+      });
+      html += '</tbody></table></div><div id="contentStudentDetail" class="hidden" style="margin-top:1rem"></div>';
+      mount.innerHTML = html;
+      mount.querySelectorAll('.content-stu-detail').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const st = students[Number(btn.dataset.idx)];
+          const box = $('contentStudentDetail');
+          if (!box || !st) return;
+          show(box);
+          const dItems = ((st.debrief && st.debrief.items) || []).map((it) => {
+            const score = it.gradeTotal != null ? (it.gradeTotal + ' pts') : '—';
+            const g = it.gradeStatus === 'released' ? 'Released' : (it.gradeStatus === 'draft' ? 'Draft grade' : it.status);
+            return '<li><strong>' + escapeHtml(it.title || 'Debrief') + '</strong>' +
+              '<div class="muted small">' + escapeHtml(g) + ' · score ' + escapeHtml(score) + '</div></li>';
+          }).join('') || '<li class="muted">No debrief assigned</li>';
+          const lItems = ((st.lessons && st.lessons.items) || []).map((it) =>
+            '<li><strong>' + escapeHtml(it.title) + '</strong>' +
+            '<div class="muted small">' + (it.completed ? 'Completed' : ((it.percent || 0) + '%')) + '</div></li>'
+          ).join('') || '<li class="muted">No lessons assigned</li>';
+          box.innerHTML = '<h4 style="margin:0 0 .5rem">' + escapeHtml(st.name || st.studentId) + '</h4>' +
+            '<div class="row2" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">' +
+            '<div><strong>Oral Debrief</strong><ul class="stu-list">' + dItems + '</ul></div>' +
+            '<div><strong>Online Lessons</strong><ul class="stu-list">' + lItems + '</ul></div></div>';
+        });
+      });
+    } catch (e) {
+      mount.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Could not load overview.') + '</p>';
+    }
+  }
+
+  async function loadContentDebriefList() {
+    const box = $('contentDebriefList');
+    if (!box || !currentClass) return;
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      await loadContentRoster();
+      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/debrief-assignments', {}, role);
+      const list = data.assignments || [];
+      if (!list.length) {
+        box.innerHTML = '<p class="muted">No Oral Debrief assignments yet. Open Debrief Books to create one, then assign students here.</p>';
+        return;
+      }
+      box.innerHTML = list.map((a) => {
+        const targets = a.targeted ? ((a.studentIds || []).length + ' students') : 'Whole class';
+        return '<div class="card" style="margin:0 0 .75rem;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px" data-aid="' + escapeHtml(a.id) + '">' +
+          '<div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:flex-start">' +
+          '<div><strong>' + escapeHtml(a.title || a.bookTitle || 'Debrief') + '</strong>' +
+          '<div class="muted small">' + escapeHtml(targets) +
+          (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-edit-targets" data-aid="' + escapeHtml(a.id) + '">Edit students</button></div>' +
+          '<div class="content-target-editor hidden" data-aid="' + escapeHtml(a.id) + '" style="margin-top:.65rem">' +
+          contentStudentChecks(a.studentIds) +
+          '<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-primary btn-sm content-save-targets" data-aid="' + escapeHtml(a.id) + '">Save</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-cancel-targets" data-aid="' + escapeHtml(a.id) + '">Cancel</button>' +
+          '</div></div></div>';
+      }).join('');
+      box.querySelectorAll('.content-edit-targets').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const ed = box.querySelector('.content-target-editor[data-aid="' + btn.dataset.aid + '"]');
+          if (ed) ed.classList.toggle('hidden');
+        });
+      });
+      box.querySelectorAll('.content-cancel-targets').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const ed = box.querySelector('.content-target-editor[data-aid="' + btn.dataset.aid + '"]');
+          if (ed) ed.classList.add('hidden');
+        });
+      });
+      box.querySelectorAll('.content-save-targets').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const ed = box.querySelector('.content-target-editor[data-aid="' + btn.dataset.aid + '"]');
+          const ids = collectChecks(ed) || [];
+          btn.disabled = true;
+          try {
+            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
+              '/debrief-assignments/' + encodeURIComponent(btn.dataset.aid) + '/students', {
+              method: 'PUT',
+              body: { studentIds: ids }
+            }, role);
+            loadContentDebriefList();
+          } catch (e) {
+            alert(e.message || 'Could not save');
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  async function loadContentLmsList() {
+    const box = $('contentLmsList');
+    if (!box || !currentClass) return;
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      await loadContentRoster();
+      const data = await api('/api/lms/classes/' + encodeURIComponent(currentClass.classId) + '/lessons', {}, role);
+      const list = data.lessons || [];
+      if (!list.length) {
+        box.innerHTML = '<p class="muted">No online lessons yet. Open Online Lessons to upload, then assign students here.</p>';
+        return;
+      }
+      box.innerHTML = list.map((l) => {
+        const targets = l.targeted ? ((l.studentIds || []).length + ' students') : 'Whole class';
+        const pub = l.published ? 'Published' : 'Draft';
+        return '<div class="card" style="margin:0 0 .75rem;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px" data-lid="' + escapeHtml(l.id) + '">' +
+          '<div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:flex-start">' +
+          '<div><strong>' + escapeHtml(l.title) + '</strong>' +
+          '<div class="muted small">' + escapeHtml(pub) + ' · ' + escapeHtml(targets) +
+          ' · started ' + (l.startedCount || 0) + ' · done ' + (l.completedCount || 0) + '</div></div>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-edit-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Edit students</button></div>' +
+          '<div class="content-lesson-editor hidden" data-lid="' + escapeHtml(l.id) + '" style="margin-top:.65rem">' +
+          contentStudentChecks(l.studentIds) +
+          '<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-primary btn-sm content-save-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Save</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-cancel-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Cancel</button>' +
+          '</div></div></div>';
+      }).join('');
+      box.querySelectorAll('.content-edit-lesson-targets').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const ed = box.querySelector('.content-lesson-editor[data-lid="' + btn.dataset.lid + '"]');
+          if (ed) ed.classList.toggle('hidden');
+        });
+      });
+      box.querySelectorAll('.content-cancel-lesson-targets').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const ed = box.querySelector('.content-lesson-editor[data-lid="' + btn.dataset.lid + '"]');
+          if (ed) ed.classList.add('hidden');
+        });
+      });
+      box.querySelectorAll('.content-save-lesson-targets').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const ed = box.querySelector('.content-lesson-editor[data-lid="' + btn.dataset.lid + '"]');
+          const ids = collectChecks(ed) || [];
+          btn.disabled = true;
+          try {
+            await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid) + '/students', {
+              method: 'PUT',
+              body: { studentIds: ids }
+            }, role);
+            loadContentLmsList();
+          } catch (e) {
+            alert(e.message || 'Could not save');
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
   async function loadClasses() {
     if ($('assignedList') && !$('assignedList').innerHTML.trim()) {
       $('assignedList').innerHTML = '<p class="muted">Loading classes…</p>';
@@ -1495,7 +1711,10 @@
           className: cls.className,
           isHomeroom: !!cls.isHomeroom,
           subjects: cls.subjects || [],
-          roleLabel: cls.roleLabel || ''
+          roleLabel: cls.roleLabel || '',
+          portalMode: cls.portalMode || 'full',
+          isContentPortal: !!(cls.isContentPortal || cls.portalMode === 'content'),
+          contentFlags: cls.contentFlags || null
         };
         openClass(model, route.tab || defaultClassTabFor(model), { fromRoute: true });
         return;
