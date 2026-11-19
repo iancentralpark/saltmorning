@@ -462,19 +462,34 @@
     </div>
 
     <div id="panelDebrief" class="card hidden">
-      <p class="muted small">Create and assign Oral Debrief books to this class. Choose specific students in the assign tool.</p>
+      <p class="muted small">Pick a verified book and assign it to specific students — without leaving this class page. New book profiles still use Debrief Books.</p>
       <div class="att-toolbar" style="gap:.5rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-primary" id="contentOpenDebriefBtn">Open Debrief Books</button>
-        <button type="button" class="btn btn-ghost" id="contentRefreshDebriefBtn">Refresh list</button>
+        <button type="button" class="btn btn-ghost" id="contentOpenDebriefBtn">Open Debrief Books</button>
+        <button type="button" class="btn btn-ghost" id="contentRefreshDebriefBtn">Refresh</button>
+      </div>
+      <div id="contentDebriefAssign" class="hidden" style="margin:0.85rem 0;padding:0.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px;background:rgba(255,255,255,.6)">
+        <strong style="display:block;margin-bottom:.5rem">Assign a book</strong>
+        <label class="muted small" style="display:block;margin-bottom:.35rem">Verified book
+          <select id="contentBookSelect" style="display:block;width:100%;max-width:28rem;margin-top:.25rem"></select>
+        </label>
+        <label class="muted small" style="display:block;margin:.5rem 0 .35rem">Due date (optional)
+          <input type="date" id="contentAssignDue" style="display:block;margin-top:.25rem">
+        </label>
+        <div class="muted small" style="margin:.5rem 0 .25rem">Students (leave empty = whole class)</div>
+        <div id="contentAssignStudentPick"></div>
+        <div style="margin-top:.65rem;display:flex;gap:.45rem;flex-wrap:wrap;align-items:center">
+          <button type="button" class="btn btn-primary" id="contentAssignBookBtn">Assign to selected</button>
+          <span class="muted small" id="contentAssignStatus"></span>
+        </div>
       </div>
       <div id="contentDebriefList"><p class="muted">Loading…</p></div>
     </div>
 
     <div id="panelOnline" class="card hidden">
-      <p class="muted small">Upload and publish Online Lessons for this class. Target specific students when assigning.</p>
+      <p class="muted small">Upload new videos in Online Lessons. Here you can publish drafts and choose which students see each lesson.</p>
       <div class="att-toolbar" style="gap:.5rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-primary" id="contentOpenLmsBtn">Open Online Lessons</button>
-        <button type="button" class="btn btn-ghost" id="contentRefreshLmsBtn">Refresh list</button>
+        <button type="button" class="btn btn-primary" id="contentOpenLmsBtn">Upload / manage videos</button>
+        <button type="button" class="btn btn-ghost" id="contentRefreshLmsBtn">Refresh</button>
       </div>
       <div id="contentLmsList"><p class="muted">Loading…</p></div>
     </div>
@@ -836,26 +851,53 @@
     }
   }
 
+  async function fillContentBookSelect() {
+    const sel = $('contentBookSelect');
+    const panel = $('contentDebriefAssign');
+    const pick = $('contentAssignStudentPick');
+    if (!sel || !panel) return;
+    show(panel);
+    if (pick) pick.innerHTML = contentStudentChecks(null);
+    try {
+      const data = await api('/api/debrief/books?verified=1&profile=0', {}, role);
+      const books = (data.books || []).filter((b) => b.isVerified || b.status === 'ready');
+      if (!books.length) {
+        sel.innerHTML = '<option value="">No verified books yet — open Debrief Books first</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">Select a verified book…</option>' + books.map((b) =>
+        '<option value="' + escapeHtml(b.id) + '">' + escapeHtml(b.title || b.id) +
+        (b.author ? ' — ' + escapeHtml(b.author) : '') + '</option>'
+      ).join('');
+    } catch (e) {
+      sel.innerHTML = '<option value="">Could not load books</option>';
+    }
+  }
+
   async function loadContentDebriefList() {
     const box = $('contentDebriefList');
     if (!box || !currentClass) return;
     box.innerHTML = '<p class="muted">Loading…</p>';
     try {
       await loadContentRoster();
+      await fillContentBookSelect();
       const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/debrief-assignments', {}, role);
       const list = data.assignments || [];
       if (!list.length) {
-        box.innerHTML = '<p class="muted">No Oral Debrief assignments yet. Open Debrief Books to create one, then assign students here.</p>';
+        box.innerHTML = '<p class="muted">No assignments yet. Use “Assign a book” above.</p>';
         return;
       }
-      box.innerHTML = list.map((a) => {
+      box.innerHTML = '<h4 style="margin:0 0 .6rem">Assigned to this class</h4>' + list.map((a) => {
         const targets = a.targeted ? ((a.studentIds || []).length + ' students') : 'Whole class';
         return '<div class="card" style="margin:0 0 .75rem;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px" data-aid="' + escapeHtml(a.id) + '">' +
           '<div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:flex-start">' +
           '<div><strong>' + escapeHtml(a.title || a.bookTitle || 'Debrief') + '</strong>' +
           '<div class="muted small">' + escapeHtml(targets) +
           (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-edit-targets" data-aid="' + escapeHtml(a.id) + '">Edit students</button></div>' +
+          '<div style="display:flex;gap:.35rem;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-ghost btn-sm content-edit-targets" data-aid="' + escapeHtml(a.id) + '">Edit students</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-del-assign" data-aid="' + escapeHtml(a.id) + '">Remove</button>' +
+          '</div></div>' +
           '<div class="content-target-editor hidden" data-aid="' + escapeHtml(a.id) + '" style="margin-top:.65rem">' +
           contentStudentChecks(a.studentIds) +
           '<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">' +
@@ -893,6 +935,18 @@
           }
         });
       });
+      box.querySelectorAll('.content-del-assign').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Remove this Oral Debrief assignment from the class?')) return;
+          try {
+            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
+              '/debrief-assignments/' + encodeURIComponent(btn.dataset.aid), { method: 'DELETE' }, role);
+            loadContentDebriefList();
+          } catch (e) {
+            alert(e.message || 'Could not remove');
+          }
+        });
+      });
     } catch (e) {
       box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
     }
@@ -913,12 +967,18 @@
       box.innerHTML = list.map((l) => {
         const targets = l.targeted ? ((l.studentIds || []).length + ' students') : 'Whole class';
         const pub = l.published ? 'Published' : 'Draft';
+        const canPublish = l.status === 'ready';
         return '<div class="card" style="margin:0 0 .75rem;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px" data-lid="' + escapeHtml(l.id) + '">' +
           '<div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:flex-start">' +
           '<div><strong>' + escapeHtml(l.title) + '</strong>' +
           '<div class="muted small">' + escapeHtml(pub) + ' · ' + escapeHtml(targets) +
           ' · started ' + (l.startedCount || 0) + ' · done ' + (l.completedCount || 0) + '</div></div>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-edit-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Edit students</button></div>' +
+          '<div style="display:flex;gap:.35rem;flex-wrap:wrap">' +
+          (canPublish
+            ? '<button type="button" class="btn btn-ghost btn-sm content-toggle-publish" data-lid="' + escapeHtml(l.id) + '" data-pub="' + (l.published ? '1' : '0') + '">' +
+              (l.published ? 'Unpublish' : 'Publish') + '</button>'
+            : '') +
+          '<button type="button" class="btn btn-ghost btn-sm content-edit-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Edit students</button></div></div>' +
           '<div class="content-lesson-editor hidden" data-lid="' + escapeHtml(l.id) + '" style="margin-top:.65rem">' +
           contentStudentChecks(l.studentIds) +
           '<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">' +
@@ -951,6 +1011,22 @@
             loadContentLmsList();
           } catch (e) {
             alert(e.message || 'Could not save');
+            btn.disabled = false;
+          }
+        });
+      });
+      box.querySelectorAll('.content-toggle-publish').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const want = btn.dataset.pub !== '1';
+          btn.disabled = true;
+          try {
+            await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid), {
+              method: 'PATCH',
+              body: { published: want }
+            }, role);
+            loadContentLmsList();
+          } catch (e) {
+            alert(e.message || 'Could not update');
             btn.disabled = false;
           }
         });
@@ -2212,6 +2288,41 @@
   }
   if ($('contentRefreshLmsBtn')) {
     $('contentRefreshLmsBtn').addEventListener('click', () => loadContentLmsList());
+  }
+  if ($('contentAssignBookBtn')) {
+    $('contentAssignBookBtn').addEventListener('click', async () => {
+      const status = $('contentAssignStatus');
+      const bookId = ($('contentBookSelect') && $('contentBookSelect').value) || '';
+      if (!currentClass) return;
+      if (!bookId) {
+        if (status) status.textContent = 'Select a verified book first.';
+        return;
+      }
+      const studentIds = collectChecks($('contentAssignStudentPick'));
+      const dueDate = ($('contentAssignDue') && $('contentAssignDue').value) || '';
+      const bookLabel = ($('contentBookSelect').selectedOptions[0] || {}).textContent || 'Oral Debrief';
+      const title = 'Oral Debrief: ' + String(bookLabel).split(' — ')[0].trim();
+      $('contentAssignBookBtn').disabled = true;
+      if (status) status.textContent = 'Assigning…';
+      try {
+        await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/debrief-assignments', {
+          method: 'POST',
+          body: {
+            bookId: bookId,
+            title: title,
+            dueDate: dueDate || null,
+            studentIds: studentIds
+          }
+        }, role);
+        if (status) status.textContent = 'Assigned.';
+        if ($('contentAssignDue')) $('contentAssignDue').value = '';
+        loadContentDebriefList();
+      } catch (e) {
+        if (status) status.textContent = e.message || 'Assign failed';
+      } finally {
+        $('contentAssignBookBtn').disabled = false;
+      }
+    });
   }
   const openBibleSlidesBtn = $('openBibleSlidesBtn');
   if (openBibleSlidesBtn) {
