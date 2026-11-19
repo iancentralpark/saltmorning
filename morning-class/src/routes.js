@@ -5756,4 +5756,151 @@ router.post('/admin/parents/:parentId/deactivate', requireRole('admin', 'princip
   }
 });
 
+// ---------------------------------------------------------------------------
+// Online LMS video lessons (Phase 5) — Cloudflare Stream
+// ---------------------------------------------------------------------------
+const lmsLessons = require('./services/lmsLessonService');
+
+const lmsCreateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyFn: (req) => 'lms-create:' + debriefTeacherId(req),
+  message: '강의 생성 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
+});
+
+const lmsPlaybackLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyFn: (req) => 'lms-play:' + ((req.session && req.session.studentId) || req.ip || 'unknown'),
+  message: '잠시 후 다시 시도해 주세요.'
+});
+
+const lmsProgressLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 40,
+  keyFn: (req) => 'lms-prog:' + ((req.session && req.session.studentId) || req.ip || 'unknown'),
+  message: 'Too many requests.'
+});
+
+async function assertLmsClassAccess(req, classId) {
+  if (req.session && req.session.role === 'teacher') {
+    await assertTeacherClassAccess(req.session.teacherId, classId);
+  }
+}
+
+async function loadLmsLessonForStaff(req) {
+  const lesson = await lmsLessons.getRaw(req.params.lessonId);
+  if (!lesson) {
+    const err = new Error('Lesson not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  await assertLmsClassAccess(req, lesson.classId);
+  return lesson;
+}
+
+function lmsError(res, e, fallback) {
+  res.status(e.statusCode || e.status || 500).json({ error: e.message || fallback });
+}
+
+router.get('/lms/meta', requireRole('teacher', 'admin'), (req, res) => {
+  res.json({ configured: lmsLessons.isConfigured() });
+});
+
+router.get('/lms/classes/:classId/lessons', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    res.json({ configured: lmsLessons.isConfigured(), lessons: await lmsLessons.listForStaff(req.params.classId) });
+  } catch (e) {
+    lmsError(res, e, 'Could not load lessons.');
+  }
+});
+
+router.post('/lms/classes/:classId/lessons', requireRole('teacher', 'admin'), lmsCreateLimiter, async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    res.status(201).json(await lmsLessons.createLesson(req.params.classId, req.body || {}, debriefTeacherId(req)));
+  } catch (e) {
+    lmsError(res, e, 'Could not create lesson.');
+  }
+});
+
+router.post('/lms/classes/:classId/lessons/reorder', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    res.json({ lessons: await lmsLessons.reorder(req.params.classId, req.body && req.body.ids) });
+  } catch (e) {
+    lmsError(res, e, 'Could not reorder lessons.');
+  }
+});
+
+router.get('/lms/lessons/:lessonId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadLmsLessonForStaff(req);
+    res.json(await lmsLessons.getForStaff(req.params.lessonId));
+  } catch (e) {
+    lmsError(res, e, 'Could not load lesson.');
+  }
+});
+
+router.patch('/lms/lessons/:lessonId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadLmsLessonForStaff(req);
+    res.json(await lmsLessons.updateLesson(req.params.lessonId, req.body || {}));
+  } catch (e) {
+    lmsError(res, e, 'Could not update lesson.');
+  }
+});
+
+router.delete('/lms/lessons/:lessonId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadLmsLessonForStaff(req);
+    res.json(await lmsLessons.deleteLesson(req.params.lessonId));
+  } catch (e) {
+    lmsError(res, e, 'Could not delete lesson.');
+  }
+});
+
+router.get('/lms/lessons/:lessonId/progress', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadLmsLessonForStaff(req);
+    res.json(await lmsLessons.progressForStaff(req.params.lessonId));
+  } catch (e) {
+    lmsError(res, e, 'Could not load progress.');
+  }
+});
+
+router.get('/student/lms/lessons', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await lmsLessons.listForStudent(req.session.classId, req.session.studentId));
+  } catch (e) {
+    lmsError(res, e, 'Could not load lessons.');
+  }
+});
+
+router.get('/student/lms/lessons/:lessonId/playback', requireRole('student'), lmsPlaybackLimiter, async (req, res) => {
+  try {
+    res.json(await lmsLessons.playbackForStudent(req.params.lessonId, {
+      studentId: String(req.session.studentId || ''),
+      classId: String(req.session.classId || ''),
+      studentName: String(req.session.name || '')
+    }));
+  } catch (e) {
+    lmsError(res, e, 'Could not start playback.');
+  }
+});
+
+router.post('/student/lms/lessons/:lessonId/progress', requireRole('student'), lmsProgressLimiter, async (req, res) => {
+  try {
+    res.json(await lmsLessons.saveProgress(req.params.lessonId, {
+      studentId: String(req.session.studentId || ''),
+      classId: String(req.session.classId || ''),
+      studentName: String(req.session.name || '')
+    }, req.body || {}));
+  } catch (e) {
+    lmsError(res, e, 'Could not save progress.');
+  }
+});
+
+
 module.exports = router;
