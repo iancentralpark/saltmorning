@@ -86,7 +86,7 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .assign-box {
-      margin-top: 1rem; padding: .9rem; border: 1px dashed #b9c6dc; border-radius: 12px; background: #f7f9fd;
+      margin: 0 0 1rem; padding: .9rem; border: 2px solid #8eb0d8; border-radius: 12px; background: #eef5ff;
     }
     .assign-box h3 { margin: 0 0 .45rem; font-size: .95rem; color: var(--accent); font-family: Fraunces, Georgia, serif; }
     .assign-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
@@ -161,7 +161,6 @@
           </div>
         </div>
         <div id="emptyDetail" class="empty">왼쪽에서 책을 만들거나 목록에서 선택하세요.</div>
-        <div id="detailMount" class="profile-view hidden"></div>
         <div id="assignBox" class="assign-box hidden">
           <h3>반에 과제 부여</h3>
           <p class="hint" id="assignHint">Verified 책만 반에 Oral Debrief 과제로 줄 수 있습니다.</p>
@@ -187,6 +186,7 @@
           <div class="assign-list" id="assignList"></div>
           <div class="results-box hidden" id="resultsBox"></div>
         </div>
+        <div id="detailMount" class="profile-view hidden"></div>
       </section>
     </div>
   </div>
@@ -300,10 +300,8 @@
     $('assignHint').textContent = verified
       ? 'Verified 프로필을 반에 Oral Debrief 과제로 부여합니다. 학생 포털에 바로 표시됩니다.'
       : '먼저 Verified로 표시한 뒤에 반에 부여할 수 있습니다.';
-    if (verified) {
+    if (verified && !$('assignTitle').value) {
       $('assignTitle').value = 'Oral Debrief: ' + (book.title || '');
-      $('assignInstructions').value = '';
-      $('assignDueDate').value = '';
     }
     loadAssignments(book.id);
   }
@@ -707,7 +705,8 @@
     }).then(function (book) {
       renderDetail(book);
       loadList();
-      setStatus('Verified 처리됨', 'ok');
+      setStatus('Verified 처리됨 — 위쪽 「반에 과제 부여」에서 반을 고르세요.', 'ok');
+      try { $('assignBox').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
     }).catch(function (e) { setStatus(e.message, 'error'); });
   });
   $('btnUnverify').addEventListener('click', function () {
