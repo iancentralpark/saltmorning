@@ -4922,7 +4922,11 @@ const debriefAudioUpload = multer({
   limits: { fileSize: debriefStt.MAX_AUDIO_BYTES },
   fileFilter: (req, file, cb) => {
     const mime = String(file.mimetype || '').toLowerCase();
-    cb(mime.startsWith('audio/') || mime === 'video/webm' ? null : new Error('Audio files only.'), true);
+    const name = String(file.originalname || '').toLowerCase();
+    const okMime = mime.startsWith('audio/') || mime === 'video/webm' || mime === 'application/octet-stream';
+    const okName = /\.(webm|wav|mp3|m4a|ogg|mpeg|mp4)$/.test(name);
+    if (okMime || okName) return cb(null, true);
+    cb(new Error('Audio files only.'));
   }
 });
 
