@@ -5,6 +5,7 @@ const { getStudentDollars } = require('./dollarService');
 const { getStudentHomeworkStatus } = require('./homeworkService');
 const { getStudentVocabSummary } = require('./vocabShared');
 const { listForStudent: listDebriefAssignments } = require('./debriefAssignmentService');
+const { portalForClass } = require('./contentPortalService');
 
 /**
  * Student home dashboard.
@@ -20,6 +21,7 @@ async function getStudentDashboard(session) {
   let dollars = { available: false, balance: 0, transactions: [] };
   let homework = { available: false, today: [], pending: [], completed: [] };
   let debrief = { available: false, assignments: [] };
+  let portal = { mode: 'full', isContent: false, flags: {}, links: {} };
   let vocab = {
     available: false,
     status: 'coming_soon',
@@ -64,6 +66,12 @@ async function getStudentDashboard(session) {
   }
 
   try {
+    portal = await portalForClass(classId);
+  } catch (e) {
+    portal = { mode: 'full', isContent: false, flags: {}, links: {} };
+  }
+
+  try {
     const engine = require('./vocabEngineProxy');
     vocab = engine.isConfigured()
       ? (await engine.engineFetch('/summary', { studentId, classId })).data
@@ -89,6 +97,7 @@ async function getStudentDashboard(session) {
       dollars: dollars.available ? dollars.balance : null,
       vocabReady: !!(vocab && vocab.available !== false)
     },
+    portal,
     homework,
     debrief,
     dollars,

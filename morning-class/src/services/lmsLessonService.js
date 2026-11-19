@@ -20,6 +20,8 @@ const COMPLETE_RATIO = 0.9;
 const lessons = new Map();
 /** @type {Map<string, Map<string, object>>} */
 const progressByLesson = new Map();
+/** @type {Map<string, string[]|null>} */
+const lessonStudents = new Map();
 
 function httpError(status, msg) {
   const err = new Error(msg);
@@ -165,6 +167,64 @@ async function progressCounts(classId) {
   return out;
 }
 
+function normalizeStudentIds(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  const seen = new Set();
+  list.forEach((id) => {
+    const x = String(id || '').trim();
+    if (!x || seen.has(x)) return;
+    seen.add(x);
+    out.push(x);
+  });
+  return out.length ? out : null;
+}
+
+async function loadLessonStudentIds(lessonId) {
+  lessonId = String(lessonId || '');
+  if (lessonStudents.has(lessonId)) return lessonStudents.get(lessonId);
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT student_id FROM ' + table('lms_lesson_students') + ' WHERE lesson_id = $1 ORDER BY student_id',
+      [lessonId]
+    );
+    const ids = r.rows.map((row) => String(row.student_id));
+    const val = ids.length ? ids : null;
+    lessonStudents.set(lessonId, val);
+    return val;
+  }
+  return null;
+}
+
+async function setLessonStudents(lessonId, studentIds) {
+  const l = await loadLesson(lessonId);
+  if (!l) throw httpError(404, 'Lesson not found.');
+  const ids = normalizeStudentIds(studentIds);
+  lessonStudents.set(l.id, ids);
+  if (isOpsDbEnabled()) {
+    await query('DELETE FROM ' + table('lms_lesson_students') + ' WHERE lesson_id = $1', [l.id]);
+    if (ids) {
+      for (const sid of ids) {
+        await query(
+          'INSERT INTO ' + table('lms_lesson_students') + ' (lesson_id, student_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          [l.id, sid]
+        );
+      }
+    }
+  }
+  const counts = await progressCounts(l.classId);
+  const out = staffLesson(l, counts.get(l.id));
+  out.studentIds = ids;
+  out.targeted = !!(ids && ids.length);
+  return out;
+}
+
+async function studentCanAccessLesson(lessonId, studentId) {
+  const ids = await loadLessonStudentIds(lessonId);
+  if (!ids || !ids.length) return true;
+  return ids.includes(String(studentId || ''));
+}
+
 function staffLesson(l, counts) {
   return {
     id: l.id,
@@ -229,7 +289,14 @@ async function listForStaff(classId) {
   const list = await loadClassLessons(classId);
   await Promise.all(list.map((l) => syncLesson(l)));
   const counts = await progressCounts(classId);
-  return list.map((l) => staffLesson(l, counts.get(l.id)));
+  const out = [];
+  for (const l of list) {
+    const row = staffLesson(l, counts.get(l.id));
+    row.studentIds = await loadLessonStudentIds(l.id);
+    row.targeted = !!(row.studentIds && row.studentIds.length);
+    out.push(row);
+  }
+  return out;
 }
 
 async function createLesson(classId, body, teacherId) {
@@ -260,7 +327,11 @@ async function createLesson(classId, body, teacherId) {
   };
   lessons.set(lesson.id, lesson);
   await persistLesson(lesson);
-  return { lesson: staffLesson(lesson), uploadURL: upload.uploadURL };
+  if (body && body.studentIds) await setLessonStudents(lesson.id, body.studentIds);
+  const row = staffLesson(lesson);
+  row.studentIds = await loadLessonStudentIds(lesson.id);
+  row.targeted = !!(row.studentIds && row.studentIds.length);
+  return { lesson: row, uploadURL: upload.uploadURL };
 }
 
 async function getForStaff(id) {
@@ -296,8 +367,14 @@ async function updateLesson(id, patch) {
   l.updatedAt = Date.now();
   lessons.set(l.id, l);
   await persistLesson(l);
+  if (patch.studentIds !== undefined) {
+    return setLessonStudents(l.id, patch.studentIds);
+  }
   const counts = await progressCounts(l.classId);
-  return staffLesson(l, counts.get(l.id));
+  const row = staffLesson(l, counts.get(l.id));
+  row.studentIds = await loadLessonStudentIds(l.id);
+  row.targeted = !!(row.studentIds && row.studentIds.length);
+  return row;
 }
 
 async function reorder(classId, ids) {
@@ -367,23 +444,34 @@ async function listForStudent(classId, studentId) {
     loadClassLessons(classId),
     loadProgressForStudent(classId, studentId)
   ]);
-  const visible = list.filter((l) => l.published && l.status === 'ready');
+  const visible = [];
+  for (const l of list) {
+    if (!l.published || l.status !== 'ready') continue;
+    const ids = await loadLessonStudentIds(l.id);
+    if (ids && ids.length && !ids.includes(String(studentId || ''))) continue;
+    const row = studentLesson(l, prog.get(l.id));
+    row.targeted = !!(ids && ids.length);
+    visible.push(row);
+  }
   return {
     available: stream.isConfigured(),
-    lessons: visible.map((l) => studentLesson(l, prog.get(l.id)))
+    lessons: visible
   };
 }
 
-async function loadStudentLesson(lessonId, classId) {
+async function loadStudentLesson(lessonId, classId, studentId) {
   const l = await loadLesson(lessonId);
   if (!l || String(l.classId) !== String(classId) || !l.published || l.status !== 'ready') {
     throw httpError(404, 'Lesson not found.');
+  }
+  if (studentId != null && !(await studentCanAccessLesson(lessonId, studentId))) {
+    throw httpError(403, '이 강의는 배정되지 않았습니다.');
   }
   return l;
 }
 
 async function playbackForStudent(lessonId, student) {
-  const l = await loadStudentLesson(lessonId, student.classId);
+  const l = await loadStudentLesson(lessonId, student.classId, student.studentId);
   const token = await stream.signPlaybackToken(l.videoUid);
   const prog = (await loadProgressForStudent(student.classId, student.studentId)).get(l.id);
   return {
@@ -400,7 +488,7 @@ function toInt(v, max) {
 }
 
 async function saveProgress(lessonId, student, body) {
-  const l = await loadStudentLesson(lessonId, student.classId);
+  const l = await loadStudentLesson(lessonId, student.classId, student.studentId);
   body = body || {};
   const dur = l.durationSeconds || toInt(body.duration, 24 * 3600) || null;
   const cap = dur || 24 * 3600;
@@ -453,6 +541,9 @@ module.exports = {
   isConfigured,
   listForStaff,
   createLesson,
+  setLessonStudents,
+  loadLessonStudentIds,
+  studentCanAccessLesson,
   getForStaff,
   getRaw,
   updateLesson,

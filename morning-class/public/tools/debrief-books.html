@@ -92,6 +92,14 @@
     .assign-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
     @media (max-width: 720px) { .assign-row { grid-template-columns: 1fr; } }
     .assign-list { display: grid; gap: .4rem; margin-top: .55rem; }
+    .student-pick {
+      max-height: 11rem; overflow: auto; border: 1px solid var(--line); border-radius: 10px;
+      padding: .45rem .55rem; background: #fff; margin-top: .25rem;
+    }
+    .student-pick label {
+      display: flex; flex-direction: row; align-items: center; gap: .45rem;
+      font-size: .82rem; font-weight: 500; color: var(--ink); margin: .2rem 0;
+    }
     .assign-item {
       display: flex; justify-content: space-between; gap: .5rem; align-items: flex-start;
       background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font-size: .84rem;
@@ -179,8 +187,11 @@
             <label>학생 안내 (선택)
               <textarea id="assignInstructions" style="min-height:4rem" placeholder="예: Ch.1–5까지 읽고 오라 / 한국어 섞어도 됨"></textarea>
             </label>
+            <label>배정 학생 (비우면 반 전체)
+              <div id="assignStudentPick" class="student-pick"><span class="hint">반을 선택하면 명단이 표시됩니다.</span></div>
+            </label>
             <div class="actions">
-              <button type="button" class="btn btn-primary btn-sm" id="btnAssign">이 반에 부여</button>
+              <button type="button" class="btn btn-primary btn-sm" id="btnAssign">선택한 학생에게 부여</button>
             </div>
           </div>
           <div class="assign-list" id="assignList"></div>
@@ -199,6 +210,7 @@
   var current = null;
   var pollTimer = null;
   var classOptions = [];
+  var rosterByClass = {};
   var currentAssignments = [];
 
   function token() {
@@ -313,9 +325,13 @@
       return;
     }
     mount.innerHTML = currentAssignments.map(function (a) {
+      var targetLabel = a.targeted
+        ? ((a.studentIds || []).length + '명 지정')
+        : '반 전체';
       return '<div class="assign-item" data-id="' + escapeHtml(a.id) + '">' +
         '<div><strong>' + escapeHtml(classLabel(a.classId)) + '</strong>' +
         '<div class="meta">' + escapeHtml(a.title || '') +
+        ' · ' + escapeHtml(targetLabel) +
         (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
         '<div class="actions" style="margin:0">' +
         '<button type="button" class="btn btn-ghost btn-sm assign-results" data-id="' + escapeHtml(a.id) + '">결과 보기</button>' +
@@ -520,6 +536,56 @@
     });
   }
 
+
+  function selectedStudentIds() {
+    var box = $('assignStudentPick');
+    if (!box) return null;
+    var ids = Array.prototype.map.call(box.querySelectorAll('input[type=checkbox]:checked'), function (el) {
+      return el.value;
+    }).filter(Boolean);
+    return ids.length ? ids : null;
+  }
+
+  function renderStudentPick(students) {
+    var box = $('assignStudentPick');
+    if (!box) return;
+    students = students || [];
+    if (!students.length) {
+      box.innerHTML = '<span class="hint">이 반에 학생이 없습니다.</span>';
+      return;
+    }
+    box.innerHTML = students.map(function (st) {
+      var id = st.studentId || st.id;
+      return '<label><input type="checkbox" value="' + escapeHtml(id) + '"> ' +
+        escapeHtml(st.name || id) + ' <span class="meta">(' + escapeHtml(id) + ')</span></label>';
+    }).join('');
+  }
+
+  function loadRosterForAssign(classId) {
+    classId = String(classId || '').trim();
+    if (!classId) {
+      renderStudentPick([]);
+      $('assignStudentPick').innerHTML = '<span class="hint">반을 선택하면 명단이 표시됩니다.</span>';
+      return Promise.resolve();
+    }
+    if (rosterByClass[classId]) {
+      renderStudentPick(rosterByClass[classId]);
+      return Promise.resolve(rosterByClass[classId]);
+    }
+    $('assignStudentPick').innerHTML = '<span class="hint">명단 불러오는 중…</span>';
+    var url = isAdminSession()
+      ? '/api/admin/classes/' + encodeURIComponent(classId)
+      : '/api/teacher/class/' + encodeURIComponent(classId) + '/roster';
+    return api(url).then(function (data) {
+      var students = data.students || (data.class && data.class.students) || [];
+      rosterByClass[classId] = students;
+      renderStudentPick(students);
+      return students;
+    }).catch(function () {
+      $('assignStudentPick').innerHTML = '<span class="hint">명단을 불러오지 못했습니다.</span>';
+    });
+  }
+
   function loadClassOptions() {
     var sel = $('assignClassSelect');
     var req = isAdminSession()
@@ -547,6 +613,11 @@
       sel.innerHTML = '<option value="">반 선택…</option>' + opts.map(function (c) {
         return '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.className) + '</option>';
       }).join('');
+      var want = new URLSearchParams(location.search).get('class');
+      if (want && seen[want]) {
+        sel.value = want;
+        loadRosterForAssign(want);
+      }
     }).catch(function () {
       sel.innerHTML = '<option value="">반 목록을 불러오지 못했습니다</option>';
     });
@@ -736,6 +807,10 @@
       .catch(function (e) { setStatus(e.message, 'error'); });
   });
 
+  $('assignClassSelect').addEventListener('change', function () {
+    loadRosterForAssign($('assignClassSelect').value);
+  });
+
   $('btnAssign').addEventListener('click', function () {
     if (!current || !current.isVerified) {
       setStatus('Verified 책만 부여할 수 있습니다.', 'error');
@@ -747,11 +822,19 @@
     var customInstructions = String($('assignInstructions').value || '').trim();
     var dueDate = String($('assignDueDate').value || '').trim();
     $('btnAssign').disabled = true;
+    var studentIds = selectedStudentIds();
     api('/api/debrief/books/' + encodeURIComponent(current.id) + '/assign', {
       method: 'POST',
-      body: { classId: classId, title: title, customInstructions: customInstructions, dueDate: dueDate || null }
+      body: {
+        classId: classId,
+        title: title,
+        customInstructions: customInstructions,
+        dueDate: dueDate || null,
+        studentIds: studentIds
+      }
     }).then(function () {
-      setStatus(classLabel(classId) + ' 반에 부여됨 — 학생 포털에 표시됩니다.', 'ok');
+      var who = studentIds ? (studentIds.length + '명') : '반 전체';
+      setStatus(classLabel(classId) + ' · ' + who + '에게 부여됨 — 학생 포털에 표시됩니다.', 'ok');
       return loadAssignments(current.id);
     }).catch(function (e) {
       setStatus(e.message || '부여 실패', 'error');

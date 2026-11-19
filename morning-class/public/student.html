@@ -77,6 +77,12 @@
       <div id="debriefList"></div>
     </div>
 
+    <div class="card stu-card hidden" id="sectionContentLinks">
+      <div class="card-title"><i class="fa-solid fa-link"></i> Learning apps</div>
+      <p class="muted small" id="contentLinksStatus">Open these in a new tab.</p>
+      <div id="contentLinksList" class="stu-content-links"></div>
+    </div>
+
     <div class="card stu-card" id="sectionGrades">
       <div class="card-title"><i class="fa-solid fa-chart-simple"></i> <span data-i18n="nav.parentGrades">Grades</span></div>
       <div id="stuGrades"><p class="muted" data-i18n="common.loading">Loading…</p></div>
@@ -445,8 +451,69 @@
     }
   }
 
+  function isContentPortal() {
+    return !!(dashboard && dashboard.portal && dashboard.portal.isContent);
+  }
+
+  function applyContentPortalMode() {
+    const content = isContentPortal();
+    document.body.classList.toggle('stu-content-portal', content);
+    const hideIds = [
+      'sectionTimetable', 'announcementsShell', 'sectionHomework', 'sectionGrades',
+      'sectionReportCard', 'sectionDollars', 'vocabShell', 'sectionLucky', 'sectionLostFound',
+      'stuPushCard', 'buddyFloat'
+    ];
+    hideIds.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      if (content) hide(el); else show(el);
+    });
+    if ($('homeSummary')) $('homeSummary').classList.toggle('hidden', content);
+    if ($('sectionContentLinks')) {
+      if (content) show($('sectionContentLinks'));
+      else hide($('sectionContentLinks'));
+    }
+    // Keep Debrief + Lessons + Account always visible.
+    if ($('sectionDebrief')) show($('sectionDebrief'));
+    if ($('sectionLessons')) show($('sectionLessons'));
+    if ($('sectionAccount')) show($('sectionAccount'));
+  }
+
+  function renderContentLinks() {
+    const box = $('contentLinksList');
+    const status = $('contentLinksStatus');
+    if (!box || !status) return;
+    const portal = (dashboard && dashboard.portal) || {};
+    const links = portal.links || {};
+    const items = [];
+    if (links.englishBooster) {
+      items.push({ label: 'English Booster', href: links.englishBooster, hint: 'Vocabulary practice (external)' });
+    }
+    if (links.magicAcademy) {
+      items.push({ label: 'Magic Academy', href: links.magicAcademy, hint: 'Magic Academy (external)' });
+    }
+    if (!items.length) {
+      status.textContent = 'No external apps are enabled for this class yet.';
+      box.innerHTML = '';
+      return;
+    }
+    status.textContent = 'Open these in a new tab when your teacher asks.';
+    box.innerHTML = '<ul class="stu-list">' + items.map((it) =>
+      '<li><a class="btn btn-primary btn-sm" href="' + escapeHtml(it.href) + '" target="_blank" rel="noopener">' +
+      escapeHtml(it.label) + '</a><div class="muted small">' + escapeHtml(it.hint) + '</div></li>'
+    ).join('') + '</ul>';
+  }
+
   function renderHome() {
     if (!dashboard) return;
+    if (isContentPortal()) {
+      const s = dashboard.summary || {};
+      $('homeSummary').innerHTML =
+        chip('Oral Debrief', s.pendingDebrief || 0, 'sectionDebrief') +
+        chip('Online Lessons', '→', 'sectionLessons');
+      wireHomeChips();
+      return;
+    }
     const s = dashboard.summary || {};
     const v = dashboard.vocab || {};
     $('homeSummary').innerHTML =
@@ -720,31 +787,42 @@
       const p = dashboard.profile || {};
       $('welcomeText').textContent = 'Hi, ' + (p.name || 'Student');
       $('classLabel').textContent = p.className || '';
+      applyContentPortalMode();
       renderHome();
-      renderHomework();
       renderDebrief();
       loadLessons();
-      renderDollars();
-      if (window.SaltTimetable && $('stuTimetableMount')) {
-        SaltTimetable.renderReadOnly(
-          $('stuTimetableMount'),
-          'student',
-          p.studentId || (getProfile(role) || {}).studentId || 'self',
-          p.name || ''
-        );
-      }
-      if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
-      show($('buddyFloat'));
-      if (window.MrParkVocabLearn) {
-        // Apply dashboard vocab immediately so Placement UI cannot flash/stuck as "not done".
-        if (dashboard.vocab && typeof window.MrParkVocabLearn.applyServerSummary === 'function') {
-          window.MrParkVocabLearn.applyServerSummary(dashboard.vocab);
+      renderContentLinks();
+      if (!isContentPortal()) {
+        renderHomework();
+        renderDollars();
+        if (window.SaltTimetable && $('stuTimetableMount')) {
+          SaltTimetable.renderReadOnly(
+            $('stuTimetableMount'),
+            'student',
+            p.studentId || (getProfile(role) || {}).studentId || 'self',
+            p.name || ''
+          );
         }
-        if (typeof window.MrParkVocabLearn.onLogin === 'function') {
-          window.MrParkVocabLearn.onLogin();
-        } else if (typeof window.MrParkVocabLearn.refreshServerSummary === 'function') {
-          window.MrParkVocabLearn.refreshServerSummary();
+        if (dashboard.buddy) setBuddyStatusText(dashboard.buddy);
+        show($('buddyFloat'));
+        if (window.MrParkVocabLearn) {
+          // Apply dashboard vocab immediately so Placement UI cannot flash/stuck as "not done".
+          if (dashboard.vocab && typeof window.MrParkVocabLearn.applyServerSummary === 'function') {
+            window.MrParkVocabLearn.applyServerSummary(dashboard.vocab);
+          }
+          if (typeof window.MrParkVocabLearn.onLogin === 'function') {
+            window.MrParkVocabLearn.onLogin();
+          } else if (typeof window.MrParkVocabLearn.refreshServerSummary === 'function') {
+            window.MrParkVocabLearn.refreshServerSummary();
+          }
         }
+      } else {
+        hide($('buddyFloat'));
+        $('moreUnread').textContent = '';
+        $('moreProfile').textContent = (p.name || '') +
+          (p.className ? ' · ' + p.className : '') +
+          (p.studentId ? ' · ' + p.studentId : '') +
+          ' · Content class';
       }
     } catch (e) {
       $('homeworkStatus').textContent = e.message || 'Could not load dashboard.';
@@ -842,15 +920,17 @@
       statusEl: $('stuPushStatus')
     });
   }
-  loadDashboard();
-  loadLuckyTickets();
-  loadStudentAnnouncements();
-  loadGrades();
-  loadReportCards();
-  if (window.SaltLostFound && SaltLostFound.Student) {
-    SaltLostFound.Student.init({ api, $, escapeHtml });
-    SaltLostFound.Student.open();
-  }
+  loadDashboard().then(() => {
+    if (isContentPortal()) return;
+    loadLuckyTickets();
+    loadStudentAnnouncements();
+    loadGrades();
+    loadReportCards();
+    if (window.SaltLostFound && SaltLostFound.Student) {
+      SaltLostFound.Student.init({ api, $, escapeHtml });
+      SaltLostFound.Student.open();
+    }
+  });
 })();
 </script>
 </body>

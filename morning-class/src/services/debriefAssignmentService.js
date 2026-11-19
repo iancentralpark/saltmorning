@@ -18,8 +18,22 @@ function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
 }
 
+function normalizeStudentIds(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [];
+  const seen = new Set();
+  list.forEach((id) => {
+    const s = String(id || '').trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  });
+  return out.length ? out : null; // null = whole class
+}
+
 function publicAssignment(row, extras) {
   extras = extras || {};
+  const studentIds = extras.studentIds !== undefined ? extras.studentIds : row.studentIds;
   return {
     id: row.id,
     classId: row.classId,
@@ -34,7 +48,9 @@ function publicAssignment(row, extras) {
     bookAuthor: extras.bookAuthor != null ? extras.bookAuthor : row.bookAuthor,
     oneSentenceHook: extras.oneSentenceHook != null ? extras.oneSentenceHook : row.oneSentenceHook,
     isVerified: extras.isVerified != null ? extras.isVerified : row.isVerified,
-    gradeBand: extras.gradeBand != null ? extras.gradeBand : row.gradeBand
+    gradeBand: extras.gradeBand != null ? extras.gradeBand : row.gradeBand,
+    studentIds: studentIds == null ? null : studentIds,
+    targeted: Array.isArray(studentIds) && studentIds.length > 0
   };
 }
 
@@ -141,6 +157,51 @@ async function enrichFromBook(a) {
   }
 }
 
+async function loadAssignmentStudentIds(assignmentId) {
+  assignmentId = String(assignmentId || '');
+  const cached = assignments.get(assignmentId);
+  if (cached && cached.studentIds !== undefined) return cached.studentIds;
+  if (!isOpsDbEnabled()) return cached && cached.studentIds != null ? cached.studentIds : null;
+  const r = await query(
+    'SELECT student_id FROM ' + table('debrief_assignment_students') + ' WHERE assignment_id = $1 ORDER BY student_id',
+    [assignmentId]
+  );
+  const ids = r.rows.map((row) => String(row.student_id));
+  return ids.length ? ids : null;
+}
+
+async function setAssignmentStudents(assignmentId, studentIds) {
+  const a = await getAssignment(assignmentId);
+  if (!a) {
+    const err = new Error('과제를 찾을 수 없습니다.');
+    err.statusCode = 404;
+    throw err;
+  }
+  const ids = normalizeStudentIds(studentIds);
+  a.studentIds = ids;
+  a.updatedAt = Date.now();
+  assignments.set(a.id, a);
+  if (isOpsDbEnabled()) {
+    await query('DELETE FROM ' + table('debrief_assignment_students') + ' WHERE assignment_id = $1', [a.id]);
+    if (ids) {
+      for (const sid of ids) {
+        await query(
+          'INSERT INTO ' + table('debrief_assignment_students') + ' (assignment_id, student_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          [a.id, sid]
+        );
+      }
+    }
+    await persistAssignment(a);
+  }
+  return publicAssignment(a);
+}
+
+async function studentCanAccessAssignment(assignmentId, studentId) {
+  const ids = await loadAssignmentStudentIds(assignmentId);
+  if (!ids || !ids.length) return true;
+  return ids.includes(String(studentId || ''));
+}
+
 async function createAssignment(opts, createdBy) {
   const classId = String((opts && opts.classId) || '').trim();
   const bookId = String((opts && opts.bookId) || '').trim();
@@ -203,8 +264,10 @@ async function createAssignment(opts, createdBy) {
     isVerified: true,
     gradeBand: book.gradeBand
   };
+  a.studentIds = normalizeStudentIds(opts && opts.studentIds);
   assignments.set(a.id, a);
   await persistAssignment(a);
+  if (a.studentIds) await setAssignmentStudents(a.id, a.studentIds);
   return publicAssignment(a);
 }
 
@@ -234,7 +297,13 @@ async function updateAssignment(id, patch, actor) {
   a.updatedAt = Date.now();
   assignments.set(a.id, a);
   await persistAssignment(a);
-  return enrichFromBook(a);
+  if (patch.studentIds !== undefined) {
+    await setAssignmentStudents(a.id, patch.studentIds);
+  }
+  const out = await enrichFromBook(a);
+  out.studentIds = await loadAssignmentStudentIds(a.id);
+  out.targeted = !!(out.studentIds && out.studentIds.length);
+  return out;
 }
 
 async function deleteAssignment(id) {
@@ -270,17 +339,24 @@ async function listByClass(classId, opts) {
     }
     sql += ' ORDER BY a.updated_at DESC';
     const r = await query(sql, params);
-    return r.rows.map((row) => {
+    const list = [];
+    for (const row of r.rows) {
       const a = rowToAssignment(row);
+      a.studentIds = await loadAssignmentStudentIds(a.id);
       assignments.set(a.id, a);
-      return publicAssignment(a);
-    });
+      list.push(publicAssignment(a));
+    }
+    return list;
   }
 
-  return Array.from(assignments.values())
+  const mem = [];
+  for (const a of Array.from(assignments.values())
     .filter((a) => a.classId === classId && (!bookIdFilter || a.bookId === bookIdFilter))
-    .sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0))
-    .map((a) => publicAssignment(a));
+    .sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0))) {
+    if (a.studentIds === undefined) a.studentIds = null;
+    mem.push(publicAssignment(a));
+  }
+  return mem;
 }
 
 async function listByBook(bookId) {
@@ -295,17 +371,23 @@ async function listByBook(bookId) {
         'WHERE a.book_id = $1 ORDER BY a.updated_at DESC',
       [bookId]
     );
-    return r.rows.map((row) => {
+    const list = [];
+    for (const row of r.rows) {
       const a = rowToAssignment(row);
+      a.studentIds = await loadAssignmentStudentIds(a.id);
       assignments.set(a.id, a);
-      return publicAssignment(a);
-    });
+      list.push(publicAssignment(a));
+    }
+    return list;
   }
 
-  return Array.from(assignments.values())
-    .filter((a) => a.bookId === bookId)
-    .sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0))
-    .map((a) => publicAssignment(a));
+  const mem = [];
+  for (const a of Array.from(assignments.values()).filter((x) => x.bookId === bookId)
+    .sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0))) {
+    if (a.studentIds === undefined) a.studentIds = await loadAssignmentStudentIds(a.id);
+    mem.push(publicAssignment(a));
+  }
+  return mem;
 }
 
 /**
@@ -323,17 +405,24 @@ async function listForStudent(classId, studentId) {
     const { statusMapForStudent } = require('./debriefSessionService');
     statusByAssignment = await statusMapForStudent(studentId, enriched.map((a) => a.id));
   } catch (_) { /* sessions optional for listing */ }
-  return {
-    available: true,
-    assignments: enriched
-      .filter((a) => a.isVerified !== false)
-      .map((a) => {
-        const sess = statusByAssignment[a.id];
-        const raw = sess && sess.status;
-        const status = raw === 'completed' ? 'completed' : (raw === 'active' ? 'in_progress' : 'assigned');
-        return { ...a, status, reportReleased: !!(sess && sess.reportReleased), canStartOral: true };
-      })
-  };
+  const visible = [];
+  for (const a of enriched) {
+    if (a.isVerified === false) continue;
+    const ids = a.studentIds != null ? a.studentIds : await loadAssignmentStudentIds(a.id);
+    if (ids && ids.length && !ids.includes(String(studentId || ''))) continue;
+    const sess = statusByAssignment[a.id];
+    const raw = sess && sess.status;
+    const status = raw === 'completed' ? 'completed' : (raw === 'active' ? 'in_progress' : 'assigned');
+    visible.push({
+      ...a,
+      studentIds: ids,
+      targeted: !!(ids && ids.length),
+      status,
+      reportReleased: !!(sess && sess.reportReleased),
+      canStartOral: true
+    });
+  }
+  return { available: true, assignments: visible };
 }
 
 module.exports = {
@@ -345,5 +434,9 @@ module.exports = {
   listByBook,
   listForStudent,
   countByBook,
-  publicAssignment
+  publicAssignment,
+  setAssignmentStudents,
+  loadAssignmentStudentIds,
+  studentCanAccessAssignment,
+  normalizeStudentIds
 };

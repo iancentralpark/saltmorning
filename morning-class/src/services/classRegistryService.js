@@ -10,7 +10,10 @@ const {
 } = require('../sheets');
 const { getClassRoster } = require('./teacherPortalService');
 
-const CLASS_COL = { classId: 0, name: 1, scheduleType: 2, allowedDays: 3 };
+const CLASS_COL = { classId: 0, name: 1, scheduleType: 2, allowedDays: 3, portalMode: 4, contentFlags: 5 };
+const PORTAL_FULL = 'full';
+const PORTAL_CONTENT = 'content';
+
 const LIST_COL = { studentId: 0, name: 1, classId: 2, status: 3, loginId: 4, loginPassword: 5 };
 
 const DEFAULT_SCHEDULE = 'Mon-Fri';
@@ -27,13 +30,49 @@ function formatAllowedDays(days) {
   return list.length ? list.join(',') : DEFAULT_ALLOWED;
 }
 
+function normalizePortalMode(value) {
+  const v = String(value || PORTAL_FULL).trim().toLowerCase();
+  return v === PORTAL_CONTENT ? PORTAL_CONTENT : PORTAL_FULL;
+}
+
+function parseContentFlags(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return { englishBooster: true, magicAcademy: false };
+  if (raw.startsWith('{')) {
+    try {
+      const j = JSON.parse(raw);
+      return {
+        englishBooster: j.englishBooster !== false,
+        magicAcademy: j.magicAcademy === true
+      };
+    } catch (_) { /* fall through */ }
+  }
+  const parts = new Set(raw.split(/[|,]/).map((x) => x.trim().toLowerCase()).filter(Boolean));
+  if (!parts.size) return { englishBooster: true, magicAcademy: false };
+  return {
+    englishBooster: parts.has('booster') || parts.has('englishbooster') || parts.has('english_booster'),
+    magicAcademy: parts.has('magic') || parts.has('magicacademy') || parts.has('magic_academy')
+  };
+}
+
+function formatContentFlags(flags) {
+  flags = flags || {};
+  return JSON.stringify({
+    englishBooster: flags.englishBooster !== false,
+    magicAcademy: flags.magicAcademy === true
+  });
+}
+
 function rowToClass(row) {
   if (!row || !row[CLASS_COL.classId]) return null;
+  const flags = parseContentFlags(row[CLASS_COL.contentFlags]);
   return {
     classId: String(row[CLASS_COL.classId]),
     name: String(row[CLASS_COL.name] || ''),
     scheduleType: String(row[CLASS_COL.scheduleType] || DEFAULT_SCHEDULE),
-    allowedDays: parseAllowedDays(row[CLASS_COL.allowedDays])
+    allowedDays: parseAllowedDays(row[CLASS_COL.allowedDays]),
+    portalMode: normalizePortalMode(row[CLASS_COL.portalMode]),
+    contentFlags: flags
   };
 }
 
@@ -77,6 +116,16 @@ async function listClassesDetailed() {
   return classes;
 }
 
+async function getClassById(classId) {
+  classId = String(classId || '').trim();
+  if (!classId) return null;
+  const rows = await getSheetRows(CLASS_LIST_SHEET);
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][CLASS_COL.classId]) === classId) return rowToClass(rows[i]);
+  }
+  return null;
+}
+
 async function getClassDetail(classId) {
   classId = String(classId || '').trim();
   if (!classId) throw new Error('Class ID is required.');
@@ -103,6 +152,11 @@ async function saveClass(payload) {
   const name = String(payload.name || '').trim();
   const scheduleType = String(payload.scheduleType || DEFAULT_SCHEDULE).trim() || DEFAULT_SCHEDULE;
   const allowedDays = formatAllowedDays(payload.allowedDays);
+  const portalMode = normalizePortalMode(payload.portalMode);
+  const contentFlags = formatContentFlags(payload.contentFlags || {
+    englishBooster: payload.englishBooster !== false,
+    magicAcademy: payload.magicAcademy === true
+  });
 
   if (!name) throw new Error('Class name is required.');
 
@@ -116,9 +170,9 @@ async function saveClass(payload) {
     }
   }
 
-  const row = [classId, name, scheduleType, allowedDays];
+  const row = [classId, name, scheduleType, allowedDays, portalMode, contentFlags];
   if (rowIndex > 0) {
-    await updateRange(CLASS_LIST_SHEET, `A${rowIndex}:D${rowIndex}`, [row]);
+    await updateRange(CLASS_LIST_SHEET, `A${rowIndex}:F${rowIndex}`, [row]);
   } else {
     await appendRows(CLASS_LIST_SHEET, [row]);
   }
@@ -298,9 +352,13 @@ async function deleteClass(classId) {
 }
 
 module.exports = {
+  PORTAL_FULL,
+  PORTAL_CONTENT,
+  normalizePortalMode,
   listClassesDetailed,
   getClassDetail,
   saveClass,
+  getClassById,
   deleteClass,
   listAvailableStudents,
   importStudentToClass,

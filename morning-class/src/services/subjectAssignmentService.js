@@ -432,6 +432,24 @@ async function listTeacherSubjectGroups(teacherId) {
     groups[classId].roleLabel = roles.join(' / ');
   }
 
+  const { listClassesDetailed } = require('./classRegistryService');
+  let portalById = {};
+  try {
+    const detailed = await listClassesDetailed();
+    (detailed || []).forEach((c) => {
+      portalById[c.classId] = {
+        portalMode: c.portalMode || 'full',
+        contentFlags: c.contentFlags || {}
+      };
+    });
+  } catch (_) { portalById = {}; }
+  Object.keys(groups).forEach((classId) => {
+    const p = portalById[classId] || { portalMode: 'full', contentFlags: {} };
+    groups[classId].portalMode = p.portalMode;
+    groups[classId].contentFlags = p.contentFlags;
+    groups[classId].isContentPortal = p.portalMode === 'content';
+  });
+
   const classSlots = buildLessonSlotsFromData(teacherId, '', data).filter(
     (s) => !isHidden(prefs, s.classId, s.subject)
   );

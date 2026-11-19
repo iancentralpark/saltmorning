@@ -49,7 +49,8 @@
       return (
         '<button type="button" class="cr-class-item' + active + '" data-id="' + escapeHtml(c.classId) + '">' +
         '<strong>' + escapeHtml(c.name) + '</strong>' +
-        '<span class="muted small">' + escapeHtml(c.classId) + ' · ' + c.studentCount + ' students</span>' +
+        '<span class="muted small">' + escapeHtml(c.classId) + ' · ' + c.studentCount + ' students' +
+        (c.portalMode === 'content' ? ' · Content' : '') + '</span>' +
         '</button>'
       );
     }).join('');
@@ -77,9 +78,18 @@
     const detail = mountEl.querySelector('.cr-detail');
     if (!detail) return;
 
-    const formClass = activeClass || { classId: '', name: '', scheduleType: 'Mon-Fri', allowedDays: [1, 2, 3, 4, 5] };
+    const formClass = activeClass || {
+      classId: '',
+      name: '',
+      scheduleType: 'Mon-Fri',
+      allowedDays: [1, 2, 3, 4, 5],
+      portalMode: 'full',
+      contentFlags: { englishBooster: true, magicAcademy: false }
+    };
     const roster = (activeClass && activeClass.students) || [];
     const isNew = !formClass.classId;
+    const portalMode = formClass.portalMode === 'content' ? 'content' : 'full';
+    const flags = formClass.contentFlags || { englishBooster: true, magicAcademy: false };
 
     let rosterHtml = '';
     if (!isNew) {
@@ -125,6 +135,17 @@
       '<label>Schedule type <input class="cr-input-schedule" value="' + escapeHtml(formClass.scheduleType || 'Mon-Fri') + '"></label>' +
       '<div class="cr-form-days"><span class="cr-field-label">Class days</span>' +
       allowedDaysChecked(formClass.allowedDays) + '</div>' +
+      '<label>Portal mode <select class="cr-input-portal">' +
+      '<option value="full"' + (portalMode === 'full' ? ' selected' : '') + '>Full school portal</option>' +
+      '<option value="content"' + (portalMode === 'content' ? ' selected' : '') + '>Content only (Debrief / Lessons / Booster)</option>' +
+      '</select></label>' +
+      '<div class="cr-form-days cr-content-flags"><span class="cr-field-label">Content portal links</span>' +
+      '<label class="cr-day-chip"><input type="checkbox" class="cr-flag-booster"' +
+      (flags.englishBooster !== false ? ' checked' : '') + '> English Booster</label>' +
+      '<label class="cr-day-chip"><input type="checkbox" class="cr-flag-magic"' +
+      (flags.magicAcademy === true ? ' checked' : '') + '> Magic Academy</label>' +
+      '</div>' +
+      '<p class="muted small">Content-only classes hide attendance/timetable for students and show Oral Debrief, Online Lessons, and external product links.</p>' +
       '<button type="submit" class="btn btn-primary">Save class</button>' +
       (isNew ? '' :
         '<button type="button" class="btn btn-danger cr-delete-btn">Delete class</button>') +
@@ -150,7 +171,12 @@
               classId: detail.querySelector('.cr-input-id').value.trim() || undefined,
               name: detail.querySelector('.cr-input-name').value.trim(),
               scheduleType: detail.querySelector('.cr-input-schedule').value.trim(),
-              allowedDays: collectAllowedDays()
+              allowedDays: collectAllowedDays(),
+              portalMode: (detail.querySelector('.cr-input-portal') || {}).value || 'full',
+              contentFlags: {
+                englishBooster: !!(detail.querySelector('.cr-flag-booster') || {}).checked,
+                magicAcademy: !!(detail.querySelector('.cr-flag-magic') || {}).checked
+              }
             }
           }, role);
           activeClass = data.class;

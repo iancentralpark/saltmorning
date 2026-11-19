@@ -647,6 +647,28 @@ router.get('/teacher/classes', requireRole('teacher'), async (req, res) => {
   }
 });
 
+router.get('/teacher/class/:classId/content-overview', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const contentPortal = require('./services/contentPortalService');
+    res.json(await contentPortal.overviewForClass(req.params.classId));
+  } catch (e) {
+    const status = e.statusCode || (/not assigned|access/i.test(e.message || '') ? 403 : 500);
+    res.status(status).json({ error: e.message || 'Could not load content overview.' });
+  }
+});
+
+router.get('/teacher/class/:classId/content-portal', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    const contentPortal = require('./services/contentPortalService');
+    res.json(await contentPortal.portalForClass(req.params.classId));
+  } catch (e) {
+    const status = e.statusCode || (/not assigned|access/i.test(e.message || '') ? 403 : 500);
+    res.status(status).json({ error: e.message || 'Could not load content portal.' });
+  }
+});
+
 router.get('/teacher/class/:classId/roster', requireRole('teacher'), async (req, res) => {
   try {
     const students = await getClassRoster(req.params.classId);
@@ -2266,6 +2288,15 @@ router.get('/student/dashboard', requireRole('student'), async (req, res) => {
     res.json(dashboard);
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load dashboard.' });
+  }
+});
+
+router.get('/student/content-portal', requireRole('student'), async (req, res) => {
+  try {
+    const contentPortal = require('./services/contentPortalService');
+    res.json(await contentPortal.portalForClass(req.session.classId));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load content portal.' });
   }
 });
 
@@ -4828,7 +4859,8 @@ router.post('/debrief/books/:id/assign', requireRole('teacher', 'admin'), async 
       bookId: req.params.id,
       title: body.title,
       customInstructions: body.customInstructions,
-      dueDate: body.dueDate
+      dueDate: body.dueDate,
+      studentIds: body.studentIds
     }, debriefTeacherId(req));
     res.status(201).json(assignment);
   } catch (e) {
@@ -4852,7 +4884,8 @@ router.post('/teacher/class/:classId/debrief-assignments', requireRole('teacher'
       bookId: body.bookId,
       title: body.title,
       customInstructions: body.customInstructions,
-      dueDate: body.dueDate
+      dueDate: body.dueDate,
+      studentIds: body.studentIds
     }, debriefTeacherId(req));
     res.status(201).json(assignment);
   } catch (e) {
@@ -4869,6 +4902,18 @@ router.patch('/teacher/class/:classId/debrief-assignments/:assignmentId', requir
     res.json(await debriefAssignments.updateAssignment(req.params.assignmentId, req.body || {}, debriefTeacherId(req)));
   } catch (e) {
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not update assignment.' });
+  }
+});
+
+router.put('/teacher/class/:classId/debrief-assignments/:assignmentId/students', requireRole('teacher'), async (req, res) => {
+  try {
+    const existing = await debriefAssignments.getAssignment(req.params.assignmentId);
+    if (!existing || String(existing.classId) !== String(req.params.classId)) {
+      return res.status(404).json({ error: 'Assignment not found for this class.' });
+    }
+    res.json(await debriefAssignments.setAssignmentStudents(req.params.assignmentId, (req.body && req.body.studentIds) || []));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not update assignment students.' });
   }
 });
 
@@ -5919,6 +5964,15 @@ router.delete('/lms/lessons/:lessonId', requireRole('teacher', 'admin'), async (
     res.json(await lmsLessons.deleteLesson(req.params.lessonId));
   } catch (e) {
     lmsError(res, e, 'Could not delete lesson.');
+  }
+});
+
+router.put('/lms/lessons/:lessonId/students', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await loadLmsLessonForStaff(req);
+    res.json(await lmsLessons.setLessonStudents(req.params.lessonId, (req.body && req.body.studentIds) || []));
+  } catch (e) {
+    lmsError(res, e, 'Could not update lesson students.');
   }
 });
 

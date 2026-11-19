@@ -218,6 +218,9 @@
         <button class="class-subnav-item" data-tab="report" type="button" data-i18n="nav.report">Report</button>
         <button class="class-subnav-item" data-tab="analytics" type="button" data-i18n="nav.analytics">Analytics</button>
         <button class="class-subnav-item" data-tab="lesson" data-homeroom-only="1" type="button" data-i18n="nav.lessons">Lessons</button>
+        <button class="class-subnav-item hidden" data-tab="content" data-content-only="1" type="button">Content</button>
+        <button class="class-subnav-item hidden" data-tab="debrief" data-content-only="1" type="button">Oral Debrief</button>
+        <button class="class-subnav-item hidden" data-tab="online" data-content-only="1" type="button">Online Lessons</button>
       </div>
     </nav>
 <div id="panelAttendance" class="card att-panel">
@@ -446,6 +449,35 @@
         </div>
       </div>
     </div>
+
+    <div id="panelContent" class="card hidden">
+      <div class="att-toolbar" style="justify-content:space-between;gap:.75rem;flex-wrap:wrap">
+        <div>
+          <strong>Content class monitor</strong>
+          <p class="muted small" style="margin:.25rem 0 0">Per-student Oral Debrief and Online Lesson progress. Assignments can target specific students.</p>
+        </div>
+        <button type="button" class="btn btn-ghost" id="contentOverviewRefresh">Refresh</button>
+      </div>
+      <div id="contentOverviewMount"><p class="muted">Loading…</p></div>
+    </div>
+
+    <div id="panelDebrief" class="card hidden">
+      <p class="muted small">Create and assign Oral Debrief books to this class. Choose specific students in the assign tool.</p>
+      <div class="att-toolbar" style="gap:.5rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" id="contentOpenDebriefBtn">Open Debrief Books</button>
+        <button type="button" class="btn btn-ghost" id="contentRefreshDebriefBtn">Refresh list</button>
+      </div>
+      <div id="contentDebriefList"><p class="muted">Loading…</p></div>
+    </div>
+
+    <div id="panelOnline" class="card hidden">
+      <p class="muted small">Upload and publish Online Lessons for this class. Target specific students when assigning.</p>
+      <div class="att-toolbar" style="gap:.5rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-primary" id="contentOpenLmsBtn">Open Online Lessons</button>
+        <button type="button" class="btn btn-ghost" id="contentRefreshLmsBtn">Refresh list</button>
+      </div>
+      <div id="contentLmsList"><p class="muted">Loading…</p></div>
+    </div>
   </div>
 </div>
 
@@ -671,22 +703,28 @@
   function parseClassFromCard(el) {
     let subjects = [];
     try { subjects = JSON.parse(el.dataset.subjects || '[]'); } catch (e) { subjects = []; }
+    const portalMode = el.dataset.portal === 'content' ? 'content' : 'full';
     return {
       classId: el.dataset.id,
       className: el.dataset.name,
       isHomeroom: el.dataset.homeroom === '1',
       subjects: subjects,
-      roleLabel: el.dataset.roles || ''
+      roleLabel: el.dataset.roles || '',
+      portalMode: portalMode,
+      isContentPortal: portalMode === 'content'
     };
   }
 
   function classCard(c) {
     const isHomeroom = !!c.isHomeroom;
+    const content = isContentClass(c);
     const roleLabel = c.roleLabel || (c.roles && c.roles.length ? c.roles.join(' / ') : (c.subjects || []).join(' / '));
     const subjectsJson = JSON.stringify(c.subjects || []);
-    const quick = isHomeroom
-      ? [['attendance', 'Attendance'], ['timetable', 'Timetable'], ['grades', 'Grades']]
-      : [['timetable', 'Timetable'], ['grades', 'Grades'], ['homework', 'Homework']];
+    const quick = content
+      ? [['content', 'Monitor'], ['debrief', 'Debrief'], ['online', 'Lessons']]
+      : (isHomeroom
+        ? [['attendance', 'Attendance'], ['timetable', 'Timetable'], ['grades', 'Grades']]
+        : [['timetable', 'Timetable'], ['grades', 'Grades'], ['homework', 'Homework']]);
     const actions = quick.map((pair) =>
       '<button type="button" class="class-card-quick" data-tab="' + pair[0] + '">' + pair[1] + '</button>'
     ).join('') +
@@ -695,9 +733,11 @@
       '" data-id="' + escapeHtml(c.classId) +
       '" data-name="' + escapeHtml(c.className) +
       '" data-homeroom="' + (isHomeroom ? '1' : '0') +
+      '" data-portal="' + (content ? 'content' : 'full') +
       '" data-subjects="' + escapeHtml(subjectsJson) +
       '" data-roles="' + escapeHtml(roleLabel) + '">' +
       (isHomeroom ? '<span class="class-homeroom-badge">Homeroom</span>' : '') +
+      (content ? '<span class="class-homeroom-badge">Content</span>' : '') +
       '<strong>' + escapeHtml(c.className) + '</strong>' +
       (roleLabel ? '<div class="class-card-roles">' + escapeHtml(roleLabel) + '</div>' : '') +
       '<div class="class-card-actions">' + actions + '</div>' +
@@ -1192,15 +1232,27 @@
     return !!(cls && cls.isHomeroom);
   }
 
+  function isContentClass(cls) {
+    cls = cls || currentClass;
+    return !!(cls && (cls.isContentPortal || cls.portalMode === 'content'));
+  }
+
   function syncClassTabs() {
     const hr = isHomeroomClass(currentClass);
+    const content = isContentClass(currentClass);
     document.querySelectorAll('#classTabs .class-subnav-item').forEach((btn) => {
+      const contentOnly = btn.getAttribute('data-content-only') === '1';
       const homeroomOnly = btn.getAttribute('data-homeroom-only') === '1';
-      btn.classList.toggle('hidden', homeroomOnly && !hr);
+      if (content) {
+        btn.classList.toggle('hidden', !contentOnly);
+      } else {
+        btn.classList.toggle('hidden', contentOnly || (homeroomOnly && !hr));
+      }
     });
   }
 
   function defaultClassTab() {
+    if (isContentClass(currentClass)) return 'content';
     return isHomeroomClass(currentClass) ? 'attendance' : 'grades';
   }
 
@@ -1215,7 +1267,10 @@
       vocab: 'Vocab',
       report: 'Report',
       analytics: 'Analytics',
-      lesson: 'Lessons'
+      lesson: 'Lessons',
+      content: 'Content',
+      debrief: 'Oral Debrief',
+      online: 'Online Lessons'
     };
     return map[name] || name;
   }
@@ -1236,6 +1291,7 @@
   }
 
   function defaultClassTabFor(cls) {
+    if (isContentClass(cls)) return 'content';
     return isHomeroomClass(cls) ? 'attendance' : 'grades';
   }
 
@@ -1346,13 +1402,19 @@
 
   function switchTab(name, opts) {
     opts = opts || {};
+    const contentOnly = { content: 1, debrief: 1, online: 1 };
     const homeroomOnly = { attendance: 1, vocab: 1, lesson: 1 };
-    if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
-      name = defaultClassTab();
+    if (isContentClass(currentClass)) {
+      if (!contentOnly[name]) name = 'content';
+    } else {
+      if (contentOnly[name]) name = defaultClassTab();
+      if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
+        name = defaultClassTab();
+      }
     }
     currentClassTab = name;
     document.querySelectorAll('#classTabs .class-subnav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelTimetable','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson'].forEach(id => {
+    ['panelAttendance','panelTimetable','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson','panelContent','panelDebrief','panelOnline'].forEach(id => {
       if ($(id)) hide($(id));
     });
     const map = {
@@ -1365,7 +1427,10 @@
       vocab: 'panelVocab',
       report: 'panelReport',
       analytics: 'panelAnalytics',
-      lesson: 'panelLesson'
+      lesson: 'panelLesson',
+      content: 'panelContent',
+      debrief: 'panelDebrief',
+      online: 'panelOnline'
     };
     if ($(map[name])) show($(map[name]));
     if (currentClass) {
@@ -1386,6 +1451,9 @@
     if (name === 'analytics') SaltAnalytics.onClassOpen();
     if (name === 'lesson') SaltLesson.onClassOpen();
     if (name === 'attendance') SaltAttendance.loadWork();
+    if (name === 'content') loadContentOverview();
+    if (name === 'debrief') loadContentDebriefList();
+    if (name === 'online') loadContentLmsList();
   }
 
   async function applyRoute() {
@@ -1906,6 +1974,25 @@
       closeClassToolsMenu();
       window.open('/tools/lms-lessons', 'saltLmsLessons', 'noopener,width=1280,height=900');
     });
+  }
+  function openContentTool(path) {
+    if (!currentClass) return;
+    window.open(path + '?class=' + encodeURIComponent(currentClass.classId), '_blank', 'noopener,width=1280,height=900');
+  }
+  if ($('contentOpenDebriefBtn')) {
+    $('contentOpenDebriefBtn').addEventListener('click', () => openContentTool('/tools/debrief-books'));
+  }
+  if ($('contentOpenLmsBtn')) {
+    $('contentOpenLmsBtn').addEventListener('click', () => openContentTool('/tools/lms-lessons'));
+  }
+  if ($('contentOverviewRefresh')) {
+    $('contentOverviewRefresh').addEventListener('click', () => loadContentOverview());
+  }
+  if ($('contentRefreshDebriefBtn')) {
+    $('contentRefreshDebriefBtn').addEventListener('click', () => loadContentDebriefList());
+  }
+  if ($('contentRefreshLmsBtn')) {
+    $('contentRefreshLmsBtn').addEventListener('click', () => loadContentLmsList());
   }
   const openBibleSlidesBtn = $('openBibleSlidesBtn');
   if (openBibleSlidesBtn) {

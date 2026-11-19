@@ -232,6 +232,10 @@ async function startSession(assignmentId, student) {
   if (String(assignment.classId) !== String(student.classId)) {
     throw httpError(403, '이 과제는 내 반의 과제가 아닙니다.');
   }
+  const debriefAssignments = require('./debriefAssignmentService');
+  if (!(await debriefAssignments.studentCanAccessAssignment(assignmentId, student.studentId))) {
+    throw httpError(403, '이 과제는 배정되지 않았습니다.');
+  }
   const existing = await loadByAssignmentStudent(assignmentId, student.studentId);
   if (existing) return publicSession(existing);
 
