@@ -20,7 +20,7 @@ const {
 } = require('../config');
 
 const HEADERS = {
-  [CLASS_LIST_SHEET]: ['ClassID', 'Name', 'ScheduleType', 'AllowedDays'],
+  [CLASS_LIST_SHEET]: ['ClassID', 'Name', 'ScheduleType', 'AllowedDays', 'PortalMode', 'ContentFlags'],
   [STUDENT_LIST_SHEET]: ['StudentID', 'Name', 'ClassID', 'Status', 'LoginID', 'LoginPassword'],
   [STUDENT_PROFILE_SHEET]: [
     'StudentID', 'PhotoPath', 'DateOfBirth', 'Gender', 'Nationality',
@@ -65,13 +65,33 @@ function parseA1(a1) {
   };
 }
 
+let classPortalColsReady = false;
+async function ensureClassPortalColumns() {
+  if (classPortalColsReady) return;
+  await query(
+    'ALTER TABLE ' + table('classes') +
+      " ADD COLUMN IF NOT EXISTS portal_mode TEXT NOT NULL DEFAULT 'full'"
+  );
+  await query(
+    'ALTER TABLE ' + table('classes') +
+      " ADD COLUMN IF NOT EXISTS content_flags TEXT NOT NULL DEFAULT ''"
+  );
+  classPortalColsReady = true;
+}
+
 async function loadClasses() {
+  await ensureClassPortalColumns();
   const r = await query(
-    'SELECT class_id, name, schedule_type, allowed_days FROM ' + table('classes') +
-      ' ORDER BY class_id'
+    'SELECT class_id, name, schedule_type, allowed_days, portal_mode, content_flags FROM ' +
+      table('classes') + ' ORDER BY class_id'
   );
   return r.rows.map((row) => [
-    row.class_id, row.name, row.schedule_type, row.allowed_days
+    row.class_id,
+    row.name,
+    row.schedule_type,
+    row.allowed_days,
+    row.portal_mode || 'full',
+    row.content_flags || ''
   ]);
 }
 
@@ -197,14 +217,25 @@ function s(row, i) {
 async function upsertClass(row) {
   const classId = s(row, 0);
   if (!classId) return;
+  await ensureClassPortalColumns();
+  const portalMode = (s(row, 4) || 'full').toLowerCase() === 'content' ? 'content' : 'full';
+  const contentFlags = s(row, 5);
   await query(
     'INSERT INTO ' + table('classes') +
-      ' (class_id, name, schedule_type, allowed_days, updated_at)' +
-      ' VALUES ($1,$2,$3,$4,now())' +
+      ' (class_id, name, schedule_type, allowed_days, portal_mode, content_flags, updated_at)' +
+      ' VALUES ($1,$2,$3,$4,$5,$6,now())' +
       ' ON CONFLICT (class_id) DO UPDATE SET name = EXCLUDED.name,' +
       ' schedule_type = EXCLUDED.schedule_type, allowed_days = EXCLUDED.allowed_days,' +
+      ' portal_mode = EXCLUDED.portal_mode, content_flags = EXCLUDED.content_flags,' +
       ' updated_at = now()',
-    [classId, s(row, 1), s(row, 2) || 'Mon-Fri', s(row, 3) || '1,2,3,4,5']
+    [
+      classId,
+      s(row, 1),
+      s(row, 2) || 'Mon-Fri',
+      s(row, 3) || '1,2,3,4,5',
+      portalMode,
+      contentFlags
+    ]
   );
 }
 
