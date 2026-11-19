@@ -65,6 +65,31 @@
     .report ul { margin:.2rem 0 0 1.1rem; padding:0; line-height:1.5; }
     .feedback { background:var(--teal-soft); border-radius:12px; padding:.75rem .9rem; margin-top:.8rem; line-height:1.55; }
     .error-card { background:#fdeceb; border:1px solid #f3c5c1; color:var(--coral); border-radius:14px; padding:1rem; margin:1rem 0; }
+    .buddy-stage {
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:.55rem .75rem .15rem; background:linear-gradient(180deg,#eef4fb 0%, var(--paper) 100%);
+      border-bottom:1px solid var(--line);
+    }
+    .buddy-frame {
+      width:min(42vw, 168px); height:min(42vw, 168px); border-radius:22px;
+      background:#fff; border:1px solid var(--line); box-shadow:0 8px 22px rgba(13,39,72,.08);
+      overflow:hidden; position:relative;
+    }
+    .buddy-frame img, .buddy-frame video {
+      width:100%; height:100%; object-fit:contain; display:block; background:#fff;
+    }
+    .buddy-frame video.hidden, .buddy-frame img.hidden { display:none !important; }
+    .buddy-frame.is-speaking { animation:buddyBounce 0.55s ease-in-out infinite; }
+    @keyframes buddyBounce {
+      0%,100% { transform:translateY(0); }
+      50% { transform:translateY(-4px); }
+    }
+    .buddy-caption {
+      margin:.35rem 0 .2rem; font-size:.78rem; font-weight:700; color:var(--navy); min-height:1.1em;
+    }
+    @media (max-width:520px) {
+      .buddy-frame { width:132px; height:132px; border-radius:18px; }
+    }
   </style>
 </head>
 <body>
@@ -73,6 +98,18 @@
     <div class="title" id="titleText">Oral Debrief</div>
   </header>
   <div class="progress"><div id="progressBar"></div></div>
+
+  <div class="buddy-stage" id="buddyStage" aria-hidden="false">
+    <div class="buddy-frame" id="buddyFrame">
+      <img id="buddyImg" src="/img/salt-buddy/idle-512.png" alt="Salt buddy">
+      <video id="buddyVideo" class="hidden" muted loop playsinline preload="metadata"
+        poster="/img/salt-buddy/talking.png">
+        <source src="/img/salt-buddy/talking-loop.webm" type="video/webm">
+        <source src="/img/salt-buddy/talking-loop.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="buddy-caption" id="buddyCaption">Ready when you are</div>
+  </div>
 
   <main id="chat" aria-live="polite"></main>
 
@@ -127,7 +164,58 @@
 
   function setBusy(v) {
     busy = v;
+    if (v && buddyMood !== 'speaking') setBuddy('thinking', 'Thinking…');
     refreshMic();
+  }
+
+  /* Salt buddy avatar — emotion sprites + talking loop synced to TTS. */
+  var BUDDY = {
+    idle: '/img/salt-buddy/idle-512.png',
+    listening: '/img/salt-buddy/listening.png',
+    thinking: '/img/salt-buddy/thinking.png',
+    happy: '/img/salt-buddy/happy.png',
+    talking: '/img/salt-buddy/talking.png'
+  };
+  var buddyMood = 'idle';
+  var buddyTalkTimer = null;
+
+  function setBuddy(mood, caption) {
+    var img = $('buddyImg');
+    var vid = $('buddyVideo');
+    var frame = $('buddyFrame');
+    var cap = $('buddyCaption');
+    if (!img || !vid || !frame) return;
+    mood = mood || 'idle';
+    buddyMood = mood;
+    if (cap && caption != null) cap.textContent = caption;
+    if (buddyTalkTimer) { clearInterval(buddyTalkTimer); buddyTalkTimer = null; }
+
+    if (mood === 'speaking') {
+      frame.classList.add('is-speaking');
+      img.classList.add('hidden');
+      vid.classList.remove('hidden');
+      try {
+        var p = vid.play();
+        if (p && p.catch) p.catch(function () {
+          // Autoplay blocked — flap still images instead.
+          vid.classList.add('hidden');
+          img.classList.remove('hidden');
+          var open = false;
+          img.src = BUDDY.idle;
+          buddyTalkTimer = setInterval(function () {
+            open = !open;
+            img.src = open ? BUDDY.talking : BUDDY.idle;
+          }, 140);
+        });
+      } catch (e) {}
+      return;
+    }
+
+    frame.classList.remove('is-speaking');
+    try { vid.pause(); vid.currentTime = 0; } catch (e) {}
+    vid.classList.add('hidden');
+    img.classList.remove('hidden');
+    img.src = BUDDY[mood] || BUDDY.idle;
   }
 
   /* ------------------------------------------------------------------
@@ -243,11 +331,13 @@
     // Keep the mic closed until the bubble has finished typing.
     if (reveal.typing) return;
     if (hf.on && hf.state === 'speaking') setState('listening');
+    else setBuddy('listening', 'Your turn');
   }
 
   function speechStarted(gen, text) {
     if (gen !== speechGen) return;
     if (hf.on) setState('speaking');
+    setBuddy('speaking', 'Salt is talking…');
     if (speechTimer) clearTimeout(speechTimer);
     speechTimer = setTimeout(function () { finishSpeech(gen); }, 8000 + String(text).length * 120);
   }
@@ -508,6 +598,11 @@
       hf.pre = []; hf.preMs = 0; hf.seg = []; hf.segMs = 0;
       hf.voicedRunMs = 0; hf.voicedMs = 0; hf.silenceMs = 0; hf.lastVoicedSegMs = 0;
     }
+    if (st === 'listening') setBuddy('listening', 'Listening…');
+    else if (st === 'hearing') setBuddy('listening', 'I hear you');
+    else if (st === 'thinking') setBuddy('thinking', 'Thinking…');
+    else if (st === 'speaking') setBuddy('speaking', 'Salt is talking…');
+    else if (st === 'off') setBuddy('idle', 'Ready when you are');
     refreshMic();
     if (hint !== undefined) setHint(hint, isError);
     else if (hf.on) setHint(STATE_TEXT[st][1]);
@@ -765,6 +860,7 @@
     $('progressBar').style.width = pct + '%';
     $('dock').classList.toggle('hidden', session.status === 'completed');
     $('micRow').classList.toggle('hidden', !sttConfigured);
+    if (session.status === 'completed') setBuddy('happy', 'Great job!');
     refreshMic();
   }
 
@@ -842,6 +938,7 @@
   });
 
   async function boot() {
+    setBuddy('idle', 'Ready when you are');
     if (!assignmentId) {
       $('chat').innerHTML = '<div class="error-card">No assignment selected.</div>';
       $('dock').classList.add('hidden');
