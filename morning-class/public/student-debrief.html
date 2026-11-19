@@ -134,9 +134,40 @@
   var speechGen = 0;
   var blockedVoice = null; // a question the browser refused to autoplay; read after the first tap
   var ttsEl = null, ttsUrl = '', speechTimer = null, ttsAbort = null, heldVoice = null;
+  var playCtx = null, liveVoice = null;
+  var VOICE_RATE = 24000;
+  var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  // Browsers only let a page make sound after the user has touched it.
+  function wakePlayback() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!playCtx) {
+      try { playCtx = new AC({ sampleRate: VOICE_RATE }); }
+      catch (e) { try { playCtx = new AC(); } catch (e2) { return; } }
+    }
+    if (playCtx.state !== 'running') {
+      try { var p = playCtx.resume(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+    }
+  }
+  ['pointerdown', 'keydown'].forEach(function (ev) {
+    document.addEventListener(ev, wakePlayback, { capture: true, passive: true });
+  });
+
+  // On iPhone and iPad the silent switch mutes this kind of playback unless the
+  // microphone is open, so without the microphone the whole clip is played instead.
+  function canStreamVoice() {
+    return !!playCtx && playCtx.state === 'running' && (!IS_IOS || hf.on);
+  }
 
   function clearSpeech() {
     heldVoice = null;
+    if (liveVoice) {
+      liveVoice.sources.forEach(function (src) { src.onended = null; try { src.stop(); } catch (e) {} });
+      try { liveVoice.reader.cancel().catch(function () {}); } catch (e) {}
+      liveVoice = null;
+    }
     if (speechTimer) { clearTimeout(speechTimer); speechTimer = null; }
     if (ttsAbort) { try { ttsAbort.abort(); } catch (e) {} ttsAbort = null; }
     try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
@@ -227,7 +258,104 @@
   function playHeldVoice() {
     var held = heldVoice;
     heldVoice = null;
-    if (held && $('ttsToggle').checked) playVoice(held.gen, held.text, held.blob);
+    if (held && $('ttsToggle').checked) held.resume();
+  }
+
+  // The student may have started talking while the voice was loading. The voice
+  // waits until we know whether that was an answer (drop it) or a noise (play it).
+  // Returns true when the voice may start now.
+  function voiceMayStart(gen, resume) {
+    if (gen !== speechGen) return false;
+    if (!$('ttsToggle').checked || (hf.on && hf.state === 'thinking')) { stopSpeech(); return false; }
+    if (hf.on && hf.state === 'hearing') { heldVoice = { resume: resume }; return false; }
+    return true;
+  }
+
+  function wavBlob(pcm, rate) {
+    var head = new DataView(new ArrayBuffer(44));
+    var str = function (o, t) { for (var k = 0; k < t.length; k++) head.setUint8(o + k, t.charCodeAt(k)); };
+    str(0, 'RIFF'); head.setUint32(4, 36 + pcm.byteLength, true); str(8, 'WAVE'); str(12, 'fmt ');
+    head.setUint32(16, 16, true); head.setUint16(20, 1, true); head.setUint16(22, 1, true);
+    head.setUint32(24, rate, true); head.setUint32(28, rate * 2, true);
+    head.setUint16(32, 2, true); head.setUint16(34, 16, true); str(36, 'data'); head.setUint32(40, pcm.byteLength, true);
+    return new Blob([head, pcm], { type: 'audio/wav' });
+  }
+
+  function wholeVoice(gen, text, blob) {
+    if (gen !== speechGen) return;
+    ttsAbort = null;
+    if (voiceMayStart(gen, function () { playVoice(gen, text, blob); })) playVoice(gen, text, blob);
+  }
+
+  /* Plays the voice while it is still downloading. */
+  function streamVoice(gen, text, reader, ctx, rate) {
+    var v = { reader: reader, sources: [], queue: [], queued: 0, live: 0, next: 0, started: false, done: false, carry: null };
+    liveVoice = v;
+
+    function schedule() {
+      if (!v.queued) return;
+      var buf = ctx.createBuffer(1, v.queued, rate);
+      var ch = buf.getChannelData(0), off = 0;
+      v.queue.forEach(function (part) { ch.set(part, off); off += part.length; });
+      v.queue = []; v.queued = 0;
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      var at = Math.max(v.next, ctx.currentTime + 0.03);
+      src.start(at);
+      v.next = at + buf.duration;
+      v.live++;
+      v.sources.push(src);
+      src.onended = function () {
+        v.live--;
+        v.sources.splice(v.sources.indexOf(src), 1);
+        if (v.done && !v.live && !v.queued) finishSpeech(gen);
+      };
+    }
+
+    function pump() {
+      if (gen !== speechGen) return;
+      if (!v.started) {
+        // A short head start so playback does not run dry on a slow connection.
+        if (!v.done && v.queued < rate * 0.25) return;
+        if (!voiceMayStart(gen, pump)) return;
+        if (!v.queued) { finishSpeech(gen); return; }
+        v.started = true;
+        v.next = ctx.currentTime + 0.05;
+        speechStarted(gen, text);
+      }
+      // After running dry, wait for a little more audio rather than stutter.
+      var ranDry = v.next <= ctx.currentTime + 0.02;
+      if (v.done || v.queued >= rate * (ranDry ? 0.3 : 0.12)) schedule();
+      if (v.done && !v.live && !v.queued) finishSpeech(gen);
+    }
+
+    function addBytes(bytes) {
+      if (v.carry) {
+        var joined = new Uint8Array(bytes.length + 1);
+        joined[0] = v.carry[0]; joined.set(bytes, 1);
+        bytes = joined; v.carry = null;
+      }
+      if (bytes.length % 2) { v.carry = bytes.slice(bytes.length - 1); bytes = bytes.subarray(0, bytes.length - 1); }
+      if (!bytes.length) return;
+      var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      var out = new Float32Array(bytes.length / 2);
+      for (var i = 0; i < out.length; i++) out[i] = view.getInt16(i * 2, true) / 32768;
+      v.queue.push(out); v.queued += out.length;
+    }
+
+    function step(res) {
+      if (gen !== speechGen) return;
+      if (res.done) { v.done = true; ttsAbort = null; pump(); return; }
+      addBytes(res.value);
+      pump();
+      return reader.read().then(step);
+    }
+    // A stream that breaks part-way plays what arrived; it never starts a second voice.
+    return reader.read().then(step).catch(function () {
+      if (gen !== speechGen) return;
+      v.done = true; ttsAbort = null; pump();
+    });
   }
 
   function speak(text) {
@@ -242,27 +370,29 @@
     fetch('/api/student/debrief/tts', {
       method: 'POST',
       headers: {
-        Accept: 'audio/*, application/json',
+        Accept: 'application/octet-stream, audio/*, application/json',
         'Content-Type': 'application/json',
         Authorization: token ? ('Bearer ' + token) : ''
       },
-      body: JSON.stringify({ text: text }),
+      body: JSON.stringify({ text: text, stream: true }),
       signal: ttsAbort ? ttsAbort.signal : undefined
     }).then(function (r) {
       if (!r.ok) throw new Error('tts');
-      return r.blob();
-    }).then(function (blob) {
+      return r;
+    }).then(function (r) {
       if (gen !== speechGen) return;
-      ttsAbort = null;
-      if (!$('ttsToggle').checked || (hf.on && hf.state === 'thinking')) { stopSpeech(); return; }
-      // The student may have started talking while the voice was loading. Hold the
-      // voice until we know whether that was an answer (drop it) or a noise (play it).
-      if (hf.on && hf.state === 'hearing') { heldVoice = { gen: gen, text: text, blob: blob }; return; }
-      playVoice(gen, text, blob);
+      if (r.headers.get('X-Audio-Format') !== 'pcm16le') {
+        return r.blob().then(function (blob) { wholeVoice(gen, text, blob); });
+      }
+      var rate = Number(r.headers.get('X-Audio-Sample-Rate')) || VOICE_RATE;
+      if (canStreamVoice() && r.body && r.body.getReader) {
+        return streamVoice(gen, text, r.body.getReader(), playCtx, rate);
+      }
+      return r.arrayBuffer().then(function (pcm) { wholeVoice(gen, text, wavBlob(pcm, rate)); });
     }, function () {
       // Only a failed TTS request falls back to the device voice.
       if (gen === speechGen) { ttsAbort = null; speakBrowser(text, gen); }
-    });
+    }).catch(function () { finishSpeech(gen); });
   }
 
   /* ------------------------------------------------------------------
@@ -658,6 +788,7 @@
       $('dock').classList.add('hidden');
       return;
     }
+    wakePlayback();
     try {
       var meta = await api('/api/student/debrief/meta', {}, role);
       sttConfigured = !!meta.sttConfigured;
