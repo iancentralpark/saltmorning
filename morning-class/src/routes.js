@@ -4950,8 +4950,33 @@ router.get('/student/debrief/meta', requireRole('student'), (req, res) => {
 });
 
 router.post('/student/debrief/tts', requireRole('student'), debriefTtsLimiter, async (req, res) => {
+  const text = req.body && req.body.text;
+  if (req.body && req.body.stream) {
+    // Raw PCM is sent as it is generated, so the voice starts before the clip is finished.
+    const abort = new AbortController();
+    res.on('close', () => { if (!res.writableEnded) abort.abort(); });
+    try {
+      await debriefTts.synthesizeStream(text, (chunk) => {
+        if (!res.headersSent) {
+          res.set('Content-Type', 'application/octet-stream');
+          res.set('X-Audio-Format', 'pcm16le');
+          res.set('X-Audio-Sample-Rate', String(debriefTts.SAMPLE_RATE));
+          res.set('Cache-Control', 'no-store, no-transform');
+          res.set('X-Accel-Buffering', 'no');
+          res.flushHeaders();
+        }
+        res.write(chunk);
+      }, { signal: abort.signal });
+      res.end();
+    } catch (e) {
+      if (res.headersSent) return res.end();
+      if (abort.signal.aborted) return;
+      res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not synthesize speech.' });
+    }
+    return;
+  }
   try {
-    const out = await debriefTts.synthesize(req.body && req.body.text);
+    const out = await debriefTts.synthesize(text);
     res.set('Content-Type', out.mimeType);
     res.set('Cache-Control', 'no-store');
     res.send(out.buffer);
