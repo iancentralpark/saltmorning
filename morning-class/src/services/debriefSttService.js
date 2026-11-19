@@ -1,39 +1,52 @@
 'use strict';
 
 /**
- * Speech-to-text for Oral Debrief (Groq-hosted Whisper).
+ * Speech-to-text for Oral Debrief.
+ * Prefers OpenAI Whisper (OPENAI_API_KEY), falls back to Groq Whisper (GROQ_API_KEY).
  * Audio is sent for transcription only and never stored.
  */
 
+const OPENAI_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const GROQ_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 const MAX_AUDIO_BYTES = 12 * 1024 * 1024;
 const MAX_PROMPT_CHARS = 700;
 
 /*
- * Whisper invents text for silence and noise ("Thank you.", "C.", "..."). On Groq
- * no_speech_prob is always 0, and avg_logprob only partly separates the two: measured on
- * whisper-large-v3-turbo, real one-word answers scored as low as -0.65, noise scored
- * -0.75 and below, but silence scored anywhere from -0.29 to -1.03 depending on the
- * prompt. So the cutoff sits between the first two and the usual silence phrases are
- * rejected by name.
+ * Whisper invents text for silence and noise ("Thank you.", "C.", "...").
+ * OpenAI exposes a useful no_speech_prob; Groq often reports 0. avg_logprob only
+ * partly separates the two, and short real answers ("Yes.") can score poorly on
+ * OpenAI, so those trusted one-word replies skip the logprob cutoff.
  */
 const DEFAULT_MIN_LOGPROB_SHORT = -0.7;
 const DEFAULT_MIN_LOGPROB_ANY = -1.0;
+const DEFAULT_MAX_NO_SPEECH = 0.6;
 const SHORT_ANSWER_WORDS = 4;
 const SILENCE_PHRASES = new Set([
   'you', 'thank you', 'thanks', 'thank you for watching', 'thanks for watching',
-  'bye', 'bye bye', 'please subscribe'
+  'bye', 'bye bye', 'please subscribe', 'the', 'the s', 'so'
 ]);
+const TRUSTED_SHORT = new Set([
+  'yes', 'no', 'yeah', 'yep', 'yup', 'nope', 'nah', 'ok', 'okay', 'sure', 'maybe',
+  'right', 'wrong', 'true', 'false', 'idk'
+]);
+
+function openaiKey() {
+  return String(process.env.OPENAI_API_KEY || '').trim();
+}
 
 function groqKey() {
   return String(process.env.GROQ_API_KEY || '').trim();
 }
 
 function isSttConfigured() {
-  return !!groqKey();
+  return !!(openaiKey() || groqKey());
 }
 
-function sttModel() {
+function openaiModel() {
+  return String(process.env.DEBRIEF_STT_OPENAI_MODEL || 'whisper-1').trim();
+}
+
+function groqModel() {
   return String(process.env.DEBRIEF_STT_MODEL || 'whisper-large-v3-turbo').trim();
 }
 
@@ -54,16 +67,18 @@ function envNumber(name, fallback) {
 
 /**
  * Decide whether a Whisper result is a real answer or noise.
- * Returns { ok, text, reason, avgLogprob, words }.
+ * Returns { ok, text, reason, avgLogprob, noSpeechProb, words }.
  */
 function assessTranscript(data) {
   const minShort = envNumber('DEBRIEF_STT_MIN_LOGPROB', DEFAULT_MIN_LOGPROB_SHORT);
   const minAny = envNumber('DEBRIEF_STT_MIN_LOGPROB_ANY', DEFAULT_MIN_LOGPROB_ANY);
+  const maxNoSpeech = envNumber('DEBRIEF_STT_MAX_NO_SPEECH', DEFAULT_MAX_NO_SPEECH);
   const segments = (data && Array.isArray(data.segments) ? data.segments : [])
     .filter((s) => s && String(s.text || '').trim());
 
   let text = String((data && data.text) || '').trim();
   let avgLogprob = null;
+  let noSpeechProb = null;
 
   if (segments.length) {
     const scored = segments.filter((s) => Number.isFinite(Number(s.avg_logprob)));
@@ -78,17 +93,29 @@ function assessTranscript(data) {
         (n, s) => n + Number(s.avg_logprob) * String(s.text || '').trim().length, 0
       ) / totalLen;
     }
+    const nspSegs = kept.filter((s) => Number.isFinite(Number(s.no_speech_prob)));
+    if (nspSegs.length) {
+      noSpeechProb = nspSegs.reduce((n, s) => n + Number(s.no_speech_prob), 0) / nspSegs.length;
+    }
   }
 
   const letters = text.replace(/[^\p{L}\p{N}]/gu, '');
   const words = text ? text.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length : 0;
-  const out = { ok: false, text, reason: '', avgLogprob, words };
+  const normalized = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const out = { ok: false, text, reason: '', avgLogprob, noSpeechProb, words };
 
   if (!letters) { out.reason = 'no_speech'; return out; }
   if (letters.length < 2) { out.reason = 'single_character'; return out; }
-  const normalized = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   if (SILENCE_PHRASES.has(normalized)) { out.reason = 'silence_phrase'; return out; }
-  if (avgLogprob != null && words <= SHORT_ANSWER_WORDS && avgLogprob < minShort) {
+
+  const trustedShort = words <= 2 && TRUSTED_SHORT.has(normalized.replace(/\s+/g, ''));
+  // OpenAI often marks real "Yes." with a high no_speech_prob; only use it when the
+  // text is not an explicitly trusted short answer.
+  if (!trustedShort && noSpeechProb != null && noSpeechProb >= maxNoSpeech) {
+    out.reason = 'no_speech_prob';
+    return out;
+  }
+  if (!trustedShort && avgLogprob != null && words <= SHORT_ANSWER_WORDS && avgLogprob < minShort) {
     out.reason = 'low_confidence';
     return out;
   }
@@ -122,31 +149,43 @@ function isPromptEcho(text, prompt) {
   return words.length > 0 && words.every((w) => promptWords.has(w));
 }
 
-async function requestTranscription(buffer, mimeType, prompt, language) {
+function sttProviders() {
+  const list = [];
+  if (openaiKey()) list.push('openai');
+  if (groqKey()) list.push('groq');
+  return list;
+}
+
+async function requestTranscription(provider, buffer, mimeType, prompt, language) {
   const form = new FormData();
   form.append('file', new Blob([buffer], { type: mimeType || 'audio/webm' }), 'answer.' + extForMime(mimeType));
-  form.append('model', sttModel());
+  form.append('model', provider === 'openai' ? openaiModel() : groqModel());
   form.append('language', language || 'en');
   form.append('response_format', 'verbose_json');
   form.append('temperature', '0');
   if (prompt) form.append('prompt', prompt);
 
+  const url = provider === 'openai' ? OPENAI_URL : GROQ_URL;
+  const key = provider === 'openai' ? openaiKey() : groqKey();
+
   let res;
   try {
-    res = await fetch(GROQ_URL, {
+    res = await fetch(url, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + groqKey() },
+      headers: { Authorization: 'Bearer ' + key },
       body: form
     });
   } catch (e) {
     const err = new Error('음성 인식 서버에 연결하지 못했습니다.');
     err.statusCode = 502;
+    err.retryable = true;
     throw err;
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error((data.error && data.error.message) || '음성 인식에 실패했습니다.');
     err.statusCode = res.status === 429 ? 429 : 502;
+    err.retryable = res.status === 429 || res.status >= 500;
     throw err;
   }
   return data;
@@ -155,8 +194,9 @@ async function requestTranscription(buffer, mimeType, prompt, language) {
 /** Transcribes and returns the full assessment from assessTranscript(). */
 async function transcribeDetailed(buffer, mimeType, opts) {
   opts = opts || {};
-  if (!isSttConfigured()) {
-    const err = new Error('음성 인식이 설정되지 않았습니다 (GROQ_API_KEY). 글로 답해 주세요.');
+  const providers = sttProviders();
+  if (!providers.length) {
+    const err = new Error('음성 인식이 설정되지 않았습니다 (OPENAI_API_KEY 또는 GROQ_API_KEY). 글로 답해 주세요.');
     err.statusCode = 503;
     throw err;
   }
@@ -172,19 +212,38 @@ async function transcribeDetailed(buffer, mimeType, opts) {
   }
 
   const prompt = buildPrompt(opts.properNouns);
-  const result = assessTranscript(await requestTranscription(buffer, mimeType, prompt, opts.language));
+  let lastErr = null;
 
-  // Given noise, Whisper can recite the prompt back ("Wilbur, Charlotte, and Fern.").
-  // When the answer contains nothing but prompt words, ask again with no prompt and
-  // keep the answer only if speech is still heard.
-  if (result.ok && prompt && isPromptEcho(result.text, prompt)) {
-    const plain = assessTranscript(await requestTranscription(buffer, mimeType, '', opts.language));
-    if (!plain.ok) {
-      result.ok = false;
-      result.reason = 'prompt_echo';
+  for (const provider of providers) {
+    try {
+      let result = assessTranscript(
+        await requestTranscription(provider, buffer, mimeType, prompt, opts.language)
+      );
+
+      // Name prompts help long answers but often scramble short ones ("Yes." → "The")
+      // and get recited back on silence. Re-check without the prompt when needed.
+      if (prompt && (!result.ok || result.words <= 2 || isPromptEcho(result.text, prompt))) {
+        const plain = assessTranscript(
+          await requestTranscription(provider, buffer, mimeType, '', opts.language)
+        );
+        if (!result.ok) {
+          if (plain.ok) result = plain;
+        } else if (isPromptEcho(result.text, prompt)) {
+          if (plain.ok) result = plain;
+          else { result.ok = false; result.reason = 'prompt_echo'; }
+        } else if (result.words <= 2 && plain.ok) {
+          result = plain;
+        }
+      }
+      result.provider = provider;
+      return result;
+    } catch (e) {
+      lastErr = e;
+      if (!e.retryable) throw e;
+      console.warn('[debrief-stt] ' + provider + ' failed (' + e.statusCode + '), trying next');
     }
   }
-  return result;
+  throw lastErr || new Error('음성 인식에 실패했습니다.');
 }
 
 async function transcribe(buffer, mimeType, opts) {

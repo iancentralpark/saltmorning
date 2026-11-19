@@ -1,49 +1,87 @@
 'use strict';
 
 /**
- * Natural TTS for Oral Debrief interviewer lines (Gemini TTS, "Kore" voice).
+ * Natural TTS for Oral Debrief interviewer lines.
+ * Prefers OpenAI (gpt-4o-mini-tts, streaming PCM) when OPENAI_API_KEY is set.
+ * Falls back through Gemini TTS models when GEMINI_API_KEY is set.
  * Audio is streamed as it is generated and never stored.
- *
- * Measured Nov 2026 on a 30-word reply: gemini-2.5-flash-preview-tts returns the whole
- * clip at once after 5-7s, while the models below start streaming after about 0.6s.
- * Each model has its own requests-per-minute quota (10 on Tier 1), so a busy or
- * failing model falls through to the next one.
  */
 
-const DEFAULT_MODELS = [
+const OPENAI_URL = 'https://api.openai.com/v1/audio/speech';
+const DEFAULT_OPENAI_MODELS = ['gpt-4o-mini-tts', 'tts-1'];
+const DEFAULT_GEMINI_MODELS = [
   'gemini-3.1-flash-tts-preview',
   'gemini-3.8-flash-tts',
   'gemini-3.8-flash-lite-tts',
   'gemini-2.5-flash-preview-tts'
 ];
-// Only these take a style instruction in the prompt. Newer models read it aloud.
-const STYLE_PROMPT_MODELS = /gemini-(2\.5|3\.1)-/;
-const DEFAULT_VOICE = 'Kore';
+// Only these Gemini models take a style instruction in the prompt. Newer ones read it aloud.
+const GEMINI_STYLE_PROMPT_MODELS = /gemini-(2\.5|3\.1)-/;
+const DEFAULT_OPENAI_VOICE = 'coral';
+const DEFAULT_GEMINI_VOICE = 'Kore';
 const MAX_CHARS = 900;
 const SAMPLE_RATE = 24000;
 const FIRST_AUDIO_TIMEOUT_MS = 12000;
 const TOTAL_TIMEOUT_MS = 45000;
 const MAX_COOLDOWN_MS = 60000;
+const TEACHER_STYLE =
+  'Speak as a warm, friendly middle-school English teacher having a natural conversation ' +
+  'with a student. Sound encouraging and clear, not robotic. Do not add or change words.';
 
 const cooldownUntil = new Map();
+
+function openaiKey() {
+  return String(process.env.OPENAI_API_KEY || '').trim();
+}
 
 function geminiKey() {
   return String(process.env.GEMINI_API_KEY || '').trim();
 }
 
 function isConfigured() {
-  return !!geminiKey();
+  return !!(openaiKey() || geminiKey());
 }
 
-function ttsModels() {
-  const list = String(process.env.DEBRIEF_TTS_MODELS || process.env.DEBRIEF_TTS_MODEL || '')
-    .split(',').map((m) => m.trim()).filter(Boolean);
-  DEFAULT_MODELS.forEach((m) => { if (!list.includes(m)) list.push(m); });
+function envList(name) {
+  return String(process.env[name] || '')
+    .split(',')
+    .map((m) => m.trim())
+    .filter(Boolean);
+}
+
+function openaiModels() {
+  if (!openaiKey()) return [];
+  const list = envList('DEBRIEF_TTS_OPENAI_MODELS');
+  if (!list.length && process.env.DEBRIEF_TTS_MODEL && !String(process.env.DEBRIEF_TTS_MODEL).startsWith('gemini-')) {
+    list.push(String(process.env.DEBRIEF_TTS_MODEL).trim());
+  }
+  DEFAULT_OPENAI_MODELS.forEach((m) => { if (!list.includes(m)) list.push(m); });
   return list;
 }
 
-function ttsVoice() {
-  return String(process.env.DEBRIEF_TTS_VOICE || DEFAULT_VOICE).trim();
+function geminiModels() {
+  if (!geminiKey()) return [];
+  const list = envList('DEBRIEF_TTS_MODELS');
+  if (!list.length && process.env.DEBRIEF_TTS_MODEL && String(process.env.DEBRIEF_TTS_MODEL).startsWith('gemini-')) {
+    list.push(String(process.env.DEBRIEF_TTS_MODEL).trim());
+  }
+  DEFAULT_GEMINI_MODELS.forEach((m) => { if (!list.includes(m)) list.push(m); });
+  return list;
+}
+
+function openaiVoice() {
+  return String(process.env.DEBRIEF_TTS_VOICE || process.env.DEBRIEF_TTS_OPENAI_VOICE || DEFAULT_OPENAI_VOICE).trim();
+}
+
+function geminiVoice() {
+  // Keep Kore when the shared voice env still holds a Gemini name; otherwise default Kore.
+  const v = String(process.env.DEBRIEF_TTS_GEMINI_VOICE || '').trim();
+  if (v) return v;
+  const shared = String(process.env.DEBRIEF_TTS_VOICE || '').trim();
+  if (shared && !/^(alloy|ash|ballad|coral|echo|fable|onyx|nova|sage|shimmer|verse|marin|cedar)$/i.test(shared)) {
+    return shared;
+  }
+  return DEFAULT_GEMINI_VOICE;
 }
 
 function httpError(status, msg) {
@@ -77,42 +115,136 @@ function pcmToWav(pcm, sampleRate) {
   return buffer;
 }
 
-function buildPrompt(model, text) {
-  if (!STYLE_PROMPT_MODELS.test(model)) return text;
+function geminiPrompt(model, text) {
+  if (!GEMINI_STYLE_PROMPT_MODELS.test(model)) return text;
   return 'Speak the following lines aloud as a warm, friendly middle-school English teacher ' +
     'having a natural conversation with a student. Sound encouraging and clear, not robotic. ' +
     'Do not add extra words. Only speak this text:\n\n' + text;
 }
 
-function retryDelayMs(data) {
+function retryDelayMs(data, fallbackMs) {
   const details = (data && data.error && data.error.details) || [];
   const hit = details.find((d) => d && d.retryDelay);
   const sec = hit ? parseFloat(String(hit.retryDelay)) : NaN;
-  return Number.isFinite(sec) ? Math.min(MAX_COOLDOWN_MS, Math.max(1000, sec * 1000)) : 20000;
+  if (Number.isFinite(sec)) return Math.min(MAX_COOLDOWN_MS, Math.max(1000, sec * 1000));
+  return fallbackMs || 20000;
 }
 
-/**
- * Streams one model's audio as raw 16-bit mono PCM. Resolves with the number of bytes
- * sent. Rejects with err.retryable = true when nothing was sent and another model
- * may still succeed.
- */
-async function streamFromModel(model, text, onChunk, outerSignal) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-    encodeURIComponent(model) + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(geminiKey());
-  const ctrl = new AbortController();
+function makeEmitter(onChunk, ctrl, timers) {
+  let sent = 0;
+  let carry = null;
+  return {
+    get sent() { return sent; },
+    emit(raw) {
+      let buf = raw;
+      if (sent === 0 && !carry && buf.length > 44 && buf.toString('latin1', 0, 4) === 'RIFF') {
+        buf = buf.subarray(44);
+      }
+      if (carry) { buf = Buffer.concat([carry, buf]); carry = null; }
+      if (buf.length % 2) {
+        carry = buf.subarray(buf.length - 1);
+        buf = buf.subarray(0, buf.length - 1);
+      }
+      if (!buf.length) return;
+      if (sent === 0) {
+        clearTimeout(timers.first);
+        timers.total = setTimeout(() => { timers.timedOut = true; ctrl.abort(); }, TOTAL_TIMEOUT_MS);
+      }
+      sent += buf.length;
+      onChunk(buf);
+    }
+  };
+}
+
+function attachAbort(outerSignal, ctrl) {
   const onOuterAbort = () => ctrl.abort();
   if (outerSignal) {
     if (outerSignal.aborted) ctrl.abort();
     else outerSignal.addEventListener('abort', onOuterAbort, { once: true });
   }
-  let sent = 0;
-  let timedOut = false;
-  let timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, FIRST_AUDIO_TIMEOUT_MS);
+  return () => {
+    if (outerSignal) outerSignal.removeEventListener('abort', onOuterAbort);
+  };
+}
+
+async function streamOpenAi(model, text, onChunk, outerSignal) {
+  const ctrl = new AbortController();
+  const detach = attachAbort(outerSignal, ctrl);
+  const timers = { first: null, total: null, timedOut: false };
+  timers.first = setTimeout(() => { timers.timedOut = true; ctrl.abort(); }, FIRST_AUDIO_TIMEOUT_MS);
   const fail = (status, msg, retryable) => {
     const err = httpError(status, msg);
-    err.retryable = !!retryable && sent === 0;
+    err.retryable = !!retryable && emitter.sent === 0;
     return err;
   };
+  const emitter = makeEmitter(onChunk, ctrl, timers);
+
+  const body = {
+    model,
+    voice: openaiVoice(),
+    input: text,
+    response_format: 'pcm',
+    speed: 1.0
+  };
+  // Style instructions and SSE audio deltas are supported on gpt-4o-mini-tts, not tts-1.
+  if (model.startsWith('gpt-4o-mini-tts') || model.includes('gpt-4o-mini-tts')) {
+    body.instructions = TEACHER_STYLE;
+    body.stream_format = 'audio';
+  }
+
+  try {
+    let res;
+    try {
+      res = await fetch(OPENAI_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + openaiKey(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+    } catch (e) {
+      if (outerSignal && outerSignal.aborted) throw fail(499, 'Client closed the request.', false);
+      throw fail(502, '음성 생성 서버에 연결하지 못했습니다.', true);
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      const msg = (data && data.error && data.error.message) || ('TTS HTTP ' + res.status);
+      if (res.status === 429) cooldownUntil.set(model, Date.now() + retryDelayMs(data, 20000));
+      const keyProblem = res.status === 401 || res.status === 403;
+      throw fail(res.status === 429 ? 429 : 502, msg, !keyProblem);
+    }
+
+    try {
+      for await (const chunk of res.body) emitter.emit(Buffer.from(chunk));
+    } catch (e) {
+      if (outerSignal && outerSignal.aborted) throw fail(499, 'Client closed the request.', false);
+      throw fail(502, timers.timedOut ? '음성 생성이 너무 오래 걸립니다.' : '음성 생성이 중단되었습니다.', true);
+    }
+    if (!emitter.sent) throw fail(502, '음성을 만들지 못했습니다.', true);
+    return emitter.sent;
+  } finally {
+    clearTimeout(timers.first);
+    clearTimeout(timers.total);
+    detach();
+  }
+}
+
+async function streamGemini(model, text, onChunk, outerSignal) {
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+    encodeURIComponent(model) + ':streamGenerateContent?alt=sse&key=' + encodeURIComponent(geminiKey());
+  const ctrl = new AbortController();
+  const detach = attachAbort(outerSignal, ctrl);
+  const timers = { first: null, total: null, timedOut: false };
+  timers.first = setTimeout(() => { timers.timedOut = true; ctrl.abort(); }, FIRST_AUDIO_TIMEOUT_MS);
+  const fail = (status, msg, retryable) => {
+    const err = httpError(status, msg);
+    err.retryable = !!retryable && emitter.sent === 0;
+    return err;
+  };
+  const emitter = makeEmitter(onChunk, ctrl, timers);
 
   try {
     let res;
@@ -121,10 +253,10 @@ async function streamFromModel(model, text, onChunk, outerSignal) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: buildPrompt(model, text) }] }],
+          contents: [{ role: 'user', parts: [{ text: geminiPrompt(model, text) }] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
-            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: ttsVoice() } } }
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: geminiVoice() } } }
           }
         }),
         signal: ctrl.signal
@@ -137,28 +269,13 @@ async function streamFromModel(model, text, onChunk, outerSignal) {
     if (!res.ok) {
       const data = await res.json().catch(() => null);
       const msg = (data && data.error && data.error.message) || ('TTS HTTP ' + res.status);
-      if (res.status === 429) cooldownUntil.set(model, Date.now() + retryDelayMs(data));
-      // A bad key fails the same way on every model; anything else may be model-specific.
+      if (res.status === 429) cooldownUntil.set(model, Date.now() + retryDelayMs(data, 20000));
       const keyProblem = res.status === 401 || res.status === 403;
       throw fail(res.status === 429 ? 429 : 502, msg, !keyProblem);
     }
 
     const decoder = new TextDecoder();
     let pending = '';
-    let carry = null; // odd trailing byte, so a 16-bit sample is never split between chunks
-    const emit = (raw) => {
-      let buf = raw;
-      if (sent === 0 && !carry && buf.length > 44 && buf.toString('latin1', 0, 4) === 'RIFF') buf = buf.subarray(44);
-      if (carry) { buf = Buffer.concat([carry, buf]); carry = null; }
-      if (buf.length % 2) { carry = buf.subarray(buf.length - 1); buf = buf.subarray(0, buf.length - 1); }
-      if (!buf.length) return;
-      if (sent === 0) {
-        clearTimeout(timer);
-        timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, TOTAL_TIMEOUT_MS);
-      }
-      sent += buf.length;
-      onChunk(buf);
-    };
     const handleLine = (line) => {
       if (!line.startsWith('data:')) return;
       let data;
@@ -166,7 +283,7 @@ async function streamFromModel(model, text, onChunk, outerSignal) {
       const parts = (data.candidates && data.candidates[0] && data.candidates[0].content &&
         data.candidates[0].content.parts) || [];
       parts.forEach((p) => {
-        if (p.inlineData && p.inlineData.data) emit(Buffer.from(p.inlineData.data, 'base64'));
+        if (p.inlineData && p.inlineData.data) emitter.emit(Buffer.from(p.inlineData.data, 'base64'));
       });
     };
 
@@ -182,20 +299,21 @@ async function streamFromModel(model, text, onChunk, outerSignal) {
       handleLine(pending.trim());
     } catch (e) {
       if (outerSignal && outerSignal.aborted) throw fail(499, 'Client closed the request.', false);
-      throw fail(502, timedOut ? '음성 생성이 너무 오래 걸립니다.' : '음성 생성이 중단되었습니다.', true);
+      throw fail(502, timers.timedOut ? '음성 생성이 너무 오래 걸립니다.' : '음성 생성이 중단되었습니다.', true);
     }
-    if (!sent) throw fail(502, '음성을 만들지 못했습니다.', true);
-    return sent;
+    if (!emitter.sent) throw fail(502, '음성을 만들지 못했습니다.', true);
+    return emitter.sent;
   } finally {
-    clearTimeout(timer);
-    if (outerSignal) outerSignal.removeEventListener('abort', onOuterAbort);
+    clearTimeout(timers.first);
+    clearTimeout(timers.total);
+    detach();
   }
 }
 
 /**
  * Streams the line as raw PCM (16-bit little-endian, mono, SAMPLE_RATE Hz).
  * onChunk(buffer) is called as audio arrives.
- * @returns {Promise<{model: string, bytes: number, sampleRate: number}>}
+ * @returns {Promise<{model: string, bytes: number, sampleRate: number, provider: string}>}
  */
 async function synthesizeStream(text, onChunk, opts) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim().slice(0, MAX_CHARS);
@@ -203,24 +321,27 @@ async function synthesizeStream(text, onChunk, opts) {
   if (!isConfigured()) throw httpError(503, '자연스러운 TTS가 설정되지 않았습니다.');
   const signal = opts && opts.signal;
 
+  const targets = []
+    .concat(openaiModels().map((model) => ({ provider: 'openai', model })))
+    .concat(geminiModels().map((model) => ({ provider: 'gemini', model })));
+
   const now = Date.now();
-  const all = ttsModels();
-  const order = all.filter((m) => !(cooldownUntil.get(m) > now));
-  // Models that recently hit their quota are skipped, except that the one due back
-  // soonest gets a last attempt before the request fails.
-  const cooling = all.filter((m) => !order.includes(m))
-    .sort((a, b) => cooldownUntil.get(a) - cooldownUntil.get(b));
+  const order = targets.filter((t) => !(cooldownUntil.get(t.model) > now));
+  const cooling = targets.filter((t) => !order.includes(t))
+    .sort((a, b) => cooldownUntil.get(a.model) - cooldownUntil.get(b.model));
   if (cooling.length) order.push(cooling[0]);
 
   let lastErr = null;
-  for (const model of order) {
+  for (const t of order) {
     try {
-      const bytes = await streamFromModel(model, clean, onChunk, signal);
-      return { model, bytes, sampleRate: SAMPLE_RATE };
+      const bytes = t.provider === 'openai'
+        ? await streamOpenAi(t.model, clean, onChunk, signal)
+        : await streamGemini(t.model, clean, onChunk, signal);
+      return { model: t.model, bytes, sampleRate: SAMPLE_RATE, provider: t.provider };
     } catch (e) {
       lastErr = e;
       if (!e.retryable) throw e;
-      console.warn('[debrief-tts] ' + model + ' failed (' + e.statusCode + '), trying next model');
+      console.warn('[debrief-tts] ' + t.provider + '/' + t.model + ' failed (' + e.statusCode + '), trying next');
     }
   }
   throw lastErr || httpError(502, '음성을 만들지 못했습니다.');
