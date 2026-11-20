@@ -564,25 +564,53 @@
     }).join('') + '</ul>';
   }
 
+  function lessonCard(l, opts) {
+    opts = opts || {};
+    const locked = !!l.locked || !!opts.locked;
+    const pct = l.percent || 0;
+    const unlock = l.availableFrom
+      ? new Date(l.availableFrom).toLocaleString('en-GB', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '';
+    const due = l.dueAt
+      ? new Date(l.dueAt).toLocaleString('en-GB', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '';
+    let meta = locked ? ('Unlocks ' + unlock) : (l.completed ? 'Completed' : (pct ? pct + '% watched' : 'Not started'));
+    if (!locked && due) meta += (l.overdue ? ' · Overdue ' : ' · Due ') + due;
+    if (!locked && l.lastPosition > 0 && !l.completed) meta += ' · Continue';
+    const inner = '<div><strong>' + escapeHtml(l.title) + '</strong><div class="meta">' + escapeHtml(meta) + '</div>' +
+      (!locked && !l.completed ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') + '</div>' +
+      '<span class="muted small">' + (locked ? '🔒' : (l.completed ? '✓' : '▶')) + '</span>';
+    if (locked) return '<div class="stu-lesson-card locked">' + inner + '</div>';
+    return '<a class="stu-lesson-card" href="/student-lesson.html?lesson=' + encodeURIComponent(l.id) + '">' + inner + '</a>';
+  }
+
   async function loadLessons() {
     const box = $('lessonsList');
     const status = $('lessonsStatus');
     if (!box || !status) return;
     try {
       const d = await api('/api/student/lms/lessons', {}, role);
+      const sec = d.sections || {};
       const list = d.lessons || [];
       if (!list.length) {
         status.textContent = 'No lessons shared yet.';
         box.innerHTML = '';
         return;
       }
-      const done = list.filter((l) => l.completed).length;
-      status.textContent = done + ' of ' + list.length + ' watched';
-      box.innerHTML = '<ul class="stu-list">' + list.map((l) => {
-        const meta = l.completed ? 'Completed' : (l.percent ? l.percent + '% watched' : 'New');
-        return '<li><a href="/student-lesson.html?lesson=' + encodeURIComponent(l.id) + '"><strong>' +
-          escapeHtml(l.title) + '</strong></a><div class="muted small">' + escapeHtml(meta) + '</div></li>';
-      }).join('') + '</ul>';
+      const sum = d.summary || {};
+      status.textContent = (sum.completed || 0) + ' of ' + (sum.assigned || list.length) + ' watched' +
+        (sum.overdue ? ' · ' + sum.overdue + ' overdue' : '');
+      const blocks = [
+        ['Continue watching', sec.continue || []],
+        ['Ready for you', sec.today || []],
+        ['Coming up', sec.upcoming || []],
+        ['Completed', sec.done || []]
+      ];
+      box.innerHTML = blocks.map(([title, items]) => {
+        if (!items.length) return '';
+        return '<div class="stu-lesson-sec"><h4>' + title + '</h4>' +
+          items.map((l) => lessonCard(l)).join('') + '</div>';
+      }).join('') || '<p class="muted">No lessons yet.</p>';
     } catch (e) {
       status.textContent = 'Could not load lessons.';
       box.innerHTML = '';

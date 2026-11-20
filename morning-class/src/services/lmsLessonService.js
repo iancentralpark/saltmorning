@@ -51,6 +51,8 @@ function rowToLesson(r) {
     durationSeconds: r.duration_seconds == null ? null : Number(r.duration_seconds),
     orderIndex: Number(r.order_index) || 0,
     published: !!r.published,
+    availableFrom: r.available_from ? new Date(r.available_from).getTime() : null,
+    dueAt: r.due_at ? new Date(r.due_at).getTime() : null,
     createdBy: r.created_by || '',
     createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : Date.now()
@@ -79,17 +81,21 @@ async function persistLesson(l) {
   await query(
     'INSERT INTO ' + table('lms_lessons') + ' (' +
       'id, class_id, library_video_id, title, description, provider, video_uid, status, status_message, ' +
-      'duration_seconds, order_index, published, created_by, created_at, updated_at' +
-    ') VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,to_timestamp($14/1000.0),to_timestamp($15/1000.0)) ' +
+      'duration_seconds, order_index, published, available_from, due_at, created_by, created_at, updated_at' +
+    ') VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,' +
+      'CASE WHEN $14::bigint IS NULL THEN NULL ELSE to_timestamp($14::bigint/1000.0) END,' +
+      'CASE WHEN $15::bigint IS NULL THEN NULL ELSE to_timestamp($15::bigint/1000.0) END,' +
+      '$16,to_timestamp($17/1000.0),to_timestamp($18/1000.0)) ' +
     'ON CONFLICT (id) DO UPDATE SET ' +
       'library_video_id = EXCLUDED.library_video_id, title = EXCLUDED.title, description = EXCLUDED.description, ' +
       'video_uid = EXCLUDED.video_uid, status = EXCLUDED.status, status_message = EXCLUDED.status_message, ' +
       'duration_seconds = EXCLUDED.duration_seconds, order_index = EXCLUDED.order_index, ' +
-      'published = EXCLUDED.published, updated_at = EXCLUDED.updated_at',
+      'published = EXCLUDED.published, available_from = EXCLUDED.available_from, due_at = EXCLUDED.due_at, ' +
+      'updated_at = EXCLUDED.updated_at',
     [
       l.id, l.classId, l.libraryVideoId || null, l.title, l.description || '', l.provider || 'cloudflare',
       l.videoUid || '', l.status, l.statusMessage || '', l.durationSeconds, l.orderIndex || 0,
-      !!l.published, l.createdBy || '', l.createdAt, l.updatedAt
+      !!l.published, l.availableFrom, l.dueAt, l.createdBy || '', l.createdAt, l.updatedAt
     ]
   );
 }
@@ -241,6 +247,8 @@ function staffLesson(l, counts) {
     durationSeconds: l.durationSeconds,
     orderIndex: l.orderIndex,
     published: l.published,
+    availableFrom: l.availableFrom || null,
+    dueAt: l.dueAt || null,
     createdAt: l.createdAt,
     updatedAt: l.updatedAt,
     startedCount: (counts && counts.started) || 0,
@@ -248,17 +256,75 @@ function staffLesson(l, counts) {
   };
 }
 
-function studentLesson(l, p) {
+function parseScheduleMs(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const s = String(v).trim();
+  if (!s) return null;
+  // date-only → start of that calendar day in Asia/Seoul (+09:00)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const t = Date.parse(s + 'T00:00:00+09:00');
+    return Number.isFinite(t) ? t : null;
+  }
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) {
+    const t = Date.parse(s + ':00+09:00');
+    return Number.isFinite(t) ? t : null;
+  }
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : null;
+}
+
+function applySchedule(lesson, body) {
+  if (!body) return;
+  if (body.availableFrom !== undefined) lesson.availableFrom = parseScheduleMs(body.availableFrom);
+  if (body.dueAt !== undefined) lesson.dueAt = parseScheduleMs(body.dueAt);
+}
+
+function isLockedForStudent(l, now) {
+  return !!(l.availableFrom && l.availableFrom > (now || Date.now()));
+}
+
+function isOverdue(l, completed, now) {
+  if (completed || !l.dueAt) return false;
+  return l.dueAt < (now || Date.now());
+}
+
+function fmtDuration(sec) {
+  sec = Math.max(0, Math.floor(Number(sec) || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h) return h + 'h ' + m + 'm';
+  if (m) return m + 'm';
+  return sec + 's';
+}
+
+function studentLesson(l, p, now) {
   const dur = l.durationSeconds || (p && p.durationSeconds) || null;
+  const locked = isLockedForStudent(l, now);
+  const completed = !!(p && p.completedAt);
+  const pct = p
+    ? Math.max(
+      p.maxPercent || 0,
+      (dur ? Math.min(100, Math.round((p.watchedSeconds / dur) * 100)) : 0)
+    )
+    : 0;
   return {
     id: l.id,
     title: l.title,
     description: l.description,
     durationSeconds: dur,
     orderIndex: l.orderIndex,
+    availableFrom: l.availableFrom || null,
+    dueAt: l.dueAt || null,
+    locked,
+    overdue: isOverdue(l, completed, now),
     lastPosition: p ? p.lastPosition : 0,
-    percent: p && dur ? Math.min(100, Math.round((p.watchedSeconds / dur) * 100)) : 0,
-    completed: !!(p && p.completedAt)
+    watchedSeconds: p ? p.watchedSeconds : 0,
+    percent: locked ? 0 : pct,
+    completed,
+    section: completed
+      ? 'done'
+      : (locked ? 'upcoming' : ((p && p.lastPosition > 0 && !completed) ? 'continue' : 'today'))
   };
 }
 
@@ -357,10 +423,13 @@ async function createLesson(classId, body, teacherId) {
     durationSeconds: null,
     orderIndex: existing.reduce((m, l) => Math.max(m, l.orderIndex), 0) + 1,
     published: false,
+    availableFrom: null,
+    dueAt: null,
     createdBy: String(teacherId || ''),
     createdAt: now,
     updatedAt: now
   };
+  applySchedule(lesson, body);
   lessons.set(lesson.id, lesson);
   await persistLesson(lesson);
   if (body && body.studentIds) await setLessonStudents(lesson.id, body.studentIds);
@@ -402,10 +471,15 @@ async function assignFromLibrary(classId, body, teacherId) {
     durationSeconds: video.durationSeconds,
     orderIndex: existing.reduce((m, l) => Math.max(m, l.orderIndex), 0) + 1,
     published: body && body.published === true,
+    availableFrom: null,
+    dueAt: null,
     createdBy: String(teacherId || ''),
     createdAt: now,
     updatedAt: now
   };
+  applySchedule(lesson, body);
+  // Scheduled unlock still needs published=true so it appears in Upcoming for students.
+  if (lesson.availableFrom && body && body.published !== false) lesson.published = true;
   lessons.set(lesson.id, lesson);
   await persistLesson(lesson);
   if (body && body.studentIds) await setLessonStudents(lesson.id, body.studentIds);
@@ -446,6 +520,7 @@ async function updateLesson(id, patch) {
     }
     l.published = want;
   }
+  if (patch.availableFrom !== undefined || patch.dueAt !== undefined) applySchedule(l, patch);
   l.updatedAt = Date.now();
   lessons.set(l.id, l);
   await persistLesson(l);
@@ -531,6 +606,7 @@ async function progressForStaff(id) {
 }
 
 async function listForStudent(classId, studentId) {
+  const now = Date.now();
   const [list, prog] = await Promise.all([
     loadClassLessons(classId),
     loadProgressForStudent(classId, studentId)
@@ -540,13 +616,26 @@ async function listForStudent(classId, studentId) {
     if (!l.published || l.status !== 'ready') continue;
     const ids = await loadLessonStudentIds(l.id);
     if (ids && ids.length && !ids.includes(String(studentId || ''))) continue;
-    const row = studentLesson(l, prog.get(l.id));
+    const row = studentLesson(l, prog.get(l.id), now);
     row.targeted = !!(ids && ids.length);
     visible.push(row);
   }
+  const sections = {
+    continue: visible.filter((x) => x.section === 'continue'),
+    today: visible.filter((x) => x.section === 'today'),
+    upcoming: visible.filter((x) => x.section === 'upcoming'),
+    done: visible.filter((x) => x.section === 'done')
+  };
   return {
     available: stream.isConfigured(),
-    lessons: visible
+    lessons: visible,
+    sections,
+    summary: {
+      assigned: visible.length,
+      completed: sections.done.length,
+      overdue: visible.filter((x) => x.overdue).length,
+      watchedSeconds: visible.reduce((n, x) => n + (x.watchedSeconds || 0), 0)
+    }
   };
 }
 
@@ -557,6 +646,9 @@ async function loadStudentLesson(lessonId, classId, studentId) {
   }
   if (studentId != null && !(await studentCanAccessLesson(lessonId, studentId))) {
     throw httpError(403, '이 강의는 배정되지 않았습니다.');
+  }
+  if (isLockedForStudent(l)) {
+    throw httpError(403, '아직 열리지 않은 강의입니다. 예정일을 기다려 주세요.');
   }
   return l;
 }
@@ -640,6 +732,113 @@ async function saveProgress(lessonId, student, body) {
   return studentLesson(l, p);
 }
 
+
+async function loadAllProgressForClass(classId) {
+  classId = String(classId || '');
+  if (isOpsDbEnabled()) {
+    const r = await query(
+      'SELECT * FROM ' + table('lms_progress') + ' WHERE class_id = $1',
+      [classId]
+    );
+    return r.rows.map(rowToProgress);
+  }
+  const out = [];
+  progressByLesson.forEach((m) => {
+    m.forEach((p) => { if (p.classId === classId) out.push(p); });
+  });
+  return out;
+}
+
+/**
+ * Student-first overview for a class: roster rows with assigned/completed/watch stats,
+ * plus the usual lesson list for the "by video" view.
+ */
+async function overviewForClass(classId, roster) {
+  const now = Date.now();
+  const lessons = await listForStaff(classId);
+  const progress = await loadAllProgressForClass(classId);
+  const progByStudent = new Map();
+  progress.forEach((p) => {
+    if (!progByStudent.has(p.studentId)) progByStudent.set(p.studentId, []);
+    progByStudent.get(p.studentId).push(p);
+  });
+
+  const students = (roster || []).map((st) => {
+    const sid = String(st.studentId || st.id || '');
+    const name = st.name || sid;
+    const mine = lessons.filter((l) => {
+      if (!l.studentIds || !l.studentIds.length) return true;
+      return l.studentIds.includes(sid);
+    });
+    const published = mine.filter((l) => l.published && l.status === 'ready');
+    const rows = progByStudent.get(sid) || [];
+    const byLesson = new Map(rows.map((p) => [p.lessonId, p]));
+    let completed = 0;
+    let inProgress = 0;
+    let overdue = 0;
+    let watchedSeconds = 0;
+    let lastWatchedAt = null;
+    let rateSum = 0;
+    let rateN = 0;
+    published.forEach((l) => {
+      const p = byLesson.get(l.id);
+      const done = !!(p && p.completedAt);
+      if (done) completed += 1;
+      else if (p && (p.watchedSeconds > 0 || p.maxPercent > 0)) inProgress += 1;
+      if (isOverdue(l, done, now)) overdue += 1;
+    });
+    rows.forEach((p) => {
+      watchedSeconds += p.watchedSeconds || 0;
+      if (p.updatedAt && (!lastWatchedAt || p.updatedAt > lastWatchedAt)) lastWatchedAt = p.updatedAt;
+      if (p.lastPlaybackRate) { rateSum += p.lastPlaybackRate; rateN += 1; }
+    });
+    return {
+      studentId: sid,
+      name,
+      assigned: published.length,
+      completed,
+      inProgress,
+      overdue,
+      watchedSeconds,
+      watchedLabel: fmtDuration(watchedSeconds),
+      lastWatchedAt,
+      avgPlaybackRate: rateN ? Math.round((rateSum / rateN) * 100) / 100 : null,
+      lessons: published.map((l) => {
+        const p = byLesson.get(l.id);
+        return studentLesson(
+          {
+            id: l.id, title: l.title, description: l.description,
+            durationSeconds: l.durationSeconds, orderIndex: l.orderIndex,
+            availableFrom: l.availableFrom, dueAt: l.dueAt, published: l.published, status: l.status
+          },
+          p,
+          now
+        );
+      })
+    };
+  });
+
+  const assignedLessons = lessons.filter((l) => l.published && l.status === 'ready').length;
+  const overdueStudents = students.filter((s) => s.overdue > 0).length;
+  const avgComplete = students.length
+    ? Math.round(students.reduce((n, s) => n + (s.assigned ? (s.completed / s.assigned) : 0), 0) / students.length * 100)
+    : 0;
+
+  return {
+    summary: {
+      students: students.length,
+      lessons: lessons.length,
+      published: assignedLessons,
+      overdueStudents,
+      avgCompletePercent: avgComplete,
+      totalWatchedSeconds: students.reduce((n, s) => n + s.watchedSeconds, 0),
+      totalWatchedLabel: fmtDuration(students.reduce((n, s) => n + s.watchedSeconds, 0))
+    },
+    students,
+    lessons
+  };
+}
+
 module.exports = {
   isConfigured,
   listForStaff,
@@ -656,5 +855,8 @@ module.exports = {
   progressForStaff,
   listForStudent,
   playbackForStudent,
-  saveProgress
+  saveProgress,
+  overviewForClass,
+  parseScheduleMs,
+  fmtDuration
 };
