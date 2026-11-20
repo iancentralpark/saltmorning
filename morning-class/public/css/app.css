@@ -6674,6 +6674,35 @@ body.buddy-resize-active {
 .dbm-empty { text-align: center; color: var(--muted); padding: 1.5rem 1rem; font-size: 0.9rem; }
 .dbm-section-title { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
 
+/* Debrief review: compact scorecard */
+.dbm-detail-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.dbm-detail-head .dbm-spacer { flex: 1 1 auto; }
+.dbm-tabs { display: inline-flex; background: var(--cream-deep); border-radius: 999px; padding: 0.15rem; }
+.dbm-tab { border: 0; background: transparent; padding: 0.3rem 0.85rem; border-radius: 999px; font: inherit; font-size: 0.8rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+.dbm-tab.on { background: #fff; color: var(--primary-dark); box-shadow: var(--shadow-sm); }
+.dbm-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.dbm-nav { display: inline-flex; align-items: center; gap: 0.4rem; }
+.dbm-grade-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+.dbm-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.6rem; }
+@media (max-width: 640px) { .dbm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dbm-tile { display: flex; flex-direction: column; gap: 0.2rem; text-align: left; padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: 12px; background: #fff; font: inherit; cursor: pointer; }
+.dbm-tile.on { border-color: var(--primary); background: var(--primary-soft); }
+.dbm-tile-label { font-size: 0.72rem; font-weight: 700; color: var(--muted); }
+.dbm-tile-score { font-size: 1.35rem; font-weight: 800; color: var(--primary-dark); line-height: 1.1; }
+.dbm-tile-score small { font-size: 0.72rem; font-weight: 600; color: var(--muted); margin-left: 0.1rem; }
+.dbm-bar { display: flex; gap: 0.2rem; }
+.dbm-bar i { flex: 1; height: 5px; border-radius: 3px; background: #e2e8ee; }
+.dbm-bar i.on { background: var(--primary); }
+.dbm-tile-detail { border: 1px solid var(--border-soft); background: #f7fafb; border-radius: 10px; padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; font-size: 0.86rem; line-height: 1.5; }
+.dbm-tile-detail p { margin: 0.2rem 0 0; }
+.dbm-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 0.6rem; }
+@media (max-width: 640px) { .dbm-two { grid-template-columns: 1fr; } }
+.dbm-mini { border: 1px solid var(--border-soft); border-radius: 10px; padding: 0.55rem 0.8rem; font-size: 0.84rem; line-height: 1.5; margin-bottom: 0.6rem; }
+.dbm-two .dbm-mini { margin-bottom: 0; }
+.dbm-mini h6 { margin: 0 0 0.25rem; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.dbm-bullets { margin: 0; padding-left: 1.1rem; }
+.dbm-box textarea { overflow: hidden; }
+
 /* Online Lessons — student-first class management */
 .olm-summary {
   display: grid;
