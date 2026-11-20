@@ -80,7 +80,70 @@ async function createDirectUpload({ name, creator }) {
   if (origins.length) body.allowedOrigins = origins;
   const r = await cf('POST', '/direct_upload', body);
   if (!r || !r.uid || !r.uploadURL) throw stageError(502, '업로드 URL을 받지 못했습니다.');
-  return { uid: r.uid, uploadURL: r.uploadURL };
+  return { uid: r.uid, uploadURL: r.uploadURL, mode: 'post' };
+}
+
+/**
+ * TUS direct upload for files over 200MB (Cloudflare basic POST is capped at 200MB).
+ * Client must upload with tus-js-client to the returned uploadURL.
+ * @param {{ name?: string, creator?: string, uploadLength: number }} opts
+ */
+async function createTusUpload({ name, creator, uploadLength }) {
+  if (!isConfigured()) {
+    throw stageError(503, '영상 서비스(Cloudflare Stream)가 아직 설정되지 않았습니다.');
+  }
+  const length = Math.floor(Number(uploadLength));
+  if (!Number.isFinite(length) || length <= 0) {
+    throw stageError(400, 'uploadLength (bytes) is required for large uploads.');
+  }
+  // Cloudflare Stream max object size is 30GB.
+  if (length > 30 * 1024 * 1024 * 1024) {
+    throw stageError(400, '영상은 최대 30GB까지 업로드할 수 있습니다.');
+  }
+
+  function b64(s) {
+    return Buffer.from(String(s), 'utf8').toString('base64');
+  }
+  const metaParts = [
+    'name ' + b64(String(name || 'Lesson').slice(0, 120)),
+    'requiresignedurls'
+  ];
+  if (creator) metaParts.push('creator ' + b64(String(creator).slice(0, 64)));
+  const origins = allowedOrigins();
+  // allowedOrigins is set after upload via API if needed; TUS metadata is limited.
+
+  const url = API_BASE() + '/accounts/' + encodeURIComponent(accountId()) +
+    '/stream?direct_user=true';
+  const headers = {
+    Authorization: 'Bearer ' + apiToken(),
+    'Tus-Resumable': '1.0.0',
+    'Upload-Length': String(length),
+    'Upload-Metadata': metaParts.join(',')
+  };
+  if (creator) headers['Upload-Creator'] = String(creator).slice(0, 64);
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      signal: AbortSignal.timeout(20000)
+    });
+  } catch (e) {
+    throw stageError(502, '영상 서비스에 연결하지 못했습니다.');
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = await res.text(); } catch (_) { /* ignore */ }
+    throw stageError(502, 'TUS 업로드 URL을 받지 못했습니다. (HTTP ' + res.status + ') ' + String(detail).slice(0, 180));
+  }
+  const location = res.headers.get('Location') || res.headers.get('location');
+  // Stream returns stream-media.video… Location; uid is last path segment before query.
+  const uidMatch = String(location || '').match(/\/([a-f0-9]{32})/i) ||
+    String(location || '').match(/\/([A-Za-z0-9_-]{16,})(?:\?|$)/);
+  const uid = uidMatch ? uidMatch[1] : '';
+  if (!location) throw stageError(502, 'TUS Location 헤더가 없습니다.');
+  return { uid, uploadURL: location, mode: 'tus', uploadLength: length, allowedOrigins: origins };
 }
 
 /** Normalised view of a Cloudflare video: state is uploading | processing | ready | error. */
@@ -127,9 +190,11 @@ function playerUrl(token) {
 module.exports = {
   isConfigured,
   createDirectUpload,
+  createTusUpload,
   getVideo,
   deleteVideo,
   signPlaybackToken,
   playerUrl,
-  TOKEN_TTL_SECONDS
+  TOKEN_TTL_SECONDS,
+  MAX_UPLOAD_DURATION_SECONDS
 };

@@ -5887,6 +5887,7 @@ router.post('/admin/parents/:parentId/deactivate', requireRole('admin', 'princip
 // Online LMS video lessons (Phase 5) — Cloudflare Stream
 // ---------------------------------------------------------------------------
 const lmsLessons = require('./services/lmsLessonService');
+const lmsLibrary = require('./services/lmsLibraryService');
 
 const lmsCreateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
@@ -5931,7 +5932,47 @@ function lmsError(res, e, fallback) {
 }
 
 router.get('/lms/meta', requireRole('teacher', 'admin'), (req, res) => {
-  res.json({ configured: lmsLessons.isConfigured() });
+  res.json({
+    configured: lmsLessons.isConfigured(),
+    postMaxBytes: lmsLibrary.POST_UPLOAD_MAX_BYTES,
+    maxFileBytes: 30 * 1024 * 1024 * 1024
+  });
+});
+
+router.get('/lms/library', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json(await lmsLibrary.listVideos({
+      category: req.query.category,
+      curriculum: req.query.curriculum,
+      q: req.query.q
+    }));
+  } catch (e) {
+    lmsError(res, e, 'Could not load video library.');
+  }
+});
+
+router.post('/lms/library', requireRole('teacher', 'admin'), lmsCreateLimiter, async (req, res) => {
+  try {
+    res.status(201).json(await lmsLibrary.createUpload(req.body || {}, debriefTeacherId(req)));
+  } catch (e) {
+    lmsError(res, e, 'Could not create library upload.');
+  }
+});
+
+router.patch('/lms/library/:videoId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json(await lmsLibrary.updateVideo(req.params.videoId, req.body || {}));
+  } catch (e) {
+    lmsError(res, e, 'Could not update library video.');
+  }
+});
+
+router.delete('/lms/library/:videoId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json(await lmsLibrary.deleteVideo(req.params.videoId));
+  } catch (e) {
+    lmsError(res, e, 'Could not delete library video.');
+  }
 });
 
 router.get('/lms/classes/:classId/lessons', requireRole('teacher', 'admin'), async (req, res) => {

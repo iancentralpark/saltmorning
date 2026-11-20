@@ -41,6 +41,7 @@ function rowToLesson(r) {
   return {
     id: r.id,
     classId: r.class_id,
+    libraryVideoId: r.library_video_id || null,
     title: r.title,
     description: r.description || '',
     provider: r.provider || 'cloudflare',
@@ -65,6 +66,9 @@ function rowToProgress(r) {
     lastPosition: Number(r.last_position) || 0,
     watchedSeconds: Number(r.watched_seconds) || 0,
     durationSeconds: r.duration_seconds == null ? null : Number(r.duration_seconds),
+    viewCount: Number(r.view_count) || 0,
+    lastPlaybackRate: Number(r.last_playback_rate) || 1,
+    maxPercent: Number(r.max_percent) || 0,
     completedAt: r.completed_at ? new Date(r.completed_at).getTime() : null,
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : Date.now()
   };
@@ -74,18 +78,18 @@ async function persistLesson(l) {
   if (!isOpsDbEnabled()) return;
   await query(
     'INSERT INTO ' + table('lms_lessons') + ' (' +
-      'id, class_id, title, description, provider, video_uid, status, status_message, ' +
+      'id, class_id, library_video_id, title, description, provider, video_uid, status, status_message, ' +
       'duration_seconds, order_index, published, created_by, created_at, updated_at' +
-    ') VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,to_timestamp($13/1000.0),to_timestamp($14/1000.0)) ' +
+    ') VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,to_timestamp($14/1000.0),to_timestamp($15/1000.0)) ' +
     'ON CONFLICT (id) DO UPDATE SET ' +
-      'title = EXCLUDED.title, description = EXCLUDED.description, video_uid = EXCLUDED.video_uid, ' +
-      'status = EXCLUDED.status, status_message = EXCLUDED.status_message, ' +
+      'library_video_id = EXCLUDED.library_video_id, title = EXCLUDED.title, description = EXCLUDED.description, ' +
+      'video_uid = EXCLUDED.video_uid, status = EXCLUDED.status, status_message = EXCLUDED.status_message, ' +
       'duration_seconds = EXCLUDED.duration_seconds, order_index = EXCLUDED.order_index, ' +
       'published = EXCLUDED.published, updated_at = EXCLUDED.updated_at',
     [
-      l.id, l.classId, l.title, l.description || '', l.provider || 'cloudflare', l.videoUid || '',
-      l.status, l.statusMessage || '', l.durationSeconds, l.orderIndex || 0, !!l.published,
-      l.createdBy || '', l.createdAt, l.updatedAt
+      l.id, l.classId, l.libraryVideoId || null, l.title, l.description || '', l.provider || 'cloudflare',
+      l.videoUid || '', l.status, l.statusMessage || '', l.durationSeconds, l.orderIndex || 0,
+      !!l.published, l.createdBy || '', l.createdAt, l.updatedAt
     ]
   );
 }
@@ -229,6 +233,7 @@ function staffLesson(l, counts) {
   return {
     id: l.id,
     classId: l.classId,
+    libraryVideoId: l.libraryVideoId || null,
     title: l.title,
     description: l.description,
     status: l.status,
@@ -259,7 +264,33 @@ function studentLesson(l, p) {
 
 /** Pull the latest state from Cloudflare for lessons that are not finished yet. */
 async function syncLesson(l) {
-  if (!l || !l.videoUid || (l.status !== 'uploading' && l.status !== 'processing')) return l;
+  if (!l || !l.videoUid) return l;
+  if (l.libraryVideoId) {
+    try {
+      const library = require('./lmsLibraryService');
+      let video = await library.getRaw(l.libraryVideoId);
+      if (video) {
+        video = await library.syncVideo(video);
+        const changed = video.status !== l.status ||
+          video.durationSeconds !== l.durationSeconds ||
+          (video.statusMessage || '') !== (l.statusMessage || '') ||
+          video.title !== l.title;
+        if (changed) {
+          l.status = video.status;
+          l.statusMessage = video.statusMessage || '';
+          l.durationSeconds = video.durationSeconds;
+          // Keep class-specific title/description unless empty.
+          if (!l.title) l.title = video.title;
+          if (l.status !== 'ready') l.published = false;
+          l.updatedAt = Date.now();
+          lessons.set(l.id, l);
+          await persistLesson(l);
+        }
+        return l;
+      }
+    } catch (_) { /* fall through to direct CF sync */ }
+  }
+  if (l.status !== 'uploading' && l.status !== 'processing') return l;
   if (!stream.isConfigured()) return l;
   let v;
   try {
@@ -300,6 +331,10 @@ async function listForStaff(classId) {
 }
 
 async function createLesson(classId, body, teacherId) {
+  // Prefer assigning from the central library. Legacy direct class upload still works.
+  if (body && body.libraryVideoId) {
+    return assignFromLibrary(classId, body, teacherId);
+  }
   classId = String(classId || '').trim();
   if (!classId) throw httpError(400, 'classId is required.');
   const title = clean(body && body.title, MAX_TITLE);
@@ -312,6 +347,7 @@ async function createLesson(classId, body, teacherId) {
   const lesson = {
     id: newId(),
     classId,
+    libraryVideoId: null,
     title,
     description,
     provider: 'cloudflare',
@@ -332,6 +368,52 @@ async function createLesson(classId, body, teacherId) {
   row.studentIds = await loadLessonStudentIds(lesson.id);
   row.targeted = !!(row.studentIds && row.studentIds.length);
   return { lesson: row, uploadURL: upload.uploadURL };
+}
+
+async function assignFromLibrary(classId, body, teacherId) {
+  const library = require('./lmsLibraryService');
+  classId = String(classId || '').trim();
+  if (!classId) throw httpError(400, 'classId is required.');
+  const libId = String((body && body.libraryVideoId) || '').trim();
+  if (!libId) throw httpError(400, 'libraryVideoId is required.');
+  let video = await library.getRaw(libId);
+  if (!video) throw httpError(404, 'Library video not found.');
+  video = await library.syncVideo(video);
+  if (video.status !== 'ready') {
+    throw httpError(409, '영상 처리가 끝난 뒤에 클래스에 배정할 수 있습니다.');
+  }
+
+  // One assignment per class per library video.
+  const existing = await loadClassLessons(classId);
+  const dup = existing.find((l) => l.libraryVideoId === video.id);
+  if (dup) throw httpError(409, '이 영상은 이미 이 클래스에 배정되어 있습니다.');
+
+  const now = Date.now();
+  const lesson = {
+    id: newId(),
+    classId,
+    libraryVideoId: video.id,
+    title: clean((body && body.title) || video.title, MAX_TITLE) || video.title,
+    description: clean((body && body.description) != null ? body.description : video.description, MAX_DESCRIPTION),
+    provider: video.provider || 'cloudflare',
+    videoUid: video.videoUid,
+    status: video.status,
+    statusMessage: video.statusMessage || '',
+    durationSeconds: video.durationSeconds,
+    orderIndex: existing.reduce((m, l) => Math.max(m, l.orderIndex), 0) + 1,
+    published: body && body.published === true,
+    createdBy: String(teacherId || ''),
+    createdAt: now,
+    updatedAt: now
+  };
+  lessons.set(lesson.id, lesson);
+  await persistLesson(lesson);
+  if (body && body.studentIds) await setLessonStudents(lesson.id, body.studentIds);
+  const counts = await progressCounts(classId);
+  const row = staffLesson(lesson, counts.get(lesson.id));
+  row.studentIds = await loadLessonStudentIds(lesson.id);
+  row.targeted = !!(row.studentIds && row.studentIds.length);
+  return { lesson: row };
 }
 
 async function getForStaff(id) {
@@ -406,7 +488,8 @@ async function reorder(classId, ids) {
 async function deleteLesson(id) {
   const l = await loadLesson(id);
   if (!l) throw httpError(404, 'Lesson not found.');
-  if (l.videoUid && stream.isConfigured()) {
+  // Library-backed assignments only unlink the class copy; CF video stays in the catalog.
+  if (!l.libraryVideoId && l.videoUid && stream.isConfigured()) {
     try {
       await stream.deleteVideo(l.videoUid);
     } catch (e) {
@@ -428,14 +511,22 @@ async function progressForStaff(id) {
   return {
     lessonId: l.id,
     durationSeconds: l.durationSeconds,
-    students: rows.map((p) => ({
-      studentId: p.studentId,
-      studentName: p.studentName,
-      watchedSeconds: p.watchedSeconds,
-      percent: l.durationSeconds ? Math.min(100, Math.round((p.watchedSeconds / l.durationSeconds) * 100)) : 0,
-      completed: !!p.completedAt,
-      updatedAt: p.updatedAt
-    }))
+    students: rows.map((p) => {
+      const percent = l.durationSeconds
+        ? Math.min(100, Math.round((p.watchedSeconds / l.durationSeconds) * 100))
+        : (p.maxPercent || 0);
+      return {
+        studentId: p.studentId,
+        studentName: p.studentName,
+        watchedSeconds: p.watchedSeconds,
+        percent: Math.max(percent, p.maxPercent || 0),
+        maxPercent: Math.max(percent, p.maxPercent || 0),
+        viewCount: p.viewCount || 0,
+        lastPlaybackRate: p.lastPlaybackRate || 1,
+        completed: !!p.completedAt,
+        updatedAt: p.updatedAt
+      };
+    })
   };
 }
 
@@ -499,6 +590,12 @@ async function saveProgress(lessonId, student, body) {
   const watched = Math.max(prev ? prev.watchedSeconds : 0, position);
   const reachedEnd = body.ended === true || (dur && watched / dur >= COMPLETE_RATIO);
   const completedAt = (prev && prev.completedAt) || (reachedEnd ? Date.now() : null);
+  const rateRaw = Number(body.playbackRate);
+  const playbackRate = Number.isFinite(rateRaw) && rateRaw > 0 && rateRaw <= 4 ? rateRaw : (prev && prev.lastPlaybackRate) || 1;
+  const pctNow = dur ? Math.min(100, Math.round((watched / dur) * 100)) : 0;
+  const maxPercent = Math.max(prev ? (prev.maxPercent || 0) : 0, pctNow, body.ended === true ? 100 : 0);
+  const bumpView = body.viewStart === true;
+  const viewCount = (prev ? (prev.viewCount || 0) : 0) + (bumpView ? 1 : 0);
 
   const p = {
     lessonId: l.id,
@@ -508,6 +605,9 @@ async function saveProgress(lessonId, student, body) {
     lastPosition: body.ended === true ? 0 : position,
     watchedSeconds: body.ended === true && dur ? Math.max(watched, dur) : watched,
     durationSeconds: dur,
+    viewCount,
+    lastPlaybackRate: playbackRate,
+    maxPercent,
     completedAt,
     updatedAt: Date.now()
   };
@@ -516,18 +616,21 @@ async function saveProgress(lessonId, student, body) {
     await query(
       'INSERT INTO ' + table('lms_progress') + ' (' +
         'lesson_id, student_id, student_name, class_id, last_position, watched_seconds, ' +
-        'duration_seconds, completed_at, updated_at' +
-      ') VALUES ($1,$2,$3,$4,$5,$6,$7,' +
-        'CASE WHEN $8::bigint IS NULL THEN NULL ELSE to_timestamp($8::bigint/1000.0) END, now()) ' +
+        'duration_seconds, view_count, last_playback_rate, max_percent, completed_at, updated_at' +
+      ') VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,' +
+        'CASE WHEN $11::bigint IS NULL THEN NULL ELSE to_timestamp($11::bigint/1000.0) END, now()) ' +
       'ON CONFLICT (lesson_id, student_id) DO UPDATE SET ' +
         'student_name = EXCLUDED.student_name, last_position = EXCLUDED.last_position, ' +
         'watched_seconds = GREATEST(' + table('lms_progress') + '.watched_seconds, EXCLUDED.watched_seconds), ' +
         'duration_seconds = EXCLUDED.duration_seconds, ' +
+        'view_count = GREATEST(' + table('lms_progress') + '.view_count, EXCLUDED.view_count), ' +
+        'last_playback_rate = EXCLUDED.last_playback_rate, ' +
+        'max_percent = GREATEST(' + table('lms_progress') + '.max_percent, EXCLUDED.max_percent), ' +
         'completed_at = COALESCE(' + table('lms_progress') + '.completed_at, EXCLUDED.completed_at), ' +
         'updated_at = now()',
       [
         p.lessonId, p.studentId, p.studentName, p.classId, p.lastPosition, p.watchedSeconds,
-        p.durationSeconds, p.completedAt
+        p.durationSeconds, p.viewCount, p.lastPlaybackRate, p.maxPercent, p.completedAt
       ]
     );
   } else {
@@ -541,6 +644,7 @@ module.exports = {
   isConfigured,
   listForStaff,
   createLesson,
+  assignFromLibrary,
   setLessonStudents,
   loadLessonStudentIds,
   studentCanAccessLesson,
