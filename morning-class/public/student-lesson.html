@@ -97,10 +97,16 @@
     $('markDoneBtn').classList.toggle('hidden', !!lesson.completed);
   }
 
-  function send(position, duration, ended) {
+  function send(position, duration, ended, extra) {
     lastSentAt = Date.now();
+    var body = Object.assign({
+      position: position,
+      duration: duration,
+      ended: !!ended,
+      playbackRate: (player && typeof player.playbackRate === 'number') ? player.playbackRate : 1
+    }, extra || {});
     return api('/api/student/lms/lessons/' + encodeURIComponent(lessonId) + '/progress',
-      { method: 'POST', body: { position: position, duration: duration, ended: !!ended } }, role)
+      { method: 'POST', body: body }, role)
       .then(function (l) { lesson = Object.assign({}, lesson, l); renderProgress(); })
       .catch(function () { /* progress is best effort */ });
   }
@@ -120,7 +126,17 @@
     loadSdk().then(function (ok) {
       if (!ok) { $('markDoneBtn').classList.remove('hidden'); return; }
       player = window.Stream($('playerFrame'));
-      player.addEventListener('play', function () { playing = true; });
+      var viewCounted = false;
+      player.addEventListener('play', function () {
+        playing = true;
+        if (!viewCounted) {
+          viewCounted = true;
+          send(player.currentTime || 0, player.duration, false, { viewStart: true });
+        }
+      });
+      player.addEventListener('ratechange', function () {
+        if (playing) send(player.currentTime, player.duration);
+      });
       player.addEventListener('pause', function () {
         playing = false;
         send(player.currentTime, player.duration);
