@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20260910navz1">
+  <link rel="stylesheet" href="/css/app.css?v=20261120dbm1">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -462,58 +462,75 @@
     </div>
 
     <div id="panelDebrief" class="card hidden">
-      <p class="muted small">Pick a verified book and assign it to specific students — without leaving this class page. New book profiles still use Debrief Books.</p>
-      <div class="att-toolbar" style="gap:.5rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-ghost" id="contentOpenDebriefBtn">Open Debrief Books</button>
-        <button type="button" class="btn btn-ghost" id="contentRefreshDebriefBtn">Refresh</button>
+      <div class="dbm-head">
+        <div>
+          <h3>Oral Debrief</h3>
+          <p class="muted small">Assign verified books, review each student's conversation, grade, and release results. Upload books and build profiles in Class Tools &rarr; Debrief Books.</p>
+        </div>
+        <div class="dbm-head-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="contentRefreshDebriefBtn">Refresh</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="contentOpenDebriefBtn">Manage books &#8599;</button>
+          <button type="button" class="btn btn-primary btn-sm" id="contentNewAssignToggle">+ New assignment</button>
+        </div>
       </div>
-      <div id="contentDebriefAssign" class="hidden" style="margin:0.85rem 0;padding:0.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px;background:rgba(255,255,255,.6)">
-        <strong style="display:block;margin-bottom:.5rem">Assign a book</strong>
-        <label class="muted small" style="display:block;margin-bottom:.35rem">Verified book
-          <select id="contentBookSelect" style="display:block;width:100%;max-width:28rem;margin-top:.25rem"></select>
+      <div id="contentDebriefAssign" class="dbm-form hidden">
+        <div class="dbm-form-title">New Oral Debrief assignment</div>
+        <div class="dbm-form-grid">
+          <label class="dbm-field">Verified book
+            <select id="contentBookSelect"></select>
+          </label>
+          <label class="dbm-field">Due date (optional)
+            <input type="date" id="contentAssignDue">
+          </label>
+        </div>
+        <label class="dbm-field" style="margin-bottom:.7rem">Note to students (optional)
+          <textarea id="contentAssignNote" rows="2" maxlength="600" placeholder="e.g. Read chapters 1–5 first. You may mix in Korean."></textarea>
         </label>
-        <label class="muted small" style="display:block;margin:.5rem 0 .35rem">Due date (optional)
-          <input type="date" id="contentAssignDue" style="display:block;margin-top:.25rem">
-        </label>
-        <div class="muted small" style="margin:.5rem 0 .25rem">Students (leave empty = whole class)</div>
+        <div class="dbm-field-label">Students</div>
         <div id="contentAssignStudentPick"></div>
-        <div style="margin-top:.65rem;display:flex;gap:.45rem;flex-wrap:wrap;align-items:center">
-          <button type="button" class="btn btn-primary" id="contentAssignBookBtn">Assign to selected</button>
+        <div class="dbm-form-foot">
+          <button type="button" class="btn btn-primary btn-sm" id="contentAssignBookBtn">Assign</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="contentAssignCancelBtn">Cancel</button>
           <span class="muted small" id="contentAssignStatus"></span>
         </div>
       </div>
-      <div id="contentDebriefList"><p class="muted">Loading…</p></div>
+      <div id="contentDebriefList"><p class="muted">Loading&hellip;</p></div>
     </div>
 
     <div id="panelOnline" class="card hidden">
-      <p class="muted small">Assign library videos to this class, publish them, and review watch stats (views, %, playback speed). Upload new videos in Class Tools → Video Library.</p>
-      <div class="att-toolbar" style="gap:.5rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-primary" id="contentOpenLmsBtn">Open Video Library</button>
-        <button type="button" class="btn btn-ghost" id="contentRefreshLmsBtn">Refresh</button>
+      <div class="dbm-head">
+        <div>
+          <h3>Online Lessons</h3>
+          <p class="muted small">Assign videos from the shared library, publish them, and review watch stats. Upload new videos in Class Tools &rarr; Video Library.</p>
+        </div>
+        <div class="dbm-head-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="contentRefreshLmsBtn">Refresh</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="contentOpenLmsBtn">Video Library &#8599;</button>
+          <button type="button" class="btn btn-primary btn-sm" id="contentNewLmsToggle">+ Assign video</button>
+        </div>
       </div>
-      <div class="card" style="margin:.85rem 0;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px">
-        <strong>Assign from library</strong>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;margin-top:.55rem">
-          <label class="muted small">Ready video
-            <select id="contentLibrarySelect" style="width:100%;margin-top:.2rem"><option value="">Loading…</option></select>
+      <div id="contentLmsAssign" class="dbm-form hidden">
+        <div class="dbm-form-title">Assign a library video</div>
+        <div class="dbm-form-grid">
+          <label class="dbm-field">Ready video
+            <select id="contentLibrarySelect"><option value="">Loading&hellip;</option></select>
           </label>
-          <label class="muted small">Publish immediately
-            <select id="contentLibraryPublish" style="width:100%;margin-top:.2rem">
-              <option value="0">No — keep as draft</option>
-              <option value="1">Yes — publish now</option>
+          <label class="dbm-field">Visibility
+            <select id="contentLibraryPublish">
+              <option value="0">Keep as draft</option>
+              <option value="1">Publish now</option>
             </select>
           </label>
         </div>
-        <div style="margin-top:.55rem">
-          <div class="muted small" style="margin-bottom:.25rem">Students (leave empty = whole class)</div>
-          <div id="contentLibraryStudentPick"></div>
-        </div>
-        <div style="margin-top:.65rem;display:flex;gap:.45rem;flex-wrap:wrap;align-items:center">
-          <button type="button" class="btn btn-primary" id="contentAssignLibraryBtn">Assign to class</button>
+        <div class="dbm-field-label">Students</div>
+        <div id="contentLibraryStudentPick"></div>
+        <div class="dbm-form-foot">
+          <button type="button" class="btn btn-primary btn-sm" id="contentAssignLibraryBtn">Assign</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="contentLmsCancelBtn">Cancel</button>
           <span class="muted small" id="contentLibraryStatus"></span>
         </div>
       </div>
-      <div id="contentLmsList"><p class="muted">Loading…</p></div>
+      <div id="contentLmsList"><p class="muted">Loading&hellip;</p></div>
     </div>
   </div>
 </div>
@@ -800,13 +817,13 @@
     const selected = new Set((selectedIds || []).map(String));
     const roster = contentRosterCache || [];
     if (!roster.length) return '<p class="muted small">No students in this class.</p>';
-    return '<div class="cr-form-days-row" style="flex-wrap:wrap;gap:.35rem">' + roster.map((st) => {
+    return '<div class="dbm-chips">' + roster.map((st) => {
       const id = String(st.studentId || st.id || '');
       const checked = selected.size ? (selected.has(id) ? ' checked' : '') : '';
-      return '<label class="cr-day-chip"><input type="checkbox" value="' + escapeHtml(id) + '"' + checked + '> ' +
+      return '<label class="dbm-chip"><input type="checkbox" value="' + escapeHtml(id) + '"' + checked + '> ' +
         escapeHtml(st.name || id) + '</label>';
     }).join('') + '</div>' +
-      '<p class="muted small" style="margin:.35rem 0 0">Leave all unchecked = whole class.</p>';
+      '<p class="dbm-hint">None selected = whole class.</p>';
   }
 
   function collectChecks(root) {
@@ -878,7 +895,6 @@
     const panel = $('contentDebriefAssign');
     const pick = $('contentAssignStudentPick');
     if (!sel || !panel) return;
-    show(panel);
     if (pick) pick.innerHTML = contentStudentChecks(null);
     try {
       const data = await api('/api/debrief/books?verified=1&profile=0', {}, role);
@@ -896,57 +912,323 @@
     }
   }
 
+  const DBM_DIMS = [
+    ['comprehension', 'Comprehension'],
+    ['evidence', 'Evidence'],
+    ['criticalThinking', 'Critical thinking'],
+    ['oralFluency', 'Oral fluency']
+  ];
+
+  function dbmBase(aid) { return '/api/debrief/assignments/' + encodeURIComponent(aid); }
+
+  function dbmFmtTime(v) {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function dbmPill(label, cls) {
+    return '<span class="dbm-pill' + (cls ? ' ' + cls : '') + '">' + escapeHtml(label) + '</span>';
+  }
+
+  function dbmSessionPill(s) {
+    if (!s) return dbmPill('Not started');
+    return s.status === 'completed' ? dbmPill('Completed', 'ok') : dbmPill('In progress', 'warn');
+  }
+
+  function dbmGradePill(s) {
+    if (!s || s.status !== 'completed') return '';
+    const pts = s.total != null ? ' · ' + s.total + ' pts' : '';
+    if (s.gradeStatus === 'released') return dbmPill('Released' + pts, 'ok');
+    if (s.gradeStatus === 'draft') return dbmPill('Draft' + pts, 'warn');
+    return dbmPill('Not graded');
+  }
+
+  function dbmLines(v) {
+    return String(v || '').split('\n').map((x) => x.trim()).filter(Boolean);
+  }
+
+  function dbmGradePanel(s) {
+    const g = s.grade;
+    const released = s.gradeStatus === 'released';
+    if (!g) {
+      const msg = s.status !== 'completed'
+        ? 'Grading becomes available once the student finishes the session.'
+        : (s.gradeError ? 'Auto-grading failed: ' + escapeHtml(s.gradeError) : 'Not graded yet.');
+      return '<div class="dbm-box dbm-grade"><h5>Grade</h5><p class="muted small" style="margin:0 0 .5rem">' + msg + '</p>' +
+        (s.status === 'completed' ? '<button type="button" class="btn btn-primary btn-sm dbm-act-grade">AI grade</button>' : '') + '</div>';
+    }
+    let html = '<div class="dbm-box dbm-grade"><h5>Grade ' +
+      (released ? dbmPill('Visible to student', 'ok') : dbmPill('Draft — hidden from student', 'warn')) +
+      (g.aiGenerated && !g.edited ? dbmPill('AI draft') : (g.edited ? dbmPill('Edited') : '')) +
+      '<span class="dbm-total">' + (g.total != null ? escapeHtml(g.total + ' pts') : '—') + '</span></h5>';
+    DBM_DIMS.forEach(([k, label]) => {
+      const d = (g.dimensions && g.dimensions[k]) || {};
+      html += '<div class="dbm-dim"><strong>' + label + '</strong>' +
+        '<select data-dim="' + k + '" class="dbm-score"><option value="">—</option>' +
+        [1, 2, 3, 4].map((n) => '<option value="' + n + '"' + (d.score === n ? ' selected' : '') + '>' + n + '</option>').join('') +
+        '</select><div class="dbm-dim-why"><textarea data-dim="' + k + '" class="dbm-rationale">' + escapeHtml(d.rationale || '') + '</textarea>' +
+        ((d.quotes || []).length ? '<div class="dbm-quotes">“' + d.quotes.map(escapeHtml).join('” · “') + '”</div>' : '') +
+        '</div></div>';
+    });
+    html += '<label class="dbm-block">Strengths (one per line)</label><textarea class="dbm-strengths">' + escapeHtml((g.strengths || []).join('\n')) + '</textarea>' +
+      '<label class="dbm-block">Areas to improve (one per line)</label><textarea class="dbm-improve">' + escapeHtml((g.improvements || []).join('\n')) + '</textarea>' +
+      '<label class="dbm-block">Feedback shown to student</label><textarea class="dbm-feedback" style="min-height:5rem">' + escapeHtml(g.studentFeedback || '') + '</textarea>' +
+      '<label class="dbm-block">Teacher notes (private)</label><textarea class="dbm-notes">' + escapeHtml(g.teacherNotes || '') + '</textarea>' +
+      '<div class="dbm-toolbar" style="margin:.7rem 0 0"><button type="button" class="btn btn-primary btn-sm dbm-act-save">Save</button>' +
+      (released
+        ? '<button type="button" class="btn btn-ghost btn-sm dbm-act-unrelease">Unrelease</button>'
+        : '<button type="button" class="btn btn-primary btn-sm dbm-act-release">Release to student</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm dbm-act-grade">Re-grade with AI</button>') +
+      '</div>' +
+      (released ? '<p class="dbm-hint">Saving updates what the student sees immediately. Unrelease before re-grading with AI.</p>' : '') +
+      '</div>';
+    return html;
+  }
+
+  function dbmCollectGrade(root) {
+    const dims = {};
+    root.querySelectorAll('.dbm-score').forEach((el) => {
+      const k = el.getAttribute('data-dim');
+      dims[k] = dims[k] || {};
+      dims[k].score = el.value === '' ? null : Number(el.value);
+    });
+    root.querySelectorAll('.dbm-rationale').forEach((el) => {
+      const k = el.getAttribute('data-dim');
+      dims[k] = dims[k] || {};
+      dims[k].rationale = el.value;
+    });
+    const val = (sel) => { const el = root.querySelector(sel); return el ? el.value : ''; };
+    return {
+      dimensions: dims,
+      strengths: dbmLines(val('.dbm-strengths')),
+      improvements: dbmLines(val('.dbm-improve')),
+      studentFeedback: val('.dbm-feedback'),
+      teacherNotes: val('.dbm-notes')
+    };
+  }
+
+  function dbmWireGrade(root, aid, sid, reload) {
+    const base = dbmBase(aid) + '/sessions/' + encodeURIComponent(sid) + '/grade';
+    const fail = (e) => alert(e.message || 'Request failed');
+    const on = (sel, fn) => { const el = root.querySelector(sel); if (el) el.addEventListener('click', () => fn(el)); };
+    on('.dbm-act-grade', (btn) => {
+      btn.disabled = true;
+      btn.textContent = 'Grading…';
+      api(base, { method: 'POST' }, role).then(reload).catch((e) => { fail(e); btn.disabled = false; btn.textContent = 'AI grade'; });
+    });
+    on('.dbm-act-save', (btn) => {
+      btn.disabled = true;
+      api(base, { method: 'PATCH', body: dbmCollectGrade(root) }, role).then(reload).catch((e) => { fail(e); btn.disabled = false; });
+    });
+    on('.dbm-act-release', (btn) => {
+      if (!confirm('Release this grade and feedback to the student?')) return;
+      btn.disabled = true;
+      api(base, { method: 'PATCH', body: dbmCollectGrade(root) }, role)
+        .then(() => api(base + '/release', { method: 'POST', body: { released: true } }, role))
+        .then(reload).catch((e) => { fail(e); btn.disabled = false; });
+    });
+    on('.dbm-act-unrelease', (btn) => {
+      btn.disabled = true;
+      api(base + '/release', { method: 'POST', body: { released: false } }, role).then(reload).catch((e) => { fail(e); btn.disabled = false; });
+    });
+  }
+
+  async function dbmShowSession(aid, sid, detail, reload) {
+    detail.innerHTML = '<p class="muted small">Loading conversation…</p>';
+    try {
+      const s = await api(dbmBase(aid) + '/sessions/' + encodeURIComponent(sid), {}, role);
+      const turns = (s.turns || []).map((t) => {
+        const ai = t.role === 'ai';
+        return '<div class="dbm-turn ' + (ai ? 'ai' : 'student') + '"><b>' + (ai ? 'AI' : 'Student') +
+          (t.source === 'voice' ? ' · voice' : '') + '</b>' + escapeHtml(t.text) + '</div>';
+      }).join('') || '<p class="muted small">No messages yet.</p>';
+      detail.innerHTML = '<div class="dbm-detail-grid">' +
+        '<div class="dbm-box"><h5>' + escapeHtml(s.studentName || 'Student') + ' — conversation</h5>' +
+        '<div class="dbm-transcript">' + turns + '</div></div>' +
+        dbmGradePanel(s) + '</div>';
+      dbmWireGrade(detail, aid, sid, reload);
+    } catch (e) {
+      detail.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  function dbmRenderStats(card, rows) {
+    const el = card.querySelector('.dbm-stats');
+    if (!el) return;
+    const started = rows.filter((r) => r.session);
+    const done = started.filter((r) => r.session.status === 'completed');
+    const ungraded = done.filter((r) => !r.session.gradeStatus || r.session.gradeStatus === 'none' || !r.session.gradeStatus);
+    const draft = done.filter((r) => r.session.gradeStatus === 'draft');
+    const released = done.filter((r) => r.session.gradeStatus === 'released');
+    let html = dbmPill(done.length + ' / ' + rows.length + ' completed', done.length === rows.length && rows.length ? 'ok' : '');
+    if (ungraded.length) html += dbmPill(ungraded.length + ' to grade', 'warn');
+    if (draft.length) html += dbmPill(draft.length + ' draft', 'warn');
+    if (released.length) html += dbmPill(released.length + ' released', 'ok');
+    el.innerHTML = html;
+  }
+
+  async function dbmLoadSessions(aid, card, openSid) {
+    const body = card.querySelector('.dbm-results');
+    const wantBody = body && !body.classList.contains('hidden');
+    let data;
+    try {
+      data = await api(dbmBase(aid) + '/sessions', {}, role);
+    } catch (e) {
+      if (wantBody) body.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      return;
+    }
+    const sessions = data.sessions || [];
+    const byStudent = {};
+    sessions.forEach((s) => { byStudent[s.studentId] = s; });
+    const rows = [];
+    (data.roster || []).forEach((st) => {
+      rows.push({ studentId: st.studentId, name: st.name, session: byStudent[st.studentId] });
+      delete byStudent[st.studentId];
+    });
+    Object.keys(byStudent).forEach((id) => {
+      rows.push({ studentId: id, name: byStudent[id].studentName || id, session: byStudent[id] });
+    });
+    dbmRenderStats(card, rows);
+    if (!wantBody) return;
+
+    const done = rows.filter((r) => r.session && r.session.status === 'completed');
+    const pending = done.filter((r) => !r.session.gradeStatus || r.session.gradeStatus === 'none');
+    const drafts = done.filter((r) => r.session.gradeStatus === 'draft');
+    let html = '<div class="dbm-toolbar">' +
+      '<button type="button" class="btn btn-ghost btn-sm dbm-bulk-grade"' + (pending.length ? '' : ' disabled') + '>AI grade all pending (' + pending.length + ')</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm dbm-bulk-release"' + (drafts.length ? '' : ' disabled') + '>Release all drafts (' + drafts.length + ')</button>' +
+      '<span class="dbm-spacer"></span><span class="muted small dbm-bulk-status"></span></div>';
+    if (!rows.length) html += '<p class="dbm-empty">No students in this assignment yet.</p>';
+    html += rows.map((r) => {
+      const s = r.session;
+      return '<div class="dbm-row" data-sid="' + escapeHtml(s ? s.id : '') + '">' +
+        '<div><div class="dbm-row-main"><strong>' + escapeHtml(r.name || r.studentId) + '</strong>' +
+        dbmSessionPill(s) + dbmGradePill(s) + '</div>' +
+        (s ? '<div class="dbm-row-meta">' + (s.studentTurns || 0) + ' replies · updated ' + escapeHtml(dbmFmtTime(s.updatedAt)) + '</div>' : '') + '</div>' +
+        (s ? '<div class="dbm-card-actions">' +
+          '<button type="button" class="btn btn-ghost btn-sm dbm-view" data-sid="' + escapeHtml(s.id) + '">Review</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm dbm-reset" data-sid="' + escapeHtml(s.id) + '">Reset</button></div>' : '') +
+        '</div>';
+    }).join('');
+    html += '<div class="dbm-detail"></div>';
+    body.innerHTML = html;
+
+    const detail = body.querySelector('.dbm-detail');
+    const reload = (sid) => () => dbmLoadSessions(aid, card, sid);
+    const openSession = (sid) => {
+      body.querySelectorAll('.dbm-row').forEach((row) => row.classList.toggle('active', row.dataset.sid === sid));
+      dbmShowSession(aid, sid, detail, reload(sid));
+      detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+    body.querySelectorAll('.dbm-view').forEach((b) => b.addEventListener('click', () => openSession(b.dataset.sid)));
+    body.querySelectorAll('.dbm-reset').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('Delete this student\'s session so they can start over? Their conversation and grade will be removed.')) return;
+      b.disabled = true;
+      try {
+        await api(dbmBase(aid) + '/sessions/' + encodeURIComponent(b.dataset.sid), { method: 'DELETE' }, role);
+        dbmLoadSessions(aid, card);
+      } catch (e) {
+        alert(e.message || 'Could not reset');
+        b.disabled = false;
+      }
+    }));
+
+    const status = body.querySelector('.dbm-bulk-status');
+    const bulk = async (list, label, fn) => {
+      for (let i = 0; i < list.length; i++) {
+        if (status) status.textContent = label + ' ' + (i + 1) + ' / ' + list.length + '…';
+        try { await fn(list[i].session); } catch (e) { if (status) status.textContent = (list[i].name || '') + ': ' + (e.message || 'failed'); }
+      }
+      dbmLoadSessions(aid, card);
+    };
+    const bg = body.querySelector('.dbm-bulk-grade');
+    if (bg) bg.addEventListener('click', () => {
+      bg.disabled = true;
+      bulk(pending, 'Grading', (s) => api(dbmBase(aid) + '/sessions/' + encodeURIComponent(s.id) + '/grade', { method: 'POST' }, role));
+    });
+    const br = body.querySelector('.dbm-bulk-release');
+    if (br) br.addEventListener('click', () => {
+      if (!confirm('Release ' + drafts.length + ' draft grade(s) to students?')) return;
+      br.disabled = true;
+      bulk(drafts, 'Releasing', (s) => api(dbmBase(aid) + '/sessions/' + encodeURIComponent(s.id) + '/grade/release', { method: 'POST', body: { released: true } }, role));
+    });
+    if (openSid) openSession(openSid);
+  }
+
   async function loadContentDebriefList() {
     const box = $('contentDebriefList');
     if (!box || !currentClass) return;
     box.innerHTML = '<p class="muted">Loading…</p>';
     try {
       await loadContentRoster();
-      await fillContentBookSelect();
-      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/debrief-assignments', {}, role);
+      fillContentBookSelect();
+      const cid = encodeURIComponent(currentClass.classId);
+      const data = await api('/api/teacher/class/' + cid + '/debrief-assignments', {}, role);
       const list = data.assignments || [];
       if (!list.length) {
-        box.innerHTML = '<p class="muted">No assignments yet. Use “Assign a book” above.</p>';
+        box.innerHTML = '<p class="dbm-empty">No Oral Debrief assignments yet.<br>Click “+ New assignment” to give this class a book.</p>';
         return;
       }
-      box.innerHTML = '<h4 style="margin:0 0 .6rem">Assigned to this class</h4>' + list.map((a) => {
+      box.innerHTML = list.map((a) => {
         const targets = a.targeted ? ((a.studentIds || []).length + ' students') : 'Whole class';
-        return '<div class="card" style="margin:0 0 .75rem;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px" data-aid="' + escapeHtml(a.id) + '">' +
-          '<div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:flex-start">' +
-          '<div><strong>' + escapeHtml(a.title || a.bookTitle || 'Debrief') + '</strong>' +
-          '<div class="muted small">' + escapeHtml(targets) +
-          (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
-          '<div style="display:flex;gap:.35rem;flex-wrap:wrap">' +
-          '<button type="button" class="btn btn-ghost btn-sm content-edit-targets" data-aid="' + escapeHtml(a.id) + '">Edit students</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-del-assign" data-aid="' + escapeHtml(a.id) + '">Remove</button>' +
+        const aid = escapeHtml(a.id);
+        return '<div class="dbm-card" data-aid="' + aid + '">' +
+          '<div class="dbm-card-head"><div>' +
+          '<div class="dbm-card-title">' + escapeHtml(a.title || a.bookTitle || 'Debrief') + '</div>' +
+          '<div class="dbm-card-sub">' + escapeHtml(targets) + (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div>' +
+          '<div class="dbm-stats"><span class="muted small">Loading…</span></div></div>' +
+          '<div class="dbm-card-actions">' +
+          '<button type="button" class="btn btn-primary btn-sm dbm-toggle" data-aid="' + aid + '">Students &amp; results</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-edit-targets" data-aid="' + aid + '">Edit students</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-del-assign" data-aid="' + aid + '">Remove</button>' +
           '</div></div>' +
-          '<div class="content-target-editor hidden" data-aid="' + escapeHtml(a.id) + '" style="margin-top:.65rem">' +
-          contentStudentChecks(a.studentIds) +
-          '<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">' +
-          '<button type="button" class="btn btn-primary btn-sm content-save-targets" data-aid="' + escapeHtml(a.id) + '">Save</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-cancel-targets" data-aid="' + escapeHtml(a.id) + '">Cancel</button>' +
-          '</div></div></div>';
+          '<div class="dbm-panel content-target-editor hidden" data-aid="' + aid + '">' +
+          '<div class="dbm-field-label">Assigned students</div>' + contentStudentChecks(a.studentIds) +
+          '<div class="dbm-form-foot">' +
+          '<button type="button" class="btn btn-primary btn-sm content-save-targets" data-aid="' + aid + '">Save</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-cancel-targets" data-aid="' + aid + '">Cancel</button>' +
+          '</div></div>' +
+          '<div class="dbm-panel dbm-results hidden"></div></div>';
       }).join('');
+
+      const cardOf = (el) => el.closest('.dbm-card');
+      list.forEach((a) => {
+        const card = box.querySelector('.dbm-card[data-aid="' + a.id + '"]');
+        if (card) dbmLoadSessions(a.id, card);
+      });
+      box.querySelectorAll('.dbm-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const card = cardOf(btn);
+          const body = card.querySelector('.dbm-results');
+          const open = body.classList.contains('hidden');
+          body.classList.toggle('hidden', !open);
+          if (open) {
+            body.innerHTML = '<p class="muted small">Loading…</p>';
+            dbmLoadSessions(btn.dataset.aid, card);
+          }
+        });
+      });
       box.querySelectorAll('.content-edit-targets').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const ed = box.querySelector('.content-target-editor[data-aid="' + btn.dataset.aid + '"]');
+          const ed = cardOf(btn).querySelector('.content-target-editor');
           if (ed) ed.classList.toggle('hidden');
         });
       });
       box.querySelectorAll('.content-cancel-targets').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const ed = box.querySelector('.content-target-editor[data-aid="' + btn.dataset.aid + '"]');
+          const ed = cardOf(btn).querySelector('.content-target-editor');
           if (ed) ed.classList.add('hidden');
         });
       });
       box.querySelectorAll('.content-save-targets').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          const ed = box.querySelector('.content-target-editor[data-aid="' + btn.dataset.aid + '"]');
+          const ed = cardOf(btn).querySelector('.content-target-editor');
           const ids = collectChecks(ed) || [];
           btn.disabled = true;
           try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/debrief-assignments/' + encodeURIComponent(btn.dataset.aid) + '/students', {
+            await api('/api/teacher/class/' + cid + '/debrief-assignments/' + encodeURIComponent(btn.dataset.aid) + '/students', {
               method: 'PUT',
               body: { studentIds: ids }
             }, role);
@@ -959,10 +1241,9 @@
       });
       box.querySelectorAll('.content-del-assign').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          if (!confirm('Remove this Oral Debrief assignment from the class?')) return;
+          if (!confirm('Remove this Oral Debrief assignment from the class? Student sessions and grades for it will be lost.')) return;
           try {
-            await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
-              '/debrief-assignments/' + encodeURIComponent(btn.dataset.aid), { method: 'DELETE' }, role);
+            await api('/api/teacher/class/' + cid + '/debrief-assignments/' + encodeURIComponent(btn.dataset.aid), { method: 'DELETE' }, role);
             loadContentDebriefList();
           } catch (e) {
             alert(e.message || 'Could not remove');
@@ -1005,34 +1286,38 @@
       const data = await api('/api/lms/classes/' + encodeURIComponent(currentClass.classId) + '/lessons', {}, role);
       const list = data.lessons || [];
       if (!list.length) {
-        box.innerHTML = '<p class="muted">No videos assigned yet. Pick one from the library above.</p>';
+        box.innerHTML = '<p class="dbm-empty">No videos assigned yet.<br>Click “+ Assign video” to pick one from the library.</p>';
         return;
       }
       box.innerHTML = list.map((l) => {
         const targets = l.targeted ? ((l.studentIds || []).length + ' students') : 'Whole class';
-        const pub = l.published ? 'Published' : 'Draft';
         const canPublish = l.status === 'ready';
-        return '<div class="card" style="margin:0 0 .75rem;padding:.85rem;border:1px solid var(--line,#e5e7eb);border-radius:12px" data-lid="' + escapeHtml(l.id) + '">' +
-          '<div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;align-items:flex-start">' +
-          '<div><strong>' + escapeHtml(l.title) + '</strong>' +
-          '<div class="muted small">' + escapeHtml(pub) + ' · ' + escapeHtml(targets) +
-          ' · started ' + (l.startedCount || 0) + ' · done ' + (l.completedCount || 0) + '</div></div>' +
-          '<div style="display:flex;gap:.35rem;flex-wrap:wrap">' +
+        const lid = escapeHtml(l.id);
+        return '<div class="dbm-card" data-lid="' + lid + '">' +
+          '<div class="dbm-card-head"><div>' +
+          '<div class="dbm-card-title">' + escapeHtml(l.title) + '</div>' +
+          '<div class="dbm-card-sub">' + escapeHtml(targets) + '</div>' +
+          '<div class="dbm-stats">' +
+          dbmPill(l.published ? 'Published' : 'Draft', l.published ? 'ok' : 'warn') +
+          dbmPill((l.startedCount || 0) + ' started') +
+          dbmPill((l.completedCount || 0) + ' completed', (l.completedCount || 0) ? 'ok' : '') +
+          '</div></div>' +
+          '<div class="dbm-card-actions">' +
+          '<button type="button" class="btn btn-primary btn-sm content-lesson-progress" data-lid="' + lid + '">Watch stats</button>' +
           (canPublish
-            ? '<button type="button" class="btn btn-ghost btn-sm content-toggle-publish" data-lid="' + escapeHtml(l.id) + '" data-pub="' + (l.published ? '1' : '0') + '">' +
+            ? '<button type="button" class="btn btn-ghost btn-sm content-toggle-publish" data-lid="' + lid + '" data-pub="' + (l.published ? '1' : '0') + '">' +
               (l.published ? 'Unpublish' : 'Publish') + '</button>'
             : '') +
-          '<button type="button" class="btn btn-ghost btn-sm content-edit-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Edit students</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-lesson-progress" data-lid="' + escapeHtml(l.id) + '">Watch stats</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-unassign-lesson" data-lid="' + escapeHtml(l.id) + '">Unassign</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-edit-lesson-targets" data-lid="' + lid + '">Edit students</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-unassign-lesson" data-lid="' + lid + '">Unassign</button>' +
           '</div></div>' +
-          '<div class="content-lesson-editor hidden" data-lid="' + escapeHtml(l.id) + '" style="margin-top:.65rem">' +
-          contentStudentChecks(l.studentIds) +
-          '<div style="margin-top:.5rem;display:flex;gap:.4rem;flex-wrap:wrap">' +
-          '<button type="button" class="btn btn-primary btn-sm content-save-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Save</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm content-cancel-lesson-targets" data-lid="' + escapeHtml(l.id) + '">Cancel</button>' +
+          '<div class="dbm-panel content-lesson-editor hidden" data-lid="' + lid + '">' +
+          '<div class="dbm-field-label">Assigned students</div>' + contentStudentChecks(l.studentIds) +
+          '<div class="dbm-form-foot">' +
+          '<button type="button" class="btn btn-primary btn-sm content-save-lesson-targets" data-lid="' + lid + '">Save</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm content-cancel-lesson-targets" data-lid="' + lid + '">Cancel</button>' +
           '</div></div>' +
-          '<div class="content-lesson-progress hidden" data-lid="' + escapeHtml(l.id) + '" style="margin-top:.65rem"></div></div>';
+          '<div class="dbm-panel content-lesson-progress hidden" data-lid="' + lid + '"></div></div>';
       }).join('');
       box.querySelectorAll('.content-edit-lesson-targets').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -1106,7 +1391,7 @@
           try {
             const d = await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid) + '/progress', {}, role);
             const rows = (d.students || []).map((s) =>
-              '<div style="display:flex;justify-content:space-between;gap:.5rem;padding:.25rem 0;border-bottom:1px solid #eef1f7;font-size:.86rem">' +
+              '<div class="dbm-row">' +
               '<span>' + escapeHtml(s.studentName || s.studentId) + '</span>' +
               '<span class="muted">' +
               (s.completed ? 'Done' : ((s.maxPercent != null ? s.maxPercent : s.percent) + '%')) +
@@ -1114,8 +1399,7 @@
               ' · ' + (Number(s.lastPlaybackRate || 1).toFixed(2)) + '×' +
               '</span></div>'
             ).join('');
-            mount.innerHTML = '<div style="background:#f8fafc;border:1px solid var(--line,#e5e7eb);border-radius:10px;padding:.55rem .7rem">' +
-              (rows || '<span class="muted small">No one has watched yet.</span>') + '</div>';
+            mount.innerHTML = rows || '<span class="muted small">No one has watched yet.</span>';
           } catch (e) {
             mount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
           }
@@ -2373,6 +2657,21 @@
   if ($('contentOverviewRefresh')) {
     $('contentOverviewRefresh').addEventListener('click', () => loadContentOverview());
   }
+  const toggleForm = (formId, btnId, open) => {
+    const f = $(formId);
+    if (!f) return;
+    const want = open == null ? f.classList.contains('hidden') : open;
+    f.classList.toggle('hidden', !want);
+    if ($(btnId)) $(btnId).textContent = want ? 'Close form' : ($(btnId).dataset.label || '');
+  };
+  [['contentNewAssignToggle', 'contentDebriefAssign', 'contentAssignCancelBtn'],
+   ['contentNewLmsToggle', 'contentLmsAssign', 'contentLmsCancelBtn']].forEach(([btnId, formId, cancelId]) => {
+    const btn = $(btnId);
+    if (!btn) return;
+    btn.dataset.label = btn.textContent;
+    btn.addEventListener('click', () => toggleForm(formId, btnId));
+    if ($(cancelId)) $(cancelId).addEventListener('click', () => toggleForm(formId, btnId, false));
+  });
   if ($('contentRefreshDebriefBtn')) {
     $('contentRefreshDebriefBtn').addEventListener('click', () => loadContentDebriefList());
   }
@@ -2396,8 +2695,9 @@
           method: 'POST',
           body: { libraryVideoId, studentIds, published: publish }
         }, role);
-        if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = 'Assigned.';
+        if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = '';
         if ($('contentLibrarySelect')) $('contentLibrarySelect').value = '';
+        toggleForm('contentLmsAssign', 'contentNewLmsToggle', false);
         loadContentLmsList();
       } catch (e) {
         if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = e.message || 'Could not assign';
@@ -2427,12 +2727,15 @@
           body: {
             bookId: bookId,
             title: title,
+            customInstructions: (($('contentAssignNote') && $('contentAssignNote').value) || '').trim(),
             dueDate: dueDate || null,
             studentIds: studentIds
           }
         }, role);
-        if (status) status.textContent = 'Assigned.';
+        if (status) status.textContent = '';
         if ($('contentAssignDue')) $('contentAssignDue').value = '';
+        if ($('contentAssignNote')) $('contentAssignNote').value = '';
+        toggleForm('contentDebriefAssign', 'contentNewAssignToggle', false);
         loadContentDebriefList();
       } catch (e) {
         if (status) status.textContent = e.message || 'Assign failed';

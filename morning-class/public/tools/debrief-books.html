@@ -85,43 +85,6 @@
       border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .assign-box {
-      margin: 0 0 1rem; padding: .9rem; border: 2px solid #8eb0d8; border-radius: 12px; background: #eef5ff;
-    }
-    .assign-box h3 { margin: 0 0 .45rem; font-size: .95rem; color: var(--accent); font-family: Fraunces, Georgia, serif; }
-    .assign-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-    @media (max-width: 720px) { .assign-row { grid-template-columns: 1fr; } }
-    .assign-list { display: grid; gap: .4rem; margin-top: .55rem; }
-    .student-pick {
-      max-height: 11rem; overflow: auto; border: 1px solid var(--line); border-radius: 10px;
-      padding: .45rem .55rem; background: #fff; margin-top: .25rem;
-    }
-    .student-pick label {
-      display: flex; flex-direction: row; align-items: center; gap: .45rem;
-      font-size: .82rem; font-weight: 500; color: var(--ink); margin: .2rem 0;
-    }
-    .assign-item {
-      display: flex; justify-content: space-between; gap: .5rem; align-items: flex-start;
-      background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: .55rem .7rem; font-size: .84rem;
-    }
-    .assign-item .meta { margin-top: .15rem; }
-    .results-box { margin-top: .75rem; padding: .8rem; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-    .results-box h4 { margin: 0 0 .5rem; font-size: .9rem; color: var(--accent); }
-    .res-row { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .35rem 0; border-bottom: 1px solid #eef1f7; font-size: .84rem; }
-    .res-row:last-child { border-bottom: 0; }
-    .transcript { margin-top: .6rem; padding: .7rem; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; max-height: 50vh; overflow: auto; font-size: .84rem; line-height: 1.45; }
-    .turn { margin: .35rem 0; }
-    .turn b { color: var(--accent); }
-    .turn.student b { color: var(--ok); }
-    .grade-panel { margin-top: .6rem; padding: .8rem; border: 1px solid #c9d6ec; border-radius: 12px; background: #f4f8fe; }
-    .grade-panel h5 { margin: 0 0 .5rem; font-size: .9rem; color: var(--accent); display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-    .grade-dim { display: grid; grid-template-columns: 8.5rem 4.2rem 1fr; gap: .45rem; align-items: start; margin-bottom: .5rem; font-size: .82rem; }
-    @media (max-width: 720px) { .grade-dim { grid-template-columns: 1fr 4.2rem; } .grade-dim .gd-why { grid-column: 1 / -1; } }
-    .grade-dim label { margin: 0; }
-    .grade-dim textarea, .grade-panel textarea { min-height: 3.2rem; font-size: .82rem; width: 100%; }
-    .grade-panel .quotes { font-size: .75rem; color: var(--muted); font-style: italic; margin-top: .15rem; }
-    .grade-panel .total { font-size: 1.05rem; font-weight: 800; color: var(--accent); }
-    .grade-panel label.block { display: block; margin: .5rem 0 .2rem; }
   </style>
 </head>
 <body>
@@ -168,35 +131,7 @@
             <button type="button" class="btn btn-ghost btn-sm" id="btnDelete" disabled>삭제</button>
           </div>
         </div>
-        <div id="emptyDetail" class="empty">왼쪽에서 책을 만들거나 목록에서 선택하세요.</div>
-        <div id="assignBox" class="assign-box hidden">
-          <h3>반에 과제 부여</h3>
-          <p class="hint" id="assignHint">Verified 책만 반에 Oral Debrief 과제로 줄 수 있습니다.</p>
-          <div id="assignForm">
-            <div class="assign-row">
-              <label>반 선택
-                <select id="assignClassSelect"><option value="">불러오는 중…</option></select>
-              </label>
-              <label>마감일 (선택)
-                <input type="date" id="assignDueDate">
-              </label>
-            </div>
-            <label>과제 제목
-              <input type="text" id="assignTitle" placeholder="Oral Debrief: …" maxlength="160">
-            </label>
-            <label>학생 안내 (선택)
-              <textarea id="assignInstructions" style="min-height:4rem" placeholder="예: Ch.1–5까지 읽고 오라 / 한국어 섞어도 됨"></textarea>
-            </label>
-            <label>배정 학생 (비우면 반 전체)
-              <div id="assignStudentPick" class="student-pick"><span class="hint">반을 선택하면 명단이 표시됩니다.</span></div>
-            </label>
-            <div class="actions">
-              <button type="button" class="btn btn-primary btn-sm" id="btnAssign">선택한 학생에게 부여</button>
-            </div>
-          </div>
-          <div class="assign-list" id="assignList"></div>
-          <div class="results-box hidden" id="resultsBox"></div>
-        </div>
+        <div id="emptyDetail" class="empty">왼쪽에서 책을 만들거나 목록에서 선택하세요.<br><span class="hint">반 배정 · 진행 관리 · 채점 · 리포트 공개는 <strong>클래스 관리 → Oral Debrief</strong> 탭에서 합니다.</span></div>
         <div id="detailMount" class="profile-view hidden"></div>
       </section>
     </div>
@@ -209,9 +144,6 @@
   var books = [];
   var current = null;
   var pollTimer = null;
-  var classOptions = [];
-  var rosterByClass = {};
-  var currentAssignments = [];
 
   function token() {
     try {
@@ -220,12 +152,6 @@
         localStorage.getItem('salt_admin_token') ||
         sessionStorage.getItem('salt_admin_token') || '';
     } catch (e) { return ''; }
-  }
-
-  function isAdminSession() {
-    try {
-      return !!(localStorage.getItem('salt_admin_token') || sessionStorage.getItem('salt_admin_token'));
-    } catch (e) { return false; }
   }
 
   function setStatus(msg, kind) {
@@ -294,335 +220,6 @@
     }).join('') + '</ul>';
   }
 
-  function classLabel(classId) {
-    var hit = classOptions.find(function (c) { return String(c.classId) === String(classId); });
-    return hit ? (hit.className || hit.name || classId) : classId;
-  }
-
-  function renderAssignPanel(book) {
-    var box = $('assignBox');
-    if (!book || !book.id || book.status !== 'ready') {
-      box.classList.add('hidden');
-      return;
-    }
-    box.classList.remove('hidden');
-    $('resultsBox').classList.add('hidden');
-    var verified = !!book.isVerified;
-    $('assignForm').classList.toggle('hidden', !verified);
-    $('assignHint').textContent = verified
-      ? 'Verified 프로필을 반에 Oral Debrief 과제로 부여합니다. 학생 포털에 바로 표시됩니다.'
-      : '먼저 Verified로 표시한 뒤에 반에 부여할 수 있습니다.';
-    if (verified && !$('assignTitle').value) {
-      $('assignTitle').value = 'Oral Debrief: ' + (book.title || '');
-    }
-    loadAssignments(book.id);
-  }
-
-  function renderAssignments() {
-    var mount = $('assignList');
-    if (!currentAssignments.length) {
-      mount.innerHTML = '<p class="hint">아직 이 책이 부여된 반이 없습니다.</p>';
-      return;
-    }
-    mount.innerHTML = currentAssignments.map(function (a) {
-      var targetLabel = a.targeted
-        ? ((a.studentIds || []).length + '명 지정')
-        : '반 전체';
-      return '<div class="assign-item" data-id="' + escapeHtml(a.id) + '">' +
-        '<div><strong>' + escapeHtml(classLabel(a.classId)) + '</strong>' +
-        '<div class="meta">' + escapeHtml(a.title || '') +
-        ' · ' + escapeHtml(targetLabel) +
-        (a.dueDate ? ' · Due ' + escapeHtml(a.dueDate) : '') + '</div></div>' +
-        '<div class="actions" style="margin:0">' +
-        '<button type="button" class="btn btn-ghost btn-sm assign-results" data-id="' + escapeHtml(a.id) + '">결과 보기</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm assign-del" data-id="' + escapeHtml(a.id) + '">해제</button></div></div>';
-    }).join('');
-    mount.querySelectorAll('.assign-results').forEach(function (btn) {
-      btn.addEventListener('click', function () { showResults(btn.getAttribute('data-id')); });
-    });
-    mount.querySelectorAll('.assign-del').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.getAttribute('data-id');
-        if (!confirm('이 반의 디브리프 과제를 해제할까요?')) return;
-        api('/api/debrief/assignments/' + encodeURIComponent(id), { method: 'DELETE' }).then(function () {
-          setStatus('과제 해제됨', 'ok');
-          loadAssignments(current && current.id);
-        }).catch(function (e) { setStatus(e.message, 'error'); });
-      });
-    });
-  }
-
-  function fmtTime(ms) {
-    if (!ms) return '';
-    try { return new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-    catch (e) { return ''; }
-  }
-
-  function sessionPill(s) {
-    if (!s) return '<span class="pill">미시작</span>';
-    if (s.status === 'completed') return '<span class="pill ok">완료</span>';
-    return '<span class="pill warn">진행 중</span>';
-  }
-
-  function gradePill(s) {
-    if (s.status !== 'completed') return '';
-    if (s.gradeStatus === 'released') return '<span class="pill ok">공개 ' + (s.total != null ? s.total + '점' : '') + '</span>';
-    if (s.gradeStatus === 'draft') return '<span class="pill warn">검수 대기 ' + (s.total != null ? s.total + '점' : '') + '</span>';
-    return '<span class="pill">채점 전</span>';
-  }
-
-  var DIM_LABELS = { comprehension: '내용 이해', evidence: '근거 제시', criticalThinking: '비판적 사고', oralFluency: '구술 유창성' };
-  var DIM_KEYS = ['comprehension', 'evidence', 'criticalThinking', 'oralFluency'];
-
-  function lines(v) { return String(v || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }
-
-  function renderGradePanel(assignmentId, s) {
-    var g = s.grade;
-    var released = s.gradeStatus === 'released';
-    var html = '<div class="grade-panel" id="gradePanel">';
-    if (!g) {
-      html += '<h5>성적</h5><p class="hint">' + (s.status !== 'completed' ? '세션이 끝나면 채점할 수 있습니다.' :
-        (s.gradeError ? '자동 채점 실패: ' + escapeHtml(s.gradeError) : '아직 채점되지 않았습니다.')) + '</p>';
-      if (s.status === 'completed') html += '<div class="actions"><button type="button" class="btn btn-primary btn-sm" id="btnGrade">AI 채점</button></div>';
-      html += '</div>';
-      return html;
-    }
-    html += '<h5>성적 ' + (released ? '<span class="pill ok">학생에게 공개됨</span>' : '<span class="pill warn">초안 · 학생에게 안 보임</span>') +
-      '<span class="total" id="gradeTotal">' + (g.total != null ? g.total + '점' : '—') + '</span>' +
-      (g.aiGenerated && !g.edited ? '<span class="meta">AI 초안</span>' : (g.edited ? '<span class="meta">교사 수정됨</span>' : '')) + '</h5>';
-    DIM_KEYS.forEach(function (k) {
-      var d = g.dimensions[k] || {};
-      html += '<div class="grade-dim"><div><strong>' + DIM_LABELS[k] + '</strong></div>' +
-        '<select data-dim="' + k + '" class="gd-score"><option value="">—</option>' +
-        [1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (d.score === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select>' +
-        '<div class="gd-why"><textarea data-dim="' + k + '" class="gd-rationale">' + escapeHtml(d.rationale || '') + '</textarea>' +
-        ((d.quotes || []).length ? '<div class="quotes">“' + (d.quotes || []).map(escapeHtml).join('” · “') + '”</div>' : '') + '</div></div>';
-    });
-    html += '<label class="block">잘한 점 (한 줄에 하나)</label><textarea id="gStrengths">' + escapeHtml((g.strengths || []).join('\n')) + '</textarea>';
-    html += '<label class="block">보완할 점 (한 줄에 하나)</label><textarea id="gImprove">' + escapeHtml((g.improvements || []).join('\n')) + '</textarea>';
-    html += '<label class="block">학생에게 보이는 피드백</label><textarea id="gFeedback" style="min-height:5rem">' + escapeHtml(g.studentFeedback || '') + '</textarea>';
-    html += '<label class="block">교사 메모 (학생에게 안 보임)</label><textarea id="gNotes">' + escapeHtml(g.teacherNotes || '') + '</textarea>';
-    html += '<div class="actions">' +
-      '<button type="button" class="btn btn-primary btn-sm" id="btnSaveGrade">저장</button>' +
-      (released
-        ? '<button type="button" class="btn btn-ghost btn-sm" id="btnUnrelease">공개 취소</button>'
-        : '<button type="button" class="btn btn-ok btn-sm" id="btnRelease">학생에게 공개</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" id="btnGrade">AI 재채점</button>') +
-      '</div>';
-    if (released) html += '<p class="hint">공개된 성적을 저장하면 학생 화면에 바로 반영됩니다. AI 재채점은 공개를 취소한 뒤에 가능합니다.</p>';
-    html += '</div>';
-    return html;
-  }
-
-  function collectGradePatch() {
-    var dims = {};
-    document.querySelectorAll('#gradePanel .gd-score').forEach(function (el) {
-      var k = el.getAttribute('data-dim'); dims[k] = dims[k] || {};
-      dims[k].score = el.value === '' ? null : Number(el.value);
-    });
-    document.querySelectorAll('#gradePanel .gd-rationale').forEach(function (el) {
-      var k = el.getAttribute('data-dim'); dims[k] = dims[k] || {};
-      dims[k].rationale = el.value;
-    });
-    return {
-      dimensions: dims,
-      strengths: lines($('gStrengths').value),
-      improvements: lines($('gImprove').value),
-      studentFeedback: $('gFeedback').value,
-      teacherNotes: $('gNotes').value
-    };
-  }
-
-  function wireGradePanel(assignmentId, sessionId) {
-    var base = '/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(sessionId) + '/grade';
-    function done(msg) { setStatus(msg, 'ok'); showResults(assignmentId, sessionId); }
-    function fail(e) { setStatus(e.message || '실패', 'error'); }
-    var bg = $('btnGrade');
-    if (bg) bg.addEventListener('click', function () {
-      bg.disabled = true; bg.innerHTML = '<span class="spinner"></span> 채점 중';
-      api(base, { method: 'POST' }).then(function () { done('AI 채점 완료 — 검수 후 공개하세요.'); }).catch(function (e) { fail(e); bg.disabled = false; bg.textContent = 'AI 채점'; });
-    });
-    var bs = $('btnSaveGrade');
-    if (bs) bs.addEventListener('click', function () {
-      api(base, { method: 'PATCH', body: collectGradePatch() }).then(function () { done('저장됨'); }).catch(fail);
-    });
-    var br = $('btnRelease');
-    if (br) br.addEventListener('click', function () {
-      if (!confirm('이 학생에게 성적과 피드백을 공개할까요?')) return;
-      api(base, { method: 'PATCH', body: collectGradePatch() })
-        .then(function () { return api(base + '/release', { method: 'POST', body: { released: true } }); })
-        .then(function () { done('학생에게 공개됨'); }).catch(fail);
-    });
-    var bu = $('btnUnrelease');
-    if (bu) bu.addEventListener('click', function () {
-      api(base + '/release', { method: 'POST', body: { released: false } }).then(function () { done('공개 취소됨'); }).catch(fail);
-    });
-  }
-
-  function showResults(assignmentId, openSessionId) {
-    var box = $('resultsBox');
-    box.classList.remove('hidden');
-    box.innerHTML = '<p class="hint">불러오는 중…</p>';
-    api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions').then(function (data) {
-      var sessions = data.sessions || [];
-      var byStudent = {};
-      sessions.forEach(function (s) { byStudent[s.studentId] = s; });
-      var rows = [];
-      (data.roster || []).forEach(function (st) {
-        rows.push({ studentId: st.studentId, name: st.name, session: byStudent[st.studentId] });
-        delete byStudent[st.studentId];
-      });
-      Object.keys(byStudent).forEach(function (sid) {
-        var s = byStudent[sid];
-        rows.push({ studentId: sid, name: s.studentName || sid, session: s });
-      });
-      var done = sessions.filter(function (s) { return s.status === 'completed'; }).length;
-      var html = '<h4>' + escapeHtml((data.assignment && data.assignment.title) || '') + ' — ' +
-        done + '/' + (rows.length || sessions.length) + ' 완료</h4>';
-      if (!rows.length) html += '<p class="hint">아직 시작한 학생이 없습니다.</p>';
-      html += rows.map(function (r) {
-        var s = r.session;
-        return '<div class="res-row"><div><strong>' + escapeHtml(r.name) + '</strong> ' + sessionPill(s) +
-          (s ? gradePill(s) : '') +
-          (s ? '<span class="meta"> 답변 ' + (s.studentTurns || 0) + '개 · ' + fmtTime(s.updatedAt) + '</span>' : '') + '</div>' +
-          (s ? '<div class="actions" style="margin:0">' +
-            '<button type="button" class="btn btn-ghost btn-sm res-view" data-sid="' + escapeHtml(s.id) + '">대화 보기</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm res-reset" data-sid="' + escapeHtml(s.id) + '">초기화</button></div>' : '') +
-          '</div>';
-      }).join('');
-      html += '<div id="transcriptMount"></div>';
-      box.innerHTML = html;
-      box.querySelectorAll('.res-view').forEach(function (b) {
-        b.addEventListener('click', function () { showTranscript(assignmentId, b.getAttribute('data-sid')); });
-      });
-      if (openSessionId) showTranscript(assignmentId, openSessionId);
-      box.querySelectorAll('.res-reset').forEach(function (b) {
-        b.addEventListener('click', function () {
-          if (!confirm('이 학생의 세션을 삭제하고 처음부터 다시 하게 할까요?')) return;
-          api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(b.getAttribute('data-sid')), { method: 'DELETE' })
-            .then(function () { setStatus('세션 초기화됨', 'ok'); showResults(assignmentId); })
-            .catch(function (e) { setStatus(e.message, 'error'); });
-        });
-      });
-    }).catch(function (e) {
-      box.innerHTML = '<p class="hint">' + escapeHtml(e.message || '결과를 불러오지 못했습니다.') + '</p>';
-    });
-  }
-
-  function showTranscript(assignmentId, sessionId) {
-    var mount = $('transcriptMount');
-    mount.innerHTML = '<p class="hint">불러오는 중…</p>';
-    api('/api/debrief/assignments/' + encodeURIComponent(assignmentId) + '/sessions/' + encodeURIComponent(sessionId)).then(function (s) {
-      mount.innerHTML = renderGradePanel(assignmentId, s) + '<div class="transcript"><strong>' + escapeHtml(s.studentName || '') + '</strong>' +
-        (s.turns || []).map(function (t) {
-          var ai = t.role === 'ai';
-          return '<div class="turn ' + (ai ? 'ai' : 'student') + '"><b>' + (ai ? 'AI' : '학생') +
-            (t.source === 'voice' ? ' 🎤' : '') + ':</b> ' + escapeHtml(t.text) + '</div>';
-        }).join('') + '</div>';
-      wireGradePanel(assignmentId, sessionId);
-    }).catch(function (e) {
-      mount.innerHTML = '<p class="hint">' + escapeHtml(e.message) + '</p>';
-    });
-  }
-
-  function loadAssignments(bookId) {
-    if (!bookId) return Promise.resolve();
-    return api('/api/debrief/books/' + encodeURIComponent(bookId) + '/assignments').then(function (data) {
-      currentAssignments = data.assignments || [];
-      renderAssignments();
-    }).catch(function () {
-      currentAssignments = [];
-      renderAssignments();
-    });
-  }
-
-
-  function selectedStudentIds() {
-    var box = $('assignStudentPick');
-    if (!box) return null;
-    var ids = Array.prototype.map.call(box.querySelectorAll('input[type=checkbox]:checked'), function (el) {
-      return el.value;
-    }).filter(Boolean);
-    return ids.length ? ids : null;
-  }
-
-  function renderStudentPick(students) {
-    var box = $('assignStudentPick');
-    if (!box) return;
-    students = students || [];
-    if (!students.length) {
-      box.innerHTML = '<span class="hint">이 반에 학생이 없습니다.</span>';
-      return;
-    }
-    box.innerHTML = students.map(function (st) {
-      var id = st.studentId || st.id;
-      return '<label><input type="checkbox" value="' + escapeHtml(id) + '"> ' +
-        escapeHtml(st.name || id) + ' <span class="meta">(' + escapeHtml(id) + ')</span></label>';
-    }).join('');
-  }
-
-  function loadRosterForAssign(classId) {
-    classId = String(classId || '').trim();
-    if (!classId) {
-      renderStudentPick([]);
-      $('assignStudentPick').innerHTML = '<span class="hint">반을 선택하면 명단이 표시됩니다.</span>';
-      return Promise.resolve();
-    }
-    if (rosterByClass[classId]) {
-      renderStudentPick(rosterByClass[classId]);
-      return Promise.resolve(rosterByClass[classId]);
-    }
-    $('assignStudentPick').innerHTML = '<span class="hint">명단 불러오는 중…</span>';
-    var url = isAdminSession()
-      ? '/api/admin/classes/' + encodeURIComponent(classId)
-      : '/api/teacher/class/' + encodeURIComponent(classId) + '/roster';
-    return api(url).then(function (data) {
-      var students = data.students || (data.class && data.class.students) || [];
-      rosterByClass[classId] = students;
-      renderStudentPick(students);
-      return students;
-    }).catch(function () {
-      $('assignStudentPick').innerHTML = '<span class="hint">명단을 불러오지 못했습니다.</span>';
-    });
-  }
-
-  function loadClassOptions() {
-    var sel = $('assignClassSelect');
-    var req = isAdminSession()
-      ? api('/api/admin/classes')
-      : api('/api/teacher/classes');
-    return req.then(function (data) {
-      var seen = {};
-      var opts = [];
-      function push(c) {
-        if (!c) return;
-        var id = c.classId || c.id;
-        var name = c.className || c.name || id;
-        if (!id || seen[id]) return;
-        seen[id] = true;
-        opts.push({ classId: id, className: name });
-      }
-      (data.classes || []).forEach(push);
-      (data.homeroom || []).forEach(push);
-      (data.assigned || []).forEach(push);
-      classOptions = opts;
-      if (!opts.length) {
-        sel.innerHTML = '<option value="">배정된 반이 없습니다</option>';
-        return;
-      }
-      sel.innerHTML = '<option value="">반 선택…</option>' + opts.map(function (c) {
-        return '<option value="' + escapeHtml(c.classId) + '">' + escapeHtml(c.className) + '</option>';
-      }).join('');
-      var want = new URLSearchParams(location.search).get('class');
-      if (want && seen[want]) {
-        sel.value = want;
-        loadRosterForAssign(want);
-      }
-    }).catch(function () {
-      sel.innerHTML = '<option value="">반 목록을 불러오지 못했습니다</option>';
-    });
-  }
-
   function renderDetail(book) {
     current = book;
     $('detailTitle').textContent = book.title || '프로필 미리보기';
@@ -634,7 +231,6 @@
       $('emptyDetail').classList.remove('hidden');
       $('emptyDetail').textContent = book.message || (book.status === 'generating' ? '생성 중…' : '프로필이 없습니다.');
       $('detailMount').classList.add('hidden');
-      $('assignBox').classList.add('hidden');
       renderList();
       return;
     }
@@ -662,7 +258,6 @@
     html += '<h3>Interview opening</h3><p>' + escapeHtml(p.interviewOpening || '') + '</p>';
     html += '<h3>Interview closing</h3><p>' + escapeHtml(p.interviewClosing || '') + '</p>';
     $('detailMount').innerHTML = html;
-    renderAssignPanel(book);
     renderList();
   }
 
@@ -776,8 +371,7 @@
     }).then(function (book) {
       renderDetail(book);
       loadList();
-      setStatus('Verified 처리됨 — 위쪽 「반에 과제 부여」에서 반을 고르세요.', 'ok');
-      try { $('assignBox').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+      setStatus('Verified 처리됨 — 이제 클래스 관리 > Oral Debrief에서 반에 부여할 수 있습니다.', 'ok');
     }).catch(function (e) { setStatus(e.message, 'error'); });
   });
   $('btnUnverify').addEventListener('click', function () {
@@ -796,7 +390,6 @@
     api('/api/debrief/books/' + encodeURIComponent(current.id), { method: 'DELETE' }).then(function () {
       current = null;
       $('detailMount').classList.add('hidden');
-      $('assignBox').classList.add('hidden');
       $('emptyDetail').classList.remove('hidden');
       $('emptyDetail').textContent = '왼쪽에서 책을 만들거나 목록에서 선택하세요.';
       $('btnVerify').disabled = true;
@@ -807,47 +400,10 @@
       .catch(function (e) { setStatus(e.message, 'error'); });
   });
 
-  $('assignClassSelect').addEventListener('change', function () {
-    loadRosterForAssign($('assignClassSelect').value);
-  });
-
-  $('btnAssign').addEventListener('click', function () {
-    if (!current || !current.isVerified) {
-      setStatus('Verified 책만 부여할 수 있습니다.', 'error');
-      return;
-    }
-    var classId = String($('assignClassSelect').value || '').trim();
-    if (!classId) { setStatus('반을 선택하세요.', 'error'); return; }
-    var title = String($('assignTitle').value || '').trim();
-    var customInstructions = String($('assignInstructions').value || '').trim();
-    var dueDate = String($('assignDueDate').value || '').trim();
-    $('btnAssign').disabled = true;
-    var studentIds = selectedStudentIds();
-    api('/api/debrief/books/' + encodeURIComponent(current.id) + '/assign', {
-      method: 'POST',
-      body: {
-        classId: classId,
-        title: title,
-        customInstructions: customInstructions,
-        dueDate: dueDate || null,
-        studentIds: studentIds
-      }
-    }).then(function () {
-      var who = studentIds ? (studentIds.length + '명') : '반 전체';
-      setStatus(classLabel(classId) + ' · ' + who + '에게 부여됨 — 학생 포털에 표시됩니다.', 'ok');
-      return loadAssignments(current.id);
-    }).catch(function (e) {
-      setStatus(e.message || '부여 실패', 'error');
-    }).then(function () {
-      $('btnAssign').disabled = false;
-    });
-  });
-
   api('/api/debrief/books/meta').then(function (meta) {
     if (!meta.aiConfigured) setStatus('Claude API 키가 없습니다. 서버에 ANTHROPIC_API_KEY를 설정하세요.', 'error');
   }).catch(function () {});
 
-  loadClassOptions();
   loadList().catch(function (e) {
     setStatus(e.message || '목록을 불러오지 못했습니다. 로그인 상태를 확인하세요.', 'error');
     $('bookList').innerHTML = '<p class="hint">교사 계정으로 로그인한 뒤 다시 열어 주세요.</p>';
