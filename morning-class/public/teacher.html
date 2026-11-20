@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20261120dbm1">
+  <link rel="stylesheet" href="/css/app.css?v=20261120dbm2">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -949,9 +949,27 @@
     return String(v || '').split('\n').map((x) => x.trim()).filter(Boolean);
   }
 
+  let dbmTab = 'grade';
+
+  function dbmAutoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight + 2) + 'px';
+  }
+
+  function dbmBar(n) {
+    let h = '';
+    for (let i = 1; i <= 4; i++) h += '<i class="' + (n >= i ? 'on' : '') + '"></i>';
+    return '<span class="dbm-bar">' + h + '</span>';
+  }
+
+  function dbmBullets(arr, emptyText) {
+    const items = (arr || []).filter(Boolean);
+    if (!items.length) return '<p class="muted small" style="margin:0">' + emptyText + '</p>';
+    return '<ul class="dbm-bullets">' + items.map((x) => '<li>' + escapeHtml(x) + '</li>').join('') + '</ul>';
+  }
+
   function dbmGradePanel(s) {
     const g = s.grade;
-    const released = s.gradeStatus === 'released';
     if (!g) {
       const msg = s.status !== 'completed'
         ? 'Grading becomes available once the student finishes the session.'
@@ -959,32 +977,56 @@
       return '<div class="dbm-box dbm-grade"><h5>Grade</h5><p class="muted small" style="margin:0 0 .5rem">' + msg + '</p>' +
         (s.status === 'completed' ? '<button type="button" class="btn btn-primary btn-sm dbm-act-grade">AI grade</button>' : '') + '</div>';
     }
-    let html = '<div class="dbm-box dbm-grade"><h5>Grade ' +
+    const released = s.gradeStatus === 'released';
+    const dims = DBM_DIMS.map(([k, label]) => ({ k, label, d: (g.dimensions && g.dimensions[k]) || {} }));
+    const low = dims.reduce((a, b) => ((b.d.score != null ? b.d.score : 9) < (a.d.score != null ? a.d.score : 9) ? b : a), dims[0]);
+
+    let html = '<div class="dbm-grade">';
+    html += '<div class="dbm-grade-head">' +
       (released ? dbmPill('Visible to student', 'ok') : dbmPill('Draft — hidden from student', 'warn')) +
       (g.aiGenerated && !g.edited ? dbmPill('AI draft') : (g.edited ? dbmPill('Edited') : '')) +
-      '<span class="dbm-total">' + (g.total != null ? escapeHtml(g.total + ' pts') : '—') + '</span></h5>';
-    DBM_DIMS.forEach(([k, label]) => {
-      const d = (g.dimensions && g.dimensions[k]) || {};
-      html += '<div class="dbm-dim"><strong>' + label + '</strong>' +
-        '<select data-dim="' + k + '" class="dbm-score"><option value="">—</option>' +
-        [1, 2, 3, 4].map((n) => '<option value="' + n + '"' + (d.score === n ? ' selected' : '') + '>' + n + '</option>').join('') +
-        '</select><div class="dbm-dim-why"><textarea data-dim="' + k + '" class="dbm-rationale">' + escapeHtml(d.rationale || '') + '</textarea>' +
-        ((d.quotes || []).length ? '<div class="dbm-quotes">“' + d.quotes.map(escapeHtml).join('” · “') + '”</div>' : '') +
-        '</div></div>';
-    });
-    html += '<label class="dbm-block">Strengths (one per line)</label><textarea class="dbm-strengths">' + escapeHtml((g.strengths || []).join('\n')) + '</textarea>' +
-      '<label class="dbm-block">Areas to improve (one per line)</label><textarea class="dbm-improve">' + escapeHtml((g.improvements || []).join('\n')) + '</textarea>' +
-      '<label class="dbm-block">Feedback shown to student</label><textarea class="dbm-feedback" style="min-height:5rem">' + escapeHtml(g.studentFeedback || '') + '</textarea>' +
-      '<label class="dbm-block">Teacher notes (private)</label><textarea class="dbm-notes">' + escapeHtml(g.teacherNotes || '') + '</textarea>' +
-      '<div class="dbm-toolbar" style="margin:.7rem 0 0"><button type="button" class="btn btn-primary btn-sm dbm-act-save">Save</button>' +
+      '<span class="dbm-total">' + (g.total != null ? escapeHtml(g.total + ' / 16') : '—') + '</span></div>';
+
+    html += '<div class="dbm-view">';
+    html += '<div class="dbm-tiles">' + dims.map((x) =>
+      '<button type="button" class="dbm-tile' + (x.k === low.k ? ' on' : '') + '" data-dim="' + x.k + '">' +
+      '<span class="dbm-tile-label">' + x.label + '</span>' +
+      '<span class="dbm-tile-score">' + (x.d.score != null ? x.d.score : '—') + '<small>/4</small></span>' +
+      dbmBar(x.d.score) + '</button>').join('') + '</div>';
+    html += dims.map((x) =>
+      '<div class="dbm-tile-detail' + (x.k === low.k ? '' : ' hidden') + '" data-dim="' + x.k + '">' +
+      '<strong>' + x.label + '</strong><p>' + (x.d.rationale ? escapeHtml(x.d.rationale) : '<span class="muted">No rationale.</span>') + '</p>' +
+      ((x.d.quotes || []).length ? '<div class="dbm-quotes">' + x.d.quotes.map((q) => '“' + escapeHtml(q) + '”').join('<br>') + '</div>' : '') +
+      '</div>').join('');
+    html += '<div class="dbm-two"><div class="dbm-mini"><h6>Strengths</h6>' + dbmBullets(g.strengths, 'None.') + '</div>' +
+      '<div class="dbm-mini"><h6>To improve</h6>' + dbmBullets(g.improvements, 'None.') + '</div></div>';
+    html += '<div class="dbm-mini"><h6>Feedback shown to student</h6><p style="margin:0;white-space:pre-wrap">' +
+      (g.studentFeedback ? escapeHtml(g.studentFeedback) : '<span class="muted">—</span>') + '</p></div>';
+    if (g.teacherNotes) html += '<div class="dbm-mini"><h6>Teacher notes (private)</h6><p style="margin:0;white-space:pre-wrap">' + escapeHtml(g.teacherNotes) + '</p></div>';
+    html += '<div class="dbm-toolbar" style="margin:.7rem 0 0"><button type="button" class="btn btn-ghost btn-sm dbm-act-edit">Edit</button>' +
       (released
         ? '<button type="button" class="btn btn-ghost btn-sm dbm-act-unrelease">Unrelease</button>'
         : '<button type="button" class="btn btn-primary btn-sm dbm-act-release">Release to student</button>' +
           '<button type="button" class="btn btn-ghost btn-sm dbm-act-grade">Re-grade with AI</button>') +
       '</div>' +
-      (released ? '<p class="dbm-hint">Saving updates what the student sees immediately. Unrelease before re-grading with AI.</p>' : '') +
+      (released ? '<p class="dbm-hint">Edits update what the student sees immediately. Unrelease before re-grading with AI.</p>' : '') +
       '</div>';
-    return html;
+
+    html += '<div class="dbm-edit hidden">';
+    dims.forEach((x) => {
+      html += '<div class="dbm-dim"><strong>' + x.label + '</strong>' +
+        '<select data-dim="' + x.k + '" class="dbm-score"><option value="">—</option>' +
+        [1, 2, 3, 4].map((n) => '<option value="' + n + '"' + (x.d.score === n ? ' selected' : '') + '>' + n + '</option>').join('') +
+        '</select><div class="dbm-dim-why"><textarea data-dim="' + x.k + '" class="dbm-rationale">' + escapeHtml(x.d.rationale || '') + '</textarea></div></div>';
+    });
+    html += '<label class="dbm-block">Strengths (one per line)</label><textarea class="dbm-strengths">' + escapeHtml((g.strengths || []).join('\n')) + '</textarea>' +
+      '<label class="dbm-block">Areas to improve (one per line)</label><textarea class="dbm-improve">' + escapeHtml((g.improvements || []).join('\n')) + '</textarea>' +
+      '<label class="dbm-block">Feedback shown to student</label><textarea class="dbm-feedback">' + escapeHtml(g.studentFeedback || '') + '</textarea>' +
+      '<label class="dbm-block">Teacher notes (private)</label><textarea class="dbm-notes">' + escapeHtml(g.teacherNotes || '') + '</textarea>' +
+      '<div class="dbm-toolbar" style="margin:.7rem 0 0"><button type="button" class="btn btn-primary btn-sm dbm-act-save">Save</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm dbm-act-cancel">Cancel</button></div></div>';
+    html += '</div>';
+    return '<div class="dbm-box">' + html + '</div>';
   }
 
   function dbmCollectGrade(root) {
@@ -1013,6 +1055,24 @@
     const base = dbmBase(aid) + '/sessions/' + encodeURIComponent(sid) + '/grade';
     const fail = (e) => alert(e.message || 'Request failed');
     const on = (sel, fn) => { const el = root.querySelector(sel); if (el) el.addEventListener('click', () => fn(el)); };
+    root.querySelectorAll('.dbm-tile').forEach((tile) => {
+      tile.addEventListener('click', () => {
+        const k = tile.getAttribute('data-dim');
+        root.querySelectorAll('.dbm-tile').forEach((t) => t.classList.toggle('on', t === tile));
+        root.querySelectorAll('.dbm-tile-detail').forEach((d) => d.classList.toggle('hidden', d.getAttribute('data-dim') !== k));
+      });
+    });
+    const setEditing = (editing) => {
+      const v = root.querySelector('.dbm-view');
+      const e = root.querySelector('.dbm-edit');
+      if (!v || !e) return;
+      v.classList.toggle('hidden', editing);
+      e.classList.toggle('hidden', !editing);
+      if (editing) e.querySelectorAll('textarea').forEach(dbmAutoGrow);
+    };
+    root.querySelectorAll('.dbm-edit textarea').forEach((ta) => ta.addEventListener('input', () => dbmAutoGrow(ta)));
+    on('.dbm-act-edit', () => setEditing(true));
+    on('.dbm-act-cancel', () => setEditing(false));
     on('.dbm-act-grade', (btn) => {
       btn.disabled = true;
       btn.textContent = 'Grading…';
@@ -1025,9 +1085,7 @@
     on('.dbm-act-release', (btn) => {
       if (!confirm('Release this grade and feedback to the student?')) return;
       btn.disabled = true;
-      api(base, { method: 'PATCH', body: dbmCollectGrade(root) }, role)
-        .then(() => api(base + '/release', { method: 'POST', body: { released: true } }, role))
-        .then(reload).catch((e) => { fail(e); btn.disabled = false; });
+      api(base + '/release', { method: 'POST', body: { released: true } }, role).then(reload).catch((e) => { fail(e); btn.disabled = false; });
     });
     on('.dbm-act-unrelease', (btn) => {
       btn.disabled = true;
@@ -1035,19 +1093,41 @@
     });
   }
 
-  async function dbmShowSession(aid, sid, detail, reload) {
+  async function dbmShowSession(aid, sid, detail, reload, nav) {
     detail.innerHTML = '<p class="muted small">Loading conversation…</p>';
     try {
       const s = await api(dbmBase(aid) + '/sessions/' + encodeURIComponent(sid), {}, role);
       const turns = (s.turns || []).map((t) => {
         const ai = t.role === 'ai';
-        return '<div class="dbm-turn ' + (ai ? 'ai' : 'student') + '"><b>' + (ai ? 'AI' : 'Student') +
+        return '<div class="dbm-turn ' + (ai ? 'ai' : 'student') + '"><b>' + (ai ? 'Salty' : 'Student') +
           (t.source === 'voice' ? ' · voice' : '') + '</b>' + escapeHtml(t.text) + '</div>';
       }).join('') || '<p class="muted small">No messages yet.</p>';
-      detail.innerHTML = '<div class="dbm-detail-grid">' +
-        '<div class="dbm-box"><h5>' + escapeHtml(s.studentName || 'Student') + ' — conversation</h5>' +
-        '<div class="dbm-transcript">' + turns + '</div></div>' +
-        dbmGradePanel(s) + '</div>';
+      const tab = s.grade ? dbmTab : 'chat';
+      const pos = nav ? nav.idx + 1 + ' / ' + nav.total : '';
+      detail.innerHTML = '<div class="dbm-detail-head">' +
+        '<strong>' + escapeHtml(s.studentName || 'Student') + '</strong>' +
+        '<div class="dbm-tabs" role="tablist">' +
+        '<button type="button" class="dbm-tab' + (tab === 'grade' ? ' on' : '') + '" data-pane="grade"' + (s.grade ? '' : ' disabled') + '>Grade</button>' +
+        '<button type="button" class="dbm-tab' + (tab === 'chat' ? ' on' : '') + '" data-pane="chat">Conversation (' + (s.turns || []).length + ')</button></div>' +
+        '<span class="dbm-spacer"></span>' +
+        (nav ? '<div class="dbm-nav"><button type="button" class="btn btn-ghost btn-sm dbm-prev"' + (nav.prev ? '' : ' disabled') + '>‹ Prev</button>' +
+          '<span class="muted small">' + pos + '</span>' +
+          '<button type="button" class="btn btn-ghost btn-sm dbm-next"' + (nav.next ? '' : ' disabled') + '>Next ›</button></div>' : '') +
+        '</div>' +
+        '<div class="dbm-pane' + (tab === 'grade' ? '' : ' hidden') + '" data-pane="grade">' + (s.grade ? dbmGradePanel(s) : '') + '</div>' +
+        '<div class="dbm-pane' + (tab === 'chat' ? '' : ' hidden') + '" data-pane="chat">' +
+        (s.grade ? '' : dbmGradePanel(s)) +
+        '<div class="dbm-box"><div class="dbm-transcript">' + turns + '</div></div></div>';
+      detail.querySelectorAll('.dbm-tab').forEach((b) => b.addEventListener('click', () => {
+        if (b.disabled) return;
+        dbmTab = b.dataset.pane;
+        detail.querySelectorAll('.dbm-tab').forEach((x) => x.classList.toggle('on', x === b));
+        detail.querySelectorAll('.dbm-pane').forEach((p) => p.classList.toggle('hidden', p.dataset.pane !== dbmTab));
+      }));
+      const pv = detail.querySelector('.dbm-prev');
+      const nx = detail.querySelector('.dbm-next');
+      if (pv && nav.prev) pv.addEventListener('click', nav.prev);
+      if (nx && nav.next) nx.addEventListener('click', nav.next);
       dbmWireGrade(detail, aid, sid, reload);
     } catch (e) {
       detail.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
@@ -1117,9 +1197,17 @@
 
     const detail = body.querySelector('.dbm-detail');
     const reload = (sid) => () => dbmLoadSessions(aid, card, sid);
+    const reviewable = rows.filter((r) => r.session).map((r) => r.session.id);
     const openSession = (sid) => {
       body.querySelectorAll('.dbm-row').forEach((row) => row.classList.toggle('active', row.dataset.sid === sid));
-      dbmShowSession(aid, sid, detail, reload(sid));
+      const idx = reviewable.indexOf(sid);
+      const nav = {
+        idx: idx,
+        total: reviewable.length,
+        prev: idx > 0 ? () => openSession(reviewable[idx - 1]) : null,
+        next: idx < reviewable.length - 1 ? () => openSession(reviewable[idx + 1]) : null
+      };
+      dbmShowSession(aid, sid, detail, reload(sid), nav);
       detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     };
     body.querySelectorAll('.dbm-view').forEach((b) => b.addEventListener('click', () => openSession(b.dataset.sid)));
