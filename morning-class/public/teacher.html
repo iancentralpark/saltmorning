@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20261120olm2">
+  <link rel="stylesheet" href="/css/app.css?v=20261120olm3">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -542,20 +542,20 @@
         <button type="button" class="olm-view-btn on" data-view="students">By student</button>
         <button type="button" class="olm-view-btn" data-view="videos">By video</button>
       </div>
-      <div id="contentLmsList"><p class="muted">Loading&hellip;</p></div>
-    </div>
-
-    <aside id="olmDrawer" class="olm-drawer hidden" aria-hidden="true">
-      <div class="olm-drawer-head">
-        <div>
-          <strong id="olmDrawerName">Student</strong>
-          <div class="muted small" id="olmDrawerMeta"></div>
-        </div>
-        <button type="button" class="btn btn-ghost btn-sm" id="olmDrawerClose">Close</button>
+      <div class="olm-layout" id="olmLayout">
+        <div id="contentLmsList" class="olm-main"><p class="muted">Loading&hellip;</p></div>
+        <aside id="olmDrawer" class="olm-panel hidden" aria-hidden="true">
+          <div class="olm-drawer-head">
+            <div>
+              <strong id="olmDrawerName">Student</strong>
+              <div class="muted small" id="olmDrawerMeta"></div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="olmDrawerClose">Close</button>
+          </div>
+          <div id="olmDrawerBody"></div>
+        </aside>
       </div>
-      <div id="olmDrawerBody"></div>
-    </aside>
-    <div id="olmDrawerBackdrop" class="olm-drawer-backdrop hidden" aria-hidden="true"></div>
+    </div>
   </div>
 </div>
 
@@ -1422,14 +1422,14 @@
 
   function olmCloseDrawer() {
     const d = $('olmDrawer');
-    const b = $('olmDrawerBackdrop');
+    const layout = $('olmLayout');
     if (d) { d.classList.add('hidden'); d.setAttribute('aria-hidden', 'true'); }
-    if (b) { b.classList.add('hidden'); b.setAttribute('aria-hidden', 'true'); }
+    if (layout) layout.classList.remove('is-open');
   }
 
   function olmOpenDrawer(student) {
     const d = $('olmDrawer');
-    const b = $('olmDrawerBackdrop');
+    const layout = $('olmLayout');
     const body = $('olmDrawerBody');
     if (!d || !body || !student) return;
     $('olmDrawerName').textContent = student.name || student.studentId;
@@ -1498,7 +1498,8 @@
     });
     d.classList.remove('hidden');
     d.setAttribute('aria-hidden', 'false');
-    if (b) { b.classList.remove('hidden'); b.setAttribute('aria-hidden', 'false'); }
+    if (layout) layout.classList.add('is-open');
+    d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function lmsFmtSec(sec) {
@@ -3031,11 +3032,11 @@
   document.querySelectorAll('.olm-view-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       olmView = btn.dataset.view || 'students';
+      if (olmView !== 'students') olmCloseDrawer();
       loadContentLmsList(true);
     });
   });
   if ($('olmDrawerClose')) $('olmDrawerClose').addEventListener('click', olmCloseDrawer);
-  if ($('olmDrawerBackdrop')) $('olmDrawerBackdrop').addEventListener('click', olmCloseDrawer);
   if ($('contentAssignLibraryBtn')) {
     $('contentAssignLibraryBtn').addEventListener('click', async () => {
       if (!currentClass) return;
