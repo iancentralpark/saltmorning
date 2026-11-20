@@ -5080,9 +5080,30 @@ router.post('/student/debrief/sessions/:id/audio', requireRole('student'), debri
         });
       }
       const text = heard.text;
+      // Stream NDJSON so the client can show the transcript while the interviewer LLM runs.
+      res.status(200);
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      if (typeof res.flushHeaders === 'function') res.flushHeaders();
+      res.write(JSON.stringify({ stage: 'transcript', transcript: text }) + '\n');
+      if (typeof res.flush === 'function') res.flush();
+
       const result = await debriefSessions.submitAnswer(req.params.id, req.session.studentId, text, 'voice');
-      res.json(Object.assign({ transcript: text }, result));
+      res.write(JSON.stringify(Object.assign({ stage: 'done', transcript: text }, result)) + '\n');
+      res.end();
     } catch (e) {
+      if (res.headersSent) {
+        try {
+          res.write(JSON.stringify({
+            stage: 'error',
+            error: e.message || 'Could not process audio.',
+            code: e.code || undefined
+          }) + '\n');
+          res.end();
+        } catch (_) { /* client gone */ }
+        return;
+      }
       res.status(e.statusCode || 500).json({ error: e.message || 'Could not process audio.' });
     }
   });

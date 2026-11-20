@@ -27,6 +27,14 @@
     .msg .who { font-size:.7rem; color:var(--muted); margin:0 .3rem .15rem; }
     .msg.student .who { text-align:right; }
     .thinking { color:var(--muted); font-size:.9rem; padding:.4rem .2rem; }
+    .msg.pending .bubble { opacity:.72; }
+    .msg.student .bubble.pending-hear {
+      background:linear-gradient(90deg,#0f9a86,#12806f,#0f9a86);
+      background-size:200% 100%;
+      animation:hearShimmer 1.2s linear infinite;
+    }
+    @keyframes hearShimmer { 0% { background-position:100% 0; } 100% { background-position:-100% 0; } }
+    .msg.ai .bubble.waiting { color:var(--muted); font-style:italic; min-height:1.4em; }
     .dock { background:#fff; border-top:1px solid var(--line); padding:.75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); }
     .dock-inner { max-width:760px; margin:0 auto; }
     .mic-row { display:flex; align-items:center; gap:.75rem; justify-content:center; }
@@ -144,15 +152,25 @@
   var sttConfigured = false;
   var ttsConfigured = false;
   var preferredVoice = null;
-  /* Stagger student transcript vs teacher reply; type the AI bubble while it speaks. */
+  /* AI bubble text is revealed in sync with TTS (not a free-running typewriter). */
   var reveal = {
     hideLastAi: false,
     typing: false,
     full: '',
     shown: 0,
+    words: [],
+    wordCount: 0,
     timer: null,
     gen: 0,
-    onDone: null
+    startedAt: 0,
+    estMs: 0,
+    waitingAudio: false
+  };
+  /* Shown while STT/LLM runs, before the server session turns update. */
+  var pending = {
+    hearing: false,
+    studentText: '',
+    preparing: false
   };
 
   function setHint(msg, isError) {
@@ -347,61 +365,109 @@
     clearSpeech();
   }
 
+  function tokenizeWords(text) {
+    return String(text || '').match(/\S+\s*/g) || [];
+  }
+
+  function estimateSpeakMs(text, audioSec) {
+    if (audioSec && audioSec > 0.35 && isFinite(audioSec)) return Math.round(audioSec * 1000);
+    var words = tokenizeWords(text).length || 1;
+    // ~2.45 English words/sec for warm teacher TTS; floor so short lines don't flash.
+    return Math.max(1400, Math.round((words / 2.45) * 1000) + 250);
+  }
+
+  function patchLiveBubble() {
+    var bubble = document.getElementById('liveAiBubble');
+    if (!bubble) { render(); return; }
+    if (reveal.waitingAudio && !reveal.shown) {
+      bubble.classList.add('waiting');
+      bubble.innerHTML = '…';
+    } else {
+      bubble.classList.remove('waiting');
+      bubble.innerHTML = esc(reveal.full.slice(0, reveal.shown)) +
+        (reveal.typing && reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '');
+    }
+    $('chat').scrollTop = $('chat').scrollHeight;
+  }
+
   function cancelTypewriter(finishText) {
     if (reveal.timer) { clearInterval(reveal.timer); reveal.timer = null; }
-    var done = reveal.onDone;
-    reveal.onDone = null;
-    if (reveal.typing) {
+    if (reveal.typing || reveal.waitingAudio || reveal.hideLastAi) {
       reveal.typing = false;
+      reveal.waitingAudio = false;
       if (finishText && reveal.full) reveal.shown = reveal.full.length;
       reveal.hideLastAi = false;
       render();
     }
     reveal.gen++;
-    if (done) done();
   }
 
-  function startTypewriter(text, thenSpeak) {
+  function finishRevealText() {
+    if (reveal.timer) { clearInterval(reveal.timer); reveal.timer = null; }
+    reveal.waitingAudio = false;
+    if (reveal.full) reveal.shown = reveal.full.length;
+    reveal.typing = false;
+    patchLiveBubble();
+  }
+
+  function beginSpeechSync(gen, text) {
+    if (gen !== reveal.gen) return;
+    reveal.waitingAudio = false;
+    reveal.typing = true;
+    reveal.startedAt = Date.now();
+    var audioSec = (ttsEl && isFinite(ttsEl.duration) && ttsEl.duration > 0) ? ttsEl.duration : 0;
+    reveal.estMs = estimateSpeakMs(text || reveal.full, audioSec);
+    if (reveal.timer) clearInterval(reveal.timer);
+    reveal.timer = setInterval(function () {
+      if (gen !== reveal.gen) return;
+      var elapsed = Date.now() - reveal.startedAt;
+      var frac = Math.min(1, elapsed / Math.max(1, reveal.estMs));
+      var nWords = Math.max(1, Math.min(reveal.wordCount, Math.ceil(frac * reveal.wordCount)));
+      var nextShown = reveal.words.slice(0, nWords).join('').length;
+      if (nextShown !== reveal.shown) {
+        reveal.shown = nextShown;
+        patchLiveBubble();
+      }
+      if (frac >= 1) {
+        clearInterval(reveal.timer); reveal.timer = null;
+        reveal.typing = false;
+        reveal.shown = reveal.full.length;
+        patchLiveBubble();
+      }
+    }, 40);
+    patchLiveBubble();
+  }
+
+  /* Start TTS first; keep the AI bubble hidden/waiting until audio actually plays, then sync words. */
+  function presentTeacherReply(text, speakReply) {
     cancelTypewriter(false);
     var gen = ++reveal.gen;
     reveal.full = String(text || '');
+    reveal.words = tokenizeWords(reveal.full);
+    reveal.wordCount = reveal.words.length;
     reveal.shown = 0;
-    reveal.typing = true;
     reveal.hideLastAi = false;
-    reveal.onDone = null;
+    pending.preparing = false;
+
+    if (!speakReply || !$('ttsToggle').checked || !reveal.full) {
+      reveal.typing = false;
+      reveal.waitingAudio = false;
+      reveal.shown = reveal.full.length;
+      render();
+      if (speakReply && reveal.full) speak(reveal.full);
+      return;
+    }
+
+    reveal.typing = true;
+    reveal.waitingAudio = true;
     render();
-    // ~14 chars/sec tracks a natural speaking pace for short teacher lines.
-    var ms = Math.max(22, Math.min(55, Math.round(900 / Math.max(8, reveal.full.length / 12))));
-    reveal.timer = setInterval(function () {
-      if (gen !== reveal.gen) return;
-      reveal.shown = Math.min(reveal.full.length, reveal.shown + 1);
-      // Patch only the live bubble when possible to avoid rebuilding the whole chat.
-      var bubble = document.getElementById('liveAiBubble');
-      if (bubble) {
-        bubble.innerHTML = esc(reveal.full.slice(0, reveal.shown)) +
-          (reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '');
-        $('chat').scrollTop = $('chat').scrollHeight;
-      } else {
-        render();
-      }
-      if (reveal.shown >= reveal.full.length) {
-        clearInterval(reveal.timer); reveal.timer = null;
-        reveal.typing = false;
-        render();
-        var voiceBusy = !!(speechTimer || ttsAbort || liveVoice);
-        if (hf.on && (hf.state === 'speaking' || hf.state === 'thinking') && !voiceBusy) {
-          setState('listening');
-        }
-      }
-    }, ms);
-    if (thenSpeak) thenSpeak();
+    speak(reveal.full);
   }
 
   function finishSpeech(gen) {
     if (gen !== speechGen) return;
     stopSpeech();
-    // Keep the mic closed until the bubble has finished typing.
-    if (reveal.typing) return;
+    if (reveal.typing || reveal.waitingAudio) finishRevealText();
     if (hf.on && hf.state === 'speaking') setState('listening');
     else setBuddy('listening', 'Your turn');
   }
@@ -410,6 +476,7 @@
     if (gen !== speechGen) return;
     if (hf.on) setState('speaking');
     setBuddy('speaking', 'Salt is talking…');
+    beginSpeechSync(reveal.gen, text);
     if (speechTimer) clearTimeout(speechTimer);
     speechTimer = setTimeout(function () { finishSpeech(gen); }, 8000 + String(text).length * 120);
   }
@@ -764,31 +831,101 @@
     sendAudio(blob);
   }
 
+  async function readNdjson(res, onMsg) {
+    if (!res.body || !res.body.getReader) {
+      var raw = await res.text();
+      raw.split('\n').forEach(function (line) {
+        line = line.trim();
+        if (!line) return;
+        try { onMsg(JSON.parse(line)); } catch (e) {}
+      });
+      return;
+    }
+    var reader = res.body.getReader();
+    var dec = new TextDecoder();
+    var buf = '';
+    while (true) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buf += dec.decode(chunk.value, { stream: true });
+      var parts = buf.split('\n');
+      buf = parts.pop();
+      for (var i = 0; i < parts.length; i++) {
+        var line = parts[i].trim();
+        if (!line) continue;
+        try { onMsg(JSON.parse(line)); } catch (e) {}
+      }
+    }
+    buf = buf.trim();
+    if (buf) {
+      try { onMsg(JSON.parse(buf)); } catch (e) {}
+    }
+  }
+
   async function sendAudio(blob) {
     stopSpeech();
+    cancelTypewriter(false);
     setState('thinking');
+    pending.hearing = true;
+    pending.studentText = '';
+    pending.preparing = false;
     setBusy(true); render();
-    var res, data = {};
+    var res = null;
+    var data = {};
+    var gotDone = false;
     try {
       var fd = new FormData();
       fd.append('audio', blob, 'answer.wav');
       var token = getToken(role);
       res = await fetch('/api/student/debrief/sessions/' + encodeURIComponent(session.id) + '/audio', {
         method: 'POST',
-        headers: { Accept: 'application/json', Authorization: token ? ('Bearer ' + token) : '' },
+        headers: {
+          Accept: 'application/x-ndjson, application/json',
+          Authorization: token ? ('Bearer ' + token) : ''
+        },
         body: fd
       });
-      data = await res.json().catch(function () { return {}; });
+      if (res.status === 401) { location.replace('/'); return; }
+      if (!res.ok) {
+        data = await res.json().catch(function () { return {}; });
+      } else {
+        var ctype = String(res.headers.get('Content-Type') || '');
+        if (ctype.indexOf('ndjson') >= 0 || ctype.indexOf('text/plain') >= 0) {
+          await readNdjson(res, function (msg) {
+            if (!msg) return;
+            if (msg.stage === 'transcript' && msg.transcript) {
+              pending.hearing = false;
+              pending.studentText = String(msg.transcript);
+              pending.preparing = true;
+              setBuddy('thinking', 'Got it — thinking…');
+              if (hf.on) setState('thinking', 'I heard you. Preparing a reply…');
+              else setHint('I heard you. Preparing a reply…');
+              render();
+            } else if (msg.stage === 'done') {
+              gotDone = true;
+              data = msg;
+            } else if (msg.stage === 'error') {
+              data = msg;
+            }
+          });
+        } else {
+          data = await res.json().catch(function () { return {}; });
+          gotDone = !!(data && data.session);
+        }
+      }
     } catch (e) {
       res = null;
     }
+    pending.hearing = false;
+    pending.preparing = false;
     setBusy(false);
-    if (res && res.status === 401) { location.replace('/'); return; }
-    if (res && res.ok) {
+    if (res && res.ok && (gotDone || data.session)) {
       hf.misses = 0;
+      pending.studentText = '';
       applyResult(data, true);
       return;
     }
+    pending.studentText = '';
     render();
     var msg;
     if (res && res.status === 422) {
@@ -888,7 +1025,7 @@
     if (!hf.on) { startHandsFree(); return; }
     if (hf.state === 'speaking') {
       stopSpeech();
-      if (reveal.typing) { reveal.shown = reveal.full.length; cancelTypewriter(true); }
+      if (reveal.typing || reveal.waitingAudio) finishRevealText();
       setState('listening');
     }
     else if (hf.state === 'hearing') { hf.silenceMs = 0; finishUtterance(); }
@@ -898,24 +1035,43 @@
   function render() {
     var chat = $('chat');
     var html = '';
-    var turns = session.turns || [];
+    var turns = (session && session.turns) || [];
+    var hidePendingStudent = false;
     turns.forEach(function (t, idx) {
       var isAi = t.role === 'ai';
       var isLast = idx === turns.length - 1;
       if (reveal.hideLastAi && isLast && isAi) return;
+      if (!isAi && pending.studentText && isLast && t.text === pending.studentText) hidePendingStudent = true;
       var text = t.text;
       var live = false;
-      if (reveal.typing && isLast && isAi) {
-        text = reveal.full.slice(0, reveal.shown);
+      var waiting = false;
+      if ((reveal.typing || reveal.waitingAudio) && isLast && isAi) {
         live = true;
+        waiting = !!reveal.waitingAudio && !reveal.shown;
+        text = waiting ? '…' : reveal.full.slice(0, reveal.shown);
       }
       html += '<div class="msg ' + (isAi ? 'ai' : 'student') + '"><div>' +
         '<div class="who">' + (isAi ? 'Teacher' : 'You') + '</div>' +
-        '<div class="bubble"' + (live ? ' id="liveAiBubble"' : '') + '>' + esc(text) +
-        (live && reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '') +
+        '<div class="bubble' + (waiting ? ' waiting' : '') + '"' + (live ? ' id="liveAiBubble"' : '') + '>' +
+        esc(text) +
+        (live && !waiting && reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '') +
         '</div></div></div>';
     });
-    if (busy || reveal.hideLastAi) html += '<div class="thinking"><i class="fa-solid fa-ellipsis fa-fade"></i> Thinking…</div>';
+    if (pending.hearing || (pending.studentText && !hidePendingStudent)) {
+      html += '<div class="msg student pending"><div>' +
+        '<div class="who">You</div>' +
+        '<div class="bubble' + (pending.hearing ? ' pending-hear' : '') + '">' +
+        (pending.hearing
+          ? '<i class="fa-solid fa-ear-listen fa-fade"></i> Hearing you…'
+          : esc(pending.studentText)) +
+        '</div></div></div>';
+    }
+    if (busy || reveal.hideLastAi || pending.preparing || pending.hearing) {
+      html += '<div class="thinking"><i class="fa-solid fa-ellipsis fa-fade"></i> ' +
+        (pending.hearing ? 'Understanding your voice…'
+          : (pending.preparing ? 'Preparing a reply…' : 'Thinking…')) +
+        '</div>';
+    }
     if (session.status === 'completed') {
       html += '<div class="done-card"><strong>Session complete.</strong><br>' +
         (session.reportReleased && session.grade
@@ -955,6 +1111,9 @@
 
   function applyResult(data, speakReply) {
     if (data.session) session = data.session;
+    pending.hearing = false;
+    pending.preparing = false;
+    pending.studentText = '';
     var reply = (speakReply && data.reply) ? String(data.reply) : '';
     var done = !sessionActive();
     if (done && hf.on) stopHandsFree('');
@@ -967,19 +1126,20 @@
       return;
     }
 
-    // 1) Show the student's transcript first (hide the new AI turn briefly).
+    // Show the student's final turn immediately; keep AI hidden until voice is ready.
     reveal.hideLastAi = true;
     cancelTypewriter(false);
     render();
-    if (hf.on && sessionActive()) setState('thinking', 'Teacher is thinking…');
+    if (hf.on && sessionActive()) setState('thinking', 'Teacher is answering…');
+    else setBuddy('thinking', 'Answering…');
 
-    var delay = done ? 400 : 700;
+    // Tiny beat so the student bubble lands, then start TTS (text syncs when audio starts).
     setTimeout(function () {
       if (!session) return;
-      // 2) Reveal the AI bubble by typing while the voice plays.
-      startTypewriter(reply, function () { speak(reply); });
-      if (hf.on && sessionActive()) setState('speaking');
-    }, delay);
+      reveal.hideLastAi = false;
+      presentTeacherReply(reply, !!speakReply);
+      if (hf.on && sessionActive() && $('ttsToggle').checked) setState('speaking');
+    }, done ? 120 : 180);
   }
 
   $('micBtn').addEventListener('click', onMicTap);
@@ -1032,7 +1192,7 @@
       }
       var last = session.turns[session.turns.length - 1];
       if (session.status === 'active' && last && last.role === 'ai' && session.turns.length === 1) {
-        startTypewriter(last.text, function () { speak(last.text); });
+        presentTeacherReply(last.text, true);
       }
     } catch (e) {
       $('chat').innerHTML = '<div class="error-card">' + esc(e.message || 'Could not start.') + '</div>';

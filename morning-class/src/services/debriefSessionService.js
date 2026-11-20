@@ -360,7 +360,8 @@ async function decideNext(profile, s, plan, studentText) {
     const raw = await debriefBooks.askClaudeJson(
       SYSTEM_INTERVIEWER,
       buildInterviewerPrompt(profile, s, plan, studentText),
-      { temperature: 0.5, maxOutputTokens: 400 }
+      // Short spoken replies (~40 words); keep the completion budget tight for latency.
+      { temperature: 0.5, maxOutputTokens: 220 }
     );
     const reply = String((raw && raw.reply) || '').trim().slice(0, 600);
     const action = String((raw && raw.action) || '').toLowerCase();
