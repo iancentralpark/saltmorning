@@ -713,7 +713,7 @@
     listening: ['Listening', 'Go ahead — I am listening.'],
     hearing: ['I hear you', 'Pause when you are done, or tap to send now.'],
     thinking: ['Thinking', 'Understanding your answer…'],
-    speaking: ['Teacher is speaking', 'Tap to skip and answer.']
+    speaking: ['Salty is speaking', 'Tap to skip and answer.']
   };
 
   function refreshMic() {
@@ -1051,7 +1051,7 @@
         text = waiting ? '…' : reveal.full.slice(0, reveal.shown);
       }
       html += '<div class="msg ' + (isAi ? 'ai' : 'student') + '"><div>' +
-        '<div class="who">' + (isAi ? 'Teacher' : 'You') + '</div>' +
+        '<div class="who">' + (isAi ? 'Salty' : 'You') + '</div>' +
         '<div class="bubble' + (waiting ? ' waiting' : '') + '"' + (live ? ' id="liveAiBubble"' : '') + '>' +
         esc(text) +
         (live && !waiting && reveal.shown < reveal.full.length ? '<span class="caret"></span>' : '') +
@@ -1130,7 +1130,7 @@
     reveal.hideLastAi = true;
     cancelTypewriter(false);
     render();
-    if (hf.on && sessionActive()) setState('thinking', 'Teacher is answering…');
+    if (hf.on && sessionActive()) setState('thinking', 'Salty is answering…');
     else setBuddy('thinking', 'Answering…');
 
     // Tiny beat so the student bubble lands, then start TTS (text syncs when audio starts).
