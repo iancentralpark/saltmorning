@@ -5975,6 +5975,18 @@ router.delete('/lms/library/:videoId', requireRole('teacher', 'admin'), async (r
   }
 });
 
+router.get('/lms/classes/:classId/students', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    let roster = [];
+    try { roster = await getClassRoster(req.params.classId); } catch (_) { /* optional */ }
+    const data = await lmsLessons.overviewForClass(req.params.classId, roster);
+    res.json(Object.assign({ configured: lmsLessons.isConfigured() }, data));
+  } catch (e) {
+    lmsError(res, e, 'Could not load student lesson overview.');
+  }
+});
+
 router.get('/lms/classes/:classId/lessons', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     await assertLmsClassAccess(req, req.params.classId);
