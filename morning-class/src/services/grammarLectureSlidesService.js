@@ -12,7 +12,7 @@
  * - Solid chalkboard green background (no grid)
  * - Chalk-light text only (never dark ink)
  * - One content block per slide; bold large type
- * - Every slide has a full speaking script (일타강사 톤)
+ * - On-screen PPT text is calm / textbook-like; script alone is 일타강사 tone
  * - Quiz answers live in notes; speaking script in script (both go to PPT notes)
  */
 
@@ -41,7 +41,7 @@ const BLOCK_TYPES = [
   'FUN',            // 어원·문화 잡지식
   'CONCEPT_CHECK',  // 간단한 개념확인 (O/X·짧은 선택)
   'QUIZ',           // 내신형 미니 퀴즈
-  'CLOSER'          // 핵심 요약·파이팅 마무리
+  'CLOSER'          // 핵심 요약 마무리
 ];
 
 const BLOCK_LABEL = {
@@ -54,7 +54,7 @@ const BLOCK_LABEL = {
   TRAP: '비문 ↔ 정문',
   BAN: '예외·금지',
   TRANSFORM: '전환 공식',
-  FUN: '어원·잡지식',
+  FUN: '어원·배경',
   CONCEPT_CHECK: '개념 확인',
   QUIZ: '내신 퀴즈',
   CLOSER: '마무리'
@@ -153,44 +153,48 @@ async function askClaudeJson(system, prompt, opts) {
   }
 }
 
-const SYSTEM_SCRIPT = `당신은 한국 중학생을 대상으로 한 영어 문법 **일타강사**입니다.
-전자칠판용 인강 슬라이드와, 각 슬라이드에서 실제로 말할 **전체 강의 대본(script)** 을 JSON으로만 만듭니다.
-화면(lines 등)은 굵고 짧게, 입은 script에 풀어 말합니다.
+const SYSTEM_SCRIPT = `당신은 한국 중등 영어 문법 인강 자료를 만드는 편집자입니다.
+전자칠판용 **슬라이드(화면 글)** 와, 강사가 그 장면에서 읽을 **전체 대본(script)** 을 JSON으로만 만듭니다.
+
+★ 톤 분리 (가장 중요)
+- 화면(heading / lines / columns / examples / wrongRight / quiz): **점잖고 차분한 교과서·판서 스타일**.
+  규칙·예문·표만. 구호·감탄·이모지·유행어·'꿀잼'·'파이팅'·'별표'·'자 주목' 같은 멘트는 화면에 쓰지 말 것.
+- script만: **일타강사** 구어체(친근·유쾌·파이팅). 비유·질문→답·'자, 주목!' 등은 script에만.
+- 학생은 칠판을 보고, 강사 목소리는 script로 듣는다. 화면을 소리 내 읽는 대본이 되지 않게.
 
 [콘텐츠 블록]
 HOOK 도입 / FORMULA 핵심 규칙 / ONE_LINER 한줄 예문 / USAGE 용법 구분 /
 PAIR 짝꿍 / FORMS 형태·예시 표 / TRAP 비문↔정문 / BAN 예외·금지 /
-TRANSFORM 전환 / FUN 어원·문화 잡지식 / CONCEPT_CHECK 개념확인 /
-QUIZ 내신퀴즈 / CLOSER 마무리
+TRANSFORM 전환 / FUN 어원·문화 배경 / CONCEPT_CHECK 개념확인 /
+QUIZ 내신퀴즈 / CLOSER 핵심 요약
 
 [강의 구조 — 덱 전체]
-1) title: 오프닝 (오늘 배울 것·기대감)
-2) HOOK → FORMULA(규칙 완전 파헤치기) → FORMS/ONE_LINER(풍부한 예 + 암기 꿀팁)
+1) title: 오늘 배울 주제 (차분한 제목)
+2) HOOK → FORMULA(규칙) → FORMS/ONE_LINER(예시)
 3) TRAP/BAN으로 자주 틀리는 포인트
-4) FUN 1~2장: 어원·영어사·문화 꿀잼 잡지식 (1~2분 분량 대본)
+4) FUN 1~2장: 어원·영어사·문화 배경 (화면은 사실 위주, 재미있는 이야기는 script)
 5) CONCEPT_CHECK + QUIZ
-6) CLOSER: 핵심 요약 + 파이팅 넘치는 당부 (약 1분 분량 대본)
+6) CLOSER: 핵심 요약 bullet (격려·파이팅 멘트는 script에만)
 유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
 
-[Pattern B · 품질]
+[Pattern B · 화면 품질]
 - 규칙 먼저, 예는 다음. FORMULA 뒤에 FORMS.
 - ★ 예시 중복 금지: 앞 장에 쓴 영어 쌍·문장을 다음 장에서 복붙하지 말 것.
 - 퀴즈 정답·해설은 notes에만. 화면에는 문제·보기만.
 - 한 슬라이드 = 블록 1개. lines 최대 6. 한국어 규칙 + 영어 예.
+- heading은 짧고 중립적 (예: '규칙', '형태 변화', '주의', '어원').
 
-[script — 모든 슬라이드 필수]
-각 슬라이드에 script 필드로 **그 장면에서 강사가 읽을 전체 대사**를 씁니다.
-- 어린 중학생도 바로 이해하게: 쉬운 비유·질문→답 형식·구어체.
-- 문법 요소 이름·뜻·(가능하면) 어원을 꼼꼼히.
-- 톤: 파이팅·친근·유쾌. '자, 주목!', '이거 진짜 중요해요!', '별표 세 개 칩니다!' 적극 사용.
-- 규칙을 암기 나열이 아니라 "왜 그렇게 쓰는지" 이해시키기.
-- FORMULA script: 개념 풀이 + 비유 + (관련 있으면) 짧은 어원.
-- FORMS/ONE_LINER script: 예 설명 + 실수 포인트 + 암기 꿀팁/공식.
-- FUN script: 1~2분 분량 스토리텔링.
-- CLOSER script: 핵심 요약 + 당부·파이팅 (약 1분).
-- CONCEPT_CHECK/QUIZ script: 문제를 같이 풀어 주는 진행 멘트(정답은 notes에).
-- 분량: title/section 3~6문장, 일반 콘텐츠 8~18문장, FUN/CLOSER은 그에 맞게.
-- script는 화면 글자를 그대로 읽지 말고, 판서를 가리키며 풀어 말하는 구어체로.
+[script — 모든 슬라이드 필수 · 여기만 일타강사]
+각 슬라이드 script에 그 장면의 **전체 대사**를 씁니다.
+- 중학생도 바로 이해: 쉬운 비유·질문→답·구어체.
+- 톤: 파이팅·친근·유쾌. '자, 주목!', '이거 진짜 중요해요!', '별표 세 개 칩니다!' OK (script만).
+- FORMULA: 개념 풀이 + 비유 + (가능하면) 짧은 어원.
+- FORMS/ONE_LINER: 예 설명 + 실수 포인트 + 암기 팁.
+- FUN: 1~2분 스토리텔링.
+- CLOSER: 요약 + 당부·파이팅 (약 1분).
+- CONCEPT_CHECK/QUIZ: 같이 푸는 진행 멘트(정답은 notes).
+- 분량: title/section 3~6문장, 일반 8~18문장, FUN/CLOSER 그에 맞게.
+- 화면 글자를 그대로 읽지 말고, 판서를 가리키며 풀어 말하기.
 
 출력은 JSON만.`;
 
@@ -201,16 +205,16 @@ const SLIDE_SCHEMA_HINT = {
     kind: 'title|section|content',
     unitId: 'optional unit id for content/section',
     blockType: 'HOOK|FORMULA|ONE_LINER|USAGE|PAIR|FORMS|TRAP|BAN|TRANSFORM|FUN|CONCEPT_CHECK|QUIZ|CLOSER|null for title/section',
-    heading: '슬라이드 큰 제목 (짧게)',
-    lines: ['화면에 보이는 줄들 — 최대 6줄. FORMULA면 규칙 문장.'],
+    heading: '점잖은 짧은 제목 (구호·감탄 금지)',
+    lines: ['화면에 보이는 차분한 판서 — 최대 6줄. FORMULA면 규칙 문장. 구호/이모지 금지.'],
     columns: [['왼쪽 헤더+항목'], ['오른쪽 헤더+항목']],
     examples: [{ en: '...', ko: '...' }],
     wrongRight: [{ wrong: '...', right: '...' }],
     quiz: {
-      prompt: '문제 (CONCEPT_CHECK 또는 QUIZ)',
+      prompt: '문제 (CONCEPT_CHECK 또는 QUIZ) — 차분한 시험지 톤',
       choices: ['① …', '② …']
     },
-    script: '이 슬라이드에서 강사가 말할 전체 대본 (일타강사 구어체, 필수)',
+    script: '이 슬라이드 전체 대본 — 여기만 일타강사 구어체 (필수)',
     notes: 'CONCEPT_CHECK/QUIZ면 정답·해설만. 그 외는 비워도 됨.'
   }]
 };
@@ -265,6 +269,7 @@ function buildGeneratePrompt({ title, units, grade, customTopic }) {
     'TRAP은 wrongRight 필수. USAGE·FORMS는 columns 2열 권장.',
     'CONCEPT_CHECK·QUIZ는 quiz+notes 필수. CONCEPT_CHECK는 보기 2~3개 또는 O/X로 단순하게.',
     '모든 슬라이드에 script(전체 강의 대사) 필수. FUN ≥1, CLOSER ≥1.',
+    '톤: 화면=점잖은 판서, script만 일타강사. 구호·감탄·이모지는 화면에 넣지 말 것.',
     'script에 문법 용어의 쉬운 뜻·필요 시 어원, 암기 꿀팁, 질문→답 멘트를 넣을 것.'
   );
   return parts.join('\n');
@@ -274,7 +279,8 @@ const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재·인강 감수자�
 인강 슬라이드 JSON을 검수하고, 누락된 공통 규칙·개념확인·내신퀴즈·FUN·CLOSER·script를 보완한 최종 JSON만 출력합니다.
 Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 장을 앞에 추가하세요.
 인접 슬라이드에 같은 영어 예시(단어 쌍·문장)가 반복되면 FORMS/examples를 새 예시로 교체하세요.
-모든 슬라이드에 일타강사 톤의 script(전체 대사)가 있어야 합니다. 짧거나 없으면 보강하세요.
+톤 분리: heading/lines/quiz 등 화면 글은 점잖은 교과서 톤으로 고치고, 구호·감탄·이모지가 화면에 있으면 제거하세요.
+script만 일타강사 구어체로 보강하세요(짧거나 없으면 채우기).
 정답은 notes에만. 화면은 굵고 짧게. JSON만.`;
 
 function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
@@ -300,7 +306,8 @@ function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
     '4) catalog가 있으면 coreRules·errorTraps 반영. customTopic이면 표준 개요·분류 누락 없는가?',
     '5) 불필요하게 장황하면 나누거나 줄이되, 공통 규칙은 삭제하지 말 것.',
     '6) ★ 예시 중복: FORMULA에 이미 나온 영어 쌍·문장이 FORMS에 다시 나오면 새 예시로 교체.',
-    '7) 모든 슬라이드에 script가 있고, 일타강사 구어체·쉬운 비유·(가능하면) 어원/꿀팁이 들어 있는가?',
+    '7) 화면(heading/lines/quiz)이 점잖은가? 구호·감탄·이모지·유행어가 화면에 있으면 제거.',
+    '8) 모든 슬라이드 script가 일타강사 구어체·쉬운 비유·(가능하면) 어원/꿀팁인가?',
     '',
     '초안 JSON:',
     JSON.stringify(draft, null, 2),
@@ -576,6 +583,7 @@ const SYSTEM_PATCH = `당신은 중등 영어 인강 슬라이드 편집자입�
 - 사용자가 지칭한 슬라이드(번호·제목·내용)만 변경.
 - 언급 없는 슬라이드는 손대지 말 것.
 - Pattern B·예시 중복 금지·퀴즈 정답은 notes만 — 기존 품질 규칙 유지.
+- 톤 분리 유지: 화면(heading/lines/quiz)=점잖은 판서, script만 일타강사.
 - 슬라이드를 고치면 script(강의 대사)도 그 장면에 맞게 함께 고칠 것.
 - 번호는 1부터 (화면에 보이는 N / 총장수).
 - op: replace | insertAfter | delete

@@ -330,7 +330,7 @@
     });
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
     $('modeHint').innerHTML = lecture
-      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요. 규칙→예 · 어원잡지식 · 퀴즈 · 대본. 인강은 <strong>Claude Opus</strong>(시험지는 Sonnet). 발표는 <strong>HTML</strong> 권장. <strong>PPT(캡처)</strong>는 화면 그대로 · Google 슬라이드 업로드 가능.'
+      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요. 화면은 <strong>점잖은 판서</strong>, <strong>대본만 일타강사</strong>. Opus · HTML 발표 · PPT(캡처) 지원.'
       : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
     $('titleInput').placeholder = lecture
@@ -338,7 +338,7 @@
       : '예: 중2 should / which 문법 클리닉';
     $('emptyTitle').textContent = lecture ? '인강 슬라이드 미리보기' : '시험지 미리보기';
     $('emptyBody').innerHTML = lecture
-      ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 각 장 일타강사 대본까지 함께 생성됩니다.'
+      ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 칠판은 차분하게, 대본만 일타강사 톤입니다.'
       : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.';
     $('btnGenerate').textContent = lecture ? '슬라이드 만들기' : 'Generate';
     $('btnGenerate2').textContent = lecture ? '슬라이드 만들기' : 'Generate';
