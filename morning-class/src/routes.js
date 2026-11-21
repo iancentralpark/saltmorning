@@ -4003,6 +4003,7 @@ const {
 } = require('./services/jeopardyService');
 
 const grammarClinic = require('./services/grammarClinicService');
+const grammarLecture = require('./services/grammarLectureSlidesService');
 
 router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (req, res) => {
   try {
@@ -4017,7 +4018,9 @@ router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (re
       mvpTypes: grammarClinic.MVP_TYPES,
       aiConfigured: grammarClinic.isClaudeConfigured(),
       aiProvider: 'claude',
-      model: grammarClinic.claudeModel()
+      model: grammarClinic.claudeModel(),
+      lectureModel: grammarLecture.claudeModel(),
+      lectureModels: grammarLecture.lectureClaudeModels()
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load grammar catalog.' });
@@ -4064,8 +4067,6 @@ router.get('/grammar-clinic/jobs/:id', requireRole('teacher', 'admin'), async (r
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not load job.' });
   }
 });
-
-const grammarLecture = require('./services/grammarLectureSlidesService');
 
 function grammarOwnerKey(req) {
   return String(
@@ -6109,6 +6110,5 @@ router.post('/student/lms/lessons/:lessonId/progress', requireRole('student'), l
     lmsError(res, e, 'Could not save progress.');
   }
 });
-
 
 module.exports = router;
