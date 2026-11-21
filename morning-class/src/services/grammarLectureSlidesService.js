@@ -93,13 +93,31 @@ function extractJson(text) {
   return null;
 }
 
+/** Grammar lecture only — Opus by default; other Class Tools stay on Sonnet. */
+const DEFAULT_LECTURE_CLAUDE_MODEL = 'claude-opus-5-5';
+
 function claudeModel() {
   return String(
-    process.env.TEACHER_CLAUDE_MODEL
-    || process.env.CLAUDE_MODEL
-    || process.env.ANTHROPIC_MODEL
-    || 'claude-sonnet-4-5'
-  ).trim() || 'claude-sonnet-4-5';
+    process.env.GRAMMAR_LECTURE_CLAUDE_MODEL
+    || DEFAULT_LECTURE_CLAUDE_MODEL
+  ).trim() || DEFAULT_LECTURE_CLAUDE_MODEL;
+}
+
+function lectureClaudeModels() {
+  const primary = claudeModel();
+  const extras = String(process.env.GRAMMAR_LECTURE_CLAUDE_FALLBACKS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const defaults = ['claude-opus-5-5', 'claude-opus-4-5', 'claude-sonnet-4-5'];
+  const seen = new Set();
+  const out = [];
+  [primary].concat(extras).concat(defaults).forEach((m) => {
+    if (!m || seen.has(m)) return;
+    seen.add(m);
+    out.push(m);
+  });
+  return out;
 }
 
 async function askClaudeJson(system, prompt, opts) {
@@ -117,7 +135,7 @@ async function askClaudeJson(system, prompt, opts) {
       temperature: opts.temperature != null ? opts.temperature : 0.45,
       maxOutputTokens: opts.maxOutputTokens || 8000,
       responseMimeType: 'application/json',
-      model: claudeModel()
+      models: lectureClaudeModels()
     });
     const text = (result && (result.answer || result.text)) || result;
     const parsed = extractJson(text);
@@ -1285,6 +1303,9 @@ module.exports = {
   MAX_UNITS,
   BLOCK_TYPES,
   BLOCK_LABEL,
+  DEFAULT_LECTURE_CLAUDE_MODEL,
+  claudeModel,
+  lectureClaudeModels,
   startGenerateJob,
   startPatchJob,
   getJob,
