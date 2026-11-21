@@ -269,7 +269,7 @@
               <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPdf" disabled>PDF 다운로드</button>
               <button type="button" class="btn btn-ok btn-sm exam-only" id="btnPrint" disabled>인쇄 / PDF</button>
               <button type="button" class="btn btn-ghost btn-sm" id="btnOpenTab" disabled>새 탭에서 열기</button>
-              <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPptx" disabled title="서식이 다를 수 있음">PPT (대략)</button>
+              <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPptx" disabled title="HTML 칠판을 화면 캡처해 PPT로 만듭니다. Google 슬라이드에 업로드 가능(이미지 기반·글자 편집 불가).">PPT (캡처)</button>
             </div>
           </div>
           <div id="emptyState" class="empty">
@@ -330,7 +330,7 @@
     });
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
     $('modeHint').innerHTML = lecture
-      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요. 규칙→예 · 어원잡지식 · 퀴즈 · <strong>슬라이드별 전체 강의 대본</strong>. 발표는 <strong>HTML</strong> 권장.'
+      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요. 규칙→예 · 어원잡지식 · 퀴즈 · 대본. 발표는 <strong>HTML</strong> 권장. <strong>PPT(캡처)</strong>는 화면을 그대로 넣어 Google 슬라이드 업로드도 됩니다.'
       : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
     $('titleInput').placeholder = lecture
@@ -853,7 +853,8 @@
   }
 
   function downloadLecturePptx() {
-    fetchLectureFile(last && last.pptxUrl, lectureBaseName() + '.pptx', 'PPT');
+    setStatus('HTML 슬라이드를 캡처해 PPT 만드는 중… (처음엔 몇 초 걸릴 수 있어요)');
+    fetchLectureFile(last && last.pptxUrl, lectureBaseName() + '.pptx', 'PPT(캡처)');
   }
 
   function generate() {

@@ -4170,7 +4170,11 @@ router.get('/grammar-clinic/lecture/jobs/:id/pptx', requireRole('teacher', 'admi
   try {
     const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
     if (!job || !job.deck) return res.status(404).json({ error: 'Job not found.' });
-    const buf = job.pptxBuffer || await grammarLecture.renderDeckPptx(job.deck);
+    let buf = job.pptxBuffer;
+    if (!buf) {
+      buf = await grammarLecture.renderDeckPptx(job.deck);
+      try { job.pptxBuffer = buf; } catch (_) {}
+    }
     const name = grammarLecture.safeFilename(job.deck.title) + '.pptx';
     res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
     res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
