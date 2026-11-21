@@ -9,10 +9,11 @@
  * Layout contract (all slides):
  * - 16:9
  * - Right 25% always empty (teacher standing zone on e-board)
- * - Chalkboard green + light grid background
+ * - Solid chalkboard green background (no grid)
  * - Chalk-light text only (never dark ink)
  * - One content block per slide; bold large type
- * - Quiz answers live in presenter notes only
+ * - Every slide has a full speaking script (일타강사 톤)
+ * - Quiz answers live in notes; speaking script in script (both go to PPT notes)
  */
 
 const crypto = require('crypto');
@@ -37,8 +38,10 @@ const BLOCK_TYPES = [
   'TRAP',           // 비문 ↔ 정문
   'BAN',            // 같이 못 씀 / 예외
   'TRANSFORM',      // 전환 공식
+  'FUN',            // 어원·문화 잡지식
   'CONCEPT_CHECK',  // 간단한 개념확인 (O/X·짧은 선택)
-  'QUIZ'            // 내신형 미니 퀴즈
+  'QUIZ',           // 내신형 미니 퀴즈
+  'CLOSER'          // 핵심 요약·파이팅 마무리
 ];
 
 const BLOCK_LABEL = {
@@ -51,8 +54,10 @@ const BLOCK_LABEL = {
   TRAP: '비문 ↔ 정문',
   BAN: '예외·금지',
   TRANSFORM: '전환 공식',
+  FUN: '어원·잡지식',
   CONCEPT_CHECK: '개념 확인',
-  QUIZ: '내신 퀴즈'
+  QUIZ: '내신 퀴즈',
+  CLOSER: '마무리'
 };
 
 /** Chalkboard palette — light chalk only */
@@ -130,32 +135,46 @@ async function askClaudeJson(system, prompt, opts) {
   }
 }
 
-const SYSTEM_SCRIPT = `당신은 한국 중학교 영어 문법 인강·내신 전문 강사입니다.
-전자칠판용 강의 슬라이드 대본을 JSON으로만 만듭니다. 상업용 퀄리티: 교과서·참고서가 공통으로 다루는 개념·규칙은 빠뜨리지 마세요.
+const SYSTEM_SCRIPT = `당신은 한국 중학생을 대상으로 한 영어 문법 **일타강사**입니다.
+전자칠판용 인강 슬라이드와, 각 슬라이드에서 실제로 말할 **전체 강의 대본(script)** 을 JSON으로만 만듭니다.
+화면(lines 등)은 굵고 짧게, 입은 script에 풀어 말합니다.
 
 [콘텐츠 블록]
-HOOK 도입예문 / FORMULA 핵심 규칙·공식 / ONE_LINER 한줄 예문 / USAGE 용법 구분 /
-PAIR 짝꿍 표현 / FORMS 형태·예시 표 / TRAP 비문↔정문 / BAN 예외·금지 /
-TRANSFORM 전환 공식 / CONCEPT_CHECK 간단한 개념확인 / QUIZ 내신형 퀴즈
+HOOK 도입 / FORMULA 핵심 규칙 / ONE_LINER 한줄 예문 / USAGE 용법 구분 /
+PAIR 짝꿍 / FORMS 형태·예시 표 / TRAP 비문↔정문 / BAN 예외·금지 /
+TRANSFORM 전환 / FUN 어원·문화 잡지식 / CONCEPT_CHECK 개념확인 /
+QUIZ 내신퀴즈 / CLOSER 마무리
 
-[구성 원칙 — Pattern B]
-1) 규칙 먼저, 예는 다음: 형태·규칙이 있는 문법은 반드시 FORMULA(규칙) 슬라이드 뒤에 FORMS(예시 표)를 둡니다.
-   - FORMULA: 학생이 외울 규칙 문장(한국어). 예: "단모음+단자음 → 자음 한 번 더 + -er"
-   - FORMS: 원급↔비교급 같은 예시 표. 규칙 문장만 있고 예가 없거나, 예만 있고 규칙이 없으면 불합격.
-2) 예만 보여 주고 규칙을 강사 판서에 맡기지 마세요. 화면(lines)에 규칙을 씁니다.
-3) ★ 예시 중복 금지 (중요): 앞 슬라이드에 이미 쓴 영어 단어·쌍·문장을 다음 슬라이드에서 거의 그대로 반복하지 마세요.
-   - FORMULA에서 규칙을 설명할 때 예시가 필요하면 대표 1개만 (예: good → better).
-   - 바로 뒤 FORMS/ONE_LINER/examples에는 앞에서 안 쓴 새 예시로 확장 (예: little→less, far→farther/further, 문장 예 등).
-   - "불규칙 비교급"처럼 목록이 짧아도: 규칙 장 = 핵심 3쌍만 한 줄씩, 예시 장 = 다른 쌍·문장·활용으로 새로 보여 주기.
-   - 같은 good/better · bad/worse · many/more 표를 규칙 장과 예시 장에 복붙하면 불합격.
-   - 슬라이드를 넘겼을 때 학생이 새로운 정보를 얻어야 합니다.
-4) 퀴즈는 두 종류를 모두 넣습니다(유닛당 최소 각 1장):
-   - CONCEPT_CHECK: O/X 또는 짧은 선택으로 "개념이 잡혔는지" 확인
-   - QUIZ: 내신형(어법·빈칸·고르기 등)
-5) 정답·해설은 CONCEPT_CHECK/QUIZ의 notes(발표자 노트)에만. 화면에는 문제·보기만.
-6) title로 시작. 유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
-7) 한 슬라이드 = 블록 1개. 규칙은 굵고 짧게(장당 lines 최대 6) 하되, 공통 규칙은 생략하지 말고 여러 FORMULA 장으로 나누세요.
-8) 한국어 규칙 + 영어 예문. 중학생 눈높이. 출력은 JSON만.`;
+[강의 구조 — 덱 전체]
+1) title: 오프닝 (오늘 배울 것·기대감)
+2) HOOK → FORMULA(규칙 완전 파헤치기) → FORMS/ONE_LINER(풍부한 예 + 암기 꿀팁)
+3) TRAP/BAN으로 자주 틀리는 포인트
+4) FUN 1~2장: 어원·영어사·문화 꿀잼 잡지식 (1~2분 분량 대본)
+5) CONCEPT_CHECK + QUIZ
+6) CLOSER: 핵심 요약 + 파이팅 넘치는 당부 (약 1분 분량 대본)
+유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
+
+[Pattern B · 품질]
+- 규칙 먼저, 예는 다음. FORMULA 뒤에 FORMS.
+- ★ 예시 중복 금지: 앞 장에 쓴 영어 쌍·문장을 다음 장에서 복붙하지 말 것.
+- 퀴즈 정답·해설은 notes에만. 화면에는 문제·보기만.
+- 한 슬라이드 = 블록 1개. lines 최대 6. 한국어 규칙 + 영어 예.
+
+[script — 모든 슬라이드 필수]
+각 슬라이드에 script 필드로 **그 장면에서 강사가 읽을 전체 대사**를 씁니다.
+- 어린 중학생도 바로 이해하게: 쉬운 비유·질문→답 형식·구어체.
+- 문법 요소 이름·뜻·(가능하면) 어원을 꼼꼼히.
+- 톤: 파이팅·친근·유쾌. '자, 주목!', '이거 진짜 중요해요!', '별표 세 개 칩니다!' 적극 사용.
+- 규칙을 암기 나열이 아니라 "왜 그렇게 쓰는지" 이해시키기.
+- FORMULA script: 개념 풀이 + 비유 + (관련 있으면) 짧은 어원.
+- FORMS/ONE_LINER script: 예 설명 + 실수 포인트 + 암기 꿀팁/공식.
+- FUN script: 1~2분 분량 스토리텔링.
+- CLOSER script: 핵심 요약 + 당부·파이팅 (약 1분).
+- CONCEPT_CHECK/QUIZ script: 문제를 같이 풀어 주는 진행 멘트(정답은 notes에).
+- 분량: title/section 3~6문장, 일반 콘텐츠 8~18문장, FUN/CLOSER은 그에 맞게.
+- script는 화면 글자를 그대로 읽지 말고, 판서를 가리키며 풀어 말하는 구어체로.
+
+출력은 JSON만.`;
 
 const SLIDE_SCHEMA_HINT = {
   title: '강의 제목',
@@ -163,7 +182,7 @@ const SLIDE_SCHEMA_HINT = {
   slides: [{
     kind: 'title|section|content',
     unitId: 'optional unit id for content/section',
-    blockType: 'HOOK|FORMULA|ONE_LINER|USAGE|PAIR|FORMS|TRAP|BAN|TRANSFORM|CONCEPT_CHECK|QUIZ|null for title/section',
+    blockType: 'HOOK|FORMULA|ONE_LINER|USAGE|PAIR|FORMS|TRAP|BAN|TRANSFORM|FUN|CONCEPT_CHECK|QUIZ|CLOSER|null for title/section',
     heading: '슬라이드 큰 제목 (짧게)',
     lines: ['화면에 보이는 줄들 — 최대 6줄. FORMULA면 규칙 문장.'],
     columns: [['왼쪽 헤더+항목'], ['오른쪽 헤더+항목']],
@@ -173,7 +192,8 @@ const SLIDE_SCHEMA_HINT = {
       prompt: '문제 (CONCEPT_CHECK 또는 QUIZ)',
       choices: ['① …', '② …']
     },
-    notes: '발표자 노트. CONCEPT_CHECK/QUIZ면 정답·해설만 여기.'
+    script: '이 슬라이드에서 강사가 말할 전체 대본 (일타강사 구어체, 필수)',
+    notes: 'CONCEPT_CHECK/QUIZ면 정답·해설만. 그 외는 비워도 됨.'
   }]
 };
 
@@ -225,15 +245,18 @@ function buildGeneratePrompt({ title, units, grade, customTopic }) {
     '',
     'columns / examples / wrongRight / quiz 는 해당 블록에만 채우고 나머지는 생략 가능.',
     'TRAP은 wrongRight 필수. USAGE·FORMS는 columns 2열 권장.',
-    'CONCEPT_CHECK·QUIZ는 quiz+notes 필수. CONCEPT_CHECK는 보기 2~3개 또는 O/X로 단순하게.'
+    'CONCEPT_CHECK·QUIZ는 quiz+notes 필수. CONCEPT_CHECK는 보기 2~3개 또는 O/X로 단순하게.',
+    '모든 슬라이드에 script(전체 강의 대사) 필수. FUN ≥1, CLOSER ≥1.',
+    'script에 문법 용어의 쉬운 뜻·필요 시 어원, 암기 꿀팁, 질문→답 멘트를 넣을 것.'
   );
   return parts.join('\n');
 }
 
-const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재 감수자입니다.
-인강 슬라이드 JSON을 검수하고, 누락된 공통 규칙·개념확인·내신퀴즈를 보완한 최종 JSON만 출력합니다.
+const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재·인강 감수자입니다.
+인강 슬라이드 JSON을 검수하고, 누락된 공통 규칙·개념확인·내신퀴즈·FUN·CLOSER·script를 보완한 최종 JSON만 출력합니다.
 Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 장을 앞에 추가하세요.
 인접 슬라이드에 같은 영어 예시(단어 쌍·문장)가 반복되면 FORMS/examples를 새 예시로 교체하세요.
+모든 슬라이드에 일타강사 톤의 script(전체 대사)가 있어야 합니다. 짧거나 없으면 보강하세요.
 정답은 notes에만. 화면은 굵고 짧게. JSON만.`;
 
 function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
@@ -255,10 +278,11 @@ function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
     '체크리스트 (미달이면 slides를 고쳐 최종본을 다시 작성):',
     '1) 주제/문법의 교과서·참고서 공통 규칙·정의가 FORMULA lines에 명시되어 있는가?',
     '2) 형태/규칙이 있으면 FORMULA 바로 뒤에 FORMS(또는 예)가 있는가? 예만 단독으로 있지 않은가?',
-    '3) CONCEPT_CHECK ≥1, QUIZ ≥1, 정답은 notes만인가?',
+    '3) CONCEPT_CHECK ≥1, QUIZ ≥1, FUN ≥1, CLOSER ≥1, 정답은 notes만인가?',
     '4) catalog가 있으면 coreRules·errorTraps 반영. customTopic이면 표준 개요·분류 누락 없는가?',
     '5) 불필요하게 장황하면 나누거나 줄이되, 공통 규칙은 삭제하지 말 것.',
     '6) ★ 예시 중복: FORMULA에 이미 나온 영어 쌍·문장이 FORMS에 다시 나오면 새 예시로 교체.',
+    '7) 모든 슬라이드에 script가 있고, 일타강사 구어체·쉬운 비유·(가능하면) 어원/꿀팁이 들어 있는가?',
     '',
     '초안 JSON:',
     JSON.stringify(draft, null, 2),
@@ -310,6 +334,13 @@ function coerceSlide(raw, idx) {
       };
     }
   }
+  let script = String((raw && (raw.script || raw.speakingScript || raw.narration)) || '').trim();
+  let notes = String((raw && raw.notes) || '').trim();
+  // Legacy: some drafts put the whole lecture into notes — keep as script if no script.
+  if (!script && notes && blockType !== 'CONCEPT_CHECK' && blockType !== 'QUIZ') {
+    script = notes;
+    notes = '';
+  }
   return {
     index: idx + 1,
     kind,
@@ -321,14 +352,15 @@ function coerceSlide(raw, idx) {
     examples,
     wrongRight,
     quiz,
-    notes: String((raw && raw.notes) || '').trim()
+    script,
+    notes
   };
 }
 
 function coerceDeck(parsed, fallbackTitle, grade) {
   const slidesRaw = Array.isArray(parsed && parsed.slides) ? parsed.slides : [];
   let slides = slidesRaw.map(coerceSlide).filter((s) =>
-    s.heading || s.lines.length || (s.quiz && s.quiz.prompt) || s.kind === 'title'
+    s.heading || s.lines.length || s.script || (s.quiz && s.quiz.prompt) || s.kind === 'title'
   );
   if (slides.length > 28) slides = slides.slice(0, 28);
   if (slides.length < 3) {
@@ -358,16 +390,16 @@ async function generateThenReview({ title, units, grade, customTopic, onProgress
   const firstPrompt = buildGeneratePrompt({ title, units, grade, customTopic });
   report({ message: 'Claude가 인강 대본을 쓰는 중…', pct: 20 });
   const draft = await askClaudeJson(SYSTEM_SCRIPT, firstPrompt, {
-    temperature: 0.4,
-    maxOutputTokens: 10000
+    temperature: 0.45,
+    maxOutputTokens: 16000
   });
   let finalDoc = draft;
-  report({ message: '교과서 공통 규칙 검수·보완 중…', pct: 55 });
+  report({ message: '교과서 공통 규칙·대본 검수·보완 중…', pct: 55 });
   try {
     finalDoc = await askClaudeJson(
       SYSTEM_REVIEW,
       buildReviewPrompt({ title, units: units || [], grade, draft, customTopic }),
-      { temperature: 0.2, maxOutputTokens: 10000 }
+      { temperature: 0.25, maxOutputTokens: 16000 }
     );
   } catch (e) {
     // Review failure → keep draft (still usable); caller may record warning
@@ -401,7 +433,9 @@ function publicJob(job) {
   if (job.deck) {
     out.deck = job.deck;
     out.htmlPreview = job.htmlPreview;
+    out.scriptHtml = job.scriptHtml || (job.deck ? renderDeckScriptHtml(job.deck) : null);
     out.htmlUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/html';
+    out.scriptUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/script';
     out.deckUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/deck';
     out.pdfUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/pdf';
     out.pptxUrl = '/api/grammar-clinic/lecture/jobs/' + job.id + '/pptx';
@@ -491,11 +525,13 @@ function startGenerateJob(opts, ownerKey) {
       touch(job, { progress: { message: '칠판 슬라이드 조립 중…', pct: 78 } });
       const deck = coerceDeck(parsed, title, grade);
       const htmlPreview = renderDeckHtml(deck);
+      const scriptHtml = renderDeckScriptHtml(deck);
       const pptxBuffer = await renderDeckPptx(deck);
       touch(job, {
         status: 'done',
         deck,
         htmlPreview,
+        scriptHtml,
         pptxBuffer,
         progress: { message: '완료', pct: 100 }
       });
@@ -516,9 +552,10 @@ const SYSTEM_PATCH = `당신은 중등 영어 인강 슬라이드 편집자입�
 - 사용자가 지칭한 슬라이드(번호·제목·내용)만 변경.
 - 언급 없는 슬라이드는 손대지 말 것.
 - Pattern B·예시 중복 금지·퀴즈 정답은 notes만 — 기존 품질 규칙 유지.
+- 슬라이드를 고치면 script(강의 대사)도 그 장면에 맞게 함께 고칠 것.
 - 번호는 1부터 (화면에 보이는 N / 총장수).
 - op: replace | insertAfter | delete
-- replace/insertAfter의 slide는 기존 스키마(kind, blockType, heading, lines, columns, examples, wrongRight, quiz, notes).`;
+- replace/insertAfter의 slide는 기존 스키마(+ script, notes).`;
 
 function buildPatchPrompt({ deck, instruction, slideIndexes }) {
   const indexes = Array.isArray(slideIndexes)
@@ -645,17 +682,19 @@ function startPatchJob(jobId, opts, ownerKey) {
       const parsed = await askClaudeJson(
         SYSTEM_PATCH,
         buildPatchPrompt({ deck: deckSnapshot, instruction, slideIndexes }),
-        { temperature: 0.25, maxOutputTokens: 8000 }
+        { temperature: 0.25, maxOutputTokens: 12000 }
       );
       touch(job, { progress: { message: '수정 내용 적용·조립 중…', pct: 70 } });
       const nextDeck = applyDeckOps(deckSnapshot, parsed && parsed.ops);
       const htmlPreview = renderDeckHtml(nextDeck);
+      const scriptHtml = renderDeckScriptHtml(nextDeck);
       const pptxBuffer = await renderDeckPptx(nextDeck);
       const summary = String((parsed && parsed.summary) || '').trim();
       touch(job, {
         status: 'done',
         deck: nextDeck,
         htmlPreview,
+        scriptHtml,
         pptxBuffer,
         progress: { message: summary ? ('수정 완료 — ' + summary) : '수정 완료', pct: 100 }
       });
@@ -815,10 +854,6 @@ html, body { margin: 0; background: #1a1a1a; font-family: "Noto Sans KR", "Apple
 .slide {
   position: absolute; inset: 0; display: none; padding: 4% 28% 4% 4%;
   background-color: #2F6B4F;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
-  background-size: 28px 28px;
   color: #F7F1DE;
 }
 .slide.active { display: block; }
@@ -855,6 +890,15 @@ h2 { margin: 0 0 1.4vw; font-size: 2.8vw; font-weight: 900; color: #FFE08A; line
 .quiz .q { font-size: 2vw; font-weight: 900; margin-bottom: 0.8vw; }
 .quiz .c { font-size: 1.7vw; font-weight: 700; margin: 0.35vw 0; }
 .pagenum { position: absolute; left: 4%; bottom: 3%; font-size: 1.1vw; color: rgba(247,241,222,0.7); }
+.script-panel {
+  position: fixed; left: 0; right: 0; bottom: 52px; max-height: 32vh; overflow: auto;
+  background: rgba(15, 23, 42, 0.92); color: #f4f6fb; padding: 10px 16px 12px;
+  font-size: 13px; line-height: 1.55; z-index: 4; display: none;
+  border-top: 1px solid rgba(255,255,255,0.12);
+}
+.script-panel.open { display: block; }
+.script-panel h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #FFE08A; }
+.script-panel p { margin: 0; white-space: pre-wrap; word-break: keep-all; }
 .hud {
   position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%);
   display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.55);
@@ -862,7 +906,7 @@ h2 { margin: 0 0 1.4vw; font-size: 2.8vw; font-weight: 900; color: #FFE08A; line
 }
 .hud button { background: rgba(255,255,255,0.15); border: 0; color: #fff; border-radius: 999px; width: 32px; height: 32px; cursor: pointer; }
 @media print {
-  .hud { display: none !important; }
+  .hud, .script-panel { display: none !important; }
   .stage { width: 338.67mm; height: 190.5mm; max-width: none; max-height: none; }
   .slide { display: block !important; position: relative; width: 338.67mm; height: 190.5mm; page-break-after: always; }
 }
@@ -929,6 +973,13 @@ function renderDeckHtml(deck) {
     + '</section>'
   ).join('\n');
 
+  const scriptsJson = JSON.stringify(deck.slides.map((s) => ({
+    heading: s.heading || '',
+    block: s.blockType ? (BLOCK_LABEL[s.blockType] || s.blockType) : (s.kind || ''),
+    script: s.script || '',
+    notes: s.notes || ''
+  })));
+
   return `<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -937,20 +988,39 @@ function renderDeckHtml(deck) {
 <style>${chalkBoardCss()}</style></head>
 <body>
 <div class="stage">${slides}
+<div class="script-panel open" id="scriptPanel">
+  <h3 id="scriptLabel">강의 대본</h3>
+  <p id="scriptBody"></p>
+</div>
 <div class="hud">
   <button type="button" id="prev" title="이전">‹</button>
   <span id="c">1 / ${deck.slides.length}</span>
   <button type="button" id="next" title="다음">›</button>
+  <button type="button" id="togScript" title="대본" style="width:auto;padding:0 10px;font-size:12px">대본</button>
   <button type="button" id="fs" title="전체화면" style="width:auto;padding:0 10px;font-size:12px">전체화면</button>
 </div></div>
 <script>
 (function(){
   var slides=[].slice.call(document.querySelectorAll('.slide')); var i=0;
+  var scripts = ${scriptsJson};
+  var panel=document.getElementById('scriptPanel');
+  var body=document.getElementById('scriptBody');
+  var label=document.getElementById('scriptLabel');
+  function fillScript(){
+    var s=scripts[i]||{};
+    label.textContent = '강의 대본 · ' + (i+1) + ' · ' + (s.block||'') + (s.heading?(' — '+s.heading):'');
+    var text = s.script || '(이 슬라이드 대본이 없습니다)';
+    if (s.notes) text += '\n\n—— 정답·메모 ——\n' + s.notes;
+    body.textContent = text;
+  }
   function show(n){ i=Math.max(0,Math.min(slides.length-1,n));
     slides.forEach(function(s,k){s.classList.toggle('active',k===i);});
-    document.getElementById('c').textContent=(i+1)+' / '+slides.length; }
+    document.getElementById('c').textContent=(i+1)+' / '+slides.length;
+    fillScript(); }
   document.getElementById('prev').onclick=function(){show(i-1);};
   document.getElementById('next').onclick=function(){show(i+1);};
+  var tog=document.getElementById('togScript');
+  if(tog) tog.onclick=function(){ panel.classList.toggle('open'); };
   var fsBtn=document.getElementById('fs');
   if(fsBtn) fsBtn.onclick=function(){
     var el=document.documentElement;
@@ -961,10 +1031,50 @@ function renderDeckHtml(deck) {
     if(e.key==='ArrowRight'||e.key===' ') { e.preventDefault(); show(i+1); }
     if(e.key==='ArrowLeft') show(i-1);
     if(e.key==='f'||e.key==='F') { if(fsBtn) fsBtn.click(); }
+    if(e.key==='s'||e.key==='S') { if(tog) tog.click(); }
   });
+  fillScript();
 })();
 </script>
 </body></html>`;
+}
+
+function renderDeckScriptHtml(deck) {
+  const rows = (deck.slides || []).map((s, i) => {
+    const badge = s.blockType ? (BLOCK_LABEL[s.blockType] || s.blockType) : (s.kind || '');
+    return '<article class="card">'
+      + '<header><span class="num">' + (i + 1) + '</span>'
+      + (badge ? '<span class="badge">' + escapeHtml(badge) + '</span>' : '')
+      + '<h2>' + escapeHtml(s.heading || ('슬라이드 ' + (i + 1))) + '</h2></header>'
+      + '<pre class="script">' + escapeHtml(s.script || '(대본 없음)') + '</pre>'
+      + (s.notes ? ('<div class="notes"><strong>정답·메모</strong><pre>' + escapeHtml(s.notes) + '</pre></div>') : '')
+      + '</article>';
+  }).join('\n');
+
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(deck.title)} — 강의 대본</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans KR",sans-serif;background:#f3f6f4;color:#1a1f2e}
+.wrap{max-width:820px;margin:0 auto;padding:1.5rem 1.1rem 3rem}
+h1{font-size:1.45rem;margin:0 0 .35rem}
+.sub{color:#5c6578;margin:0 0 1.25rem;font-size:.9rem}
+.card{background:#fff;border:1px solid #d8e0d9;border-radius:14px;padding:1rem 1.1rem;margin:0 0 .85rem;box-shadow:0 6px 18px rgba(26,31,46,.05)}
+header{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-bottom:.55rem}
+.num{display:inline-flex;align-items:center;justify-content:center;width:1.6rem;height:1.6rem;border-radius:999px;background:#2F6B4F;color:#fff;font-size:.75rem;font-weight:800}
+.badge{font-size:.7rem;font-weight:800;padding:.15rem .5rem;border-radius:999px;background:#e7f3ea;color:#2F6B4F}
+h2{margin:0;font-size:1.05rem;flex:1 1 12rem}
+.script,.notes pre{white-space:pre-wrap;word-break:keep-all;font-family:inherit;font-size:.92rem;line-height:1.65;margin:0}
+.notes{margin-top:.7rem;padding-top:.65rem;border-top:1px dashed #d8e0d9;color:#3d4a3f;font-size:.86rem}
+@media print{body{background:#fff}.card{box-shadow:none;break-inside:avoid}}
+</style></head>
+<body><div class="wrap">
+<h1>${escapeHtml(deck.title)} — 전체 강의 대본</h1>
+<p class="sub">슬라이드마다 말할 대사입니다. 인강 녹화·리허설용 · ${(deck.slides || []).length}장</p>
+${rows}
+</div></body></html>`;
 }
 
 async function renderDeckPdf(deck) {
@@ -1003,13 +1113,9 @@ async function renderDeckPdf(deck) {
 }
 
 function boardBgDataUri() {
-  // Lightweight SVG chalkboard with grid — used as PPTX slide background
+  // Solid chalkboard green + dashed teacher zone — used as PPTX slide background
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900">
 <rect width="1600" height="900" fill="#2F6B4F"/>
-<g stroke="rgba(255,255,255,0.08)" stroke-width="1">
-${Array.from({ length: 33 }, (_, i) => `<line x1="${i * 50}" y1="0" x2="${i * 50}" y2="900"/>`).join('')}
-${Array.from({ length: 19 }, (_, i) => `<line x1="0" y1="${i * 50}" x2="1600" y2="${i * 50}"/>`).join('')}
-</g>
 <line x1="1200" y1="0" x2="1200" y2="900" stroke="rgba(255,255,255,0.18)" stroke-width="2" stroke-dasharray="10 10"/>
 </svg>`;
   return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
@@ -1034,7 +1140,8 @@ async function renderDeckPptx(deck) {
 
     const notes = [];
     if (s.blockType) notes.push('블록: ' + (BLOCK_LABEL[s.blockType] || s.blockType));
-    if (s.notes) notes.push(s.notes);
+    if (s.script) notes.push('【강의 대본】\n' + s.script);
+    if (s.notes) notes.push('【정답·메모】\n' + s.notes);
     if (notes.length) slide.addNotes(notes.join('\n\n'));
 
     let y = 0.45;
@@ -1173,6 +1280,8 @@ function safeFilename(title) {
 }
 
 module.exports = {
+  renderDeckScriptHtml,
+
   MAX_UNITS,
   BLOCK_TYPES,
   BLOCK_LABEL,

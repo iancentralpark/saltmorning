@@ -261,9 +261,11 @@
               <button type="button" class="tab active exam-only" data-view="questions">문제지</button>
               <button type="button" class="tab exam-only" data-view="answers">정답·해설</button>
               <button type="button" class="tab lecture-only hidden" data-view="lecture">인강 미리보기</button>
+              <button type="button" class="tab lecture-only hidden" data-view="script">전체 대본</button>
             </div>
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
               <button type="button" class="btn btn-ok btn-sm lecture-only hidden" id="btnHtml" disabled>HTML 다운로드</button>
+              <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnScript" disabled>대본 다운로드</button>
               <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPdf" disabled>PDF 다운로드</button>
               <button type="button" class="btn btn-ok btn-sm exam-only" id="btnPrint" disabled>인쇄 / PDF</button>
               <button type="button" class="btn btn-ghost btn-sm" id="btnOpenTab" disabled>새 탭에서 열기</button>
@@ -328,7 +330,7 @@
     });
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
     $('modeHint').innerHTML = lecture
-      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요(예: 8품사 개요). 규칙→예 · 개념확인+내신 퀴즈 · 공통 규칙 검수. 발표는 <strong>HTML</strong> 권장.'
+      ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요. 규칙→예 · 어원잡지식 · 퀴즈 · <strong>슬라이드별 전체 강의 대본</strong>. 발표는 <strong>HTML</strong> 권장.'
       : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
     $('titleInput').placeholder = lecture
@@ -336,7 +338,7 @@
       : '예: 중2 should / which 문법 클리닉';
     $('emptyTitle').textContent = lecture ? '인강 슬라이드 미리보기' : '시험지 미리보기';
     $('emptyBody').innerHTML = lecture
-      ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 규칙→예 · 개념확인·내신 퀴즈 포함.'
+      ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 각 장 일타강사 대본까지 함께 생성됩니다.'
       : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.';
     $('btnGenerate').textContent = lecture ? '슬라이드 만들기' : 'Generate';
     $('btnGenerate2').textContent = lecture ? '슬라이드 만들기' : 'Generate';
@@ -536,7 +538,9 @@
     var frame = $('previewFrame');
     var html = null;
     if (mode === 'lecture') {
-      html = last && last.htmlPreview;
+      html = view === 'script'
+        ? (last && (last.scriptHtml || null))
+        : (last && last.htmlPreview);
     } else {
       html = last && (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
     }
@@ -546,6 +550,7 @@
       $('btnPrint').disabled = true;
       $('btnOpenTab').disabled = true;
       if ($('btnHtml')) $('btnHtml').disabled = true;
+      if ($('btnScript')) $('btnScript').disabled = true;
       if ($('btnPdf')) $('btnPdf').disabled = true;
       if ($('btnPptx')) $('btnPptx').disabled = true;
       return;
@@ -557,6 +562,7 @@
     $('btnOpenTab').disabled = false;
     var lectureReady = mode === 'lecture' && last && last.htmlPreview;
     if ($('btnHtml')) $('btnHtml').disabled = !lectureReady;
+    if ($('btnScript')) $('btnScript').disabled = !(lectureReady && (last.scriptHtml || last.scriptUrl));
     if ($('btnPdf')) $('btnPdf').disabled = !(lectureReady && last.pdfUrl);
     if ($('btnPptx')) $('btnPptx').disabled = !(lectureReady && last.pptxUrl);
     syncPatchUi();
@@ -829,6 +835,19 @@
     }
   }
 
+  function downloadLectureScript() {
+    if (!last) return;
+    if (last.scriptHtml) {
+      try {
+        var blob = new Blob([last.scriptHtml], { type: 'text/html;charset=utf-8' });
+        downloadBlob(blob, lectureBaseName() + '-script.html');
+        setStatus('대본 다운로드 완료', 'ok');
+        return;
+      } catch (e) { /* fall through */ }
+    }
+    fetchLectureFile(last.scriptUrl, lectureBaseName() + '-script.html', '대본');
+  }
+
   function downloadLecturePdf() {
     fetchLectureFile(last && last.pdfUrl, lectureBaseName() + '.pdf', 'PDF');
   }
@@ -909,7 +928,7 @@
   function openTab() {
     if (!last) return;
     var html = mode === 'lecture'
-      ? last.htmlPreview
+      ? (view === 'script' ? last.scriptHtml : last.htmlPreview)
       : (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
     if (!html) return;
     var w = window.open('', '_blank');
@@ -997,6 +1016,7 @@
   $('btnPrint').addEventListener('click', printCurrent);
   $('btnOpenTab').addEventListener('click', openTab);
   if ($('btnHtml')) $('btnHtml').addEventListener('click', downloadLectureHtml);
+  if ($('btnScript')) $('btnScript').addEventListener('click', downloadLectureScript);
   if ($('btnPdf')) $('btnPdf').addEventListener('click', downloadLecturePdf);
   if ($('btnPptx')) $('btnPptx').addEventListener('click', downloadLecturePptx);
   if ($('btnPatch')) $('btnPatch').addEventListener('click', patchLecture);
