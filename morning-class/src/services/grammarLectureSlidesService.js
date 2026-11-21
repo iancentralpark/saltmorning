@@ -544,14 +544,20 @@ function startGenerateJob(opts, ownerKey) {
       const deck = coerceDeck(parsed, title, grade);
       const htmlPreview = renderDeckHtml(deck);
       const scriptHtml = renderDeckScriptHtml(deck);
-      const pptxBuffer = await renderDeckPptx(deck);
       touch(job, {
         status: 'done',
         deck,
         htmlPreview,
         scriptHtml,
-        pptxBuffer,
+        pptxBuffer: null,
         progress: { message: '완료', pct: 100 }
+      });
+      // HTML 캡처 PPT는 무거우니 완료 후 백그라운드 프리웜 (실패해도 다운로드 시 재시도)
+      setImmediate(() => {
+        renderDeckPptx(deck).then((buf) => {
+          const cur = jobs.get(id);
+          if (cur === job) touch(job, { pptxBuffer: buf });
+        }).catch((e) => console.warn('grammar lecture pptx prewarm', id, e && e.message));
       });
     })().catch((e) => {
       touch(job, { status: 'error', error: e.message || '생성 실패', progress: { message: e.message, pct: 100 } });
@@ -706,15 +712,20 @@ function startPatchJob(jobId, opts, ownerKey) {
       const nextDeck = applyDeckOps(deckSnapshot, parsed && parsed.ops);
       const htmlPreview = renderDeckHtml(nextDeck);
       const scriptHtml = renderDeckScriptHtml(nextDeck);
-      const pptxBuffer = await renderDeckPptx(nextDeck);
       const summary = String((parsed && parsed.summary) || '').trim();
       touch(job, {
         status: 'done',
         deck: nextDeck,
         htmlPreview,
         scriptHtml,
-        pptxBuffer,
+        pptxBuffer: null,
         progress: { message: summary ? ('수정 완료 — ' + summary) : '수정 완료', pct: 100 }
+      });
+      setImmediate(() => {
+        renderDeckPptx(nextDeck).then((buf) => {
+          const cur = jobs.get(id);
+          if (cur === job) touch(job, { pptxBuffer: buf });
+        }).catch((e) => console.warn('grammar lecture pptx prewarm', id, e && e.message));
       });
       if (summary) job.warnings = (job.warnings || []).concat(['patch: ' + summary]).slice(-8);
     })().catch((e) => {
@@ -928,6 +939,19 @@ h2 { margin: 0 0 1.4vw; font-size: 2.8vw; font-weight: 900; color: #FFE08A; line
   .stage { width: 338.67mm; height: 190.5mm; max-width: none; max-height: none; }
   .slide { display: block !important; position: relative; width: 338.67mm; height: 190.5mm; page-break-after: always; }
 }
+/* Puppeteer screenshot → PPTX: match HTML chalkboard 1:1 */
+body.capture-mode {
+  margin: 0; background: #2F6B4F; overflow: hidden;
+}
+body.capture-mode .hud,
+body.capture-mode .script-panel { display: none !important; }
+body.capture-mode .stage {
+  width: 1600px !important;
+  height: 900px !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+}
 `;
 }
 
@@ -1130,8 +1154,80 @@ async function renderDeckPdf(deck) {
   }
 }
 
+const CAPTURE_W = 1600;
+const CAPTURE_H = 900;
+
+async function launchChromiumBrowser() {
+  let chromium;
+  let puppeteer;
+  try {
+    chromium = require('@sparticuz/chromium');
+    puppeteer = require('puppeteer-core');
+  } catch (e) {
+    const err = new Error('캡처 엔진이 없습니다. HTML을 사용하거나 서버에 Chromium을 설치하세요.');
+    err.statusCode = 503;
+    throw err;
+  }
+  const executablePath = await chromium.executablePath();
+  return puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: { width: CAPTURE_W, height: CAPTURE_H },
+    executablePath,
+    headless: chromium.headless
+  });
+}
+
+/**
+ * Screenshot each HTML chalkboard slide (same pixels teachers see in the browser).
+ * Used to build a WYSIWYG PPTX / Google Slides import.
+ */
+async function captureDeckSlidePngs(deck) {
+  const html = renderDeckHtml(deck);
+  const browser = await launchChromiumBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: CAPTURE_W, height: CAPTURE_H, deviceScaleFactor: 1 });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 90000 });
+    await page.evaluate(async () => {
+      document.body.classList.add('capture-mode');
+      var panel = document.getElementById('scriptPanel');
+      if (panel) panel.classList.remove('open');
+      if (document.fonts && document.fonts.ready) {
+        try { await document.fonts.ready; } catch (e) {}
+      }
+    });
+    // Give webfonts a beat after fonts.ready
+    await new Promise((r) => setTimeout(r, 120));
+    const count = await page.$$eval('.slide', (els) => els.length);
+    if (!count) {
+      const err = new Error('캡처할 슬라이드가 없습니다.');
+      err.statusCode = 500;
+      throw err;
+    }
+    const pngs = [];
+    for (let i = 0; i < count; i++) {
+      await page.evaluate((idx) => {
+        var slides = [].slice.call(document.querySelectorAll('.slide'));
+        slides.forEach(function (s, k) { s.classList.toggle('active', k === idx); });
+      }, i);
+      await new Promise((r) => setTimeout(r, 40));
+      const el = await page.$('.stage');
+      if (!el) {
+        const err = new Error('슬라이드 스테이지를 찾지 못했습니다.');
+        err.statusCode = 500;
+        throw err;
+      }
+      const buf = await el.screenshot({ type: 'png', omitBackground: false });
+      pngs.push(Buffer.from(buf));
+    }
+    return pngs;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 function boardBgDataUri() {
-  // Solid chalkboard green + dashed teacher zone — used as PPTX slide background
+  // Solid chalkboard green + dashed teacher zone — shape-fallback PPTX background
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900">
 <rect width="1600" height="900" fill="#2F6B4F"/>
 <line x1="1200" y1="0" x2="1200" y2="900" stroke="rgba(255,255,255,0.18)" stroke-width="2" stroke-dasharray="10 10"/>
@@ -1139,7 +1235,44 @@ function boardBgDataUri() {
   return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
 }
 
-async function renderDeckPptx(deck) {
+function slideSpeakerNotes(s) {
+  const notes = [];
+  if (s.blockType) notes.push('블록: ' + (BLOCK_LABEL[s.blockType] || s.blockType));
+  if (s.script) notes.push('【강의 대본】\n' + s.script);
+  if (s.notes) notes.push('【정답·메모】\n' + s.notes);
+  return notes.join('\n\n');
+}
+
+/** Preferred: full-bleed PNG of HTML slide (imports cleanly into Google Slides). */
+async function renderDeckPptxFromCaptures(deck) {
+  const PptxGenJS = require('pptxgenjs');
+  const pptx = new PptxGenJS();
+  pptx.defineLayout({ name: 'WIDE16x9', width: 13.333, height: 7.5 });
+  pptx.layout = 'WIDE16x9';
+  pptx.author = 'Salt Morning Grammar Lecture';
+  pptx.title = deck.title;
+
+  const pngs = await captureDeckSlidePngs(deck);
+  pngs.forEach((png, i) => {
+    const s = (deck.slides && deck.slides[i]) || {};
+    const slide = pptx.addSlide();
+    slide.addImage({
+      data: 'data:image/png;base64,' + png.toString('base64'),
+      x: 0,
+      y: 0,
+      w: '100%',
+      h: '100%'
+    });
+    const notes = slideSpeakerNotes(s);
+    if (notes) slide.addNotes(notes);
+  });
+
+  const buf = await pptx.write({ outputType: 'nodebuffer' });
+  return Buffer.from(buf);
+}
+
+/** Fallback when Chromium is unavailable — approximate shapes (may look off). */
+async function renderDeckPptxShapes(deck) {
   const PptxGenJS = require('pptxgenjs');
   const pptx = new PptxGenJS();
   pptx.defineLayout({ name: 'WIDE16x9', width: 13.333, height: 7.5 });
@@ -1148,7 +1281,6 @@ async function renderDeckPptx(deck) {
   pptx.title = deck.title;
 
   const bg = boardBgDataUri();
-  // Content lives in left 75% → width ≈ 10.0 inches (margin 0.45)
   const CX = 0.45;
   const CW = 9.4;
 
@@ -1156,11 +1288,8 @@ async function renderDeckPptx(deck) {
     const slide = pptx.addSlide();
     slide.addImage({ data: bg, x: 0, y: 0, w: '100%', h: '100%' });
 
-    const notes = [];
-    if (s.blockType) notes.push('블록: ' + (BLOCK_LABEL[s.blockType] || s.blockType));
-    if (s.script) notes.push('【강의 대본】\n' + s.script);
-    if (s.notes) notes.push('【정답·메모】\n' + s.notes);
-    if (notes.length) slide.addNotes(notes.join('\n\n'));
+    const notes = slideSpeakerNotes(s);
+    if (notes) slide.addNotes(notes);
 
     let y = 0.45;
 
@@ -1293,6 +1422,15 @@ async function renderDeckPptx(deck) {
   return Buffer.from(buf);
 }
 
+async function renderDeckPptx(deck) {
+  try {
+    return await renderDeckPptxFromCaptures(deck);
+  } catch (e) {
+    console.warn('grammar lecture pptx capture failed → shape fallback:', e && e.message);
+    return renderDeckPptxShapes(deck);
+  }
+}
+
 function safeFilename(title) {
   return String(title || 'grammar-lecture').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'grammar-lecture';
 }
@@ -1312,6 +1450,8 @@ module.exports = {
   publicJob,
   renderDeckHtml,
   renderDeckPptx,
+  renderDeckPptxFromCaptures,
+  captureDeckSlidePngs,
   renderDeckPdf,
   safeFilename,
   isClaudeConfigured
