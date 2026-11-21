@@ -927,23 +927,36 @@ h2 { margin: 0 0 1.4vw; font-size: 2.8vw; font-weight: 900; color: #FFE08A; line
 .quiz .q { font-size: 2vw; font-weight: 900; margin-bottom: 0.8vw; }
 .quiz .c { font-size: 1.7vw; font-weight: 700; margin: 0.35vw 0; }
 .pagenum { position: absolute; left: 4%; bottom: 3%; font-size: 1.1vw; color: rgba(247,241,222,0.7); }
+.nav-hit {
+  position: absolute; top: 0; bottom: 0; width: 22%; z-index: 2; cursor: pointer;
+  background: transparent; border: 0; padding: 0;
+}
+.nav-hit.prev { left: 0; }
+.nav-hit.next { right: 0; }
 .script-panel {
-  position: fixed; left: 0; right: 0; bottom: 52px; max-height: 32vh; overflow: auto;
-  background: rgba(15, 23, 42, 0.92); color: #f4f6fb; padding: 10px 16px 12px;
-  font-size: 13px; line-height: 1.55; z-index: 4; display: none;
+  position: fixed; left: 0; right: 0; bottom: 56px; max-height: 28vh; overflow: auto;
+  background: rgba(15, 23, 42, 0.94); color: #f4f6fb; padding: 10px 16px 12px;
+  font-size: 13px; line-height: 1.55; z-index: 40; display: none;
   border-top: 1px solid rgba(255,255,255,0.12);
+  pointer-events: auto;
 }
 .script-panel.open { display: block; }
 .script-panel h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #FFE08A; }
 .script-panel p { margin: 0; white-space: pre-wrap; word-break: keep-all; }
 .hud {
   position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%);
-  display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.55);
-  color: #fff; padding: 6px 12px; border-radius: 999px; font-size: 13px; z-index: 5;
+  display: flex; gap: 8px; align-items: center; background: rgba(0,0,0,0.72);
+  color: #fff; padding: 8px 14px; border-radius: 999px; font-size: 13px; z-index: 50;
+  pointer-events: auto; box-shadow: 0 4px 18px rgba(0,0,0,0.35);
 }
-.hud button { background: rgba(255,255,255,0.15); border: 0; color: #fff; border-radius: 999px; width: 32px; height: 32px; cursor: pointer; }
+.hud button {
+  background: rgba(255,255,255,0.18); border: 0; color: #fff; border-radius: 999px;
+  min-width: 36px; height: 36px; padding: 0 10px; cursor: pointer; font-size: 16px; line-height: 1;
+}
+.hud button:hover { background: rgba(255,255,255,0.28); }
+.hud #c { min-width: 4.5em; text-align: center; font-variant-numeric: tabular-nums; }
 @media print {
-  .hud, .script-panel { display: none !important; }
+  .hud, .script-panel, .nav-hit { display: none !important; }
   .stage { width: 338.67mm; height: 190.5mm; max-width: none; max-height: none; }
   .slide { display: block !important; position: relative; width: 338.67mm; height: 190.5mm; page-break-after: always; }
 }
@@ -952,7 +965,8 @@ body.capture-mode {
   margin: 0; background: #2F6B4F; overflow: hidden;
 }
 body.capture-mode .hud,
-body.capture-mode .script-panel { display: none !important; }
+body.capture-mode .script-panel,
+body.capture-mode .nav-hit { display: none !important; }
 body.capture-mode .stage {
   width: 1600px !important;
   height: 900px !important;
@@ -961,6 +975,14 @@ body.capture-mode .stage {
   margin: 0 !important;
 }
 `;
+}
+
+/** Safe to embed inside <script> — prevents </script> in lecture text from killing nav JS. */
+function jsonForScriptTag(value) {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
 function renderSlideBody(slide) {
@@ -1023,7 +1045,7 @@ function renderDeckHtml(deck) {
     + '</section>'
   ).join('\n');
 
-  const scriptsJson = JSON.stringify(deck.slides.map((s) => ({
+  const scriptsJson = jsonForScriptTag(deck.slides.map((s) => ({
     heading: s.heading || '',
     block: s.blockType ? (BLOCK_LABEL[s.blockType] || s.blockType) : (s.kind || ''),
     script: s.script || '',
@@ -1037,53 +1059,76 @@ function renderDeckHtml(deck) {
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>${chalkBoardCss()}</style></head>
 <body>
-<div class="stage">${slides}
-<div class="script-panel open" id="scriptPanel">
+<div class="stage" id="stage">
+${slides}
+<button type="button" class="nav-hit prev" id="hitPrev" aria-label="이전 슬라이드"></button>
+<button type="button" class="nav-hit next" id="hitNext" aria-label="다음 슬라이드"></button>
+</div>
+<div class="script-panel" id="scriptPanel">
   <h3 id="scriptLabel">강의 대본</h3>
   <p id="scriptBody"></p>
 </div>
-<div class="hud">
-  <button type="button" id="prev" title="이전">‹</button>
+<div class="hud" id="hud">
+  <button type="button" id="prev" title="이전 (←)">‹</button>
   <span id="c">1 / ${deck.slides.length}</span>
-  <button type="button" id="next" title="다음">›</button>
-  <button type="button" id="togScript" title="대본" style="width:auto;padding:0 10px;font-size:12px">대본</button>
-  <button type="button" id="fs" title="전체화면" style="width:auto;padding:0 10px;font-size:12px">전체화면</button>
-</div></div>
+  <button type="button" id="next" title="다음 (→)">›</button>
+  <button type="button" id="togScript" title="대본 (S)" style="width:auto;font-size:12px">대본</button>
+  <button type="button" id="fs" title="전체화면 (F)" style="width:auto;font-size:12px">전체화면</button>
+</div>
 <script>
 (function(){
-  var slides=[].slice.call(document.querySelectorAll('.slide')); var i=0;
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var i=0;
   var scripts = ${scriptsJson};
   var panel=document.getElementById('scriptPanel');
   var body=document.getElementById('scriptBody');
   var label=document.getElementById('scriptLabel');
+  var counter=document.getElementById('c');
   function fillScript(){
+    if (!label || !body) return;
     var s=scripts[i]||{};
     label.textContent = '강의 대본 · ' + (i+1) + ' · ' + (s.block||'') + (s.heading?(' — '+s.heading):'');
     var text = s.script || '(이 슬라이드 대본이 없습니다)';
-    if (s.notes) text += '\n\n—— 정답·메모 ——\n' + s.notes;
+    if (s.notes) text += '\\n\\n—— 정답·메모 ——\\n' + s.notes;
     body.textContent = text;
   }
-  function show(n){ i=Math.max(0,Math.min(slides.length-1,n));
-    slides.forEach(function(s,k){s.classList.toggle('active',k===i);});
-    document.getElementById('c').textContent=(i+1)+' / '+slides.length;
-    fillScript(); }
-  document.getElementById('prev').onclick=function(){show(i-1);};
-  document.getElementById('next').onclick=function(){show(i+1);};
+  function show(n){
+    if (!slides.length) return;
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach(function(s,k){ s.classList.toggle('active', k===i); });
+    if (counter) counter.textContent=(i+1)+' / '+slides.length;
+    try { fillScript(); } catch (err) {}
+  }
+  function go(delta, ev){
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    show(i+delta);
+  }
+  function bind(id, delta){
+    var el=document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', function(ev){ go(delta, ev); });
+  }
+  bind('prev', -1); bind('hitPrev', -1);
+  bind('next', 1); bind('hitNext', 1);
   var tog=document.getElementById('togScript');
-  if(tog) tog.onclick=function(){ panel.classList.toggle('open'); };
-  var fsBtn=document.getElementById('fs');
-  if(fsBtn) fsBtn.onclick=function(){
-    var el=document.documentElement;
-    if(!document.fullscreenElement){ if(el.requestFullscreen) el.requestFullscreen(); }
-    else if(document.exitFullscreen) document.exitFullscreen();
-  };
-  document.addEventListener('keydown',function(e){
-    if(e.key==='ArrowRight'||e.key===' ') { e.preventDefault(); show(i+1); }
-    if(e.key==='ArrowLeft') show(i-1);
-    if(e.key==='f'||e.key==='F') { if(fsBtn) fsBtn.click(); }
-    if(e.key==='s'||e.key==='S') { if(tog) tog.click(); }
+  if (tog) tog.addEventListener('click', function(ev){
+    ev.preventDefault(); ev.stopPropagation();
+    if (panel) panel.classList.toggle('open');
   });
-  fillScript();
+  var fsBtn=document.getElementById('fs');
+  if (fsBtn) fsBtn.addEventListener('click', function(ev){
+    ev.preventDefault(); ev.stopPropagation();
+    var el=document.documentElement;
+    if (!document.fullscreenElement) { if (el.requestFullscreen) el.requestFullscreen(); }
+    else if (document.exitFullscreen) document.exitFullscreen();
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key==='ArrowRight' || e.key===' ') { e.preventDefault(); show(i+1); }
+    else if (e.key==='ArrowLeft') { e.preventDefault(); show(i-1); }
+    else if (e.key==='f' || e.key==='F') { if (fsBtn) fsBtn.click(); }
+    else if (e.key==='s' || e.key==='S') { if (tog) tog.click(); }
+  });
+  show(0);
 })();
 </script>
 </body></html>`;
