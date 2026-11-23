@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20261120olm3">
+  <link rel="stylesheet" href="/css/app.css?v=20261123olm4">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -501,60 +501,53 @@
       <div class="dbm-head">
         <div>
           <h3>Online Lessons</h3>
-          <p class="muted small">Student watch progress first. Assign library videos with optional unlock / due dates. Upload new videos in Class Tools &rarr; Video Library.</p>
+          <p class="muted small" id="olmSummaryLine">Click a student to see their videos and how they watched them.</p>
         </div>
         <div class="dbm-head-actions">
           <button type="button" class="btn btn-ghost btn-sm" id="contentRefreshLmsBtn">Refresh</button>
           <button type="button" class="btn btn-ghost btn-sm" id="contentOpenLmsBtn">Video Library &#8599;</button>
-          <button type="button" class="btn btn-primary btn-sm" id="contentNewLmsToggle">+ Assign video</button>
+          <button type="button" class="btn btn-primary btn-sm" id="contentNewLmsToggle">+ Assign videos</button>
         </div>
       </div>
       <div id="contentLmsAssign" class="dbm-form hidden">
-        <div class="dbm-form-title">Assign a library video</div>
-        <div class="dbm-form-grid">
-          <label class="dbm-field">Ready video
-            <select id="contentLibrarySelect"><option value="">Loading&hellip;</option></select>
-          </label>
-          <label class="dbm-field">When it unlocks
-            <select id="contentLibraryPublish">
-              <option value="now">Publish now</option>
-              <option value="schedule">Schedule unlock</option>
-              <option value="draft">Keep as draft</option>
-            </select>
-          </label>
-          <label class="dbm-field" id="contentLibraryUnlockWrap">Unlock date &amp; time
-            <input type="datetime-local" id="contentLibraryUnlock">
-          </label>
-          <label class="dbm-field">Due date (optional)
-            <input type="datetime-local" id="contentLibraryDue">
-          </label>
-        </div>
-        <div class="dbm-field-label">Students <span class="muted" style="font-weight:500">(none selected = whole class)</span></div>
-        <div id="contentLibraryStudentPick"></div>
-        <div class="dbm-form-foot">
-          <button type="button" class="btn btn-primary btn-sm" id="contentAssignLibraryBtn">Assign</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="contentLmsCancelBtn">Cancel</button>
-          <span class="muted small" id="contentLibraryStatus"></span>
-        </div>
-      </div>
-      <div id="contentLmsSummary" class="olm-summary hidden"></div>
-      <div class="olm-view-toggle">
-        <button type="button" class="olm-view-btn on" data-view="students">By student</button>
-        <button type="button" class="olm-view-btn" data-view="videos">By video</button>
-      </div>
-      <div class="olm-layout" id="olmLayout">
-        <div id="contentLmsList" class="olm-main"><p class="muted">Loading&hellip;</p></div>
-        <aside id="olmDrawer" class="olm-panel hidden" aria-hidden="true">
-          <div class="olm-drawer-head">
-            <div>
-              <strong id="olmDrawerName">Student</strong>
-              <div class="muted small" id="olmDrawerMeta"></div>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" id="olmDrawerClose">Close</button>
+        <div class="olm-assign-cols">
+          <div>
+            <div class="olm-assign-step">1. Tick the videos <span class="muted" id="olmVideoCount"></span></div>
+            <input type="search" id="olmVideoSearch" class="olm-search" placeholder="Search videos&hellip;" autocomplete="off">
+            <div id="olmVideoPick" class="olm-pick-list"><p class="muted small" style="padding:.7rem">Loading&hellip;</p></div>
           </div>
-          <div id="olmDrawerBody"></div>
-        </aside>
+          <div>
+            <div class="olm-assign-step">2. Tick the students <span class="muted" id="olmStudentCount"></span>
+              <span class="olm-spacer"></span>
+              <button type="button" class="olm-link" id="olmStudentsAll">All</button>
+              <button type="button" class="olm-link" id="olmStudentsNone">None</button>
+            </div>
+            <div id="olmStudentPick" class="olm-pick-list"></div>
+          </div>
+        </div>
+        <div class="olm-assign-foot">
+          <label class="olm-due">Due
+            <select id="olmDueMode"></select>
+            <input type="date" id="olmDueDate" class="hidden">
+          </label>
+          <button type="button" class="olm-link hidden" id="olmDueSaveDefault">Use this for every new assignment in this class</button>
+          <span class="olm-spacer"></span>
+          <button type="button" class="btn btn-primary" id="contentAssignLibraryBtn" disabled>Assign</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="contentLmsCancelBtn">Cancel</button>
+          <details class="olm-more">
+            <summary>More options</summary>
+            <div class="olm-more-body">
+              <label class="olm-due">Hide from students until
+                <input type="datetime-local" id="olmUnlockAt">
+              </label>
+              <button type="button" class="btn btn-ghost btn-sm" id="olmRemoveBtn" disabled>Take the ticked videos away from the ticked students</button>
+            </div>
+          </details>
+          <span class="muted small" id="contentLibraryStatus" style="flex:1 1 100%"></span>
+        </div>
       </div>
+      <div id="olmNotice" class="olm-notice hidden" role="status"></div>
+      <div id="contentLmsList"><p class="muted">Loading&hellip;</p></div>
     </div>
   </div>
 </div>
@@ -1368,8 +1361,14 @@
   }
 
   let olmCache = null;
-  let olmView = 'students';
-  let olmSelected = new Set();
+  let olmLibrary = null;
+  let olmClassId = '';
+  const olmOpen = new Set();
+  const olmPick = { videos: new Set(), students: new Set() };
+
+  function olmBase() {
+    return '/api/lms/classes/' + encodeURIComponent(currentClass.classId);
+  }
 
   function olmFmtWhen(ms) {
     if (!ms) return '';
@@ -1378,382 +1377,472 @@
     return d.toLocaleString('en-GB', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
-  function olmToLocalInput(ms) {
+  function olmFmtDay(ms) {
     if (!ms) return '';
     const d = new Date(ms);
     if (isNaN(d.getTime())) return '';
-    const pad = (n) => String(n).padStart(2, '0');
-    // datetime-local is wall-clock; show Asia/Seoul wall time
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', hour12: false
-    }).formatToParts(d);
-    const get = (t) => (parts.find((p) => p.type === t) || {}).value;
-    return get('year') + '-' + get('month') + '-' + get('day') + 'T' + get('hour') + ':' + get('minute');
+    return d.toLocaleDateString('en-GB', { timeZone: 'Asia/Seoul', weekday: 'short', day: 'numeric', month: 'short' });
   }
 
-  function syncLmsUnlockVisibility() {
-    const mode = ($('contentLibraryPublish') && $('contentLibraryPublish').value) || 'now';
-    const wrap = $('contentLibraryUnlockWrap');
-    if (wrap) wrap.style.display = mode === 'schedule' ? '' : 'none';
+  /** Epoch ms → YYYY-MM-DD as the calendar day in Korea (for date inputs). */
+  function olmDateInput(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
   }
 
-  async function loadContentLibraryOptions() {
-    const sel = $('contentLibrarySelect');
-    const pick = $('contentLibraryStudentPick');
-    if (!sel || !currentClass) return;
-    try {
-      await loadContentRoster();
-      if (pick) pick.innerHTML = contentStudentChecks([]);
-      syncLmsUnlockVisibility();
-      const data = await api('/api/lms/library', {}, role);
-      const ready = (data.videos || []).filter((v) => v.status === 'ready');
-      sel.innerHTML = ready.length
-        ? '<option value="">Select a library video…</option>' + ready.map((v) => {
-          const label = (v.category ? '[' + v.category + '] ' : '') + v.title +
-            (v.curriculum ? ' · ' + v.curriculum : '');
-          return '<option value="' + escapeHtml(v.id) + '">' + escapeHtml(label) + '</option>';
-        }).join('')
-        : '<option value="">No ready videos — upload in Video Library</option>';
-    } catch (e) {
-      sel.innerHTML = '<option value="">Could not load library</option>';
-    }
+  function olmFmtLen(sec) {
+    sec = Math.round(Number(sec) || 0);
+    if (!sec) return '';
+    if (sec < 60) return sec + ' sec';
+    const m = Math.round(sec / 60);
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
   }
 
-  function olmCloseDrawer() {
-    const d = $('olmDrawer');
-    const layout = $('olmLayout');
-    if (d) { d.classList.add('hidden'); d.setAttribute('aria-hidden', 'true'); }
-    if (layout) layout.classList.remove('is-open');
+  function olmPlural(n, word) {
+    return n + ' ' + word + (n === 1 ? '' : 's');
   }
 
-  function olmOpenDrawer(student) {
-    const d = $('olmDrawer');
-    const layout = $('olmLayout');
-    const body = $('olmDrawerBody');
-    if (!d || !body || !student) return;
-    $('olmDrawerName').textContent = student.name || student.studentId;
-    $('olmDrawerMeta').textContent = (student.completed || 0) + ' / ' + (student.assigned || 0) + ' done · ' +
-      (student.watchedLabel || '0m watched') +
-      (student.avgPlaybackRate != null ? ' · avg ' + student.avgPlaybackRate + '×' : '');
-    const lessons = student.lessons || [];
-    let html = '<div class="olm-drawer-sec"><div class="dbm-section-title">Assigned videos</div>';
-    if (!lessons.length) html += '<p class="muted small">No published videos assigned to this student.</p>';
-    else {
-      html += lessons.map((l) => {
-        const state = l.completed ? dbmPill('Done', 'ok')
-          : (l.locked ? dbmPill('Unlocks ' + olmFmtWhen(l.availableFrom), 'warn')
-            : (l.overdue ? dbmPill('Overdue', 'err') : dbmPill((l.percent || 0) + '%')));
-        return '<div class="dbm-row"><div><strong>' + escapeHtml(l.title) + '</strong>' +
-          '<div class="dbm-row-meta">' + state +
-          (l.dueAt ? ' · due ' + escapeHtml(olmFmtWhen(l.dueAt)) : '') +
-          (l.watchedSeconds ? ' · ' + escapeHtml(lmsFmtSec(l.watchedSeconds)) : '') +
-          '</div></div></div>';
-      }).join('');
-    }
-    html += '</div><div class="olm-drawer-sec"><div class="dbm-section-title">Assign another video</div>' +
-      '<label class="dbm-field">Library video<select class="olm-drawer-video"></select></label>' +
-      '<div class="dbm-form-grid" style="margin-top:.55rem">' +
-      '<label class="dbm-field">Unlock<select class="olm-drawer-mode">' +
-      '<option value="now">Now</option><option value="schedule">Schedule</option><option value="draft">Draft</option></select></label>' +
-      '<label class="dbm-field olm-drawer-unlock-wrap" style="display:none">Unlock at<input type="datetime-local" class="olm-drawer-unlock"></label>' +
-      '<label class="dbm-field">Due (optional)<input type="datetime-local" class="olm-drawer-due"></label></div>' +
-      '<div class="dbm-form-foot"><button type="button" class="btn btn-primary btn-sm olm-drawer-assign">Assign to ' +
-      escapeHtml(student.name || 'student') + '</button><span class="muted small olm-drawer-status"></span></div></div>';
-    body.innerHTML = html;
-    const sel = body.querySelector('.olm-drawer-video');
-    const libSel = $('contentLibrarySelect');
-    if (sel && libSel) sel.innerHTML = libSel.innerHTML;
-    const mode = body.querySelector('.olm-drawer-mode');
-    const unlockWrap = body.querySelector('.olm-drawer-unlock-wrap');
-    if (mode) mode.addEventListener('change', () => {
-      if (unlockWrap) unlockWrap.style.display = mode.value === 'schedule' ? '' : 'none';
-    });
-    body.querySelector('.olm-drawer-assign').addEventListener('click', async (ev) => {
-      const btn = ev.currentTarget;
-      const status = body.querySelector('.olm-drawer-status');
-      const libraryVideoId = sel.value;
-      if (!libraryVideoId) { status.textContent = 'Pick a video.'; return; }
-      const payload = buildLmsAssignPayload([student.studentId], {
-        libraryVideoId,
-        mode: mode.value,
-        unlock: body.querySelector('.olm-drawer-unlock').value,
-        due: body.querySelector('.olm-drawer-due').value
-      });
-      if (payload.error) { status.textContent = payload.error; return; }
-      btn.disabled = true;
-      status.textContent = 'Assigning…';
-      try {
-        await api('/api/lms/classes/' + encodeURIComponent(currentClass.classId) + '/lessons', {
-          method: 'POST', body: payload.body
-        }, role);
-        status.textContent = 'Assigned.';
-        await loadContentLmsList();
-        const fresh = (olmCache && olmCache.students || []).find((x) => x.studentId === student.studentId);
-        if (fresh) olmOpenDrawer(fresh);
-      } catch (e) {
-        status.textContent = e.message || 'Failed';
-        btn.disabled = false;
-      }
-    });
-    d.classList.remove('hidden');
-    d.setAttribute('aria-hidden', 'false');
-    if (layout) layout.classList.add('is-open');
-    d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  function lmsFmtSec(sec) {
-    sec = Math.max(0, Math.floor(Number(sec) || 0));
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    if (h) return h + 'h ' + m + 'm';
-    if (m) return m + 'm';
-    return sec + 's';
-  }
-
-  function buildLmsAssignPayload(studentIds, opts) {
-    opts = opts || {};
-    const libraryVideoId = opts.libraryVideoId || '';
-    if (!libraryVideoId) return { error: 'Pick a ready library video first.' };
-    const mode = opts.mode || 'now';
-    const unlock = opts.unlock || '';
-    const due = opts.due || '';
-    if (mode === 'schedule' && !unlock) return { error: 'Pick an unlock date & time.' };
-    const body = {
-      libraryVideoId,
-      studentIds: studentIds || [],
-      published: mode !== 'draft',
-      availableFrom: mode === 'schedule' ? unlock : null,
-      dueAt: due || null
-    };
-    if (mode === 'now') body.availableFrom = null;
-    return { body };
-  }
-
-  function renderOlmSummary(summary) {
-    const el = $('contentLmsSummary');
+  function olmNotice(html, kind) {
+    const el = $('olmNotice');
     if (!el) return;
-    if (!summary) { el.classList.add('hidden'); el.innerHTML = ''; return; }
-    el.classList.remove('hidden');
-    el.innerHTML =
-      '<div class="olm-stat"><strong>' + (summary.students || 0) + '</strong><span>Students</span></div>' +
-      '<div class="olm-stat"><strong>' + (summary.published || 0) + '</strong><span>Published videos</span></div>' +
-      '<div class="olm-stat"><strong>' + (summary.avgCompletePercent || 0) + '%</strong><span>Avg complete</span></div>' +
-      '<div class="olm-stat"><strong>' + escapeHtml(summary.totalWatchedLabel || '0m') + '</strong><span>Total watched</span></div>' +
-      '<div class="olm-stat' + ((summary.overdueStudents || 0) ? ' warn' : '') + '"><strong>' +
-      (summary.overdueStudents || 0) + '</strong><span>Students overdue</span></div>';
+    if (!html) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    el.className = 'olm-notice' + (kind ? ' ' + kind : '');
+    el.innerHTML = html;
   }
 
-  function renderOlmStudents(students) {
-    if (!students.length) return '<p class="dbm-empty">No students in this class yet.</p>';
-    const bulk = olmSelected.size
-      ? '<div class="olm-bulk"><span>' + olmSelected.size + ' selected</span>' +
-        '<button type="button" class="btn btn-primary btn-sm" id="olmBulkAssign">Assign video to selected</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm" id="olmClearSel">Clear</button></div>'
-      : '';
-    return bulk + '<div class="olm-table">' +
-      '<div class="olm-thead"><span></span><span>Student</span><span>Assigned</span><span>Done</span><span>Watch time</span><span>Last watched</span><span></span></div>' +
-      students.map((st) => {
-        const sid = escapeHtml(st.studentId);
-        const checked = olmSelected.has(st.studentId) ? ' checked' : '';
-        const bar = st.assigned
-          ? Math.round((st.completed / st.assigned) * 100)
-          : 0;
-        return '<div class="olm-trow' + (st.overdue ? ' overdue' : '') + '" data-sid="' + sid + '">' +
-          '<label class="olm-check"><input type="checkbox" value="' + sid + '"' + checked + '></label>' +
-          '<button type="button" class="olm-name olm-open" data-sid="' + sid + '">' +
-          '<strong>' + escapeHtml(st.name || st.studentId) + '</strong>' +
-          (st.overdue ? dbmPill(st.overdue + ' overdue', 'err') : '') +
-          (st.inProgress ? dbmPill(st.inProgress + ' in progress', 'warn') : '') +
-          '</button>' +
-          '<span>' + (st.assigned || 0) + '</span>' +
-          '<span><strong>' + (st.completed || 0) + '</strong>' +
-          '<div class="olm-bar"><i style="width:' + bar + '%"></i></div></span>' +
-          '<span>' + escapeHtml(st.watchedLabel || '0m') +
-          (st.avgPlaybackRate != null ? '<div class="dbm-row-meta">' + st.avgPlaybackRate + '× avg</div>' : '') + '</span>' +
-          '<span class="muted small">' + (st.lastWatchedAt ? escapeHtml(olmFmtWhen(st.lastWatchedAt)) : '—') + '</span>' +
-          '<button type="button" class="btn btn-ghost btn-sm olm-open" data-sid="' + sid + '">Open</button>' +
-          '</div>';
-      }).join('') + '</div>';
-  }
-
-  function renderOlmVideos(list) {
-    if (!list.length) {
-      return '<p class="dbm-empty">No videos assigned yet.<br>Click “+ Assign video” to pick one from the library.</p>';
+  function olmStatusPill(l) {
+    if (l.completed) {
+      return l.completedManually ? dbmPill('Marked done by student', 'warn') : dbmPill('Done', 'ok');
     }
-    return list.map((l) => {
-      const targets = l.targeted ? ((l.studentIds || []).length + ' students') : 'Whole class';
-      const canPublish = l.status === 'ready';
-      const lid = escapeHtml(l.id);
-      const unlock = l.availableFrom ? ('Unlocks ' + olmFmtWhen(l.availableFrom)) : null;
-      const due = l.dueAt ? ('Due ' + olmFmtWhen(l.dueAt)) : null;
-      return '<div class="dbm-card" data-lid="' + lid + '">' +
-        '<div class="dbm-card-head"><div>' +
-        '<div class="dbm-card-title">' + escapeHtml(l.title) + '</div>' +
-        '<div class="dbm-card-sub">' + escapeHtml(targets) +
-        (unlock ? ' · ' + escapeHtml(unlock) : '') +
-        (due ? ' · ' + escapeHtml(due) : '') + '</div>' +
-        '<div class="dbm-stats">' +
-        dbmPill(l.published ? 'Published' : 'Draft', l.published ? 'ok' : 'warn') +
-        dbmPill((l.startedCount || 0) + ' started') +
-        dbmPill((l.completedCount || 0) + ' completed', (l.completedCount || 0) ? 'ok' : '') +
-        '</div></div>' +
-        '<div class="dbm-card-actions">' +
-        '<button type="button" class="btn btn-primary btn-sm content-lesson-progress" data-lid="' + lid + '">Watch stats</button>' +
-        (canPublish
-          ? '<button type="button" class="btn btn-ghost btn-sm content-toggle-publish" data-lid="' + lid + '" data-pub="' + (l.published ? '1' : '0') + '">' +
-            (l.published ? 'Unpublish' : 'Publish') + '</button>'
-          : '') +
-        '<button type="button" class="btn btn-ghost btn-sm content-edit-lesson-targets" data-lid="' + lid + '">Edit students</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm content-unassign-lesson" data-lid="' + lid + '">Unassign</button>' +
-        '</div></div>' +
-        '<div class="dbm-panel content-lesson-editor hidden" data-lid="' + lid + '">' +
-        '<div class="dbm-field-label">Assigned students</div>' + contentStudentChecks(l.studentIds) +
-        '<div class="dbm-form-foot">' +
-        '<button type="button" class="btn btn-primary btn-sm content-save-lesson-targets" data-lid="' + lid + '">Save</button>' +
-        '<button type="button" class="btn btn-ghost btn-sm content-cancel-lesson-targets" data-lid="' + lid + '">Cancel</button>' +
-        '</div></div>' +
-        '<div class="dbm-panel content-lesson-progress hidden" data-lid="' + lid + '"></div></div>';
+    if (l.locked) return dbmPill('Hidden until ' + olmFmtWhen(l.availableFrom));
+    if (l.overdue) return dbmPill('Overdue' + (l.started ? ' · ' + (l.percent || 0) + '% watched' : ''), 'err');
+    if (l.started) return dbmPill((l.percent || 0) + '% watched', 'warn');
+    return dbmPill('Not started');
+  }
+
+  function olmWatchLine(l) {
+    if (!l.started && !l.completed) return '';
+    const bits = [];
+    if (l.views != null) {
+      bits.push(l.views < 0.1 ? 'Played less than 0.1 times' : 'Played ' + l.views + (l.views === 1 ? ' time' : ' times'));
+      if (l.avgSpeed) bits.push('at ' + l.avgSpeed + '× speed');
+      if (l.sessions) bits.push(olmPlural(l.sessions, 'sitting'));
+    } else {
+      // Watched before play time was recorded: only the older counters exist.
+      if (l.sessions) bits.push('Opened ' + olmPlural(l.sessions, 'time'));
+      if (l.lastPlaybackRate) bits.push('last speed ' + l.lastPlaybackRate + '×');
+    }
+    if (l.lastWatchedAt) bits.push('last watched ' + olmFmtWhen(l.lastWatchedAt));
+    return bits.join(' · ');
+  }
+
+  function renderOlmLesson(st, l) {
+    const len = olmFmtLen(l.durationSeconds);
+    const line = olmWatchLine(l);
+    return '<div class="olm-les' + (l.overdue ? ' overdue' : '') + '" data-lid="' + escapeHtml(l.id) + '">' +
+      '<div class="olm-les-main"><div class="olm-les-title">' + escapeHtml(l.title) +
+      (len ? ' <span>' + escapeHtml(len) + '</span>' : '') + '</div>' +
+      '<div class="olm-les-meta">' + olmStatusPill(l) + (line ? '<span>' + escapeHtml(line) + '</span>' : '') + '</div></div>' +
+      '<label class="olm-les-due">Due <input type="date" class="olm-due-input" value="' + olmDateInput(l.dueAt) + '"' +
+      ' data-prev="' + olmDateInput(l.dueAt) + '" aria-label="Due date"></label>' +
+      '<button type="button" class="olm-les-x" title="Take this video away from ' + escapeHtml(st.name) + '"' +
+      ' aria-label="Take this video away from ' + escapeHtml(st.name) + '">&#10005;</button>' +
+      '</div>';
+  }
+
+  function renderOlmStudent(st) {
+    const sid = escapeHtml(st.studentId);
+    const open = olmOpen.has(st.studentId);
+    const pct = st.assigned ? Math.round((st.completed / st.assigned) * 100) : 0;
+    let pills = '';
+    if (!st.assigned) pills = dbmPill('No videos');
+    else if (st.overdue) pills = dbmPill(st.overdue + ' overdue', 'err');
+    else if (st.completed === st.assigned) pills = dbmPill('All done', 'ok');
+    const lessons = st.lessons || [];
+    return '<div class="olm-stu' + (open ? ' open' : '') + '" data-sid="' + sid + '">' +
+      '<button type="button" class="olm-stu-head" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+      '<span class="olm-chev" aria-hidden="true">&#9656;</span>' +
+      '<span class="olm-stu-name"><strong>' + escapeHtml(st.name || st.studentId) + '</strong>' + pills + '</span>' +
+      '<span class="olm-stu-done">' + (st.assigned
+        ? '<b>' + st.completed + '</b> of ' + st.assigned + ' done<span class="olm-bar"><i style="width:' + pct + '%"></i></span>'
+        : '') + '</span>' +
+      '<span class="olm-stu-last">' + (st.lastWatchedAt ? 'Last watched ' + escapeHtml(olmFmtWhen(st.lastWatchedAt)) : '') + '</span>' +
+      '</button>' +
+      '<div class="olm-stu-body">' +
+      (lessons.length
+        ? lessons.map((l) => renderOlmLesson(st, l)).join('')
+        : '<p class="muted small" style="margin:.6rem 0 0">No videos assigned yet.</p>') +
+      '<div class="olm-stu-foot"><button type="button" class="btn btn-ghost btn-sm olm-assign-one">+ Assign videos to ' +
+      escapeHtml(st.name || 'this student') + '</button></div>' +
+      '</div></div>';
+  }
+
+  function renderOlm() {
+    const box = $('contentLmsList');
+    if (!box || !olmCache) return;
+    const students = olmCache.students || [];
+    const s = olmCache.summary || {};
+    const line = $('olmSummaryLine');
+    if (line) {
+      line.textContent = s.assignments
+        ? olmPlural(students.length, 'student') + ' · ' + s.completed + ' of ' + olmPlural(s.assignments, 'assigned video') + ' done' +
+          (s.overdue ? ' · ' + s.overdue + ' overdue' : '') + '. Click a student for details.'
+        : 'Nothing assigned yet. Click “+ Assign videos”, tick videos and students, and you are done.';
+    }
+    if (!students.length) {
+      box.innerHTML = '<p class="dbm-empty">No students in this class yet.</p>';
+      return;
+    }
+    box.innerHTML = '<div class="olm-list">' + students.map(renderOlmStudent).join('') + '</div>';
+  }
+
+  async function loadContentLmsList(quiet) {
+    const box = $('contentLmsList');
+    if (!box || !currentClass) return;
+    const classId = currentClass.classId;
+    if (olmClassId !== classId) {
+      olmClassId = classId;
+      olmCache = null;
+      olmOpen.clear();
+      olmNotice('');
+      olmCloseAssign();
+    }
+    if (!quiet || !olmCache) box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api(olmBase() + '/students', {}, role);
+      if (!currentClass || currentClass.classId !== classId) return;
+      olmCache = data;
+      renderOlm();
+      if ($('contentLmsAssign') && !$('contentLmsAssign').classList.contains('hidden')) renderOlmPicker();
+    } catch (e) {
+      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  // ----- Assign panel: tick videos, tick students, Assign -----
+
+  function olmPickItems() {
+    const lessons = (olmCache && olmCache.lessons) || [];
+    const byLib = new Map();
+    lessons.forEach((l) => { if (l.libraryVideoId) byLib.set(l.libraryVideoId, l); });
+    const items = (olmLibrary || []).filter((v) => v.status === 'ready').map((v) => ({
+      key: 'lib:' + v.id,
+      title: v.title || 'Untitled',
+      category: v.category || '',
+      sub: [v.curriculum, olmFmtLen(v.durationSeconds)].filter(Boolean).join(' · '),
+      have: ((byLib.get(v.id) || {}).assignedStudentIds || []).length
+    }));
+    // Videos uploaded straight to this class (not in the shared library).
+    lessons.forEach((l) => {
+      if (l.libraryVideoId || l.status !== 'ready') return;
+      items.push({
+        key: 'les:' + l.id,
+        title: l.title || 'Untitled',
+        category: 'This class only',
+        sub: olmFmtLen(l.durationSeconds),
+        have: (l.assignedStudentIds || []).length
+      });
+    });
+    const cmp = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+    items.sort((a, b) => cmp(a.category, b.category) || cmp(a.title, b.title));
+    return items;
+  }
+
+  function olmDueOptions() {
+    const def = olmCache && olmCache.settings ? Number(olmCache.settings.defaultDueDays) : 7;
+    const dayLabel = (n) => 'In ' + olmPlural(n, 'day') + ' (' + olmFmtDay(Date.now() + n * 86400000) + ')';
+    const opts = [['default', def > 0 ? dayLabel(def) + ' — class default' : 'No due date — class default']];
+    [3, 7, 14].forEach((n) => { if (n !== def) opts.push([String(n), dayLabel(n)]); });
+    opts.push(['date', 'Pick a date…']);
+    if (def > 0) opts.push(['none', 'No due date']);
+    return opts;
+  }
+
+  function olmSyncDueUi() {
+    const mode = $('olmDueMode') ? $('olmDueMode').value : 'default';
+    if ($('olmDueDate')) $('olmDueDate').classList.toggle('hidden', mode !== 'date');
+    // Offer to remember a different number of days (or "no due date") for this class.
+    if ($('olmDueSaveDefault')) $('olmDueSaveDefault').classList.toggle('hidden', mode === 'default' || mode === 'date');
+  }
+
+  function olmSyncAssignButton() {
+    const v = olmPick.videos.size;
+    const s = olmPick.students.size;
+    const total = olmCache ? (olmCache.students || []).length : 0;
+    if ($('olmVideoCount')) $('olmVideoCount').textContent = v ? v + ' ticked' : '';
+    if ($('olmStudentCount')) $('olmStudentCount').textContent = s + ' of ' + total;
+    const btn = $('contentAssignLibraryBtn');
+    if (btn) {
+      btn.disabled = !(v && s);
+      btn.textContent = v && s
+        ? 'Assign ' + olmPlural(v, 'video') + ' to ' + (s === total && total > 1 ? 'all ' + total + ' students' : olmPlural(s, 'student'))
+        : 'Assign';
+    }
+    if ($('olmRemoveBtn')) $('olmRemoveBtn').disabled = !(v && s);
+  }
+
+  function renderOlmVideoPick() {
+    const mount = $('olmVideoPick');
+    if (!mount) return;
+    if (olmLibrary == null) {
+      mount.innerHTML = '<p class="muted small" style="padding:.7rem">Loading videos…</p>';
+      return;
+    }
+    const all = olmPickItems();
+    const total = olmCache ? (olmCache.students || []).length : 0;
+    if (!all.length) {
+      mount.innerHTML = '<p class="muted small" style="padding:.7rem">No ready videos yet. Upload one in Video Library.</p>';
+      return;
+    }
+    const q = (($('olmVideoSearch') && $('olmVideoSearch').value) || '').trim().toLowerCase();
+    const items = q
+      ? all.filter((it) => (it.title + ' ' + it.category + ' ' + it.sub).toLowerCase().indexOf(q) !== -1)
+      : all;
+    if (!items.length) {
+      mount.innerHTML = '<p class="muted small" style="padding:.7rem">No videos match “' + escapeHtml(q) + '”.</p>';
+      return;
+    }
+    let lastCat = null;
+    const showCats = all.some((it) => it.category);
+    mount.innerHTML = items.map((it) => {
+      let head = '';
+      if (showCats && it.category !== lastCat) {
+        lastCat = it.category;
+        head = '<div class="olm-pick-cat">' + escapeHtml(it.category || 'Other') + '</div>';
+      }
+      const have = !it.have ? '' : (total && it.have >= total ? 'Everyone has it' : it.have + ' of ' + total + ' have it');
+      return head + '<label class="olm-pick"><input type="checkbox" class="olm-pick-video" value="' + escapeHtml(it.key) + '"' +
+        (olmPick.videos.has(it.key) ? ' checked' : '') + '>' +
+        '<span class="olm-pick-title">' + escapeHtml(it.title) +
+        (it.sub ? '<small>' + escapeHtml(it.sub) + '</small>' : '') + '</span>' +
+        '<span class="olm-pick-have">' + escapeHtml(have) + '</span></label>';
     }).join('');
   }
 
-  function wireOlmVideoActions(box) {
-    box.querySelectorAll('.content-edit-lesson-targets').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const ed = box.querySelector('.content-lesson-editor[data-lid="' + btn.dataset.lid + '"]');
-        if (ed) ed.classList.toggle('hidden');
-      });
-    });
-    box.querySelectorAll('.content-cancel-lesson-targets').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const ed = box.querySelector('.content-lesson-editor[data-lid="' + btn.dataset.lid + '"]');
-        if (ed) ed.classList.add('hidden');
-      });
-    });
-    box.querySelectorAll('.content-save-lesson-targets').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const ed = box.querySelector('.content-lesson-editor[data-lid="' + btn.dataset.lid + '"]');
-        const ids = collectChecks(ed) || [];
-        btn.disabled = true;
-        try {
-          await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid) + '/students', {
-            method: 'PUT', body: { studentIds: ids }
-          }, role);
-          loadContentLmsList();
-        } catch (e) {
-          alert(e.message || 'Could not save');
-          btn.disabled = false;
-        }
-      });
-    });
-    box.querySelectorAll('.content-toggle-publish').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const want = btn.dataset.pub !== '1';
-        btn.disabled = true;
-        try {
-          await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid), {
-            method: 'PATCH', body: { published: want }
-          }, role);
-          loadContentLmsList();
-        } catch (e) {
-          alert(e.message || 'Could not update');
-          btn.disabled = false;
-        }
-      });
-    });
-    box.querySelectorAll('.content-unassign-lesson').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Remove this video assignment from the class? Watch history for this class copy will be deleted. The library video stays.')) return;
-        btn.disabled = true;
-        try {
-          await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid), { method: 'DELETE' }, role);
-          loadContentLmsList();
-        } catch (e) {
-          alert(e.message || 'Could not unassign');
-          btn.disabled = false;
-        }
-      });
-    });
-    box.querySelectorAll('.content-lesson-progress').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const mount = box.querySelector('.content-lesson-progress[data-lid="' + btn.dataset.lid + '"]');
-        if (!mount) return;
-        if (!mount.classList.contains('hidden') && mount.innerHTML) {
-          mount.classList.add('hidden');
-          mount.innerHTML = '';
-          return;
-        }
-        mount.classList.remove('hidden');
-        mount.innerHTML = '<p class="muted small">Loading watch stats…</p>';
-        try {
-          const d = await api('/api/lms/lessons/' + encodeURIComponent(btn.dataset.lid) + '/progress', {}, role);
-          const rows = (d.students || []).map((s) =>
-            '<div class="dbm-row">' +
-            '<span>' + escapeHtml(s.studentName || s.studentId) + '</span>' +
-            '<span class="muted">' +
-            (s.completed ? 'Done' : ((s.maxPercent != null ? s.maxPercent : s.percent) + '%')) +
-            ' · views ' + (s.viewCount || 0) +
-            ' · ' + (Number(s.lastPlaybackRate || 1).toFixed(2)) + '×' +
-            '</span></div>'
-          ).join('');
-          mount.innerHTML = rows || '<span class="muted small">No one has watched yet.</span>';
-        } catch (e) {
-          mount.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
-        }
-      });
-    });
+  function renderOlmStudentPick() {
+    const mount = $('olmStudentPick');
+    if (!mount) return;
+    const students = (olmCache && olmCache.students) || [];
+    mount.innerHTML = students.length
+      ? students.map((st) => '<label class="olm-pick"><input type="checkbox" class="olm-pick-student" value="' +
+          escapeHtml(st.studentId) + '"' + (olmPick.students.has(st.studentId) ? ' checked' : '') + '>' +
+          '<span class="olm-pick-title">' + escapeHtml(st.name || st.studentId) + '</span></label>').join('')
+      : '<p class="muted small" style="padding:.7rem">No students in this class.</p>';
   }
 
-  function wireOlmStudentActions(box) {
-    box.querySelectorAll('.olm-check input').forEach((cb) => {
-      cb.addEventListener('change', () => {
-        if (cb.checked) olmSelected.add(cb.value);
-        else olmSelected.delete(cb.value);
-        loadContentLmsList(true);
-      });
-    });
-    box.querySelectorAll('.olm-open').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const st = (olmCache.students || []).find((x) => x.studentId === btn.dataset.sid);
-        if (st) olmOpenDrawer(st);
-      });
-    });
-    if ($('olmClearSel')) $('olmClearSel').addEventListener('click', () => {
-      olmSelected.clear();
-      loadContentLmsList(true);
-    });
-    if ($('olmBulkAssign')) $('olmBulkAssign').addEventListener('click', () => {
-      const form = $('contentLmsAssign');
-      if (!form) return;
-      form.classList.remove('hidden');
-      if ($('contentNewLmsToggle')) $('contentNewLmsToggle').textContent = 'Close form';
-      const pick = $('contentLibraryStudentPick');
-      if (pick) pick.innerHTML = contentStudentChecks(Array.from(olmSelected));
-      form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+  function renderOlmPicker() {
+    const sel = $('olmDueMode');
+    if (sel) {
+      const keep = sel.value;
+      sel.innerHTML = olmDueOptions().map((o) => '<option value="' + o[0] + '">' + escapeHtml(o[1]) + '</option>').join('');
+      if (keep && Array.from(sel.options).some((o) => o.value === keep)) sel.value = keep;
+    }
+    // Drop ticks for students who are no longer on the list.
+    const known = new Set(((olmCache && olmCache.students) || []).map((st) => st.studentId));
+    Array.from(olmPick.students).forEach((id) => { if (!known.has(id)) olmPick.students.delete(id); });
+    renderOlmVideoPick();
+    renderOlmStudentPick();
+    olmSyncDueUi();
+    olmSyncAssignButton();
   }
 
-  async function loadContentLmsList(keepCache) {
-    const box = $('contentLmsList');
-    if (!box || !currentClass) return;
-    if (!keepCache) box.innerHTML = '<p class="muted">Loading…</p>';
-    loadContentLibraryOptions();
+  /** Open the assign panel. studentIds: who starts ticked (default: the whole class). */
+  async function olmOpenAssign(studentIds) {
+    const form = $('contentLmsAssign');
+    if (!form || !currentClass || !olmCache) return;
+    olmPick.videos.clear();
+    olmPick.students.clear();
+    (studentIds || (olmCache.students || []).map((st) => st.studentId)).forEach((id) => olmPick.students.add(id));
+    if ($('olmVideoSearch')) $('olmVideoSearch').value = '';
+    if ($('olmDueMode')) $('olmDueMode').value = 'default';
+    if ($('olmDueDate')) $('olmDueDate').value = '';
+    if ($('olmUnlockAt')) $('olmUnlockAt').value = '';
+    if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = '';
+    form.classList.remove('hidden');
+    if ($('contentNewLmsToggle')) $('contentNewLmsToggle').textContent = 'Close';
+    renderOlmPicker();
+    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     try {
-      if (!keepCache || !olmCache) {
-        await loadContentRoster();
-        olmCache = await api('/api/lms/classes/' + encodeURIComponent(currentClass.classId) + '/students', {}, role);
-      }
-      renderOlmSummary(olmCache.summary);
-      document.querySelectorAll('.olm-view-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === olmView));
-      if (olmView === 'videos') {
-        box.innerHTML = renderOlmVideos(olmCache.lessons || []);
-        wireOlmVideoActions(box);
-      } else {
-        box.innerHTML = renderOlmStudents(olmCache.students || []);
-        wireOlmStudentActions(box);
-      }
+      const data = await api('/api/lms/library', {}, role);
+      olmLibrary = data.videos || [];
     } catch (e) {
-      box.innerHTML = '<p class="error">' + escapeHtml(e.message) + '</p>';
+      olmLibrary = olmLibrary || [];
+      if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = e.message || 'Could not load the video library.';
+    }
+    renderOlmVideoPick();
+  }
+
+  function olmCloseAssign() {
+    if ($('contentLmsAssign')) $('contentLmsAssign').classList.add('hidden');
+    if ($('contentNewLmsToggle')) $('contentNewLmsToggle').textContent = '+ Assign videos';
+  }
+
+  function olmPickedBody() {
+    const body = { libraryVideoIds: [], lessonIds: [], studentIds: Array.from(olmPick.students) };
+    olmPick.videos.forEach((key) => {
+      if (key.indexOf('lib:') === 0) body.libraryVideoIds.push(key.slice(4));
+      else if (key.indexOf('les:') === 0) body.lessonIds.push(key.slice(4));
+    });
+    return body;
+  }
+
+  async function olmSubmitAssign() {
+    if (!currentClass) return;
+    const status = $('contentLibraryStatus');
+    const body = olmPickedBody();
+    const mode = $('olmDueMode') ? $('olmDueMode').value : 'default';
+    if (mode === 'none') body.noDue = true;
+    else if (mode === 'date') {
+      if (!$('olmDueDate').value) { status.textContent = 'Pick the due date.'; $('olmDueDate').focus(); return; }
+      body.dueAt = $('olmDueDate').value;
+    } else if (mode !== 'default') body.dueDays = Number(mode);
+    if ($('olmUnlockAt') && $('olmUnlockAt').value) body.availableFrom = $('olmUnlockAt').value;
+    const btn = $('contentAssignLibraryBtn');
+    btn.disabled = true;
+    status.textContent = 'Assigning…';
+    try {
+      const r = await api(olmBase() + '/assign', { method: 'POST', body }, role);
+      const skipped = (r.skipped || []).map((x) => (x.title || 'A video') + ' — ' + x.reason);
+      let msg;
+      if (r.assigned) {
+        msg = '<strong>Assigned.</strong> ' + olmPlural(r.assigned, 'new assignment') +
+          (r.dueAt ? ', due ' + escapeHtml(olmFmtDay(r.dueAt)) : ', no due date') +
+          (r.availableFrom ? ', hidden until ' + escapeHtml(olmFmtWhen(r.availableFrom)) : '') + '.' +
+          (r.alreadyAssigned ? ' ' + r.alreadyAssigned + ' already assigned (left as they were).' : '');
+      } else {
+        msg = 'Nothing new to assign — the ticked students already have these videos.';
+      }
+      if (skipped.length) msg += ' Skipped: ' + escapeHtml(skipped.join('; ')) + '.';
+      if (r.undo && r.undo.length) {
+        msg += '<span class="olm-spacer"></span><button type="button" class="olm-link" id="olmUndoBtn">Undo</button>';
+      }
+      olmNotice(msg, r.assigned ? '' : 'warn');
+      if ($('olmUndoBtn')) {
+        $('olmUndoBtn').addEventListener('click', async () => {
+          $('olmUndoBtn').disabled = true;
+          try {
+            await api(olmBase() + '/unassign', { method: 'POST', body: { items: r.undo } }, role);
+            olmNotice('Undone. Those videos were taken back.');
+            loadContentLmsList(true);
+          } catch (e) {
+            olmNotice(escapeHtml(e.message || 'Could not undo.'), 'warn');
+          }
+        });
+      }
+      // Leave the students who just got videos open so the result is visible.
+      if (body.studentIds.length === 1) olmOpen.add(body.studentIds[0]);
+      status.textContent = '';
+      olmCloseAssign();
+      await loadContentLmsList(true);
+    } catch (e) {
+      status.textContent = e.message || 'Could not assign.';
+      olmSyncAssignButton();
+    }
+  }
+
+  async function olmSubmitRemove() {
+    if (!currentClass) return;
+    const body = olmPickedBody();
+    const v = olmPick.videos.size;
+    const s = olmPick.students.size;
+    if (!v || !s) return;
+    if (!confirm('Take ' + olmPlural(v, 'video') + ' away from ' + olmPlural(s, 'student') + '?\nWhat they already watched is kept and comes back if you assign it again.')) return;
+    const status = $('contentLibraryStatus');
+    status.textContent = 'Removing…';
+    try {
+      const r = await api(olmBase() + '/unassign', { method: 'POST', body }, role);
+      olmNotice(r.removed
+        ? olmPlural(r.removed, 'assignment') + ' taken away.'
+        : 'Nothing to take away — none of the ticked students had those videos.', r.removed ? '' : 'warn');
+      status.textContent = '';
+      olmCloseAssign();
+      await loadContentLmsList(true);
+    } catch (e) {
+      status.textContent = e.message || 'Could not remove.';
+    }
+  }
+
+  async function olmSaveDefaultDue() {
+    const mode = $('olmDueMode') ? $('olmDueMode').value : 'default';
+    const days = mode === 'none' ? 0 : Number(mode);
+    if (!Number.isInteger(days)) return;
+    try {
+      const r = await api(olmBase() + '/settings', { method: 'PUT', body: { defaultDueDays: days } }, role);
+      if (olmCache) olmCache.settings = r;
+      $('olmDueMode').value = 'default';
+      renderOlmPicker();
+      $('olmDueMode').value = 'default';
+      olmSyncDueUi();
+      if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = 'Saved as the default for this class.';
+    } catch (e) {
+      if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = e.message || 'Could not save.';
+    }
+  }
+
+  // ----- Student list: expand, change a due date, take a video away -----
+
+  function olmRowContext(el) {
+    const stuEl = el.closest('.olm-stu');
+    const lesEl = el.closest('.olm-les');
+    const st = stuEl && olmCache ? (olmCache.students || []).find((x) => x.studentId === stuEl.dataset.sid) : null;
+    const lesson = st && lesEl ? (st.lessons || []).find((x) => x.id === lesEl.dataset.lid) : null;
+    return { stuEl, st, lesson };
+  }
+
+  async function olmListClick(ev) {
+    const head = ev.target.closest('.olm-stu-head');
+    if (head) {
+      const stuEl = head.parentElement;
+      const open = !stuEl.classList.contains('open');
+      stuEl.classList.toggle('open', open);
+      head.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) olmOpen.add(stuEl.dataset.sid); else olmOpen.delete(stuEl.dataset.sid);
+      return;
+    }
+    const one = ev.target.closest('.olm-assign-one');
+    if (one) {
+      const ctx = olmRowContext(one);
+      if (ctx.st) olmOpenAssign([ctx.st.studentId]);
+      return;
+    }
+    const x = ev.target.closest('.olm-les-x');
+    if (x) {
+      const ctx = olmRowContext(x);
+      if (!ctx.st || !ctx.lesson) return;
+      if (!confirm('Take “' + ctx.lesson.title + '” away from ' + ctx.st.name + '?\nWhat they already watched is kept and comes back if you assign it again.')) return;
+      x.disabled = true;
+      try {
+        await api(olmBase() + '/unassign', {
+          method: 'POST',
+          body: { items: [{ lessonId: ctx.lesson.id, studentIds: [ctx.st.studentId] }] }
+        }, role);
+        olmNotice('');
+        await loadContentLmsList(true);
+      } catch (e) {
+        x.disabled = false;
+        alert(e.message || 'Could not remove.');
+      }
+    }
+  }
+
+  async function olmListChange(ev) {
+    const input = ev.target.closest('.olm-due-input');
+    if (!input) return;
+    const ctx = olmRowContext(input);
+    if (!ctx.st || !ctx.lesson) return;
+    input.disabled = true;
+    try {
+      await api('/api/lms/lessons/' + encodeURIComponent(ctx.lesson.id) + '/students/' + encodeURIComponent(ctx.st.studentId), {
+        method: 'PATCH',
+        body: { dueAt: input.value || null }
+      }, role);
+      await loadContentLmsList(true);
+    } catch (e) {
+      input.value = input.dataset.prev || '';
+      input.disabled = false;
+      alert(e.message || 'Could not change the due date.');
     }
   }
 
@@ -3011,8 +3100,7 @@
     f.classList.toggle('hidden', !want);
     if ($(btnId)) $(btnId).textContent = want ? 'Close form' : ($(btnId).dataset.label || '');
   };
-  [['contentNewAssignToggle', 'contentDebriefAssign', 'contentAssignCancelBtn'],
-   ['contentNewLmsToggle', 'contentLmsAssign', 'contentLmsCancelBtn']].forEach(([btnId, formId, cancelId]) => {
+  [['contentNewAssignToggle', 'contentDebriefAssign', 'contentAssignCancelBtn']].forEach(([btnId, formId, cancelId]) => {
     const btn = $(btnId);
     if (!btn) return;
     btn.dataset.label = btn.textContent;
@@ -3025,52 +3113,45 @@
   if ($('contentRefreshLmsBtn')) {
     $('contentRefreshLmsBtn').addEventListener('click', () => loadContentLmsList());
   }
-  if ($('contentLibraryPublish')) {
-    $('contentLibraryPublish').addEventListener('change', syncLmsUnlockVisibility);
-    syncLmsUnlockVisibility();
+  if ($('contentNewLmsToggle')) {
+    $('contentNewLmsToggle').addEventListener('click', () => {
+      if ($('contentLmsAssign').classList.contains('hidden')) olmOpenAssign();
+      else olmCloseAssign();
+    });
   }
-  document.querySelectorAll('.olm-view-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      olmView = btn.dataset.view || 'students';
-      if (olmView !== 'students') olmCloseDrawer();
-      loadContentLmsList(true);
+  if ($('contentLmsCancelBtn')) $('contentLmsCancelBtn').addEventListener('click', olmCloseAssign);
+  if ($('contentAssignLibraryBtn')) $('contentAssignLibraryBtn').addEventListener('click', olmSubmitAssign);
+  if ($('olmRemoveBtn')) $('olmRemoveBtn').addEventListener('click', olmSubmitRemove);
+  if ($('olmDueSaveDefault')) $('olmDueSaveDefault').addEventListener('click', olmSaveDefaultDue);
+  if ($('olmDueMode')) $('olmDueMode').addEventListener('change', olmSyncDueUi);
+  if ($('olmVideoSearch')) $('olmVideoSearch').addEventListener('input', renderOlmVideoPick);
+  if ($('olmVideoPick')) {
+    $('olmVideoPick').addEventListener('change', (ev) => {
+      const cb = ev.target.closest('.olm-pick-video');
+      if (!cb) return;
+      if (cb.checked) olmPick.videos.add(cb.value); else olmPick.videos.delete(cb.value);
+      olmSyncAssignButton();
     });
-  });
-  if ($('olmDrawerClose')) $('olmDrawerClose').addEventListener('click', olmCloseDrawer);
-  if ($('contentAssignLibraryBtn')) {
-    $('contentAssignLibraryBtn').addEventListener('click', async () => {
-      if (!currentClass) return;
-      const studentIds = collectChecks($('contentLibraryStudentPick')) || [];
-      const payload = buildLmsAssignPayload(studentIds, {
-        libraryVideoId: ($('contentLibrarySelect') && $('contentLibrarySelect').value) || '',
-        mode: ($('contentLibraryPublish') && $('contentLibraryPublish').value) || 'now',
-        unlock: ($('contentLibraryUnlock') && $('contentLibraryUnlock').value) || '',
-        due: ($('contentLibraryDue') && $('contentLibraryDue').value) || ''
-      });
-      if (payload.error) {
-        if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = payload.error;
-        return;
-      }
-      $('contentAssignLibraryBtn').disabled = true;
-      if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = 'Assigning…';
-      try {
-        await api('/api/lms/classes/' + encodeURIComponent(currentClass.classId) + '/lessons', {
-          method: 'POST',
-          body: payload.body
-        }, role);
-        if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = '';
-        if ($('contentLibrarySelect')) $('contentLibrarySelect').value = '';
-        if ($('contentLibraryUnlock')) $('contentLibraryUnlock').value = '';
-        if ($('contentLibraryDue')) $('contentLibraryDue').value = '';
-        olmSelected.clear();
-        toggleForm('contentLmsAssign', 'contentNewLmsToggle', false);
-        loadContentLmsList();
-      } catch (e) {
-        if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = e.message || 'Could not assign';
-      } finally {
-        $('contentAssignLibraryBtn').disabled = false;
-      }
+  }
+  if ($('olmStudentPick')) {
+    $('olmStudentPick').addEventListener('change', (ev) => {
+      const cb = ev.target.closest('.olm-pick-student');
+      if (!cb) return;
+      if (cb.checked) olmPick.students.add(cb.value); else olmPick.students.delete(cb.value);
+      olmSyncAssignButton();
     });
+  }
+  const olmTickAllStudents = (on) => {
+    olmPick.students.clear();
+    if (on && olmCache) (olmCache.students || []).forEach((st) => olmPick.students.add(st.studentId));
+    renderOlmStudentPick();
+    olmSyncAssignButton();
+  };
+  if ($('olmStudentsAll')) $('olmStudentsAll').addEventListener('click', () => olmTickAllStudents(true));
+  if ($('olmStudentsNone')) $('olmStudentsNone').addEventListener('click', () => olmTickAllStudents(false));
+  if ($('contentLmsList')) {
+    $('contentLmsList').addEventListener('click', olmListClick);
+    $('contentLmsList').addEventListener('change', olmListChange);
   }
   if ($('contentAssignBookBtn')) {
     $('contentAssignBookBtn').addEventListener('click', async () => {
