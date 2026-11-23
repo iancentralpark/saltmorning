@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20261123olm5">
+  <link rel="stylesheet" href="/css/app.css?v=20261123olm6">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -513,7 +513,10 @@
         <div class="olm-assign-cols">
           <div>
             <div class="olm-assign-step">1. Tick the videos <span class="muted" id="olmVideoCount"></span></div>
-            <input type="search" id="olmVideoSearch" class="olm-search" placeholder="Search videos&hellip;" autocomplete="off">
+            <input type="search" id="olmVideoSearch" class="olm-search" placeholder="Search by title…" autocomplete="off">
+            <div class="olm-filter-row" id="olmCurriculumChips" hidden></div>
+            <div class="olm-filter-row" id="olmCategoryChips" hidden></div>
+            <label class="olm-hide-have"><input type="checkbox" id="olmHideHave" checked> Hide videos the ticked students already have</label>
             <div id="olmVideoPick" class="olm-pick-list"><p class="muted small" style="padding:.7rem">Loading&hellip;</p></div>
           </div>
           <div>
@@ -1365,6 +1368,7 @@
   let olmClassId = '';
   const olmOpen = new Set();
   const olmPick = { videos: new Set(), students: new Set() };
+  const olmFilter = { curriculum: '', category: '', hideHave: true };
 
   function olmBase() {
     return '/api/lms/classes/' + encodeURIComponent(currentClass.classId);
@@ -1523,17 +1527,28 @@
 
   // ----- Assign panel: tick videos, tick students, Assign -----
 
+  function olmCmpText(a, b) {
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  }
+
   function olmPickItems() {
     const lessons = (olmCache && olmCache.lessons) || [];
     const byLib = new Map();
     lessons.forEach((l) => { if (l.libraryVideoId) byLib.set(l.libraryVideoId, l); });
-    const items = (olmLibrary || []).filter((v) => v.status === 'ready').map((v) => ({
-      key: 'lib:' + v.id,
-      title: v.title || 'Untitled',
-      category: v.category || '',
-      sub: [v.curriculum, olmFmtLen(v.durationSeconds)].filter(Boolean).join(' · '),
-      have: ((byLib.get(v.id) || {}).assignedStudentIds || []).length
-    }));
+    const items = (olmLibrary || []).filter((v) => v.status === 'ready').map((v) => {
+      const lesson = byLib.get(v.id);
+      const haveIds = (lesson && lesson.assignedStudentIds) || [];
+      return {
+        key: 'lib:' + v.id,
+        title: v.title || 'Untitled',
+        category: v.category || '',
+        curriculum: v.curriculum || '',
+        sub: [v.curriculum, olmFmtLen(v.durationSeconds)].filter(Boolean).join(' · '),
+        haveIds: haveIds,
+        inClass: !!lesson,
+        updatedAt: lesson && lesson.updatedAt ? Number(lesson.updatedAt) : 0
+      };
+    });
     // Videos uploaded straight to this class (not in the shared library).
     lessons.forEach((l) => {
       if (l.libraryVideoId || l.status !== 'ready') return;
@@ -1541,13 +1556,61 @@
         key: 'les:' + l.id,
         title: l.title || 'Untitled',
         category: 'This class only',
+        curriculum: '',
         sub: olmFmtLen(l.durationSeconds),
-        have: (l.assignedStudentIds || []).length
+        haveIds: l.assignedStudentIds || [],
+        inClass: true,
+        updatedAt: Number(l.updatedAt || 0)
       });
     });
-    const cmp = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
-    items.sort((a, b) => cmp(a.category, b.category) || cmp(a.title, b.title));
+    items.sort((a, b) => olmCmpText(a.category, b.category) || olmCmpText(a.title, b.title));
     return items;
+  }
+
+  function olmSelectedHaveCount(it) {
+    const selected = Array.from(olmPick.students);
+    if (!selected.length) return 0;
+    const have = new Set(it.haveIds || []);
+    let n = 0;
+    selected.forEach((id) => { if (have.has(id)) n += 1; });
+    return n;
+  }
+
+  function olmAllSelectedHave(it) {
+    const selected = olmPick.students.size;
+    return selected > 0 && olmSelectedHaveCount(it) >= selected;
+  }
+
+  function olmHaveLabel(it) {
+    const selected = olmPick.students.size;
+    const n = olmSelectedHaveCount(it);
+    if (!n) return '';
+    if (selected && n >= selected) return selected === 1 ? 'Already has it' : 'All ticked have it';
+    if (selected) return n + ' of ' + selected + ' have it';
+    const total = olmCache ? (olmCache.students || []).length : 0;
+    return total && n >= total ? 'Everyone has it' : n + ' of ' + total + ' have it';
+  }
+
+  function olmUniqueValues(items, key) {
+    const set = new Set();
+    items.forEach((it) => { const v = String(it[key] || '').trim(); if (v) set.add(v); });
+    return Array.from(set).sort(olmCmpText);
+  }
+
+  function olmRenderChips(mount, values, active, attr) {
+    if (!mount) return;
+    if (values.length < 2) {
+      mount.hidden = true;
+      mount.innerHTML = '';
+      return;
+    }
+    mount.hidden = false;
+    mount.innerHTML =
+      '<button type="button" class="olm-chip' + (!active ? ' on' : '') + '" data-olm-filter="' + attr + '" data-value="">All</button>' +
+      values.map((v) =>
+        '<button type="button" class="olm-chip' + (active === v ? ' on' : '') + '" data-olm-filter="' + attr +
+        '" data-value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</button>'
+      ).join('');
   }
 
   function olmDueOptions() {
@@ -1591,34 +1654,76 @@
       return;
     }
     const all = olmPickItems();
-    const total = olmCache ? (olmCache.students || []).length : 0;
+    olmRenderChips($('olmCurriculumChips'), olmUniqueValues(all, 'curriculum'), olmFilter.curriculum, 'curriculum');
+    olmRenderChips($('olmCategoryChips'), olmUniqueValues(all, 'category'), olmFilter.category, 'category');
+    if ($('olmHideHave')) $('olmHideHave').checked = !!olmFilter.hideHave;
+
     if (!all.length) {
       mount.innerHTML = '<p class="muted small" style="padding:.7rem">No ready videos yet. Upload one in Video Library.</p>';
       return;
     }
+
     const q = (($('olmVideoSearch') && $('olmVideoSearch').value) || '').trim().toLowerCase();
-    const items = q
-      ? all.filter((it) => (it.title + ' ' + it.category + ' ' + it.sub).toLowerCase().indexOf(q) !== -1)
-      : all;
+    const browsing = !q && !olmFilter.curriculum && !olmFilter.category;
+    let items = all.filter((it) => {
+      if (olmPick.videos.has(it.key)) return true; // keep ticks visible across filters
+      if (olmFilter.curriculum && it.curriculum !== olmFilter.curriculum) return false;
+      if (olmFilter.category && it.category !== olmFilter.category) return false;
+      if (q) {
+        const hay = (it.title + ' ' + it.category + ' ' + it.curriculum + ' ' + it.sub).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      if (olmFilter.hideHave && olmAllSelectedHave(it)) return false;
+      return true;
+    });
+
+    // With no search/filter, only show videos already used in this class (plus any ticks).
+    if (browsing) {
+      const recent = items
+        .filter((it) => it.inClass || olmPick.videos.has(it.key))
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0) || olmCmpText(a.title, b.title));
+      items = recent.slice(0, 12);
+    } else {
+      items.sort((a, b) => olmCmpText(a.category, b.category) || olmCmpText(a.title, b.title));
+    }
+
     if (!items.length) {
-      mount.innerHTML = '<p class="muted small" style="padding:.7rem">No videos match “' + escapeHtml(q) + '”.</p>';
+      let msg;
+      if (browsing && olmFilter.hideHave) {
+        msg = 'Search or pick a filter above — ' + all.length + ' videos in the library. Videos this class already uses are hidden because every ticked student has them.';
+      } else if (browsing) {
+        msg = 'Search or pick a filter above — ' + all.length + ' videos in the library.';
+      } else if (olmFilter.hideHave) {
+        msg = 'Nothing left to assign with these filters. Clear a filter or turn off “Hide videos the ticked students already have”.';
+      } else {
+        msg = 'No videos match.';
+      }
+      mount.innerHTML = '<p class="muted small" style="padding:.7rem">' + escapeHtml(msg) + '</p>';
       return;
     }
+
+    const parts = [];
+    if (browsing) {
+      parts.push('<div class="olm-pick-hint">Recently used in this class. Search or filter to find others (' + all.length + ' in library).</div>');
+    } else {
+      parts.push('<div class="olm-pick-hint">' + items.length + ' match' + (items.length === 1 ? '' : 'es') + '</div>');
+    }
     let lastCat = null;
-    const showCats = all.some((it) => it.category);
-    mount.innerHTML = items.map((it) => {
-      let head = '';
+    const showCats = !browsing && items.some((it) => it.category);
+    items.forEach((it) => {
       if (showCats && it.category !== lastCat) {
         lastCat = it.category;
-        head = '<div class="olm-pick-cat">' + escapeHtml(it.category || 'Other') + '</div>';
+        parts.push('<div class="olm-pick-cat">' + escapeHtml(it.category || 'Other') + '</div>');
       }
-      const have = !it.have ? '' : (total && it.have >= total ? 'Everyone has it' : it.have + ' of ' + total + ' have it');
-      return head + '<label class="olm-pick"><input type="checkbox" class="olm-pick-video" value="' + escapeHtml(it.key) + '"' +
+      parts.push(
+        '<label class="olm-pick"><input type="checkbox" class="olm-pick-video" value="' + escapeHtml(it.key) + '"' +
         (olmPick.videos.has(it.key) ? ' checked' : '') + '>' +
         '<span class="olm-pick-title">' + escapeHtml(it.title) +
         (it.sub ? '<small>' + escapeHtml(it.sub) + '</small>' : '') + '</span>' +
-        '<span class="olm-pick-have">' + escapeHtml(have) + '</span></label>';
-    }).join('');
+        '<span class="olm-pick-have">' + escapeHtml(olmHaveLabel(it)) + '</span></label>'
+      );
+    });
+    mount.innerHTML = parts.join('');
   }
 
   function renderOlmStudentPick() {
@@ -1654,8 +1759,12 @@
     if (!form || !currentClass || !olmCache) return;
     olmPick.videos.clear();
     olmPick.students.clear();
+    olmFilter.curriculum = '';
+    olmFilter.category = '';
+    olmFilter.hideHave = true;
     (studentIds || (olmCache.students || []).map((st) => st.studentId)).forEach((id) => olmPick.students.add(id));
     if ($('olmVideoSearch')) $('olmVideoSearch').value = '';
+    if ($('olmHideHave')) $('olmHideHave').checked = true;
     if ($('olmDueMode')) $('olmDueMode').value = 'default';
     if ($('olmDueDate')) $('olmDueDate').value = '';
     if ($('olmUnlockAt')) $('olmUnlockAt').value = '';
@@ -1672,6 +1781,7 @@
       if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = e.message || 'Could not load the video library.';
     }
     renderOlmVideoPick();
+    if ($('olmVideoSearch')) $('olmVideoSearch').focus();
   }
 
   function olmCloseAssign() {
@@ -3123,6 +3233,23 @@
   if ($('olmDueSaveDefault')) $('olmDueSaveDefault').addEventListener('click', olmSaveDefaultDue);
   if ($('olmDueMode')) $('olmDueMode').addEventListener('change', olmSyncDueUi);
   if ($('olmVideoSearch')) $('olmVideoSearch').addEventListener('input', renderOlmVideoPick);
+  if ($('olmHideHave')) {
+    $('olmHideHave').addEventListener('change', () => {
+      olmFilter.hideHave = $('olmHideHave').checked;
+      renderOlmVideoPick();
+    });
+  }
+  const olmChipClick = (ev) => {
+    const btn = ev.target.closest('[data-olm-filter]');
+    if (!btn) return;
+    const key = btn.getAttribute('data-olm-filter');
+    const value = btn.getAttribute('data-value') || '';
+    if (key !== 'curriculum' && key !== 'category') return;
+    olmFilter[key] = value;
+    renderOlmVideoPick();
+  };
+  if ($('olmCurriculumChips')) $('olmCurriculumChips').addEventListener('click', olmChipClick);
+  if ($('olmCategoryChips')) $('olmCategoryChips').addEventListener('click', olmChipClick);
   if ($('olmVideoPick')) {
     $('olmVideoPick').addEventListener('change', (ev) => {
       const cb = ev.target.closest('.olm-pick-video');
@@ -3136,6 +3263,7 @@
       const cb = ev.target.closest('.olm-pick-student');
       if (!cb) return;
       if (cb.checked) olmPick.students.add(cb.value); else olmPick.students.delete(cb.value);
+      renderOlmVideoPick();
       olmSyncAssignButton();
     });
   }
@@ -3143,6 +3271,7 @@
     olmPick.students.clear();
     if (on && olmCache) (olmCache.students || []).forEach((st) => olmPick.students.add(st.studentId));
     renderOlmStudentPick();
+    renderOlmVideoPick();
     olmSyncAssignButton();
   };
   if ($('olmStudentsAll')) $('olmStudentsAll').addEventListener('click', () => olmTickAllStudents(true));

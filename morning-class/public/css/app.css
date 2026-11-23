@@ -6722,9 +6722,28 @@ body.buddy-resize-active {
 .olm-assign-step { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem; min-height: 1.5rem; }
 .olm-assign-step .muted { font-weight: 600; font-size: 0.78rem; }
 .olm-search { width: 100%; margin-bottom: 0.4rem; }
+.olm-filter-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.4rem; }
+.olm-filter-row[hidden] { display: none; }
+.olm-chip {
+  border: 1px solid var(--border); background: #fff; color: var(--text);
+  border-radius: 8px; padding: 0.22rem 0.55rem; font: inherit; font-size: 0.75rem; font-weight: 600;
+  cursor: pointer; line-height: 1.3;
+}
+.olm-chip:hover { border-color: var(--primary); color: var(--primary); }
+.olm-chip.on { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.olm-hide-have {
+  display: flex; gap: 0.45rem; align-items: center; margin: 0 0 0.45rem;
+  font-size: 0.78rem; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.olm-hide-have input { margin: 0; width: 0.95rem; height: 0.95rem; }
 .olm-pick-list { border: 1px solid var(--border); border-radius: 12px; background: #fff; max-height: 22rem; overflow: auto; }
 .olm-assign-cols > div:last-child .olm-pick-list { max-height: 24.6rem; }
 @media (max-width: 760px) { .olm-pick-list, .olm-assign-cols > div:last-child .olm-pick-list { max-height: 15rem; } }
+.olm-pick-hint {
+  background: #f7faf8;
+  font-size: 0.74rem; color: var(--muted); padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border-soft); line-height: 1.35;
+}
 .olm-pick-cat {
   position: sticky; top: 0; z-index: 1; background: var(--cream);
   font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
