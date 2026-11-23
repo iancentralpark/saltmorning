@@ -17,7 +17,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20260831redesign">
+  <link rel="stylesheet" href="/css/app.css?v=20261123olm4">
   <link rel="stylesheet" href="/css/vocab-learn.css">
 </head>
 <body class="student-body">
@@ -564,24 +564,31 @@
     }).join('') + '</ul>';
   }
 
-  function lessonCard(l, opts) {
-    opts = opts || {};
-    const locked = !!l.locked || !!opts.locked;
+  function lessonWhen(ms) {
+    const d = new Date(ms);
+    const day = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Seoul', weekday: 'short', day: 'numeric', month: 'short' });
+    const time = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
+    // Due dates normally mean "by the end of that day", so the time only matters when it is not.
+    return time === '23:59' ? day : day + ', ' + time;
+  }
+
+  function lessonCard(l) {
+    const locked = !!l.locked;
     const pct = l.percent || 0;
-    const unlock = l.availableFrom
-      ? new Date(l.availableFrom).toLocaleString('en-GB', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : '';
-    const due = l.dueAt
-      ? new Date(l.dueAt).toLocaleString('en-GB', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : '';
-    let meta = locked ? ('Unlocks ' + unlock) : (l.completed ? 'Completed' : (pct ? pct + '% watched' : 'Not started'));
-    if (!locked && due) meta += (l.overdue ? ' · Overdue ' : ' · Due ') + due;
-    if (!locked && l.lastPosition > 0 && !l.completed) meta += ' · Continue';
-    const inner = '<div><strong>' + escapeHtml(l.title) + '</strong><div class="meta">' + escapeHtml(meta) + '</div>' +
-      (!locked && !l.completed ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') + '</div>' +
+    const bits = [];
+    if (locked) bits.push('Opens ' + lessonWhen(l.availableFrom));
+    else if (l.completed) bits.push('Watched');
+    else {
+      if (l.overdue) bits.push('Overdue — was due ' + lessonWhen(l.dueAt));
+      else if (l.dueAt) bits.push('Due ' + lessonWhen(l.dueAt));
+      bits.push(pct ? pct + '% watched' : 'Not started');
+    }
+    const inner = '<div><strong>' + escapeHtml(l.title) + '</strong><div class="meta">' + escapeHtml(bits.join(' · ')) + '</div>' +
+      (!locked && !l.completed && pct ? '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '') + '</div>' +
       '<span class="muted small">' + (locked ? '🔒' : (l.completed ? '✓' : '▶')) + '</span>';
     if (locked) return '<div class="stu-lesson-card locked">' + inner + '</div>';
-    return '<a class="stu-lesson-card" href="/student-lesson.html?lesson=' + encodeURIComponent(l.id) + '">' + inner + '</a>';
+    return '<a class="stu-lesson-card' + (l.overdue ? ' overdue' : '') + '" href="/student-lesson.html?lesson=' +
+      encodeURIComponent(l.id) + '">' + inner + '</a>';
   }
 
   async function loadLessons() {
@@ -590,27 +597,26 @@
     if (!box || !status) return;
     try {
       const d = await api('/api/student/lms/lessons', {}, role);
-      const sec = d.sections || {};
       const list = d.lessons || [];
       if (!list.length) {
         status.textContent = 'No lessons shared yet.';
         box.innerHTML = '';
         return;
       }
+      const toWatch = d.toWatch || list.filter((l) => !l.completed);
+      const watched = d.watched || list.filter((l) => l.completed);
       const sum = d.summary || {};
-      status.textContent = (sum.completed || 0) + ' of ' + (sum.assigned || list.length) + ' watched' +
-        (sum.overdue ? ' · ' + sum.overdue + ' overdue' : '');
-      const blocks = [
-        ['Continue watching', sec.continue || []],
-        ['Ready for you', sec.today || []],
-        ['Coming up', sec.upcoming || []],
-        ['Completed', sec.done || []]
-      ];
-      box.innerHTML = blocks.map(([title, items]) => {
-        if (!items.length) return '';
-        return '<div class="stu-lesson-sec"><h4>' + title + '</h4>' +
-          items.map((l) => lessonCard(l)).join('') + '</div>';
-      }).join('') || '<p class="muted">No lessons yet.</p>';
+      status.textContent = toWatch.length
+        ? toWatch.length + ' to watch' + (sum.overdue ? ' · ' + sum.overdue + ' overdue' : '')
+        : 'All caught up!';
+      box.innerHTML =
+        (toWatch.length
+          ? '<div class="stu-lesson-sec"><h4>To watch</h4>' + toWatch.map(lessonCard).join('') + '</div>'
+          : '') +
+        (watched.length
+          ? '<details class="stu-lesson-sec stu-lesson-done"><summary>Watched (' + watched.length + ')</summary>' +
+            watched.map(lessonCard).join('') + '</details>'
+          : '');
     } catch (e) {
       status.textContent = 'Could not load lessons.';
       box.innerHTML = '';
