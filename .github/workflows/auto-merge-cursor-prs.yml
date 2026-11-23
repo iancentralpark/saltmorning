@@ -1,0 +1,55 @@
+name: Auto-merge Cursor PRs
+
+# Squash-merges pull requests from this repository's own `cursor/*` branches into `main`
+# as soon as they are opened. Open a PR as a draft to hold it for a human.
+#
+# `pull_request_target` runs this file from `main`, never from the pull request, and no
+# pull request code is checked out, so a pull request cannot change what runs here.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  merge:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'cursor/') &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Squash-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # GitHub works out mergeability in the background, so the first tries can be too early.
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$PR_NUMBER" --repo "$REPO" --squash \
+                --match-head-commit "$HEAD_SHA" \
+                --subject "$PR_TITLE (#$PR_NUMBER)"; then
+              exit 0
+            fi
+            state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json state,mergeable --jq '.state + " " + .mergeable')
+            echo "Attempt $attempt failed (pull request is $state)."
+            case "$state" in
+              MERGED*) exit 0 ;;
+              CLOSED*|*CONFLICTING) break ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Could not merge #$PR_NUMBER automatically. Merge it by hand or fix the conflict and push again."
+          exit 1
