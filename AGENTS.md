@@ -49,6 +49,15 @@ checks: `GET /api/health` (both Node apps) and `GET /health` (solver).
 - Python solver deps: `morning-class/solver/requirements.txt`
   (`pip3 install -r morning-class/solver/requirements.txt`).
 
+### Pull requests merge themselves
+
+`.github/workflows/auto-merge-cursor-prs.yml` squash-merges any non-draft PR from a
+`cursor/*` branch of this repo into `main` the moment it is opened (or pushed to,
+reopened, or marked ready). So finish testing **before** opening the PR, and open it
+as a draft when the owner should look first. Merging does not deploy: run the deploy
+below once the PR is merged. PRs that change `.github/workflows/` cannot be merged by
+the workflow and need the owner to merge by hand.
+
 ### Salt Morning production deploy (saltmorning.study)
 
 **Live service (only this one):** Railway project `mrpark-class-api`
