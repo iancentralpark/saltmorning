@@ -5916,6 +5916,13 @@ const lmsCreateLimiter = createRateLimiter({
   message: '강의 생성 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
 });
 
+const lmsAssignLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 40,
+  keyFn: (req) => 'lms-assign:' + debriefTeacherId(req),
+  message: 'Too many requests. Please try again in a moment.'
+});
+
 const lmsPlaybackLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   max: 30,
@@ -6007,6 +6014,35 @@ router.get('/lms/classes/:classId/students', requireRole('teacher', 'admin'), as
   }
 });
 
+router.post('/lms/classes/:classId/assign', requireRole('teacher', 'admin'), lmsAssignLimiter, async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    const roster = await getClassRoster(req.params.classId);
+    res.json(await lmsLessons.assignVideos(req.params.classId, req.body || {}, debriefTeacherId(req), roster));
+  } catch (e) {
+    lmsError(res, e, 'Could not assign videos.');
+  }
+});
+
+router.post('/lms/classes/:classId/unassign', requireRole('teacher', 'admin'), lmsAssignLimiter, async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    const roster = await getClassRoster(req.params.classId);
+    res.json(await lmsLessons.unassignVideos(req.params.classId, req.body || {}, roster));
+  } catch (e) {
+    lmsError(res, e, 'Could not unassign videos.');
+  }
+});
+
+router.put('/lms/classes/:classId/settings', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    await assertLmsClassAccess(req, req.params.classId);
+    res.json(await lmsLessons.updateClassSettings(req.params.classId, req.body || {}));
+  } catch (e) {
+    lmsError(res, e, 'Could not save settings.');
+  }
+});
+
 router.get('/lms/classes/:classId/lessons', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     await assertLmsClassAccess(req, req.params.classId);
@@ -6067,6 +6103,16 @@ router.put('/lms/lessons/:lessonId/students', requireRole('teacher', 'admin'), a
     res.json(await lmsLessons.setLessonStudents(req.params.lessonId, (req.body && req.body.studentIds) || []));
   } catch (e) {
     lmsError(res, e, 'Could not update lesson students.');
+  }
+});
+
+router.patch('/lms/lessons/:lessonId/students/:studentId', requireRole('teacher', 'admin'), lmsAssignLimiter, async (req, res) => {
+  try {
+    const lesson = await loadLmsLessonForStaff(req);
+    const roster = await getClassRoster(lesson.classId);
+    res.json(await lmsLessons.setStudentDue(req.params.lessonId, req.params.studentId, req.body || {}, roster));
+  } catch (e) {
+    lmsError(res, e, 'Could not change the due date.');
   }
 });
 
