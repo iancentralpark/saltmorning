@@ -34,6 +34,11 @@
     .list .t { font-weight:600; }
     .list .m { font-size:.8rem; color:var(--muted); }
     .done { color:var(--teal); font-weight:700; font-size:.85rem; }
+    .info p.hint { font-size:.8rem; margin:.35rem 0 0; white-space:normal; }
+    .manual { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-top:.7rem; padding:.6rem .75rem; border:1px solid var(--line); border-radius:10px; background:var(--paper); font-size:.82rem; color:var(--muted); line-height:1.45; }
+    .manual span { flex:1 1 14rem; }
+    .list a.locked { opacity:.65; }
+    .list .m.late { color:var(--coral); font-weight:600; }
     .error-card { background:#fdeceb; border:1px solid #f3c5c1; color:var(--coral); border-radius:14px; padding:1rem; margin:1rem 0; }
     .empty { text-align:center; color:var(--muted); padding:2rem 1rem; }
   </style>
@@ -52,7 +57,11 @@
         <div class="bar"><div id="watchBar"></div></div>
         <div class="row">
           <span id="watchText"></span>
-          <button type="button" class="btn ghost hidden" id="markDoneBtn">Mark as watched</button>
+        </div>
+        <p class="hint" id="watchHint"></p>
+        <div class="manual hidden" id="manualArea">
+          <span>The video player could not report your progress on this device. If you watched the whole lesson, mark it here. Your teacher will see that you marked it yourself.</span>
+          <button type="button" class="btn ghost" id="markDoneBtn">Mark as watched</button>
         </div>
       </div>
     </div>
@@ -71,17 +80,33 @@
   var $ = function (id) { return document.getElementById(id); };
   if (!getToken(role)) { location.replace('/'); return; }
 
+  var HEARTBEAT_MS = 15000;
   var lessonId = new URLSearchParams(location.search).get('lesson') || '';
   var lesson = null;
-  var playing = false;
-  var lastSaved = 0;
-  var lastSentAt = 0;
   var player = null;
+  var playing = false;
+  var reachedEnd = false;
+  var lastSentAt = 0;
+
+  // Only video that actually plays counts. `seg` is the stretch being played right now,
+  // `pending` holds finished stretches [fromSec, toSec, speed] the server has not confirmed.
+  var MAX_RANGES = 60;
+  var seg = null;
+  var pending = [];
+  var busy = false;
+  var queued = null;
 
   function fmt(sec) {
     sec = Math.max(0, Math.round(sec || 0));
     var m = Math.floor(sec / 60), s = sec % 60;
     return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function fmtWhen(ms) {
+    var d = new Date(ms);
+    var day = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Seoul', weekday: 'short', day: 'numeric', month: 'short' });
+    var time = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
+    return time === '23:59' ? day : day + ', ' + time;
   }
 
   function showError(msg) {
@@ -92,23 +117,106 @@
 
   function renderProgress() {
     if (!lesson) return;
-    $('watchBar').style.width = (lesson.completed ? 100 : lesson.percent || 0) + '%';
-    $('watchText').textContent = lesson.completed ? 'Completed' : ((lesson.percent || 0) + '% watched');
-    $('markDoneBtn').classList.toggle('hidden', !!lesson.completed);
+    var pct = lesson.percent || 0;
+    $('watchBar').style.width = (lesson.completed ? 100 : pct) + '%';
+    var text;
+    if (lesson.completed) text = 'Completed';
+    else if (reachedEnd) text = pct + '% watched — you skipped some parts. Go back and watch them to finish.';
+    else text = pct + '% watched';
+    $('watchText').textContent = text;
+    var hint = '';
+    if (!lesson.completed) {
+      hint = 'This lesson is finished once you have watched 90% of it. Skipping ahead does not count.';
+      if (lesson.dueAt) hint = (lesson.overdue ? 'Overdue — was due ' : 'Due ') + fmtWhen(lesson.dueAt) + '. ' + hint;
+    }
+    $('watchHint').textContent = hint;
+    if (lesson.completed) $('manualArea').classList.add('hidden');
   }
 
-  function send(position, duration, ended, extra) {
-    lastSentAt = Date.now();
+  function speed() {
+    var r = player ? Number(player.playbackRate) : 1;
+    return r > 0 ? r : 1;
+  }
+
+  function position() {
+    var t = player ? Number(player.currentTime) : 0;
+    return isFinite(t) && t > 0 ? t : 0;
+  }
+
+  function openSeg(at) {
+    var t = at == null ? position() : at;
+    seg = { from: t, to: t, rate: speed(), wallAt: Date.now() };
+  }
+
+  function closeSeg() {
+    if (seg && seg.to - seg.from >= 0.2) {
+      pending.push([Math.round(seg.from * 100) / 100, Math.round(seg.to * 100) / 100, seg.rate]);
+    }
+    seg = null;
+  }
+
+  /** Follow the playhead. A jump (seek) ends the current stretch and starts a new one. */
+  function advance() {
+    if (!playing || !player) return;
+    var t = Number(player.currentTime);
+    if (!isFinite(t)) return;
+    if (!seg) { openSeg(t); return; }
+    var wall = (Date.now() - seg.wallAt) / 1000;
+    var step = t - seg.to;
+    if (step < -0.3 || step > wall * seg.rate * 1.25 + 1) {
+      closeSeg();
+      openSeg(t);
+      return;
+    }
+    if (step > 0) seg.to = t;
+    seg.wallAt = Date.now();
+  }
+
+  /** Report progress. Stretches stay in `pending` until the server has accepted them. */
+  function send(extra, leaving) {
+    if (!lessonId || !lesson) return Promise.resolve();
+    if (busy && !leaving) {
+      // One report at a time; fold this one into the next.
+      queued = Object.assign(queued || {}, extra || {});
+      return Promise.resolve();
+    }
+    if (seg) {
+      // Cut the running stretch so everything played so far is included.
+      var at = seg.to;
+      closeSeg();
+      if (playing) openSeg(at);
+    }
+    var batch = pending.filter(function (r) { return !r.sent; }).slice(0, MAX_RANGES);
+    batch.forEach(function (r) { r.sent = true; });
     var body = Object.assign({
-      position: position,
-      duration: duration,
-      ended: !!ended,
-      playbackRate: (player && typeof player.playbackRate === 'number') ? player.playbackRate : 1
+      position: position(),
+      duration: player ? player.duration : undefined,
+      playbackRate: speed(),
+      ranges: batch
     }, extra || {});
+    lastSentAt = Date.now();
+    if (!leaving) busy = true;
     return api('/api/student/lms/lessons/' + encodeURIComponent(lessonId) + '/progress',
-      { method: 'POST', body: body }, role)
-      .then(function (l) { lesson = Object.assign({}, lesson, l); renderProgress(); })
-      .catch(function () { /* progress is best effort */ });
+      { method: 'POST', body: body, keepalive: !!leaving }, role)
+      .then(function (l) {
+        pending = pending.filter(function (r) { return batch.indexOf(r) === -1; });
+        var wasDone = !!lesson.completed;
+        lesson = Object.assign({}, lesson, l);
+        renderProgress();
+        if (!wasDone && lesson.completed) loadList();
+      })
+      .catch(function () {
+        // Best effort: these stretches go out again with the next report.
+        batch.forEach(function (r) { r.sent = false; });
+      })
+      .then(function () {
+        if (leaving) return;
+        busy = false;
+        if (!queued) return;
+        var next = queued;
+        queued = null;
+        return send(next);
+      });
   }
 
   function loadSdk() {
@@ -124,30 +232,50 @@
 
   function wirePlayer() {
     loadSdk().then(function (ok) {
-      if (!ok) { $('markDoneBtn').classList.remove('hidden'); return; }
+      if (!ok) {
+        // Without the player SDK nothing can be measured, so let the student say they watched it.
+        if (lesson && !lesson.completed) $('manualArea').classList.remove('hidden');
+        return;
+      }
       player = window.Stream($('playerFrame'));
       var viewCounted = false;
-      player.addEventListener('play', function () {
+      function onPlay() {
+        if (playing) return;
         playing = true;
+        reachedEnd = false;
+        openSeg();
         if (!viewCounted) {
           viewCounted = true;
-          send(player.currentTime || 0, player.duration, false, { viewStart: true });
+          send({ viewStart: true });
         }
-      });
+      }
+      player.addEventListener('play', onPlay);
+      player.addEventListener('playing', onPlay);
+      player.addEventListener('seeking', function () { closeSeg(); });
       player.addEventListener('ratechange', function () {
-        if (playing) send(player.currentTime, player.duration);
+        if (!playing) return;
+        // Credit what was played so far to the old speed, then continue at the new one.
+        var at = seg ? seg.to : position();
+        closeSeg();
+        openSeg(at);
+        send();
       });
       player.addEventListener('pause', function () {
+        advance();
         playing = false;
-        send(player.currentTime, player.duration);
+        closeSeg();
+        send();
       });
       player.addEventListener('ended', function () {
+        advance();
         playing = false;
-        send(player.currentTime, player.duration, true);
+        reachedEnd = true;
+        closeSeg();
+        send({ ended: true });
       });
       player.addEventListener('timeupdate', function () {
-        if (!playing) return;
-        if (Date.now() - lastSentAt >= 15000) send(player.currentTime, player.duration);
+        advance();
+        if (playing && Date.now() - lastSentAt >= HEARTBEAT_MS) send();
       });
     });
   }
@@ -169,15 +297,22 @@
 
   function loadList() {
     return api('/api/student/lms/lessons', {}, role).then(function (d) {
-      var list = d.lessons || [];
+      var list = d.toWatch ? d.toWatch.concat(d.watched || []) : (d.lessons || []);
       $('listHeading').classList.toggle('hidden', !list.length);
       $('emptyMsg').classList.toggle('hidden', !!list.length);
       $('lessonList').innerHTML = list.map(function (l, i) {
-        var meta = (l.durationSeconds ? fmt(l.durationSeconds) + ' · ' : '') +
-          (l.completed ? 'Completed' : (l.percent ? l.percent + '% watched' : 'Not started'));
-        return '<li><a href="/student-lesson.html?lesson=' + encodeURIComponent(l.id) + '"' +
-          (l.id === lessonId ? ' class="current"' : '') + '><span class="no">' + (i + 1) + '</span>' +
-          '<span><div class="t">' + esc(l.title) + '</div><div class="m">' + esc(meta) + '</div></span>' +
+        var bits = [];
+        if (l.durationSeconds) bits.push(fmt(l.durationSeconds));
+        if (l.locked) bits.push('Opens ' + fmtWhen(l.availableFrom));
+        else if (l.completed) bits.push('Completed');
+        else {
+          bits.push(l.percent ? l.percent + '% watched' : 'Not started');
+          if (l.dueAt) bits.push((l.overdue ? 'Overdue — was due ' : 'Due ') + fmtWhen(l.dueAt));
+        }
+        var cls = (l.id === lessonId ? 'current' : '') + (l.locked ? ' locked' : '');
+        return '<li><a' + (l.locked ? '' : ' href="/student-lesson.html?lesson=' + encodeURIComponent(l.id) + '"') +
+          (cls.trim() ? ' class="' + cls.trim() + '"' : '') + '><span class="no">' + (i + 1) + '</span>' +
+          '<span><div class="t">' + esc(l.title) + '</div><div class="m' + (l.overdue ? ' late' : '') + '">' + esc(bits.join(' · ')) + '</div></span>' +
           (l.completed ? '<span class="done"><i class="fa-solid fa-circle-check"></i></span>' : '<span></span>') +
           '</a></li>';
       }).join('');
@@ -185,12 +320,14 @@
   }
 
   $('markDoneBtn').addEventListener('click', function () {
-    var d = (player && player.duration) || (lesson && lesson.durationSeconds) || 0;
-    send(d, d, true);
+    $('markDoneBtn').disabled = true;
+    send({ manualDone: true }).then(function () { $('markDoneBtn').disabled = false; });
   });
 
   window.addEventListener('pagehide', function () {
-    if (player && playing) send(player.currentTime, player.duration);
+    if (!player) return;
+    advance();
+    if (seg || pending.some(function (r) { return !r.sent; })) send(null, true);
   });
 
   if (lessonId) loadPlayer();
