@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20261123olm4">
+  <link rel="stylesheet" href="/css/app.css?v=20261123olm5">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -1463,7 +1463,7 @@
     const lessons = st.lessons || [];
     return '<div class="olm-stu' + (open ? ' open' : '') + '" data-sid="' + sid + '">' +
       '<button type="button" class="olm-stu-head" aria-expanded="' + (open ? 'true' : 'false') + '">' +
-      '<span class="olm-chev" aria-hidden="true">&#9656;</span>' +
+      '<span class="olm-chev" aria-hidden="true"><i class="fa-solid fa-chevron-right"></i></span>' +
       '<span class="olm-stu-name"><strong>' + escapeHtml(st.name || st.studentId) + '</strong>' + pills + '</span>' +
       '<span class="olm-stu-done">' + (st.assigned
         ? '<b>' + st.completed + '</b> of ' + st.assigned + ' done<span class="olm-bar"><i style="width:' + pct + '%"></i></span>'
@@ -1773,8 +1773,6 @@
       if (olmCache) olmCache.settings = r;
       $('olmDueMode').value = 'default';
       renderOlmPicker();
-      $('olmDueMode').value = 'default';
-      olmSyncDueUi();
       if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = 'Saved as the default for this class.';
     } catch (e) {
       if ($('contentLibraryStatus')) $('contentLibraryStatus').textContent = e.message || 'Could not save.';

@@ -200,8 +200,10 @@
       { method: 'POST', body: body, keepalive: !!leaving }, role)
       .then(function (l) {
         pending = pending.filter(function (r) { return batch.indexOf(r) === -1; });
+        var wasDone = !!lesson.completed;
         lesson = Object.assign({}, lesson, l);
         renderProgress();
+        if (!wasDone && lesson.completed) loadList();
       })
       .catch(function () {
         // Best effort: these stretches go out again with the next report.
