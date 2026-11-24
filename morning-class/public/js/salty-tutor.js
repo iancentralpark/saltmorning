@@ -23,20 +23,22 @@
   var buddyVideoBase = '';
   var buddyTalkTimer = null;
 
+  // Prefer Higgsfield loops over the flat logo idle-512 (looks "bald" / static).
   var BUDDY = {
-    idle: '/img/salt-buddy/idle-512.png',
+    idle: '/img/salt-buddy/happy.png',
     listening: '/img/salt-buddy/listening.png',
     thinking: '/img/salt-buddy/thinking.png',
     talking: '/img/salt-buddy/talking.png',
     happy: '/img/salt-buddy/happy.png'
   };
   var BUDDY_VIDEO = {
+    idle: '/img/salt-buddy/happy-loop',
     speaking: '/img/salt-buddy/talking-loop',
     listening: '/img/salt-buddy/listening-loop',
     thinking: '/img/salt-buddy/thinking-loop',
     happy: '/img/salt-buddy/happy-loop'
   };
-  var buddyVideoOk = { speaking: true, listening: true, thinking: true, happy: true };
+  var buddyVideoOk = { idle: true, speaking: true, listening: true, thinking: true, happy: true };
 
   function $(id) { return document.getElementById(id); }
 
@@ -100,8 +102,6 @@
 
   function setMood(mood) {
     var img = $('saltyAvatar');
-    var vid = $('saltyVideo');
-    var frame = $('saltyBuddyFrame');
     var cap = $('saltyCaption');
     if (!img) return;
     mood = mood || 'idle';
@@ -121,14 +121,8 @@
       playBuddyVideo(mood, mood);
       return;
     }
-
-    if (frame) frame.classList.remove('is-speaking');
-    if (vid) {
-      try { vid.pause(); } catch (e) { /* ignore */ }
-      vid.classList.add('hidden');
-    }
-    img.classList.remove('hidden');
-    img.src = BUDDY.idle;
+    // Default / idle: keep the happy loop playing — never fall back to flat bald logo.
+    playBuddyVideo('idle', 'happy');
   }
 
   function setYouSaid(text) {
@@ -148,6 +142,10 @@
     if (!el) return;
     el.textContent = text || '';
     el.classList.toggle('is-typing', !!typing && !!text);
+    var live = el.parentElement;
+    if (live && live.classList.contains('salty-live')) {
+      live.scrollTop = live.scrollHeight;
+    }
   }
 
   function typeReply(fullText, onDone) {
@@ -205,8 +203,12 @@
     var fab = $('saltyFab');
     if (fab) fab.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
+      setMood('idle');
       loadHistory();
-      setTimeout(function () { if ($('saltyInput')) $('saltyInput').focus(); }, 50);
+      setTimeout(function () {
+        setMood('idle');
+        if ($('saltyInput')) $('saltyInput').focus();
+      }, 50);
     } else {
       stopSpeech();
       typeGen += 1;
@@ -228,7 +230,11 @@
       if (history.length) {
         var last = history[history.length - 1];
         if (last.role === 'salty') setLiveText(last.text, false);
+        // Keep buddy in view after restoring a long prior reply.
+        var live = $('saltyLiveText') && $('saltyLiveText').parentElement;
+        if (live) live.scrollTop = 0;
       }
+      setMood('idle');
     }).catch(function (e) {
       if ($('saltyError')) $('saltyError').textContent = e.message || 'Could not load chat.';
     });
