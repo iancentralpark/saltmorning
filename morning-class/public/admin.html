@@ -173,111 +173,143 @@
       <div id="teacherSaveToast" class="teacher-save-toast hidden" role="status">Saved.</div>
       <input type="search" id="teacherSearch" class="cr-class-search" style="margin:0.75rem 0 0;max-width:20rem" placeholder="Search faculty by name, title, or login…" aria-label="Search faculty">
       <div id="teacherList" class="table-wrap" style="margin:0.75rem 0"></div>
+    </div>
 
-      <div id="teacherEditor" class="teacher-editor hidden">
+    <div id="teacherEditorModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="teacherFormTitle">
+      <div class="modal-card modal-wide teacher-editor-modal">
         <div class="teacher-editor-head">
-          <h3 id="teacherFormTitle" style="margin:0">Add teacher</h3>
-          <button type="button" class="btn btn-ghost" id="teacherFormCloseBtn">Close</button>
+          <h3 id="teacherFormTitle" style="margin:0">Add faculty</h3>
+          <button type="button" class="btn btn-ghost" id="teacherFormCloseBtn" aria-label="Close">Close</button>
         </div>
+        <div class="teacher-editor-tabs" role="tablist">
+          <button type="button" class="teacher-editor-tab active" data-teacher-tab="account" role="tab" aria-selected="true">Account</button>
+          <button type="button" class="teacher-editor-tab" data-teacher-tab="permissions" role="tab" aria-selected="false">Permissions</button>
+          <button type="button" class="teacher-editor-tab" data-teacher-tab="profile" role="tab" aria-selected="false">Profile</button>
+          <button type="button" class="teacher-editor-tab" data-teacher-tab="classes" role="tab" aria-selected="false">Classes</button>
+        </div>
+
         <form id="teacherForm" class="teacher-profile-form">
           <input type="hidden" id="teacherId">
-          <div class="sr-photo-row teacher-photo-row">
-            <div class="sr-photo-box" id="teacherPhotoBox">
-              <div class="sr-avatar-fallback sr-photo-lg" id="teacherPhotoFallback">?</div>
-              <img id="teacherPhotoImg" class="sr-photo-lg hidden" alt="Teacher photo">
-            </div>
-            <div>
-              <label class="btn btn-ghost sr-photo-upload" id="teacherPhotoUploadLabel">
-                Upload photo
-                <input type="file" accept="image/jpeg,image/png,image/webp" id="teacherPhotoInput" class="hidden">
-              </label>
-              <p class="muted small" id="teacherPhotoHint">Save the teacher first, then upload a photo.</p>
-              <div class="error" id="teacherPhotoError"></div>
-            </div>
-          </div>
-          <div class="sr-form-grid teacher-profile-grid">
-            <label>Full name <input id="teacherName" required></label>
-            <label>Preferred name <input id="teacherPreferredName" placeholder="e.g. Mr. Park (shown to students/parents)"></label>
-            <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
-            <label>Login ID <input id="teacherLoginId" required></label>
-            <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
-            <div class="sr-span2">
-              <button type="button" class="btn btn-ghost" id="teacherResetPwBtn">Reset password (temp + force change)</button>
-            </div>
-            <label>Homeroom class IDs
-              <input id="teacherHomeroom" placeholder="e.g. C001, C002 (comma-separated)">
-            </label>
-            <label>Title
-              <select id="teacherRole">
-                <option value="Teacher">Teacher</option>
-                <option value="Head Teacher">Head Teacher</option>
-                <option value="Principal">Principal</option>
-                <option value="Vice Principal">Vice Principal</option>
-                <option value="Dean">Dean</option>
-                <option value="Chaplain">Chaplain</option>
-                <option value="Admin Staff">Admin Staff</option>
-                <option value="Librarian">Librarian</option>
-                <option value="Nurse">Nurse</option>
-                <option value="Head of Admin">Head of Admin</option>
-              </select>
-            </label>
-            <label>Head Teacher ID
-              <input id="teacherHeadId" list="headTeacherOptions" placeholder="TeacherID of their Head Teacher">
-              <datalist id="headTeacherOptions"></datalist>
-            </label>
-            <label>Job note <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
-            <div class="sr-span2" id="teacherPermBox">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
-                <strong data-i18n="admin.teachers.perms">Portal permissions</strong>
-                <button type="button" class="btn btn-ghost" id="teacherPermPresetBtn">Apply title preset</button>
-              </div>
-              <p class="muted small" style="margin:0.25rem 0 0.5rem" data-i18n="admin.teachers.permsHelp">Checked menus appear after this person signs in. Admin accounts always have everything.</p>
-              <div id="teacherPermChecks" class="faculty-perm-grid"></div>
-            </div>
-            <label>Hire date <input id="teacherHireDate" type="date"></label>
-            <label>Date of birth <input id="teacherDob" type="date"></label>
-            <label>Gender <input id="teacherGender"></label>
-            <label>Nationality <input id="teacherNationality"></label>
-            <label>Phone <input id="teacherPhone" type="tel"></label>
-            <label>Email <input id="teacherEmail" type="email"></label>
-            <label class="sr-span2">Address <input id="teacherAddress"></label>
-            <label>Emergency contact <input id="teacherEmergencyContact"></label>
-            <label>Emergency phone <input id="teacherEmergencyPhone" type="tel"></label>
-            <label class="sr-span2">Education <input id="teacherEducation" placeholder="Degrees, certifications"></label>
-            <label class="sr-span2">Notes <textarea id="teacherNotes" rows="3"></textarea></label>
-          </div>
-          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem">
-            <button type="submit" class="btn btn-primary">Save teacher</button>
-            <button type="button" class="btn btn-ghost" id="teacherFormResetBtn">Cancel</button>
-          </div>
-          <div class="error" id="teacherError"></div>
-        </form>
-      </div>
+          <input type="hidden" id="teacherHomeroom" value="">
 
-      <h3 style="margin-top:1.5rem">Class &amp; subject assignments</h3>
-      <p class="muted small">Admin assignments are stored on Class_Teachers. For homeroom, pick type <strong>Homeroom</strong> — a teacher can have more than one. Or list multiple class IDs on the teacher profile above (comma-separated).</p>
-      <div id="assignmentList" class="table-wrap" style="margin-bottom:1rem"></div>
-      <h3 data-i18n="admin.faculty.addAssign">Add assignment</h3>
-      <form id="assignmentForm" class="form-grid assignment-form" autocomplete="off">
-        <label><span data-i18n="admin.faculty.teacher">Teacher</span>
-          <select id="assignTeacher" required></select>
-        </label>
-        <label><span data-i18n="admin.faculty.class">Class</span>
-          <select id="assignClass" required></select>
-        </label>
-        <label><span data-i18n="admin.faculty.type">Type</span>
-          <select id="assignType">
-            <option value="Subject" data-i18n="admin.faculty.subjectTeacher">Subject teacher</option>
-            <option value="Homeroom" data-i18n="admin.faculty.homeroom">Homeroom (sheet row)</option>
-          </select>
-        </label>
-        <label><span data-i18n="admin.faculty.subject">Subject</span>
-          <input id="assignSubject" placeholder="Subject (e.g. Math)" list="assignSubjectList">
-          <datalist id="assignSubjectList"></datalist>
-        </label>
-        <button type="submit" class="btn btn-primary assignment-form-submit" data-i18n="admin.faculty.addAssign">Add assignment</button>
-        <div class="error" id="assignmentError"></div>
-      </form>
+          <div class="teacher-tab-panel" data-teacher-panel="account">
+            <div class="sr-photo-row teacher-photo-row">
+              <div class="sr-photo-box" id="teacherPhotoBox">
+                <div class="sr-avatar-fallback sr-photo-lg" id="teacherPhotoFallback">?</div>
+                <img id="teacherPhotoImg" class="sr-photo-lg hidden" alt="Teacher photo">
+              </div>
+              <div>
+                <label class="btn btn-ghost sr-photo-upload" id="teacherPhotoUploadLabel">
+                  Upload photo
+                  <input type="file" accept="image/jpeg,image/png,image/webp" id="teacherPhotoInput" class="hidden">
+                </label>
+                <p class="muted small" id="teacherPhotoHint">Save the teacher first, then upload a photo.</p>
+                <div class="error" id="teacherPhotoError"></div>
+              </div>
+            </div>
+            <div class="sr-form-grid teacher-profile-grid">
+              <label>Full name <input id="teacherName" required></label>
+              <label>Preferred name <input id="teacherPreferredName" placeholder="e.g. Mr. Park (shown to students/parents)"></label>
+              <label>Teacher ID <input id="teacherIdDisplay" readonly placeholder="Auto on save"></label>
+              <label>Login ID <input id="teacherLoginId" required></label>
+              <label>Password <input id="teacherPassword" type="password" placeholder="Required for new / leave blank to keep"></label>
+              <label>Title
+                <select id="teacherRole">
+                  <option value="Teacher">Teacher</option>
+                  <option value="Head Teacher">Head Teacher</option>
+                  <option value="Principal">Principal</option>
+                  <option value="Vice Principal">Vice Principal</option>
+                  <option value="Dean">Dean</option>
+                  <option value="Chaplain">Chaplain</option>
+                  <option value="Admin Staff">Admin Staff</option>
+                  <option value="Librarian">Librarian</option>
+                  <option value="Nurse">Nurse</option>
+                  <option value="Head of Admin">Head of Admin</option>
+                </select>
+              </label>
+              <label>Head Teacher ID
+                <input id="teacherHeadId" list="headTeacherOptions" placeholder="TeacherID of their Head Teacher">
+                <datalist id="headTeacherOptions"></datalist>
+              </label>
+              <label>Job note <input id="teacherTitle" placeholder="e.g. Homeroom · Math"></label>
+              <div class="sr-span2">
+                <button type="button" class="btn btn-ghost" id="teacherResetPwBtn">Reset password (temp + force change)</button>
+              </div>
+            </div>
+            <p class="muted small" style="margin:0.75rem 0 0">Save to create the account. Add classes and more profile details in the other tabs.</p>
+          </div>
+
+          <div class="teacher-tab-panel hidden" data-teacher-panel="permissions">
+            <div class="teacher-perm-summary-row">
+              <div>
+                <strong data-i18n="admin.teachers.perms">Portal permissions</strong>
+                <p class="muted small" style="margin:0.25rem 0 0" data-i18n="admin.teachers.permsHelp">Title presets apply automatically for new faculty. Customize only when needed.</p>
+                <p class="muted small" id="teacherPermSummary" style="margin:0.35rem 0 0"></p>
+              </div>
+              <button type="button" class="btn btn-ghost" id="teacherPermPresetBtn">Apply title preset</button>
+            </div>
+            <details id="teacherPermDetails" class="teacher-perm-details">
+              <summary>Customize portal menus</summary>
+              <div id="teacherPermBox" style="margin-top:0.75rem">
+                <div id="teacherPermChecks" class="faculty-perm-grid"></div>
+              </div>
+            </details>
+          </div>
+
+          <div class="teacher-tab-panel hidden" data-teacher-panel="profile">
+            <div class="sr-form-grid teacher-profile-grid">
+              <label>Hire date <input id="teacherHireDate" type="date"></label>
+              <label>Date of birth <input id="teacherDob" type="date"></label>
+              <label>Gender <input id="teacherGender"></label>
+              <label>Nationality <input id="teacherNationality"></label>
+              <label>Phone <input id="teacherPhone" type="tel"></label>
+              <label>Email <input id="teacherEmail" type="email"></label>
+              <label class="sr-span2">Address <input id="teacherAddress"></label>
+              <label>Emergency contact <input id="teacherEmergencyContact"></label>
+              <label>Emergency phone <input id="teacherEmergencyPhone" type="tel"></label>
+              <label class="sr-span2">Education <input id="teacherEducation" placeholder="Degrees, certifications"></label>
+              <label class="sr-span2">Notes <textarea id="teacherNotes" rows="3"></textarea></label>
+            </div>
+          </div>
+
+          <div class="teacher-editor-actions">
+            <button type="submit" class="btn btn-primary">Save faculty</button>
+            <button type="button" class="btn btn-ghost" id="teacherFormResetBtn">Cancel</button>
+            <div class="error" id="teacherError"></div>
+          </div>
+        </form>
+
+        <div class="teacher-tab-panel hidden" data-teacher-panel="classes">
+          <p class="muted small" id="teacherClassesHint">Assign this person as Homeroom or subject teacher. Homeroom is set only here — not as free-text class IDs.</p>
+          <div id="teacherClassesGate" class="hidden">
+            <p class="muted">Save the faculty member first, then assign classes.</p>
+          </div>
+          <div id="teacherClassesBody">
+            <div id="assignmentList" class="table-wrap" style="margin-bottom:1rem"></div>
+            <h4 style="margin:0 0 0.5rem" data-i18n="admin.faculty.addAssign">Add assignment</h4>
+            <form id="assignmentForm" class="form-grid assignment-form" autocomplete="off">
+              <label><span data-i18n="admin.faculty.teacher">Teacher</span>
+                <select id="assignTeacher" required></select>
+              </label>
+              <label><span data-i18n="admin.faculty.class">Class</span>
+                <select id="assignClass" required></select>
+              </label>
+              <label><span data-i18n="admin.faculty.type">Type</span>
+                <select id="assignType">
+                  <option value="Subject" data-i18n="admin.faculty.subjectTeacher">Subject teacher</option>
+                  <option value="Homeroom" data-i18n="admin.faculty.homeroom">Homeroom</option>
+                </select>
+              </label>
+              <label><span data-i18n="admin.faculty.subject">Subject</span>
+                <input id="assignSubject" placeholder="Subject (e.g. Math)" list="assignSubjectList">
+                <datalist id="assignSubjectList"></datalist>
+              </label>
+              <button type="submit" class="btn btn-primary assignment-form-submit" data-i18n="admin.faculty.addAssign">Add assignment</button>
+              <div class="error" id="assignmentError"></div>
+            </form>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="panelClasses" class="card hidden">
@@ -1130,31 +1162,75 @@
     ).join('');
   }
 
-  async function loadAssignments() {
-    const data = await api('/api/admin/class-assignments', {}, role);
-    const assignments = data.assignments || [];
-    $('assignSubjectList').innerHTML =
-      ['English', 'Math', 'Science', 'Reading', 'Writing', 'Grammar'].map((s) =>
-        '<option value="' + escapeHtml(s) + '">'
-      ).join('');
+  let allAssignments = [];
+  let teacherEditorTab = 'account';
 
+  function syncTeacherClassesGate() {
+    const hasId = !!($('teacherId') && $('teacherId').value.trim());
+    const gate = $('teacherClassesGate');
+    const body = $('teacherClassesBody');
+    if (gate) gate.classList.toggle('hidden', hasId);
+    if (body) body.classList.toggle('hidden', !hasId);
+    if (hasId && $('assignTeacher')) {
+      $('assignTeacher').value = $('teacherId').value.trim();
+    }
+  }
+
+  function setTeacherEditorTab(tab) {
+    teacherEditorTab = tab || 'account';
+    document.querySelectorAll('.teacher-editor-tab').forEach((btn) => {
+      const on = btn.dataset.teacherTab === teacherEditorTab;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.teacher-tab-panel').forEach((panel) => {
+      panel.classList.toggle('hidden', panel.dataset.teacherPanel !== teacherEditorTab);
+    });
+    if (teacherEditorTab === 'classes') {
+      syncTeacherClassesGate();
+      renderAssignmentTable();
+    }
+    if (teacherEditorTab === 'permissions') updateTeacherPermSummary();
+  }
+
+  function updateTeacherPermSummary() {
+    const el = $('teacherPermSummary');
+    if (!el) return;
+    el.textContent = 'Selected: ' + permSummary(collectTeacherPermissions());
+  }
+
+  function renderAssignmentTable() {
+    const listEl = $('assignmentList');
+    if (!listEl) return;
+    const filterId = ($('teacherId') && $('teacherId').value.trim()) || '';
+    const assignments = filterId
+      ? allAssignments.filter((a) => String(a.teacherId || '') === filterId)
+      : allAssignments;
+    if ($('assignSubjectList')) {
+      $('assignSubjectList').innerHTML =
+        ['English', 'Math', 'Science', 'Reading', 'Writing', 'Grammar'].map((s) =>
+          '<option value="' + escapeHtml(s) + '">'
+        ).join('');
+    }
     if (!assignments.length) {
-      $('assignmentList').innerHTML = '<p class="muted">No assignments yet.</p>';
+      listEl.innerHTML = '<p class="muted">' +
+        (filterId ? 'No class assignments for this faculty member yet.' : 'No assignments yet.') +
+        '</p>';
       return;
     }
-    let html = '<table class="grades-table"><thead><tr><th>Teacher</th><th>Class</th><th>Type</th><th>Subject</th><th>Source</th><th></th></tr></thead><tbody>';
+    let html = '<table class="grades-table"><thead><tr><th>Class</th><th>Type</th><th>Subject</th><th>Source</th><th></th></tr></thead><tbody>';
     assignments.forEach((a) => {
-      html += '<tr><td>' + escapeHtml(a.teacherName) + '</td><td>' + escapeHtml(a.className) + '</td>' +
+      html += '<tr><td>' + escapeHtml(a.className) + '</td>' +
         '<td>' + escapeHtml(a.assignmentType) + '</td><td>' + escapeHtml(a.subject) + '</td>' +
         '<td>' + escapeHtml(a.source) + '</td>' +
         '<td><button type="button" class="btn btn-ghost" data-assign-source="' + escapeHtml(a.source) + '" data-assign-row="' + a.rowIndex + '">Remove</button></td></tr>';
     });
     html += '</tbody></table>';
-    $('assignmentList').innerHTML = html;
-    document.querySelectorAll('[data-assign-row]').forEach((btn) => {
+    listEl.innerHTML = html;
+    listEl.querySelectorAll('[data-assign-row]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('Remove this assignment?')) return;
-        $('assignmentError').textContent = '';
+        if ($('assignmentError')) $('assignmentError').textContent = '';
         try {
           await api('/api/admin/class-assignments', {
             method: 'DELETE',
@@ -1162,10 +1238,16 @@
           }, role);
           loadAssignments();
         } catch (err) {
-          $('assignmentError').textContent = err.message;
+          if ($('assignmentError')) $('assignmentError').textContent = err.message;
         }
       });
     });
+  }
+
+  async function loadAssignments() {
+    const data = await api('/api/admin/class-assignments', {}, role);
+    allAssignments = data.assignments || [];
+    renderAssignmentTable();
   }
 
   $('assignmentForm').addEventListener('submit', async (e) => {
@@ -1185,7 +1267,8 @@
       $('assignmentError').textContent = 'Assignment added.';
       $('assignSubject').value = '';
       $('assignType').value = 'Subject';
-      loadAssignments();
+      await loadAssignments();
+      loadTeachers();
     } catch (err) {
       $('assignmentError').style.color = '#dc2626';
       $('assignmentError').textContent = err.message;
@@ -1328,12 +1411,18 @@
         (selectedSet.has(p.key) ? ' checked' : '') + '> ' + escapeHtml(p.label) + '</label>'
       ).join('') + '</div>'
     ).join('');
+    box.querySelectorAll('input[type=checkbox]').forEach((el) => {
+      el.addEventListener('change', updateTeacherPermSummary);
+    });
+    updateTeacherPermSummary();
   }
 
   function applyTitlePreset() {
     const title = $('teacherRole').value;
     const preset = (facultyCatalog && facultyCatalog.presets && facultyCatalog.presets[title]) || [];
     renderTeacherPermChecks(preset);
+    const details = $('teacherPermDetails');
+    if (details && !$('teacherId').value.trim()) details.open = false;
   }
 
   function permSummary(perms) {
@@ -1459,30 +1548,34 @@
   }
 
   function openTeacherEditor() {
-    const editor = $('teacherEditor');
-    if (editor) {
-      editor.classList.remove('hidden');
-      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    const modal = $('teacherEditorModal');
+    if (modal) modal.classList.remove('hidden');
+    setTeacherEditorTab(teacherEditorTab || 'account');
+    syncTeacherClassesGate();
   }
 
   function closeTeacherEditor() {
     clearTeacherForm();
-    const editor = $('teacherEditor');
-    if (editor) editor.classList.add('hidden');
+    const modal = $('teacherEditorModal');
+    if (modal) modal.classList.add('hidden');
   }
 
   function clearTeacherForm() {
     $('teacherId').value = '';
     $('teacherForm').reset();
     $('teacherIdDisplay').value = '';
+    if ($('teacherHomeroom')) $('teacherHomeroom').value = '';
     $('teacherError').textContent = '';
     $('teacherError').style.color = '';
     $('teacherPhotoError').textContent = '';
     $('teacherFormTitle').textContent = 'Add faculty';
     teacherAvatar('', '');
     setTeacherPhotoEnabled(false);
+    teacherEditorTab = 'account';
+    const details = $('teacherPermDetails');
+    if (details) details.open = false;
     ensureFacultyCatalog().then(() => applyTitlePreset());
+    syncTeacherClassesGate();
   }
 
   async function fillTeacherForm(t) {
@@ -1498,9 +1591,11 @@
     }
     $('teacherLoginId').value = t.loginId || '';
     $('teacherPassword').value = '';
-    $('teacherHomeroom').value = (t.homeroomClassIds && t.homeroomClassIds.length)
-      ? t.homeroomClassIds.join(', ')
-      : (t.homeroomClassId || '');
+    if ($('teacherHomeroom')) {
+      $('teacherHomeroom').value = (t.homeroomClassIds && t.homeroomClassIds.length)
+        ? t.homeroomClassIds.join(', ')
+        : (t.homeroomClassId || '');
+    }
     $('teacherRole').value = t.staffTitle || t.staffRole || 'Teacher';
     if ($('teacherHeadId')) $('teacherHeadId').value = t.headTeacherId || '';
     $('teacherTitle').value = p.title || t.title || '';
@@ -1521,15 +1616,28 @@
     renderTeacherPermChecks(t.permissions || []);
     teacherAvatar(t.name, t.photoPath || p.photoPath || '');
     setTeacherPhotoEnabled(true);
+    teacherEditorTab = 'account';
     openTeacherEditor();
+    loadAssignments();
   }
 
   $('teacherAddBtn').addEventListener('click', () => {
     clearTeacherForm();
     $('teacherFormTitle').textContent = 'Add faculty';
+    teacherEditorTab = 'account';
     openTeacherEditor();
     $('teacherName').focus();
   });
+
+  document.querySelectorAll('.teacher-editor-tab').forEach((btn) => {
+    btn.addEventListener('click', () => setTeacherEditorTab(btn.dataset.teacherTab));
+  });
+
+  if ($('teacherEditorModal')) {
+    $('teacherEditorModal').addEventListener('click', (e) => {
+      if (e.target === $('teacherEditorModal')) closeTeacherEditor();
+    });
+  }
 
   $('teacherSearch').addEventListener('input', (e) => {
     teacherSearchQuery = e.target.value || '';
@@ -1614,7 +1722,7 @@
     $('teacherError').textContent = '';
     try {
       const wasNew = !$('teacherId').value.trim();
-      await api('/api/admin/teachers', {
+      const saved = await api('/api/admin/teachers', {
         method: 'POST',
         body: {
           teacherId: $('teacherId').value,
@@ -1622,7 +1730,7 @@
           preferredName: $('teacherPreferredName') ? $('teacherPreferredName').value : '',
           loginId: $('teacherLoginId').value,
           password: $('teacherPassword').value,
-          homeroomClassId: $('teacherHomeroom').value,
+          homeroomClassId: $('teacherHomeroom') ? $('teacherHomeroom').value : '',
           staffRole: $('teacherRole').value,
           staffTitle: $('teacherRole').value,
           headTeacherId: $('teacherHeadId') ? $('teacherHeadId').value : '',
@@ -1641,9 +1749,21 @@
           notes: $('teacherNotes').value
         }
       }, role);
-      closeTeacherEditor();
       showTeacherSaveToast(wasNew ? 'Faculty added.' : 'Faculty saved.');
-      loadTeachers();
+      await loadTeachers();
+      const teacher = saved && saved.teacher ? saved.teacher : saved;
+      if (wasNew && teacher && teacher.teacherId) {
+        $('teacherId').value = teacher.teacherId;
+        $('teacherIdDisplay').value = teacher.teacherId;
+        $('teacherPassword').value = '';
+        $('teacherFormTitle').textContent = 'Edit faculty';
+        setTeacherPhotoEnabled(true);
+        teacherEditorTab = 'classes';
+        setTeacherEditorTab('classes');
+        await loadAssignments();
+      } else {
+        closeTeacherEditor();
+      }
     } catch (err) {
       $('teacherError').style.color = '#dc2626';
       $('teacherError').textContent = err.message;

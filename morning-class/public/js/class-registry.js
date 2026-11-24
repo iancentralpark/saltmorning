@@ -19,6 +19,7 @@
   let availableStudents = [];
   let importQuery = '';
   let classSearchQuery = '';
+  let detailTab = 'settings'; // settings | roster
 
   function filteredClasses() {
     const q = classSearchQuery.trim().toLowerCase();
@@ -91,6 +92,8 @@
     const isNew = !formClass.classId;
     const portalMode = formClass.portalMode === 'content' ? 'content' : 'full';
     const flags = formClass.contentFlags || { englishBooster: true, magicAcademy: false };
+    if (isNew) detailTab = 'settings';
+    const showRoster = detailTab === 'roster';
 
     let rosterHtml = '';
     if (!isNew) {
@@ -125,10 +128,18 @@
         '</div></div>';
     }
 
-    detail.innerHTML =
-      '<div class="cr-detail-grid">' +
+    const tabsHtml =
+      '<div class="cr-detail-tabs" role="tablist">' +
+      '<button type="button" class="cr-detail-tab' + (!showRoster ? ' active' : '') +
+      '" data-cr-tab="settings" role="tab">Settings</button>' +
+      '<button type="button" class="cr-detail-tab' + (showRoster ? ' active' : '') +
+      '" data-cr-tab="roster" role="tab"' + (isNew ? ' disabled title="Save the class first"' : '') +
+      '>Students' + (!isNew ? ' (' + roster.length + ')' : '') + '</button>' +
+      '</div>';
+
+    const settingsHtml =
       '<div class="cr-form-card">' +
-      '<h4>' + (isNew ? 'New class' : 'Edit class') + '</h4>' +
+      '<h4>' + (isNew ? 'New class' : 'Class settings') + '</h4>' +
       '<form class="cr-class-form">' +
       '<input type="hidden" class="cr-input-id" value="' + escapeHtml(formClass.classId || '') + '">' +
       '<label>Class name <input class="cr-input-name" value="' + escapeHtml(formClass.name || '') + '" required></label>' +
@@ -152,12 +163,27 @@
         '<button type="button" class="btn btn-danger cr-delete-btn">Delete class</button>') +
       '<div class="cr-form-error error"></div>' +
       '</form>' +
-      '</div>' +
+      '</div>';
+
+    const rosterCard =
       '<div class="cr-roster-card' + (isNew ? ' muted-box' : '') + '">' +
       '<h4>Class roster</h4>' +
       (isNew ? '<p class="muted">Save the class first, then import students from the registry.</p>' : rosterHtml + importHtml) +
-      '</div>' +
       '</div>';
+
+    detail.innerHTML =
+      tabsHtml +
+      '<div class="cr-detail-grid">' +
+      (showRoster ? rosterCard : settingsHtml) +
+      '</div>';
+
+    detail.querySelectorAll('.cr-detail-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        detailTab = btn.dataset.crTab === 'roster' ? 'roster' : 'settings';
+        renderDetail();
+      });
+    });
 
     const form = detail.querySelector('.cr-class-form');
     if (form) {
@@ -166,6 +192,7 @@
         const errEl = detail.querySelector('.cr-form-error');
         errEl.textContent = '';
         try {
+          const wasNew = !activeClassId;
           const data = await api('/api/admin/classes', {
             method: 'POST',
             body: {
@@ -182,8 +209,7 @@
           }, role);
           activeClass = data.class;
           activeClassId = activeClass.classId;
-          errEl.style.color = '#16a34a';
-          errEl.textContent = 'Class saved.';
+          if (wasNew) detailTab = 'roster';
           await refreshAll();
           renderDetail();
         } catch (err) {
@@ -234,6 +260,7 @@
   async function openClass(classId) {
     activeClassId = classId;
     importQuery = '';
+    detailTab = 'settings';
     const data = await api('/api/admin/classes/' + encodeURIComponent(classId), {}, role);
     activeClass = data.class;
     await loadAvailable();
@@ -246,6 +273,7 @@
     activeClass = null;
     availableStudents = [];
     importQuery = '';
+    detailTab = 'settings';
     renderList();
     renderDetail();
   }
