@@ -4263,7 +4263,104 @@ body.buddy-resize-active {
   .buddy-resize-grip { display: none !important; }
 }
 
+/* —— Salty tutor (content portal) —— */
+.salty-float {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 880;
+  pointer-events: none;
+}
+.salty-float.hidden { display: none !important; }
+.salty-float * { pointer-events: auto; }
+.salty-fab {
+  display: flex; align-items: center; gap: 0.45rem;
+  border: none; border-radius: 999px;
+  padding: 0.35rem 0.85rem 0.35rem 0.35rem;
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+  color: #fff; font: inherit; font-weight: 700; font-size: 0.88rem;
+  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.35); cursor: pointer;
+}
+.salty-fab img {
+  width: 2.4rem; height: 2.4rem; border-radius: 999px; object-fit: cover;
+  background: #fff; border: 2px solid rgba(255,255,255,0.7);
+}
+.salty-fab:hover { transform: translateY(-2px); }
+.salty-float:not(.panel-collapsed) .salty-fab { display: none; }
+.salty-panel {
+  display: none; flex-direction: column;
+  width: min(22rem, calc(100vw - 1.5rem));
+  height: min(72vh, 36rem);
+  background: #fff; border: 1px solid var(--border-soft); border-radius: 1rem;
+  box-shadow: 0 16px 40px rgba(30, 41, 59, 0.18); padding: 0.75rem; overflow: hidden;
+}
+.salty-float:not(.panel-collapsed) .salty-panel { display: flex; }
+.salty-head { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; margin-bottom: 0.35rem; }
+.salty-buddy { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+.salty-buddy img {
+  width: 3.2rem; height: 3.2rem; border-radius: 999px; object-fit: cover;
+  border: 2px solid var(--primary-soft); background: var(--cream);
+}
+.salty-mute { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; white-space: nowrap; }
+.salty-mute input { margin: 0; }
+.salty-chat {
+  flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 0.55rem;
+  padding: 0.35rem 0.15rem; margin: 0.2rem 0 0.45rem;
+}
+.salty-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 92%; }
+.salty-msg.mine { align-self: flex-end; align-items: flex-end; }
+.salty-who { font-size: 0.7rem; color: var(--muted); margin: 0 0.2rem 0.15rem; font-weight: 600; }
+.salty-bubble {
+  padding: 0.55rem 0.75rem; border-radius: 14px; line-height: 1.45; font-size: 0.9rem;
+  background: #fff; border: 1px solid var(--border-soft); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.salty-msg.mine .salty-bubble { background: var(--primary); color: #fff; border-color: transparent; }
+.salty-compose {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 0.4rem; align-items: end; flex-shrink: 0;
+}
+.salty-compose textarea {
+  width: 100%; resize: none; min-height: 2.6rem; max-height: 5rem;
+  grid-column: 2; grid-row: 1;
+}
+.salty-compose #saltySendBtn { grid-column: 3; grid-row: 1; }
+.salty-compose #saltyError { grid-column: 1 / -1; margin: 0; min-height: 1.1em; font-size: 0.8rem; }
+.salty-mic {
+  width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--cream); color: var(--primary); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.salty-mic.on { background: #c24a40; color: #fff; border-color: #c24a40; }
+@media (max-width: 640px) {
+  .salty-float:not(.panel-collapsed) .salty-panel {
+    width: calc(100vw - 1.25rem); height: min(78vh, 36rem);
+  }
+  .salty-fab-label { font-size: 0.82rem; }
+}
 
+.salty-teacher-grid {
+  display: grid; grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr); gap: 0.85rem; min-height: 22rem;
+}
+@media (max-width: 760px) { .salty-teacher-grid { grid-template-columns: 1fr; } }
+.salty-teacher-list {
+  border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow: auto; max-height: 28rem;
+}
+.salty-teacher-stu {
+  width: 100%; display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
+  text-align: left; border: 0; border-bottom: 1px solid var(--border-soft); background: transparent;
+  padding: 0.7rem 0.8rem; font: inherit; cursor: pointer; color: inherit;
+}
+.salty-teacher-stu:hover { background: var(--cream); }
+.salty-teacher-stu.on { background: var(--primary-soft); }
+.salty-teacher-preview {
+  font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.salty-teacher-chat {
+  border: 1px solid var(--border); border-radius: 12px; background: #fff; padding: 0.75rem;
+  min-height: 18rem; display: flex; flex-direction: column;
+}
+.salty-teacher-messages {
+  flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 0.55rem; max-height: 26rem;
+}
 
 /* —— Report Card —— */
 .rc-panel-toolbar {

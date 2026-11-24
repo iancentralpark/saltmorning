@@ -16,7 +16,7 @@
   <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png?v=20260818">
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/css/app.css?v=20261123olm6">
+  <link rel="stylesheet" href="/css/app.css?v=20261124salty1">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css" rel="stylesheet">
@@ -221,6 +221,7 @@
         <button class="class-subnav-item hidden" data-tab="content" data-content-only="1" type="button">Content</button>
         <button class="class-subnav-item hidden" data-tab="debrief" data-content-only="1" type="button">Oral Debrief</button>
         <button class="class-subnav-item hidden" data-tab="online" data-content-only="1" type="button">Online Lessons</button>
+        <button class="class-subnav-item hidden" data-tab="salty" data-content-only="1" type="button">Salty</button>
       </div>
     </nav>
 <div id="panelAttendance" class="card att-panel">
@@ -495,6 +496,25 @@
         </div>
       </div>
       <div id="contentDebriefList"><p class="muted">Loading&hellip;</p></div>
+    </div>
+
+    <div id="panelSalty" class="card hidden">
+      <div class="dbm-head">
+        <div>
+          <h3>Salty chats</h3>
+          <p class="muted small">Questions students asked Salty about English and grammar.</p>
+        </div>
+        <div class="dbm-head-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="saltyRefreshBtn">Refresh</button>
+        </div>
+      </div>
+      <div class="salty-teacher-grid">
+        <div id="saltyStudentList" class="salty-teacher-list"><p class="muted">Loading&hellip;</p></div>
+        <div id="saltyTeacherChat" class="salty-teacher-chat">
+          <p class="muted" id="saltyTeacherHint">Pick a student to read their chat with Salty.</p>
+          <div id="saltyTeacherMessages" class="salty-teacher-messages hidden"></div>
+        </div>
+      </div>
     </div>
 
     <div id="panelOnline" class="card hidden">
@@ -2480,7 +2500,8 @@
       lesson: 'Lessons',
       content: 'Content',
       debrief: 'Oral Debrief',
-      online: 'Online Lessons'
+      online: 'Online Lessons',
+      salty: 'Salty'
     };
     return map[name] || name;
   }
@@ -2612,7 +2633,7 @@
 
   function switchTab(name, opts) {
     opts = opts || {};
-    const contentOnly = { content: 1, debrief: 1, online: 1 };
+    const contentOnly = { content: 1, debrief: 1, online: 1, salty: 1 };
     const homeroomOnly = { attendance: 1, vocab: 1, lesson: 1 };
     if (isContentClass(currentClass)) {
       if (!contentOnly[name]) name = 'content';
@@ -2624,7 +2645,7 @@
     }
     currentClassTab = name;
     document.querySelectorAll('#classTabs .class-subnav-item').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-    ['panelAttendance','panelTimetable','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson','panelContent','panelDebrief','panelOnline'].forEach(id => {
+    ['panelAttendance','panelTimetable','panelGrades','panelDollars','panelHomework','panelAnnouncements','panelVocab','panelReport','panelAnalytics','panelLesson','panelContent','panelDebrief','panelOnline','panelSalty'].forEach(id => {
       if ($(id)) hide($(id));
     });
     const map = {
@@ -2640,7 +2661,8 @@
       lesson: 'panelLesson',
       content: 'panelContent',
       debrief: 'panelDebrief',
-      online: 'panelOnline'
+      online: 'panelOnline',
+      salty: 'panelSalty'
     };
     if ($(map[name])) show($(map[name]));
     if (currentClass) {
@@ -2664,6 +2686,83 @@
     if (name === 'content') loadContentOverview();
     if (name === 'debrief') loadContentDebriefList();
     if (name === 'online') loadContentLmsList();
+    if (name === 'salty') loadSaltyChats();
+  }
+
+  let saltySelectedStudent = '';
+
+  function saltyWhen(ms) {
+    if (!ms) return '';
+    return new Date(ms).toLocaleString('en-GB', {
+      timeZone: 'Asia/Seoul', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  async function loadSaltyChats() {
+    const list = $('saltyStudentList');
+    if (!list || !currentClass) return;
+    list.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const data = await api('/api/teacher/class/' + encodeURIComponent(currentClass.classId) + '/salty-tutor', {}, role);
+      const students = data.students || [];
+      if (!students.length) {
+        list.innerHTML = '<p class="muted">No students in this class.</p>';
+        return;
+      }
+      list.innerHTML = students.map((st) =>
+        '<button type="button" class="salty-teacher-stu' +
+        (saltySelectedStudent === st.studentId ? ' on' : '') +
+        '" data-sid="' + escapeHtml(st.studentId) + '">' +
+        '<strong>' + escapeHtml(st.name || st.studentId) + '</strong>' +
+        '<span class="muted small">' +
+        (st.studentTurns
+          ? (st.studentTurns + ' question' + (st.studentTurns === 1 ? '' : 's') +
+            (st.lastAt ? ' · ' + saltyWhen(st.lastAt) : ''))
+          : 'No questions yet') +
+        '</span>' +
+        (st.lastPreview ? '<span class="salty-teacher-preview">' + escapeHtml(st.lastPreview) + '</span>' : '') +
+        '</button>'
+      ).join('');
+      if (saltySelectedStudent) openSaltyStudent(saltySelectedStudent, true);
+    } catch (e) {
+      list.innerHTML = '<p class="error">' + escapeHtml(e.message || 'Could not load Salty chats.') + '</p>';
+    }
+  }
+
+  async function openSaltyStudent(studentId, quiet) {
+    saltySelectedStudent = String(studentId || '');
+    document.querySelectorAll('.salty-teacher-stu').forEach((btn) => {
+      btn.classList.toggle('on', btn.getAttribute('data-sid') === saltySelectedStudent);
+    });
+    const hint = $('saltyTeacherHint');
+    const box = $('saltyTeacherMessages');
+    if (!box) return;
+    if (!quiet && hint) hint.textContent = 'Loading…';
+    box.classList.add('hidden');
+    try {
+      const data = await api(
+        '/api/teacher/class/' + encodeURIComponent(currentClass.classId) +
+        '/salty-tutor/' + encodeURIComponent(saltySelectedStudent),
+        {},
+        role
+      );
+      if (hint) hint.classList.add('hidden');
+      box.classList.remove('hidden');
+      const msgs = data.messages || [];
+      box.innerHTML = msgs.length
+        ? msgs.map((m) =>
+          '<div class="salty-msg' + (m.role === 'student' ? ' mine' : '') + '">' +
+          '<div class="salty-who">' + escapeHtml(m.role === 'student' ? (data.name || 'Student') : 'Salty') +
+          (m.createdAt ? ' · ' + escapeHtml(saltyWhen(m.createdAt)) : '') +
+          (m.source === 'voice' ? ' · voice' : '') +
+          '</div><div class="salty-bubble">' + escapeHtml(m.text) + '</div></div>'
+        ).join('')
+        : '<p class="muted">No messages yet.</p>';
+      box.scrollTop = box.scrollHeight;
+    } catch (e) {
+      if (hint) { hint.classList.remove('hidden'); hint.textContent = e.message || 'Could not load chat.'; }
+      box.classList.add('hidden');
+    }
   }
 
   async function applyRoute() {
@@ -3220,6 +3319,14 @@
   }
   if ($('contentRefreshLmsBtn')) {
     $('contentRefreshLmsBtn').addEventListener('click', () => loadContentLmsList());
+  }
+  if ($('saltyRefreshBtn')) $('saltyRefreshBtn').addEventListener('click', () => loadSaltyChats());
+  if ($('saltyStudentList')) {
+    $('saltyStudentList').addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.salty-teacher-stu');
+      if (!btn) return;
+      openSaltyStudent(btn.getAttribute('data-sid'));
+    });
   }
   if ($('contentNewLmsToggle')) {
     $('contentNewLmsToggle').addEventListener('click', () => {
