@@ -252,6 +252,7 @@ const {
 const { generateClassTimetable } = require('./services/timetableGenerateService');
 const { saveTeacherSubjectStyle } = require('./services/subjectStyleService');
 const { getBuddyStatus, askEnglishBuddy, getBuddyChatHistory, listBuddyMonitorForClass, unlockBuddy, refillBuddyUsage, clearBuddyChatHistory } = require('./services/englishBuddyService');
+const saltTutor = require('./services/saltTutorService');
 const { getStudentDashboard } = require('./services/studentPortalService');
 const {
   getStudentDollars,
@@ -5051,6 +5052,120 @@ router.post('/student/debrief/tts', requireRole('student'), debriefTtsLimiter, a
     res.send(out.buffer);
   } catch (e) {
     res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not synthesize speech.' });
+  }
+});
+
+/* —— Salty tutor (content-only classes) —— */
+const saltyTutorLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyFn: (req) => 'salty:' + ((req.session && req.session.studentId) || req.ip || 'unknown'),
+  message: 'Too many questions. Wait a moment.'
+});
+const saltyTutorSttUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: debriefStt.MAX_AUDIO_BYTES },
+  fileFilter: (req, file, cb) => {
+    const mime = String(file.mimetype || '').toLowerCase();
+    const name = String(file.originalname || '').toLowerCase();
+    const okMime = mime.startsWith('audio/') || mime === 'video/webm' || mime === 'application/octet-stream';
+    const okName = /\.(webm|wav|mp3|m4a|ogg|mpeg|mp4)$/.test(name);
+    if (okMime || okName) return cb(null, true);
+    cb(new Error('Audio files only.'));
+  }
+});
+
+router.get('/student/salty-tutor/status', requireRole('student'), (req, res) => {
+  res.json(saltTutor.getStatus(req.session.studentId));
+});
+
+router.get('/student/salty-tutor/history', requireRole('student'), async (req, res) => {
+  try {
+    res.json(await saltTutor.getHistoryForStudent(req.session.studentId, req.session.classId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load chat.' });
+  }
+});
+
+router.post('/student/salty-tutor/turn', requireRole('student'), saltyTutorLimiter, async (req, res) => {
+  try {
+    res.json(await saltTutor.askSalty(
+      req.session.studentId,
+      req.session.classId,
+      req.body && req.body.message,
+      { source: req.body && req.body.source }
+    ));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not reach Salty.' });
+  }
+});
+
+router.post('/student/salty-tutor/stt', requireRole('student'), saltyTutorLimiter, saltyTutorSttUpload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'Record audio first.' });
+    }
+    if (!debriefStt.isSttConfigured()) {
+      return res.status(503).json({ error: 'Voice input is not available right now.' });
+    }
+    const heard = await debriefStt.transcribeDetailed(req.file.buffer, req.file.mimetype, {});
+    const text = String((heard && heard.text) || '').trim();
+    if (!text) {
+      return res.status(422).json({ error: 'Could not hear that. Try again a little louder.' });
+    }
+    res.json(await saltTutor.askSalty(
+      req.session.studentId,
+      req.session.classId,
+      text,
+      { source: 'voice' }
+    ));
+  } catch (e) {
+    res.status(e.statusCode || 400).json({ error: e.message || 'Could not hear that.' });
+  }
+});
+
+router.post('/student/salty-tutor/tts', requireRole('student'), debriefTtsLimiter, async (req, res) => {
+  const text = req.body && req.body.text;
+  const abort = new AbortController();
+  res.on('close', () => { if (!res.writableEnded) abort.abort(); });
+  try {
+    if (!debriefTts.isConfigured()) {
+      return res.status(503).json({ error: 'Voice reply is not available right now.', fallback: true });
+    }
+    await debriefTts.synthesizeStream(text, (chunk) => {
+      if (!res.headersSent) {
+        res.set('Content-Type', 'application/octet-stream');
+        res.set('X-Audio-Format', 'pcm16le');
+        res.set('X-Audio-Sample-Rate', String(debriefTts.SAMPLE_RATE));
+        res.set('Cache-Control', 'no-store, no-transform');
+        res.set('X-Accel-Buffering', 'no');
+        res.flushHeaders();
+      }
+      res.write(chunk);
+    }, { signal: abort.signal });
+    res.end();
+  } catch (e) {
+    if (res.headersSent) return res.end();
+    if (abort.signal.aborted) return;
+    res.status(e.statusCode || e.status || 500).json({ error: e.message || 'Could not speak.', fallback: true });
+  }
+});
+
+router.get('/teacher/class/:classId/salty-tutor', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    res.json(await saltTutor.listForClass(req.params.classId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load Salty chats.' });
+  }
+});
+
+router.get('/teacher/class/:classId/salty-tutor/:studentId', requireRole('teacher'), async (req, res) => {
+  try {
+    await assertTeacherClassAccess(req.session.teacherId, req.params.classId);
+    res.json(await saltTutor.historyForTeacher(req.params.classId, req.params.studentId));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load chat.' });
   }
 });
 

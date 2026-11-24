@@ -17,7 +17,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20261123olm5">
+  <link rel="stylesheet" href="/css/app.css?v=20261124salty1">
   <link rel="stylesheet" href="/css/vocab-learn.css">
 </head>
 <body class="student-body">
@@ -163,7 +163,7 @@
   </div>
 </div>
 
-<!-- English Buddy — bottom-right float -->
+<!-- English Buddy — bottom-right float (full portal only) -->
 <div id="buddyFloat" class="buddy-float panel-collapsed hidden" aria-label="English Buddy">
   <button type="button" class="buddy-float-fab" id="buddyFloatToggle" title="English Buddy" aria-expanded="false">
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a9 9 0 0 0-9 9c0 3.2 1.7 6 4.2 7.6L6 22l4.1-1.7c.6.1 1.2.2 1.9.2a9 9 0 0 0 0-18zm0 2a7 7 0 1 1 0 14c-.6 0-1.1-.1-1.6-.2l-.5-.1-.9.4.3-1-.3-.4A6.9 6.9 0 0 1 5 11a7 7 0 0 1 7-7z"/></svg>
@@ -193,6 +193,38 @@
   </div>
 </div>
 
+<!-- Salty — content-class English/grammar tutor (bottom-right; messenger stays bottom-left) -->
+<div id="saltyFloat" class="salty-float panel-collapsed hidden" aria-label="Ask Salty">
+  <button type="button" class="salty-fab" id="saltyFab" title="Ask Salty" aria-expanded="false">
+    <img src="/img/salt-buddy/idle-512.png" alt="" width="40" height="40">
+    <span class="salty-fab-label">Ask Salty</span>
+  </button>
+  <div class="salty-panel" id="saltyPanel" aria-hidden="true">
+    <div class="salty-head">
+      <div class="salty-buddy">
+        <img id="saltyAvatar" src="/img/salt-buddy/idle-512.png" alt="Salty" width="56" height="56">
+        <div>
+          <strong>Salty</strong>
+          <div class="muted small" id="saltyCaption">Ask Salty</div>
+        </div>
+      </div>
+      <span class="buddy-head-spacer"></span>
+      <label class="salty-mute muted small"><input type="checkbox" id="saltyMute"> Mute</label>
+      <button type="button" class="buddy-icon-btn" id="saltyClose" aria-label="Minimize" title="Minimize">−</button>
+    </div>
+    <p id="saltyStatus" class="muted small buddy-status-line"></p>
+    <div id="saltyChat" class="salty-chat"></div>
+    <div class="salty-compose">
+      <button type="button" class="salty-mic" id="saltyMicBtn" title="Hold to talk" aria-label="Hold to talk">
+        <i class="fa-solid fa-microphone" aria-hidden="true"></i>
+      </button>
+      <textarea id="saltyInput" placeholder="Ask about English or grammar…" maxlength="800" rows="2"></textarea>
+      <button type="button" class="btn btn-primary" id="saltySendBtn">Send</button>
+      <div class="error" id="saltyError"></div>
+    </div>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js?v=20260917session1"></script>
 <script src="/js/i18n.js?v=20260910msg1"></script>
@@ -201,6 +233,7 @@
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
+<script src="/js/salty-tutor.js?v=20261124salty1"></script>
 <script src="/js/subject-colors.js?v=20260812pastel"></script>
 <script src="/js/timetable.js?v=20260901click1"></script>
 <script src="/js/report-card-print.js?v=20260910stugr1"></script>
@@ -468,6 +501,10 @@
       if (!el) return;
       if (content) hide(el); else show(el);
     });
+    if (window.SaltSaltyTutor) window.SaltSaltyTutor.show(!!content);
+    else if ($('saltyFloat')) {
+      if (content) show($('saltyFloat')); else hide($('saltyFloat'));
+    }
     if ($('homeSummary')) $('homeSummary').classList.toggle('hidden', content);
     if ($('sectionContentLinks')) {
       if (content) show($('sectionContentLinks'));
@@ -852,6 +889,7 @@
         }
       } else {
         hide($('buddyFloat'));
+        if (window.SaltSaltyTutor) window.SaltSaltyTutor.show(true);
         $('moreUnread').textContent = '';
         $('moreProfile').textContent = (p.name || '') +
           (p.className ? ' · ' + p.className : '') +
@@ -945,6 +983,9 @@
   show($('appView'));
   if (window.MrParkVocabLearn) window.MrParkVocabLearn.init();
   SaltMessenger.init(role);
+  if (window.SaltSaltyTutor) {
+    SaltSaltyTutor.init({ api: api, escapeHtml: escapeHtml, role: role });
+  }
   if (window.SaltPush) {
     SaltPush.bindButtons({
       api: function(path, opts) { return api(path, opts, role); },
