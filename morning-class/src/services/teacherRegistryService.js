@@ -2,14 +2,17 @@ const fs = require('fs');
 const path = require('path');
 const {
   TEACHER_LIST_SHEET,
-  TEACHER_PROFILE_SHEET
+  TEACHER_PROFILE_SHEET,
+  CLASS_TEACHERS_SHEET,
+  TEACHER_CLASS_SUBJECTS_SHEET
 } = require('../config');
 const {
   getSheetRows,
   appendRows,
   updateRange,
   ensureSheet,
-  invalidateSheetRowsCache
+  invalidateSheetRowsCache,
+  deleteRows
 } = require('../sheets');
 const { parseHomeroomClassIds } = require('./teacherPortalService');
 
@@ -335,6 +338,20 @@ async function saveTeacherPhoto(teacherId, file) {
   return { teacherId, photoPath: profile.photoPath };
 }
 
+async function deleteMatchingRows(sheetName, colIndex, matchValue) {
+  const rows = await getSheetRows(sheetName, { skipCache: true }).catch(() => []);
+  if (!rows.length) return 0;
+  const deletes = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][colIndex] || '').trim() !== matchValue) continue;
+    deletes.push(i + 1);
+  }
+  if (!deletes.length) return 0;
+  await deleteRows(sheetName, deletes);
+  invalidateSheetRowsCache(sheetName);
+  return deletes.length;
+}
+
 async function deleteTeacherRecord(teacherId) {
   teacherId = String(teacherId || '').trim();
   if (!teacherId) throw new Error('Teacher ID is required.');
@@ -349,17 +366,51 @@ async function deleteTeacherRecord(teacherId) {
     }
   }
   if (found < 0) throw new Error('Teacher not found.');
-  await updateRange(TEACHER_LIST_SHEET, `A${found}:H${found}`, [['', '', '', '', '', '', '', '']]);
+
+  // Real delete (not blanking). Blanking looked successful on Sheets but left
+  // the Postgres roster row in place when the roster bridge was active.
+  await deleteRows(TEACHER_LIST_SHEET, [found]);
   invalidateSheetRowsCache(TEACHER_LIST_SHEET);
 
   const profileRows = await getSheetRows(TEACHER_PROFILE_SHEET, { skipCache: true });
+  const profileDeletes = [];
   for (let i = 1; i < profileRows.length; i++) {
-    if (String(profileRows[i][0]) !== teacherId) continue;
-    await updateRange(TEACHER_PROFILE_SHEET, `A${i + 1}:P${i + 1}`, [new Array(16).fill('')]);
-    break;
+    if (String(profileRows[i][0]) === teacherId) profileDeletes.push(i + 1);
   }
-  invalidateSheetRowsCache(TEACHER_PROFILE_SHEET);
-  return { deleted: true, teacherId };
+  if (profileDeletes.length) {
+    await deleteRows(TEACHER_PROFILE_SHEET, profileDeletes);
+    invalidateSheetRowsCache(TEACHER_PROFILE_SHEET);
+  }
+
+  // Drop class assignments so the ghost teacher does not linger in Class_Teachers.
+  let classLinks = 0;
+  let subjectLinks = 0;
+  try {
+    classLinks = await deleteMatchingRows(CLASS_TEACHERS_SHEET, 1, teacherId);
+  } catch (e) {
+    console.warn('[faculty-delete] class_teachers cleanup failed:', e.message || e);
+  }
+  try {
+    subjectLinks = await deleteMatchingRows(TEACHER_CLASS_SUBJECTS_SHEET, 0, teacherId);
+  } catch (e) {
+    console.warn('[faculty-delete] teacher_class_subjects cleanup failed:', e.message || e);
+  }
+
+  try {
+    ['.jpg', '.png', '.webp'].forEach((ext) => {
+      const p = localPhotoPath(teacherId, ext);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    });
+  } catch (e) {
+    console.warn('[faculty-delete] photo cleanup failed:', e.message || e);
+  }
+
+  return {
+    deleted: true,
+    teacherId,
+    classLinksCleared: classLinks,
+    subjectLinksCleared: subjectLinks
+  };
 }
 
 module.exports = {
