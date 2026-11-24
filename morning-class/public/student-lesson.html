@@ -24,6 +24,17 @@
     .bar { height:6px; background:#dfe7f3; border-radius:999px; overflow:hidden; margin-top:.6rem; }
     .bar > div { height:100%; background:var(--teal); width:0; transition:width .4s; }
     .row { display:flex; justify-content:space-between; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; font-size:.85rem; color:var(--muted); }
+    .speed {
+      display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.2rem .75rem; align-items:center;
+      margin-top:.75rem; padding-top:.7rem; border-top:1px solid var(--line);
+      font-size:.85rem; color:var(--muted);
+    }
+    .speed label { grid-row:1 / span 2; font-weight:700; color:var(--ink); white-space:nowrap; }
+    .speed label strong { color:var(--teal); font-variant-numeric:tabular-nums; }
+    .speed input[type=range] {
+      width:100%; margin:0; accent-color:var(--teal); height:1.35rem; cursor:pointer;
+    }
+    .speed .ends { display:flex; justify-content:space-between; font-size:.72rem; font-weight:600; }
     .btn { border:none; border-radius:10px; padding:.45rem .85rem; font:inherit; font-weight:700; cursor:pointer; background:var(--navy); color:#fff; }
     .btn.ghost { background:#fff; color:var(--navy); border:1px solid var(--line); }
     h2 { font-size:1rem; color:var(--navy); margin:1.2rem 0 .5rem; }
@@ -58,6 +69,11 @@
         <div class="row">
           <span id="watchText"></span>
         </div>
+        <div class="speed hidden" id="speedRow">
+          <label for="speedSlider">Speed <strong id="speedLabel">1.0×</strong></label>
+          <input type="range" id="speedSlider" min="0.8" max="2" step="0.1" value="1" aria-valuemin="0.8" aria-valuemax="2" aria-valuenow="1" aria-label="Playback speed">
+          <div class="ends" aria-hidden="true"><span>0.8×</span><span>2×</span></div>
+        </div>
         <p class="hint" id="watchHint"></p>
         <div class="manual hidden" id="manualArea">
           <span>The video player could not report your progress on this device. If you watched the whole lesson, mark it here. Your teacher will see that you marked it yourself.</span>
@@ -81,12 +97,43 @@
   if (!getToken(role)) { location.replace('/'); return; }
 
   var HEARTBEAT_MS = 15000;
+  var SPEED_KEY = 'salt_olm_playback_rate';
+  var SPEED_MIN = 0.8;
+  var SPEED_MAX = 2;
   var lessonId = new URLSearchParams(location.search).get('lesson') || '';
   var lesson = null;
   var player = null;
   var playing = false;
   var reachedEnd = false;
   var lastSentAt = 0;
+
+  function clampSpeed(r) {
+    r = Math.round(Number(r) * 10) / 10;
+    if (!isFinite(r)) return 1;
+    return Math.min(SPEED_MAX, Math.max(SPEED_MIN, r));
+  }
+
+  function preferredSpeed() {
+    try { return clampSpeed(localStorage.getItem(SPEED_KEY) || 1); } catch (e) { return 1; }
+  }
+
+  function renderSpeed(r) {
+    r = clampSpeed(r);
+    if ($('speedSlider')) {
+      $('speedSlider').value = String(r);
+      $('speedSlider').setAttribute('aria-valuenow', String(r));
+    }
+    if ($('speedLabel')) $('speedLabel').textContent = r.toFixed(1) + '×';
+  }
+
+  /** Apply a playback rate to the player (and remember it for the next lesson). */
+  function setSpeed(r) {
+    r = clampSpeed(r);
+    renderSpeed(r);
+    try { localStorage.setItem(SPEED_KEY, String(r)); } catch (e) {}
+    if (!player) return;
+    try { player.playbackRate = r; } catch (e) {}
+  }
 
   // Only video that actually plays counts. `seg` is the stretch being played right now,
   // `pending` holds finished stretches [fromSec, toSec, speed] the server has not confirmed.
@@ -134,8 +181,8 @@
   }
 
   function speed() {
-    var r = player ? Number(player.playbackRate) : 1;
-    return r > 0 ? r : 1;
+    var r = player ? Number(player.playbackRate) : preferredSpeed();
+    return r > 0 ? clampSpeed(r) : 1;
   }
 
   function position() {
@@ -230,54 +277,55 @@
     });
   }
 
-  function wirePlayer() {
-    loadSdk().then(function (ok) {
-      if (!ok) {
-        // Without the player SDK nothing can be measured, so let the student say they watched it.
-        if (lesson && !lesson.completed) $('manualArea').classList.remove('hidden');
-        return;
+  function bindPlayerEvents() {
+    var viewCounted = false;
+    function onPlay() {
+      if (playing) return;
+      playing = true;
+      reachedEnd = false;
+      // Re-apply the chosen speed once playback starts (some players reset rate on load).
+      setSpeed(preferredSpeed());
+      openSeg();
+      if (!viewCounted) {
+        viewCounted = true;
+        send({ viewStart: true });
       }
-      player = window.Stream($('playerFrame'));
-      var viewCounted = false;
-      function onPlay() {
-        if (playing) return;
-        playing = true;
-        reachedEnd = false;
-        openSeg();
-        if (!viewCounted) {
-          viewCounted = true;
-          send({ viewStart: true });
-        }
-      }
-      player.addEventListener('play', onPlay);
-      player.addEventListener('playing', onPlay);
-      player.addEventListener('seeking', function () { closeSeg(); });
-      player.addEventListener('ratechange', function () {
-        if (!playing) return;
-        // Credit what was played so far to the old speed, then continue at the new one.
-        var at = seg ? seg.to : position();
-        closeSeg();
-        openSeg(at);
-        send();
-      });
-      player.addEventListener('pause', function () {
-        advance();
-        playing = false;
-        closeSeg();
-        send();
-      });
-      player.addEventListener('ended', function () {
-        advance();
-        playing = false;
-        reachedEnd = true;
-        closeSeg();
-        send({ ended: true });
-      });
-      player.addEventListener('timeupdate', function () {
-        advance();
-        if (playing && Date.now() - lastSentAt >= HEARTBEAT_MS) send();
-      });
+    }
+    player.addEventListener('play', onPlay);
+    player.addEventListener('playing', onPlay);
+    player.addEventListener('seeking', function () { closeSeg(); });
+    player.addEventListener('ratechange', function () {
+      renderSpeed(player.playbackRate);
+      try { localStorage.setItem(SPEED_KEY, String(clampSpeed(player.playbackRate))); } catch (e) {}
+      if (!playing) return;
+      // Credit what was played so far to the old speed, then continue at the new one.
+      var at = seg ? seg.to : position();
+      closeSeg();
+      openSeg(at);
+      send();
     });
+    player.addEventListener('pause', function () {
+      advance();
+      playing = false;
+      closeSeg();
+      send();
+    });
+    player.addEventListener('ended', function () {
+      advance();
+      playing = false;
+      reachedEnd = true;
+      closeSeg();
+      send({ ended: true });
+    });
+    player.addEventListener('timeupdate', function () {
+      advance();
+      if (playing && Date.now() - lastSentAt >= HEARTBEAT_MS) send();
+    });
+  }
+
+  if ($('speedSlider')) {
+    $('speedSlider').addEventListener('input', function () { setSpeed($('speedSlider').value); });
+    renderSpeed(preferredSpeed());
   }
 
   function loadPlayer() {
@@ -288,10 +336,22 @@
       $('lessonTitle').textContent = lesson.title;
       $('lessonDesc').textContent = lesson.description || '';
       var url = d.playerUrl + '?preload=auto' + (lesson.lastPosition > 5 && !lesson.completed ? '&startTime=' + lesson.lastPosition + 's' : '');
-      $('playerFrame').src = url;
       $('playerArea').classList.remove('hidden');
       renderProgress();
-      wirePlayer();
+      // Attach the SDK before setting iframe src so we do not miss its ready message
+      // (otherwise playbackRate / play commands stay queued forever).
+      return loadSdk().then(function (ok) {
+        if (!ok) {
+          if (lesson && !lesson.completed) $('manualArea').classList.remove('hidden');
+          $('playerFrame').src = url;
+          return;
+        }
+        player = window.Stream($('playerFrame'));
+        bindPlayerEvents();
+        $('speedRow').classList.remove('hidden');
+        $('playerFrame').src = url;
+        setSpeed(preferredSpeed());
+      });
     }).catch(function (e) { showError(e.message || 'Could not open this lesson.'); });
   }
 
