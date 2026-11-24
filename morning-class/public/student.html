@@ -17,7 +17,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20261124salty1">
+  <link rel="stylesheet" href="/css/app.css?v=20261124salty2">
   <link rel="stylesheet" href="/css/vocab-learn.css">
 </head>
 <body class="student-body">
@@ -201,24 +201,38 @@
   </button>
   <div class="salty-panel" id="saltyPanel" aria-hidden="true">
     <div class="salty-head">
-      <div class="salty-buddy">
-        <img id="saltyAvatar" src="/img/salt-buddy/idle-512.png" alt="Salty" width="56" height="56">
-        <div>
-          <strong>Salty</strong>
-          <div class="muted small" id="saltyCaption">Ask Salty</div>
-        </div>
+      <div>
+        <strong>Salty</strong>
+        <div class="muted small" id="saltyCaption">Ask Salty</div>
       </div>
       <span class="buddy-head-spacer"></span>
       <label class="salty-mute muted small"><input type="checkbox" id="saltyMute"> Mute</label>
       <button type="button" class="buddy-icon-btn" id="saltyClose" aria-label="Minimize" title="Minimize">−</button>
     </div>
     <p id="saltyStatus" class="muted small buddy-status-line"></p>
-    <div id="saltyChat" class="salty-chat"></div>
+    <div class="salty-stage">
+      <div class="salty-buddy-frame" id="saltyBuddyFrame">
+        <img id="saltyAvatar" src="/img/salt-buddy/idle-512.png" alt="Salty" width="160" height="160">
+        <video id="saltyVideo" class="hidden" autoplay muted loop playsinline
+          poster="/img/salt-buddy/talking.png">
+          <source src="/img/salt-buddy/talking-loop.webm" type="video/webm">
+          <source src="/img/salt-buddy/talking-loop.mp4" type="video/mp4">
+        </video>
+      </div>
+      <div class="salty-live">
+        <div class="salty-you-said muted small hidden" id="saltyYouSaid"></div>
+        <div class="salty-live-text" id="saltyLiveText" aria-live="polite"></div>
+      </div>
+    </div>
+    <details class="salty-history-wrap">
+      <summary class="muted small">Earlier chat</summary>
+      <div id="saltyChat" class="salty-chat"></div>
+    </details>
     <div class="salty-compose">
       <button type="button" class="salty-mic" id="saltyMicBtn" title="Hold to talk" aria-label="Hold to talk">
         <i class="fa-solid fa-microphone" aria-hidden="true"></i>
       </button>
-      <textarea id="saltyInput" placeholder="Ask about English or grammar…" maxlength="800" rows="2"></textarea>
+      <textarea id="saltyInput" placeholder="Ask about English or grammar…" maxlength="800" rows="2" autocomplete="off"></textarea>
       <button type="button" class="btn btn-primary" id="saltySendBtn">Send</button>
       <div class="error" id="saltyError"></div>
     </div>
@@ -233,7 +247,7 @@
 <script src="/js/announcements.js?v=20260813gap27"></script>
 <script src="/js/lost-and-found.js?v=20260813ux1"></script>
 <script src="/js/messenger.js?v=20260813gap1"></script>
-<script src="/js/salty-tutor.js?v=20261124salty1"></script>
+<script src="/js/salty-tutor.js?v=20261124salty2"></script>
 <script src="/js/subject-colors.js?v=20260812pastel"></script>
 <script src="/js/timetable.js?v=20260901click1"></script>
 <script src="/js/report-card-print.js?v=20260910stugr1"></script>

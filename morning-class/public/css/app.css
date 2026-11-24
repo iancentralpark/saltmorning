@@ -4373,23 +4373,75 @@ body.buddy-resize-active {
   box-shadow: 0 16px 40px rgba(30, 41, 59, 0.18); padding: 0.75rem; overflow: hidden;
 }
 .salty-float:not(.panel-collapsed) .salty-panel { display: flex; }
-.salty-head { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; margin-bottom: 0.35rem; }
-.salty-buddy { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
-.salty-buddy img {
-  width: 3.2rem; height: 3.2rem; border-radius: 999px; object-fit: cover;
-  border: 2px solid var(--primary-soft); background: var(--cream);
-}
+.salty-head { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; margin-bottom: 0.25rem; }
 .salty-mute { display: inline-flex; align-items: center; gap: 0.3rem; cursor: pointer; white-space: nowrap; }
 .salty-mute input { margin: 0; }
+.salty-stage {
+  display: flex; flex-direction: column; align-items: center; gap: 0.55rem;
+  flex: 1; min-height: 0; padding: 0.35rem 0.2rem 0.55rem;
+  background: linear-gradient(180deg, #f0fdfa 0%, #fff 70%);
+  border-radius: 0.85rem; border: 1px solid var(--border-soft);
+  overflow: auto;
+}
+.salty-buddy-frame {
+  position: relative;
+  width: min(11rem, 55vw); height: min(11rem, 55vw);
+  border-radius: 1.1rem; overflow: hidden;
+  background: #ecfdf5; border: 2px solid rgba(13, 148, 136, 0.25);
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.12);
+}
+.salty-buddy-frame.is-speaking {
+  animation: saltyBuddyBounce 0.55s ease-in-out infinite;
+}
+@keyframes saltyBuddyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.salty-buddy-frame img,
+.salty-buddy-frame video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.salty-live {
+  width: 100%; max-width: 20rem; text-align: center;
+  padding: 0 0.35rem 0.15rem;
+}
+.salty-you-said {
+  margin: 0 0 0.35rem; font-weight: 600;
+}
+.salty-you-said.hidden { display: none; }
+.salty-live-text {
+  min-height: 2.6rem;
+  font-size: 0.95rem; line-height: 1.5;
+  color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.salty-live-text.is-typing::after {
+  content: "|";
+  display: inline-block; margin-left: 1px;
+  animation: saltyCaret 0.9s steps(1) infinite;
+  color: var(--primary); font-weight: 700;
+}
+@keyframes saltyCaret {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.salty-history-wrap {
+  flex-shrink: 0; margin: 0.35rem 0 0.2rem;
+  border-top: 1px solid var(--border-soft); padding-top: 0.25rem;
+}
+.salty-history-wrap > summary {
+  cursor: pointer; font-weight: 600; list-style: none;
+  padding: 0.2rem 0.1rem;
+}
+.salty-history-wrap > summary::-webkit-details-marker { display: none; }
 .salty-chat {
-  flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 0.55rem;
-  padding: 0.35rem 0.15rem; margin: 0.2rem 0 0.45rem;
+  max-height: 7.5rem; overflow: auto; display: flex; flex-direction: column; gap: 0.4rem;
+  padding: 0.25rem 0.1rem 0.35rem; margin: 0.15rem 0 0;
 }
 .salty-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 92%; }
 .salty-msg.mine { align-self: flex-end; align-items: flex-end; }
 .salty-who { font-size: 0.7rem; color: var(--muted); margin: 0 0.2rem 0.15rem; font-weight: 600; }
 .salty-bubble {
-  padding: 0.55rem 0.75rem; border-radius: 14px; line-height: 1.45; font-size: 0.9rem;
+  padding: 0.45rem 0.65rem; border-radius: 12px; line-height: 1.4; font-size: 0.82rem;
   background: #fff; border: 1px solid var(--border-soft); white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .salty-msg.mine .salty-bubble { background: var(--primary); color: #fff; border-color: transparent; }
@@ -4410,9 +4462,10 @@ body.buddy-resize-active {
 .salty-mic.on { background: #c24a40; color: #fff; border-color: #c24a40; }
 @media (max-width: 640px) {
   .salty-float:not(.panel-collapsed) .salty-panel {
-    width: calc(100vw - 1.25rem); height: min(78vh, 36rem);
+    width: calc(100vw - 1.25rem); height: min(82vh, 40rem);
   }
   .salty-fab-label { font-size: 0.82rem; }
+  .salty-buddy-frame { width: min(9.5rem, 48vw); height: min(9.5rem, 48vw); }
 }
 
 .salty-teacher-grid {
