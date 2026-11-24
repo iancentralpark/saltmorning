@@ -4005,6 +4005,7 @@ const {
 
 const grammarClinic = require('./services/grammarClinicService');
 const grammarLecture = require('./services/grammarLectureSlidesService');
+const grammarWorksheet = require('./services/grammarWorksheetService');
 
 router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (req, res) => {
   try {
@@ -4184,6 +4185,47 @@ router.get('/grammar-clinic/lecture/jobs/:id/pptx', requireRole('teacher', 'admi
   } catch (e) {
     console.error('GET /grammar-clinic/lecture/jobs/:id/pptx', e);
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PPTX.' });
+  }
+});
+
+router.post('/grammar-clinic/worksheet/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
+  try {
+    const body = req.body || {};
+    const started = grammarWorksheet.startGenerateJob({
+      title: body.title,
+      grade: body.grade,
+      unitIds: body.unitIds,
+      topics: body.topics,
+      customTopic: body.customTopic || body.extraTopics,
+      notes: body.notes
+    }, grammarOwnerKey(req));
+    res.status(202).json(started);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not start worksheet.' });
+  }
+});
+
+router.get('/grammar-clinic/worksheet/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = grammarWorksheet.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Job not found.' });
+    res.json(grammarWorksheet.publicJob(job));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load worksheet job.' });
+  }
+});
+
+router.get('/grammar-clinic/worksheet/jobs/:id/html', requireRole('teacher', 'admin'), (req, res) => {
+  try {
+    const job = grammarWorksheet.getJob(req.params.id, grammarOwnerKey(req));
+    if (!job || !job.htmlPreview) return res.status(404).json({ error: 'Job not found.' });
+    const name = String((job.input && job.input.title) || 'grammar-worksheet')
+      .replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'grammar-worksheet';
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name + '.html'));
+    res.send(job.htmlPreview);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not download worksheet.' });
   }
 });
 

@@ -150,7 +150,8 @@
     .mode-tabs { display: flex; gap: 0.35rem; margin-bottom: 0.75rem; }
     .mode-tab {
       flex: 1; border: 1px solid var(--line); background: #fff; border-radius: 10px;
-      padding: 0.45rem 0.5rem; font-weight: 800; font-size: 0.82rem; cursor: pointer; color: var(--muted);
+      padding: 0.42rem 0.35rem; font-weight: 800; font-size: 0.76rem; cursor: pointer; color: var(--muted);
+      line-height: 1.25;
     }
     .mode-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
     .upload-box {
@@ -189,18 +190,21 @@
           <div class="mode-tabs" id="modeTabs">
             <button type="button" class="mode-tab active" data-mode="exam">문제지 출제</button>
             <button type="button" class="mode-tab" data-mode="lecture">인강 슬라이드</button>
+            <button type="button" class="mode-tab" data-mode="worksheet">학습지</button>
           </div>
           <p class="hint" id="modeHint">문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.</p>
           <div class="form-grid">
             <label id="titleLabel">시험지 제목
               <input type="text" id="titleInput" placeholder="예: 중2 should / which 문법 클리닉">
             </label>
-            <label>기본 학년 필터
+            <label id="gradeFilterLabel">기본 학년 필터
               <select id="gradeSelect">
                 <option value="">전체 (중1–중3)</option>
+                <option value="E6" class="worksheet-grade">초6</option>
                 <option value="M1">중1</option>
                 <option value="M2" selected>중2</option>
                 <option value="M3">중3</option>
+                <option value="H1" class="worksheet-grade">고1</option>
               </select>
             </label>
             <label class="exam-only">문항 수
@@ -225,16 +229,21 @@
               </select>
             </label>
           </div>
-          <label class="lecture-only hidden" id="customTopicWrap">카탈로그에 없는 주제 (직접 입력)
-            <textarea id="customTopic" rows="3" placeholder="예: 영어 8품사 개요 — 명사·대명사·동사·형용사·부사·전치사·접속사·감탄사 한눈에 보기" style="resize:vertical;min-height:4.2rem"></textarea>
-            <span class="hint" style="margin:0.25rem 0 0;font-weight:500">목록에 없는 개념(개요·총정리 등)은 여기에 적고 슬라이드 만들기. 카탈로그 선택과 함께 써도 됩니다(직접 입력이 중심).</span>
+          <label class="lecture-only worksheet-only hidden" id="customTopicWrap">카탈로그에 없는 주제 (직접 입력)
+            <textarea id="customTopic" rows="3" placeholder="예: 영어 8품사 개요 — 명사·대명사·동사… / 학습지는 줄바꿈·쉼표로 여러 주제" style="resize:vertical;min-height:4.2rem"></textarea>
+            <span class="hint" style="margin:0.25rem 0 0;font-weight:500" id="customTopicHint">목록에 없는 개념은 여기에 적으세요. 카탈로그 선택과 함께 써도 됩니다.</span>
+          </label>
+          <label class="worksheet-only hidden" id="notesWrap">추가 강조사항
+            <textarea id="worksheetNotes" rows="2" placeholder="예: 서술형 함정 강조, to부정사 vs 동명사 비교 표 넣기" style="resize:vertical;min-height:3.2rem"></textarea>
           </label>
 
           <div class="grade-tabs" id="quickGrades">
             <button type="button" class="grade-tab" data-grade="">전체</button>
+            <button type="button" class="grade-tab worksheet-grade hidden" data-grade="E6">초6</button>
             <button type="button" class="grade-tab" data-grade="M1">중1</button>
             <button type="button" class="grade-tab active" data-grade="M2">중2</button>
             <button type="button" class="grade-tab" data-grade="M3">중3</button>
+            <button type="button" class="grade-tab worksheet-grade hidden" data-grade="H1">고1</button>
           </div>
 
           <div class="filter-row">
@@ -262,12 +271,15 @@
               <button type="button" class="tab exam-only" data-view="answers">정답·해설</button>
               <button type="button" class="tab lecture-only hidden" data-view="lecture">인강 미리보기</button>
               <button type="button" class="tab lecture-only hidden" data-view="script">전체 대본</button>
+              <button type="button" class="tab worksheet-only hidden" data-view="worksheet">학습지 미리보기</button>
             </div>
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
               <button type="button" class="btn btn-ok btn-sm lecture-only hidden" id="btnHtml" disabled>HTML 다운로드</button>
               <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnScript" disabled>대본 다운로드</button>
               <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPdf" disabled>PDF 다운로드</button>
               <button type="button" class="btn btn-ok btn-sm exam-only" id="btnPrint" disabled>인쇄 / PDF</button>
+              <button type="button" class="btn btn-ok btn-sm worksheet-only hidden" id="btnWsPrint" disabled>PDF 저장 / 인쇄</button>
+              <button type="button" class="btn btn-ghost btn-sm worksheet-only hidden" id="btnWsHtml" disabled>HTML 다운로드</button>
               <button type="button" class="btn btn-ghost btn-sm" id="btnOpenTab" disabled>새 탭에서 열기</button>
               <button type="button" class="btn btn-ghost btn-sm lecture-only hidden" id="btnPptx" disabled title="HTML 칠판을 화면 캡처해 PPT로 만듭니다. Google 슬라이드에 업로드 가능(이미지 기반·글자 편집 불가).">PPT (캡처)</button>
             </div>
@@ -301,9 +313,10 @@
   var filterCategory = '';
   var filterQuery = '';
   var view = 'questions';
-  var mode = 'exam'; // exam | lecture
-  var last = null; // exam paper OR lecture job
+  var mode = 'exam'; // exam | lecture | worksheet
+  var last = null; // exam paper OR lecture/worksheet job
   var lectureJobId = null;
+  var worksheetJobId = null;
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -319,29 +332,63 @@
 
   function syncModeUi() {
     var lecture = mode === 'lecture';
+    var worksheet = mode === 'worksheet';
     document.querySelectorAll('.mode-tab').forEach(function (b) {
       b.classList.toggle('active', b.getAttribute('data-mode') === mode);
     });
     document.querySelectorAll('.exam-only').forEach(function (el) {
-      el.classList.toggle('hidden', lecture);
+      el.classList.toggle('hidden', lecture || worksheet);
     });
     document.querySelectorAll('.lecture-only').forEach(function (el) {
-      el.classList.toggle('hidden', !lecture);
+      // lecture-only shared with worksheet via worksheet-only class — hide unless lecture
+      if (el.classList.contains('worksheet-only')) {
+        el.classList.toggle('hidden', !(lecture || worksheet));
+      } else {
+        el.classList.toggle('hidden', !lecture);
+      }
     });
-    $('sideTitle').textContent = lecture ? '인강 슬라이드 설정' : '출제 설정';
+    document.querySelectorAll('.worksheet-only').forEach(function (el) {
+      if (el.classList.contains('lecture-only')) {
+        el.classList.toggle('hidden', !(lecture || worksheet));
+      } else {
+        el.classList.toggle('hidden', !worksheet);
+      }
+    });
+    document.querySelectorAll('.worksheet-grade').forEach(function (el) {
+      el.classList.toggle('hidden', !worksheet);
+    });
+    if ($('gradeFilterLabel')) {
+      $('gradeFilterLabel').childNodes[0].textContent = worksheet ? '대상 학년' : '기본 학년 필터';
+    }
+    if ($('customTopicHint')) {
+      $('customTopicHint').textContent = worksheet
+        ? '여러 주제는 줄바꿈·쉼표로 구분. 카탈로그 선택과 합쳐 주제당 1페이지를 만듭니다 (최대 8).'
+        : '목록에 없는 개념(개요·총정리 등)은 여기에 적고 슬라이드 만들기. 카탈로그 선택과 함께 써도 됩니다.';
+    }
+    $('sideTitle').textContent = lecture ? '인강 슬라이드 설정'
+      : (worksheet ? '학습지 설정' : '출제 설정');
     $('modeHint').innerHTML = lecture
       ? '카탈로그에서 <strong>최대 2개</strong> 고르거나, <strong>직접 주제</strong>를 입력하세요. 화면은 <strong>점잖은 판서</strong>, <strong>대본만 일타강사</strong>. Opus · HTML 발표 · PPT(캡처) 지원.'
-      : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.';
-    $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목' : '시험지 제목';
+      : (worksheet
+        ? '초6~고1 대상으로 <strong>여러 문법 주제</strong>를 고르면 A4 학습지(개념+줄노트)를 만듭니다. 미리보기에서 문구를 클릭해 바로 수정·인쇄하세요.'
+        : '문법 포인트를 <strong>하나씩</strong> 고를 수 있습니다. 예: 조동사 should만, 관계대명사 which만. 검색·카테고리로 좁힌 뒤 Generate하세요.');
+    $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목'
+      : (worksheet ? '학습지 제목' : '시험지 제목');
     $('titleInput').placeholder = lecture
       ? '예: 중2 관계대명사 which 인강'
-      : '예: 중2 should / which 문법 클리닉';
-    $('emptyTitle').textContent = lecture ? '인강 슬라이드 미리보기' : '시험지 미리보기';
+      : (worksheet
+        ? '예: 중2 관계사·조동사 학습지'
+        : '예: 중2 should / which 문법 클리닉');
+    $('emptyTitle').textContent = lecture ? '인강 슬라이드 미리보기'
+      : (worksheet ? '학습지 미리보기' : '시험지 미리보기');
     $('emptyBody').innerHTML = lecture
       ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 칠판은 차분하게, 대본만 일타강사 톤입니다.'
-      : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.';
-    $('btnGenerate').textContent = lecture ? '슬라이드 만들기' : 'Generate';
-    $('btnGenerate2').textContent = lecture ? '슬라이드 만들기' : 'Generate';
+      : (worksheet
+        ? '학년·문법 주제·강조사항을 넣고 학습지 만들기를 누르면<br>A4 학습지가 여기에 미리보기로 나타납니다.'
+        : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.');
+    var genLabel = lecture ? '슬라이드 만들기' : (worksheet ? '학습지 만들기' : 'Generate');
+    $('btnGenerate').textContent = genLabel;
+    $('btnGenerate2').textContent = genLabel;
     if (lecture) {
       view = 'lecture';
       var ids = selectedIds();
@@ -349,13 +396,24 @@
         selected = {};
         ids.slice(0, 2).forEach(function (id) { selected[id] = true; });
       }
+    } else if (worksheet) {
+      view = 'worksheet';
+      if (filterGrade === '' || filterGrade === 'M1' || filterGrade === 'M2' || filterGrade === 'M3') {
+        /* keep */
+      } else if (filterGrade !== 'E6' && filterGrade !== 'H1') {
+        filterGrade = 'M2';
+      }
     } else {
       view = 'questions';
+      if (filterGrade === 'E6' || filterGrade === 'H1') filterGrade = 'M2';
     }
     document.querySelectorAll('#previewTabs .tab').forEach(function (t) {
       var v = t.getAttribute('data-view');
-      t.classList.toggle('active', lecture ? v === 'lecture' : v === view);
+      var on = worksheet ? v === 'worksheet' : (lecture ? v === 'lecture' : v === view);
+      t.classList.toggle('active', on);
     });
+    syncGradeTabs();
+    renderCatTabs();
     renderCatalog();
     renderSelectedBar();
     showPreview();
@@ -372,9 +430,16 @@
     return hay.indexOf(q) !== -1;
   }
 
+  function catalogFilterGrade() {
+    // Worksheet grades 초6/고1 have no catalog rows — show all middle-school units as reference.
+    if (mode === 'worksheet' && (filterGrade === 'E6' || filterGrade === 'H1')) return '';
+    return filterGrade;
+  }
+
   function visibleUnits() {
+    var g = catalogFilterGrade();
     return catalog.filter(function (u) {
-      if (filterGrade && u.grade !== filterGrade) return false;
+      if (g && u.grade !== g) return false;
       if (filterCategory && u.category !== filterCategory) return false;
       if (!unitMatchesQuery(u, filterQuery)) return false;
       return true;
@@ -386,8 +451,9 @@
     if (!mount) return;
     var seen = {};
     var cats = [];
+    var g = catalogFilterGrade();
     catalog.forEach(function (u) {
-      if (filterGrade && u.grade !== filterGrade) return;
+      if (g && u.grade !== g) return;
       if (seen[u.category]) return;
       seen[u.category] = true;
       cats.push(u.category);
@@ -451,7 +517,7 @@
     var bar = $('selectedBar');
     if (!ids.length) {
       bar.innerHTML = '<span class="hint" style="margin:0">선택된 문법 없음'
-        + (mode === 'lecture' ? ' (최대 2개)' : '') + '</span>';
+        + (mode === 'lecture' ? ' (최대 2개)' : (mode === 'worksheet' ? ' (최대 8개)' : '')) + '</span>';
       return;
     }
     bar.innerHTML = ids.map(function (id) {
@@ -460,7 +526,7 @@
       return '<span class="tag">' + escapeHtml(label) + '</span>';
     }).join('') +
       '<span class="hint" style="margin:0">' + ids.length
-      + (mode === 'lecture' ? ' / 2' : '') + '개 선택</span>';
+      + (mode === 'lecture' ? ' / 2' : (mode === 'worksheet' ? ' / 8' : '')) + '개 선택</span>';
   }
 
   function escapeHtml(s) {
@@ -491,10 +557,11 @@
         byCat[cat].map(function (u) {
           var on = selected[u.unitId] ? ' on' : '';
           var kw = (u.keywords || []).slice(0, 3).join(', ');
+          var gLabel = u.grade === 'E6' ? '초6' : (u.grade === 'H1' ? '고1' : String(u.grade || '').replace('M', '중'));
           return '<button type="button" class="chip' + on + '" data-unit="' + escapeHtml(u.unitId) + '" title="' +
             escapeHtml((u.coreRules || []).join(' / ') + (kw ? ' · ' + kw : '')) + '">' +
             escapeHtml(u.subCategory) +
-            ' <small style="opacity:.75">' + escapeHtml(u.grade.replace('M', '중')) + '</small></button>';
+            ' <small style="opacity:.75">' + escapeHtml(gLabel) + '</small></button>';
         }).join('') + '</div></div>';
     }).join('');
 
@@ -505,6 +572,9 @@
           selected[id] = false;
         } else if (mode === 'lecture' && selectedIds().length >= 2) {
           setStatus('인강 슬라이드는 문법을 최대 2개까지 선택할 수 있습니다.', 'error');
+          return;
+        } else if (mode === 'worksheet' && selectedIds().length >= 8) {
+          setStatus('학습지는 문법을 최대 8개까지 선택할 수 있습니다.', 'error');
           return;
         } else {
           selected[id] = true;
@@ -518,6 +588,7 @@
         if (mode === 'lecture') return;
         var cat = btn.getAttribute('data-cat');
         rows.filter(function (u) { return u.category === cat; }).forEach(function (u) {
+          if (mode === 'worksheet' && selectedIds().length >= 8) return;
           selected[u.unitId] = true;
         });
         renderCatalog();
@@ -541,6 +612,8 @@
       html = view === 'script'
         ? (last && (last.scriptHtml || null))
         : (last && last.htmlPreview);
+    } else if (mode === 'worksheet') {
+      html = last && last.htmlPreview;
     } else {
       html = last && (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
     }
@@ -553,18 +626,23 @@
       if ($('btnScript')) $('btnScript').disabled = true;
       if ($('btnPdf')) $('btnPdf').disabled = true;
       if ($('btnPptx')) $('btnPptx').disabled = true;
+      if ($('btnWsPrint')) $('btnWsPrint').disabled = true;
+      if ($('btnWsHtml')) $('btnWsHtml').disabled = true;
       return;
     }
     empty.classList.add('hidden');
     frame.classList.remove('hidden');
     frame.srcdoc = html;
-    $('btnPrint').disabled = mode === 'lecture';
+    $('btnPrint').disabled = mode !== 'exam';
     $('btnOpenTab').disabled = false;
     var lectureReady = mode === 'lecture' && last && last.htmlPreview;
+    var wsReady = mode === 'worksheet' && last && last.htmlPreview;
     if ($('btnHtml')) $('btnHtml').disabled = !lectureReady;
     if ($('btnScript')) $('btnScript').disabled = !(lectureReady && (last.scriptHtml || last.scriptUrl));
     if ($('btnPdf')) $('btnPdf').disabled = !(lectureReady && last.pdfUrl);
     if ($('btnPptx')) $('btnPptx').disabled = !(lectureReady && last.pptxUrl);
+    if ($('btnWsPrint')) $('btnWsPrint').disabled = !wsReady;
+    if ($('btnWsHtml')) $('btnWsHtml').disabled = !wsReady;
     syncPatchUi();
   }
 
@@ -669,8 +747,10 @@
     $('btnGenerate2').disabled = busy;
     if ($('btnPatch')) $('btnPatch').disabled = busy || !(mode === 'lecture' && last && last.jobId && last.htmlPreview);
     if (!busy) {
-      $('btnGenerate').innerHTML = mode === 'lecture' ? '슬라이드 만들기' : (label || 'Generate');
-      $('btnGenerate2').textContent = mode === 'lecture' ? '슬라이드 만들기' : 'Generate';
+      var genLabel = mode === 'lecture' ? '슬라이드 만들기'
+        : (mode === 'worksheet' ? '학습지 만들기' : (label || 'Generate'));
+      $('btnGenerate').innerHTML = genLabel;
+      $('btnGenerate2').textContent = genLabel;
       $('progress').classList.add('hidden');
     }
   }
@@ -789,6 +869,106 @@
     });
   }
 
+  function pollWorksheetJob(jobId, label) {
+    function tick() {
+      toolFetch('/api/grammar-clinic/worksheet/jobs/' + encodeURIComponent(jobId))
+        .then(function (job) {
+          var p = job.progress || {};
+          $('progress').classList.remove('hidden');
+          $('progressBar').style.width = Math.max(8, Number(p.pct) || 10) + '%';
+          setStatus(p.message || '학습지 작성 중…');
+          if (job.status === 'done' && job.htmlPreview) {
+            last = job;
+            worksheetJobId = job.jobId;
+            view = 'worksheet';
+            $('progressBar').style.width = '100%';
+            showPreview();
+            var n = (job.packet && job.packet.pages && job.packet.pages.length) || 0;
+            setStatus('학습지 완성 — ' + n + '페이지 (텍스트 클릭해 수정 가능)', 'ok');
+            setBusy(false, label);
+            return;
+          }
+          if (job.status === 'error') {
+            setStatus(job.error || '생성 실패', 'error');
+            setBusy(false, label);
+            return;
+          }
+          setTimeout(tick, 1500);
+        })
+        .catch(function (err) {
+          setStatus(err.message || '상태 확인 실패', 'error');
+          setBusy(false, label);
+        });
+    }
+    setTimeout(tick, 800);
+  }
+
+  function generateWorksheet() {
+    var ids = selectedIds();
+    var customTopic = String(($('customTopic') && $('customTopic').value) || '').trim();
+    if (!customTopic && !ids.length) {
+      setStatus('카탈로그 문법을 고르거나, 직접 주제를 입력하세요.', 'error');
+      return;
+    }
+    if (ids.length > 8) {
+      setStatus('학습지는 카탈로그 문법을 최대 8개까지입니다.', 'error');
+      return;
+    }
+    var label = $('btnGenerate').innerHTML;
+    setBusy(true, label);
+    $('btnGenerate').innerHTML = '<span class="spinner"></span> 만드는 중';
+    $('progress').classList.remove('hidden');
+    $('progressBar').style.width = '8%';
+    setStatus('Claude가 학습지를 쓰는 중…');
+    var grade = filterGrade || $('gradeSelect').value || 'M2';
+    if (!grade) grade = 'M2';
+    toolFetch('/api/grammar-clinic/worksheet/generate', {
+      method: 'POST',
+      body: {
+        title: String($('titleInput').value || '').trim(),
+        grade: grade,
+        unitIds: ids,
+        customTopic: customTopic || undefined,
+        notes: String(($('worksheetNotes') && $('worksheetNotes').value) || '').trim() || undefined
+      }
+    }).then(function (data) {
+      if (!data.jobId) throw new Error('작업을 시작하지 못했습니다.');
+      worksheetJobId = data.jobId;
+      pollWorksheetJob(data.jobId, label);
+    }).catch(function (err) {
+      setStatus(err.message || '생성 실패', 'error');
+      setBusy(false, label);
+    });
+  }
+
+  function printWorksheet() {
+    var frame = $('previewFrame');
+    if (!frame || !last || !last.htmlPreview) return;
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+    } catch (e) {
+      var w = window.open('', '_blank');
+      if (!w) { setStatus('팝업이 차단되었습니다. 새 탭에서 열어 인쇄하세요.', 'error'); return; }
+      w.document.open();
+      w.document.write(last.htmlPreview);
+      w.document.close();
+      setTimeout(function () { try { w.print(); } catch (e2) {} }, 400);
+    }
+  }
+
+  function downloadWorksheetHtml() {
+    if (!last || !last.htmlPreview) return;
+    try {
+      var name = ((last.packet && last.packet.pages && last.packet.pages[0] && last.packet.pages[0].title)
+        || 'grammar-worksheet').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60);
+      downloadBlob(new Blob([last.htmlPreview], { type: 'text/html;charset=utf-8' }), name + '-worksheet.html');
+      setStatus('학습지 HTML 다운로드 완료', 'ok');
+    } catch (e) {
+      if (last.htmlUrl) fetchLectureFile(last.htmlUrl, 'grammar-worksheet.html', 'HTML');
+    }
+  }
+
   function lectureBaseName() {
     return ((last && last.deck && last.deck.title) || 'grammar-lecture')
       .replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'grammar-lecture';
@@ -865,6 +1045,10 @@
       generateLecture();
       return;
     }
+    if (mode === 'worksheet') {
+      generateWorksheet();
+      return;
+    }
     var ids = selectedIds();
     if (!ids.length) {
       setStatus('문법 요소를 하나 이상 선택하세요.', 'error');
@@ -912,6 +1096,10 @@
 
   function printCurrent() {
     if (!last) return;
+    if (mode === 'worksheet') {
+      printWorksheet();
+      return;
+    }
     var html = mode === 'lecture'
       ? last.htmlPreview
       : (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
@@ -933,7 +1121,9 @@
     if (!last) return;
     var html = mode === 'lecture'
       ? (view === 'script' ? last.scriptHtml : last.htmlPreview)
-      : (view === 'answers' ? last.htmlAnswers : last.htmlQuestions);
+      : (mode === 'worksheet'
+        ? last.htmlPreview
+        : (view === 'answers' ? last.htmlAnswers : last.htmlQuestions));
     if (!html) return;
     var w = window.open('', '_blank');
     if (!w) return;
@@ -947,6 +1137,7 @@
       mode = btn.getAttribute('data-mode') || 'exam';
       last = null;
       lectureJobId = null;
+      worksheetJobId = null;
       syncModeUi();
       setStatus('');
     });
@@ -1024,6 +1215,8 @@
   if ($('btnPdf')) $('btnPdf').addEventListener('click', downloadLecturePdf);
   if ($('btnPptx')) $('btnPptx').addEventListener('click', downloadLecturePptx);
   if ($('btnPatch')) $('btnPatch').addEventListener('click', patchLecture);
+  if ($('btnWsPrint')) $('btnWsPrint').addEventListener('click', printWorksheet);
+  if ($('btnWsHtml')) $('btnWsHtml').addEventListener('click', downloadWorksheetHtml);
   document.querySelectorAll('#previewTabs .tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       view = tab.getAttribute('data-view') || 'questions';
