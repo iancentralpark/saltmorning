@@ -284,11 +284,6 @@
           '<label>Phone <input class="sr-input" data-key="phone" value="' + escapeHtml(p.phone || '') + '"></label>' +
           '<label>Email <input class="sr-input" data-key="email" type="email" value="' + escapeHtml(p.email || '') + '"></label>' +
           '<label class="sr-span2">Address <input class="sr-input" data-key="address" value="' + escapeHtml(p.address || '') + '"></label>' +
-          '<label>Parent name <input class="sr-input" data-key="parentName" value="' + escapeHtml(p.parentName || '') + '"></label>' +
-          '<label>Parent phone <input class="sr-input" data-key="parentPhone" value="' + escapeHtml(p.parentPhone || '') + '"></label>' +
-          '<label>Parent email <input class="sr-input" data-key="parentEmail" type="email" value="' + escapeHtml(p.parentEmail || '') + '"></label>' +
-          '<label>Emergency contact <input class="sr-input" data-key="emergencyContact" value="' + escapeHtml(p.emergencyContact || '') + '"></label>' +
-          '<label>Emergency phone <input class="sr-input" data-key="emergencyPhone" value="' + escapeHtml(p.emergencyPhone || '') + '"></label>' +
           '<label class="sr-span2">Notes <textarea class="sr-input" data-key="notes" rows="3">' + escapeHtml(p.notes || '') + '</textarea></label>'
         ) : (
           '<div class="sr-read-grid">' +
@@ -304,30 +299,47 @@
           readRow('Phone', p.phone) +
           readRow('Email', p.email) +
           readRow('Address', p.address) +
-          readRow('Parent', p.parentName) +
-          readRow('Parent phone', p.parentPhone) +
-          readRow('Parent email', p.parentEmail) +
-          readRow('Emergency', p.emergencyContact) +
-          readRow('Emergency phone', p.emergencyPhone) +
           readRow('Notes', p.notes) +
           '</div>'
         )) +
         '</div>';
     } else if (activeSection === 'parents') {
+      const familyContacts = canEdit
+        ? ('<div class="sr-family-contacts">' +
+          '<h4 class="sr-subsection-title">Family &amp; emergency contacts</h4>' +
+          '<p class="muted small">Quick contact info on the student record (separate from parent login accounts below).</p>' +
+          '<div class="sr-form-grid">' +
+          '<label>Parent name <input class="sr-input" data-key="parentName" value="' + escapeHtml(p.parentName || '') + '"></label>' +
+          '<label>Parent phone <input class="sr-input" data-key="parentPhone" value="' + escapeHtml(p.parentPhone || '') + '"></label>' +
+          '<label>Parent email <input class="sr-input" data-key="parentEmail" type="email" value="' + escapeHtml(p.parentEmail || '') + '"></label>' +
+          '<label>Emergency contact <input class="sr-input" data-key="emergencyContact" value="' + escapeHtml(p.emergencyContact || '') + '"></label>' +
+          '<label>Emergency phone <input class="sr-input" data-key="emergencyPhone" value="' + escapeHtml(p.emergencyPhone || '') + '"></label>' +
+          '</div></div>')
+        : ('<div class="sr-family-contacts">' +
+          '<h4 class="sr-subsection-title">Family &amp; emergency contacts</h4>' +
+          '<div class="sr-read-grid">' +
+          readRow('Parent', p.parentName) +
+          readRow('Parent phone', p.parentPhone) +
+          readRow('Parent email', p.parentEmail) +
+          readRow('Emergency', p.emergencyContact) +
+          readRow('Emergency phone', p.emergencyPhone) +
+          '</div></div>');
       if (!s.studentId) {
-        body = '<p class="muted">Save the student first, then link parent accounts.</p>';
+        body = familyContacts + '<p class="muted" style="margin-top:1rem">Save the student first, then link parent accounts.</p>';
       } else if (readonly) {
-        body = linkedParents.length
-          ? '<div class="sr-parent-list">' + linkedParents.map((p) =>
+        body = familyContacts + (linkedParents.length
+          ? '<h4 class="sr-subsection-title">Linked parent accounts</h4><div class="sr-parent-list">' + linkedParents.map((lp) =>
             '<div class="sr-parent-card">' +
-            '<strong>' + escapeHtml(p.name || p.parentId) + '</strong>' +
-            '<div class="muted small">' + escapeHtml(p.relationship || 'Guardian') +
-            (p.loginId ? ' · ' + escapeHtml(p.loginId) : '') + '</div>' +
+            '<strong>' + escapeHtml(lp.name || lp.parentId) + '</strong>' +
+            '<div class="muted small">' + escapeHtml(lp.relationship || 'Guardian') +
+            (lp.loginId ? ' · ' + escapeHtml(lp.loginId) : '') + '</div>' +
             '</div>'
           ).join('') + '</div>'
-          : '<p class="muted">No parent accounts linked.</p>';
+          : '<p class="muted">No parent accounts linked.</p>');
       } else {
         body =
+          familyContacts +
+          '<h4 class="sr-subsection-title">Linked parent accounts</h4>' +
           '<div class="sr-parent-list" id="srParentList">' +
           (linkedParents.length
             ? linkedParents.map((p) => {
@@ -786,6 +798,13 @@
     return el ? el.value.trim() : '';
   }
 
+  function profileField(key) {
+    const el = mountEl.querySelector('.sr-input[data-key="' + key + '"]');
+    if (el) return el.value.trim();
+    const prev = (activeStudent && activeStudent.profile) || {};
+    return prev[key] != null ? String(prev[key]) : '';
+  }
+
   function fieldsForSave() {
     const out = {};
     ['gradebook', 'schedule', 'medical'].forEach((section) => {
@@ -874,29 +893,36 @@
     const errEl = mountEl.querySelector('.sr-save-error');
     errEl.textContent = '';
     try {
+      const nameEl = mountEl.querySelector('.sr-input[data-key="name"]');
       const payload = {
-        studentId: inputVal('studentId') || undefined,
-        name: inputVal('name'),
-        classId: inputVal('classId'),
-        status: inputVal('status') || 'Enrolled',
-        loginId: inputVal('loginId'),
+        studentId: inputVal('studentId') || (activeStudent && activeStudent.studentId) || undefined,
+        name: nameEl ? nameEl.value.trim() : ((activeStudent && activeStudent.name) || ''),
+        classId: mountEl.querySelector('.sr-input[data-key="classId"]')
+          ? inputVal('classId')
+          : ((activeStudent && activeStudent.classId) || ''),
+        status: mountEl.querySelector('.sr-input[data-key="status"]')
+          ? (inputVal('status') || 'Enrolled')
+          : ((activeStudent && activeStudent.status) || 'Enrolled'),
+        loginId: mountEl.querySelector('.sr-input[data-key="loginId"]')
+          ? inputVal('loginId')
+          : ((activeStudent && activeStudent.loginId) || ''),
         password: inputVal('password'),
         profile: {
-          dateOfBirth: inputVal('dateOfBirth'),
-          gender: inputVal('gender'),
-          nationality: inputVal('nationality'),
-          address: inputVal('address'),
-          phone: inputVal('phone'),
-          email: inputVal('email'),
-          parentName: inputVal('parentName'),
-          parentPhone: inputVal('parentPhone'),
-          parentEmail: inputVal('parentEmail'),
-          emergencyContact: inputVal('emergencyContact'),
-          emergencyPhone: inputVal('emergencyPhone'),
-          previousSchool: inputVal('previousSchool'),
-          gradeLevel: inputVal('gradeLevel'),
-          enrolledDate: inputVal('enrolledDate'),
-          notes: inputVal('notes')
+          dateOfBirth: profileField('dateOfBirth'),
+          gender: profileField('gender'),
+          nationality: profileField('nationality'),
+          address: profileField('address'),
+          phone: profileField('phone'),
+          email: profileField('email'),
+          parentName: profileField('parentName'),
+          parentPhone: profileField('parentPhone'),
+          parentEmail: profileField('parentEmail'),
+          emergencyContact: profileField('emergencyContact'),
+          emergencyPhone: profileField('emergencyPhone'),
+          previousSchool: profileField('previousSchool'),
+          gradeLevel: profileField('gradeLevel'),
+          enrolledDate: profileField('enrolledDate'),
+          notes: profileField('notes')
         },
         fields: fieldsForSave()
       };
