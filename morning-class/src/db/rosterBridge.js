@@ -431,11 +431,25 @@ async function writeRange(sheetName, a1, values) {
   for (let r = parsed.r1; r <= parsed.r2; r++) {
     if (r === 1) continue; // skip header
     const valueRow = values[r - parsed.r1] || [];
-    const existing = (current[r - 1] || []).slice();
+    const before = (current[r - 1] || []).slice();
+    const existing = before.slice();
     while (existing.length < width) existing.push('');
     for (let c = parsed.c1; c <= parsed.c2; c++) {
       const vi = c - parsed.c1;
       if (vi >= 0 && vi < valueRow.length) existing[c] = valueRow[vi];
+    }
+    // Callers often "delete" by blanking the id cell. Upserts no-op on empty
+    // id, which left Postgres rows behind (faculty delete looked successful
+    // but the person stayed in the list). Treat a cleared primary id as delete.
+    const prevId = s(before, 0);
+    const nextId = s(existing, 0);
+    if (prevId && !nextId) {
+      if (sheetName === CLASS_TEACHERS_SHEET) {
+        await deleteClassTeacherRow(before);
+      } else {
+        await deleteById(sheetName, prevId);
+      }
+      continue;
     }
     await upsert(existing);
   }
