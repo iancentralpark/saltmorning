@@ -31,7 +31,132 @@ const { getUnitsByIds } = require('./grammarClinic/catalog');
 
 const MAX_UNITS = 2;
 const JOB_TTL_MS = 24 * 60 * 60 * 1000;
+const MAX_JOBS = 60;
+const TMP_ROOT = path.join(os.tmpdir(), 'salt-grammar-lecture');
+const JOBS_DIR = path.join(TMP_ROOT, 'jobs');
 const jobs = new Map();
+const persistTimers = new Map();
+
+function ensureJobsDir() {
+  if (!fs.existsSync(JOBS_DIR)) fs.mkdirSync(JOBS_DIR, { recursive: true });
+}
+
+function jobDir(id) {
+  return path.join(JOBS_DIR, String(id));
+}
+
+function jobMetaPath(id) {
+  return path.join(jobDir(id), 'meta.json');
+}
+
+function jobPptxPath(id) {
+  return path.join(jobDir(id), 'deck.pptx');
+}
+
+function serializeJob(job) {
+  return {
+    id: job.id,
+    ownerKey: job.ownerKey,
+    mode: job.mode,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    progress: job.progress,
+    input: job.input,
+    deck: job.deck || null,
+    htmlPreview: job.htmlPreview || null,
+    scriptHtml: job.scriptHtml || null,
+    warnings: job.warnings || [],
+    error: job.error || null,
+    hasPptx: !!(job.pptxBuffer && job.pptxBuffer.length)
+  };
+}
+
+function persistJobNow(job) {
+  if (!job || !job.id) return;
+  try {
+    ensureJobsDir();
+    const dir = jobDir(job.id);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(jobMetaPath(job.id), JSON.stringify(serializeJob(job)));
+    if (job.pptxBuffer && job.pptxBuffer.length) {
+      fs.writeFileSync(jobPptxPath(job.id), job.pptxBuffer);
+    }
+  } catch (e) {
+    console.warn('grammar lecture disk persist failed', job.id, e.message);
+  }
+}
+
+function schedulePersist(job, immediate) {
+  if (!job || !job.id) return;
+  if (immediate) {
+    if (persistTimers.has(job.id)) {
+      clearTimeout(persistTimers.get(job.id));
+      persistTimers.delete(job.id);
+    }
+    persistJobNow(job);
+    return;
+  }
+  if (persistTimers.has(job.id)) return;
+  persistTimers.set(job.id, setTimeout(() => {
+    persistTimers.delete(job.id);
+    persistJobNow(job);
+  }, 600));
+}
+
+function loadJobFromDisk(jobId) {
+  const metaFile = jobMetaPath(jobId);
+  if (!fs.existsSync(metaFile)) return null;
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+    let pptxBuffer = null;
+    const pptxFile = jobPptxPath(jobId);
+    if (meta.hasPptx && fs.existsSync(pptxFile)) {
+      pptxBuffer = fs.readFileSync(pptxFile);
+    }
+    const job = {
+      id: meta.id,
+      ownerKey: meta.ownerKey || '',
+      mode: meta.mode || 'generate',
+      status: meta.status,
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+      progress: meta.progress,
+      input: meta.input,
+      deck: meta.deck || null,
+      htmlPreview: meta.htmlPreview || null,
+      scriptHtml: meta.scriptHtml || null,
+      pptxBuffer,
+      warnings: meta.warnings || [],
+      error: meta.error || null,
+      fromDisk: true
+    };
+    jobs.set(job.id, job);
+    return job;
+  } catch (e) {
+    console.warn('grammar lecture disk load failed', jobId, e.message);
+    return null;
+  }
+}
+
+function deleteJobDisk(jobId) {
+  const dir = jobDir(jobId);
+  if (!fs.existsSync(dir)) return;
+  try {
+    fs.readdirSync(dir).forEach((f) => {
+      try { fs.unlinkSync(path.join(dir, f)); } catch (_) { /* ignore */ }
+    });
+    fs.rmdirSync(dir);
+  } catch (_) { /* ignore */ }
+}
+
+function jobNotFoundError() {
+  const err = new Error(
+    '슬라이드 작업을 찾을 수 없습니다. 서버가 재시작됐거나 만료됐을 수 있어요. 화면의 미리보기가 남아 있으면 PPT는 다시 만들 수 있습니다.'
+  );
+  err.statusCode = 404;
+  return err;
+}
 
 const BLOCK_TYPES = [
   'HOOK',           // 도입예문
@@ -465,13 +590,27 @@ async function generateThenReview({ title, units, grade, customTopic, onProgress
 function pruneJobs() {
   const now = Date.now();
   for (const [id, job] of jobs.entries()) {
-    if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) jobs.delete(id);
+    if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) {
+      jobs.delete(id);
+      deleteJobDisk(id);
+    }
+  }
+  if (jobs.size <= MAX_JOBS) return;
+  const ordered = Array.from(jobs.values())
+    .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+  while (jobs.size > MAX_JOBS && ordered.length) {
+    const old = ordered.shift();
+    if (!old) break;
+    jobs.delete(old.id);
+    deleteJobDisk(old.id);
   }
 }
 
 function touch(job, patch) {
   Object.assign(job, patch || {});
   job.updatedAt = Date.now();
+  const doneOrError = job.status === 'done' || job.status === 'error';
+  schedulePersist(job, doneOrError || !!(patch && (patch.deck || patch.pptxBuffer)));
 }
 
 function publicJob(job) {
@@ -498,14 +637,27 @@ function publicJob(job) {
 
 function getJob(jobId, ownerKey) {
   pruneJobs();
-  const job = jobs.get(String(jobId || ''));
+  const id = String(jobId || '');
+  let job = jobs.get(id);
+  if (!job) job = loadJobFromDisk(id);
   if (!job) return null;
   if (ownerKey && job.ownerKey && job.ownerKey !== String(ownerKey)) {
-    const err = new Error('Job not found.');
-    err.statusCode = 404;
+    const err = jobNotFoundError();
     throw err;
   }
   return job;
+}
+
+/** Accept a client-held deck (after job expiry) and normalize for export. */
+function deckFromClient(raw, fallbackTitle) {
+  if (!raw || typeof raw !== 'object') {
+    const err = new Error('내보낼 슬라이드 데이터가 없습니다.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const grade = String(raw.grade || 'M2').toUpperCase();
+  const title = String(raw.title || fallbackTitle || 'grammar-lecture').trim();
+  return coerceDeck(raw, title, grade);
 }
 
 function startGenerateJob(opts, ownerKey) {
@@ -1550,5 +1702,13 @@ module.exports = {
   captureDeckSlidePngs,
   renderDeckPdf,
   safeFilename,
+  deckFromClient,
+  jobNotFoundError,
+  rememberPptx: function rememberPptx(job, buf) {
+    if (!job) return;
+    job.pptxBuffer = buf;
+    job.updatedAt = Date.now();
+    schedulePersist(job, true);
+  },
   isClaudeConfigured
 };

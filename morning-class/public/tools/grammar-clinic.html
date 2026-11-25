@@ -639,8 +639,9 @@
     var wsReady = mode === 'worksheet' && last && last.htmlPreview;
     if ($('btnHtml')) $('btnHtml').disabled = !lectureReady;
     if ($('btnScript')) $('btnScript').disabled = !(lectureReady && (last.scriptHtml || last.scriptUrl));
-    if ($('btnPdf')) $('btnPdf').disabled = !(lectureReady && last.pdfUrl);
-    if ($('btnPptx')) $('btnPptx').disabled = !(lectureReady && last.pptxUrl);
+    // deck alone is enough — export API rebuilds PPT/PDF if the server job expired
+    if ($('btnPdf')) $('btnPdf').disabled = !(lectureReady && (last.pdfUrl || last.deck));
+    if ($('btnPptx')) $('btnPptx').disabled = !(lectureReady && (last.pptxUrl || last.deck));
     if ($('btnWsPrint')) $('btnWsPrint').disabled = !wsReady;
     if ($('btnWsHtml')) $('btnWsHtml').disabled = !wsReady;
     syncPatchUi();
@@ -983,12 +984,24 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
   }
 
-  function fetchLectureFile(url, filename, label) {
-    if (!url) return;
-    setStatus(label + ' 준비 중…');
-    fetch(url, {
+  function isJobGoneError(msg) {
+    var s = String(msg || '');
+    return /Job not found|JOB_NOT_FOUND|작업을 찾을 수 없|만료/i.test(s);
+  }
+
+  function exportLectureFromDeck(kind, filename, label) {
+    if (!last || !last.deck) {
+      return Promise.reject(new Error('화면에 슬라이드 데이터가 없습니다. 다시 만들어 주세요.'));
+    }
+    setStatus(label + ' — 미리보기 데이터로 다시 만드는 중…');
+    return fetch('/api/grammar-clinic/lecture/export/' + kind, {
+      method: 'POST',
       credentials: 'same-origin',
-      headers: { Authorization: 'Bearer ' + token() }
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token()
+      },
+      body: JSON.stringify({ deck: last.deck })
     }).then(function (r) {
       return r.blob().then(function (blob) {
         if (!r.ok) {
@@ -1001,7 +1014,37 @@
         downloadBlob(blob, filename);
         setStatus(label + ' 다운로드 완료', 'ok');
       });
-    }).catch(function (e) {
+    });
+  }
+
+  function fetchLectureFile(url, filename, label, exportKind) {
+    if (!url && !(exportKind && last && last.deck)) return;
+    setStatus(label + ' 준비 중…');
+    var run = url
+      ? fetch(url, {
+        credentials: 'same-origin',
+        headers: { Authorization: 'Bearer ' + token() }
+      }).then(function (r) {
+        return r.blob().then(function (blob) {
+          if (!r.ok) {
+            return blob.text().then(function (t) {
+              var msg = t;
+              try { msg = JSON.parse(t).error || t; } catch (e) {}
+              var err = new Error(msg || ('HTTP ' + r.status));
+              err.status = r.status;
+              throw err;
+            });
+          }
+          downloadBlob(blob, filename);
+          setStatus(label + ' 다운로드 완료', 'ok');
+        });
+      })
+      : Promise.reject(new Error('Job not found.'));
+
+    run.catch(function (e) {
+      if (exportKind && last && last.deck && (e.status === 404 || isJobGoneError(e.message))) {
+        return exportLectureFromDeck(exportKind, filename, label);
+      }
       setStatus(label + ' 실패: ' + e.message, 'error');
     });
   }
@@ -1032,12 +1075,12 @@
   }
 
   function downloadLecturePdf() {
-    fetchLectureFile(last && last.pdfUrl, lectureBaseName() + '.pdf', 'PDF');
+    fetchLectureFile(last && last.pdfUrl, lectureBaseName() + '.pdf', 'PDF', 'pdf');
   }
 
   function downloadLecturePptx() {
     setStatus('HTML 슬라이드를 캡처해 PPT 만드는 중… (처음엔 몇 초 걸릴 수 있어요)');
-    fetchLectureFile(last && last.pptxUrl, lectureBaseName() + '.pptx', 'PPT(캡처)');
+    fetchLectureFile(last && last.pptxUrl, lectureBaseName() + '.pptx', 'PPT(캡처)', 'pptx');
   }
 
   function generate() {
