@@ -4109,7 +4109,10 @@ router.post('/grammar-clinic/lecture/jobs/:id/patch', requireRole('teacher', 'ad
 router.get('/grammar-clinic/lecture/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
   try {
     const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
-    if (!job) return res.status(404).json({ error: 'Job not found.' });
+    if (!job) {
+      const err = grammarLecture.jobNotFoundError();
+      return res.status(404).json({ error: err.message, code: 'JOB_NOT_FOUND' });
+    }
     res.json(grammarLecture.publicJob(job));
   } catch (e) {
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not load job.' });
@@ -4159,7 +4162,10 @@ router.get('/grammar-clinic/lecture/jobs/:id/script', requireRole('teacher', 'ad
 router.get('/grammar-clinic/lecture/jobs/:id/pdf', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
-    if (!job || !job.deck) return res.status(404).json({ error: 'Job not found.' });
+    if (!job || !job.deck) {
+      const err = grammarLecture.jobNotFoundError();
+      return res.status(404).json({ error: err.message, code: 'JOB_NOT_FOUND' });
+    }
     const buf = await grammarLecture.renderDeckPdf(job.deck);
     const name = grammarLecture.safeFilename(job.deck.title) + '.pdf';
     res.set('Content-Type', 'application/pdf');
@@ -4174,11 +4180,14 @@ router.get('/grammar-clinic/lecture/jobs/:id/pdf', requireRole('teacher', 'admin
 router.get('/grammar-clinic/lecture/jobs/:id/pptx', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     const job = grammarLecture.getJob(req.params.id, grammarOwnerKey(req));
-    if (!job || !job.deck) return res.status(404).json({ error: 'Job not found.' });
+    if (!job || !job.deck) {
+      const err = grammarLecture.jobNotFoundError();
+      return res.status(404).json({ error: err.message, code: 'JOB_NOT_FOUND' });
+    }
     let buf = job.pptxBuffer;
     if (!buf) {
       buf = await grammarLecture.renderDeckPptx(job.deck);
-      try { job.pptxBuffer = buf; } catch (_) {}
+      try { grammarLecture.rememberPptx(job, buf); } catch (_) {}
     }
     const name = grammarLecture.safeFilename(job.deck.title) + '.pptx';
     res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
@@ -4187,6 +4196,35 @@ router.get('/grammar-clinic/lecture/jobs/:id/pptx', requireRole('teacher', 'admi
   } catch (e) {
     console.error('GET /grammar-clinic/lecture/jobs/:id/pptx', e);
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PPTX.' });
+  }
+});
+
+/** Client-held deck export — survives deploy/job expiry while the preview is still on screen. */
+router.post('/grammar-clinic/lecture/export/pptx', requireRole('teacher', 'admin'), novelStudyJobLimiter, async (req, res) => {
+  try {
+    const deck = grammarLecture.deckFromClient((req.body || {}).deck);
+    const buf = await grammarLecture.renderDeckPptx(deck);
+    const name = grammarLecture.safeFilename(deck.title) + '.pptx';
+    res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(buf);
+  } catch (e) {
+    console.error('POST /grammar-clinic/lecture/export/pptx', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PPTX.' });
+  }
+});
+
+router.post('/grammar-clinic/lecture/export/pdf', requireRole('teacher', 'admin'), novelStudyJobLimiter, async (req, res) => {
+  try {
+    const deck = grammarLecture.deckFromClient((req.body || {}).deck);
+    const buf = await grammarLecture.renderDeckPdf(deck);
+    const name = grammarLecture.safeFilename(deck.title) + '.pdf';
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(name));
+    res.send(buf);
+  } catch (e) {
+    console.error('POST /grammar-clinic/lecture/export/pdf', e);
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not render PDF.' });
   }
 });
 
