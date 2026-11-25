@@ -231,14 +231,21 @@ async function deleteVideo(id) {
   const v = await loadById(id);
   if (!v) throw httpError(404, 'Video not found.');
 
-  // Block delete if still assigned to classes.
+  // Cascade: drop every class copy that points at this library video (progress rows
+  // cascade in Postgres). Library-backed lesson delete does not touch Cloudflare —
+  // we remove the Stream object once below.
+  let unlinkedClasses = 0;
   if (isOpsDbEnabled()) {
-    const r = await query(
-      'SELECT COUNT(*)::int AS n FROM ' + table('lms_lessons') + ' WHERE library_video_id = $1',
+    const linked = await query(
+      'SELECT id FROM ' + table('lms_lessons') + ' WHERE library_video_id = $1',
       [v.id]
     );
-    if ((r.rows[0] && r.rows[0].n) > 0) {
-      throw httpError(409, '이 영상이 클래스에 배정되어 있습니다. 클래스 배정을 먼저 해제하세요.');
+    if (linked.rows.length) {
+      const lessonSvc = require('./lmsLessonService');
+      for (const row of linked.rows) {
+        await lessonSvc.deleteLesson(row.id);
+        unlinkedClasses += 1;
+      }
     }
   }
 
@@ -253,7 +260,7 @@ async function deleteVideo(id) {
     await query('DELETE FROM ' + table('lms_library_videos') + ' WHERE id = $1', [v.id]);
   }
   videos.delete(v.id);
-  return { ok: true, id: v.id };
+  return { ok: true, id: v.id, unlinkedClasses };
 }
 
 async function getRaw(id) {

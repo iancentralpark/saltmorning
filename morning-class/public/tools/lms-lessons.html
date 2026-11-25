@@ -311,7 +311,7 @@
         method: 'PATCH', body: { title: title, category: category, curriculum: curriculum }
       }).then(loadVideos).catch(function (e) { setStatus(e.message, 'error'); });
     } else if (b.getAttribute('data-act') === 'delete') {
-      if (!window.confirm('"' + v.title + '" 를 라이브러리에서 삭제할까요?\n클래스에 배정된 영상이면 먼저 배정을 해제해야 합니다.')) return;
+      if (!window.confirm('"' + v.title + '" 를 라이브러리에서 삭제할까요?\n클래스에 배정된 복사본도 함께 사라지고, Cloudflare 영상도 지워집니다.')) return;
       api('/api/lms/library/' + encodeURIComponent(id), { method: 'DELETE' })
         .then(loadVideos).catch(function (e) { setStatus(e.message, 'error'); });
     }
