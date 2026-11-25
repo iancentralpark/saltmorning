@@ -4022,7 +4022,9 @@ router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (re
       aiProvider: 'claude',
       model: grammarClinic.claudeModel(),
       lectureModel: grammarLecture.claudeModel(),
-      lectureModels: grammarLecture.lectureClaudeModels()
+      lectureModels: grammarLecture.lectureClaudeModels(),
+      dualVerify: true,
+      geminiVerify: require('./services/grammarVerifyService').hasGeminiKey()
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'Could not load grammar catalog.' });

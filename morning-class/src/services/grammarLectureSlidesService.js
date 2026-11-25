@@ -22,6 +22,11 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { askGemini, isClaudeConfigured, formatGeminiClientError } = require('./geminiService');
+const {
+  dualVerifyGrammar,
+  formatQuizPromptLines,
+  ACCURACY_LAW
+} = require('./grammarVerifyService');
 const { getUnitsByIds } = require('./grammarClinic/catalog');
 
 const MAX_UNITS = 2;
@@ -183,6 +188,12 @@ QUIZ 내신퀴즈 / CLOSER 핵심 요약
 - 퀴즈 정답·해설은 notes에만. 화면에는 문제·보기만.
 - 한 슬라이드 = 블록 1개. lines 최대 6. 한국어 규칙 + 영어 예.
 - heading은 짧고 중립적 (예: '규칙', '형태 변화', '주의', '어원').
+- quiz.prompt: 한국어 발문과 영어 문장은 반드시 \\n 으로 줄을 나눈다.
+  (예: "다음 빈칸에 who와 whom 중 알맞은 것은?\\nThe student _______ answered the question was smart.")
+  영어 문장 한가운데서 줄이 끊기지 않게 발문/예문을 분리할 것.
+
+[문법 사실 — 절대]
+` + ACCURACY_LAW + `
 
 [script — 모든 슬라이드 필수 · 여기만 일타강사]
 각 슬라이드 script에 그 장면의 **전체 대사**를 씁니다.
@@ -276,12 +287,14 @@ function buildGeneratePrompt({ title, units, grade, customTopic }) {
 }
 
 const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재·인강 감수자입니다.
-인강 슬라이드 JSON을 검수하고, 누락된 공통 규칙·개념확인·내신퀴즈·FUN·CLOSER·script를 보완한 최종 JSON만 출력합니다.
+인강 슬라이드 JSON을 구조·커버리지 검수하고 보완한 최종 JSON만 출력합니다.
 Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 장을 앞에 추가하세요.
 인접 슬라이드에 같은 영어 예시(단어 쌍·문장)가 반복되면 FORMS/examples를 새 예시로 교체하세요.
 톤 분리: heading/lines/quiz 등 화면 글은 점잖은 교과서 톤으로 고치고, 구호·감탄·이모지가 화면에 있으면 제거하세요.
 script만 일타강사 구어체로 보강하세요(짧거나 없으면 채우기).
-정답은 notes에만. 화면은 굵고 짧게. JSON만.`;
+quiz.prompt는 한국어 발문과 영어 문장을 \\n으로 분리.
+정답은 notes에만. 화면은 굵고 짧게. JSON만.
+` + ACCURACY_LAW;
 
 function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
   const specs = (units || []).map((u) => ({
@@ -308,6 +321,8 @@ function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
     '6) ★ 예시 중복: FORMULA에 이미 나온 영어 쌍·문장이 FORMS에 다시 나오면 새 예시로 교체.',
     '7) 화면(heading/lines/quiz)이 점잖은가? 구호·감탄·이모지·유행어가 화면에 있으면 제거.',
     '8) 모든 슬라이드 script가 일타강사 구어체·쉬운 비유·(가능하면) 어원/꿀팁인가?',
+    '9) ★ 문법 사실: 과장·거짓 규칙(예: 형용사 뒤 that 생략 불가)이 있으면 고치거나 삭제.',
+    '10) quiz.prompt: 한국어 발문 / 영어 예문 줄바꿈(\\n) 분리.',
     '',
     '초안 JSON:',
     JSON.stringify(draft, null, 2),
@@ -344,7 +359,7 @@ function coerceSlide(raw, idx) {
   let quiz;
   if (raw && raw.quiz) {
     quiz = {
-      prompt: String(raw.quiz.prompt || '').trim(),
+      prompt: formatQuizPromptLines(String(raw.quiz.prompt || '').trim()),
       choices: Array.isArray(raw.quiz.choices)
         ? raw.quiz.choices.map((c) => String(c || '').trim()).filter(Boolean).slice(0, 5)
         : []
@@ -413,13 +428,13 @@ function coerceDeck(parsed, fallbackTitle, grade) {
 async function generateThenReview({ title, units, grade, customTopic, onProgress }) {
   const report = typeof onProgress === 'function' ? onProgress : () => {};
   const firstPrompt = buildGeneratePrompt({ title, units, grade, customTopic });
-  report({ message: 'Claude가 인강 대본을 쓰는 중…', pct: 20 });
+  report({ message: 'Claude가 인강 대본을 쓰는 중…', pct: 18 });
   const draft = await askClaudeJson(SYSTEM_SCRIPT, firstPrompt, {
     temperature: 0.45,
     maxOutputTokens: 16000
   });
   let finalDoc = draft;
-  report({ message: '교과서 공통 규칙·대본 검수·보완 중…', pct: 55 });
+  report({ message: '구조·커버리지 검수·보완 중…', pct: 42 });
   try {
     finalDoc = await askClaudeJson(
       SYSTEM_REVIEW,
@@ -431,6 +446,19 @@ async function generateThenReview({ title, units, grade, customTopic, onProgress
     finalDoc = draft;
     finalDoc.__reviewError = e.message || 'review failed';
   }
+
+  report({ message: '이중 검증(Claude→Gemini) 시작…', pct: 58 });
+  const verified = await dualVerifyGrammar({
+    kind: 'lecture',
+    document: finalDoc,
+    context: { title, grade, units: units || [], customTopic },
+    onProgress: report,
+    pctClaude: 62,
+    pctGemini: 78,
+    maxOutputTokens: 16000
+  });
+  finalDoc = verified.document;
+  finalDoc.__verifyReport = verified.report;
   return finalDoc;
 }
 
@@ -544,10 +572,19 @@ function startGenerateJob(opts, ownerKey) {
         onProgress: (p) => touch(job, { progress: p })
       });
       if (parsed && parsed.__reviewError) {
-        job.warnings.push('검수 패스 실패 — 초안을 사용합니다: ' + parsed.__reviewError);
+        job.warnings.push('구조 검수 패스 실패 — 초안을 사용합니다: ' + parsed.__reviewError);
         delete parsed.__reviewError;
       }
-      touch(job, { progress: { message: '칠판 슬라이드 조립 중…', pct: 78 } });
+      if (parsed && parsed.__verifyReport) {
+        const vr = parsed.__verifyReport;
+        (vr.claudeIssues || []).forEach((x) => job.warnings.push('Claude검증: ' + x));
+        (vr.geminiIssues || []).forEach((x) => job.warnings.push('Gemini검증: ' + x));
+        if (vr.claudeError) job.warnings.push('Claude 이중검증 실패: ' + vr.claudeError);
+        if (vr.geminiSkipped) job.warnings.push('Gemini 교차검증 생략: ' + (vr.geminiSkipReason || ''));
+        if (vr.geminiError) job.warnings.push('Gemini 교차검증 실패(Claude본 유지): ' + vr.geminiError);
+        delete parsed.__verifyReport;
+      }
+      touch(job, { progress: { message: '칠판 슬라이드 조립 중…', pct: 88 } });
       const deck = coerceDeck(parsed, title, grade);
       const htmlPreview = renderDeckHtml(deck);
       const scriptHtml = renderDeckScriptHtml(deck);
@@ -585,9 +622,12 @@ const SYSTEM_PATCH = `당신은 중등 영어 인강 슬라이드 편집자입�
 - Pattern B·예시 중복 금지·퀴즈 정답은 notes만 — 기존 품질 규칙 유지.
 - 톤 분리 유지: 화면(heading/lines/quiz)=점잖은 판서, script만 일타강사.
 - 슬라이드를 고치면 script(강의 대사)도 그 장면에 맞게 함께 고칠 것.
+- quiz.prompt: 한국어 발문과 영어 문장은 \\n으로 분리.
 - 번호는 1부터 (화면에 보이는 N / 총장수).
 - op: replace | insertAfter | delete
-- replace/insertAfter의 slide는 기존 스키마(+ script, notes).`;
+- replace/insertAfter의 slide는 기존 스키마(+ script, notes).
+
+` + ACCURACY_LAW;
 
 function buildPatchPrompt({ deck, instruction, slideIndexes }) {
   const indexes = Array.isArray(slideIndexes)
@@ -924,7 +964,7 @@ h2 { margin: 0 0 1.4vw; font-size: 2.8vw; font-weight: 900; color: #FFE08A; line
 .trap .w { color: #FFB4A8; }
 .trap .r { color: #B8F0C8; }
 .quiz { margin-top: 0.8vw; }
-.quiz .q { font-size: 2vw; font-weight: 900; margin-bottom: 0.8vw; }
+.quiz .q { font-size: 2vw; font-weight: 900; margin-bottom: 0.8vw; white-space: pre-wrap; word-break: keep-all; line-height: 1.35; }
 .quiz .c { font-size: 1.7vw; font-weight: 700; margin: 0.35vw 0; }
 .pagenum { position: absolute; left: 4%; bottom: 3%; font-size: 1.1vw; color: rgba(247,241,222,0.7); }
 .nav-hit {
@@ -1029,7 +1069,9 @@ function renderSlideBody(slide) {
   }
   if ((slide.blockType === 'CONCEPT_CHECK' || slide.blockType === 'QUIZ' || slide.quiz)
     && slide.quiz && slide.quiz.prompt) {
-    html += '<div class="quiz"><div class="q">' + escapeHtml(slide.quiz.prompt) + '</div>'
+    html += '<div class="quiz"><div class="q">'
+      + escapeHtml(slide.quiz.prompt).replace(/\n/g, '<br>')
+      + '</div>'
       + (slide.quiz.choices || []).map((c) => '<div class="c">' + escapeHtml(c) + '</div>').join('')
       + '</div>';
   }
@@ -1462,7 +1504,8 @@ async function renderDeckPptxShapes(deck) {
     }
 
     if (s.quiz && s.quiz.prompt) {
-      const qLines = [{ text: s.quiz.prompt, options: { breakLine: true } }]
+      const promptLines = String(s.quiz.prompt).split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      const qLines = promptLines.map((l) => ({ text: l, options: { breakLine: true } }))
         .concat((s.quiz.choices || []).map((c) => ({ text: c, options: { breakLine: true } })));
       slide.addText(qLines, {
         x: CX, y, w: CW, h: 3.5,

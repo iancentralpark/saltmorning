@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const { askGemini, isClaudeConfigured, formatGeminiClientError } = require('./geminiService');
+const { dualVerifyGrammar, ACCURACY_LAW } = require('./grammarVerifyService');
 const { getUnitsByIds } = require('./grammarClinic/catalog');
 
 const MAX_TOPICS = 8;
@@ -42,7 +43,9 @@ const SYSTEM_PROMPT = `당신은 한국 중·고등 영어 내신 문법 학습�
 - examTips: 2~4개. badge는 "함정 주의"|"빈출"|"비교"|"암기" 중 하나
 - 학년(schoolGrade)에 맞는 난이도·어휘. 초6은 쉽고 짧게, 고1은 내신·수능형 함정 포함
 - 한국어 설명은 교사·학생 모두 읽기 쉽게
-- JSON 스키마를 엄수`;
+- JSON 스키마를 엄수
+
+` + ACCURACY_LAW;
 
 function newId(prefix) {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
@@ -426,7 +429,8 @@ function publicJob(job) {
     jobId: job.id,
     status: job.status,
     progress: job.progress,
-    error: job.error || undefined
+    error: job.error || undefined,
+    warnings: job.warnings || []
   };
   if (job.packet) {
     out.packet = job.packet;
@@ -495,17 +499,36 @@ function startGenerateJob(opts, ownerKey) {
     input: { title, grade, topics, notes, unitIds: units.map((u) => u.unitId) },
     packet: null,
     htmlPreview: null,
-    error: null
+    error: null,
+    warnings: []
   };
   jobs.set(id, job);
 
   setImmediate(async () => {
     try {
-      touch(job, { progress: { message: '주제별 개념·예문·함정 정리 중…', pct: 35 } });
-      const parsed = await askWorksheetJson(buildUserPrompt({
+      touch(job, { progress: { message: '주제별 개념·예문·함정 정리 중…', pct: 28 } });
+      let parsed = await askWorksheetJson(buildUserPrompt({
         title, grade, topics, notes, units
       }));
-      touch(job, { progress: { message: 'A4 학습지 레이아웃 만드는 중…', pct: 75 } });
+      touch(job, { progress: { message: '이중 검증(Claude→Gemini) 중…', pct: 48 } });
+      const verified = await dualVerifyGrammar({
+        kind: 'worksheet',
+        document: parsed,
+        context: { title, grade, topics, notes, units },
+        onProgress: (p) => touch(job, { progress: p }),
+        pctClaude: 55,
+        pctGemini: 72,
+        maxOutputTokens: 12000
+      });
+      parsed = verified.document;
+      const vr = verified.report || {};
+      const warnings = [];
+      (vr.claudeIssues || []).forEach((x) => warnings.push('Claude검증: ' + x));
+      (vr.geminiIssues || []).forEach((x) => warnings.push('Gemini검증: ' + x));
+      if (vr.claudeError) warnings.push('Claude 이중검증 실패: ' + vr.claudeError);
+      if (vr.geminiSkipped) warnings.push('Gemini 교차검증 생략: ' + (vr.geminiSkipReason || ''));
+      if (vr.geminiError) warnings.push('Gemini 교차검증 실패(Claude본 유지): ' + vr.geminiError);
+      touch(job, { progress: { message: 'A4 학습지 레이아웃 만드는 중…', pct: 88 }, warnings });
       const packet = sanitizePacket(parsed, topics);
       const meta = {
         title,
@@ -517,6 +540,7 @@ function startGenerateJob(opts, ownerKey) {
         status: 'done',
         packet,
         htmlPreview,
+        warnings,
         progress: { message: '완료', pct: 100 }
       });
     } catch (e) {

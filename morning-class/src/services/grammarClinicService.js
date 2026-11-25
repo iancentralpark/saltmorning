@@ -9,6 +9,7 @@ const {
   isClaudeConfigured,
   formatGeminiClientError
 } = require('./geminiService');
+const { dualVerifyGrammar, ACCURACY_LAW } = require('./grammarVerifyService');
 const {
   QUESTION_TYPES,
   MVP_TYPES,
@@ -28,6 +29,8 @@ const SYSTEM_PROMPT = `당신은 대한민국 중학교 영어 내신 기출문�
 3. 부정 발문 강조: 발문 내 '옳은','틀린','어색한','모두','두 개' 등 핵심 키워드는 <u>태그 적용.
 4. 오답 트랩: 각 GrammarRuleSpec.errorTraps의 전형적 내신 오답을 1개 이상 주입.
 5. 출력 형식: 지정 JSON만 반환. 마크다운 코드펜스 금지. 순수 JSON만.
+
+` + ACCURACY_LAW + `
 
 [문항 완전성 — 절대 어기지 말 것]
 - 모든 문항에 한국어 instruction(발문)을 반드시 채울 것. 빈 문자열 금지.
@@ -665,7 +668,7 @@ async function generateExamPaper(opts) {
 
   report('시험지 조립 중… (' + items.length + '문항)', { chunk: totalChunks, totalChunks });
 
-  const paper = {
+  let paper = {
     title: paperTitle,
     schoolGrade: grade,
     totalQuestions: items.length,
@@ -684,6 +687,82 @@ async function generateExamPaper(opts) {
     items,
     generatedAt: new Date().toISOString()
   };
+
+  // Dual verify (Claude → Gemini). Large papers: verify in chunks of 10 to stay under token limits.
+  const VERIFY_CHUNK = 10;
+  const verifiedItems = [];
+  for (let offset = 0; offset < paper.items.length; offset += VERIFY_CHUNK) {
+    const slice = paper.items.slice(offset, offset + VERIFY_CHUNK);
+    const chunkNo = Math.floor(offset / VERIFY_CHUNK) + 1;
+    const chunkTotal = Math.ceil(paper.items.length / VERIFY_CHUNK);
+    report(
+      '이중 검증 ' + chunkNo + '/' + chunkTotal + ' (Claude→Gemini)…',
+      { chunk: totalChunks, totalChunks, verifyChunk: chunkNo, verifyTotal: chunkTotal }
+    );
+    try {
+      const verified = await dualVerifyGrammar({
+        kind: 'exam',
+        document: {
+          title: paper.title,
+          schoolGrade: paper.schoolGrade,
+          items: slice
+        },
+        context: { title: paper.title, grade, units },
+        onProgress: (p) => report(p.message || '검증 중…', {
+          chunk: totalChunks,
+          totalChunks,
+          verifyPass: p.verifyPass
+        }),
+        pctClaude: 70,
+        pctGemini: 85,
+        maxOutputTokens: Math.min(16000, 4000 + slice.length * 1200)
+      });
+      const vr = verified.report || {};
+      (vr.claudeIssues || []).forEach((x) => warnings.push({ index: offset + 1, warnings: ['claude_verify'], note: x, soft: true }));
+      (vr.geminiIssues || []).forEach((x) => warnings.push({ index: offset + 1, warnings: ['gemini_verify'], note: x, soft: true }));
+      if (vr.claudeError) warnings.push({ index: offset + 1, warnings: ['claude_verify_fail'], error: vr.claudeError, soft: true });
+      if (vr.geminiSkipped) warnings.push({ index: offset + 1, warnings: ['gemini_verify_skip'], note: vr.geminiSkipReason, soft: true });
+      if (vr.geminiError) warnings.push({ index: offset + 1, warnings: ['gemini_verify_fail'], error: vr.geminiError, soft: true });
+      const outItems = Array.isArray(verified.document && verified.document.items)
+        ? verified.document.items
+        : slice;
+      // Keep original length; pad/truncate to slice size
+      for (let i = 0; i < slice.length; i++) {
+        verifiedItems.push(outItems[i] || slice[i]);
+      }
+    } catch (e) {
+      warnings.push({ index: offset + 1, warnings: ['dual_verify_failed'], error: e.message, soft: true });
+      slice.forEach((it) => verifiedItems.push(it));
+    }
+  }
+
+  // Re-coerce / re-validate after verify so schema stays sound
+  const finalItems = [];
+  verifiedItems.forEach((raw, i) => {
+    const fallback = paper.items[i] || raw;
+    let item = coerceItem(raw || {}, {
+      unitId: fallback.unitId,
+      questionType: fallback.questionType,
+      difficulty: fallback.difficulty || difficulty
+    });
+    if (!item.unitId) item.unitId = fallback.unitId;
+    const check = validateItem(item, unitMap);
+    if (!check.ok) {
+      // Keep pre-verify item if verify broke the schema
+      item = paper.items[i];
+      warnings.push({ index: i + 1, warnings: (check.warnings || []).concat(['verify_reverted']), soft: true });
+    } else if (check.warnings && check.warnings.length) {
+      warnings.push({ index: i + 1, warnings: check.warnings, soft: true });
+    }
+    if (item) finalItems.push(item);
+  });
+
+  paper = Object.assign({}, paper, {
+    items: finalItems.length ? finalItems : paper.items,
+    totalQuestions: (finalItems.length ? finalItems : paper.items).length
+  });
+
+  report('검증 반영·시험지 렌더 중…', { chunk: totalChunks, totalChunks });
 
   return {
     paper,
