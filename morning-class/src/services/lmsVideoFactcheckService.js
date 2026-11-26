@@ -23,6 +23,10 @@ const MAX_DOWNLOAD_BYTES = 900 * 1024 * 1024; // ~900MB safety
 const jobs = new Map();
 /** @type {Map<string, string>} videoId → active jobId */
 const activeByVideo = new Map();
+/** @type {Map<string, object>} */
+const batches = new Map();
+const MAX_BATCH_VIDEOS = 40;
+let activeBatchId = null;
 
 let schemaReady = false;
 
@@ -80,6 +84,12 @@ function pruneJobs() {
     if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) {
       jobs.delete(id);
       if (job.videoId && activeByVideo.get(job.videoId) === id) activeByVideo.delete(job.videoId);
+    }
+  }
+  for (const [id, batch] of batches.entries()) {
+    if (now - (batch.updatedAt || batch.createdAt) > JOB_TTL_MS) {
+      batches.delete(id);
+      if (activeBatchId === id) activeBatchId = null;
     }
   }
 }
@@ -473,6 +483,26 @@ async function runJob(job) {
   }
 }
 
+function createJobRecord(videoId, opts) {
+  const id = newId();
+  const job = {
+    id,
+    videoId: String(videoId),
+    status: 'running',
+    requestedMode: (opts && opts.mode) || 'smart',
+    mode: null,
+    progress: { message: '대기열에 등록…', pct: 1 },
+    error: null,
+    report: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    batchId: (opts && opts.batchId) || null
+  };
+  jobs.set(id, job);
+  activeByVideo.set(String(videoId), id);
+  return job;
+}
+
 async function startFactcheck(videoId, opts) {
   pruneJobs();
   if (!hasGeminiKey()) throw httpError(503, 'Gemini is not configured (set GEMINI_API_KEY).');
@@ -489,23 +519,161 @@ async function startFactcheck(videoId, opts) {
     return publicJob(jobs.get(existingId));
   }
 
-  const id = newId();
-  const job = {
+  const job = createJobRecord(videoId, opts);
+  setImmediate(() => { runJob(job); });
+  return publicJob(job);
+}
+
+function publicBatch(batch) {
+  const items = (batch.items || []).map((it) => ({
+    videoId: it.videoId,
+    title: it.title,
+    status: it.status,
+    jobId: it.jobId || undefined,
+    issueCount: it.issueCount,
+    overallRisk: it.overallRisk,
+    error: it.error || undefined,
+    mode: it.mode || undefined
+  }));
+  const done = items.filter((i) => i.status === 'done' || i.status === 'error' || i.status === 'skipped').length;
+  return {
+    batchId: batch.id,
+    status: batch.status,
+    progress: batch.progress,
+    mode: batch.requestedMode,
+    total: items.length,
+    done,
+    items,
+    createdAt: batch.createdAt,
+    updatedAt: batch.updatedAt,
+    error: batch.error || undefined
+  };
+}
+
+async function collectReadyVideos(videoIds) {
+  const wanted = Array.isArray(videoIds)
+    ? videoIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : null;
+  const listed = await library.listVideos({});
+  const candidates = (listed.videos || []).filter((v) => {
+    if (wanted && wanted.length && !wanted.includes(v.id)) return false;
+    return v.status === 'ready';
+  });
+  // Prefer current filter order; cap to protect Gemini spend / Railway memory.
+  return candidates.slice(0, MAX_BATCH_VIDEOS);
+}
+
+async function runBatch(batch) {
+  try {
+    const n = batch.items.length;
+    for (let i = 0; i < n; i++) {
+      const item = batch.items[i];
+      touch(batch, {
+        progress: {
+          message: '(' + (i + 1) + '/' + n + ') ' + (item.title || item.videoId) + ' 검수 중…',
+          pct: Math.round((i / Math.max(1, n)) * 100)
+        }
+      });
+      item.status = 'running';
+      const video = await library.getRaw(item.videoId);
+      if (!video || video.status !== 'ready') {
+        item.status = 'skipped';
+        item.error = 'ready 아님';
+        continue;
+      }
+      const dur = Number(video.durationSeconds) || 0;
+      if (dur > MAX_DURATION_SEC) {
+        item.status = 'skipped';
+        item.error = '60분 초과';
+        continue;
+      }
+      const job = createJobRecord(item.videoId, {
+        mode: batch.requestedMode,
+        batchId: batch.id
+      });
+      item.jobId = job.id;
+      await runJob(job);
+      const finished = jobs.get(job.id);
+      if (finished && finished.status === 'done' && finished.report) {
+        item.status = 'done';
+        item.issueCount = finished.report.issueCount;
+        item.overallRisk = finished.report.overallRisk;
+        item.mode = finished.mode || finished.report.mode;
+      } else {
+        item.status = 'error';
+        item.error = (finished && finished.error) || '검수 실패';
+      }
+      touch(batch, {});
+    }
+    const failed = batch.items.filter((it) => it.status === 'error').length;
+    const skipped = batch.items.filter((it) => it.status === 'skipped').length;
+    const ok = batch.items.filter((it) => it.status === 'done').length;
+    touch(batch, {
+      status: 'done',
+      progress: {
+        message: '완료 — 성공 ' + ok + ' · 실패 ' + failed + (skipped ? (' · 건너뜀 ' + skipped) : ''),
+        pct: 100
+      }
+    });
+  } catch (e) {
+    touch(batch, {
+      status: 'error',
+      error: e.message || '일괄 검수 실패',
+      progress: { message: e.message || '일괄 검수 실패', pct: 100 }
+    });
+  } finally {
+    if (activeBatchId === batch.id) activeBatchId = null;
+  }
+}
+
+async function startBatchFactcheck(opts) {
+  pruneJobs();
+  if (!hasGeminiKey()) throw httpError(503, 'Gemini is not configured (set GEMINI_API_KEY).');
+  if (!stream.isConfigured()) throw httpError(503, 'Cloudflare Stream이 설정되지 않았습니다.');
+  if (activeBatchId && batches.get(activeBatchId) && batches.get(activeBatchId).status === 'running') {
+    return publicBatch(batches.get(activeBatchId));
+  }
+
+  const ready = await collectReadyVideos(opts && opts.videoIds);
+  if (!ready.length) {
+    throw httpError(400, '검수할 ready 영상이 없습니다.');
+  }
+
+  const id = 'bfc_' + crypto.randomBytes(5).toString('hex');
+  const batch = {
     id,
-    videoId: String(videoId),
     status: 'running',
     requestedMode: (opts && opts.mode) || 'smart',
-    mode: null,
-    progress: { message: '대기열에 등록…', pct: 1 },
+    progress: { message: '일괄 검수 시작…', pct: 1 },
+    items: ready.map((v) => ({
+      videoId: v.id,
+      title: v.title,
+      status: 'queued',
+      jobId: null,
+      issueCount: null,
+      overallRisk: null,
+      error: null,
+      mode: null
+    })),
     error: null,
-    report: null,
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
-  jobs.set(id, job);
-  activeByVideo.set(String(videoId), id);
-  setImmediate(() => { runJob(job); });
-  return publicJob(job);
+  batches.set(id, batch);
+  activeBatchId = id;
+  setImmediate(() => { runBatch(batch); });
+  return publicBatch(batch);
+}
+
+function getBatch(batchId) {
+  pruneJobs();
+  const batch = batches.get(String(batchId || ''));
+  return batch ? publicBatch(batch) : null;
+}
+
+function getActiveBatch() {
+  if (activeBatchId && batches.get(activeBatchId)) return publicBatch(batches.get(activeBatchId));
+  return null;
 }
 
 function getJob(jobId) {
@@ -544,8 +712,12 @@ async function getLatestForVideo(videoId) {
 
 module.exports = {
   startFactcheck,
+  startBatchFactcheck,
+  getBatch,
+  getActiveBatch,
   getJob,
   getLatestForVideo,
   MAX_DURATION_SEC,
-  VIDEO_MODE_MAX_SEC
+  VIDEO_MODE_MAX_SEC,
+  MAX_BATCH_VIDEOS
 };
