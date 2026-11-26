@@ -370,7 +370,7 @@
     $('modeHint').innerHTML = lecture
       ? '카탈로그 <strong>최대 2개</strong> 또는 <strong>직접 주제</strong>. 화면=판서 / 대본=일타강사. 생성 후 <strong>Claude→Gemini 이중검증</strong>으로 틀린 규칙을 걸러냅니다.'
       : (worksheet
-        ? '초6~고1 · 여러 주제 → A4 학습지. 생성 후 <strong>Claude→Gemini 이중검증</strong>. 미리보기에서 클릭 수정·인쇄.'
+        ? '초6~고1 · 주제당 A4 <strong>핵심 영문법 마스터 노트</strong>(STEP·예문·내신포인트+필기란). <strong>Claude→Gemini 이중검증</strong> 후 클릭 수정·인쇄.'
         : '문법 포인트를 <strong>하나씩</strong> 고른 뒤 Generate. 생성 후 <strong>Claude 자기검증 → Gemini 교차검증</strong>으로 사실 오류를 수정합니다.');
     $('titleLabel').childNodes[0].textContent = lecture ? '강의 제목'
       : (worksheet ? '학습지 제목' : '시험지 제목');
@@ -384,7 +384,7 @@
     $('emptyBody').innerHTML = lecture
       ? '카탈로그 문법 1~2개를 고르거나, 직접 주제를 입력한 뒤<br>슬라이드 만들기를 누르세요. 칠판은 차분하게, 대본만 일타강사 톤입니다.'
       : (worksheet
-        ? '학년·문법 주제·강조사항을 넣고 학습지 만들기를 누르면<br>A4 학습지가 여기에 미리보기로 나타납니다.'
+        ? '학년·문법 주제를 넣고 학습지 만들기를 누르면<br>주제당 1장 A4 마스터 노트(개념 STEP + 예문 + 내신 포인트 + 필기란)가 미리보기로 나타납니다.'
         : '왼쪽에서 문법을 선택하고 Generate를 누르면<br>세로 2단 내신 시험지와 정답·해설지가 여기에 표시됩니다.');
     var genLabel = lecture ? '슬라이드 만들기' : (worksheet ? '학습지 만들기' : 'Generate');
     $('btnGenerate').textContent = genLabel;
