@@ -4246,9 +4246,9 @@ router.post('/grammar-clinic/worksheet/generate', requireRole('teacher', 'admin'
   }
 });
 
-router.get('/grammar-clinic/worksheet/jobs/:id', requireRole('teacher', 'admin'), (req, res) => {
+router.get('/grammar-clinic/worksheet/jobs/:id', requireRole('teacher', 'admin'), async (req, res) => {
   try {
-    const job = grammarWorksheet.getJob(req.params.id, grammarOwnerKey(req));
+    const job = await grammarWorksheet.getJob(req.params.id, grammarOwnerKey(req));
     if (!job) return res.status(404).json({ error: 'Job not found.' });
     res.json(grammarWorksheet.publicJob(job));
   } catch (e) {
@@ -4256,9 +4256,9 @@ router.get('/grammar-clinic/worksheet/jobs/:id', requireRole('teacher', 'admin')
   }
 });
 
-router.get('/grammar-clinic/worksheet/jobs/:id/html', requireRole('teacher', 'admin'), (req, res) => {
+router.get('/grammar-clinic/worksheet/jobs/:id/html', requireRole('teacher', 'admin'), async (req, res) => {
   try {
-    const job = grammarWorksheet.getJob(req.params.id, grammarOwnerKey(req));
+    const job = await grammarWorksheet.getJob(req.params.id, grammarOwnerKey(req));
     if (!job || !job.htmlPreview) return res.status(404).json({ error: 'Job not found.' });
     const name = String((job.input && job.input.title) || 'grammar-worksheet')
       .replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'grammar-worksheet';

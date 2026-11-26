@@ -10,10 +10,13 @@ const crypto = require('crypto');
 const { askGemini, isClaudeConfigured, formatGeminiClientError } = require('./geminiService');
 const { dualVerifyGrammar, ACCURACY_LAW } = require('./grammarVerifyService');
 const { getUnitsByIds } = require('./grammarClinic/catalog');
+const { isOpsDbEnabled, query, table } = require('../db/pool');
 
 const MAX_TOPICS = 8;
 const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const jobs = new Map();
+const persistTimers = new Map();
+let jobsSchemaReady = false;
 
 const GRADE_LABELS = {
   E6: '초6',
@@ -92,6 +95,123 @@ function pruneJobs() {
   const now = Date.now();
   for (const [id, job] of jobs.entries()) {
     if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) jobs.delete(id);
+  }
+}
+
+async function ensureJobsSchema() {
+  if (jobsSchemaReady || !isOpsDbEnabled()) return;
+  try {
+    await query(
+      'CREATE TABLE IF NOT EXISTS ' + table('grammar_clinic_jobs') + ' (' +
+        'id TEXT PRIMARY KEY,' +
+        'owner_key TEXT NOT NULL DEFAULT \'\',' +
+        'status TEXT NOT NULL DEFAULT \'running\',' +
+        'progress JSONB,' +
+        'result JSONB,' +
+        'error TEXT,' +
+        'created_at TIMESTAMPTZ NOT NULL DEFAULT now(),' +
+        'updated_at TIMESTAMPTZ NOT NULL DEFAULT now()' +
+      ')'
+    );
+    jobsSchemaReady = true;
+  } catch (e) {
+    console.warn('worksheet jobs schema ensure failed', e.message);
+  }
+}
+
+function worksheetResult(job) {
+  if (!job.packet && !job.htmlPreview && !(job.warnings && job.warnings.length) && !job.input) return null;
+  return {
+    packet: job.packet || null,
+    htmlPreview: job.htmlPreview || null,
+    warnings: job.warnings || [],
+    input: job.input || null,
+    kind: 'worksheet'
+  };
+}
+
+async function persistJob(job, immediate) {
+  if (!job || !job.id || !isOpsDbEnabled()) return;
+  const write = async () => {
+    await ensureJobsSchema();
+    if (!jobsSchemaReady) return;
+    try {
+      await query(
+        'INSERT INTO ' + table('grammar_clinic_jobs') +
+          ' (id, owner_key, status, progress, result, error, created_at, updated_at) VALUES (' +
+          '$1,$2,$3,$4::jsonb,$5::jsonb,$6,to_timestamp($7/1000.0),to_timestamp($8/1000.0)' +
+        ') ON CONFLICT (id) DO UPDATE SET ' +
+          'status = EXCLUDED.status, progress = EXCLUDED.progress, result = EXCLUDED.result, ' +
+          'error = EXCLUDED.error, updated_at = EXCLUDED.updated_at',
+        [
+          job.id,
+          job.ownerKey || '',
+          job.status,
+          JSON.stringify(job.progress || {}),
+          worksheetResult(job) ? JSON.stringify(worksheetResult(job)) : null,
+          job.error || null,
+          job.createdAt || Date.now(),
+          job.updatedAt || Date.now()
+        ]
+      );
+    } catch (e) {
+      console.warn('worksheet job persist failed', job.id, e.message);
+    }
+  };
+  if (immediate) {
+    if (persistTimers.has(job.id)) {
+      clearTimeout(persistTimers.get(job.id));
+      persistTimers.delete(job.id);
+    }
+    await write();
+    return;
+  }
+  if (persistTimers.has(job.id)) return;
+  persistTimers.set(job.id, setTimeout(() => {
+    persistTimers.delete(job.id);
+    write();
+  }, 800));
+}
+
+async function loadJobFromDb(jobId) {
+  if (!isOpsDbEnabled()) return null;
+  await ensureJobsSchema();
+  if (!jobsSchemaReady) return null;
+  try {
+    const r = await query(
+      'SELECT * FROM ' + table('grammar_clinic_jobs') + ' WHERE id = $1 LIMIT 1',
+      [String(jobId || '')]
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    const result = row.result || {};
+    if (result.kind && result.kind !== 'worksheet') return null;
+    const job = {
+      id: row.id,
+      ownerKey: row.owner_key || '',
+      status: row.status,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+      updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+      progress: row.progress || {},
+      input: result.input || null,
+      packet: result.packet || null,
+      htmlPreview: result.htmlPreview || null,
+      warnings: result.warnings || [],
+      error: row.error || null,
+      fromDb: true
+    };
+    if (job.status === 'running' && !jobs.has(job.id)) {
+      job.status = 'error';
+      job.error = '서버가 재시작되어 학습지 생성이 중단되었습니다. 다시 만들어 주세요.';
+      job.progress = Object.assign({}, job.progress, { message: job.error, pct: 100 });
+      job.updatedAt = Date.now();
+      await persistJob(job, true);
+    }
+    jobs.set(job.id, job);
+    return job;
+  } catch (e) {
+    console.warn('worksheet job load failed', jobId, e.message);
+    return null;
   }
 }
 
@@ -555,9 +675,10 @@ function publicJob(job) {
   return out;
 }
 
-function getJob(jobId, ownerKey) {
+async function getJob(jobId, ownerKey) {
   pruneJobs();
-  const job = jobs.get(String(jobId || ''));
+  let job = jobs.get(String(jobId || ''));
+  if (!job) job = await loadJobFromDb(jobId);
   if (!job) return null;
   if (ownerKey && job.ownerKey && job.ownerKey !== String(ownerKey)) {
     const err = new Error('Job not found.');
@@ -618,19 +739,25 @@ function startGenerateJob(opts, ownerKey) {
     warnings: []
   };
   jobs.set(id, job);
+  persistJob(job, true);
 
   setImmediate(async () => {
     try {
       touch(job, { progress: { message: 'STEP·예문·내신 포인트 정리 중…', pct: 28 } });
+      persistJob(job, false);
       let parsed = await askWorksheetJson(buildUserPrompt({
         title, grade, topics, notes, units
       }));
       touch(job, { progress: { message: '이중 검증(Claude→Gemini) 중…', pct: 48 } });
+      persistJob(job, false);
       const verified = await dualVerifyGrammar({
         kind: 'worksheet',
         document: parsed,
         context: { title, grade, topics, notes, units },
-        onProgress: (p) => touch(job, { progress: p }),
+        onProgress: (p) => {
+          touch(job, { progress: p });
+          persistJob(job, false);
+        },
         pctClaude: 55,
         pctGemini: 72,
         maxOutputTokens: 14000
@@ -658,12 +785,14 @@ function startGenerateJob(opts, ownerKey) {
         warnings,
         progress: { message: '완료', pct: 100 }
       });
+      await persistJob(job, true);
     } catch (e) {
       touch(job, {
         status: 'error',
         error: e.message || '학습지 생성 실패',
         progress: { message: '실패', pct: 100 }
       });
+      await persistJob(job, true);
     }
   });
 
