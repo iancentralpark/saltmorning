@@ -143,10 +143,12 @@
         <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
           <input type="search" id="qInput" placeholder="검색…" style="min-width:10rem">
           <button type="button" class="btn btn-ghost btn-sm" id="btnSearch">검색</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnPickAll">ready 전체 선택</button>
+          <button type="button" class="btn btn-check btn-sm" id="btnSelectedFactcheck" title="체크한 영상만 검수">선택 검수</button>
           <button type="button" class="btn btn-check btn-sm" id="btnBatchFactcheck" title="ready 영상 전부 순차 검수">전체 검수</button>
         </div>
       </div>
-      <p class="hint" id="factcheckHint">ready 영상마다 <strong>강의 검수</strong>, 또는 위 <strong>전체 검수</strong>로 한 번에 돌릴 수 있습니다. (크레딧 사용 · 길면 오디오 모드)</p>
+      <p class="hint" id="factcheckHint">ready 영상을 <strong>체크</strong>한 뒤 <strong>선택 검수</strong>, 또는 <strong>전체 검수</strong>. 끊기면 원하는 것만 다시 체크하면 됩니다.</p>
       <div id="videoList"><div class="empty">불러오는 중…</div></div>
     </section>
   </div>
@@ -156,6 +158,7 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var videos = [];
+  var pickedIds = {};
   var configured = true;
   var uploading = false;
   var POST_MAX = 200 * 1024 * 1024;
@@ -225,8 +228,12 @@
     if (!videos.length) { box.innerHTML = '<div class="empty">아직 라이브러리 영상이 없습니다.</div>'; return; }
     box.innerHTML = videos.map(function (v) {
       var err = v.statusMessage ? '<div class="desc" style="color:var(--coral)">' + esc(v.statusMessage) + '</div>' : '';
+      var pick = v.status === 'ready'
+        ? '<label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);margin-right:.35rem">' +
+          '<input type="checkbox" data-pick="' + esc(v.id) + '"' + (pickedIds[v.id] ? ' checked' : '') + '> 선택</label>'
+        : '';
       return '<div class="video" data-id="' + esc(v.id) + '">' +
-        '<div><h3>' + esc(v.title) + '</h3>' +
+        '<div><h3>' + pick + esc(v.title) + '</h3>' +
         '<div class="meta">' + statePill(v) +
         (v.category ? '<span class="pill gray">' + esc(v.category) + '</span>' : '') +
         (v.curriculum ? '<span class="pill gray">' + esc(v.curriculum) + '</span>' : '') +
@@ -544,9 +551,12 @@
       });
   }
 
+  var fcBatchFails = 0;
+
   function pollBatch(batchId) {
     clearTimeout(fcPollTimer);
     api('/api/lms/factcheck/batches/' + encodeURIComponent(batchId)).then(function (batch) {
+      fcBatchFails = 0;
       fcLastBatch = batch;
       // Don't clobber detail view while the teacher is reading an issue list.
       if (fcView === 'detail') {
@@ -561,34 +571,59 @@
       $('fcStatus').textContent = (batch.progress && batch.progress.message) || batch.status;
       $('fcStatus').className = 'status';
       renderBatch(batch);
-      if (batch.status === 'done' || batch.status === 'error') {
-        if (batch.status === 'error') $('fcStatus').className = 'status error';
-        else $('fcStatus').className = 'status ok';
+      if (batch.status === 'done' || batch.status === 'error' || batch.status === 'interrupted') {
+        if (batch.status === 'done') $('fcStatus').className = 'status ok';
+        else $('fcStatus').className = 'status error';
         return;
       }
       fcPollTimer = setTimeout(function () { pollBatch(batchId); }, 3000);
     }).catch(function (e) {
       if (fcView === 'detail') return;
-      $('fcStatus').textContent = e.message;
+      fcBatchFails += 1;
+      var gone = /Batch not found|not found/i.test(String(e && e.message || ''));
+      if (fcBatchFails < 8) {
+        $('fcStatus').textContent = gone
+          ? ('검수 상태 복구 중… (' + fcBatchFails + ')')
+          : ('연결 재시도 중… (' + fcBatchFails + ') ' + (e.message || ''));
+        $('fcStatus').className = 'status';
+        fcPollTimer = setTimeout(function () { pollBatch(batchId); }, 2500);
+        return;
+      }
+      $('fcStatus').textContent = gone
+        ? '일괄 검수가 끊겼습니다. 원하는 영상을 체크한 뒤 「선택 검수」로 다시 돌리세요.'
+        : (e.message || '검수 상태 확인 실패');
       $('fcStatus').className = 'status error';
     });
   }
 
-  function startBatchFactcheck() {
-    var ready = videos.filter(function (v) { return v.status === 'ready'; });
+  function selectedReadyIds() {
+    return Object.keys(pickedIds).filter(function (id) {
+      return videos.some(function (v) { return v.id === id && v.status === 'ready'; });
+    });
+  }
+
+  function startBatchFactcheck(onlyIds) {
+    var ids = Array.isArray(onlyIds) ? onlyIds : null;
+    var ready = ids
+      ? videos.filter(function (v) { return ids.indexOf(v.id) >= 0 && v.status === 'ready'; })
+      : videos.filter(function (v) { return v.status === 'ready'; });
     if (!ready.length) {
-      setStatus('검수할 ready 영상이 없습니다.', 'error');
+      setStatus(ids ? '체크한 ready 영상이 없습니다.' : '검수할 ready 영상이 없습니다.', 'error');
       return;
     }
     if (!window.confirm(
-      '라이브러리 ready 영상 ' + ready.length + '개를 순차로 검수할까요?\n' +
+      (ids ? '선택한 ' : '라이브러리 ready ') + ready.length + '개를 순차로 검수할까요?\n' +
       '(한 번에 최대 40개 · Gemini 크레딧이 영상 수×길이만큼 사용됩니다)'
     )) return;
-    showFactModal('전체 강의 검수', ready.length + '개 영상을 하나씩 검수합니다. 창을 닫아도 서버에서 계속됩니다.');
+    showFactModal(
+      ids ? '선택 강의 검수' : '전체 강의 검수',
+      ready.length + '개 영상을 하나씩 검수합니다. 끊기면 체크해서 다시 돌릴 수 있어요.'
+    );
     $('fcStatus').textContent = '일괄 검수 시작…';
+    fcBatchFails = 0;
     api('/api/lms/library/factcheck/batch', {
       method: 'POST',
-      body: { mode: 'smart' }
+      body: ids ? { mode: 'smart', videoIds: ids } : { mode: 'smart' }
     }).then(function (batch) {
       fcBatchId = batch.batchId;
       renderBatch(batch);
@@ -614,7 +649,32 @@
     var vid = row.getAttribute('data-fc-video');
     if (vid) openBatchItemDetail(vid);
   });
-  $('btnBatchFactcheck').addEventListener('click', startBatchFactcheck);
+  $('btnBatchFactcheck').addEventListener('click', function () { startBatchFactcheck(); });
+  $('btnSelectedFactcheck').addEventListener('click', function () {
+    var ids = selectedReadyIds();
+    if (!ids.length) {
+      setStatus('검수할 영상을 체크하세요.', 'error');
+      return;
+    }
+    startBatchFactcheck(ids);
+  });
+  $('btnPickAll').addEventListener('click', function () {
+    var ready = videos.filter(function (v) { return v.status === 'ready'; });
+    var allOn = ready.length && ready.every(function (v) { return pickedIds[v.id]; });
+    ready.forEach(function (v) {
+      if (allOn) delete pickedIds[v.id];
+      else pickedIds[v.id] = 1;
+    });
+    $('btnPickAll').textContent = allOn ? 'ready 전체 선택' : '선택 해제';
+    render();
+  });
+  $('videoList').addEventListener('change', function (ev) {
+    var inp = ev.target.closest('input[data-pick]');
+    if (!inp) return;
+    var id = inp.getAttribute('data-pick');
+    if (inp.checked) pickedIds[id] = 1;
+    else delete pickedIds[id];
+  });
 
   $('videoList').addEventListener('click', function (ev) {
     var b = ev.target.closest('button[data-act]');

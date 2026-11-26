@@ -72,10 +72,104 @@ async function ensureSchema() {
       'ALTER TABLE ' + table('lms_library_videos') +
       ' ADD COLUMN IF NOT EXISTS factcheck_status TEXT'
     );
+    await query(
+      'CREATE TABLE IF NOT EXISTS ' + table('lms_factcheck_batches') + ' (' +
+        'id TEXT PRIMARY KEY,' +
+        'status TEXT NOT NULL DEFAULT \'running\',' +
+        'requested_mode TEXT NOT NULL DEFAULT \'smart\',' +
+        'progress JSONB,' +
+        'items JSONB,' +
+        'error TEXT,' +
+        'created_at TIMESTAMPTZ NOT NULL DEFAULT now(),' +
+        'updated_at TIMESTAMPTZ NOT NULL DEFAULT now()' +
+      ')'
+    );
     schemaReady = true;
   } catch (e) {
     console.warn('lms factcheck schema ensure failed', e.message);
   }
+}
+
+async function persistBatch(batch) {
+  if (!batch || !batch.id || !isOpsDbEnabled()) return;
+  await ensureSchema();
+  if (!schemaReady) return;
+  try {
+    await query(
+      'INSERT INTO ' + table('lms_factcheck_batches') +
+        ' (id, status, requested_mode, progress, items, error, created_at, updated_at) VALUES (' +
+        '$1,$2,$3,$4::jsonb,$5::jsonb,$6,to_timestamp($7/1000.0),to_timestamp($8/1000.0)' +
+      ') ON CONFLICT (id) DO UPDATE SET ' +
+        'status = EXCLUDED.status, requested_mode = EXCLUDED.requested_mode, ' +
+        'progress = EXCLUDED.progress, items = EXCLUDED.items, error = EXCLUDED.error, ' +
+        'updated_at = EXCLUDED.updated_at',
+      [
+        batch.id,
+        batch.status,
+        batch.requestedMode || 'smart',
+        JSON.stringify(batch.progress || {}),
+        JSON.stringify(batch.items || []),
+        batch.error || null,
+        batch.createdAt || Date.now(),
+        batch.updatedAt || Date.now()
+      ]
+    );
+  } catch (e) {
+    console.warn('persist factcheck batch failed', batch.id, e.message);
+  }
+}
+
+function rowToBatch(row) {
+  return {
+    id: row.id,
+    status: row.status,
+    requestedMode: row.requested_mode || 'smart',
+    progress: row.progress || {},
+    items: Array.isArray(row.items) ? row.items : [],
+    error: row.error || null,
+    createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+    live: false,
+    fromDb: true
+  };
+}
+
+async function loadBatchFromDb(batchId) {
+  if (!isOpsDbEnabled()) return null;
+  await ensureSchema();
+  if (!schemaReady) return null;
+  try {
+    const r = await query(
+      'SELECT * FROM ' + table('lms_factcheck_batches') + ' WHERE id = $1 LIMIT 1',
+      [String(batchId || '')]
+    );
+    if (!r.rows[0]) return null;
+    const batch = rowToBatch(r.rows[0]);
+    batches.set(batch.id, batch);
+    return batch;
+  } catch (e) {
+    console.warn('load factcheck batch failed', batchId, e.message);
+    return null;
+  }
+}
+
+async function markBatchInterrupted(batch) {
+  (batch.items || []).forEach((it) => {
+    if (it.status === 'running') {
+      it.status = 'error';
+      it.error = '서버 재시작으로 중단됨 — 다시 검수해 주세요';
+    }
+  });
+  batch.status = 'interrupted';
+  batch.live = false;
+  batch.error = '서버 재시작으로 일괄 검수가 중단되었습니다.';
+  batch.progress = {
+    message: '중단됨. 원하는 영상을 체크한 뒤 「선택 검수」로 이어서 돌리세요.',
+    pct: batch.progress && batch.progress.pct ? batch.progress.pct : 0
+  };
+  batch.updatedAt = Date.now();
+  if (activeBatchId === batch.id) activeBatchId = null;
+  await persistBatch(batch);
 }
 
 function pruneJobs() {
@@ -604,6 +698,7 @@ async function runBatch(batch) {
         item.error = (finished && finished.error) || '검수 실패';
       }
       touch(batch, {});
+      await persistBatch(batch);
     }
     const failed = batch.items.filter((it) => it.status === 'error').length;
     const skipped = batch.items.filter((it) => it.status === 'skipped').length;
@@ -615,12 +710,16 @@ async function runBatch(batch) {
         pct: 100
       }
     });
+    batch.live = false;
+    await persistBatch(batch);
   } catch (e) {
     touch(batch, {
       status: 'error',
       error: e.message || '일괄 검수 실패',
       progress: { message: e.message || '일괄 검수 실패', pct: 100 }
     });
+    batch.live = false;
+    await persistBatch(batch);
   } finally {
     if (activeBatchId === batch.id) activeBatchId = null;
   }
@@ -630,8 +729,8 @@ async function startBatchFactcheck(opts) {
   pruneJobs();
   if (!hasGeminiKey()) throw httpError(503, 'Gemini is not configured (set GEMINI_API_KEY).');
   if (!stream.isConfigured()) throw httpError(503, 'Cloudflare Stream이 설정되지 않았습니다.');
-  if (activeBatchId && batches.get(activeBatchId) && batches.get(activeBatchId).status === 'running') {
-    return publicBatch(batches.get(activeBatchId));
+  if (activeBatchId && batches.get(activeBatchId) && batches.get(activeBatchId).status === 'running' && batches.get(activeBatchId).live) {
+    throw httpError(409, '이미 일괄 검수가 진행 중입니다. 끝난 뒤 선택 검수해 주세요.');
   }
 
   const ready = await collectReadyVideos(opts && opts.videoIds);
@@ -659,16 +758,24 @@ async function startBatchFactcheck(opts) {
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
+  batch.live = true;
   batches.set(id, batch);
   activeBatchId = id;
+  await persistBatch(batch);
   setImmediate(() => { runBatch(batch); });
   return publicBatch(batch);
 }
 
-function getBatch(batchId) {
+async function getBatch(batchId) {
   pruneJobs();
-  const batch = batches.get(String(batchId || ''));
-  return batch ? publicBatch(batch) : null;
+  let batch = batches.get(String(batchId || ''));
+  if (!batch) batch = await loadBatchFromDb(batchId);
+  if (!batch) return null;
+  // A running row with no live worker means this process restarted mid-batch.
+  if (batch.status === 'running' && !batch.live) {
+    await markBatchInterrupted(batch);
+  }
+  return publicBatch(batch);
 }
 
 function getActiveBatch() {
