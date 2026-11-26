@@ -342,8 +342,9 @@
 
   var fcPollTimer = null;
   var fcJobId = null;
-
   var fcBatchId = null;
+  var fcLastBatch = null;
+  var fcView = 'batch'; // batch | detail
 
   function showFactModal(title, sub) {
     $('factModal').classList.remove('hidden');
@@ -362,26 +363,82 @@
     fcPollTimer = null;
     fcJobId = null;
     fcBatchId = null;
+    fcLastBatch = null;
+    fcView = 'batch';
   }
 
   function renderBatch(batch) {
+    fcLastBatch = batch;
+    fcView = 'batch';
     var items = batch.items || [];
     var html = '<div class="meta" style="margin-bottom:.55rem">' +
       '<span class="pill gray">' + (batch.done || 0) + ' / ' + (batch.total || items.length) + '</span>' +
       (batch.mode ? '<span class="pill gray">' + esc(batch.mode) + '</span>' : '') +
       '</div>';
+    html += '<p class="hint" style="margin:0 0 .55rem">완료된 항목을 누르면 <strong>뭐가 잘못됐는지</strong>(타임스탬프·문제·수정) 상세를 볼 수 있어요.</p>';
     html += items.map(function (it) {
       var pill = it.status === 'done' ? 'ok' : (it.status === 'error' ? 'err' : (it.status === 'running' ? 'warn' : 'gray'));
       var extra = '';
-      if (it.status === 'done') extra = ' · 이슈 ' + (it.issueCount != null ? it.issueCount : '?') +
-        (it.overallRisk ? (' · ' + it.overallRisk) : '');
-      if (it.error) extra = ' · ' + it.error;
-      return '<div class="issue"><div class="top">' +
+      if (it.status === 'done') extra = '이슈 ' + (it.issueCount != null ? it.issueCount : '?') +
+        (it.overallRisk ? (' · ' + it.overallRisk) : '') + ' · 클릭해서 상세 보기';
+      if (it.error) extra = it.error;
+      var clickable = (it.status === 'done' || it.status === 'error');
+      return '<div class="issue' + (clickable ? ' fc-item' : '') + '" ' +
+        (clickable ? 'data-fc-video="' + esc(it.videoId) + '" style="cursor:pointer"' : '') + '>' +
+        '<div class="top">' +
         '<span class="pill ' + pill + '">' + esc(it.status) + '</span>' +
         '<strong style="font-size:.88rem">' + esc(it.title || it.videoId) + '</strong>' +
-        '</div><div class="claim" style="color:var(--muted)">' + esc(extra.replace(/^ · /, '')) + '</div></div>';
+        '</div><div class="claim" style="color:var(--muted)">' + esc(extra) + '</div></div>';
     }).join('');
     $('fcBody').innerHTML = html;
+  }
+
+  function openBatchItemDetail(videoId) {
+    var v = videos.filter(function (x) { return x.id === videoId; })[0];
+    var title = (v && v.title) || videoId;
+    fcView = 'detail';
+    // Keep batch polling paused while reading a detail; resume if batch still running when going back.
+    clearTimeout(fcPollTimer);
+    $('fcTitle').textContent = '검수 상세 — ' + title;
+    $('fcSub').textContent = '타임스탬프 · 문제 · 수정 제안';
+    $('fcStatus').textContent = '상세 불러오는 중…';
+    $('fcStatus').className = 'status';
+    $('fcProgress').classList.add('hidden');
+    $('fcBody').innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="fcBackBatch">← 목록으로</button>';
+    api('/api/lms/library/' + encodeURIComponent(videoId) + '/factcheck')
+      .then(function (job) {
+        var back = '<button type="button" class="btn btn-ghost btn-sm" id="fcBackBatch" style="margin-bottom:.65rem">← 일괄 검수 목록으로</button>';
+        renderFactReport(job);
+        $('fcBody').innerHTML = back + $('fcBody').innerHTML;
+        var backBtn = $('fcBackBatch');
+        if (backBtn) backBtn.addEventListener('click', backToBatch);
+      })
+      .catch(function (e) {
+        $('fcStatus').textContent = e.message || '상세 리포트가 없습니다.';
+        $('fcStatus').className = 'status error';
+        $('fcBody').innerHTML = '<button type="button" class="btn btn-ghost btn-sm" id="fcBackBatch">← 목록으로</button>';
+        var backBtn = $('fcBackBatch');
+        if (backBtn) backBtn.addEventListener('click', backToBatch);
+      });
+  }
+
+  function backToBatch() {
+    if (!fcLastBatch && !fcBatchId) return;
+    fcView = 'batch';
+    $('fcTitle').textContent = '전체 강의 검수';
+    $('fcSub').textContent = '완료 항목을 눌러 상세를 확인하세요.';
+    if (fcLastBatch) renderBatch(fcLastBatch);
+    if (fcBatchId && fcLastBatch && fcLastBatch.status === 'running') {
+      pollBatch(fcBatchId);
+    } else if (fcBatchId) {
+      api('/api/lms/factcheck/batches/' + encodeURIComponent(fcBatchId))
+        .then(function (batch) {
+          renderBatch(batch);
+          $('fcStatus').textContent = (batch.progress && batch.progress.message) || batch.status;
+          $('fcStatus').className = batch.status === 'error' ? 'status error' : 'status ok';
+        })
+        .catch(function () {});
+    }
   }
 
   function renderFactReport(job) {
@@ -490,6 +547,14 @@
   function pollBatch(batchId) {
     clearTimeout(fcPollTimer);
     api('/api/lms/factcheck/batches/' + encodeURIComponent(batchId)).then(function (batch) {
+      fcLastBatch = batch;
+      // Don't clobber detail view while the teacher is reading an issue list.
+      if (fcView === 'detail') {
+        if (batch.status === 'running') {
+          fcPollTimer = setTimeout(function () { pollBatch(batchId); }, 4000);
+        }
+        return;
+      }
       var pct = (batch.progress && batch.progress.pct) || 0;
       $('fcProgress').classList.remove('hidden');
       $('fcBar').style.width = Math.max(2, pct) + '%';
@@ -503,6 +568,7 @@
       }
       fcPollTimer = setTimeout(function () { pollBatch(batchId); }, 3000);
     }).catch(function (e) {
+      if (fcView === 'detail') return;
       $('fcStatus').textContent = e.message;
       $('fcStatus').className = 'status error';
     });
@@ -541,6 +607,12 @@
   $('fcClose').addEventListener('click', hideFactModal);
   $('factModal').addEventListener('click', function (e) {
     if (e.target === $('factModal')) hideFactModal();
+  });
+  $('fcBody').addEventListener('click', function (e) {
+    var row = e.target.closest('[data-fc-video]');
+    if (!row) return;
+    var vid = row.getAttribute('data-fc-video');
+    if (vid) openBatchItemDetail(vid);
   });
   $('btnBatchFactcheck').addEventListener('click', startBatchFactcheck);
 
