@@ -104,6 +104,9 @@ function formatGeminiClientError(err) {
   if (/API_KEY|api key|401|403|authentication|invalid.?x-api-key/i.test(msg)) {
     return 'English AI is not configured correctly.';
   }
+  if (/aborted|timeout|timed out|AbortError/i.test(msg)) {
+    return 'AI 응답 시간이 초과되었습니다. 문항 수를 줄이거나 다시 시도해 주세요.';
+  }
   if (isCapacityError(msg, err && err.status)) {
     return 'AI is busy right now. Try again in a moment.';
   }
@@ -247,7 +250,8 @@ async function askClaudeOnce(promptOrParts, options, model, apiKey) {
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01'
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Number(options.timeoutMs) || 150000)
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -285,7 +289,8 @@ async function askGeminiOnce(promptOrParts, options, model, apiKey) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Number(options.timeoutMs) || 150000)
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
