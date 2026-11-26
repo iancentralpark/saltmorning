@@ -109,23 +109,6 @@ const GENERATE_PARALLEL = 3;
 const JOB_TTL_MS = 60 * 60 * 1000;
 const generateJobs = new Map();
 
-/** Faster / more reliable types when generating many items. */
-const FAST_TYPES_FOR_LARGE = [
-  'SENTENCE_AUTHENTICITY_SINGLE',
-  'SENTENCE_AUTHENTICITY_COMBINED',
-  'UNDERLINE_CORRECTION',
-  'USAGE_ODD_ONE',
-  'BLANK_COMPLETION',
-  'DIALOGUE_BLANK',
-  'BOX_CHOICE_MATCHING',
-  'ERROR_COUNT',
-  'TRANSLATION_MCQ',
-  'PASSAGE_UNDERLINE_ERROR',
-  'PASSAGE_BOX_MATCHING',
-  'PASSAGE_BLANK_PAIRING',
-  'SENTENCE_TRANSFORM'
-];
-
 function pruneGenerateJobs() {
   const now = Date.now();
   for (const [id, job] of generateJobs.entries()) {
@@ -147,14 +130,16 @@ function normalizeDifficulty(raw) {
   return 'MEDIUM';
 }
 
-/** Build a mix of question types for N items. */
+/**
+ * Build a mix of question types for N items.
+ * Large papers (25–50) use the FULL type catalog with the same weights —
+ * dual verify (Claude→Gemini) already guards quality; shrinking the pool
+ * just made long exams feel monotonous.
+ */
 function buildTypePlan(count, preferredTypes) {
   let pool;
   if (preferredTypes && preferredTypes.length) {
     pool = preferredTypes.filter((t) => QUESTION_TYPES.includes(t));
-  } else if (count >= 25) {
-    // Skip slow/fragile types (ordering, multi-select, full composition) on big papers.
-    pool = FAST_TYPES_FOR_LARGE.slice();
   } else {
     pool = MVP_TYPES.slice();
   }
@@ -189,14 +174,14 @@ function buildTypePlan(count, preferredTypes) {
   };
   const expanded = [];
   pool.forEach((t) => {
-    const w = count >= 25 ? 1 : (weights[t] || 1);
+    const w = Math.max(1, weights[t] || 1);
     for (let i = 0; i < w; i++) expanded.push(t);
   });
   const plan = [];
   for (let i = 0; i < count; i++) {
     plan.push(expanded[i % expanded.length]);
   }
-  // shuffle lightly
+  // shuffle order only — relative type frequencies stay near the weights
   for (let i = plan.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const tmp = plan[i];
