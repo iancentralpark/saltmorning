@@ -1,8 +1,9 @@
 'use strict';
 
 /**
- * AI 내신 문법 학습지 생성기 (A4 worksheet) for Class Tools / grammar-clinic.
- * Claude JSON → printable A4 HTML (concept column + lined notes).
+ * AI 내신 문법 학습지 생성기 (A4 master note) for Class Tools / grammar-clinic.
+ * Style target: Salt Morning “핵심 영문법 마스터 노트”
+ * — 좌측 개념 STEP + 예문 + 내신 포인트, 우측 필기란(44mm), 주제당 1페이지.
  */
 
 const crypto = require('crypto');
@@ -22,28 +23,30 @@ const GRADE_LABELS = {
   H1: '고1'
 };
 
-const THEME_COLORS = {
-  blue: { accent: '#1e4d8c', soft: '#e8f0fa', ink: '#1a1f2e', line: '#c5d4eb' },
-  green: { accent: '#2f6b4f', soft: '#e7f3ea', ink: '#1a2e24', line: '#b9d9c6' },
-  purple: { accent: '#5b3d8a', soft: '#f0e8fa', ink: '#241a2e', line: '#d4c5eb' },
-  orange: { accent: '#b85c2e', soft: '#faf0e8', ink: '#2e1f1a', line: '#ebcfc5' }
-};
+const THEME_COLORS = ['blue', 'green', 'purple', 'orange'];
 
-const SYSTEM_PROMPT = `당신은 한국 중·고등 영어 내신 문법 학습지를 만드는 전문 교사입니다.
+const SYSTEM_PROMPT = `당신은 한국 중학생을 위한 '핵심 영문법 마스터 노트'를 쓰는 친절한 영어 선생님입니다.
 반드시 유효한 JSON만 출력하세요. 설명 문장·마크다운·코드펜스는 금지입니다.
 
-목표: 선생님이 바로 인쇄해 쓸 수 있는 '개념+예문+내신 함정' 학습지 페이지를 주제별로 1페이지씩 만듭니다.
+목표: 주제마다 A4 1장. 왼쪽은 개념·예문·내신 포인트, 오른쪽은 학생이 필기할 빈 줄노트.
+선생님이 바로 인쇄해 수업·숙제에 씁니다.
 
-규칙:
-- pages 배열: 입력 주제마다 정확히 1개 page (순서 유지)
-- unitNumber: "01","02",… 두 자리
-- themeColor: blue | green | purple | orange 중 하나 (주제마다 순환 권장)
-- steps: 3~5개. description에는 핵심 표현만 <mark>…</mark>, <strong>…</strong>, <em>…</em> HTML 허용 (다른 태그 금지)
-- examples: 4~7개. tag는 짧은 한글 용법 라벨. en은 학년 수준 예문, ko는 자연스러운 해석
-- examTips: 2~4개. badge는 "함정 주의"|"빈출"|"비교"|"암기" 중 하나
-- 학년(schoolGrade)에 맞는 난이도·어휘. 초6은 쉽고 짧게, 고1은 내신·수능형 함정 포함
-- 한국어 설명은 교사·학생 모두 읽기 쉽게
-- JSON 스키마를 엄수
+[말투 · 구성 — 절대 지키세요]
+- 학생이 바로 이해하는 구어체 설명. "~이 뭐예요?", 비유(변신 로봇, 양념, 풀), 암기 주문(앞글자 따기) 환영.
+- 딱딱한 사전 정의만 나열하지 말 것. 시험에 나오는 핵심만 짧고 또렷하게.
+- STEP는 보통 2~3개 (최대 4). 흐름 예:
+  STEP 1 기본 개념 → STEP 2 핵심 공식/구분 → (필요 시) STEP 3 합체·시험용 정리
+- examples: 5~7개. 학년 어휘. en에 핵심 표현은 표시용으로 <span class="highlight">…</span> 가능.
+  tag는 짧은 한글 라벨(목적, ~할 때, 날씨, 간접목적어 등).
+- examTips: 1~3개. badge는 다음 중 하나:
+  "함정 주의" | "꿀팁" | "초특급 단골" | "출제 1순위" | "콤마 규칙" | "서술형 주의"
+  detail에는 ❌/⭕ 대조, to vs for, will 금지 등 **구체적 오답·정답 쌍**을 넣을 것.
+- description / detail 안의 허용 HTML만:
+  <mark>…</mark>, <strong>…</strong>, <em>…</em>, <span class="highlight">…</span>, <span class="en-bold">…</span>, <br>, <u>…</u>
+- themeColor: blue | green | purple | orange (주제마다 순환)
+- unitNumber: "01","02",… / unitBadgeLabel 예: "핵심 영문법 01"
+- 한 페이지에  Crowded하지 않게: STEP+예문+포인트가 A4에 들어가게 분량 조절.
+- 학년(schoolGrade)에 맞는 난이도. 초6은 더 쉽고 짧게, 고1은 내신·서술형 함정 강화.
 
 ` + ACCURACY_LAW;
 
@@ -98,38 +101,50 @@ function touch(job, patch) {
 
 function stripUnsafeHtml(html) {
   return String(html || '')
-    .replace(/<(?!\/?(?:mark|strong|em|b|i)\b)[^>]*>/gi, '')
-    .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
-    .replace(/on\w+\s*=\s*'[^']*'/gi, '');
+    .replace(/<(?!\/?(?:mark|strong|em|b|i|br|u|span)\b)[^>]*>/gi, '')
+    .replace(/\sson\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/<\/?span(?![^>]*class=(["'])(?:highlight|en-bold)\1)[^>]*>/gi, '')
+    .replace(/javascript:/gi, '');
 }
 
+const TIP_BADGES = new Set([
+  '함정 주의', '꿀팁', '초특급 단골', '출제 1순위', '콤마 규칙', '서술형 주의', '빈출', '비교', '암기'
+]);
+
 function sanitizePage(raw, index) {
-  const colors = ['blue', 'green', 'purple', 'orange'];
-  let theme = String(raw.themeColor || colors[index % 4]).toLowerCase();
-  if (!THEME_COLORS[theme]) theme = colors[index % 4];
+  let theme = String(raw.themeColor || THEME_COLORS[index % 4]).toLowerCase();
+  if (!THEME_COLORS.includes(theme)) theme = THEME_COLORS[index % 4];
   const unitNumber = String(raw.unitNumber || String(index + 1).padStart(2, '0')).padStart(2, '0').slice(-2);
   const steps = Array.isArray(raw.steps) ? raw.steps : [];
   const examples = Array.isArray(raw.examples) ? raw.examples : [];
   const examTips = Array.isArray(raw.examTips) ? raw.examTips : [];
+  const badgeDefault = String((raw.unitBadgeLabel || ('핵심 영문법 ' + unitNumber))).trim().slice(0, 24);
   return {
     unitNumber,
+    unitBadgeLabel: badgeDefault,
     title: String(raw.title || ('문법 ' + unitNumber)).trim().slice(0, 80),
     themeColor: theme,
-    steps: steps.slice(0, 6).map((s, i) => ({
+    examplesHeading: String(raw.examplesHeading || '교과서 필수 예문으로 익히기').trim().slice(0, 40),
+    examHeading: String(raw.examHeading || '내신 100점 포인트 & 주의할 점!').trim().slice(0, 48),
+    steps: steps.slice(0, 4).map((s, i) => ({
       stepNum: String((s && s.stepNum) || ('STEP ' + (i + 1))).trim().slice(0, 16),
       title: String((s && s.title) || '').trim().slice(0, 80),
-      description: stripUnsafeHtml((s && s.description) || '').slice(0, 1200)
+      description: stripUnsafeHtml((s && s.description) || '').slice(0, 1400)
     })).filter((s) => s.title || s.description),
     examples: examples.slice(0, 8).map((ex) => ({
-      tag: String((ex && ex.tag) || '예문').trim().slice(0, 24),
-      en: String((ex && ex.en) || '').trim().slice(0, 240),
-      ko: String((ex && ex.ko) || '').trim().slice(0, 240)
+      tag: String((ex && ex.tag) || '').trim().slice(0, 24),
+      en: stripUnsafeHtml((ex && ex.en) || '').slice(0, 280),
+      ko: stripUnsafeHtml((ex && ex.ko) || '').slice(0, 280)
     })).filter((ex) => ex.en),
-    examTips: examTips.slice(0, 5).map((t) => ({
-      badge: String((t && t.badge) || '함정 주의').trim().slice(0, 16),
-      title: String((t && t.title) || '').trim().slice(0, 80),
-      detail: String((t && t.detail) || '').trim().slice(0, 600)
-    })).filter((t) => t.title || t.detail)
+    examTips: examTips.slice(0, 4).map((t) => {
+      let badge = String((t && t.badge) || '함정 주의').trim().slice(0, 16);
+      if (!TIP_BADGES.has(badge)) badge = '함정 주의';
+      return {
+        badge,
+        title: String((t && t.title) || '').trim().slice(0, 100),
+        detail: stripUnsafeHtml((t && t.detail) || '').slice(0, 900)
+      };
+    }).filter((t) => t.title || t.detail)
   };
 }
 
@@ -161,8 +176,8 @@ async function askWorksheetJson(prompt) {
       provider: 'claude',
       noGeminiFallback: false,
       systemInstruction: SYSTEM_PROMPT,
-      temperature: 0.5,
-      maxOutputTokens: 12000,
+      temperature: 0.55,
+      maxOutputTokens: 14000,
       responseMimeType: 'application/json',
       model: claudeModel()
     });
@@ -192,9 +207,16 @@ function buildUserPrompt({ title, grade, topics, notes, units }) {
     errorTraps: u.errorTraps
   }));
   return [
-    '다음 입력으로 내신 문법 학습지 JSON을 생성하라.',
+    '다음 입력으로 「핵심 영문법 마스터 노트」 JSON을 생성하라.',
     'worksheetTitle: ' + title,
     'schoolGrade: ' + grade + ' (' + gradeLabel + ')',
+    '',
+    '레이아웃 참고(반드시 이 구조의 콘텐츠를 채울 것):',
+    '- 헤더: unitBadgeLabel(핵심 영문법 NN) + 큰 주제 제목 + 이름/날짜 칸은 HTML이 그림',
+    '- STEP 카드 2~3개 (친절한 질문형 소제목)',
+    '- 예문 박스 5~7개 (✔ 리스트, tag + 영어 + 한글)',
+    '- 내신 포인트 박스(노란 경고톤): 함정·꿀팁·단골 출제, ❌/⭕ 대조',
+    '- 우측 필기란은 렌더러가 그림 — JSON에 넣지 말 것',
     '',
     '[topics — 각 주제마다 pages[]에 1페이지]',
     JSON.stringify(topics, null, 2),
@@ -206,11 +228,26 @@ function buildUserPrompt({ title, grade, topics, notes, units }) {
     JSON.stringify({
       pages: [{
         unitNumber: '01',
-        title: '주제명',
+        unitBadgeLabel: '핵심 영문법 01',
+        title: 'to 부정사의 부사적 용법',
         themeColor: 'blue',
-        steps: [{ stepNum: 'STEP 1', title: '소제목', description: 'HTML <mark>하이라이트</mark> 포함 설명' }],
-        examples: [{ tag: '용법태그', en: 'English example', ko: '한글 해석' }],
-        examTips: [{ badge: '함정 주의', title: '포인트', detail: '상세·오답 비교' }]
+        examplesHeading: '교과서 필수 예문으로 익히기',
+        examHeading: '내신 100점 포인트 & 주의할 점!',
+        steps: [{
+          stepNum: 'STEP 1',
+          title: '‘to 부정사’가 뭐예요?',
+          description: '<span class="en-bold">to</span> + <span class="highlight">동사원형</span> …'
+        }],
+        examples: [{
+          tag: '목적',
+          en: 'I went to the library <span class="highlight">to study</span> English.',
+          ko: '나는 영어를 <strong>공부하기 위해서</strong> 도서관에 갔다.'
+        }],
+        examTips: [{
+          badge: '함정 주의',
+          title: '‘to + 명사’에 속지 마세요!',
+          detail: 'I went <span class="en-bold">to school</span>. ❌ … / I went there <span class="en-bold">to meet</span> him. ⭕'
+        }]
       }]
     }, null, 2)
   ].filter(Boolean).join('\n');
@@ -224,179 +261,237 @@ function esc(s) {
     .replace(/"/g, '&quot;');
 }
 
-function renderLinedNotes() {
-  let lines = '';
-  for (let i = 0; i < 28; i++) lines += '<div class="note-line"></div>';
-  return '<div class="notes-col"><div class="notes-head" contenteditable="true">My Notes</div>' + lines + '</div>';
-}
-
-function renderPage(page, meta) {
-  const theme = THEME_COLORS[page.themeColor] || THEME_COLORS.blue;
+function renderPage(page, meta, pageIndex, pageTotal) {
+  const theme = page.themeColor || 'blue';
   const steps = (page.steps || []).map((s) =>
-    '<div class="step">' +
-    '<div class="step-num" contenteditable="true">' + esc(s.stepNum) + '</div>' +
-    '<div class="step-body">' +
-    '<div class="step-title" contenteditable="true">' + esc(s.title) + '</div>' +
+    '<div class="step-box">' +
+    '<div class="step-title"><span class="step-num" contenteditable="true">' + esc(s.stepNum) +
+    '</span><span contenteditable="true">' + esc(s.title) + '</span></div>' +
     '<div class="step-desc" contenteditable="true">' + (s.description || '') + '</div>' +
-    '</div></div>'
+    '</div>'
   ).join('');
 
   const examples = (page.examples || []).map((ex) =>
-    '<div class="ex">' +
-    '<span class="ex-tag" contenteditable="true">' + esc(ex.tag) + '</span>' +
-    '<div class="ex-en" contenteditable="true">' + esc(ex.en) + '</div>' +
-    '<div class="ex-ko" contenteditable="true">' + esc(ex.ko) + '</div>' +
-    '</div>'
+    '<li>' +
+    '<span class="en-sent" contenteditable="true">' + (ex.en || '') + '</span>' +
+    '<span class="ko-trans">' +
+    (ex.tag ? '<span class="tag" contenteditable="true">' + esc(ex.tag) + '</span> ' : '') +
+    '<span contenteditable="true">' + (ex.ko || '') + '</span>' +
+    '</span></li>'
   ).join('');
 
   const tips = (page.examTips || []).map((t) =>
-    '<div class="tip">' +
-    '<span class="tip-badge" contenteditable="true">' + esc(t.badge) + '</span>' +
-    '<div class="tip-title" contenteditable="true">' + esc(t.title) + '</div>' +
-    '<div class="tip-detail" contenteditable="true">' + esc(t.detail) + '</div>' +
-    '</div>'
+    '<p>' +
+    '<span class="vs-badge" contenteditable="true">' + esc(t.badge) + '</span> ' +
+    (t.title ? '<strong contenteditable="true">' + esc(t.title) + '</strong><br>' : '') +
+    '<span contenteditable="true">' + (t.detail || '') + '</span>' +
+    '</p>'
   ).join('');
 
   return (
-    '<section class="a4-page" style="--accent:' + theme.accent + ';--soft:' + theme.soft +
-    ';--ink:' + theme.ink + ';--rule:' + theme.line + '">' +
-    '<div class="page-grid">' +
-    '<div class="concept-col">' +
-    '<header class="page-head">' +
-    '<div class="unit-pill" contenteditable="true">UNIT ' + esc(page.unitNumber) + '</div>' +
-    '<div class="page-meta" contenteditable="true">' + esc(meta.gradeLabel) + ' · Salt Morning</div>' +
-    '<h1 contenteditable="true">' + esc(page.title) + '</h1>' +
-    '<div class="ws-title" contenteditable="true">' + esc(meta.title) + '</div>' +
-    '</header>' +
-    (steps ? '<div class="block"><h2 contenteditable="true">개념 정리</h2>' + steps + '</div>' : '') +
-    (examples ? '<div class="block"><h2 contenteditable="true">예문 클리닉</h2><div class="ex-list">' + examples + '</div></div>' : '') +
-    (tips ? '<div class="block"><h2 contenteditable="true">내신 포인트</h2><div class="tip-list">' + tips + '</div></div>' : '') +
+    '<section class="page theme-' + esc(theme) + '">' +
+    '<header class="page-header">' +
+    '<div>' +
+    '<span class="unit-badge" contenteditable="true">' + esc(page.unitBadgeLabel) + '</span>' +
+    '<h1 class="page-title" contenteditable="true">' + esc(page.title) + '</h1>' +
     '</div>' +
-    renderLinedNotes() +
-    '</div></section>'
+    '<div class="student-info">이름: ______________ &nbsp;|&nbsp; 날짜: ____/____</div>' +
+    '</header>' +
+    '<div class="content-wrapper">' +
+    '<div class="main-column">' +
+    steps +
+    (examples
+      ? '<div class="example-box"><div class="box-header" contenteditable="true">✏️ ' +
+        esc(page.examplesHeading || '교과서 필수 예문으로 익히기') +
+        '</div><ul class="example-list">' + examples + '</ul></div>'
+      : '') +
+    (tips
+      ? '<div class="exam-box"><div class="exam-title" contenteditable="true">🚨 ' +
+        esc(page.examHeading || '내신 100점 포인트 & 주의할 점!') +
+        '</div><div class="exam-content">' + tips + '</div></div>'
+      : '') +
+    '</div>' +
+    '<aside class="memo-column">' +
+    '<div class="memo-header">📝 나만의 필기 노트</div>' +
+    '<div class="memo-lines"></div>' +
+    '</aside>' +
+    '</div>' +
+    '<footer class="page-footer" contenteditable="true">' +
+    esc(meta.title || '핵심 영문법 마스터 노트') + ' · ' +
+    esc(meta.gradeLabel) + ' · ' + (pageIndex + 1) + ' / ' + pageTotal +
+    '</footer>' +
+    '</section>'
   );
 }
 
 function renderWorksheetHtml(packet, meta) {
-  const pagesHtml = (packet.pages || []).map((p) => renderPage(p, meta)).join('\n');
+  const pages = packet.pages || [];
+  const pagesHtml = pages.map((p, i) => renderPage(p, meta, i, pages.length)).join('\n');
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>${esc(meta.title)} — 내신 문법 학습지</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(meta.title)} — 핵심 영문법 마스터 노트</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --page-w: 210mm; --page-h: 297mm; --notes-w: 44mm; }
-  * { box-sizing: border-box; }
+  :root {
+    --font-title: 'Jua', sans-serif;
+    --font-body: 'Noto Sans KR', sans-serif;
+    --font-en: 'Nunito', 'Noto Sans KR', sans-serif;
+    --text-main: #22252a;
+    --text-sub: #4b5563;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    margin: 0; padding: 16px;
-    background: #e8edf5;
-    color: #1a1f2e;
-    font-family: 'Noto Sans KR', 'Nunito', sans-serif;
+    background: #eef2f6;
+    font-family: var(--font-body);
+    color: var(--text-main);
     font-size: 15.5px;
     line-height: 1.55;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .toolbar {
-    position: sticky; top: 0; z-index: 20;
-    display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
-    margin: 0 auto 14px; max-width: calc(var(--page-w) + 40px);
-    padding: 10px 12px; background: rgba(255,255,255,0.95);
-    border: 1px solid #d8deea; border-radius: 12px;
-    box-shadow: 0 8px 20px rgba(26,31,46,0.08);
+  .control-bar {
+    max-width: 210mm; margin: 16px auto 0;
+    background: #1e293b; color: #fff;
+    padding: 12px 20px; border-radius: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
-  .toolbar strong { font-family: Nunito, sans-serif; color: #1e4d8c; }
-  .toolbar .hint { color: #5c6578; font-size: 0.82rem; flex: 1; }
-  .toolbar button {
-    border: none; border-radius: 9px; padding: 0.45rem 0.85rem;
-    font: inherit; font-weight: 700; cursor: pointer;
-    background: linear-gradient(135deg, #24599e, #1e4d8c); color: #fff;
+  .control-bar span { font-size: 14px; }
+  .print-btn {
+    background: #38bdf8; color: #0f172a; border: none;
+    padding: 8px 18px; border-radius: 8px; font-weight: 700;
+    font-size: 14px; cursor: pointer; font-family: inherit;
   }
-  .a4-page {
-    width: var(--page-w); min-height: var(--page-h);
-    margin: 0 auto 18px; background: #fff;
-    box-shadow: 0 12px 32px rgba(26,31,46,0.12);
-    border: 1px solid #d8deea; overflow: hidden;
-    page-break-after: always; break-after: page;
+  .page {
+    width: 210mm; height: 297mm; background: #fff;
+    margin: 16px auto; padding: 13mm 13mm 12mm 15mm;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 4px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    page-break-after: always; overflow: hidden;
   }
-  .page-grid {
-    display: grid;
-    grid-template-columns: 1fr var(--notes-w);
-    min-height: var(--page-h);
+  .page:last-child { page-break-after: auto; }
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 8px; border-bottom: 3px solid var(--theme-main); margin-bottom: 10px;
   }
-  .concept-col { padding: 14mm 11mm 12mm 12mm; color: var(--ink); }
-  .notes-col {
-    border-left: 1.5px solid var(--rule);
-    background: linear-gradient(180deg, var(--soft), #fff 40%);
-    padding: 12mm 6mm 10mm;
+  .unit-badge {
+    display: inline-block; background: var(--theme-main); color: #fff;
+    font-family: var(--font-title); font-size: 15px; padding: 3px 12px;
+    border-radius: 20px; margin-bottom: 4px; letter-spacing: 0.5px;
   }
-  .notes-head {
-    font-family: Jua, 'Noto Sans KR', sans-serif;
-    font-size: 1.05rem; color: var(--accent); margin-bottom: 8px;
+  .page-title {
+    font-family: var(--font-title); font-size: 28px; color: #111827; line-height: 1.15;
   }
-  .note-line {
-    height: 8.2mm; border-bottom: 1px solid var(--rule); opacity: 0.85;
+  .student-info {
+    font-size: 13.5px; color: var(--text-sub); font-weight: 500;
+    border: 1.5px dashed #cbd5e1; padding: 5px 12px; border-radius: 8px; background: #f8fafc;
   }
-  .page-head { margin-bottom: 10px; }
-  .unit-pill {
-    display: inline-block; font-family: Nunito, sans-serif; font-weight: 800;
-    font-size: 0.72rem; letter-spacing: 0.06em; color: #fff;
-    background: var(--accent); border-radius: 999px; padding: 0.2rem 0.65rem;
+  .content-wrapper {
+    display: grid; grid-template-columns: 1fr 44mm; gap: 6mm; flex: 1; min-height: 0;
   }
-  .page-meta { margin-top: 6px; font-size: 0.75rem; color: #5c6578; font-weight: 600; }
-  h1 {
-    font-family: Jua, 'Noto Sans KR', sans-serif;
-    font-size: 1.65rem; margin: 0.35rem 0 0.15rem; color: var(--accent);
-    font-weight: 400; line-height: 1.25;
+  .main-column {
+    display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0;
   }
-  .ws-title { font-size: 0.78rem; color: #5c6578; font-weight: 600; }
-  .block { margin-top: 12px; }
-  .block h2 {
-    font-family: Nunito, 'Noto Sans KR', sans-serif;
-    font-size: 0.95rem; margin: 0 0 8px; color: var(--accent);
-    border-bottom: 2px solid var(--soft); padding-bottom: 4px;
+  .step-box {
+    background: var(--theme-bg); border-left: 5px solid var(--theme-main);
+    border-radius: 0 10px 10px 0; padding: 9px 13px;
   }
-  .step { display: grid; grid-template-columns: 4.2rem 1fr; gap: 0.45rem; margin-bottom: 0.55rem; }
+  .step-title {
+    font-family: var(--font-title); font-size: 17.5px; color: var(--theme-dark);
+    margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
   .step-num {
-    font-family: Nunito, sans-serif; font-weight: 800; font-size: 0.72rem;
-    color: var(--accent); background: var(--soft); border-radius: 8px;
-    padding: 0.35rem 0.3rem; text-align: center; height: fit-content;
+    background: var(--theme-main); color: #fff; font-size: 12.5px;
+    padding: 1px 8px; border-radius: 10px; font-family: var(--font-en);
   }
-  .step-title { font-weight: 700; margin-bottom: 0.15rem; }
-  .step-desc mark { background: #fff3a3; padding: 0 0.15em; border-radius: 3px; }
-  .ex-list, .tip-list { display: grid; gap: 0.45rem; }
-  .ex {
-    border: 1px solid var(--rule); border-radius: 10px; padding: 0.45rem 0.55rem;
-    background: #fff;
+  .step-desc { font-size: 14.8px; color: #1f2937; }
+  .highlight {
+    background: linear-gradient(transparent 55%, var(--theme-highlight) 55%);
+    font-weight: 700; padding: 0 2px;
   }
-  .ex-tag {
-    display: inline-block; font-size: 0.7rem; font-weight: 700;
-    color: var(--accent); background: var(--soft); border-radius: 999px;
-    padding: 0.12rem 0.45rem; margin-bottom: 0.2rem;
+  mark {
+    background: linear-gradient(transparent 55%, var(--theme-highlight) 55%);
+    font-weight: 700; padding: 0 2px;
   }
-  .ex-en { font-family: Nunito, 'Noto Sans KR', sans-serif; font-weight: 700; }
-  .ex-ko { font-size: 0.88rem; color: #4a5568; margin-top: 0.1rem; }
-  .tip {
-    border-left: 3px solid var(--accent); padding: 0.4rem 0.55rem;
-    background: var(--soft); border-radius: 0 10px 10px 0;
+  .en-bold { font-family: var(--font-en); font-weight: 800; color: var(--theme-dark); }
+  .example-box {
+    border: 2px solid var(--theme-border); border-radius: 12px;
+    padding: 10px 14px; background: #fff;
   }
-  .tip-badge {
-    display: inline-block; font-size: 0.68rem; font-weight: 800;
-    color: #fff; background: var(--accent); border-radius: 6px;
-    padding: 0.1rem 0.4rem; margin-bottom: 0.2rem;
+  .box-header {
+    font-family: var(--font-title); font-size: 17px; color: var(--theme-dark);
+    margin-bottom: 6px;
   }
-  .tip-title { font-weight: 700; }
-  .tip-detail { font-size: 0.88rem; color: #3d4658; margin-top: 0.15rem; }
-  [contenteditable="true"] { outline: none; border-radius: 4px; }
-  [contenteditable="true"]:hover { box-shadow: inset 0 0 0 1px rgba(30,77,140,0.25); }
-  [contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(30,77,140,0.45); background: #fffef8; }
+  .example-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .example-list li { padding-left: 18px; position: relative; font-size: 14.8px; }
+  .example-list li::before {
+    content: "✔"; position: absolute; left: 0; color: var(--theme-main); font-weight: bold;
+  }
+  .en-sent {
+    font-family: var(--font-en); font-size: 15.5px; font-weight: 700;
+    color: #111827; display: block;
+  }
+  .ko-trans { font-size: 13.8px; color: #4b5563; display: block; }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 6px;
+    border-radius: 5px; background: var(--theme-bg); color: var(--theme-dark);
+    margin-right: 4px; vertical-align: middle;
+  }
+  .exam-box {
+    background: #fffbeb; border: 2px solid #f59e0b; border-radius: 12px; padding: 10px 14px;
+  }
+  .exam-title { font-family: var(--font-title); font-size: 17px; color: #b45309; margin-bottom: 5px; }
+  .exam-content { font-size: 14.3px; color: #374151; }
+  .exam-content p + p { margin-top: 5px; }
+  .vs-badge {
+    display: inline-block; background: #ef4444; color: #fff; font-size: 12px;
+    font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 4px;
+  }
+  .memo-column {
+    border: 2px dashed #cbd5e1; border-radius: 12px; background: #fafaf9;
+    padding: 10px; display: flex; flex-direction: column; min-height: 0;
+  }
+  .memo-header {
+    font-family: var(--font-title); font-size: 15px; color: #64748b;
+    text-align: center; padding-bottom: 6px; border-bottom: 1.5px solid #e2e8f0; margin-bottom: 6px;
+  }
+  .memo-lines {
+    flex: 1;
+    background-image: repeating-linear-gradient(
+      transparent, transparent 27px, #e2e8f0 27px, #e2e8f0 28px
+    );
+  }
+  .page-footer { text-align: right; font-size: 12px; color: #94a3b8; margin-top: 6px; }
+  .theme-blue {
+    --theme-main: #2563eb; --theme-dark: #1e40af; --theme-bg: #eff6ff;
+    --theme-border: #93c5fd; --theme-highlight: #bfdbfe;
+  }
+  .theme-green {
+    --theme-main: #059669; --theme-dark: #065f46; --theme-bg: #ecfdf5;
+    --theme-border: #6ee7b7; --theme-highlight: #a7f3d0;
+  }
+  .theme-purple {
+    --theme-main: #7c3aed; --theme-dark: #5b21b6; --theme-bg: #f5f3ff;
+    --theme-border: #c4b5fd; --theme-highlight: #ddd6fe;
+  }
+  .theme-orange {
+    --theme-main: #ea580c; --theme-dark: #9a3412; --theme-bg: #fff7ed;
+    --theme-border: #fdba74; --theme-highlight: #fed7aa;
+  }
+  [contenteditable="true"] { outline: none; border-radius: 3px; }
+  [contenteditable="true"]:hover { box-shadow: inset 0 0 0 1px rgba(37,99,235,0.25); }
+  [contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(37,99,235,0.4); background: #fffef8; }
   @media print {
-    body { background: #fff; padding: 0; }
-    .toolbar { display: none !important; }
-    .a4-page {
-      margin: 0; border: none; box-shadow: none;
-      width: var(--page-w); min-height: var(--page-h);
+    body { background: none; }
+    .control-bar { display: none !important; }
+    .page {
+      margin: 0; box-shadow: none; border-radius: 0;
+      width: 210mm; height: 297mm;
     }
     [contenteditable="true"]:hover,
     [contenteditable="true"]:focus { box-shadow: none; background: transparent; }
@@ -405,16 +500,15 @@ function renderWorksheetHtml(packet, meta) {
 </style>
 </head>
 <body>
-  <div class="toolbar no-print">
-    <strong>내신 문법 학습지</strong>
-    <span class="hint">텍스트를 클릭해 수정한 뒤 PDF 저장 / 인쇄하세요.</span>
-    <button type="button" onclick="window.print()">PDF 저장 / 인쇄</button>
+  <div class="control-bar">
+    <span>🖨️ <strong>A4 세로 인쇄</strong>에 최적화 · 주제별 1페이지 (총 ${pages.length}페이지). 문구를 클릭해 수정할 수 있어요.</span>
+    <button type="button" class="print-btn" onclick="window.print()">바로 인쇄 / PDF 저장</button>
   </div>
   ${pagesHtml}
   <script>
     document.querySelectorAll('[contenteditable]').forEach(function (el) {
       el.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !e.shiftKey && el.tagName !== 'DIV') {
+        if (e.key === 'Enter' && !e.shiftKey && el.tagName !== 'DIV' && el.tagName !== 'P') {
           e.preventDefault();
         }
       });
@@ -486,7 +580,7 @@ function startGenerateJob(opts, ownerKey) {
   const grade = normalizeGrade(opts.grade);
   const notes = String(opts.notes || '').trim().slice(0, 800);
   const title = String(opts.title || '').trim()
-    || (topics.slice(0, 2).join(' · ') + ' 학습지');
+    || (topics.slice(0, 2).join(' · ') + ' 마스터 노트');
 
   const id = newId('gw');
   const job = {
@@ -495,7 +589,7 @@ function startGenerateJob(opts, ownerKey) {
     status: 'running',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    progress: { message: 'Claude가 학습지를 쓰는 중…', pct: 12 },
+    progress: { message: 'Claude가 마스터 노트를 쓰는 중…', pct: 12 },
     input: { title, grade, topics, notes, unitIds: units.map((u) => u.unitId) },
     packet: null,
     htmlPreview: null,
@@ -506,7 +600,7 @@ function startGenerateJob(opts, ownerKey) {
 
   setImmediate(async () => {
     try {
-      touch(job, { progress: { message: '주제별 개념·예문·함정 정리 중…', pct: 28 } });
+      touch(job, { progress: { message: 'STEP·예문·내신 포인트 정리 중…', pct: 28 } });
       let parsed = await askWorksheetJson(buildUserPrompt({
         title, grade, topics, notes, units
       }));
@@ -518,7 +612,7 @@ function startGenerateJob(opts, ownerKey) {
         onProgress: (p) => touch(job, { progress: p }),
         pctClaude: 55,
         pctGemini: 72,
-        maxOutputTokens: 12000
+        maxOutputTokens: 14000
       });
       parsed = verified.document;
       const vr = verified.report || {};
@@ -528,7 +622,7 @@ function startGenerateJob(opts, ownerKey) {
       if (vr.claudeError) warnings.push('Claude 이중검증 실패: ' + vr.claudeError);
       if (vr.geminiSkipped) warnings.push('Gemini 교차검증 생략: ' + (vr.geminiSkipReason || ''));
       if (vr.geminiError) warnings.push('Gemini 교차검증 실패(Claude본 유지): ' + vr.geminiError);
-      touch(job, { progress: { message: 'A4 학습지 레이아웃 만드는 중…', pct: 88 }, warnings });
+      touch(job, { progress: { message: 'A4 마스터 노트 레이아웃 만드는 중…', pct: 88 }, warnings });
       const packet = sanitizePacket(parsed, topics);
       const meta = {
         title,

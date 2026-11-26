@@ -148,9 +148,10 @@ function systemFor(pass, kind) {
 - instruction/context/choices/answerKey/explanation의 사실 오류 수정.
 - items[] 스키마·문항 수 유지. 틀린 문항만 고치거나 교체.`
       : `
-[학습지 추가 검수]
-- steps/examples/examTips의 규칙·예문·함정 설명이 사실에 맞는지 확인.
-- 틀린 tip은 고치거나 삭제. pages[] 스키마 유지.`;
+[학습지(마스터 노트) 추가 검수]
+- steps/examples/examTips의 문법 사실이 한국 중등 내신·참고서와 맞는지 확인.
+- 과장·거짓 규칙·틀린 예문은 고치거나 삭제.
+- 친절한 구어체·STEP→예문→내신포인트 구조는 유지. pages[] 스키마 유지.`;
 
   return [
     who,
