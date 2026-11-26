@@ -198,6 +198,9 @@
     var root = $('saltyFloat');
     if (!root) return;
     root.classList.toggle('panel-collapsed', !open);
+    try {
+      document.body.classList.toggle('salty-panel-open', open);
+    } catch (e) { /* ignore */ }
     var panel = $('saltyPanel');
     if (panel) panel.setAttribute('aria-hidden', open ? 'false' : 'true');
     var fab = $('saltyFab');
@@ -210,6 +213,8 @@
         if ($('saltyInput')) $('saltyInput').focus();
       }, 50);
     } else {
+      hideMicHelp();
+      if (recording) stopRec();
       stopSpeech();
       typeGen += 1;
       setMood('idle');
@@ -358,26 +363,92 @@
       .then(function () { busy = false; });
   }
 
+  function hideMicHelp() {
+    var help = $('saltyMicHelp');
+    if (help) {
+      help.classList.add('hidden');
+      help.innerHTML = '';
+    }
+  }
+
+  function showMicHelp(kind) {
+    var help = $('saltyMicHelp');
+    if (!help) {
+      if ($('saltyError')) $('saltyError').textContent = 'Microphone permission is needed to talk.';
+      return;
+    }
+    if ($('saltyError')) $('saltyError').textContent = '';
+    var isDenied = kind === 'denied';
+    var ua = String(navigator.userAgent || '');
+    var isIOS = /iPhone|iPad|iPod/i.test(ua);
+    var steps = isIOS
+      ? 'iPhone: 설정 → Safari → 마이크 → 허용. (홈화면에 추가한 앱이면 설정 → 해당 앱 → 마이크)'
+      : '브라우저 주소창 자물쇠/사이트 설정에서 Microphone을 허용한 뒤 다시 눌러 주세요.';
+    help.innerHTML = '<strong>' + (isDenied ? '마이크 권한이 꺼져 있어요.' : '마이크 권한이 필요해요.') + '</strong> '
+      + steps
+      + '<br><button type="button" id="saltyMicAllowBtn">'
+      + '<i class="fa-solid fa-microphone" aria-hidden="true"></i> 마이크 허용하기</button>';
+    help.classList.remove('hidden');
+    var btn = $('saltyMicAllowBtn');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        // Direct user gesture → browser permission sheet (if not permanently blocked)
+        requestMicAccess().then(function (stream) {
+          hideMicHelp();
+          beginRecording(stream);
+        }).catch(function (err) {
+          showMicHelp(micFailKind(err));
+        });
+      });
+    }
+  }
+
+  function micFailKind(err) {
+    var name = (err && err.name) || '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
+      return 'denied';
+    }
+    return 'needed';
+  }
+
+  function requestMicAccess() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(Object.assign(new Error('No mediaDevices'), { name: 'NotSupportedError' }));
+    }
+    return navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+
+  function beginRecording(stream) {
+    recordChunks = [];
+    var mime = (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported)
+      ? (MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+        : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : ''))
+      : '';
+    mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) recordChunks.push(ev.data); };
+    mediaRecorder.onstop = function () {
+      stream.getTracks().forEach(function (t) { t.stop(); });
+      finishRec();
+    };
+    mediaRecorder.start();
+    recording = true;
+    setMood('listening');
+    if ($('saltyMicBtn')) {
+      $('saltyMicBtn').classList.add('on');
+      $('saltyMicBtn').setAttribute('title', 'Tap to send');
+      $('saltyMicBtn').setAttribute('aria-label', 'Tap to send');
+    }
+  }
+
   function startRec() {
     if (busy || recording) return;
     unlockAudio();
     if ($('saltyError')) $('saltyError').textContent = '';
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-      recordChunks = [];
-      var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-        : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
-      mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = function (ev) { if (ev.data && ev.data.size) recordChunks.push(ev.data); };
-      mediaRecorder.onstop = function () {
-        stream.getTracks().forEach(function (t) { t.stop(); });
-        finishRec();
-      };
-      mediaRecorder.start();
-      recording = true;
-      setMood('listening');
-      if ($('saltyMicBtn')) $('saltyMicBtn').classList.add('on');
-    }).catch(function () {
-      if ($('saltyError')) $('saltyError').textContent = 'Microphone permission is needed to talk.';
+    hideMicHelp();
+    requestMicAccess().then(function (stream) {
+      beginRecording(stream);
+    }).catch(function (err) {
+      showMicHelp(micFailKind(err));
     });
   }
 
@@ -386,9 +457,27 @@
     try { mediaRecorder.stop(); } catch (e) { recording = false; }
   }
 
+  function toggleMic() {
+    if (busy) return;
+    if (recording) stopRec();
+    else startRec();
+  }
+
+  function isCoarsePointer() {
+    try {
+      return window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    } catch (e) {
+      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    }
+  }
+
   function finishRec() {
     recording = false;
-    if ($('saltyMicBtn')) $('saltyMicBtn').classList.remove('on');
+    if ($('saltyMicBtn')) {
+      $('saltyMicBtn').classList.remove('on');
+      $('saltyMicBtn').setAttribute('title', 'Tap to talk');
+      $('saltyMicBtn').setAttribute('aria-label', 'Tap to talk');
+    }
     var blob = new Blob(recordChunks, { type: (mediaRecorder && mediaRecorder.mimeType) || 'audio/webm' });
     mediaRecorder = null;
     recordChunks = [];
@@ -422,6 +511,9 @@
     if (!root) return;
     root.classList.toggle('hidden', !on);
     if (!on) setOpen(false);
+    else if (!open) {
+      try { document.body.classList.remove('salty-panel-open'); } catch (e) { /* ignore */ }
+    }
   }
 
   function bind() {
@@ -444,13 +536,22 @@
       });
     }
     if ($('saltyMicBtn')) {
-      $('saltyMicBtn').addEventListener('pointerdown', function (e) {
-        e.preventDefault();
-        startRec();
-      });
-      $('saltyMicBtn').addEventListener('pointerup', stopRec);
-      $('saltyMicBtn').addEventListener('pointerleave', function () { if (recording) stopRec(); });
-      $('saltyMicBtn').addEventListener('pointercancel', stopRec);
+      // Mobile: tap to start / tap to stop (hold-to-talk fights permission sheets).
+      // Desktop: keep press-and-hold.
+      if (isCoarsePointer()) {
+        $('saltyMicBtn').addEventListener('click', function (e) {
+          e.preventDefault();
+          toggleMic();
+        });
+      } else {
+        $('saltyMicBtn').addEventListener('pointerdown', function (e) {
+          e.preventDefault();
+          startRec();
+        });
+        $('saltyMicBtn').addEventListener('pointerup', stopRec);
+        $('saltyMicBtn').addEventListener('pointerleave', function () { if (recording) stopRec(); });
+        $('saltyMicBtn').addEventListener('pointercancel', stopRec);
+      }
     }
     if ($('saltyMute')) {
       $('saltyMute').addEventListener('change', function () {
