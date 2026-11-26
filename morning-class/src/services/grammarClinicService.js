@@ -13,6 +13,7 @@ const { dualVerifyGrammar, ACCURACY_LAW } = require('./grammarVerifyService');
 const {
   QUESTION_TYPES,
   MVP_TYPES,
+  QUESTION_TYPE_LABELS,
   listCatalog,
   getUnitsByIds,
   listCategories
@@ -35,10 +36,16 @@ const SYSTEM_PROMPT = `당신은 대한민국 중학교 영어 내신 기출문�
 [문항 완전성 — 절대 어기지 말 것]
 - 모든 문항에 한국어 instruction(발문)을 반드시 채울 것. 빈 문자열 금지.
 - contextBox를 쓰는 유형은 content를 실제로 채울 것. 빈 배열/빈 문자열/빈 박스 금지.
-- SENTENCE_AUTHENTICITY_COMBINED / MULTIPLE: contextBox.type=SENTENCE_LIST, content에 ⓐ~ⓔ 문장 5개.
-- UNDERLINE_CORRECTION / USAGE_CLASSIFICATION: 선지 또는 context 문장 안에 밑줄 부분을 <u>...</u>로 표시. 발문에 '밑줄'이 있으면 반드시 밑줄 존재.
-- BLANK_COMPLETION: 본문/선지에 빈칸을 ______ 로 명시. 빈칸 없는 빈칸 문제 금지.
-- FULL_SENTENCE_COMPOSITION / ORDERING_WITH_CONDITIONS: koreanPrompt 필수. ORDERING은 VOCAB_POOL(단어 목록) 필수.
+- SENTENCE_AUTHENTICITY_COMBINED / MULTIPLE / ERROR_COUNT: contextBox.type=SENTENCE_LIST, content에 ⓐ~ⓔ 문장 5개.
+- UNDERLINE_CORRECTION / USAGE_CLASSIFICATION / USAGE_ODD_ONE: 선지 또는 context에 <u>...</u> 밑줄 필수.
+- BLANK_COMPLETION / DIALOGUE_BLANK / PARAPHRASE_BLANK / GUIDED_COMPLETION: ______ 빈칸 명시.
+- DIALOGUE_BLANK: contextBox.type=DIALOGUE (A:/B: 또는 말풍선 형태 2~6줄).
+- BOX_CHOICE_MATCHING: 본문에 (A)/(B)/(C) 네모 선택지(예: [Create / To create])를 넣고, choices는 짝짓기 선지 5개.
+- TRANSLATION_MCQ: koreanPrompt에 우리말, choices에 영어 문장 5개.
+- TRANSLATION_EXTRA_WORD: koreanPrompt+단어 목록(VOCAB_POOL). 정답은 '필요 없는 단어'.
+- ORDERING_WITH_CONDITIONS / ORDERING_NTH: koreanPrompt+VOCAB_POOL. ORDERING_NTH는 발문에 N번째 명시.
+- SENTENCE_INSERT: 지문(PASSAGE) + 삽입할 문장(koreanPrompt 또는 conditions). choices는 위치 ①~⑤.
+- FULL_SENTENCE_COMPOSITION / GUIDED_COMPLETION: koreanPrompt 또는 표·제시 정보(contextBox) 필수.
 - 객관식은 choices 5개, 각 text 비어 있지 않게.
 - 할당된 문법(예: should have p.p.만, 관계대명사 which만) 외의 문법을 정답 포인트로 쓰지 말 것.
 
@@ -99,8 +106,12 @@ const FAST_TYPES_FOR_LARGE = [
   'SENTENCE_AUTHENTICITY_SINGLE',
   'SENTENCE_AUTHENTICITY_COMBINED',
   'UNDERLINE_CORRECTION',
+  'USAGE_ODD_ONE',
   'BLANK_COMPLETION',
-  'DESCRIPTIVE_CORRECTION',
+  'DIALOGUE_BLANK',
+  'BOX_CHOICE_MATCHING',
+  'ERROR_COUNT',
+  'TRANSLATION_MCQ',
   'SENTENCE_TRANSFORM'
 ];
 
@@ -143,11 +154,21 @@ function buildTypePlan(count, preferredTypes) {
     SENTENCE_AUTHENTICITY_COMBINED: 2,
     UNDERLINE_CORRECTION: 2,
     USAGE_CLASSIFICATION: 1,
+    USAGE_ODD_ONE: 2,
     BLANK_COMPLETION: 2,
+    DIALOGUE_BLANK: 2,
+    BOX_CHOICE_MATCHING: 2,
+    ERROR_COUNT: 1,
     SENTENCE_TRANSFORM: 2,
     DESCRIPTIVE_CORRECTION: 2,
-    ORDERING_WITH_CONDITIONS: 2,
-    FULL_SENTENCE_COMPOSITION: 2
+    ORDERING_WITH_CONDITIONS: 1,
+    ORDERING_NTH: 1,
+    FULL_SENTENCE_COMPOSITION: 1,
+    TRANSLATION_MCQ: 2,
+    TRANSLATION_EXTRA_WORD: 1,
+    PARAPHRASE_BLANK: 1,
+    SENTENCE_INSERT: 1,
+    GUIDED_COMPLETION: 1
   };
   const expanded = [];
   pool.forEach((t) => {
@@ -267,11 +288,11 @@ function hasBlankMarkup(text) {
 }
 
 function isObjectiveType(type) {
-  return /AUTHENTICITY|UNDERLINE|USAGE|BLANK/.test(String(type || ''));
+  return /AUTHENTICITY|UNDERLINE|USAGE|BLANK_COMPLETION|DIALOGUE_BLANK|BOX_CHOICE|ERROR_COUNT|TRANSLATION_MCQ|TRANSLATION_EXTRA|ORDERING_NTH|SENTENCE_INSERT/.test(String(type || ''));
 }
 
 function isDescriptiveType(type) {
-  return /DESCRIPTIVE|ORDERING|COMPOSITION|TRANSFORM/.test(String(type || ''));
+  return /DESCRIPTIVE|ORDERING_WITH|COMPOSITION|TRANSFORM|GUIDED_COMPLETION|PARAPHRASE_BLANK/.test(String(type || ''));
 }
 
 function validateItem(item, unitMap) {
@@ -285,7 +306,8 @@ function validateItem(item, unitMap) {
 
   const needsSentenceList = type === 'SENTENCE_AUTHENTICITY_COMBINED'
     || type === 'SENTENCE_AUTHENTICITY_MULTIPLE'
-    || type === 'DESCRIPTIVE_CORRECTION';
+    || type === 'DESCRIPTIVE_CORRECTION'
+    || type === 'ERROR_COUNT';
   if (needsSentenceList) {
     const lines = item.contextBox && Array.isArray(item.contextBox.content)
       ? item.contextBox.content
@@ -293,30 +315,67 @@ function validateItem(item, unitMap) {
     if (lines.length < 4) warnings.push('missing_sentence_list');
   }
 
-  if (type === 'UNDERLINE_CORRECTION' || type === 'USAGE_CLASSIFICATION') {
+  if (
+    type === 'UNDERLINE_CORRECTION'
+    || type === 'USAGE_CLASSIFICATION'
+    || type === 'USAGE_ODD_ONE'
+  ) {
     if (!hasUnderlineMarkup(plain)) warnings.push('missing_underline');
   } else if (/밑줄/.test(item.instruction || '') && !hasUnderlineMarkup(plain)) {
     warnings.push('missing_underline');
   }
 
-  if (type === 'BLANK_COMPLETION' && !hasBlankMarkup(plain)) {
+  if (
+    (type === 'BLANK_COMPLETION'
+      || type === 'DIALOGUE_BLANK'
+      || type === 'PARAPHRASE_BLANK')
+    && !hasBlankMarkup(plain)
+  ) {
     warnings.push('missing_blank');
   }
 
-  if (type === 'ORDERING_WITH_CONDITIONS') {
+  if (type === 'DIALOGUE_BLANK') {
+    const box = item.contextBox && item.contextBox.content;
+    const ok = Array.isArray(box) ? box.length >= 2 : !!(box && String(box).trim().length > 10);
+    if (!ok) warnings.push('missing_dialogue');
+  }
+
+  if (type === 'BOX_CHOICE_MATCHING') {
+    if (!/\([A-C]\)|（[A-C]）|\[.+\s*\/\s*.+\]/.test(plain)) {
+      warnings.push('missing_box_choices');
+    }
+  }
+
+  if (type === 'ORDERING_WITH_CONDITIONS' || type === 'ORDERING_NTH' || type === 'TRANSLATION_EXTRA_WORD') {
     if (!item.koreanPrompt) warnings.push('missing_korean_prompt');
     const pool = item.contextBox && item.contextBox.content;
     const poolOk = Array.isArray(pool) ? pool.length >= 1 : !!(pool && String(pool).trim());
     if (!poolOk) warnings.push('missing_word_pool');
   }
 
-  if (type === 'FULL_SENTENCE_COMPOSITION' && !item.koreanPrompt) {
+  if (
+    (type === 'FULL_SENTENCE_COMPOSITION' || type === 'TRANSLATION_MCQ' || type === 'GUIDED_COMPLETION')
+    && !item.koreanPrompt
+    && !(item.contextBox && item.contextBox.content)
+  ) {
     warnings.push('missing_korean_prompt');
   }
 
   if (type === 'SENTENCE_TRANSFORM') {
     const hasSrc = !!(item.contextBox && item.contextBox.content) || !!item.koreanPrompt;
     if (!hasSrc) warnings.push('missing_transform_source');
+  }
+
+  if (type === 'SENTENCE_INSERT') {
+    const hasPassage = !!(item.contextBox && item.contextBox.content);
+    if (!hasPassage) warnings.push('missing_passage');
+  }
+
+  if (type === 'PARAPHRASE_BLANK') {
+    const lines = item.contextBox && Array.isArray(item.contextBox.content)
+      ? item.contextBox.content
+      : [];
+    if (lines.length < 2 && !hasBlankMarkup(plain)) warnings.push('missing_paraphrase_pair');
   }
 
   if (isObjectiveType(type)) {
@@ -356,7 +415,7 @@ function validateItem(item, unitMap) {
   if (item.instruction.length > 220) warnings.push('instruction_long');
 
   const hardFail = warnings.some((w) =>
-    /missing_instruction|missing_key|need_multi_key|unknown_unit|few_choices|missing_descriptive|missing_sentence_list|missing_underline|missing_blank|missing_korean_prompt|missing_word_pool|missing_transform_source|empty_choice_text/.test(w)
+    /missing_instruction|missing_key|need_multi_key|unknown_unit|few_choices|missing_descriptive|missing_sentence_list|missing_underline|missing_blank|missing_korean_prompt|missing_word_pool|missing_transform_source|missing_dialogue|missing_box_choices|missing_passage|missing_paraphrase_pair|empty_choice_text/.test(w)
   );
   return { ok: !hardFail, warnings };
 }
@@ -469,9 +528,10 @@ async function regenerateOneItem({ unit, questionType, difficulty, grade, reason
     '이 unitId의 문법만 다룰 것: ' + unit.unitId + ' (' + unit.subCategory + ')',
     'GrammarRuleSpec: ' + JSON.stringify(unit),
     '스키마는 AssessmentItem과 동일. 객관식이면 choices 5개.',
-    'instruction 필수. COMBINED/MULTIPLE는 ⓐ~ⓔ SENTENCE_LIST 필수.',
-    'UNDERLINE/USAGE는 <u>밑줄</u> 필수. BLANK는 ______ 필수.',
-    '영작/배열은 koreanPrompt 필수. 빈 contextBox 금지.'
+    'instruction 필수. COMBINED/MULTIPLE/ERROR_COUNT는 ⓐ~ⓔ SENTENCE_LIST 필수.',
+    'UNDERLINE/USAGE/USAGE_ODD_ONE는 <u>밑줄</u> 필수. BLANK/DIALOGUE_BLANK는 ______ 필수.',
+    'TRANSLATION_MCQ는 koreanPrompt+영어 선지. BOX_CHOICE는 (A)~(C) 네모 선택.',
+    '영작/배열은 koreanPrompt(+단어풀) 필수. 빈 contextBox 금지.'
   ].join('\n'), { temperature: 0.4, maxOutputTokens: 4096 });
   const raw = parsed.items ? parsed.items[0] : parsed;
   return coerceItem(raw, { unitId: unit.unitId, questionType, difficulty });
@@ -870,19 +930,7 @@ function choiceGlyph(n) {
 }
 
 function typeLabel(type) {
-  const map = {
-    SENTENCE_AUTHENTICITY_SINGLE: '어법 판단',
-    SENTENCE_AUTHENTICITY_MULTIPLE: '복수 선택',
-    SENTENCE_AUTHENTICITY_COMBINED: '기호 조합',
-    UNDERLINE_CORRECTION: '밑줄 수정',
-    USAGE_CLASSIFICATION: '용법 구별',
-    BLANK_COMPLETION: '빈칸 완성',
-    SENTENCE_TRANSFORM: '문장 전환',
-    DESCRIPTIVE_CORRECTION: '서술형 수정',
-    ORDERING_WITH_CONDITIONS: '어순 배열',
-    FULL_SENTENCE_COMPOSITION: '조건부 영작'
-  };
-  return map[type] || type;
+  return (QUESTION_TYPE_LABELS && QUESTION_TYPE_LABELS[type]) || type;
 }
 
 function renderItemHtml(item, index) {
