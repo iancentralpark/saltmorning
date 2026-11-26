@@ -36,16 +36,17 @@ const SYSTEM_PROMPT = `당신은 한국 중학생을 위한 '핵심 영문법 �
 - 딱딱한 사전 정의만 나열하지 말 것. 시험에 나오는 핵심만 짧고 또렷하게.
 - STEP는 보통 2~3개 (최대 4). 흐름 예:
   STEP 1 기본 개념 → STEP 2 핵심 공식/구분 → (필요 시) STEP 3 합체·시험용 정리
-- examples: 5~7개. 학년 어휘. en에 핵심 표현은 표시용으로 <span class="highlight">…</span> 가능.
+- examples: 4~6개 (기본 5). 학년 어휘. en에 핵심 표현은 <span class="highlight">…</span> 가능.
   tag는 짧은 한글 라벨(목적, ~할 때, 날씨, 간접목적어 등).
-- examTips: 1~3개. badge는 다음 중 하나:
+- examTips: 1~2개 (최대 2). badge는 다음 중 하나:
   "함정 주의" | "꿀팁" | "초특급 단골" | "출제 1순위" | "콤마 규칙" | "서술형 주의"
-  detail에는 ❌/⭕ 대조, to vs for, will 금지 등 **구체적 오답·정답 쌍**을 넣을 것.
+  detail은 1~2줄. ❌/⭕ 대조를 짧게. 긴 문단·3개 이상 대조 금지.
 - description / detail 안의 허용 HTML만:
   <mark>…</mark>, <strong>…</strong>, <em>…</em>, <span class="highlight">…</span>, <span class="en-bold">…</span>, <br>, <u>…</u>
 - themeColor: blue | green | purple | orange (주제마다 순환)
 - unitNumber: "01","02",… / unitBadgeLabel 예: "핵심 영문법 01"
-- 한 페이지에  Crowded하지 않게: STEP+예문+포인트가 A4에 들어가게 분량 조절.
+- **인쇄 분량(매우 중요)**: 상단 브랜드+헤더+STEP+예문+내신포인트+푸터가 A4 한 장에 반드시 들어가야 함.
+  STEP description은 각 2~3문장 이내. 예문 ko는 한 줄. 넘치면 예문·팁부터 줄일 것.
 - 학년(schoolGrade)에 맞는 난이도. 초6은 더 쉽고 짧게, 고1은 내신·서술형 함정 강화.
 
 ` + ACCURACY_LAW;
@@ -126,23 +127,23 @@ function sanitizePage(raw, index) {
     themeColor: theme,
     examplesHeading: String(raw.examplesHeading || '교과서 필수 예문으로 익히기').trim().slice(0, 40),
     examHeading: String(raw.examHeading || '내신 100점 포인트 & 주의할 점!').trim().slice(0, 48),
-    steps: steps.slice(0, 4).map((s, i) => ({
+    steps: steps.slice(0, 3).map((s, i) => ({
       stepNum: String((s && s.stepNum) || ('STEP ' + (i + 1))).trim().slice(0, 16),
-      title: String((s && s.title) || '').trim().slice(0, 80),
-      description: stripUnsafeHtml((s && s.description) || '').slice(0, 1400)
+      title: String((s && s.title) || '').trim().slice(0, 72),
+      description: stripUnsafeHtml((s && s.description) || '').slice(0, 700)
     })).filter((s) => s.title || s.description),
-    examples: examples.slice(0, 8).map((ex) => ({
-      tag: String((ex && ex.tag) || '').trim().slice(0, 24),
-      en: stripUnsafeHtml((ex && ex.en) || '').slice(0, 280),
-      ko: stripUnsafeHtml((ex && ex.ko) || '').slice(0, 280)
+    examples: examples.slice(0, 6).map((ex) => ({
+      tag: String((ex && ex.tag) || '').trim().slice(0, 20),
+      en: stripUnsafeHtml((ex && ex.en) || '').slice(0, 220),
+      ko: stripUnsafeHtml((ex && ex.ko) || '').slice(0, 160)
     })).filter((ex) => ex.en),
-    examTips: examTips.slice(0, 4).map((t) => {
+    examTips: examTips.slice(0, 2).map((t) => {
       let badge = String((t && t.badge) || '함정 주의').trim().slice(0, 16);
       if (!TIP_BADGES.has(badge)) badge = '함정 주의';
       return {
         badge,
-        title: String((t && t.title) || '').trim().slice(0, 100),
-        detail: stripUnsafeHtml((t && t.detail) || '').slice(0, 900)
+        title: String((t && t.title) || '').trim().slice(0, 72),
+        detail: stripUnsafeHtml((t && t.detail) || '').slice(0, 420)
       };
     }).filter((t) => t.title || t.detail)
   };
@@ -212,11 +213,12 @@ function buildUserPrompt({ title, grade, topics, notes, units }) {
     'schoolGrade: ' + grade + ' (' + gradeLabel + ')',
     '',
     '레이아웃 참고(반드시 이 구조의 콘텐츠를 채울 것):',
-    '- 헤더: unitBadgeLabel(핵심 영문법 NN) + 큰 주제 제목 + 이름/날짜 칸은 HTML이 그림',
-    '- STEP 카드 2~3개 (친절한 질문형 소제목)',
-    '- 예문 박스 5~7개 (✔ 리스트, tag + 영어 + 한글)',
-    '- 내신 포인트 박스(노란 경고톤): 함정·꿀팁·단골 출제, ❌/⭕ 대조',
+    '- 상단 브랜드 "Salt Academy 핵심 영문법" + unitBadge + 제목 + 이름/날짜는 HTML이 그림',
+    '- STEP 카드 2~3개 (친절한 질문형 소제목, 설명은 짧게)',
+    '- 예문 박스 4~6개 (✔ 리스트, tag + 영어 + 한글 한 줄)',
+    '- 내신 포인트 1~2개만: ❌/⭕ 대조를 짧게 (A4에 잘리지 않게)',
     '- 우측 필기란은 렌더러가 그림 — JSON에 넣지 말 것',
+    '- A4 1장에 반드시 들어가게 분량을 줄일 것',
     '',
     '[topics — 각 주제마다 pages[]에 1페이지]',
     JSON.stringify(topics, null, 2),
@@ -290,6 +292,7 @@ function renderPage(page, meta, pageIndex, pageTotal) {
 
   return (
     '<section class="page theme-' + esc(theme) + '">' +
+    '<div class="brand-bar" contenteditable="true">Salt Academy 핵심 영문법</div>' +
     '<header class="page-header">' +
     '<div>' +
     '<span class="unit-badge" contenteditable="true">' + esc(page.unitBadgeLabel) + '</span>' +
@@ -317,7 +320,7 @@ function renderPage(page, meta, pageIndex, pageTotal) {
     '</aside>' +
     '</div>' +
     '<footer class="page-footer" contenteditable="true">' +
-    esc(meta.title || '핵심 영문법 마스터 노트') + ' · ' +
+    'Salt Academy · ' + esc(meta.title || '핵심 영문법') + ' · ' +
     esc(meta.gradeLabel) + ' · ' + (pageIndex + 1) + ' / ' + pageTotal +
     '</footer>' +
     '</section>'
@@ -349,8 +352,8 @@ function renderWorksheetHtml(packet, meta) {
     background: #eef2f6;
     font-family: var(--font-body);
     color: var(--text-main);
-    font-size: 15.5px;
-    line-height: 1.55;
+    font-size: 14.5px;
+    line-height: 1.45;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -367,49 +370,59 @@ function renderWorksheetHtml(packet, meta) {
     padding: 8px 18px; border-radius: 8px; font-weight: 700;
     font-size: 14px; cursor: pointer; font-family: inherit;
   }
+  /* 화면 미리보기: A4 박스. 인쇄 시에는 프린터 비인쇄 여백을 감안해 안쪽 패딩을 넉넉히. */
   .page {
     width: 210mm; height: 297mm; background: #fff;
-    margin: 16px auto; padding: 13mm 13mm 12mm 15mm;
+    margin: 16px auto; padding: 10mm 12mm 12mm 12mm;
     box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 4px;
-    display: flex; flex-direction: column; justify-content: space-between;
-    page-break-after: always; overflow: hidden;
+    display: flex; flex-direction: column;
+    page-break-after: always; break-after: page;
+    overflow: hidden;
   }
-  .page:last-child { page-break-after: auto; }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .brand-bar {
+    font-family: var(--font-title); font-size: 13.5px; letter-spacing: 0.04em;
+    color: #64748b; margin-bottom: 4px; line-height: 1.2;
+  }
   .page-header {
     display: flex; justify-content: space-between; align-items: flex-end;
-    padding-bottom: 8px; border-bottom: 3px solid var(--theme-main); margin-bottom: 10px;
+    padding-bottom: 6px; border-bottom: 2.5px solid var(--theme-main); margin-bottom: 7px;
+    flex-shrink: 0;
   }
   .unit-badge {
     display: inline-block; background: var(--theme-main); color: #fff;
-    font-family: var(--font-title); font-size: 15px; padding: 3px 12px;
-    border-radius: 20px; margin-bottom: 4px; letter-spacing: 0.5px;
+    font-family: var(--font-title); font-size: 13.5px; padding: 2px 10px;
+    border-radius: 20px; margin-bottom: 3px; letter-spacing: 0.5px;
   }
   .page-title {
-    font-family: var(--font-title); font-size: 28px; color: #111827; line-height: 1.15;
+    font-family: var(--font-title); font-size: 24px; color: #111827; line-height: 1.15;
   }
   .student-info {
-    font-size: 13.5px; color: var(--text-sub); font-weight: 500;
-    border: 1.5px dashed #cbd5e1; padding: 5px 12px; border-radius: 8px; background: #f8fafc;
+    font-size: 12.5px; color: var(--text-sub); font-weight: 500;
+    border: 1.5px dashed #cbd5e1; padding: 4px 10px; border-radius: 8px; background: #f8fafc;
+    white-space: nowrap;
   }
   .content-wrapper {
-    display: grid; grid-template-columns: 1fr 44mm; gap: 6mm; flex: 1; min-height: 0;
+    display: grid; grid-template-columns: 1fr 40mm; gap: 5mm;
+    flex: 1; min-height: 0; overflow: hidden;
   }
   .main-column {
-    display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0;
+    display: flex; flex-direction: column; justify-content: flex-start;
+    gap: 6px; min-width: 0; min-height: 0; overflow: hidden;
   }
   .step-box {
-    background: var(--theme-bg); border-left: 5px solid var(--theme-main);
-    border-radius: 0 10px 10px 0; padding: 9px 13px;
+    background: var(--theme-bg); border-left: 4px solid var(--theme-main);
+    border-radius: 0 8px 8px 0; padding: 7px 11px; flex-shrink: 0;
   }
   .step-title {
-    font-family: var(--font-title); font-size: 17.5px; color: var(--theme-dark);
-    margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font-family: var(--font-title); font-size: 15.5px; color: var(--theme-dark);
+    margin-bottom: 2px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
   }
   .step-num {
-    background: var(--theme-main); color: #fff; font-size: 12.5px;
-    padding: 1px 8px; border-radius: 10px; font-family: var(--font-en);
+    background: var(--theme-main); color: #fff; font-size: 11.5px;
+    padding: 1px 7px; border-radius: 10px; font-family: var(--font-en);
   }
-  .step-desc { font-size: 14.8px; color: #1f2937; }
+  .step-desc { font-size: 13.5px; color: #1f2937; }
   .highlight {
     background: linear-gradient(transparent 55%, var(--theme-highlight) 55%);
     font-weight: 700; padding: 0 2px;
@@ -420,53 +433,58 @@ function renderWorksheetHtml(packet, meta) {
   }
   .en-bold { font-family: var(--font-en); font-weight: 800; color: var(--theme-dark); }
   .example-box {
-    border: 2px solid var(--theme-border); border-radius: 12px;
-    padding: 10px 14px; background: #fff;
+    border: 1.5px solid var(--theme-border); border-radius: 10px;
+    padding: 8px 11px; background: #fff; flex: 1 1 auto; min-height: 0;
   }
   .box-header {
-    font-family: var(--font-title); font-size: 17px; color: var(--theme-dark);
-    margin-bottom: 6px;
+    font-family: var(--font-title); font-size: 15px; color: var(--theme-dark);
+    margin-bottom: 4px;
   }
-  .example-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-  .example-list li { padding-left: 18px; position: relative; font-size: 14.8px; }
+  .example-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .example-list li { padding-left: 16px; position: relative; font-size: 13.5px; }
   .example-list li::before {
     content: "✔"; position: absolute; left: 0; color: var(--theme-main); font-weight: bold;
   }
   .en-sent {
-    font-family: var(--font-en); font-size: 15.5px; font-weight: 700;
+    font-family: var(--font-en); font-size: 14px; font-weight: 700;
     color: #111827; display: block;
   }
-  .ko-trans { font-size: 13.8px; color: #4b5563; display: block; }
+  .ko-trans { font-size: 12.5px; color: #4b5563; display: block; }
   .tag {
-    display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 6px;
-    border-radius: 5px; background: var(--theme-bg); color: var(--theme-dark);
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 5px;
+    border-radius: 4px; background: var(--theme-bg); color: var(--theme-dark);
     margin-right: 4px; vertical-align: middle;
   }
   .exam-box {
-    background: #fffbeb; border: 2px solid #f59e0b; border-radius: 12px; padding: 10px 14px;
+    background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 10px;
+    padding: 8px 11px; flex-shrink: 0;
   }
-  .exam-title { font-family: var(--font-title); font-size: 17px; color: #b45309; margin-bottom: 5px; }
-  .exam-content { font-size: 14.3px; color: #374151; }
-  .exam-content p + p { margin-top: 5px; }
+  .exam-title { font-family: var(--font-title); font-size: 15px; color: #b45309; margin-bottom: 3px; }
+  .exam-content { font-size: 13px; color: #374151; }
+  .exam-content p + p { margin-top: 4px; }
   .vs-badge {
-    display: inline-block; background: #ef4444; color: #fff; font-size: 12px;
-    font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 4px;
+    display: inline-block; background: #ef4444; color: #fff; font-size: 11px;
+    font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-right: 4px;
   }
   .memo-column {
-    border: 2px dashed #cbd5e1; border-radius: 12px; background: #fafaf9;
-    padding: 10px; display: flex; flex-direction: column; min-height: 0;
+    border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #fafaf9;
+    padding: 8px; display: flex; flex-direction: column; min-height: 0;
   }
   .memo-header {
-    font-family: var(--font-title); font-size: 15px; color: #64748b;
-    text-align: center; padding-bottom: 6px; border-bottom: 1.5px solid #e2e8f0; margin-bottom: 6px;
+    font-family: var(--font-title); font-size: 13.5px; color: #64748b;
+    text-align: center; padding-bottom: 5px; border-bottom: 1.5px solid #e2e8f0; margin-bottom: 5px;
+    flex-shrink: 0;
   }
   .memo-lines {
     flex: 1;
     background-image: repeating-linear-gradient(
-      transparent, transparent 27px, #e2e8f0 27px, #e2e8f0 28px
+      transparent, transparent 24px, #e2e8f0 24px, #e2e8f0 25px
     );
   }
-  .page-footer { text-align: right; font-size: 12px; color: #94a3b8; margin-top: 6px; }
+  .page-footer {
+    text-align: right; font-size: 11px; color: #94a3b8;
+    margin-top: 6px; flex-shrink: 0; padding-bottom: 1mm;
+  }
   .theme-blue {
     --theme-main: #2563eb; --theme-dark: #1e40af; --theme-bg: #eff6ff;
     --theme-border: #93c5fd; --theme-highlight: #bfdbfe;
@@ -487,16 +505,19 @@ function renderWorksheetHtml(packet, meta) {
   [contenteditable="true"]:hover { box-shadow: inset 0 0 0 1px rgba(37,99,235,0.25); }
   [contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(37,99,235,0.4); background: #fffef8; }
   @media print {
-    body { background: none; }
+    html, body { background: none !important; margin: 0 !important; padding: 0 !important; }
     .control-bar { display: none !important; }
     .page {
-      margin: 0; box-shadow: none; border-radius: 0;
+      margin: 0 !important; box-shadow: none !important; border-radius: 0 !important;
       width: 210mm; height: 297mm;
+      /* 프린터 비인쇄 영역(보통 5~10mm)에 잘리지 않도록 하단·측면 여백 확보 */
+      padding: 9mm 11mm 14mm 11mm !important;
+      page-break-inside: avoid; break-inside: avoid;
     }
     [contenteditable="true"]:hover,
     [contenteditable="true"]:focus { box-shadow: none; background: transparent; }
   }
-  @page { size: A4; margin: 0; }
+  @page { size: A4 portrait; margin: 0; }
 </style>
 </head>
 <body>
