@@ -46,6 +46,15 @@ const SYSTEM_PROMPT = `당신은 대한민국 중학교 영어 내신 기출문�
 - ORDERING_WITH_CONDITIONS / ORDERING_NTH: koreanPrompt+VOCAB_POOL. ORDERING_NTH는 발문에 N번째 명시.
 - SENTENCE_INSERT: 지문(PASSAGE) + 삽입할 문장(koreanPrompt 또는 conditions). choices는 위치 ①~⑤.
 - FULL_SENTENCE_COMPOSITION / GUIDED_COMPLETION: koreanPrompt 또는 표·제시 정보(contextBox) 필수.
+- ★ 지문형(PASSAGE_*) — 중학 내신 핵심:
+  contextBox.type=PASSAGE, content는 연결된 영어 본문 4~8문장(약 70~140단어). 단문 나열(SENTENCE_LIST) 금지.
+  발문은 '다음 글을 읽고' / '윗글의…' 톤.
+  · PASSAGE_UNDERLINE_ERROR: 본문에 <u>ⓐ …</u> ~ <u>ⓔ …</u> 밑줄 5곳, 어법상 틀린 것 고르기.
+  · PASSAGE_BOX_MATCHING: 본문에 (A)[opt1 / opt2], (B)…, (C)… 네모 3곳, 알맞은 짝 선지.
+  · PASSAGE_BLANK_PAIRING: 본문 빈칸 (A)(B) 또는 (A)~(C), 들어갈 말 짝 선지.
+  · PASSAGE_TRANSLATION_MCQ: 본문 속 밑줄 우리말(또는 영작 대상) → 영어 선지 5개.
+  · PASSAGE_FIND_REWRITE: 본문 ①~⑤ 중 틀린 곳 번호+고쳐 쓰기(서술형).
+  · PASSAGE_USAGE_ODD_ONE: 본문/보기 밑줄 중 쓰임이 나머지와 다른 것.
 - 객관식은 choices 5개, 각 text 비어 있지 않게.
 - 할당된 문법(예: should have p.p.만, 관계대명사 which만) 외의 문법을 정답 포인트로 쓰지 말 것.
 
@@ -103,7 +112,6 @@ const generateJobs = new Map();
 /** Faster / more reliable types when generating many items. */
 const FAST_TYPES_FOR_LARGE = [
   'SENTENCE_AUTHENTICITY_SINGLE',
-  'SENTENCE_AUTHENTICITY_SINGLE',
   'SENTENCE_AUTHENTICITY_COMBINED',
   'UNDERLINE_CORRECTION',
   'USAGE_ODD_ONE',
@@ -112,6 +120,9 @@ const FAST_TYPES_FOR_LARGE = [
   'BOX_CHOICE_MATCHING',
   'ERROR_COUNT',
   'TRANSLATION_MCQ',
+  'PASSAGE_UNDERLINE_ERROR',
+  'PASSAGE_BOX_MATCHING',
+  'PASSAGE_BLANK_PAIRING',
   'SENTENCE_TRANSFORM'
 ];
 
@@ -149,7 +160,7 @@ function buildTypePlan(count, preferredTypes) {
   }
   if (!pool.length) pool.push(...MVP_TYPES);
   const weights = {
-    SENTENCE_AUTHENTICITY_SINGLE: 3,
+    SENTENCE_AUTHENTICITY_SINGLE: 2,
     SENTENCE_AUTHENTICITY_MULTIPLE: 1,
     SENTENCE_AUTHENTICITY_COMBINED: 2,
     UNDERLINE_CORRECTION: 2,
@@ -160,15 +171,21 @@ function buildTypePlan(count, preferredTypes) {
     BOX_CHOICE_MATCHING: 2,
     ERROR_COUNT: 1,
     SENTENCE_TRANSFORM: 2,
-    DESCRIPTIVE_CORRECTION: 2,
+    DESCRIPTIVE_CORRECTION: 1,
     ORDERING_WITH_CONDITIONS: 1,
     ORDERING_NTH: 1,
     FULL_SENTENCE_COMPOSITION: 1,
     TRANSLATION_MCQ: 2,
     TRANSLATION_EXTRA_WORD: 1,
     PARAPHRASE_BLANK: 1,
-    SENTENCE_INSERT: 1,
-    GUIDED_COMPLETION: 1
+    SENTENCE_INSERT: 2,
+    GUIDED_COMPLETION: 1,
+    PASSAGE_UNDERLINE_ERROR: 3,
+    PASSAGE_BOX_MATCHING: 3,
+    PASSAGE_BLANK_PAIRING: 2,
+    PASSAGE_TRANSLATION_MCQ: 2,
+    PASSAGE_FIND_REWRITE: 2,
+    PASSAGE_USAGE_ODD_ONE: 2
   };
   const expanded = [];
   pool.forEach((t) => {
@@ -288,11 +305,22 @@ function hasBlankMarkup(text) {
 }
 
 function isObjectiveType(type) {
-  return /AUTHENTICITY|UNDERLINE|USAGE|BLANK_COMPLETION|DIALOGUE_BLANK|BOX_CHOICE|ERROR_COUNT|TRANSLATION_MCQ|TRANSLATION_EXTRA|ORDERING_NTH|SENTENCE_INSERT/.test(String(type || ''));
+  return /AUTHENTICITY|UNDERLINE|USAGE|BLANK_COMPLETION|DIALOGUE_BLANK|BOX_CHOICE|ERROR_COUNT|TRANSLATION_MCQ|TRANSLATION_EXTRA|ORDERING_NTH|SENTENCE_INSERT|PASSAGE_UNDERLINE|PASSAGE_BOX|PASSAGE_BLANK|PASSAGE_TRANSLATION|PASSAGE_USAGE/.test(String(type || ''));
 }
 
 function isDescriptiveType(type) {
-  return /DESCRIPTIVE|ORDERING_WITH|COMPOSITION|TRANSFORM|GUIDED_COMPLETION|PARAPHRASE_BLANK/.test(String(type || ''));
+  return /DESCRIPTIVE|ORDERING_WITH|COMPOSITION|TRANSFORM|GUIDED_COMPLETION|PARAPHRASE_BLANK|PASSAGE_FIND_REWRITE/.test(String(type || ''));
+}
+
+function isPassageType(type) {
+  return /^PASSAGE_/.test(String(type || '')) || type === 'SENTENCE_INSERT';
+}
+
+function passageWordCount(item) {
+  const box = item && item.contextBox && item.contextBox.content;
+  const text = Array.isArray(box) ? box.join(' ') : String(box || '');
+  const plain = text.replace(/<[^>]+>/g, ' ').replace(/[①-⑩ⓐ-ⓩ（）()\[\]\/]/g, ' ');
+  return plain.split(/\s+/).filter(Boolean).length;
 }
 
 function validateItem(item, unitMap) {
@@ -371,6 +399,36 @@ function validateItem(item, unitMap) {
     if (!hasPassage) warnings.push('missing_passage');
   }
 
+  if (isPassageType(type) && type !== 'SENTENCE_INSERT') {
+    const box = item.contextBox;
+    if (!box || !box.content) {
+      warnings.push('missing_passage');
+    } else {
+      const ctype = String(box.type || '').toUpperCase();
+      if (ctype && ctype !== 'PASSAGE' && ctype !== 'DIALOGUE') {
+        // Prefer PASSAGE; still accept if long enough connected text
+        if (passageWordCount(item) < 45) warnings.push('passage_too_short');
+      } else if (passageWordCount(item) < 45) {
+        warnings.push('passage_too_short');
+      }
+    }
+    if (type === 'PASSAGE_UNDERLINE_ERROR' || type === 'PASSAGE_USAGE_ODD_ONE' || type === 'PASSAGE_FIND_REWRITE') {
+      if (!hasUnderlineMarkup(plain) && !/[①-⑤ⓐ-ⓔ]/.test(plain)) {
+        warnings.push('missing_underline');
+      }
+    }
+    if (type === 'PASSAGE_BOX_MATCHING' && !/\([A-C]\)|（[A-C]）|\[.+\s*\/\s*.+\]/.test(plain)) {
+      warnings.push('missing_box_choices');
+    }
+    if (type === 'PASSAGE_BLANK_PAIRING' && !hasBlankMarkup(plain)) {
+      warnings.push('missing_blank');
+    }
+    if (type === 'PASSAGE_TRANSLATION_MCQ' && !item.koreanPrompt && !/우리말|영작|영어로/.test(item.instruction || '')) {
+      // soft: translation target should be visible in passage underline or koreanPrompt
+      if (!hasUnderlineMarkup(plain)) warnings.push('missing_korean_prompt');
+    }
+  }
+
   if (type === 'PARAPHRASE_BLANK') {
     const lines = item.contextBox && Array.isArray(item.contextBox.content)
       ? item.contextBox.content
@@ -415,7 +473,7 @@ function validateItem(item, unitMap) {
   if (item.instruction.length > 220) warnings.push('instruction_long');
 
   const hardFail = warnings.some((w) =>
-    /missing_instruction|missing_key|need_multi_key|unknown_unit|few_choices|missing_descriptive|missing_sentence_list|missing_underline|missing_blank|missing_korean_prompt|missing_word_pool|missing_transform_source|missing_dialogue|missing_box_choices|missing_passage|missing_paraphrase_pair|empty_choice_text/.test(w)
+    /missing_instruction|missing_key|need_multi_key|unknown_unit|few_choices|missing_descriptive|missing_sentence_list|missing_underline|missing_blank|missing_korean_prompt|missing_word_pool|missing_transform_source|missing_dialogue|missing_box_choices|missing_passage|passage_too_short|missing_paraphrase_pair|empty_choice_text/.test(w)
   );
   return { ok: !hardFail, warnings };
 }
@@ -491,7 +549,7 @@ function buildGenerateUserPrompt({ title, grade, difficulty, units, typePlan, un
         instruction: 'string with optional <u>tags</u>',
         contextBox: {
           type: 'SENTENCE_LIST|PASSAGE|DIALOGUE|VOCAB_POOL',
-          content: ['ⓐ ...', '또는 단일 문자열']
+          content: ['ⓐ ... 또는 PASSAGE면 연결 본문 한 덩어리 문자열']
         },
         koreanPrompt: 'optional',
         conditions: ['optional'],
@@ -531,6 +589,7 @@ async function regenerateOneItem({ unit, questionType, difficulty, grade, reason
     'instruction 필수. COMBINED/MULTIPLE/ERROR_COUNT는 ⓐ~ⓔ SENTENCE_LIST 필수.',
     'UNDERLINE/USAGE/USAGE_ODD_ONE는 <u>밑줄</u> 필수. BLANK/DIALOGUE_BLANK는 ______ 필수.',
     'TRANSLATION_MCQ는 koreanPrompt+영어 선지. BOX_CHOICE는 (A)~(C) 네모 선택.',
+    'PASSAGE_* 는 contextBox.type=PASSAGE 로 70단어 이상 연결 본문. 단문 나열 금지.',
     '영작/배열은 koreanPrompt(+단어풀) 필수. 빈 contextBox 금지.'
   ].join('\n'), { temperature: 0.4, maxOutputTokens: 4096 });
   const raw = parsed.items ? parsed.items[0] : parsed;

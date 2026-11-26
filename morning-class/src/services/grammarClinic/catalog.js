@@ -30,7 +30,14 @@ const QUESTION_TYPES = [
   'TRANSLATION_EXTRA_WORD',
   'PARAPHRASE_BLANK',
   'SENTENCE_INSERT',
-  'GUIDED_COMPLETION'
+  'GUIDED_COMPLETION',
+  /* Long-passage 내신 (윗글 / 다음 글을 읽고) */
+  'PASSAGE_UNDERLINE_ERROR',
+  'PASSAGE_BOX_MATCHING',
+  'PASSAGE_BLANK_PAIRING',
+  'PASSAGE_TRANSLATION_MCQ',
+  'PASSAGE_FIND_REWRITE',
+  'PASSAGE_USAGE_ODD_ONE'
 ];
 
 const MVP_TYPES = QUESTION_TYPES.slice();
@@ -56,7 +63,13 @@ const QUESTION_TYPE_LABELS = {
   TRANSLATION_EXTRA_WORD: '영작 불필요 단어',
   PARAPHRASE_BLANK: '동의문 빈칸',
   SENTENCE_INSERT: '문장 삽입 위치',
-  GUIDED_COMPLETION: '표·제시어 완성'
+  GUIDED_COMPLETION: '표·제시어 완성',
+  PASSAGE_UNDERLINE_ERROR: '지문 밑줄 어법',
+  PASSAGE_BOX_MATCHING: '지문 네모 짝짓기',
+  PASSAGE_BLANK_PAIRING: '지문 빈칸 짝짓기',
+  PASSAGE_TRANSLATION_MCQ: '지문 속 영작',
+  PASSAGE_FIND_REWRITE: '지문 찾아 고치기',
+  PASSAGE_USAGE_ODD_ONE: '지문 속 쓰임 이질'
 };
 
 function unit(unitId, grade, category, subCategory, coreRules, traps, keywords) {
