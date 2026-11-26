@@ -104,8 +104,8 @@ function clampCount(n) {
 
 /** Claude batch size — larger sets are generated in chunks then merged. */
 const GENERATE_CHUNK_SIZE = 5;
-/** Parallel Claude chunk calls for large papers (keeps 50-item runs under ~10 min). */
-const GENERATE_PARALLEL = 3;
+/** Parallel Claude chunk calls. Kept at 2 so a 30–50 item paper does not spike memory. */
+const GENERATE_PARALLEL = 2;
 /** Keep finished/failed jobs so the UI can poll after Railway restarts. */
 const JOB_TTL_MS = 12 * 60 * 60 * 1000;
 const generateJobs = new Map();
@@ -582,6 +582,7 @@ async function askJson(prompt, opts) {
       systemInstruction: SYSTEM_PROMPT,
       temperature: opts.temperature != null ? opts.temperature : 0.55,
       maxOutputTokens: opts.maxOutputTokens || 8192,
+      timeoutMs: opts.timeoutMs || 120000,
       responseMimeType: 'application/json',
       model: claudeModel()
     });
@@ -764,7 +765,8 @@ async function generateExamPaper(opts) {
     let parsed;
     try {
       parsed = await askJson(prompt, {
-        maxOutputTokens: Math.min(10000, 1500 + sliceTypes.length * 650)
+        maxOutputTokens: Math.min(8000, 1500 + sliceTypes.length * 550),
+        timeoutMs: 120000
       });
     } catch (chunkErr) {
       if (chunkErr && (chunkErr.statusCode === 503 || /not configured|ANTHROPIC/i.test(chunkErr.message || ''))) {
@@ -897,15 +899,26 @@ async function generateExamPaper(opts) {
     generatedAt: new Date().toISOString()
   };
 
-  // Dual verify (Claude → Gemini). Large papers: verify in chunks of 10 to stay under token limits.
-  const VERIFY_CHUNK = 10;
+  // Large papers: Gemini-only, smaller chunks, hard time budget.
+  // Full Claude→Gemini rewrites of every item were stalling until the process restarted.
+  const heavy = count >= 16;
+  const VERIFY_CHUNK = heavy ? 6 : 10;
+  const verifyBudgetMs = heavy ? 5 * 60 * 1000 : 10 * 60 * 1000;
+  const verifyStarted = Date.now();
+  const verifyPasses = heavy ? ['gemini'] : ['claude', 'gemini'];
   const verifiedItems = [];
+  let verifyStopped = false;
   for (let offset = 0; offset < paper.items.length; offset += VERIFY_CHUNK) {
     const slice = paper.items.slice(offset, offset + VERIFY_CHUNK);
+    if (verifyStopped || (Date.now() - verifyStarted) > verifyBudgetMs) {
+      verifyStopped = true;
+      slice.forEach((it) => verifiedItems.push(it));
+      continue;
+    }
     const chunkNo = Math.floor(offset / VERIFY_CHUNK) + 1;
     const chunkTotal = Math.ceil(paper.items.length / VERIFY_CHUNK);
     report(
-      '이중 검증 ' + chunkNo + '/' + chunkTotal + ' (Claude→Gemini)…',
+      (heavy ? 'Gemini 검수 ' : '이중 검증 ') + chunkNo + '/' + chunkTotal + '…',
       { chunk: totalChunks, totalChunks, verifyChunk: chunkNo, verifyTotal: chunkTotal }
     );
     try {
@@ -917,6 +930,9 @@ async function generateExamPaper(opts) {
           items: slice
         },
         context: { title: paper.title, grade, units },
+        passes: verifyPasses,
+        compact: heavy,
+        timeoutMs: 90000,
         onProgress: (p) => report(p.message || '검증 중…', {
           chunk: totalChunks,
           totalChunks,
@@ -924,7 +940,7 @@ async function generateExamPaper(opts) {
         }),
         pctClaude: 70,
         pctGemini: 85,
-        maxOutputTokens: Math.min(16000, 4000 + slice.length * 1200)
+        maxOutputTokens: Math.min(heavy ? 7000 : 12000, 2200 + slice.length * (heavy ? 550 : 900))
       });
       const vr = verified.report || {};
       (vr.claudeIssues || []).forEach((x) => warnings.push({ index: offset + 1, warnings: ['claude_verify'], note: x, soft: true }));
@@ -943,6 +959,14 @@ async function generateExamPaper(opts) {
       warnings.push({ index: offset + 1, warnings: ['dual_verify_failed'], error: e.message, soft: true });
       slice.forEach((it) => verifiedItems.push(it));
     }
+  }
+  if (verifyStopped) {
+    warnings.push({
+      index: 0,
+      warnings: ['verify_time_budget'],
+      note: '검수 시간이 길어 나머지 문항은 출제본을 그대로 사용했습니다.',
+      soft: true
+    });
   }
 
   // Re-coerce / re-validate after verify so schema stays sound
@@ -1000,7 +1024,7 @@ function startGenerateJob(opts, ownerKey) {
       target,
       chunk: 0,
       totalChunks: Math.ceil(target / GENERATE_CHUNK_SIZE),
-      message: '대기열에 등록됨… (50문항은 수 분 소요)'
+      message: '대기열에 등록됨… (30문항은 보통 4~8분)'
     },
     result: null,
     error: null

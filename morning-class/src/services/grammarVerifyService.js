@@ -88,6 +88,7 @@ async function askProviderJson(provider, system, prompt, opts) {
       systemInstruction: system,
       temperature: opts.temperature != null ? opts.temperature : 0.15,
       maxOutputTokens: opts.maxOutputTokens || 16000,
+      timeoutMs: opts.timeoutMs || 120000,
       responseMimeType: 'application/json',
       model: forced === 'gemini' ? geminiModel() : claudeModel()
     });
@@ -171,7 +172,7 @@ function systemFor(pass, kind) {
   ].join('\n');
 }
 
-function buildVerifyPrompt(kind, document, context, pass) {
+function buildVerifyPrompt(kind, document, context, pass, compact) {
   return [
     pass === 'claude'
       ? '아래 초안을 자기 검수하고, 틀린 문법·과장 규칙을 고친 최종본을 반환하라.'
@@ -180,7 +181,7 @@ function buildVerifyPrompt(kind, document, context, pass) {
     contextBlock(Object.assign({}, context, { kind })),
     '',
     '초안 JSON:',
-    JSON.stringify(document, null, 2),
+    compact ? JSON.stringify(document) : JSON.stringify(document, null, 2),
     '',
     'issues에 실제로 고친 항목만 짧게. 문제 없으면 issues:[].'
   ].join('\n');
@@ -224,23 +225,35 @@ async function dualVerifyGrammar(opts) {
     geminiError: null
   };
 
-  report({
-    message: 'Claude 자기검증 — 문법 사실·교육과정 검수 중…',
-    pct: opts.pctClaude || 62,
-    verifyPass: 'claude'
-  });
-  try {
-    const claudeRaw = await askProviderJson(
-      'claude',
-      systemFor('claude', kind),
-      buildVerifyPrompt(kind, document, context, 'claude'),
-      { temperature: 0.12, maxOutputTokens: opts.maxOutputTokens || 16000 }
-    );
-    const unwrapped = unwrapDocument(claudeRaw, document);
-    document = unwrapped.document;
-    outReport.claudeIssues = unwrapped.issues;
-  } catch (e) {
-    outReport.claudeError = e.message || 'claude verify failed';
+  const passes = (Array.isArray(opts.passes) && opts.passes.length)
+    ? opts.passes.filter((p) => p === 'claude' || p === 'gemini')
+    : ['claude', 'gemini'];
+  const timeoutMs = opts.timeoutMs || 120000;
+  const compact = !!opts.compact;
+
+  if (passes.includes('claude')) {
+    report({
+      message: 'Claude 자기검증 — 문법 사실·교육과정 검수 중…',
+      pct: opts.pctClaude || 62,
+      verifyPass: 'claude'
+    });
+    try {
+      const claudeRaw = await askProviderJson(
+        'claude',
+        systemFor('claude', kind),
+        buildVerifyPrompt(kind, document, context, 'claude', compact),
+        { temperature: 0.12, maxOutputTokens: opts.maxOutputTokens || 16000, timeoutMs }
+      );
+      const unwrapped = unwrapDocument(claudeRaw, document);
+      document = unwrapped.document;
+      outReport.claudeIssues = unwrapped.issues;
+    } catch (e) {
+      outReport.claudeError = e.message || 'claude verify failed';
+    }
+  }
+
+  if (!passes.includes('gemini')) {
+    return { document, report: outReport };
   }
 
   if (!hasGeminiKey()) {
@@ -263,8 +276,8 @@ async function dualVerifyGrammar(opts) {
     const geminiRaw = await askProviderJson(
       'gemini',
       systemFor('gemini', kind),
-      buildVerifyPrompt(kind, document, context, 'gemini'),
-      { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens || 16000 }
+      buildVerifyPrompt(kind, document, context, 'gemini', compact),
+      { temperature: 0.1, maxOutputTokens: opts.maxOutputTokens || 16000, timeoutMs }
     );
     const unwrapped = unwrapDocument(geminiRaw, document);
     document = unwrapped.document;
