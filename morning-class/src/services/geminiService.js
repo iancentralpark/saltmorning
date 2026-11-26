@@ -274,11 +274,13 @@ async function askGeminiOnce(promptOrParts, options, model, apiKey) {
     body.systemInstruction = { parts: [{ text: system }] };
   }
   const mime = responseMime(options);
-  if (options.temperature != null || options.maxOutputTokens != null || mime) {
+  const mediaRes = String(options.mediaResolution || '').trim();
+  if (options.temperature != null || options.maxOutputTokens != null || mime || mediaRes) {
     body.generationConfig = {};
     if (options.temperature != null) body.generationConfig.temperature = options.temperature;
     if (options.maxOutputTokens != null) body.generationConfig.maxOutputTokens = options.maxOutputTokens;
     if (mime) body.generationConfig.responseMimeType = mime;
+    if (mediaRes) body.generationConfig.mediaResolution = mediaRes;
   }
   const res = await fetch(url, {
     method: 'POST',

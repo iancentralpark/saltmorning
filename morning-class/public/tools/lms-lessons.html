@@ -64,6 +64,28 @@
     .empty { text-align: center; color: var(--muted); padding: 1.5rem .5rem; }
     .banner { background: #fff4d8; border: 1px solid #f0dca0; color: var(--warn); border-radius: 12px; padding: .7rem .9rem; margin-bottom: 1rem; font-size: .88rem; }
     .note { background: var(--accent-soft); border: 1px solid #c9daf0; border-radius: 12px; padding: .7rem .9rem; margin-bottom: 1rem; font-size: .88rem; color: var(--accent); }
+    .btn-check { background: #eef6ff; color: var(--accent); border: 1px solid #c9daf0; }
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(20, 28, 45, .45); z-index: 40;
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal {
+      background: #fff; border-radius: 16px; width: min(720px, 100%); max-height: 88vh;
+      overflow: auto; box-shadow: 0 20px 50px rgba(0,0,0,.2); padding: 1rem 1.1rem 1.2rem;
+    }
+    .modal h3 { margin: 0 0 .35rem; font-family: Fraunces, Georgia, serif; color: var(--accent); }
+    .modal .sub { font-size: .82rem; color: var(--muted); margin-bottom: .8rem; }
+    .issue {
+      border: 1px solid var(--line); border-radius: 12px; padding: .65rem .75rem; margin-bottom: .55rem;
+      background: #fafbfe;
+    }
+    .issue .top { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin-bottom: .25rem; font-size: .78rem; }
+    .issue .claim { font-size: .88rem; margin: .15rem 0; }
+    .issue .fix { font-size: .86rem; color: var(--coral); }
+    .issue .okline { font-size: .86rem; color: var(--ok); }
+    .sev-high { background: #fdeceb; color: var(--coral); }
+    .sev-medium { background: #fff4d8; color: var(--warn); }
+    .sev-low { background: #eef1f7; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -76,6 +98,21 @@
     <div class="note">
       여기에서는 영상을 <strong>커리큘럼/카테고리 라이브러리</strong>에만 올립니다.
       학생 배정·공개·시청 현황은 각 클래스의 <strong>Online Lessons</strong> 탭에서 합니다.
+      ready 영상은 <strong>강의 검수</strong>로 Gemini가 문법·사실 오류를 찾아줍니다 (20분 이하는 영상, 그 이상은 오디오·크레딧 절약).
+    </div>
+    <div id="factModal" class="modal-bg hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start">
+          <div>
+            <h3 id="fcTitle">강의 검수</h3>
+            <div class="sub" id="fcSub"></div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="fcClose">닫기</button>
+        </div>
+        <div class="status" id="fcStatus"></div>
+        <div class="progress hidden" id="fcProgress"><div id="fcBar"></div></div>
+        <div id="fcBody"></div>
+      </div>
     </div>
     <div class="banner hidden" id="notConfigured">
       영상 서비스(Cloudflare Stream)가 아직 연결되지 않아 업로드할 수 없습니다.
@@ -196,6 +233,9 @@
         (v.description ? '<div class="desc">' + esc(v.description) + '</div>' : '') + err +
         '</div>' +
         '<div class="actions" style="margin:0;flex-direction:column;align-items:stretch">' +
+        (v.status === 'ready'
+          ? '<button type="button" class="btn btn-check btn-sm" data-act="factcheck" data-id="' + esc(v.id) + '">강의 검수</button>'
+          : '') +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="edit" data-id="' + esc(v.id) + '">수정</button>' +
         '<button type="button" class="btn btn-danger btn-sm" data-act="delete" data-id="' + esc(v.id) + '">삭제</button>' +
         '</div></div>';
@@ -297,13 +337,128 @@
     });
   }
 
+  var fcPollTimer = null;
+  var fcJobId = null;
+
+  function showFactModal(v) {
+    $('factModal').classList.remove('hidden');
+    $('fcTitle').textContent = '강의 검수 — ' + (v.title || '');
+    $('fcSub').textContent = 'Gemini가 문법·사실 오류를 찾습니다. 수 분 걸릴 수 있어요.';
+    $('fcStatus').textContent = '';
+    $('fcStatus').className = 'status';
+    $('fcBody').innerHTML = '';
+    $('fcProgress').classList.add('hidden');
+    $('fcBar').style.width = '0%';
+  }
+
+  function hideFactModal() {
+    $('factModal').classList.add('hidden');
+    clearTimeout(fcPollTimer);
+    fcPollTimer = null;
+    fcJobId = null;
+  }
+
+  function renderFactReport(job) {
+    var r = job.report || {};
+    var issues = r.issues || [];
+    var html = '';
+    if (job.status === 'error') {
+      $('fcStatus').textContent = job.error || '검수 실패';
+      $('fcStatus').className = 'status error';
+      return;
+    }
+    html += '<div class="meta" style="margin-bottom:.6rem">' +
+      '<span class="pill ' + (r.overallRisk === 'high' ? 'err' : r.overallRisk === 'medium' ? 'warn' : 'ok') + '">' +
+      esc(r.overallRisk || 'low') + ' risk</span>' +
+      '<span class="pill gray">이슈 ' + (r.issueCount != null ? r.issueCount : issues.length) + '건</span>' +
+      (r.mode ? '<span class="pill gray">' + esc(r.mode === 'video' ? '영상+음성' : '오디오') + '</span>' : '') +
+      '</div>';
+    html += '<p style="margin:.2rem 0 .7rem;font-size:.9rem">' + esc(r.summary || '') + '</p>';
+    if (!issues.length) {
+      html += '<div class="empty">명백한 오류를 찾지 못했습니다.</div>';
+    } else {
+      html += issues.map(function (it) {
+        return '<div class="issue">' +
+          '<div class="top">' +
+          (it.timestamp ? '<span class="pill gray">' + esc(it.timestamp) + '</span>' : '') +
+          '<span class="pill sev-' + esc(it.severity || 'medium') + '">' + esc(it.severity || 'medium') + '</span>' +
+          '<span class="pill gray">' + esc(it.category || '') + '</span>' +
+          '</div>' +
+          (it.claim ? '<div class="claim">말한/보인 내용: ' + esc(it.claim) + '</div>' : '') +
+          (it.problem ? '<div class="fix">문제: ' + esc(it.problem) + '</div>' : '') +
+          (it.correction ? '<div class="okline">수정: ' + esc(it.correction) + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }
+    if (r.strengths && r.strengths.length) {
+      html += '<p class="hint" style="margin-top:.7rem"><strong>잘된 점</strong><br>' +
+        r.strengths.map(function (s) { return '· ' + esc(s); }).join('<br>') + '</p>';
+    }
+    if (r.notes) html += '<p class="hint">' + esc(r.notes) + '</p>';
+    $('fcBody').innerHTML = html;
+    $('fcStatus').textContent = '검수 완료';
+    $('fcStatus').className = 'status ok';
+  }
+
+  function pollFactJob(jobId) {
+    clearTimeout(fcPollTimer);
+    api('/api/lms/factcheck/jobs/' + encodeURIComponent(jobId)).then(function (job) {
+      var pct = (job.progress && job.progress.pct) || 0;
+      $('fcProgress').classList.remove('hidden');
+      $('fcBar').style.width = Math.max(2, pct) + '%';
+      $('fcStatus').textContent = (job.progress && job.progress.message) || job.status;
+      $('fcStatus').className = 'status';
+      if (job.status === 'done') {
+        $('fcProgress').classList.add('hidden');
+        renderFactReport(job);
+        return;
+      }
+      if (job.status === 'error') {
+        $('fcProgress').classList.add('hidden');
+        renderFactReport(job);
+        return;
+      }
+      fcPollTimer = setTimeout(function () { pollFactJob(jobId); }, 2500);
+    }).catch(function (e) {
+      $('fcStatus').textContent = e.message;
+      $('fcStatus').className = 'status error';
+    });
+  }
+
+  function startFactcheck(v) {
+    showFactModal(v);
+    $('fcStatus').textContent = '검수 시작 중…';
+    api('/api/lms/library/' + encodeURIComponent(v.id) + '/factcheck', {
+      method: 'POST',
+      body: { mode: 'smart' }
+    }).then(function (job) {
+      fcJobId = job.jobId;
+      if (job.status === 'done' && job.report) {
+        renderFactReport(job);
+        return;
+      }
+      pollFactJob(job.jobId);
+    }).catch(function (e) {
+      $('fcStatus').textContent = e.message;
+      $('fcStatus').className = 'status error';
+    });
+  }
+
+  $('fcClose').addEventListener('click', hideFactModal);
+  $('factModal').addEventListener('click', function (e) {
+    if (e.target === $('factModal')) hideFactModal();
+  });
+
   $('videoList').addEventListener('click', function (ev) {
     var b = ev.target.closest('button[data-act]');
     if (!b) return;
     var id = b.getAttribute('data-id');
     var v = videos.filter(function (x) { return x.id === id; })[0];
     if (!v) return;
-    if (b.getAttribute('data-act') === 'edit') {
+    if (b.getAttribute('data-act') === 'factcheck') {
+      if (!window.confirm('"' + v.title + '" 강의를 Gemini로 검수할까요?\n(영상 길이에 따라 Gemini 크레딧이 사용됩니다)')) return;
+      startFactcheck(v);
+    } else if (b.getAttribute('data-act') === 'edit') {
       var title = window.prompt('제목', v.title); if (title == null || !title.trim()) return;
       var category = window.prompt('카테고리', v.category || ''); if (category == null) return;
       var curriculum = window.prompt('커리큘럼', v.curriculum || ''); if (curriculum == null) return;
