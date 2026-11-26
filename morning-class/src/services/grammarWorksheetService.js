@@ -407,8 +407,9 @@ function renderWorksheetHtml(packet, meta) {
     flex: 1; min-height: 0; overflow: hidden;
   }
   .main-column {
+    /* Pack STEP → 예문 → 내신포인트 from the top — do NOT stretch middle boxes. */
     display: flex; flex-direction: column; justify-content: flex-start;
-    gap: 6px; min-width: 0; min-height: 0; overflow: hidden;
+    gap: 7px; min-width: 0; min-height: 0; overflow: hidden;
   }
   .step-box {
     background: var(--theme-bg); border-left: 4px solid var(--theme-main);
@@ -434,7 +435,7 @@ function renderWorksheetHtml(packet, meta) {
   .en-bold { font-family: var(--font-en); font-weight: 800; color: var(--theme-dark); }
   .example-box {
     border: 1.5px solid var(--theme-border); border-radius: 10px;
-    padding: 8px 11px; background: #fff; flex: 1 1 auto; min-height: 0;
+    padding: 8px 11px; background: #fff; flex: 0 0 auto;
   }
   .box-header {
     font-family: var(--font-title); font-size: 15px; color: var(--theme-dark);
@@ -457,7 +458,7 @@ function renderWorksheetHtml(packet, meta) {
   }
   .exam-box {
     background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 10px;
-    padding: 8px 11px; flex-shrink: 0;
+    padding: 8px 11px; flex: 0 0 auto;
   }
   .exam-title { font-family: var(--font-title); font-size: 15px; color: #b45309; margin-bottom: 3px; }
   .exam-content { font-size: 13px; color: #374151; }
