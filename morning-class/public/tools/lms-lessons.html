@@ -140,11 +140,13 @@
     <section class="card">
       <div class="actions" style="justify-content:space-between;margin:0 0 .5rem">
         <h2 style="margin:0">라이브러리</h2>
-        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
           <input type="search" id="qInput" placeholder="검색…" style="min-width:10rem">
           <button type="button" class="btn btn-ghost btn-sm" id="btnSearch">검색</button>
+          <button type="button" class="btn btn-check btn-sm" id="btnBatchFactcheck" title="ready 영상 전부 순차 검수">전체 검수</button>
         </div>
       </div>
+      <p class="hint" id="factcheckHint">ready 영상마다 <strong>강의 검수</strong>, 또는 위 <strong>전체 검수</strong>로 한 번에 돌릴 수 있습니다. (크레딧 사용 · 길면 오디오 모드)</p>
       <div id="videoList"><div class="empty">불러오는 중…</div></div>
     </section>
   </div>
@@ -234,8 +236,9 @@
         '</div>' +
         '<div class="actions" style="margin:0;flex-direction:column;align-items:stretch">' +
         (v.status === 'ready'
-          ? '<button type="button" class="btn btn-check btn-sm" data-act="factcheck" data-id="' + esc(v.id) + '">강의 검수</button>'
-          : '') +
+          ? '<button type="button" class="btn btn-check btn-sm" data-act="factcheck" data-id="' + esc(v.id) + '">강의 검수</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-act="factresult" data-id="' + esc(v.id) + '">검수 결과</button>'
+          : '<button type="button" class="btn btn-check btn-sm" disabled title="ready 후 가능">강의 검수</button>') +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="edit" data-id="' + esc(v.id) + '">수정</button>' +
         '<button type="button" class="btn btn-danger btn-sm" data-act="delete" data-id="' + esc(v.id) + '">삭제</button>' +
         '</div></div>';
@@ -340,10 +343,12 @@
   var fcPollTimer = null;
   var fcJobId = null;
 
-  function showFactModal(v) {
+  var fcBatchId = null;
+
+  function showFactModal(title, sub) {
     $('factModal').classList.remove('hidden');
-    $('fcTitle').textContent = '강의 검수 — ' + (v.title || '');
-    $('fcSub').textContent = 'Gemini가 문법·사실 오류를 찾습니다. 수 분 걸릴 수 있어요.';
+    $('fcTitle').textContent = title || '강의 검수';
+    $('fcSub').textContent = sub || 'Gemini가 문법·사실 오류를 찾습니다. 수 분 걸릴 수 있어요.';
     $('fcStatus').textContent = '';
     $('fcStatus').className = 'status';
     $('fcBody').innerHTML = '';
@@ -356,6 +361,27 @@
     clearTimeout(fcPollTimer);
     fcPollTimer = null;
     fcJobId = null;
+    fcBatchId = null;
+  }
+
+  function renderBatch(batch) {
+    var items = batch.items || [];
+    var html = '<div class="meta" style="margin-bottom:.55rem">' +
+      '<span class="pill gray">' + (batch.done || 0) + ' / ' + (batch.total || items.length) + '</span>' +
+      (batch.mode ? '<span class="pill gray">' + esc(batch.mode) + '</span>' : '') +
+      '</div>';
+    html += items.map(function (it) {
+      var pill = it.status === 'done' ? 'ok' : (it.status === 'error' ? 'err' : (it.status === 'running' ? 'warn' : 'gray'));
+      var extra = '';
+      if (it.status === 'done') extra = ' · 이슈 ' + (it.issueCount != null ? it.issueCount : '?') +
+        (it.overallRisk ? (' · ' + it.overallRisk) : '');
+      if (it.error) extra = ' · ' + it.error;
+      return '<div class="issue"><div class="top">' +
+        '<span class="pill ' + pill + '">' + esc(it.status) + '</span>' +
+        '<strong style="font-size:.88rem">' + esc(it.title || it.videoId) + '</strong>' +
+        '</div><div class="claim" style="color:var(--muted)">' + esc(extra.replace(/^ · /, '')) + '</div></div>';
+    }).join('');
+    $('fcBody').innerHTML = html;
   }
 
   function renderFactReport(job) {
@@ -426,7 +452,7 @@
   }
 
   function startFactcheck(v) {
-    showFactModal(v);
+    showFactModal('강의 검수 — ' + (v.title || ''), 'Gemini가 문법·사실 오류를 찾습니다. 수 분 걸릴 수 있어요.');
     $('fcStatus').textContent = '검수 시작 중…';
     api('/api/lms/library/' + encodeURIComponent(v.id) + '/factcheck', {
       method: 'POST',
@@ -444,10 +470,79 @@
     });
   }
 
+  function openFactResult(v) {
+    showFactModal('검수 결과 — ' + (v.title || ''), '저장된 최근 리포트');
+    $('fcStatus').textContent = '불러오는 중…';
+    api('/api/lms/library/' + encodeURIComponent(v.id) + '/factcheck')
+      .then(function (job) {
+        if (job.status === 'running' && job.jobId) {
+          pollFactJob(job.jobId);
+          return;
+        }
+        renderFactReport(job);
+      })
+      .catch(function (e) {
+        $('fcStatus').textContent = e.message || '아직 검수 결과가 없습니다.';
+        $('fcStatus').className = 'status error';
+      });
+  }
+
+  function pollBatch(batchId) {
+    clearTimeout(fcPollTimer);
+    api('/api/lms/factcheck/batches/' + encodeURIComponent(batchId)).then(function (batch) {
+      var pct = (batch.progress && batch.progress.pct) || 0;
+      $('fcProgress').classList.remove('hidden');
+      $('fcBar').style.width = Math.max(2, pct) + '%';
+      $('fcStatus').textContent = (batch.progress && batch.progress.message) || batch.status;
+      $('fcStatus').className = 'status';
+      renderBatch(batch);
+      if (batch.status === 'done' || batch.status === 'error') {
+        if (batch.status === 'error') $('fcStatus').className = 'status error';
+        else $('fcStatus').className = 'status ok';
+        return;
+      }
+      fcPollTimer = setTimeout(function () { pollBatch(batchId); }, 3000);
+    }).catch(function (e) {
+      $('fcStatus').textContent = e.message;
+      $('fcStatus').className = 'status error';
+    });
+  }
+
+  function startBatchFactcheck() {
+    var ready = videos.filter(function (v) { return v.status === 'ready'; });
+    if (!ready.length) {
+      setStatus('검수할 ready 영상이 없습니다.', 'error');
+      return;
+    }
+    if (!window.confirm(
+      '라이브러리 ready 영상 ' + ready.length + '개를 순차로 검수할까요?\n' +
+      '(한 번에 최대 40개 · Gemini 크레딧이 영상 수×길이만큼 사용됩니다)'
+    )) return;
+    showFactModal('전체 강의 검수', ready.length + '개 영상을 하나씩 검수합니다. 창을 닫아도 서버에서 계속됩니다.');
+    $('fcStatus').textContent = '일괄 검수 시작…';
+    api('/api/lms/library/factcheck/batch', {
+      method: 'POST',
+      body: { mode: 'smart' }
+    }).then(function (batch) {
+      fcBatchId = batch.batchId;
+      renderBatch(batch);
+      if (batch.status === 'done' || batch.status === 'error') {
+        $('fcStatus').textContent = (batch.progress && batch.progress.message) || batch.status;
+        $('fcStatus').className = batch.status === 'error' ? 'status error' : 'status ok';
+        return;
+      }
+      pollBatch(batch.batchId);
+    }).catch(function (e) {
+      $('fcStatus').textContent = e.message;
+      $('fcStatus').className = 'status error';
+    });
+  }
+
   $('fcClose').addEventListener('click', hideFactModal);
   $('factModal').addEventListener('click', function (e) {
     if (e.target === $('factModal')) hideFactModal();
   });
+  $('btnBatchFactcheck').addEventListener('click', startBatchFactcheck);
 
   $('videoList').addEventListener('click', function (ev) {
     var b = ev.target.closest('button[data-act]');
@@ -458,6 +553,8 @@
     if (b.getAttribute('data-act') === 'factcheck') {
       if (!window.confirm('"' + v.title + '" 강의를 Gemini로 검수할까요?\n(영상 길이에 따라 Gemini 크레딧이 사용됩니다)')) return;
       startFactcheck(v);
+    } else if (b.getAttribute('data-act') === 'factresult') {
+      openFactResult(v);
     } else if (b.getAttribute('data-act') === 'edit') {
       var title = window.prompt('제목', v.title); if (title == null || !title.trim()) return;
       var category = window.prompt('카테고리', v.category || ''); if (category == null) return;

@@ -6211,6 +6211,37 @@ const lmsFactcheckLimiter = createRateLimiter({
   message: '강의 검수 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
 });
 
+router.post('/lms/library/factcheck/batch', requireRole('teacher', 'admin'), lmsFactcheckLimiter, async (req, res) => {
+  try {
+    res.status(202).json(await lmsFactcheck.startBatchFactcheck({
+      mode: (req.body && req.body.mode) || req.query.mode || 'smart',
+      videoIds: (req.body && req.body.videoIds) || undefined
+    }));
+  } catch (e) {
+    lmsError(res, e, 'Could not start batch lecture fact-check.');
+  }
+});
+
+router.get('/lms/library/factcheck/batch', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const active = lmsFactcheck.getActiveBatch();
+    if (!active) return res.status(404).json({ error: '진행 중인 일괄 검수가 없습니다.' });
+    res.json(active);
+  } catch (e) {
+    lmsError(res, e, 'Could not load batch fact-check.');
+  }
+});
+
+router.get('/lms/factcheck/batches/:batchId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const batch = lmsFactcheck.getBatch(req.params.batchId);
+    if (!batch) return res.status(404).json({ error: 'Batch not found.' });
+    res.json(batch);
+  } catch (e) {
+    lmsError(res, e, 'Could not load batch fact-check.');
+  }
+});
+
 router.post('/lms/library/:videoId/factcheck', requireRole('teacher', 'admin'), lmsFactcheckLimiter, async (req, res) => {
   try {
     res.status(202).json(await lmsFactcheck.startFactcheck(req.params.videoId, {
