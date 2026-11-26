@@ -94,7 +94,8 @@ async function overviewForClass(classId) {
       id: l.id,
       title: l.title,
       completed: !!l.completed,
-      percent: l.percent != null ? l.percent : 0
+      percent: l.percent != null ? l.percent : 0,
+      watchedSeconds: Number(l.watchedSeconds) || 0
     }));
 
     const scored = debriefItems.filter((x) => x.gradeTotal != null);
@@ -145,9 +146,62 @@ async function overviewForClass(classId) {
   };
 }
 
+/**
+ * Admin view of video watch progress and oral debrief results.
+ * classId empty = every class. Classes are loaded a few at a time.
+ */
+async function learningBoard(classId) {
+  const { listClasses } = require('./adminService');
+  const classes = await listClasses();
+  const want = String(classId || '').trim();
+  const targets = want ? classes.filter((c) => c.classId === want) : classes;
+  const students = [];
+  const chunkSize = 2;
+  for (let i = 0; i < targets.length; i += chunkSize) {
+    const chunk = targets.slice(i, i + chunkSize);
+    const boards = await Promise.all(chunk.map(async (c) => {
+      try {
+        return await overviewForClass(c.classId);
+      } catch (e) {
+        return { students: [] };
+      }
+    }));
+    boards.forEach((board, idx) => {
+      const c = chunk[idx];
+      (board.students || []).forEach((st) => {
+        const items = (st.lessons && st.lessons.items) || [];
+        const watchedSeconds = items.reduce((n, l) => n + (Number(l.watchedSeconds) || 0), 0);
+        const avgPercent = items.length
+          ? Math.round(items.reduce((n, l) => n + (Number(l.percent) || 0), 0) / items.length)
+          : null;
+        students.push({
+          studentId: st.studentId,
+          name: st.name,
+          classId: c.classId,
+          className: c.name,
+          debrief: st.debrief,
+          lessons: {
+            total: st.lessons ? st.lessons.total : 0,
+            completed: st.lessons ? st.lessons.completed : 0,
+            watchedSeconds,
+            avgPercent,
+            items
+          }
+        });
+      });
+    });
+  }
+  students.sort((a, b) =>
+    String(a.className).localeCompare(String(b.className)) ||
+    String(a.name).localeCompare(String(b.name))
+  );
+  return { classId: want, classes, students };
+}
+
 module.exports = {
   portalForClass,
   overviewForClass,
+  learningBoard,
   boosterUrl,
   magicAcademyUrl
 };

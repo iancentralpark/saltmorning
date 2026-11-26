@@ -355,21 +355,33 @@ async function deleteGeminiFile(name) {
 }
 
 const SYSTEM_PROMPT = `당신은 한국 중·고등 영어 내신 강의의 팩트체커입니다.
-업로드된 강의(영상 또는 오디오)를 듣고/보고, 사실·문법·설명 오류만 찾아 JSON으로 보고하세요.
+업로드된 강의(영상 또는 오디오)를 듣고/보고 두 가지를 JSON으로 보고하세요.
+1) 사실·문법·설명 오류
+2) 그 주제를 한국 영어 교육과정·영문법 참고서에서 다룰 때 보통 한 세트로 같이 설명하는데, 이 강의에서 빠진 부분
 
-검수 범위:
+검수 범위 (issues):
 - 영문법 규칙 오류, 잘못된 예문, 틀린 한글 해석
 - 발음 표기·시제·수일치·전치사·관사 등 명백한 실수
 - 칠판/슬라이드에 보이는 틀린 문장(영상 모드일 때)
 - 시험 팁이 명백히 틀린 경우
 
+빠진 설명 (omissions) — 강의가 실제로 다룬 주제의 짝만:
+- 한국 중학교 영어 교육과정, 교과 문법, 내신 참고서에서 그 단원과 거의 항상 같이 나오는 항목
+- 예: 비교급 -er를 다루면서 than / much·a lot·far 수식, 원급 as ~ as를 빠뜨림
+- 예: 현재완료를 다루면서 since/for, 계속·경험·결과·완료 중 일부를 빠뜨림
+- 예: 관계사를 다루면서 주격/목적격, who/which/that 구분을 빠뜨림
+- 예: to부정사를 다루면서 명사적/형용사적/부사적 용법 중 강의 범위에 속한 짝을 빠뜨림
+- 강의 제목·커리큘럼이 좁으면 그 범위 안의 세트만. 관계없는 다른 문법은 빠짐이 아님
+- 이미 issues로 적은 틀린 설명을 다시 omissions에 넣지 말 것
+- 최대 8개. 없으면 빈 배열
+
 하지 말 것:
 - 말투·억양·진행 스타일 평가
 - 취향 수준의 표현 교정
 - 불확실한 추측을 오류로 단정
+- 강의가 다루지 않은 단원 전체를 빠졌다고 적기
 
-severity스탬프는 MM:SS 형식. 확실할 때만 severity를 high로.
-반드시 유효한 JSON만 출력.`;
+severity는 high를 확실할 때만. timestamp는 MM:SS. 반드시 유효한 JSON만 출력.`;
 
 function buildUserPrompt(meta) {
   return [
@@ -394,6 +406,13 @@ function buildUserPrompt(meta) {
         correction: '올바른 설명/예문',
         confidence: 0.0
       }],
+      omissions: [{
+        topic: '강의가 다룬 문법 포인트',
+        missing: '같은 세트인데 빠뜨린 설명',
+        whyExpected: '한국 교육과정·참고서에서 같이 다루는 이유',
+        suggestion: '보강하면 좋은 한두 문장',
+        severity: 'low|medium|high'
+      }],
       strengths: ['잘된 점 1~3개'],
       notes: '제한사항·추가 메모'
     }, null, 2)
@@ -414,18 +433,39 @@ function sanitizeReport(parsed, meta) {
     confidence: Math.max(0, Math.min(1, Number(it && it.confidence) || 0.6))
   })).filter((it) => it.problem || it.claim);
 
+  const omissionsIn = Array.isArray(parsed && parsed.omissions) ? parsed.omissions : [];
+  const omissions = omissionsIn.slice(0, 8).map((it) => ({
+    topic: String((it && it.topic) || '').trim().slice(0, 120),
+    missing: String((it && it.missing) || '').trim().slice(0, 400),
+    whyExpected: String((it && (it.whyExpected || it.why)) || '').trim().slice(0, 400),
+    suggestion: String((it && it.suggestion) || '').trim().slice(0, 400),
+    severity: ['high', 'medium', 'low'].includes(String(it && it.severity))
+      ? String(it.severity)
+      : 'medium'
+  })).filter((it) => it.missing || it.topic);
+
   let overallRisk = String((parsed && parsed.overallRisk) || 'low').toLowerCase();
   if (!['low', 'medium', 'high'].includes(overallRisk)) {
     overallRisk = issues.some((i) => i.severity === 'high')
       ? 'high'
-      : (issues.length ? 'medium' : 'low');
+      : (issues.length || omissions.length ? 'medium' : 'low');
+  }
+  if (overallRisk === 'low' && (issues.some((i) => i.severity === 'high') || omissions.some((o) => o.severity === 'high'))) {
+    overallRisk = 'medium';
   }
 
+  const fallback = issues.length
+    ? ('이슈 ' + issues.length + '건' + (omissions.length ? (' · 빠진 설명 ' + omissions.length + '건') : ''))
+    : (omissions.length
+      ? ('명백한 오류는 없고, 빠진 설명 ' + omissions.length + '건')
+      : '명백한 오류를 찾지 못했습니다.');
+
   return {
-    summary: String((parsed && parsed.summary) || '').trim().slice(0, 400)
-      || (issues.length ? ('이슈 ' + issues.length + '건') : '명백한 오류를 찾지 못했습니다.'),
+    summary: String((parsed && parsed.summary) || '').trim().slice(0, 400) || fallback,
     overallRisk,
     issueCount: issues.length,
+    omissionCount: omissions.length,
+    omissions,
     issues,
     strengths: (Array.isArray(parsed && parsed.strengths) ? parsed.strengths : [])
       .map((s) => String(s || '').trim().slice(0, 200)).filter(Boolean).slice(0, 5),
@@ -558,7 +598,11 @@ async function runJob(job) {
     touch(job, {
       status: 'done',
       report,
-      progress: { message: '완료 — 이슈 ' + report.issueCount + '건', pct: 100 }
+      progress: {
+        message: '완료 — 이슈 ' + report.issueCount + '건' +
+          (report.omissionCount ? (' · 빠진 설명 ' + report.omissionCount + '건') : ''),
+        pct: 100
+      }
     });
   } catch (e) {
     const msg = e.message || '검수 실패';
@@ -625,6 +669,7 @@ function publicBatch(batch) {
     status: it.status,
     jobId: it.jobId || undefined,
     issueCount: it.issueCount,
+    omissionCount: it.omissionCount,
     overallRisk: it.overallRisk,
     error: it.error || undefined,
     mode: it.mode || undefined
@@ -691,6 +736,7 @@ async function runBatch(batch) {
       if (finished && finished.status === 'done' && finished.report) {
         item.status = 'done';
         item.issueCount = finished.report.issueCount;
+        item.omissionCount = finished.report.omissionCount || 0;
         item.overallRisk = finished.report.overallRisk;
         item.mode = finished.mode || finished.report.mode;
       } else {
@@ -750,6 +796,7 @@ async function startBatchFactcheck(opts) {
       status: 'queued',
       jobId: null,
       issueCount: null,
+      omissionCount: null,
       overallRisk: null,
       error: null,
       mode: null
@@ -824,6 +871,7 @@ module.exports = {
   getActiveBatch,
   getJob,
   getLatestForVideo,
+  sanitizeReport,
   MAX_DURATION_SEC,
   VIDEO_MODE_MAX_SEC,
   MAX_BATCH_VIDEOS

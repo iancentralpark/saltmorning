@@ -3175,6 +3175,15 @@ router.get('/admin/overview', requireRole('admin'), async (req, res) => {
   }
 });
 
+router.get('/admin/learning-status', requireRole('admin'), async (req, res) => {
+  try {
+    const contentPortal = require('./services/contentPortalService');
+    res.json(await contentPortal.learningBoard(req.query.classId || ''));
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Could not load learning status.' });
+  }
+});
+
 router.get('/admin/monitoring', requireRole('admin'), async (req, res) => {
   try {
     const feed = await getMonitoringFeed({

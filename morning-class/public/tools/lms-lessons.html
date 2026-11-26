@@ -179,7 +179,7 @@
           <button type="button" class="btn btn-check btn-sm" id="btnBatchFactcheck" title="ready 영상을 순서대로 검수">전체 검수</button>
         </div>
       </div>
-      <p class="hint" id="factcheckHint">체크한 영상만 검수할 수 있습니다. <strong>교체</strong>는 배정과 시청 기록을 유지한 채 파일만 바꿉니다.</p>
+      <p class="hint" id="factcheckHint">체크한 영상만 검수할 수 있습니다. 검수는 틀린 곳과, 교육과정에서 같이 설명됐어야 할 빠진 내용도 찾습니다. <strong>교체</strong>는 배정을 유지한 채 파일만 바꿉니다.</p>
       <div id="videoList"><div class="empty">불러오는 중…</div></div>
     </section>
   </div>
@@ -441,7 +441,7 @@
   function showFactModal(title, sub) {
     $('factModal').classList.remove('hidden');
     $('fcTitle').textContent = title || '강의 검수';
-    $('fcSub').textContent = sub || 'Gemini가 문법·사실 오류를 찾습니다. 수 분 걸릴 수 있어요.';
+    $('fcSub').textContent = sub || 'Gemini가 오류와, 같이 설명됐어야 할 빠진 부분을 찾습니다.';
     $('fcStatus').textContent = '';
     $('fcStatus').className = 'status';
     $('fcBody').innerHTML = '';
@@ -467,11 +467,12 @@
       '<span class="pill gray">' + (batch.done || 0) + ' / ' + (batch.total || items.length) + '</span>' +
       (batch.mode ? '<span class="pill gray">' + esc(batch.mode) + '</span>' : '') +
       '</div>';
-    html += '<p class="hint" style="margin:0 0 .55rem">완료된 항목을 누르면 <strong>뭐가 잘못됐는지</strong>(타임스탬프·문제·수정) 상세를 볼 수 있어요.</p>';
+    html += '<p class="hint" style="margin:0 0 .55rem">완료된 항목을 누르면 오류와 빠진 설명 상세를 볼 수 있어요.</p>';
     html += items.map(function (it) {
       var pill = it.status === 'done' ? 'ok' : (it.status === 'error' ? 'err' : (it.status === 'running' ? 'warn' : 'gray'));
       var extra = '';
       if (it.status === 'done') extra = '이슈 ' + (it.issueCount != null ? it.issueCount : '?') +
+        (it.omissionCount ? (' · 빠진 설명 ' + it.omissionCount) : '') +
         (it.overallRisk ? (' · ' + it.overallRisk) : '') + ' · 클릭해서 상세 보기';
       if (it.error) extra = it.error;
       var clickable = (it.status === 'done' || it.status === 'error');
@@ -492,7 +493,7 @@
     // Keep batch polling paused while reading a detail; resume if batch still running when going back.
     clearTimeout(fcPollTimer);
     $('fcTitle').textContent = '검수 상세 — ' + title;
-    $('fcSub').textContent = '타임스탬프 · 문제 · 수정 제안';
+    $('fcSub').textContent = '오류와, 같이 설명됐어야 할 빠진 부분';
     $('fcStatus').textContent = '상세 불러오는 중…';
     $('fcStatus').className = 'status';
     $('fcProgress').classList.add('hidden');
@@ -546,12 +547,14 @@
       '<span class="pill ' + (r.overallRisk === 'high' ? 'err' : r.overallRisk === 'medium' ? 'warn' : 'ok') + '">' +
       esc(r.overallRisk || 'low') + ' risk</span>' +
       '<span class="pill gray">이슈 ' + (r.issueCount != null ? r.issueCount : issues.length) + '건</span>' +
+      ((r.omissions && r.omissions.length) ? '<span class="pill warn">빠진 설명 ' + r.omissions.length + '건</span>' : '') +
       (r.mode ? '<span class="pill gray">' + esc(r.mode === 'video' ? '영상+음성' : '오디오') + '</span>' : '') +
       '</div>';
     html += '<p style="margin:.2rem 0 .7rem;font-size:.9rem">' + esc(r.summary || '') + '</p>';
     if (!issues.length) {
       html += '<div class="empty">명백한 오류를 찾지 못했습니다.</div>';
     } else {
+      html += '<h4 style="margin:.2rem 0 .4rem;font-size:.92rem">오류</h4>';
       html += issues.map(function (it) {
         return '<div class="issue">' +
           '<div class="top">' +
@@ -562,6 +565,21 @@
           (it.claim ? '<div class="claim">말한/보인 내용: ' + esc(it.claim) + '</div>' : '') +
           (it.problem ? '<div class="fix">문제: ' + esc(it.problem) + '</div>' : '') +
           (it.correction ? '<div class="okline">수정: ' + esc(it.correction) + '</div>' : '') +
+          '</div>';
+      }).join('');
+    }
+    var omissions = r.omissions || [];
+    if (omissions.length) {
+      html += '<h4 style="margin:.85rem 0 .4rem;font-size:.92rem">같이 설명됐어야 할 부분</h4>';
+      html += omissions.map(function (it) {
+        return '<div class="issue">' +
+          '<div class="top">' +
+          '<span class="pill sev-' + esc(it.severity || 'medium') + '">' + esc(it.severity || 'medium') + '</span>' +
+          (it.topic ? '<strong style="font-size:.86rem">' + esc(it.topic) + '</strong>' : '') +
+          '</div>' +
+          (it.missing ? '<div class="fix">빠짐: ' + esc(it.missing) + '</div>' : '') +
+          (it.whyExpected ? '<div class="claim">왜 같이 나오나: ' + esc(it.whyExpected) + '</div>' : '') +
+          (it.suggestion ? '<div class="okline">보강: ' + esc(it.suggestion) + '</div>' : '') +
           '</div>';
       }).join('');
     }
@@ -601,7 +619,7 @@
   }
 
   function startFactcheck(v) {
-    showFactModal('강의 검수 — ' + (v.title || ''), 'Gemini가 문법·사실 오류를 찾습니다. 수 분 걸릴 수 있어요.');
+    showFactModal('강의 검수 — ' + (v.title || ''), '오류와, 교육과정에서 같이 나와야 할 빠진 설명을 찾습니다.');
     $('fcStatus').textContent = '검수 시작 중…';
     api('/api/lms/library/' + encodeURIComponent(v.id) + '/factcheck', {
       method: 'POST',
