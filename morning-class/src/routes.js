@@ -6106,6 +6106,7 @@ router.post('/admin/parents/:parentId/deactivate', requireRole('admin', 'princip
 // ---------------------------------------------------------------------------
 const lmsLessons = require('./services/lmsLessonService');
 const lmsLibrary = require('./services/lmsLibraryService');
+const lmsFactcheck = require('./services/lmsVideoFactcheckService');
 
 const lmsCreateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
@@ -6159,8 +6160,11 @@ function lmsError(res, e, fallback) {
 router.get('/lms/meta', requireRole('teacher', 'admin'), (req, res) => {
   res.json({
     configured: lmsLessons.isConfigured(),
+    factcheckConfigured: !!(lmsLessons.isConfigured() && hasGeminiKey()),
     postMaxBytes: lmsLibrary.POST_UPLOAD_MAX_BYTES,
-    maxFileBytes: 30 * 1024 * 1024 * 1024
+    maxFileBytes: 30 * 1024 * 1024 * 1024,
+    factcheckMaxDurationSec: lmsFactcheck.MAX_DURATION_SEC,
+    factcheckVideoModeMaxSec: lmsFactcheck.VIDEO_MODE_MAX_SEC
   });
 });
 
@@ -6197,6 +6201,43 @@ router.delete('/lms/library/:videoId', requireRole('teacher', 'admin'), async (r
     res.json(await lmsLibrary.deleteVideo(req.params.videoId));
   } catch (e) {
     lmsError(res, e, 'Could not delete library video.');
+  }
+});
+
+const lmsFactcheckLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 6,
+  keyFn: (req) => 'lms-fc:' + debriefTeacherId(req),
+  message: '강의 검수 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
+});
+
+router.post('/lms/library/:videoId/factcheck', requireRole('teacher', 'admin'), lmsFactcheckLimiter, async (req, res) => {
+  try {
+    res.status(202).json(await lmsFactcheck.startFactcheck(req.params.videoId, {
+      mode: (req.body && req.body.mode) || req.query.mode || 'smart'
+    }));
+  } catch (e) {
+    lmsError(res, e, 'Could not start lecture fact-check.');
+  }
+});
+
+router.get('/lms/library/:videoId/factcheck', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const latest = await lmsFactcheck.getLatestForVideo(req.params.videoId);
+    if (!latest) return res.status(404).json({ error: '아직 검수 결과가 없습니다.' });
+    res.json(latest);
+  } catch (e) {
+    lmsError(res, e, 'Could not load fact-check.');
+  }
+});
+
+router.get('/lms/factcheck/jobs/:jobId', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = lmsFactcheck.getJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: 'Job not found.' });
+    res.json(job);
+  } catch (e) {
+    lmsError(res, e, 'Could not load fact-check job.');
   }
 });
 

@@ -173,18 +173,98 @@ async function deleteVideo(uid) {
   }
 }
 
-async function signPlaybackToken(uid) {
+async function signPlaybackToken(uid, opts) {
   const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
-  const r = await cf('POST', '/' + encodeURIComponent(uid) + '/token', { exp });
+  const body = { exp };
+  if (opts && opts.downloadable) body.downloadable = true;
+  const r = await cf('POST', '/' + encodeURIComponent(uid) + '/token', body);
   if (!r || !r.token) throw stageError(502, '재생 토큰을 만들지 못했습니다.');
   return r.token;
 }
 
-function playerUrl(token) {
+function customerHost() {
   const code = String(process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE || '').trim();
-  const host = code ? 'customer-' + code + '.cloudflarestream.com' : 'iframe.videodelivery.net';
+  return code ? 'customer-' + code + '.cloudflarestream.com' : 'iframe.videodelivery.net';
+}
+
+function playerUrl(token) {
   const base = String(process.env.CLOUDFLARE_STREAM_PLAYER_BASE || '').replace(/\/+$/, '');
-  return (base || 'https://' + host) + '/' + token;
+  return (base || 'https://' + customerHost()) + '/' + token;
+}
+
+/**
+ * Enable / poll Cloudflare Stream MP4 or audio download.
+ * @param {string} uid
+ * @param {'default'|'audio'} downloadType
+ */
+async function getDownloads(uid) {
+  return cf('GET', '/' + encodeURIComponent(uid) + '/downloads');
+}
+
+async function createDownload(uid, downloadType) {
+  const type = downloadType === 'audio' ? 'audio' : 'default';
+  // Prefer typed endpoint; fall back to generic /downloads (creates default).
+  try {
+    return await cf('POST', '/' + encodeURIComponent(uid) + '/downloads/' + type);
+  } catch (e) {
+    if (type === 'default') {
+      return cf('POST', '/' + encodeURIComponent(uid) + '/downloads');
+    }
+    throw e;
+  }
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Ensure a downloadable asset is ready and return a signed absolute URL.
+ * @returns {Promise<{ type: string, url: string, mimeType: string }>}
+ */
+async function ensureSignedDownload(uid, downloadType) {
+  const type = downloadType === 'audio' ? 'audio' : 'default';
+  let info = null;
+  try {
+    info = await getDownloads(uid);
+  } catch (e) {
+    info = null;
+  }
+  const slot = info && info[type];
+  if (!slot || slot.status === 'error' || !slot.url) {
+    await createDownload(uid, type);
+  }
+
+  const deadline = Date.now() + 8 * 60 * 1000;
+  let ready = null;
+  while (Date.now() < deadline) {
+    const cur = await getDownloads(uid);
+    ready = cur && cur[type];
+    if (ready && ready.status === 'ready' && ready.url) break;
+    if (ready && ready.status === 'error') {
+      throw stageError(502, 'Cloudflare 다운로드 생성에 실패했습니다.');
+    }
+    await sleep(2500);
+  }
+  if (!ready || ready.status !== 'ready' || !ready.url) {
+    throw stageError(504, '다운로드 파일이 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.');
+  }
+
+  const token = await signPlaybackToken(uid, { downloadable: true });
+  // Replace uid path segment with signed token for private videos.
+  let url = String(ready.url);
+  if (url.includes('/' + uid + '/')) {
+    url = url.replace('/' + uid + '/', '/' + token + '/');
+  } else {
+    // Fallback: customer host + token path
+    const file = type === 'audio' ? 'audio.m4a' : 'default.mp4';
+    url = 'https://' + customerHost() + '/' + token + '/downloads/' + file;
+  }
+  return {
+    type,
+    url,
+    mimeType: type === 'audio' ? 'audio/mp4' : 'video/mp4'
+  };
 }
 
 module.exports = {
@@ -195,6 +275,9 @@ module.exports = {
   deleteVideo,
   signPlaybackToken,
   playerUrl,
+  getDownloads,
+  createDownload,
+  ensureSignedDownload,
   TOKEN_TTL_SECONDS,
   MAX_UPLOAD_DURATION_SECONDS
 };
