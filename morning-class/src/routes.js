@@ -6206,7 +6206,7 @@ router.delete('/lms/library/:videoId', requireRole('teacher', 'admin'), async (r
 
 const lmsFactcheckLimiter = createRateLimiter({
   windowMs: 10 * 60 * 1000,
-  max: 6,
+  max: 20,
   keyFn: (req) => 'lms-fc:' + debriefTeacherId(req),
   message: '강의 검수 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'
 });
@@ -6234,7 +6234,7 @@ router.get('/lms/library/factcheck/batch', requireRole('teacher', 'admin'), asyn
 
 router.get('/lms/factcheck/batches/:batchId', requireRole('teacher', 'admin'), async (req, res) => {
   try {
-    const batch = lmsFactcheck.getBatch(req.params.batchId);
+    const batch = await lmsFactcheck.getBatch(req.params.batchId);
     if (!batch) return res.status(404).json({ error: 'Batch not found.' });
     res.json(batch);
   } catch (e) {
