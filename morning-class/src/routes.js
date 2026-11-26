@@ -6188,6 +6188,22 @@ router.post('/lms/library', requireRole('teacher', 'admin'), lmsCreateLimiter, a
   }
 });
 
+router.post('/lms/library/:videoId/replace', requireRole('teacher', 'admin'), lmsCreateLimiter, async (req, res) => {
+  try {
+    res.status(201).json(await lmsLibrary.startReplace(req.params.videoId, req.body || {}, debriefTeacherId(req)));
+  } catch (e) {
+    lmsError(res, e, 'Could not replace library video.');
+  }
+});
+
+router.post('/lms/library/:videoId/replace/cancel', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json(await lmsLibrary.cancelReplace(req.params.videoId));
+  } catch (e) {
+    lmsError(res, e, 'Could not cancel video replace.');
+  }
+});
+
 router.patch('/lms/library/:videoId', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     res.json(await lmsLibrary.updateVideo(req.params.videoId, req.body || {}));

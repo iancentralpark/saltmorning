@@ -130,6 +130,7 @@
       <datalist id="curList"></datalist>
       <label>설명 (선택) <textarea id="descInput" maxlength="2000" placeholder="교사 메모 / 학습 목표"></textarea></label>
       <label>영상 파일 <input type="file" id="fileInput" accept="video/*"></label>
+      <input type="file" id="replaceFile" accept="video/*" class="hidden">
       <div class="actions">
         <button type="button" class="btn btn-primary" id="btnUpload" disabled>업로드</button>
       </div>
@@ -149,6 +150,7 @@
         </div>
       </div>
       <p class="hint" id="factcheckHint">ready 영상을 <strong>체크</strong>한 뒤 <strong>선택 검수</strong>, 또는 <strong>전체 검수</strong>. 끊기면 원하는 것만 다시 체크하면 됩니다.</p>
+      <p class="hint">이미 배정한 영상은 <strong>파일 교체</strong>로 파일만 바꿉니다. 배정과 시청 기록은 유지되고, 새 파일 처리가 끝나면 다음 재생부터 수정본이 나옵니다.</p>
       <div id="videoList"><div class="empty">불러오는 중…</div></div>
     </section>
   </div>
@@ -212,6 +214,16 @@
     if (v.status === 'processing') return '<span class="pill warn">처리 중…</span>';
     return '<span class="pill warn">업로드 대기</span>';
   }
+  function replacePill(v) {
+    if (v.replaceStatus === 'uploading' || v.replaceStatus === 'processing') {
+      return '<span class="pill warn">파일 교체 중</span>';
+    }
+    if (v.replaceStatus === 'error') return '<span class="pill err">교체 실패</span>';
+    return '';
+  }
+  function isReplacing(v) {
+    return v.replaceStatus === 'uploading' || v.replaceStatus === 'processing';
+  }
 
   function fillDatalists() {
     var cats = {}, curs = {};
@@ -228,24 +240,30 @@
     if (!videos.length) { box.innerHTML = '<div class="empty">아직 라이브러리 영상이 없습니다.</div>'; return; }
     box.innerHTML = videos.map(function (v) {
       var err = v.statusMessage ? '<div class="desc" style="color:var(--coral)">' + esc(v.statusMessage) + '</div>' : '';
+      var replaceErr = (v.replaceStatus === 'error' && v.replaceStatusMessage)
+        ? '<div class="desc" style="color:var(--coral)">' + esc(v.replaceStatusMessage) + '</div>' : '';
       var pick = v.status === 'ready'
         ? '<label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);margin-right:.35rem">' +
           '<input type="checkbox" data-pick="' + esc(v.id) + '"' + (pickedIds[v.id] ? ' checked' : '') + '> 선택</label>'
         : '';
       return '<div class="video" data-id="' + esc(v.id) + '">' +
         '<div><h3>' + pick + esc(v.title) + '</h3>' +
-        '<div class="meta">' + statePill(v) +
+        '<div class="meta">' + statePill(v) + replacePill(v) +
         (v.category ? '<span class="pill gray">' + esc(v.category) + '</span>' : '') +
         (v.curriculum ? '<span class="pill gray">' + esc(v.curriculum) + '</span>' : '') +
         (v.durationSeconds ? '<span>' + fmtDuration(v.durationSeconds) + '</span>' : '') +
         '</div>' +
-        (v.description ? '<div class="desc">' + esc(v.description) + '</div>' : '') + err +
+        (v.description ? '<div class="desc">' + esc(v.description) + '</div>' : '') + err + replaceErr +
         '</div>' +
         '<div class="actions" style="margin:0;flex-direction:column;align-items:stretch">' +
         (v.status === 'ready'
           ? '<button type="button" class="btn btn-check btn-sm" data-act="factcheck" data-id="' + esc(v.id) + '">강의 검수</button>' +
             '<button type="button" class="btn btn-ghost btn-sm" data-act="factresult" data-id="' + esc(v.id) + '">검수 결과</button>'
           : '<button type="button" class="btn btn-check btn-sm" disabled title="ready 후 가능">강의 검수</button>') +
+        (isReplacing(v) || v.replaceStatus === 'error'
+          ? '<button type="button" class="btn btn-ghost btn-sm" data-act="cancel-replace" data-id="' + esc(v.id) + '">교체 취소</button>'
+          : '') +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="replace" data-id="' + esc(v.id) + '">파일 교체</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="edit" data-id="' + esc(v.id) + '">수정</button>' +
         '<button type="button" class="btn btn-danger btn-sm" data-act="delete" data-id="' + esc(v.id) + '">삭제</button>' +
         '</div></div>';
@@ -255,7 +273,9 @@
 
   function schedulePoll() {
     clearTimeout(pollTimer);
-    if (videos.some(function (v) { return v.status === 'processing' || v.status === 'uploading'; })) {
+    if (videos.some(function (v) {
+      return v.status === 'processing' || v.status === 'uploading' || isReplacing(v);
+    })) {
       pollTimer = setTimeout(loadVideos, 8000);
     }
   }
@@ -305,6 +325,44 @@
     });
   }
 
+  function uploadTo(target, file) {
+    var onP = function (p) { $('uploadBar').style.width = Math.round(p * 100) + '%'; };
+    if (target.mode === 'tus') return tusUpload(target.uploadURL, file, onP);
+    return putFile(target.uploadURL, file, onP);
+  }
+
+  function doReplace(v, file) {
+    if (!file) return;
+    if (file.size > HARD_MAX) return setStatus('영상은 최대 30GB까지 가능합니다.', 'error');
+    uploading = true;
+    $('btnUpload').disabled = true;
+    $('uploadProgress').classList.remove('hidden');
+    $('uploadBar').style.width = '0%';
+    setStatus('"' + v.title + '" 파일을 교체하는 중… 배정은 그대로입니다.');
+    var uploaded = false;
+    api('/api/lms/library/' + encodeURIComponent(v.id) + '/replace', {
+      method: 'POST',
+      body: { uploadLength: file.size }
+    }).then(function (r) {
+      return uploadTo(r, file).then(function () { uploaded = true; });
+    }).then(function () {
+      setStatus('새 파일을 올렸습니다. 처리가 끝나면 배정된 수업에서 다음 재생부터 수정본이 나옵니다.', 'ok');
+    }).catch(function (e) {
+      var done = Promise.resolve();
+      if (!uploaded) {
+        done = api('/api/lms/library/' + encodeURIComponent(v.id) + '/replace/cancel', { method: 'POST' })
+          .catch(function () {});
+      }
+      return done.then(function () { setStatus(e.message || '파일 교체에 실패했습니다.', 'error'); });
+    }).then(function () {
+      uploading = false;
+      $('btnUpload').disabled = !configured;
+      $('uploadProgress').classList.add('hidden');
+      $('replaceFile').value = '';
+      return loadVideos();
+    });
+  }
+
   function doUpload() {
     var title = $('titleInput').value.trim();
     var file = $('fileInput').files[0];
@@ -331,9 +389,7 @@
     }).then(function (r) {
       created = r;
       setStatus('업로드 중… 창을 닫지 마세요.');
-      var onP = function (p) { $('uploadBar').style.width = Math.round(p * 100) + '%'; };
-      if (r.mode === 'tus') return tusUpload(r.uploadURL, file, onP);
-      return putFile(r.uploadURL, file, onP);
+      return uploadTo(r, file);
     }).then(function () {
       setStatus('업로드 완료. 처리가 끝나면 클래스 Online Lessons에서 배정하세요.', 'ok');
       $('titleInput').value = ''; $('descInput').value = ''; $('fileInput').value = '';
@@ -687,6 +743,24 @@
       startFactcheck(v);
     } else if (b.getAttribute('data-act') === 'factresult') {
       openFactResult(v);
+    } else if (b.getAttribute('data-act') === 'replace') {
+      if (uploading) return setStatus('다른 업로드가 끝날 때까지 기다려 주세요.', 'error');
+      var note = isReplacing(v)
+        ? '"' + v.title + '" 교체를 멈추고 다른 파일로 바꿀까요?\n학생 배정은 그대로입니다.'
+        : '"' + v.title + '" 파일만 바꿉니다.\n학생 배정과 시청 기록은 그대로 두고, 새 파일 처리가 끝나면 다음 재생부터 수정본이 나옵니다.';
+      if (!window.confirm(note)) return;
+      $('replaceFile').value = '';
+      $('replaceFile').onchange = function () {
+        var file = $('replaceFile').files[0];
+        $('replaceFile').onchange = null;
+        if (file) doReplace(v, file);
+      };
+      $('replaceFile').click();
+    } else if (b.getAttribute('data-act') === 'cancel-replace') {
+      if (!window.confirm('파일 교체를 취소할까요? 지금 학생들에게 나가는 영상은 그대로입니다.')) return;
+      api('/api/lms/library/' + encodeURIComponent(id) + '/replace/cancel', { method: 'POST' })
+        .then(function () { setStatus('파일 교체를 취소했습니다. 기존 영상이 유지됩니다.', 'ok'); return loadVideos(); })
+        .catch(function (e) { setStatus(e.message, 'error'); });
     } else if (b.getAttribute('data-act') === 'edit') {
       var title = window.prompt('제목', v.title); if (title == null || !title.trim()) return;
       var category = window.prompt('카테고리', v.category || ''); if (category == null) return;
