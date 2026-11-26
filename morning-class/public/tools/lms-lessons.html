@@ -51,11 +51,38 @@
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; }
     @media (max-width: 720px) { .row2, .row3 { grid-template-columns: 1fr; } }
-    .video { display: grid; grid-template-columns: 1fr auto; gap: .75rem; align-items: start; padding: .75rem 0; border-bottom: 1px solid #eef1f7; }
+    .lib-head { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: .7rem; }
+    .lib-head h2 { margin: 0; }
+    .lib-search { display: flex; gap: .35rem; align-items: center; }
+    .lib-search input { min-width: 12rem; margin: 0; }
+    .lib-bar { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; margin-bottom: .45rem; }
+    .tool-group {
+      display: inline-flex; align-items: center; gap: .3rem; flex-wrap: wrap;
+      padding: .25rem .35rem .25rem .6rem; background: #f6f8fc; border: 1px solid var(--line); border-radius: 12px;
+    }
+    .tool-group .glabel { font-size: .72rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+    .upload-file { display: flex; gap: .6rem; align-items: flex-end; flex-wrap: wrap; }
+    .upload-file label { flex: 1; min-width: 14rem; margin: 0; }
+    .video {
+      display: grid; grid-template-columns: 1.15rem minmax(0, 1fr); gap: .45rem .65rem;
+      align-items: start; padding: .8rem 0; border-bottom: 1px solid #eef1f7;
+    }
     .video:last-child { border-bottom: 0; }
-    .video h3 { margin: 0 0 .15rem; font-size: 1rem; }
-    .video .meta { font-size: .8rem; color: var(--muted); display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
-    .video .desc { font-size: .84rem; color: var(--muted); margin-top: .2rem; white-space: pre-wrap; }
+    .pick { display: flex; justify-content: center; margin-top: .2rem; }
+    .pick input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--accent); }
+    .video-top { display: flex; justify-content: space-between; gap: .75rem 1rem; align-items: flex-start; }
+    .video-copy { min-width: 0; flex: 1; }
+    .video h3 { margin: 0; font-size: 1rem; line-height: 1.35; }
+    .video .meta { font-size: .78rem; color: var(--muted); display: flex; gap: .35rem; flex-wrap: wrap; align-items: center; margin-top: .28rem; }
+    .video .desc { font-size: .84rem; color: var(--muted); margin-top: .28rem; white-space: pre-wrap; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: .28rem; justify-content: flex-end; max-width: 24rem; }
+    .row-actions .btn { padding: .26rem .55rem; font-size: .76rem; font-weight: 650; }
+    @media (max-width: 720px) {
+      .video-top { flex-direction: column; }
+      .row-actions { justify-content: flex-start; max-width: none; }
+      .lib-search { width: 100%; }
+      .lib-search input { flex: 1; min-width: 0; }
+    }
     .pill { display: inline-block; padding: .08rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 700; }
     .pill.ok { background: #e7f3ea; color: var(--ok); }
     .pill.warn { background: #fff4d8; color: var(--warn); }
@@ -96,9 +123,7 @@
 
   <div class="pane">
     <div class="note">
-      여기에서는 영상을 <strong>커리큘럼/카테고리 라이브러리</strong>에만 올립니다.
-      학생 배정·공개·시청 현황은 각 클래스의 <strong>Online Lessons</strong> 탭에서 합니다.
-      ready 영상은 <strong>강의 검수</strong>로 Gemini가 문법·사실 오류를 찾아줍니다 (20분 이하는 영상, 그 이상은 오디오·크레딧 절약).
+      영상은 여기에 한 번만 올립니다. 학생 배정은 클래스 <strong>Online Lessons</strong>에서 합니다.
     </div>
     <div id="factModal" class="modal-bg hidden" role="dialog" aria-modal="true">
       <div class="modal">
@@ -120,7 +145,7 @@
 
     <section class="card" id="uploadCard">
       <h2>라이브러리에 영상 올리기</h2>
-      <p class="hint">200MB 이하는 일반 업로드, 그 이상은 이어받기(TUS)로 최대 30GB까지 올릴 수 있습니다. (Cloudflare Stream 기본 POST 한도가 200MB입니다.)</p>
+      <p class="hint">200MB까지는 바로 올리고, 더 큰 파일은 이어받기로 최대 30GB까지 올립니다.</p>
       <div class="row3">
         <label>제목 <input type="text" id="titleInput" maxlength="160" placeholder="예: Unit 3 — Past Perfect"></label>
         <label>카테고리 <input type="text" id="categoryInput" maxlength="80" list="catList" placeholder="Grammar / Novel / Listening"></label>
@@ -129,28 +154,32 @@
       <datalist id="catList"></datalist>
       <datalist id="curList"></datalist>
       <label>설명 (선택) <textarea id="descInput" maxlength="2000" placeholder="교사 메모 / 학습 목표"></textarea></label>
-      <label>영상 파일 <input type="file" id="fileInput" accept="video/*"></label>
-      <input type="file" id="replaceFile" accept="video/*" class="hidden">
-      <div class="actions">
+      <div class="upload-file">
+        <label>영상 파일 <input type="file" id="fileInput" accept="video/*"></label>
         <button type="button" class="btn btn-primary" id="btnUpload" disabled>업로드</button>
       </div>
+      <input type="file" id="replaceFile" accept="video/*" class="hidden">
       <div class="progress hidden" id="uploadProgress"><div id="uploadBar"></div></div>
       <div class="status" id="status"></div>
     </section>
 
     <section class="card">
-      <div class="actions" style="justify-content:space-between;margin:0 0 .5rem">
-        <h2 style="margin:0">라이브러리</h2>
-        <div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center">
-          <input type="search" id="qInput" placeholder="검색…" style="min-width:10rem">
+      <div class="lib-head">
+        <h2>라이브러리</h2>
+        <div class="lib-search">
+          <input type="search" id="qInput" placeholder="제목 · 설명" aria-label="라이브러리 검색">
           <button type="button" class="btn btn-ghost btn-sm" id="btnSearch">검색</button>
-          <button type="button" class="btn btn-ghost btn-sm" id="btnPickAll">ready 전체 선택</button>
-          <button type="button" class="btn btn-check btn-sm" id="btnSelectedFactcheck" title="체크한 영상만 검수">선택 검수</button>
-          <button type="button" class="btn btn-check btn-sm" id="btnBatchFactcheck" title="ready 영상 전부 순차 검수">전체 검수</button>
         </div>
       </div>
-      <p class="hint" id="factcheckHint">ready 영상을 <strong>체크</strong>한 뒤 <strong>선택 검수</strong>, 또는 <strong>전체 검수</strong>. 끊기면 원하는 것만 다시 체크하면 됩니다.</p>
-      <p class="hint">이미 배정한 영상은 <strong>파일 교체</strong>로 파일만 바꿉니다. 배정과 시청 기록은 유지되고, 새 파일 처리가 끝나면 다음 재생부터 수정본이 나옵니다.</p>
+      <div class="lib-bar">
+        <div class="tool-group">
+          <span class="glabel">검수</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnPickAll">전체 선택</button>
+          <button type="button" class="btn btn-check btn-sm" id="btnSelectedFactcheck" title="체크한 영상만 검수. 끊기면 다시 체크하면 됩니다.">선택 검수</button>
+          <button type="button" class="btn btn-check btn-sm" id="btnBatchFactcheck" title="ready 영상을 순서대로 검수">전체 검수</button>
+        </div>
+      </div>
+      <p class="hint" id="factcheckHint">체크한 영상만 검수할 수 있습니다. <strong>교체</strong>는 배정과 시청 기록을 유지한 채 파일만 바꿉니다.</p>
       <div id="videoList"><div class="empty">불러오는 중…</div></div>
     </section>
   </div>
@@ -243,30 +272,30 @@
       var replaceErr = (v.replaceStatus === 'error' && v.replaceStatusMessage)
         ? '<div class="desc" style="color:var(--coral)">' + esc(v.replaceStatusMessage) + '</div>' : '';
       var pick = v.status === 'ready'
-        ? '<label style="display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;color:var(--muted);margin-right:.35rem">' +
-          '<input type="checkbox" data-pick="' + esc(v.id) + '"' + (pickedIds[v.id] ? ' checked' : '') + '> 선택</label>'
+        ? '<label class="pick"><input type="checkbox" data-pick="' + esc(v.id) + '"' +
+          (pickedIds[v.id] ? ' checked' : '') + ' aria-label="검수할 영상 선택"></label>'
+        : '<span class="pick"></span>';
+      var factBtns = v.status === 'ready'
+        ? '<button type="button" class="btn btn-check btn-sm" data-act="factcheck" data-id="' + esc(v.id) + '" title="Gemini 강의 검수">검수</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-act="factresult" data-id="' + esc(v.id) + '" title="검수 결과">결과</button>'
+        : '<button type="button" class="btn btn-check btn-sm" disabled title="ready 후 가능">검수</button>';
+      var cancelBtn = (isReplacing(v) || v.replaceStatus === 'error')
+        ? '<button type="button" class="btn btn-ghost btn-sm" data-act="cancel-replace" data-id="' + esc(v.id) + '">교체 취소</button>'
         : '';
-      return '<div class="video" data-id="' + esc(v.id) + '">' +
-        '<div><h3>' + pick + esc(v.title) + '</h3>' +
+      return '<div class="video" data-id="' + esc(v.id) + '">' + pick +
+        '<div class="video-body"><div class="video-top"><div class="video-copy">' +
+        '<h3>' + esc(v.title) + '</h3>' +
         '<div class="meta">' + statePill(v) + replacePill(v) +
         (v.category ? '<span class="pill gray">' + esc(v.category) + '</span>' : '') +
         (v.curriculum ? '<span class="pill gray">' + esc(v.curriculum) + '</span>' : '') +
         (v.durationSeconds ? '<span>' + fmtDuration(v.durationSeconds) + '</span>' : '') +
         '</div>' +
         (v.description ? '<div class="desc">' + esc(v.description) + '</div>' : '') + err + replaceErr +
-        '</div>' +
-        '<div class="actions" style="margin:0;flex-direction:column;align-items:stretch">' +
-        (v.status === 'ready'
-          ? '<button type="button" class="btn btn-check btn-sm" data-act="factcheck" data-id="' + esc(v.id) + '">강의 검수</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-act="factresult" data-id="' + esc(v.id) + '">검수 결과</button>'
-          : '<button type="button" class="btn btn-check btn-sm" disabled title="ready 후 가능">강의 검수</button>') +
-        (isReplacing(v) || v.replaceStatus === 'error'
-          ? '<button type="button" class="btn btn-ghost btn-sm" data-act="cancel-replace" data-id="' + esc(v.id) + '">교체 취소</button>'
-          : '') +
-        '<button type="button" class="btn btn-ghost btn-sm" data-act="replace" data-id="' + esc(v.id) + '">파일 교체</button>' +
+        '</div><div class="row-actions">' + factBtns + cancelBtn +
+        '<button type="button" class="btn btn-ghost btn-sm" data-act="replace" data-id="' + esc(v.id) + '" title="배정은 유지하고 파일만 교체">교체</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-act="edit" data-id="' + esc(v.id) + '">수정</button>' +
         '<button type="button" class="btn btn-danger btn-sm" data-act="delete" data-id="' + esc(v.id) + '">삭제</button>' +
-        '</div></div>';
+        '</div></div></div></div>';
     }).join('');
     schedulePoll();
   }
@@ -721,7 +750,7 @@
       if (allOn) delete pickedIds[v.id];
       else pickedIds[v.id] = 1;
     });
-    $('btnPickAll').textContent = allOn ? 'ready 전체 선택' : '선택 해제';
+    $('btnPickAll').textContent = allOn ? '전체 선택' : '선택 해제';
     render();
   });
   $('videoList').addEventListener('change', function (ev) {
