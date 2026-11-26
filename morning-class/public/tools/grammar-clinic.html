@@ -368,7 +368,7 @@
     $('sideTitle').textContent = lecture ? '인강 슬라이드 설정'
       : (worksheet ? '학습지 설정' : '출제 설정');
     $('modeHint').innerHTML = lecture
-      ? '카탈로그 <strong>최대 2개</strong> 또는 <strong>직접 주제</strong>. 화면=판서 / 대본=일타강사. 생성 후 <strong>Claude→Gemini 이중검증</strong>으로 틀린 규칙을 걸러냅니다.'
+      ? '카탈로그 <strong>최대 2개</strong> 또는 <strong>직접 주제</strong>. 교육과정·참고서 <strong>기준표</strong>를 먼저 만들고, 그 표로 슬라이드를 쓴 뒤 <strong>내용·빠짐·구성(중복 예문)</strong>을 검수합니다. 탈락하면 고치고 다시 검수합니다.'
       : (worksheet
         ? '초6~고1 · 주제당 A4 <strong>핵심 영문법 마스터 노트</strong>(STEP·예문·내신포인트+필기란). <strong>Claude→Gemini 이중검증</strong> 후 클릭 수정·인쇄.'
         : '문법 포인트를 <strong>하나씩</strong> 고른 뒤 Generate. 생성 후 <strong>Claude 자기검증 → Gemini 교차검증</strong>으로 사실 오류를 수정합니다.');
@@ -795,6 +795,10 @@
             var msg = opts.patched
               ? ((p.message && p.message.indexOf('수정') !== -1) ? p.message : ('부분 수정 완료 — 현재 ' + n + '장'))
               : ('인강 슬라이드 완성 — ' + n + '장');
+            var left = (job.warnings || []).filter(function (w) {
+              return String(w).indexOf('검수 남음') === 0;
+            });
+            if (!opts.patched && left.length) msg += ' · 검수 메모 ' + left.length + '건';
             var failedKeep = p.message && p.message.indexOf('수정 실패') !== -1;
             setStatus(msg, failedKeep ? 'error' : 'ok');
             setBusy(false, label);

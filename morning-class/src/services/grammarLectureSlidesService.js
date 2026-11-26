@@ -14,6 +14,9 @@
  * - One content block per slide; bold large type
  * - On-screen PPT text is calm / textbook-like; script alone is 일타강사 tone
  * - Quiz answers live in notes; speaking script in script (both go to PPT notes)
+ *
+ * Pipeline: blueprint (curriculum + companion points) → slides from that
+ * blueprint → audit for content, omissions, and structure → one revise if it fails.
  */
 
 const crypto = require('crypto');
@@ -23,9 +26,9 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { askGemini, isClaudeConfigured, formatGeminiClientError } = require('./geminiService');
 const {
-  dualVerifyGrammar,
   formatQuizPromptLines,
-  ACCURACY_LAW
+  ACCURACY_LAW,
+  hasGeminiKey
 } = require('./grammarVerifyService');
 const { getUnitsByIds } = require('./grammarClinic/catalog');
 
@@ -283,56 +286,61 @@ async function askClaudeJson(system, prompt, opts) {
   }
 }
 
-const SYSTEM_SCRIPT = `당신은 한국 중등 영어 문법 인강 자료를 만드는 편집자입니다.
-전자칠판용 **슬라이드(화면 글)** 와, 강사가 그 장면에서 읽을 **전체 대본(script)** 을 JSON으로만 만듭니다.
+const SYSTEM_BLUEPRINT = `당신은 한국 중·고등학교 영어 문법 단원을 정리하는 편집장입니다.
+슬라이드를 쓰지 마세요. 강의 전에, 이 문법 요소를 교과서와 시중 참고서가 어떤 순서로 설명하는지, 그리고 그 설명에 반드시 또는 보통 함께 들어가는 요소가 무엇인지만 기준표로 만듭니다.
 
-★ 톤 분리 (가장 중요)
-- 화면(heading / lines / columns / examples / wrongRight / quiz): **점잖고 차분한 교과서·판서 스타일**.
-  규칙·예문·표만. 구호·감탄·이모지·유행어·'꿀잼'·'파이팅'·'별표'·'자 주목' 같은 멘트는 화면에 쓰지 말 것.
-- script만: **일타강사** 구어체(친근·유쾌·파이팅). 비유·질문→답·'자, 주목!' 등은 script에만.
-- 학생은 칠판을 보고, 강사 목소리는 script로 듣는다. 화면을 소리 내 읽는 대본이 되지 않게.
+[기준]
+- 대상은 한국 중학교·고등학교 내신입니다. 능률·천재·동아·비상·문법 바이블류가 그 단원에서 같이 넣는 구성을 따르세요.
+- 대학 언어학, 드문 원어민 예외, 수능만의 말장난으로 수업을 넓히지 마세요.
+- mustCover는 이 주제를 가르칠 때 빠지면 단원이 성립하지 않는 항목만. 최대 12개. 항목끼리 내용이 겹치지 않게.
+- usuallyCover는 참고서가 보통 뒤에 붙이는 짝꿍·강조·예외입니다. 최대 8개. 필수는 아닙니다.
+- neverClaim은 이 주제에서 자주 지어내는 거짓 절대규칙입니다. 확실하지 않은 규칙은 mustCover에 넣지 마세요.
+- howTextbooksExplain은 설명 순서입니다. 정의, 형태, 대표 구분, 같이 오는 표현, 학생 실수. 4문장 이내.
+- slideBeats는 그 순서를 강의 장면 이름으로만 적습니다. 최대 14개. 예문 문장은 적지 마세요.
+- 카탈로그 힌트가 교과서 설명과 어긋나면 교과서를 따르고, 어긋난 힌트는 neverClaim이나 생략으로 처리하세요.
 
-[콘텐츠 블록]
-HOOK 도입 / FORMULA 핵심 규칙 / ONE_LINER 한줄 예문 / USAGE 용법 구분 /
-PAIR 짝꿍 / FORMS 형태·예시 표 / TRAP 비문↔정문 / BAN 예외·금지 /
-TRANSFORM 전환 / FUN 어원·문화 배경 / CONCEPT_CHECK 개념확인 /
-QUIZ 내신퀴즈 / CLOSER 핵심 요약
+출력 JSON만:
+{
+  "topic": "",
+  "howTextbooksExplain": "",
+  "mustCover": [{ "id": "m1", "point": "", "whyTogether": "", "screen": "화면에 남을 한 줄" }],
+  "usuallyCover": [{ "id": "u1", "point": "", "whyTogether": "" }],
+  "neverClaim": [""],
+  "slideBeats": [""]
+}`;
 
-[강의 구조 — 덱 전체]
-1) title: 오늘 배울 주제 (차분한 제목)
-2) HOOK → FORMULA(규칙) → FORMS/ONE_LINER(예시)
-3) TRAP/BAN으로 자주 틀리는 포인트
-4) FUN 1~2장: 어원·영어사·문화 배경 (화면은 사실 위주, 재미있는 이야기는 script)
-5) CONCEPT_CHECK + QUIZ
-6) CLOSER: 핵심 요약 bullet (격려·파이팅 멘트는 script에만)
-유닛 2개면 중간에 section. 유닛당 대략 8~14장, 전체 최대 28장.
+const SYSTEM_WRITE = `당신은 한국 중등 영어 문법 인강 슬라이드를 쓰는 작가입니다.
+이미 잠긴 기준표만 보고 슬라이드 JSON을 만듭니다. 기준표에 없는 새 문법 규칙을 추가하지 마세요.
 
-[Pattern B · 화면 품질]
-- 규칙 먼저, 예는 다음. FORMULA 뒤에 FORMS.
-- ★ 예시 중복 금지: 앞 장에 쓴 영어 쌍·문장을 다음 장에서 복붙하지 말 것.
-- 퀴즈 정답·해설은 notes에만. 화면에는 문제·보기만.
-- 한 슬라이드 = 블록 1개. lines 최대 6. 한국어 규칙 + 영어 예.
-- heading은 짧고 중립적 (예: '규칙', '형태 변화', '주의', '어원').
-- quiz.prompt: 한국어 발문과 영어 문장은 반드시 \\n 으로 줄을 나눈다.
-  (예: "다음 빈칸에 who와 whom 중 알맞은 것은?\\nThe student _______ answered the question was smart.")
-  영어 문장 한가운데서 줄이 끊기지 않게 발문/예문을 분리할 것.
+[화면과 대본]
+- 화면(heading, lines, columns, examples, wrongRight, quiz)은 차분한 교과서 판서입니다. 구호, 감탄, 이모지, 유행어는 넣지 마세요.
+- script는 그 장에서 강사가 할 말 전체입니다. 중학생에게 질문하고 답하고, 비유해도 됩니다. 화면 문장을 그대로 읽지 마세요.
+- 퀴즈 정답과 해설은 notes에만 둡니다. 화면에는 문제와 보기만.
 
-[문법 사실 — 절대]
+[블록]
+HOOK 도입 / FORMULA 규칙 / ONE_LINER 예문 하나 / USAGE 용법 / PAIR 짝꿍 /
+FORMS 형태 표 / TRAP 비문과 정문 / BAN 예외·금지 / TRANSFORM 전환 /
+FUN 배경 / CONCEPT_CHECK 개념확인 / QUIZ 내신 퀴즈 / CLOSER 요약
+
+[구성]
+- 순서: 제목 → 도입 → 규칙(FORMULA) → 그 규칙의 새 예(FORMS 또는 ONE_LINER) → 함정 → 개념확인 → 내신 퀴즈 → 요약.
+- 한 슬라이드에는 블록 하나만. lines는 6줄 이하.
+- 같은 영어 예문·같은 단어 쌍은 한 번만 씁니다. 한 슬라이드의 제목, 본문, 표, 예문 칸에 반복하지 마세요. 바로 다음 슬라이드에도 그 예문을 다시 쓰지 마세요. 규칙을 보여 주는 문장과 표의 문장은 서로 다르게 쓰세요.
+- FORMULA에는 규칙만 두고, 다음 장에 새 예를 둡니다. 규칙 없이 예만 있는 표는 만들지 마세요.
+- mustCover는 모두 화면 글에 보여야 합니다. script에만 있으면 빠진 것입니다. usuallyCover는 전체 28장을 넘지 않을 때만 넣으세요.
+- CONCEPT_CHECK 1장, QUIZ 1장, CLOSER 1장. FUN은 사실이 있을 때만 1장.
+- 주제가 둘이면 사이에 section. 전체 최대 28장.
+- quiz.prompt는 한국어 발문과 영어 문장을 \\n 으로 나눕니다. 영어 문장 중간에서 끊지 마세요.
+  예: "다음 빈칸에 알맞은 것은?\\nThe student _______ answered was smart."
+- 예문은 그 슬라이드 규칙을 실제로 보여 주는 올바른 영어여야 합니다.
+- TRAP은 wrongRight. USAGE·FORMS는 columns 2열. CONCEPT_CHECK·QUIZ는 quiz와 notes. CONCEPT_CHECK는 보기 2~3개 또는 O/X.
+- 모든 슬라이드에 script가 있어야 합니다. title·section은 3~6문장, 일반 슬라이드는 8~14문장.
+
+[사실]
 ` + ACCURACY_LAW + `
+기준표 neverClaim에 있는 말은 화면과 script 어디에도 쓰지 마세요.
 
-[script — 모든 슬라이드 필수 · 여기만 일타강사]
-각 슬라이드 script에 그 장면의 **전체 대사**를 씁니다.
-- 중학생도 바로 이해: 쉬운 비유·질문→답·구어체.
-- 톤: 파이팅·친근·유쾌. '자, 주목!', '이거 진짜 중요해요!', '별표 세 개 칩니다!' OK (script만).
-- FORMULA: 개념 풀이 + 비유 + (가능하면) 짧은 어원.
-- FORMS/ONE_LINER: 예 설명 + 실수 포인트 + 암기 팁.
-- FUN: 1~2분 스토리텔링.
-- CLOSER: 요약 + 당부·파이팅 (약 1분).
-- CONCEPT_CHECK/QUIZ: 같이 푸는 진행 멘트(정답은 notes).
-- 분량: title/section 3~6문장, 일반 8~18문장, FUN/CLOSER 그에 맞게.
-- 화면 글자를 그대로 읽지 말고, 판서를 가리키며 풀어 말하기.
-
-출력은 JSON만.`;
+출력은 { title, grade, slides } JSON만.`;
 
 const SLIDE_SCHEMA_HINT = {
   title: '강의 제목',
@@ -342,21 +350,74 @@ const SLIDE_SCHEMA_HINT = {
     unitId: 'optional unit id for content/section',
     blockType: 'HOOK|FORMULA|ONE_LINER|USAGE|PAIR|FORMS|TRAP|BAN|TRANSFORM|FUN|CONCEPT_CHECK|QUIZ|CLOSER|null for title/section',
     heading: '점잖은 짧은 제목 (구호·감탄 금지)',
-    lines: ['화면에 보이는 차분한 판서 — 최대 6줄. FORMULA면 규칙 문장. 구호/이모지 금지.'],
+    lines: ['화면에 보이는 차분한 판서 — 최대 6줄. 같은 예문을 이 배열 안에 두 번 넣지 말 것.'],
     columns: [['왼쪽 헤더+항목'], ['오른쪽 헤더+항목']],
-    examples: [{ en: '...', ko: '...' }],
+    examples: [{ en: '이 슬라이드의 lines·columns와 겹치지 않는 새 예문', ko: '...' }],
     wrongRight: [{ wrong: '...', right: '...' }],
     quiz: {
-      prompt: '문제 (CONCEPT_CHECK 또는 QUIZ) — 차분한 시험지 톤',
+      prompt: '한국어 발문\\n영어 문장',
       choices: ['① …', '② …']
     },
-    script: '이 슬라이드 전체 대본 — 여기만 일타강사 구어체 (필수)',
+    script: '이 슬라이드 전체 대본 — 여기만 구어체 (필수)',
     notes: 'CONCEPT_CHECK/QUIZ면 정답·해설만. 그 외는 비워도 됨.'
   }]
 };
 
-function buildGeneratePrompt({ title, units, grade, customTopic }) {
-  const specs = (units || []).map((u) => ({
+const SYSTEM_AUDIT = `당신은 한국 중등 영어 인강 슬라이드 감수자입니다.
+고치지 마세요. 잠긴 기준표와 슬라이드를 비교해 합격인지 탈락인지만 JSON으로 판정합니다.
+
+[탈락]
+- content: 거짓 규칙, 비문, 규칙과 다른 예문, 교육과정 용어 오류, neverClaim을 말한 경우. 화면과 script를 모두 봅니다.
+- omission: mustCover 항목이 화면 글(heading, lines, columns, examples, wrongRight, quiz)에 없음. script에만 있으면 빠진 것입니다. usuallyCover가 없어도 mustCover가 화면에 있으면 severity는 medium.
+- structure: 구성 오류.
+  · 같은 영어 예문이나 같은 단어 쌍이 한 슬라이드에 두 번 (제목·본문·표·예문 칸·보기 사이 포함)
+  · 바로 옆 슬라이드에 같은 예문
+  · 한 장에 서로 다른 블록이 섞임
+  · 규칙 없이 예만 있는 표
+  · 정답이 lines나 choices에 드러남
+  · 화면에 구호·이모지
+  · lines가 7줄 이상
+  · 퀴즈 발문과 영어 문장이 한 줄에 붙음
+  · 화면이 비어 있음
+
+[판정]
+- high가 하나라도 있으면 pass는 false.
+- 애매하면 탈락시키지 마세요. 확실한 것만 issues에 넣으세요.
+- 이슈는 최대 12개. 같은 문제를 장마다 반복해 적지 마세요.
+- 수정 지시가 아니라 무엇이 틀렸는지 한 문장으로 적으세요.
+
+출력 JSON만:
+{
+  "pass": true,
+  "issues": [{
+    "kind": "content|omission|structure",
+    "severity": "high|medium",
+    "slide": 3,
+    "point": "mustCover id 또는 짧은 이름",
+    "detail": "무엇이 틀렸고 무엇을 바꾸면 되는지 한 문장"
+  }]
+}`;
+
+const SYSTEM_REVISE = `당신은 한국 중등 영어 인강 슬라이드 수정 편집자입니다.
+검수에서 걸린 항목만 고친 전체 덱을 JSON으로 반환합니다.
+
+[수정]
+- issues에 없는 슬라이드의 규칙과 예문은 유지하세요.
+- mustCover는 수정 후에도 모두 화면 글에 남아 있어야 합니다. script에만 넣지 마세요.
+- 고치면서 같은 영어 예문을 그 슬라이드나 바로 옆 슬라이드에 다시 넣지 마세요. 중복이면 한쪽만 새 예문으로 바꿉니다.
+- neverClaim은 추가하지 마세요. 거짓 규칙은 삭제하거나 조건이 있는 바른 설명으로 바꿉니다.
+- 정답은 notes만. 화면은 교과서 판서, script만 구어체.
+- 스키마는 초안과 같습니다. 전체 최대 28장. lines는 6줄 이하.
+- quiz.prompt는 한국어 발문과 영어 문장을 \\n 으로 나눕니다.
+
+출력은 { title, grade, slides } JSON만.`;
+
+function clipText(value, max) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max || 400);
+}
+
+function catalogSpecs(units) {
+  return (units || []).map((u) => ({
     unitId: u.unitId,
     grade: u.grade,
     category: u.category,
@@ -364,96 +425,375 @@ function buildGeneratePrompt({ title, units, grade, customTopic }) {
     coreRules: u.coreRules,
     errorTraps: u.errorTraps
   }));
-  const custom = String(customTopic || '').trim();
-  const parts = [
-    '다음 문법/주제로 인강 슬라이드 대본을 작성하라. Pattern B(규칙→예) + 개념확인 + 내신퀴즈.',
-    'title: ' + title,
-    'schoolGrade: ' + grade
-  ];
-  if (custom) {
-    parts.push(
-      'customTopic (카탈로그에 없는 직접 주제 — 이 주제를 중심으로 강의하라):',
-      custom,
-      '',
-      '직접 주제 가이드:',
-      '- 중등 영어 수업에서 통하는 표준 개요·정의·구분·대표 예를 빠짐없이.',
-      '- 개요형(예: 8품사)이면 큰 지도(목록·한줄 정의) → 각 항목 핵심 → 비교/함정 → 개념확인·퀴즈 흐름.',
-      '- 한 장에 모든 품사를 우겨 넣지 말고 section/FORMULA/FORMS로 나누되 전체 최대 28장.'
-    );
-  }
-  if (specs.length) {
-    parts.push('catalog units (최대 2개' + (custom ? ' — 보조 힌트' : '') + '):', JSON.stringify(specs, null, 2));
-  } else {
-    parts.push('catalog units: (없음 — customTopic만 사용)');
-  }
-  parts.push(
-    '',
-    '필수 커버리지:',
-    specs.length
-      ? '- catalog의 coreRules·errorTraps는 반드시 화면에 반영.'
-      : '- customTopic에 대해 교과서·참고서가 공통으로 다루는 정의·분류·예·예외를 빠뜨리지 말 것.',
-    '- 한국 중등 교과서·참고서가 이 주제에서 공통으로 가르치는 규칙·형태·예외·짝꿍 표현이 있으면 누락하지 말 것.',
-    '  (예: 비교급 → 단기 -er / CVC 자음 중복+-er / y→ier / 3음절+ more / than / 이중비교 금지 등)',
-    '- FORMULA에 규칙, FORMS에 대응 예시. 규칙 없는 예시 표만 두지 말 것.',
-    '- 주제(또는 유닛)마다 CONCEPT_CHECK ≥1, QUIZ(내신) ≥1.',
-    '- 예시 중복 금지: FORMULA lines에 이미 나온 영어 쌍을 바로 뒤 FORMS에 다시 나열하지 말 것.',
-    '',
-    'JSON 스키마:',
-    JSON.stringify(SLIDE_SCHEMA_HINT, null, 2),
-    '',
-    'columns / examples / wrongRight / quiz 는 해당 블록에만 채우고 나머지는 생략 가능.',
-    'TRAP은 wrongRight 필수. USAGE·FORMS는 columns 2열 권장.',
-    'CONCEPT_CHECK·QUIZ는 quiz+notes 필수. CONCEPT_CHECK는 보기 2~3개 또는 O/X로 단순하게.',
-    '모든 슬라이드에 script(전체 강의 대사) 필수. FUN ≥1, CLOSER ≥1.',
-    '톤: 화면=점잖은 판서, script만 일타강사. 구호·감탄·이모지는 화면에 넣지 말 것.',
-    'script에 문법 용어의 쉬운 뜻·필요 시 어원, 암기 꿀팁, 질문→답 멘트를 넣을 것.'
-  );
-  return parts.join('\n');
 }
 
-const SYSTEM_REVIEW = `당신은 중등 영어 문법 교재·인강 감수자입니다.
-인강 슬라이드 JSON을 구조·커버리지 검수하고 보완한 최종 JSON만 출력합니다.
-Pattern B: FORMULA(규칙) 다음에 FORMS(예시). 예만 있는 표는 규칙 장을 앞에 추가하세요.
-인접 슬라이드에 같은 영어 예시(단어 쌍·문장)가 반복되면 FORMS/examples를 새 예시로 교체하세요.
-톤 분리: heading/lines/quiz 등 화면 글은 점잖은 교과서 톤으로 고치고, 구호·감탄·이모지가 화면에 있으면 제거하세요.
-script만 일타강사 구어체로 보강하세요(짧거나 없으면 채우기).
-quiz.prompt는 한국어 발문과 영어 문장을 \\n으로 분리.
-정답은 notes에만. 화면은 굵고 짧게. JSON만.
-` + ACCURACY_LAW;
+function sanitizeCoverList(list, max) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  list.forEach((item, i) => {
+    if (out.length >= max) return;
+    if (typeof item === 'string') {
+      const point = clipText(item, 160);
+      if (!point) return;
+      out.push({ id: 'c' + (out.length + 1), point, whyTogether: '', screen: '' });
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    const point = clipText(item.point || item.item || item.title, 160);
+    if (!point) return;
+    out.push({
+      id: clipText(item.id, 24) || ('c' + (i + 1)),
+      point,
+      whyTogether: clipText(item.whyTogether || item.why, 220),
+      screen: clipText(item.screen, 180)
+    });
+  });
+  return out;
+}
 
-function buildReviewPrompt({ title, units, grade, draft, customTopic }) {
-  const specs = (units || []).map((u) => ({
-    unitId: u.unitId,
-    subCategory: u.subCategory,
-    coreRules: u.coreRules,
-    errorTraps: u.errorTraps
-  }));
+function unwrapObject(raw, key) {
+  if (!raw || typeof raw !== 'object') return raw;
+  if (raw[key] && typeof raw[key] === 'object') return raw[key];
+  return raw;
+}
+
+function sanitizeBlueprint(raw, title) {
+  const src = unwrapObject(raw, 'blueprint') || {};
+  const mustCover = sanitizeCoverList(src.mustCover || src.required || src.points, 12);
+  if (!mustCover.length) {
+    const err = new Error('기준표에 함께 설명할 항목이 없습니다. 다시 시도해 주세요.');
+    err.statusCode = 502;
+    throw err;
+  }
+  return {
+    topic: clipText(src.topic || title, 120),
+    howTextbooksExplain: clipText(src.howTextbooksExplain || src.approach, 800),
+    mustCover,
+    usuallyCover: sanitizeCoverList(src.usuallyCover || src.optional, 8),
+    neverClaim: (Array.isArray(src.neverClaim) ? src.neverClaim : [])
+      .map((x) => clipText(x, 180)).filter(Boolean).slice(0, 8),
+    slideBeats: (Array.isArray(src.slideBeats) ? src.slideBeats : [])
+      .map((x) => clipText(typeof x === 'string' ? x : (x && x.title), 80))
+      .filter(Boolean)
+      .slice(0, 16)
+  };
+}
+
+function buildBlueprintPrompt({ title, units, grade, customTopic }) {
+  const specs = catalogSpecs(units);
   const custom = String(customTopic || '').trim();
   return [
-    '아래 초안 슬라이드를 상업용 퀄리티로 검수·보완하라.',
+    '다음 문법 요소의 강의 기준표를 작성하라. 슬라이드는 쓰지 말 것.',
     'title: ' + title,
-    'grade: ' + grade,
+    'schoolGrade: ' + grade,
     custom ? ('customTopic: ' + custom) : '',
-    'units:',
-    JSON.stringify(specs, null, 2),
+    specs.length
+      ? 'catalog hints (교과서와 어긋나면 고쳐서 반영):\n' + JSON.stringify(specs, null, 2)
+      : 'catalog: 없음. customTopic만으로 교과서·참고서 공통 구성을 정리할 것.',
     '',
-    '체크리스트 (미달이면 slides를 고쳐 최종본을 다시 작성):',
-    '1) 주제/문법의 교과서·참고서 공통 규칙·정의가 FORMULA lines에 명시되어 있는가?',
-    '2) 형태/규칙이 있으면 FORMULA 바로 뒤에 FORMS(또는 예)가 있는가? 예만 단독으로 있지 않은가?',
-    '3) CONCEPT_CHECK ≥1, QUIZ ≥1, FUN ≥1, CLOSER ≥1, 정답은 notes만인가?',
-    '4) catalog가 있으면 coreRules·errorTraps 반영. customTopic이면 표준 개요·분류 누락 없는가?',
-    '5) 불필요하게 장황하면 나누거나 줄이되, 공통 규칙은 삭제하지 말 것.',
-    '6) ★ 예시 중복: FORMULA에 이미 나온 영어 쌍·문장이 FORMS에 다시 나오면 새 예시로 교체.',
-    '7) 화면(heading/lines/quiz)이 점잖은가? 구호·감탄·이모지·유행어가 화면에 있으면 제거.',
-    '8) 모든 슬라이드 script가 일타강사 구어체·쉬운 비유·(가능하면) 어원/꿀팁인가?',
-    '9) ★ 문법 사실: 과장·거짓 규칙(예: 형용사 뒤 that 생략 불가)이 있으면 고치거나 삭제.',
-    '10) quiz.prompt: 한국어 발문 / 영어 예문 줄바꿈(\\n) 분리.',
-    '',
-    '초안 JSON:',
-    JSON.stringify(draft, null, 2),
-    '',
-    '출력: 최종 { title, grade, slides[] } JSON만. 스키마는 초안과 동일.'
+    'mustCover에는 이 주제를 설명할 때 같이 나와야 하는 형태·구분·짝꿍·예외만 넣으세요.',
+    '예: 비교급이면 -er/-ier/more, than, 강조 부사, 이중비교 금지처럼 세트로 가르칩니다.'
   ].filter(Boolean).join('\n');
+}
+
+function buildWritePrompt({ title, units, grade, blueprint }) {
+  const ids = (units || []).map((u) => ({ unitId: u.unitId, subCategory: u.subCategory }));
+  return [
+    '잠긴 기준표만 보고 인강 슬라이드를 작성하라. 표 밖의 규칙을 추가하지 말 것.',
+    'title: ' + title,
+    'schoolGrade: ' + grade,
+    'blueprint:',
+    JSON.stringify(blueprint, null, 2),
+    ids.length
+      ? 'unitId는 아래 id만 사용:\n' + JSON.stringify(ids)
+      : 'unitId는 비워도 됩니다.',
+    '',
+    'JSON 스키마:',
+    JSON.stringify(SLIDE_SCHEMA_HINT, null, 2)
+  ].join('\n');
+}
+
+function deckForAudit(deck) {
+  const slides = Array.isArray(deck && deck.slides) ? deck.slides : [];
+  return {
+    title: deck && deck.title,
+    grade: deck && deck.grade,
+    slides: slides.map((s, i) => ({
+      index: s.index || (i + 1),
+      kind: s.kind,
+      blockType: s.blockType,
+      heading: s.heading,
+      lines: s.lines,
+      columns: s.columns,
+      examples: s.examples,
+      wrongRight: s.wrongRight,
+      quiz: s.quiz,
+      notes: s.notes,
+      script: String(s.script || '').slice(0, 700)
+    }))
+  };
+}
+
+function buildAuditPrompt({ blueprint, document }) {
+  return [
+    '기준표와 슬라이드를 비교해 합격·탈락을 판정하라. 덱을 고치지 말 것.',
+    'blueprint:',
+    JSON.stringify(blueprint, null, 2),
+    '',
+    'slides:',
+    JSON.stringify(deckForAudit(document), null, 2)
+  ].join('\n');
+}
+
+function buildRevisePrompt({ blueprint, document, issues }) {
+  return [
+    '검수에서 걸린 항목만 고친 전체 덱을 반환하라.',
+    'blueprint:',
+    JSON.stringify(blueprint, null, 2),
+    '',
+    'issues:',
+    JSON.stringify(issues, null, 2),
+    '',
+    'current deck:',
+    JSON.stringify({
+      title: document && document.title,
+      grade: document && document.grade,
+      slides: (document && document.slides) || []
+    }, null, 2)
+  ].join('\n');
+}
+
+function sanitizeIssues(list) {
+  if (!Array.isArray(list)) return [];
+  const kinds = { content: 1, omission: 1, structure: 1 };
+  const out = [];
+  list.forEach((item) => {
+    if (out.length >= 12 || !item || typeof item !== 'object') return;
+    const kind = String(item.kind || item.type || '').toLowerCase();
+    if (!kinds[kind]) return;
+    const detail = clipText(item.detail || item.fix || item.problem, 320);
+    if (!detail) return;
+    const severity = String(item.severity || '').toLowerCase() === 'medium' ? 'medium' : 'high';
+    const slide = Number(item.slide || item.slideIndex);
+    out.push({
+      kind,
+      severity,
+      slide: Number.isFinite(slide) && slide >= 1 ? slide : null,
+      point: clipText(item.point || item.id, 120),
+      detail
+    });
+  });
+  return out;
+}
+
+function sanitizeAudit(raw) {
+  const src = unwrapObject(raw, 'audit') || {};
+  const issues = sanitizeIssues(src.issues || src.findings);
+  const pass = src.pass !== false && src.passed !== false;
+  return { pass, issues };
+}
+
+function normalizeExample(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[“”„"«»]/g, '')
+    .replace(/[‘’]/g, "'")
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function englishSpans(text) {
+  const runs = String(text || '').match(/[A-Za-z][A-Za-z0-9'’][A-Za-z0-9'’,.!? :;\-]{10,}/g) || [];
+  const spans = [];
+  runs.forEach((run) => {
+    const parts = run.split(/(?<=[.!?])\s+/);
+    (parts.length > 1 ? parts : [run]).forEach((part) => {
+      const norm = normalizeExample(part);
+      const letters = (norm.match(/[a-z]/g) || []).length;
+      if (norm.length >= 18 && letters >= 12) spans.push(norm);
+    });
+  });
+  return spans;
+}
+
+function slideExampleSpans(slide) {
+  const bag = [];
+  function add(text) {
+    englishSpans(text).forEach((span) => bag.push(span));
+  }
+  (slide.lines || []).forEach(add);
+  (slide.columns || []).forEach((col) => (Array.isArray(col) ? col : []).forEach(add));
+  (slide.examples || []).forEach((ex) => add(ex && ex.en));
+  (slide.wrongRight || []).forEach((pair) => {
+    add(pair && pair.wrong);
+    add(pair && pair.right);
+  });
+  if (slide.quiz) {
+    add(slide.quiz.prompt);
+    (slide.quiz.choices || []).forEach(add);
+  }
+  return bag;
+}
+
+/** Same English example twice on one slide, or repeated on the next slide. */
+function findStructureIssues(deck) {
+  const slides = (deck && deck.slides) || [];
+  const issues = [];
+  function push(issue) {
+    if (issues.length >= 12) return;
+    issues.push(issue);
+  }
+  slides.forEach((slide, i) => {
+    const counts = new Map();
+    slideExampleSpans(slide).forEach((span) => {
+      counts.set(span, (counts.get(span) || 0) + 1);
+    });
+    counts.forEach((count, text) => {
+      if (count < 2) return;
+      push({
+        kind: 'structure',
+        severity: 'high',
+        slide: slide.index || (i + 1),
+        point: '중복 예문',
+        detail: '같은 영어 예문이 이 슬라이드에 ' + count + '번 있습니다: ' + text
+      });
+    });
+  });
+  for (let i = 0; i < slides.length - 1; i++) {
+    const prev = new Set(slideExampleSpans(slides[i]));
+    const dup = slideExampleSpans(slides[i + 1]).find((span) => prev.has(span));
+    if (!dup) continue;
+    push({
+      kind: 'structure',
+      severity: 'high',
+      slide: slides[i + 1].index || (i + 2),
+      point: '인접 슬라이드 중복',
+      detail: '앞 슬라이드와 같은 예문입니다: ' + dup
+    });
+  }
+  return issues;
+}
+
+function mergeIssues(modelIssues, codeIssues) {
+  const seen = new Set();
+  const out = [];
+  modelIssues.concat(codeIssues).forEach((item) => {
+    const key = item.kind + '|' + (item.slide || '') + '|' + item.detail;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(item);
+  });
+  return out.slice(0, 12);
+}
+
+function auditFailed(modelPass, issues) {
+  if (issues.some((item) => item.severity === 'high')) return true;
+  return modelPass === false && issues.length > 0;
+}
+
+function unwrapDeck(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  if (Array.isArray(parsed.slides)) return parsed;
+  const nested = parsed.document || parsed.deck;
+  if (nested && Array.isArray(nested.slides)) return nested;
+  return null;
+}
+
+async function askAuditJson(system, prompt) {
+  if (hasGeminiKey()) {
+    try {
+      const result = await askGemini(prompt, {
+        provider: 'gemini',
+        systemInstruction: system,
+        temperature: 0.1,
+        maxOutputTokens: 4000,
+        responseMimeType: 'application/json',
+        timeoutMs: 120000
+      });
+      const text = (result && (result.answer || result.text)) || result;
+      const parsed = extractJson(text);
+      if (parsed) return parsed;
+    } catch (e) {
+      console.warn('lecture audit gemini failed, falling back to claude', e.message);
+    }
+  }
+  return askClaudeJson(system, prompt, { temperature: 0.1, maxOutputTokens: 4000 });
+}
+
+async function generateThenReview({ title, units, grade, customTopic, onProgress }) {
+  const report = typeof onProgress === 'function' ? onProgress : () => {};
+  report({ message: '교육과정·참고서 기준표를 정리하는 중…', pct: 12 });
+  const blueprint = sanitizeBlueprint(
+    await askClaudeJson(
+      SYSTEM_BLUEPRINT,
+      buildBlueprintPrompt({ title, units, grade, customTopic }),
+      { temperature: 0.2, maxOutputTokens: 4000 }
+    ),
+    title
+  );
+
+  report({ message: '기준표에 맞춰 슬라이드를 쓰는 중…', pct: 32 });
+  let doc = unwrapDeck(await askClaudeJson(
+    SYSTEM_WRITE,
+    buildWritePrompt({ title, units, grade, blueprint }),
+    { temperature: 0.4, maxOutputTokens: 16000 }
+  ));
+  if (!doc) {
+    const err = new Error('슬라이드 초안을 읽지 못했습니다. 다시 시도해 주세요.');
+    err.statusCode = 502;
+    throw err;
+  }
+
+  const rounds = [];
+  async function runAudit(document, pct, message) {
+    report({ message, pct });
+    let model = { pass: true, issues: [] };
+    let auditError = null;
+    try {
+      model = sanitizeAudit(await askAuditJson(
+        SYSTEM_AUDIT,
+        buildAuditPrompt({ blueprint, document })
+      ));
+    } catch (e) {
+      auditError = e.message || 'audit failed';
+    }
+    const issues = mergeIssues(model.issues, findStructureIssues(document));
+    const failed = auditFailed(auditError ? null : model.pass, issues);
+    rounds.push({
+      failed,
+      count: issues.length,
+      error: auditError
+    });
+    return { issues, failed, auditError };
+  }
+
+  let audit = await runAudit(doc, 54, '내용·빠짐·구성 검수 중…');
+  if (audit.failed) {
+    report({ message: '검수에서 걸린 항목을 수정하는 중…', pct: 68 });
+    try {
+      const revised = unwrapDeck(await askClaudeJson(
+        SYSTEM_REVISE,
+        buildRevisePrompt({ blueprint, document: doc, issues: audit.issues }),
+        { temperature: 0.2, maxOutputTokens: 16000 }
+      ));
+      if (revised) doc = revised;
+      else doc.__reviseError = 'revise returned no slides';
+    } catch (e) {
+      doc.__reviseError = e.message || 'revise failed';
+    }
+    if (!doc.__reviseError) {
+      audit = await runAudit(doc, 82, '수정본을 다시 검수하는 중…');
+    }
+  }
+
+  doc.__audit = {
+    mustCover: blueprint.mustCover.length,
+    rounds,
+    remaining: audit.issues,
+    auditError: audit.auditError || null
+  };
+  return doc;
 }
 
 function coerceSlide(raw, idx) {
@@ -490,7 +830,6 @@ function coerceSlide(raw, idx) {
         : []
     };
   }
-  // CONCEPT_CHECK / QUIZ without quiz payload → keep as content with lines only if present
   if ((blockType === 'CONCEPT_CHECK' || blockType === 'QUIZ') && (!quiz || !quiz.prompt)) {
     if (lines.length) {
       quiz = {
@@ -501,7 +840,6 @@ function coerceSlide(raw, idx) {
   }
   let script = String((raw && (raw.script || raw.speakingScript || raw.narration)) || '').trim();
   let notes = String((raw && raw.notes) || '').trim();
-  // Legacy: some drafts put the whole lecture into notes — keep as script if no script.
   if (!script && notes && blockType !== 'CONCEPT_CHECK' && blockType !== 'QUIZ') {
     script = notes;
     notes = '';
@@ -548,43 +886,6 @@ function coerceDeck(parsed, fallbackTitle, grade) {
     grade: String((parsed && parsed.grade) || grade || 'M2').toUpperCase(),
     slides
   };
-}
-
-async function generateThenReview({ title, units, grade, customTopic, onProgress }) {
-  const report = typeof onProgress === 'function' ? onProgress : () => {};
-  const firstPrompt = buildGeneratePrompt({ title, units, grade, customTopic });
-  report({ message: 'Claude가 인강 대본을 쓰는 중…', pct: 18 });
-  const draft = await askClaudeJson(SYSTEM_SCRIPT, firstPrompt, {
-    temperature: 0.45,
-    maxOutputTokens: 16000
-  });
-  let finalDoc = draft;
-  report({ message: '구조·커버리지 검수·보완 중…', pct: 42 });
-  try {
-    finalDoc = await askClaudeJson(
-      SYSTEM_REVIEW,
-      buildReviewPrompt({ title, units: units || [], grade, draft, customTopic }),
-      { temperature: 0.25, maxOutputTokens: 16000 }
-    );
-  } catch (e) {
-    // Review failure → keep draft (still usable); caller may record warning
-    finalDoc = draft;
-    finalDoc.__reviewError = e.message || 'review failed';
-  }
-
-  report({ message: '이중 검증(Claude→Gemini) 시작…', pct: 58 });
-  const verified = await dualVerifyGrammar({
-    kind: 'lecture',
-    document: finalDoc,
-    context: { title, grade, units: units || [], customTopic },
-    onProgress: report,
-    pctClaude: 62,
-    pctGemini: 78,
-    maxOutputTokens: 16000
-  });
-  finalDoc = verified.document;
-  finalDoc.__verifyReport = verified.report;
-  return finalDoc;
 }
 
 function pruneJobs() {
@@ -704,7 +1005,7 @@ function startGenerateJob(opts, ownerKey) {
     status: 'running',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    progress: { message: 'Claude가 인강 대본을 쓰는 중…', pct: 10 },
+    progress: { message: '교육과정·참고서 기준표를 정리하는 중…', pct: 8 },
     input: { title, grade, unitIds, customTopic: customTopic || undefined },
     deck: null,
     htmlPreview: null,
@@ -723,18 +1024,21 @@ function startGenerateJob(opts, ownerKey) {
         customTopic,
         onProgress: (p) => touch(job, { progress: p })
       });
-      if (parsed && parsed.__reviewError) {
-        job.warnings.push('구조 검수 패스 실패 — 초안을 사용합니다: ' + parsed.__reviewError);
-        delete parsed.__reviewError;
+      if (parsed && parsed.__reviseError) {
+        job.warnings.push('검수 수정 실패 — 초안을 사용합니다: ' + parsed.__reviseError);
+        delete parsed.__reviseError;
       }
-      if (parsed && parsed.__verifyReport) {
-        const vr = parsed.__verifyReport;
-        (vr.claudeIssues || []).forEach((x) => job.warnings.push('Claude검증: ' + x));
-        (vr.geminiIssues || []).forEach((x) => job.warnings.push('Gemini검증: ' + x));
-        if (vr.claudeError) job.warnings.push('Claude 이중검증 실패: ' + vr.claudeError);
-        if (vr.geminiSkipped) job.warnings.push('Gemini 교차검증 생략: ' + (vr.geminiSkipReason || ''));
-        if (vr.geminiError) job.warnings.push('Gemini 교차검증 실패(Claude본 유지): ' + vr.geminiError);
-        delete parsed.__verifyReport;
+      if (parsed && parsed.__audit) {
+        const audit = parsed.__audit;
+        if (audit.mustCover) job.warnings.push('기준표 필수 항목 ' + audit.mustCover + '개');
+        const rounds = audit.rounds || [];
+        if (rounds.length > 1) job.warnings.push('검수 탈락 후 수정·재검수');
+        if (audit.auditError) job.warnings.push('모델 검수 실패 — 중복 예문 검사만 적용: ' + audit.auditError);
+        (audit.remaining || []).slice(0, 6).forEach((issue) => {
+          const where = issue.slide ? (issue.slide + '번 ') : '';
+          job.warnings.push('검수 남음(' + issue.kind + '): ' + where + issue.detail);
+        });
+        delete parsed.__audit;
       }
       touch(job, { progress: { message: '칠판 슬라이드 조립 중…', pct: 88 } });
       const deck = coerceDeck(parsed, title, grade);
@@ -771,7 +1075,7 @@ const SYSTEM_PATCH = `당신은 중등 영어 인강 슬라이드 편집자입�
 [규칙]
 - 사용자가 지칭한 슬라이드(번호·제목·내용)만 변경.
 - 언급 없는 슬라이드는 손대지 말 것.
-- Pattern B·예시 중복 금지·퀴즈 정답은 notes만 — 기존 품질 규칙 유지.
+- 예시 중복 금지: 같은 영어 예문을 한 슬라이드나 바로 옆 슬라이드에 두 번 넣지 말 것. 퀴즈 정답은 notes만.
 - 톤 분리 유지: 화면(heading/lines/quiz)=점잖은 판서, script만 일타강사.
 - 슬라이드를 고치면 script(강의 대사)도 그 장면에 맞게 함께 고칠 것.
 - quiz.prompt: 한국어 발문과 영어 문장은 \\n으로 분리.
@@ -1703,6 +2007,7 @@ module.exports = {
   renderDeckPdf,
   safeFilename,
   deckFromClient,
+  findStructureIssues,
   jobNotFoundError,
   rememberPptx: function rememberPptx(job, buf) {
     if (!job) return;
