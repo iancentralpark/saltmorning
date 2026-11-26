@@ -352,8 +352,8 @@ function renderWorksheetHtml(packet, meta) {
     background: #eef2f6;
     font-family: var(--font-body);
     color: var(--text-main);
-    font-size: 14.5px;
-    line-height: 1.45;
+    font-size: 15.5px; /* reference: 중학생 가독성 */
+    line-height: 1.55;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -370,60 +370,60 @@ function renderWorksheetHtml(packet, meta) {
     padding: 8px 18px; border-radius: 8px; font-weight: 700;
     font-size: 14px; cursor: pointer; font-family: inherit;
   }
-  /* 화면 미리보기: A4 박스. 인쇄 시에는 프린터 비인쇄 여백을 감안해 안쪽 패딩을 넉넉히. */
+  /* Match reference A4 padding; keep slight extra bottom for printer bleed. */
   .page {
     width: 210mm; height: 297mm; background: #fff;
-    margin: 16px auto; padding: 10mm 12mm 12mm 12mm;
+    margin: 16px auto; padding: 12mm 13mm 14mm 15mm;
     box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 4px;
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; justify-content: space-between;
     page-break-after: always; break-after: page;
     overflow: hidden;
   }
   .page:last-child { page-break-after: auto; break-after: auto; }
   .brand-bar {
-    font-family: var(--font-title); font-size: 13.5px; letter-spacing: 0.04em;
-    color: #64748b; margin-bottom: 4px; line-height: 1.2;
+    font-family: var(--font-title); font-size: 14px; letter-spacing: 0.04em;
+    color: #64748b; margin-bottom: 2px; line-height: 1.2; flex-shrink: 0;
   }
   .page-header {
     display: flex; justify-content: space-between; align-items: flex-end;
-    padding-bottom: 6px; border-bottom: 2.5px solid var(--theme-main); margin-bottom: 7px;
+    padding-bottom: 8px; border-bottom: 3px solid var(--theme-main); margin-bottom: 10px;
     flex-shrink: 0;
   }
   .unit-badge {
     display: inline-block; background: var(--theme-main); color: #fff;
-    font-family: var(--font-title); font-size: 13.5px; padding: 2px 10px;
-    border-radius: 20px; margin-bottom: 3px; letter-spacing: 0.5px;
+    font-family: var(--font-title); font-size: 15px; padding: 3px 12px;
+    border-radius: 20px; margin-bottom: 4px; letter-spacing: 0.5px;
   }
   .page-title {
-    font-family: var(--font-title); font-size: 24px; color: #111827; line-height: 1.15;
+    font-family: var(--font-title); font-size: 28px; color: #111827; line-height: 1.15;
   }
   .student-info {
-    font-size: 12.5px; color: var(--text-sub); font-weight: 500;
-    border: 1.5px dashed #cbd5e1; padding: 4px 10px; border-radius: 8px; background: #f8fafc;
+    font-size: 13.5px; color: var(--text-sub); font-weight: 500;
+    border: 1.5px dashed #cbd5e1; padding: 5px 12px; border-radius: 8px; background: #f8fafc;
     white-space: nowrap;
   }
   .content-wrapper {
-    display: grid; grid-template-columns: 1fr 40mm; gap: 5mm;
+    display: grid; grid-template-columns: 1fr 44mm; gap: 6mm;
     flex: 1; min-height: 0; overflow: hidden;
   }
   .main-column {
-    /* Pack STEP → 예문 → 내신포인트 from the top — do NOT stretch middle boxes. */
+    /* Reference uses space-between, but that stretches empty gaps — pack from top. */
     display: flex; flex-direction: column; justify-content: flex-start;
-    gap: 7px; min-width: 0; min-height: 0; overflow: hidden;
+    gap: 8px; min-width: 0; min-height: 0; overflow: hidden;
   }
   .step-box {
-    background: var(--theme-bg); border-left: 4px solid var(--theme-main);
-    border-radius: 0 8px 8px 0; padding: 7px 11px; flex-shrink: 0;
+    background: var(--theme-bg); border-left: 5px solid var(--theme-main);
+    border-radius: 0 10px 10px 0; padding: 9px 13px; flex: 0 0 auto;
   }
   .step-title {
-    font-family: var(--font-title); font-size: 15.5px; color: var(--theme-dark);
-    margin-bottom: 2px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+    font-family: var(--font-title); font-size: 17.5px; color: var(--theme-dark);
+    margin-bottom: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
   .step-num {
-    background: var(--theme-main); color: #fff; font-size: 11.5px;
-    padding: 1px 7px; border-radius: 10px; font-family: var(--font-en);
+    background: var(--theme-main); color: #fff; font-size: 12.5px;
+    padding: 1px 8px; border-radius: 10px; font-family: var(--font-en);
   }
-  .step-desc { font-size: 13.5px; color: #1f2937; }
+  .step-desc { font-size: 14.8px; color: #1f2937; }
   .highlight {
     background: linear-gradient(transparent 55%, var(--theme-highlight) 55%);
     font-weight: 700; padding: 0 2px;
@@ -434,57 +434,57 @@ function renderWorksheetHtml(packet, meta) {
   }
   .en-bold { font-family: var(--font-en); font-weight: 800; color: var(--theme-dark); }
   .example-box {
-    border: 1.5px solid var(--theme-border); border-radius: 10px;
-    padding: 8px 11px; background: #fff; flex: 0 0 auto;
+    border: 2px solid var(--theme-border); border-radius: 12px;
+    padding: 10px 14px; background: #fff; flex: 0 0 auto;
   }
   .box-header {
-    font-family: var(--font-title); font-size: 15px; color: var(--theme-dark);
-    margin-bottom: 4px;
+    font-family: var(--font-title); font-size: 17px; color: var(--theme-dark);
+    margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
   }
-  .example-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-  .example-list li { padding-left: 16px; position: relative; font-size: 13.5px; }
+  .example-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .example-list li { padding-left: 18px; position: relative; font-size: 14.8px; }
   .example-list li::before {
     content: "✔"; position: absolute; left: 0; color: var(--theme-main); font-weight: bold;
   }
   .en-sent {
-    font-family: var(--font-en); font-size: 14px; font-weight: 700;
+    font-family: var(--font-en); font-size: 15.5px; font-weight: 700;
     color: #111827; display: block;
   }
-  .ko-trans { font-size: 12.5px; color: #4b5563; display: block; }
+  .ko-trans { font-size: 13.8px; color: #4b5563; display: block; }
   .tag {
-    display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 5px;
-    border-radius: 4px; background: var(--theme-bg); color: var(--theme-dark);
+    display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 6px;
+    border-radius: 5px; background: var(--theme-bg); color: var(--theme-dark);
     margin-right: 4px; vertical-align: middle;
   }
   .exam-box {
-    background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 10px;
-    padding: 8px 11px; flex: 0 0 auto;
+    background: #fffbeb; border: 2px solid #f59e0b; border-radius: 12px;
+    padding: 10px 14px; flex: 0 0 auto;
   }
-  .exam-title { font-family: var(--font-title); font-size: 15px; color: #b45309; margin-bottom: 3px; }
-  .exam-content { font-size: 13px; color: #374151; }
-  .exam-content p + p { margin-top: 4px; }
+  .exam-title { font-family: var(--font-title); font-size: 17px; color: #b45309; margin-bottom: 5px; }
+  .exam-content { font-size: 14.3px; color: #374151; }
+  .exam-content p + p { margin-top: 5px; }
   .vs-badge {
-    display: inline-block; background: #ef4444; color: #fff; font-size: 11px;
-    font-weight: 700; padding: 1px 5px; border-radius: 4px; margin-right: 4px;
+    display: inline-block; background: #ef4444; color: #fff; font-size: 12px;
+    font-weight: 700; padding: 1px 6px; border-radius: 4px; margin-right: 4px;
   }
   .memo-column {
-    border: 1.5px dashed #cbd5e1; border-radius: 10px; background: #fafaf9;
-    padding: 8px; display: flex; flex-direction: column; min-height: 0;
+    border: 2px dashed #cbd5e1; border-radius: 12px; background: #fafaf9;
+    padding: 10px; display: flex; flex-direction: column; min-height: 0;
   }
   .memo-header {
-    font-family: var(--font-title); font-size: 13.5px; color: #64748b;
-    text-align: center; padding-bottom: 5px; border-bottom: 1.5px solid #e2e8f0; margin-bottom: 5px;
+    font-family: var(--font-title); font-size: 15px; color: #64748b;
+    text-align: center; padding-bottom: 6px; border-bottom: 1.5px solid #e2e8f0; margin-bottom: 6px;
     flex-shrink: 0;
   }
   .memo-lines {
     flex: 1;
     background-image: repeating-linear-gradient(
-      transparent, transparent 24px, #e2e8f0 24px, #e2e8f0 25px
+      transparent, transparent 27px, #e2e8f0 27px, #e2e8f0 28px
     );
   }
   .page-footer {
-    text-align: right; font-size: 11px; color: #94a3b8;
-    margin-top: 6px; flex-shrink: 0; padding-bottom: 1mm;
+    text-align: right; font-size: 12px; color: #94a3b8;
+    margin-top: 6px; flex-shrink: 0;
   }
   .theme-blue {
     --theme-main: #2563eb; --theme-dark: #1e40af; --theme-bg: #eff6ff;
@@ -511,8 +511,7 @@ function renderWorksheetHtml(packet, meta) {
     .page {
       margin: 0 !important; box-shadow: none !important; border-radius: 0 !important;
       width: 210mm; height: 297mm;
-      /* 프린터 비인쇄 영역(보통 5~10mm)에 잘리지 않도록 하단·측면 여백 확보 */
-      padding: 9mm 11mm 14mm 11mm !important;
+      padding: 11mm 12mm 14mm 14mm !important;
       page-break-inside: avoid; break-inside: avoid;
     }
     [contenteditable="true"]:hover,

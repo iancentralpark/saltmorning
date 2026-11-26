@@ -18,6 +18,7 @@ const {
   getUnitsByIds,
   listCategories
 } = require('./grammarClinic/catalog');
+const { isOpsDbEnabled, query, table } = require('../db/pool');
 
 const SYSTEM_PROMPT = `당신은 대한민국 중학교 영어 내신 기출문제를 전문적으로 출제하는 수석 출제위원입니다.
 제공된 GrammarRuleSpec과 QuestionType에 정확히 부합하는 평가 문항을 생성하십시오.
@@ -105,14 +106,118 @@ function clampCount(n) {
 const GENERATE_CHUNK_SIZE = 5;
 /** Parallel Claude chunk calls for large papers (keeps 50-item runs under ~10 min). */
 const GENERATE_PARALLEL = 3;
-/** Keep finished/failed jobs briefly so the UI can poll the result. */
-const JOB_TTL_MS = 60 * 60 * 1000;
+/** Keep finished/failed jobs so the UI can poll after Railway restarts. */
+const JOB_TTL_MS = 12 * 60 * 60 * 1000;
 const generateJobs = new Map();
+const persistTimers = new Map();
+let jobsSchemaReady = false;
 
 function pruneGenerateJobs() {
   const now = Date.now();
   for (const [id, job] of generateJobs.entries()) {
     if (now - (job.updatedAt || job.createdAt) > JOB_TTL_MS) generateJobs.delete(id);
+  }
+}
+
+async function ensureJobsSchema() {
+  if (jobsSchemaReady || !isOpsDbEnabled()) return;
+  try {
+    await query(
+      'CREATE TABLE IF NOT EXISTS ' + table('grammar_clinic_jobs') + ' (' +
+        'id TEXT PRIMARY KEY,' +
+        'owner_key TEXT NOT NULL DEFAULT \'\',' +
+        'status TEXT NOT NULL DEFAULT \'running\',' +
+        'progress JSONB,' +
+        'result JSONB,' +
+        'error TEXT,' +
+        'created_at TIMESTAMPTZ NOT NULL DEFAULT now(),' +
+        'updated_at TIMESTAMPTZ NOT NULL DEFAULT now()' +
+      ')'
+    );
+    jobsSchemaReady = true;
+  } catch (e) {
+    console.warn('grammar clinic jobs schema ensure failed', e.message);
+  }
+}
+
+async function persistGenerateJob(job, immediate) {
+  if (!job || !job.id || !isOpsDbEnabled()) return;
+  const write = async () => {
+    await ensureJobsSchema();
+    if (!jobsSchemaReady) return;
+    try {
+      await query(
+        'INSERT INTO ' + table('grammar_clinic_jobs') +
+          ' (id, owner_key, status, progress, result, error, created_at, updated_at) VALUES (' +
+          '$1,$2,$3,$4::jsonb,$5::jsonb,$6,to_timestamp($7/1000.0),to_timestamp($8/1000.0)' +
+        ') ON CONFLICT (id) DO UPDATE SET ' +
+          'status = EXCLUDED.status, progress = EXCLUDED.progress, result = EXCLUDED.result, ' +
+          'error = EXCLUDED.error, updated_at = EXCLUDED.updated_at',
+        [
+          job.id,
+          job.ownerKey || '',
+          job.status,
+          JSON.stringify(job.progress || {}),
+          job.result ? JSON.stringify(job.result) : null,
+          job.error || null,
+          job.createdAt || Date.now(),
+          job.updatedAt || Date.now()
+        ]
+      );
+    } catch (e) {
+      console.warn('grammar clinic job persist failed', job.id, e.message);
+    }
+  };
+  if (immediate) {
+    if (persistTimers.has(job.id)) {
+      clearTimeout(persistTimers.get(job.id));
+      persistTimers.delete(job.id);
+    }
+    await write();
+    return;
+  }
+  if (persistTimers.has(job.id)) return;
+  persistTimers.set(job.id, setTimeout(() => {
+    persistTimers.delete(job.id);
+    write();
+  }, 1200));
+}
+
+async function loadGenerateJobFromDb(jobId) {
+  if (!isOpsDbEnabled()) return null;
+  await ensureJobsSchema();
+  if (!jobsSchemaReady) return null;
+  try {
+    const r = await query(
+      'SELECT * FROM ' + table('grammar_clinic_jobs') + ' WHERE id = $1 LIMIT 1',
+      [String(jobId || '')]
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    const job = {
+      id: row.id,
+      ownerKey: row.owner_key || '',
+      status: row.status,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+      updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+      progress: row.progress || {},
+      result: row.result || null,
+      error: row.error || null,
+      fromDb: true
+    };
+    // Process restart: a "running" row with no live worker is orphaned.
+    if (job.status === 'running' && !generateJobs.has(job.id)) {
+      job.status = 'error';
+      job.error = '서버가 재시작되어 출제가 중단되었습니다. 다시 Generate 해 주세요.';
+      job.progress = Object.assign({}, job.progress, { message: job.error });
+      job.updatedAt = Date.now();
+      await persistGenerateJob(job, true);
+    }
+    generateJobs.set(job.id, job);
+    return job;
+  } catch (e) {
+    console.warn('grammar clinic job load failed', jobId, e.message);
+    return null;
   }
 }
 
@@ -901,12 +1006,14 @@ function startGenerateJob(opts, ownerKey) {
     error: null
   };
   generateJobs.set(id, job);
+  persistGenerateJob(job, true);
 
   setImmediate(() => {
     generateExamPaper(Object.assign({}, opts || {}, {
       onProgress(p) {
         job.progress = Object.assign({}, job.progress, p || {});
         job.updatedAt = Date.now();
+        persistGenerateJob(job, false);
       }
     })).then((result) => {
       job.status = 'done';
@@ -916,11 +1023,13 @@ function startGenerateJob(opts, ownerKey) {
         message: '완료'
       });
       job.updatedAt = Date.now();
+      persistGenerateJob(job, true);
     }).catch((e) => {
       job.status = 'error';
       job.error = e.message || '생성 실패';
       job.progress = Object.assign({}, job.progress, { message: job.error });
       job.updatedAt = Date.now();
+      persistGenerateJob(job, true);
       console.error('grammarClinic job', id, e);
     });
   });
@@ -928,15 +1037,7 @@ function startGenerateJob(opts, ownerKey) {
   return { jobId: id, status: job.status, progress: job.progress };
 }
 
-function getGenerateJob(jobId, ownerKey) {
-  pruneGenerateJobs();
-  const job = generateJobs.get(String(jobId || ''));
-  if (!job) return null;
-  if (ownerKey && job.ownerKey && job.ownerKey !== String(ownerKey)) {
-    const err = new Error('Job not found.');
-    err.statusCode = 404;
-    throw err;
-  }
+function publicGenerateJob(job) {
   const out = {
     jobId: job.id,
     status: job.status,
@@ -951,6 +1052,21 @@ function getGenerateJob(jobId, ownerKey) {
     out.warnings = job.result.warnings || [];
   }
   return out;
+}
+
+async function getGenerateJob(jobId, ownerKey) {
+  pruneGenerateJobs();
+  let job = generateJobs.get(String(jobId || ''));
+  if (!job) {
+    job = await loadGenerateJobFromDb(jobId);
+  }
+  if (!job) return null;
+  if (ownerKey && job.ownerKey && job.ownerKey !== String(ownerKey)) {
+    const err = new Error('Job not found.');
+    err.statusCode = 404;
+    throw err;
+  }
+  return publicGenerateJob(job);
 }
 
 function escapeHtml(s) {

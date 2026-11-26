@@ -4065,7 +4065,7 @@ router.get('/grammar-clinic/jobs/:id', requireRole('teacher', 'admin'), async (r
     const ownerKey = String(
       (req.session && (req.session.teacherId || req.session.userId || req.session.email)) || 'anon'
     );
-    const job = grammarClinic.getGenerateJob(req.params.id, ownerKey);
+    const job = await grammarClinic.getGenerateJob(req.params.id, ownerKey);
     if (!job) return res.status(404).json({ error: 'Job not found.' });
     res.json(job);
   } catch (e) {

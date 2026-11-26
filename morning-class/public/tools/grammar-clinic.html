@@ -731,12 +731,23 @@
         })
         .catch(function (err) {
           failStreak += 1;
-          if (failStreak < 8 && (Date.now() - startedAt) < hardMs) {
-            setStatus('연결 재시도 중… (' + failStreak + ') ' + (err.message || ''));
-            setTimeout(tick, 3000);
+          var gone = /Job not found|작업을 찾을 수 없/i.test(String(err && err.message || ''));
+          // Brief 404s during deploy: keep polling. Persistent 404 → clear message.
+          if (failStreak < (gone ? 12 : 10) && (Date.now() - startedAt) < hardMs) {
+            setStatus(
+              gone
+                ? ('작업 상태 복구 중… (' + failStreak + ') 배포/재시작이면 몇 초 뒤 이어집니다')
+                : ('연결 재시도 중… (' + failStreak + ') ' + (err.message || ''))
+            );
+            setTimeout(tick, gone ? 2500 : 3000);
             return;
           }
-          setStatus(err.message || '생성 상태 확인 실패', 'error');
+          setStatus(
+            gone
+              ? '출제 작업을 잃었습니다. 서버 재시작 때문일 수 있어요 — 다시 Generate 해 주세요.'
+              : (err.message || '생성 상태 확인 실패'),
+            'error'
+          );
           finishUi();
         });
     }
