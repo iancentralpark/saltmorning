@@ -602,8 +602,10 @@ async function syncLesson(l) {
         const changed = video.status !== l.status ||
           video.durationSeconds !== l.durationSeconds ||
           (video.statusMessage || '') !== (l.statusMessage || '') ||
+          (video.videoUid && video.videoUid !== l.videoUid) ||
           video.title !== l.title;
         if (changed) {
+          if (video.videoUid) l.videoUid = video.videoUid;
           l.status = video.status;
           l.statusMessage = video.statusMessage || '';
           l.durationSeconds = video.durationSeconds;
@@ -638,6 +640,23 @@ async function syncLesson(l) {
   lessons.set(l.id, l);
   await persistLesson(l);
   return l;
+}
+
+/** Point cached class lessons at a replaced library file. Assignments are untouched. */
+function applyLibraryRetarget(video) {
+  const id = video && video.id;
+  const uid = video && video.videoUid;
+  if (!id || !uid) return;
+  for (const l of lessons.values()) {
+    const linked = l.libraryVideoId === id ||
+      (!l.libraryVideoId && video.oldVideoUid && l.videoUid === video.oldVideoUid);
+    if (!linked) continue;
+    l.videoUid = uid;
+    l.status = 'ready';
+    l.statusMessage = '';
+    if (video.durationSeconds) l.durationSeconds = video.durationSeconds;
+    l.updatedAt = Date.now();
+  }
 }
 
 function isConfigured() {
@@ -1442,6 +1461,7 @@ async function saveProgress(lessonId, student, body) {
 
 module.exports = {
   isConfigured,
+  applyLibraryRetarget,
   listForStaff,
   createLesson,
   assignFromLibrary,
