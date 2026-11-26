@@ -6,20 +6,58 @@
  * (중1–중3 교과서 출판사별 문법 목차 연계).
  */
 
+/**
+ * Question formats seeded from mid-school 내신 papers
+ * (동아 윤/이 중1 7–8, 미래엔 영어1 기말 등).
+ */
 const QUESTION_TYPES = [
   'SENTENCE_AUTHENTICITY_SINGLE',
   'SENTENCE_AUTHENTICITY_MULTIPLE',
   'SENTENCE_AUTHENTICITY_COMBINED',
   'UNDERLINE_CORRECTION',
   'USAGE_CLASSIFICATION',
+  'USAGE_ODD_ONE',
   'BLANK_COMPLETION',
+  'DIALOGUE_BLANK',
+  'BOX_CHOICE_MATCHING',
+  'ERROR_COUNT',
   'SENTENCE_TRANSFORM',
   'DESCRIPTIVE_CORRECTION',
   'ORDERING_WITH_CONDITIONS',
-  'FULL_SENTENCE_COMPOSITION'
+  'ORDERING_NTH',
+  'FULL_SENTENCE_COMPOSITION',
+  'TRANSLATION_MCQ',
+  'TRANSLATION_EXTRA_WORD',
+  'PARAPHRASE_BLANK',
+  'SENTENCE_INSERT',
+  'GUIDED_COMPLETION'
 ];
 
 const MVP_TYPES = QUESTION_TYPES.slice();
+
+/** Human labels for UI / answer keys */
+const QUESTION_TYPE_LABELS = {
+  SENTENCE_AUTHENTICITY_SINGLE: '어법 판단',
+  SENTENCE_AUTHENTICITY_MULTIPLE: '복수 선택',
+  SENTENCE_AUTHENTICITY_COMBINED: '기호 조합',
+  UNDERLINE_CORRECTION: '밑줄 수정',
+  USAGE_CLASSIFICATION: '용법 구별',
+  USAGE_ODD_ONE: '쓰임 이질 고르기',
+  BLANK_COMPLETION: '빈칸 완성',
+  DIALOGUE_BLANK: '대화 빈칸',
+  BOX_CHOICE_MATCHING: '네모(A~C) 짝짓기',
+  ERROR_COUNT: '틀린 개수',
+  SENTENCE_TRANSFORM: '문장 전환',
+  DESCRIPTIVE_CORRECTION: '서술형 수정',
+  ORDERING_WITH_CONDITIONS: '어순 배열',
+  ORDERING_NTH: '배열 N번째',
+  FULL_SENTENCE_COMPOSITION: '조건부 영작',
+  TRANSLATION_MCQ: '우리말→영어(객관)',
+  TRANSLATION_EXTRA_WORD: '영작 불필요 단어',
+  PARAPHRASE_BLANK: '동의문 빈칸',
+  SENTENCE_INSERT: '문장 삽입 위치',
+  GUIDED_COMPLETION: '표·제시어 완성'
+};
 
 function unit(unitId, grade, category, subCategory, coreRules, traps, keywords) {
   const kw = Array.isArray(keywords) ? keywords : [];
@@ -676,6 +714,7 @@ function listCategories() {
 module.exports = {
   QUESTION_TYPES,
   MVP_TYPES,
+  QUESTION_TYPE_LABELS,
   CATALOG,
   listCatalog,
   getUnitsByIds,

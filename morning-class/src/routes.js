@@ -4017,6 +4017,7 @@ router.get('/grammar-clinic/catalog', requireRole('teacher', 'admin'), async (re
       }),
       categories: grammarClinic.listCategories(),
       questionTypes: grammarClinic.QUESTION_TYPES,
+      questionTypeLabels: require('./services/grammarClinic/catalog').QUESTION_TYPE_LABELS,
       mvpTypes: grammarClinic.MVP_TYPES,
       aiConfigured: grammarClinic.isClaudeConfigured(),
       aiProvider: 'claude',
