@@ -120,6 +120,7 @@ const ADMIN_PATH_PERMS = [
   { re: /^\/admin\/analytics/, perm: 'admin.analytics' },
   { re: /^\/admin\/lesson-plans/, perm: 'admin.lessons' },
   { re: /^\/admin\/semester-plans/, perm: 'admin.lessons' },
+  { re: /^\/admin\/learning-status/, perm: 'admin.monitor' },
   { re: /^\/admin\/monitoring/, perm: 'admin.monitor' },
   { re: /^\/admin\/overview/, perm: 'admin.monitor' },
   { re: /^\/admin\/vocab/, perm: 'admin.vocabPlatform' }
