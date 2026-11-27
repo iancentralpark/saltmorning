@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Math Workbook — Salt Morning</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <style>
+    :root {
+      --ink: #172033; --muted: #5c6b7a; --line: #d5e0ea; --card: #fff;
+      --sea: #0f766e; --sea-deep: #115e59; --paper: #f4f7f8; --warn: #9a3412; --ok: #166534; --bad: #9f1239;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Source Sans 3", "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+    header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .85rem 1.2rem; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+    h1 { font-family: Georgia, serif; font-size: 1.45rem; margin: 0; color: var(--sea-deep); }
+    header p { margin: .15rem 0 0; color: var(--muted); font-size: .86rem; }
+    a { color: var(--sea-deep); }
+    main { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; padding: 1rem; align-items: start; }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 1rem; }
+    label { display: block; font-size: .82rem; font-weight: 700; margin: .7rem 0 .25rem; }
+    input, select, textarea { width: 100%; font: inherit; padding: .45rem .55rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .6rem; }
+    .row { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; }
+    button { font: inherit; font-weight: 700; border-radius: 9px; border: 1px solid var(--line); background: #fff; padding: .5rem .75rem; cursor: pointer; }
+    button.primary { background: var(--sea); color: #fff; border-color: var(--sea); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .muted { color: var(--muted); font-size: .86rem; }
+    .bar { height: 8px; background: #e6eef2; border-radius: 99px; overflow: hidden; margin: .45rem 0; }
+    .bar span { display: block; height: 100%; background: var(--sea); width: 0; }
+    .pill { display: inline-block; border-radius: 99px; padding: .05rem .45rem; font-size: .75rem; font-weight: 700; }
+    .verified { background: #dcfce7; color: var(--ok); }
+    .needs_review { background: #ffedd5; color: var(--warn); }
+    .failed { background: #ffe4e6; color: var(--bad); }
+    .q { border-top: 1px solid var(--line); padding: .7rem 0; }
+    .q header { position: static; border: 0; padding: 0; background: transparent; }
+    .hidden { display: none !important; }
+    .stats { display: flex; gap: .6rem; flex-wrap: wrap; margin: .4rem 0 .8rem; }
+    .history button { display: block; width: 100%; text-align: left; margin-top: .35rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Math Workbook</h1>
+      <p>챕터와 제목을 고르면 설명, 문제, 검산, 학생용·답안지·해설지까지 만들어집니다.</p>
+    </div>
+    <a href="/teacher">선생님 포털</a>
+  </header>
+  <main>
+    <section>
+      <label for="curriculum">수학 레벨</label>
+      <select id="curriculum"><option value="pre-algebra">Pre-Algebra</option></select>
+      <label for="chapter">챕터</label>
+      <select id="chapter"></select>
+      <p class="muted" id="chapterBlurb"></p>
+      <label for="level">학생 수준</label>
+      <select id="level">
+        <option value="beginner">Beginner</option>
+        <option value="standard" selected>Standard</option>
+        <option value="advanced">Advanced</option>
+      </select>
+      <label for="title">워크북 제목</label>
+      <input id="title" maxlength="120" placeholder="챕터를 고르면 제목이 채워집니다">
+      <label for="language">워크북 언어</label>
+      <select id="language">
+        <option value="en" selected>English</option>
+        <option value="ko">한국어</option>
+      </select>
+      <label>문항 수</label>
+      <div class="grid" id="counts"></div>
+      <p class="muted">기본 46문항. 한 권은 60문항까지입니다. 검산에 실패한 문항은 파일에서 빠집니다.</p>
+      <div class="row" style="margin-top:.8rem">
+        <button class="primary" id="generate" type="button">워크북 만들기</button>
+        <button id="cancel" type="button" class="hidden">취소</button>
+      </div>
+      <div id="progressBox" class="hidden">
+        <p id="progressText" class="muted"></p>
+        <div class="bar"><span id="progressBar"></span></div>
+      </div>
+      <p id="error" class="muted" style="color:var(--bad)"></p>
+      <h2 style="font-size:1rem;margin:1.2rem 0 .3rem">만든 워크북</h2>
+      <div class="history" id="history"></div>
+    </section>
+    <section>
+      <div class="row">
+        <button id="dlStudent" type="button" disabled>학생용 PDF</button>
+        <button id="dlAnswers" type="button" disabled>답안지 PDF</button>
+        <button id="dlSolutions" type="button" disabled>해설지 PDF</button>
+        <button id="dlHtml" type="button" disabled>학생용 HTML</button>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div id="warnings" class="muted"></div>
+      <div id="preview"><p class="muted">생성이 끝나면 설명과 문항이 여기 표시됩니다. 문항 문장은 고칠 수 있고, 빼 두면 세 파일 모두에서 빠집니다.</p></div>
+    </section>
+  </main>
+  <script>
+(function () {
+  var chapters = [];
+  var job = null;
+  var poll = null;
+  var COUNTS = [
+    ['guided', '안내', 6],
+    ['basic', '기본', 10],
+    ['intermediate', '중간', 10],
+    ['advanced', '심화', 6],
+    ['word', '문장제', 6],
+    ['mastery', '단원평가', 8]
+  ];
+  var $ = function (id) { return document.getElementById(id); };
+
+  function token() {
+    try {
+      return localStorage.getItem('salt_teacher_token') ||
+        sessionStorage.getItem('salt_teacher_token') ||
+        localStorage.getItem('salt_admin_token') ||
+        sessionStorage.getItem('salt_admin_token') || '';
+    } catch (e) { return ''; }
+  }
+
+  function api(url, opts) {
+    opts = opts || {};
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (token()) headers.Authorization = 'Bearer ' + token();
+    return fetch(url, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    }).then(function (res) {
+      var type = res.headers.get('content-type') || '';
+      if (type.indexOf('application/json') >= 0) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw new Error((data && data.error) || '요청에 실패했습니다.');
+          return data;
+        });
+      }
+      if (!res.ok) throw new Error('요청에 실패했습니다.');
+      return res.blob();
+    });
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function typeset(el) {
+    if (window.renderMathInElement) {
+      window.renderMathInElement(el, {
+        delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+        throwOnError: false
+      });
+    }
+  }
+
+  function selectedChapter() {
+    return chapters.filter(function (c) { return c.id === $('chapter').value; })[0] || null;
+  }
+
+  function fillCounts() {
+    $('counts').innerHTML = COUNTS.map(function (row) {
+      return '<label>' + row[1] + '<input type="number" min="0" max="20" data-count="' + row[0] + '" value="' + row[2] + '"></label>';
+    }).join('');
+  }
+
+  function fillChapters() {
+    var html = '';
+    var lastUnit = '';
+    chapters.forEach(function (c) {
+      if (c.unitTitle !== lastUnit) {
+        if (lastUnit) html += '</optgroup>';
+        html += '<optgroup label="' + esc(c.unitTitle) + '">';
+        lastUnit = c.unitTitle;
+      }
+      html += '<option value="' + esc(c.id) + '">' + c.number + '. ' + esc(c.title) + '</option>';
+    });
+    if (lastUnit) html += '</optgroup>';
+    $('chapter').innerHTML = html;
+    onChapter();
+  }
+
+  function onChapter() {
+    var c = selectedChapter();
+    if (!c) return;
+    $('chapterBlurb').textContent = c.description || '';
+    if (!$('title').dataset.edited) $('title').value = c.title + ' Workbook';
+  }
+
+  function countsBody() {
+    var counts = {};
+    document.querySelectorAll('[data-count]').forEach(function (input) {
+      counts[input.getAttribute('data-count')] = Number(input.value || 0);
+    });
+    return counts;
+  }
+
+  function setBusy(on) {
+    $('generate').disabled = on;
+    $('cancel').classList.toggle('hidden', !on);
+  }
+
+  function showJob(data) {
+    job = data;
+    var running = data.status === 'running';
+    setBusy(running);
+    $('progressBox').classList.toggle('hidden', !data.progress);
+    var pct = (data.progress && data.progress.pct) || 0;
+    $('progressText').textContent = (data.progress && data.progress.message) || '';
+    $('progressBar').style.width = pct + '%';
+    $('error').textContent = data.error || '';
+    var ready = data.status === 'done';
+    ['dlStudent', 'dlAnswers', 'dlSolutions', 'dlHtml'].forEach(function (id) { $(id).disabled = !ready; });
+    var s = data.stats || {};
+    $('stats').innerHTML = ready ? (
+      '<span class="pill verified">Verified ' + (s.verified || 0) + '</span>' +
+      '<span class="pill needs_review">Needs review ' + (s.needsReview || 0) + '</span>' +
+      '<span class="pill failed">제외 ' + (s.failed || 0) + '</span>'
+    ) : '';
+    $('warnings').textContent = (data.warnings || []).join(' ');
+    renderPreview(data);
+    if (running) schedulePoll(data.id);
+    else stopPoll();
+    if (data.status === 'interrupted') {
+      $('error').textContent = data.error || '생성이 멈췄습니다.';
+      $('generate').textContent = '이어서 만들기';
+      $('generate').disabled = false;
+    } else if (!running) {
+      $('generate').textContent = '워크북 만들기';
+    }
+  }
+
+  function renderPreview(data) {
+    if (!data || data.status === 'running' && !(data.questions || []).length && !(data.concepts || []).length) {
+      if (data && data.status === 'running') return;
+    }
+    var html = '';
+    if (data.introduction) html += '<h2>도입</h2><p>' + esc(data.introduction) + '</p>';
+    (data.concepts || []).forEach(function (c) {
+      html += '<h3>' + esc(c.title) + '</h3><p>' + esc(c.body) + '</p>';
+    });
+    (data.questions || []).forEach(function (q, i) {
+      var st = (q.verification && q.verification.status) || 'needs_review';
+      html += '<div class="q"><header class="row"><strong>' + (i + 1) + '. ' + esc(q.section) + '</strong>' +
+        '<span class="pill ' + st + '">' + st + '</span>' +
+        (q.verification && q.verification.computed ? '<span class="muted">계산값 ' + esc(q.verification.computed) + '</span>' : '') +
+        '</header><p class="prompt" data-id="' + esc(q.id) + '">' + esc(q.prompt) + '</p>' +
+        '<p class="muted">답: ' + esc(q.answer) + (q.expression ? ' · 식 ' + esc(q.expression) : '') + '</p>' +
+        '<div class="row"><button type="button" data-edit="' + esc(q.id) + '">문장 고치기</button>' +
+        '<button type="button" data-drop="' + esc(q.id) + '">빼기</button></div></div>';
+    });
+    if (!html) html = '<p class="muted">아직 보여줄 내용이 없습니다.</p>';
+    $('preview').innerHTML = html;
+    typeset($('preview'));
+  }
+
+  function stopPoll() { if (poll) clearTimeout(poll); poll = null; }
+  function schedulePoll(id) {
+    stopPoll();
+    poll = setTimeout(function () { refreshJob(id); }, 1500);
+  }
+
+  function refreshJob(id) {
+    api('/api/math-workbook/jobs/' + encodeURIComponent(id)).then(showJob).catch(function (e) {
+      $('error').textContent = e.message;
+      setBusy(false);
+    });
+  }
+
+  function loadHistory() {
+    api('/api/math-workbook/workbooks').then(function (data) {
+      var rows = data.workbooks || [];
+      $('history').innerHTML = rows.map(function (row) {
+        return '<button type="button" data-open="' + esc(row.id) + '">' + esc(row.title || row.id) +
+          ' · ' + esc(row.status) + '</button>';
+      }).join('') || '<p class="muted">아직 없습니다.</p>';
+    }).catch(function () {});
+  }
+
+  function download(part, ext) {
+    if (!job) return;
+    var url = '/api/math-workbook/jobs/' + encodeURIComponent(job.id) + '/' + ext + '?part=' + part;
+    fetch(url, { headers: { Authorization: 'Bearer ' + token() } }).then(function (res) {
+      if (!res.ok) return res.json().then(function (d) { throw new Error(d.error || '다운로드에 실패했습니다.'); });
+      return res.blob().then(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (job.title || 'workbook') + '-' + part + '.' + (ext === 'pdf' ? 'pdf' : 'html');
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      });
+    }).catch(function (e) { $('error').textContent = e.message; });
+  }
+
+  fillCounts();
+  $('title').addEventListener('input', function () { $('title').dataset.edited = '1'; });
+  $('chapter').addEventListener('change', function () {
+    $('title').dataset.edited = '';
+    onChapter();
+    if (!job || job.status !== 'running') $('generate').textContent = '워크북 만들기';
+  });
+  $('generate').addEventListener('click', function () {
+    var c = selectedChapter();
+    if (!c) return;
+    if (job && job.status === 'interrupted' && c && job.chapter && job.chapter.id === c.id) {
+      api('/api/math-workbook/jobs/' + encodeURIComponent(job.id) + '/resume', { method: 'POST', body: {} })
+        .then(function () { refreshJob(job.id); }).catch(function (e) { $('error').textContent = e.message; });
+      return;
+    }
+    setBusy(true);
+    $('error').textContent = '';
+    api('/api/math-workbook/generate', {
+      method: 'POST',
+      body: {
+        chapterId: c.id,
+        title: $('title').value,
+        level: $('level').value,
+        language: $('language').value,
+        counts: countsBody()
+      }
+    }).then(function (data) {
+      refreshJob(data.jobId);
+      loadHistory();
+    }).catch(function (e) {
+      setBusy(false);
+      $('error').textContent = e.message;
+    });
+  });
+  $('cancel').addEventListener('click', function () {
+    if (!job) return;
+    api('/api/math-workbook/jobs/' + encodeURIComponent(job.id) + '/cancel', { method: 'POST', body: {} })
+      .then(showJob).catch(function (e) { $('error').textContent = e.message; });
+  });
+  $('dlStudent').addEventListener('click', function () { download('student', 'pdf'); });
+  $('dlAnswers').addEventListener('click', function () { download('answers', 'pdf'); });
+  $('dlSolutions').addEventListener('click', function () { download('solutions', 'pdf'); });
+  $('dlHtml').addEventListener('click', function () { download('student', 'html'); });
+  $('preview').addEventListener('click', function (ev) {
+    var drop = ev.target.getAttribute && ev.target.getAttribute('data-drop');
+    var edit = ev.target.getAttribute && ev.target.getAttribute('data-edit');
+    if (!job || (!drop && !edit)) return;
+    var body = {};
+    if (drop) body.removeQuestionIds = [drop];
+    if (edit) {
+      var current = '';
+      (job.questions || []).forEach(function (q) { if (q.id === edit) current = q.prompt; });
+      var next = window.prompt('문항 문장', current);
+      if (next == null) return;
+      body.edits = [{ id: edit, prompt: next }];
+    }
+    api('/api/math-workbook/jobs/' + encodeURIComponent(job.id), { method: 'PATCH', body: body })
+      .then(showJob).catch(function (e) { $('error').textContent = e.message; });
+  });
+  $('history').addEventListener('click', function (ev) {
+    var id = ev.target.getAttribute && ev.target.getAttribute('data-open');
+    if (id) refreshJob(id);
+  });
+
+  if (!token()) {
+    $('error').textContent = '선생님 포털에서 Class tools로 열어 주세요.';
+    $('generate').disabled = true;
+  } else {
+    api('/api/math-workbook/chapters').then(function (data) {
+      chapters = data.chapters || [];
+      fillChapters();
+      loadHistory();
+    }).catch(function (e) { $('error').textContent = e.message; });
+  }
+})();
+  </script>
+</body>
+</html>

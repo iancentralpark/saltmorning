@@ -4279,6 +4279,103 @@ router.get('/grammar-clinic/worksheet/jobs/:id/html', requireRole('teacher', 'ad
   }
 });
 
+const mathWorkbook = require('./services/mathWorkbookService');
+
+function mathOwnerKey(req) {
+  return String(
+    (req.session && (req.session.teacherId || req.session.adminId || req.session.userId || req.session.email)) || 'anon'
+  );
+}
+
+router.get('/math-workbook/chapters', requireRole('teacher', 'admin'), (req, res) => {
+  res.json({
+    curriculum: { id: 'pre-algebra', title: 'Pre-Algebra' },
+    chapters: mathWorkbook.listChapters()
+  });
+});
+
+router.get('/math-workbook/workbooks', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const workbooks = await mathWorkbook.listWorkbooks(mathOwnerKey(req));
+    res.json({ workbooks: workbooks });
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not list workbooks.' });
+  }
+});
+
+router.post('/math-workbook/generate', requireRole('teacher', 'admin'), novelStudyJobLimiter, (req, res) => {
+  try {
+    const started = mathWorkbook.startGenerateJob(req.body || {}, mathOwnerKey(req));
+    res.status(202).json(Object.assign({ ok: true }, started));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not start workbook.' });
+  }
+});
+
+router.get('/math-workbook/jobs/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = await mathWorkbook.getJob(req.params.id, mathOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Workbook not found.' });
+    res.json(mathWorkbook.publicJob(job));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not load workbook.' });
+  }
+});
+
+router.post('/math-workbook/jobs/:id/resume', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = await mathWorkbook.getJob(req.params.id, mathOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Workbook not found.' });
+    res.json(mathWorkbook.resumeJob(req.params.id, mathOwnerKey(req)));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not resume workbook.' });
+  }
+});
+
+router.post('/math-workbook/jobs/:id/cancel', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = await mathWorkbook.getJob(req.params.id, mathOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Workbook not found.' });
+    res.json(mathWorkbook.cancelJob(req.params.id, mathOwnerKey(req)));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not cancel workbook.' });
+  }
+});
+
+router.patch('/math-workbook/jobs/:id', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const job = await mathWorkbook.getJob(req.params.id, mathOwnerKey(req));
+    if (!job) return res.status(404).json({ error: 'Workbook not found.' });
+    res.json(mathWorkbook.updateJob(req.params.id, mathOwnerKey(req), req.body || {}));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not update workbook.' });
+  }
+});
+
+router.get('/math-workbook/jobs/:id/:file', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    const file = req.params.file === 'pdf' ? 'pdf' : (req.params.file === 'html' ? 'html' : '');
+    const part = ['student', 'answers', 'solutions'].includes(req.query.part) ? req.query.part : 'student';
+    if (!file) return res.status(404).json({ error: 'File not found.' });
+    const job = await mathWorkbook.getJob(req.params.id, mathOwnerKey(req));
+    if (!job || job.status !== 'done') return res.status(404).json({ error: 'Workbook is not ready.' });
+    const html = mathWorkbook.renderWorkbookHtml(job.document, { part: part, forPdf: file === 'pdf' });
+    const base = String(job.title || 'workbook').replace(/[\\/:*?"<>|]+/g, ' ').trim().slice(0, 60) || 'workbook';
+    const filename = base + '-' + part + '.' + file;
+    if (file === 'html') {
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(filename));
+      return res.send(html);
+    }
+    const pdf = await mathWorkbook.renderPdf(html);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(filename));
+    res.send(pdf);
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not build the file.' });
+  }
+});
+
 const bibleSlides = require('./services/bibleSlidesService');
 
 function bibleOwnerKey(req) {
