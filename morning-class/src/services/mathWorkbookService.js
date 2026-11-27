@@ -132,7 +132,7 @@ async function realAsk(userPrompt, maxTokens) {
   const text = (result && (result.answer || result.text)) || result;
   const parsed = extractJson(text);
   if (!parsed || typeof parsed !== 'object') {
-    const err = new Error('AI returned invalid JSON.');
+    const err = new Error('AI 응답이 깨졌습니다.');
     err.statusCode = 502;
     throw err;
   }
@@ -438,6 +438,7 @@ async function stageOutline(job) {
     beats: strList(lesson.beats, 6)
   })).filter((lesson) => lesson.title);
   doc.stagesDone = ['outline'];
+  clearRetries(job);
 }
 
 async function stageTeach(job) {
@@ -487,6 +488,7 @@ async function stageTeach(job) {
     throw err;
   }
   doc.stagesDone = ['outline', 'teach'];
+  clearRetries(job);
 }
 
 async function fetchBatch(job, section, need, already) {
@@ -546,6 +548,7 @@ async function stagePractice(job) {
     doc.questions = (doc.questions || []).concat(got);
     doc.sectionsDone = (doc.sectionsDone || []).concat([section]);
     done.add(section);
+    clearRetries(job);
     await persistJob(job);
   }
   doc.stagesDone = ['outline', 'teach', 'practice'];
@@ -611,6 +614,43 @@ function stageVerify(job) {
     }
   });
   doc.stagesDone = ['outline', 'teach', 'practice', 'verify'];
+  clearRetries(job);
+}
+
+const AUTO_RETRY_LIMIT = 4;
+
+function clearRetries(job) {
+  job.autoRetries = 0;
+  if (job.document) job.document.autoRetries = 0;
+}
+
+function retryCount(job) {
+  const n = Number(job.autoRetries != null ? job.autoRetries : (job.document && job.document.autoRetries));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function noteRetry(job, n) {
+  job.autoRetries = n;
+  if (job.document) job.document.autoRetries = n;
+}
+
+function friendlyFail(err) {
+  const msg = String(err && err.message || '');
+  if (/invalid JSON/i.test(msg)) return 'AI 응답이 깨졌습니다.';
+  return msg || '워크북 생성에 실패했습니다.';
+}
+
+function canAutoRetry(job, err) {
+  if (!err || job.status === 'cancelled') return false;
+  if (err.statusCode === 400 || err.statusCode === 503) return false;
+  if (/검산을 통과한 문항이 없습니다/.test(String(err.message || ''))) return false;
+  return retryCount(job) < AUTO_RETRY_LIMIT;
+}
+
+function heldPct(job) {
+  const pct = job.progress && Number(job.progress.pct);
+  if (Number.isFinite(pct) && pct > 0 && pct < 100) return pct;
+  return job._pctBase || 8;
 }
 
 async function processJob(job) {
@@ -661,10 +701,26 @@ async function processJob(job) {
     await persistJob(job);
   } catch (e) {
     if (job.status === 'cancelled') return;
+    if (canAutoRetry(job, e)) {
+      const n = retryCount(job) + 1;
+      noteRetry(job, n);
+      touch(job, {
+        status: 'running',
+        error: null,
+        progress: {
+          message: friendlyFail(e) + ' 끝난 지점부터 다시 시도합니다 (' + n + '/' + AUTO_RETRY_LIMIT + ').',
+          pct: heldPct(job)
+        }
+      });
+      await persistJob(job);
+      const wait = askOverride ? 0 : 1200 * n;
+      setTimeout(() => { void processJob(job); }, wait);
+      return;
+    }
     touch(job, {
       status: 'error',
-      error: e.message || '워크북 생성에 실패했습니다.',
-      progress: { message: '실패', pct: 100 }
+      error: friendlyFail(e) + ' 이어서 만들기를 누르면 끝난 지점부터 다시 시도합니다.',
+      progress: { message: '이어서 만들 수 있습니다', pct: heldPct(job) }
     });
     await persistJob(job);
   } finally {
@@ -834,10 +890,22 @@ async function loadJob(id) {
     const job = jobFromRow(r.rows[0]);
     if (!job) return null;
     if (job.status === 'running') {
-      job.status = 'interrupted';
-      job.error = '생성이 중간에 멈췄습니다. 이어할 수 있습니다.';
       jobs.set(job.id, job);
-      await persistJob(job);
+      if (retryCount(job) < AUTO_RETRY_LIMIT) {
+        noteRetry(job, retryCount(job) + 1);
+        job.status = 'running';
+        job.error = null;
+        job.progress = {
+          message: '멈춘 지점부터 다시 시작합니다 (' + retryCount(job) + '/' + AUTO_RETRY_LIMIT + ').',
+          pct: heldPct(job)
+        };
+        await persistJob(job);
+        setImmediate(() => { void processJob(job); });
+      } else {
+        job.status = 'interrupted';
+        job.error = '생성이 중간에 멈췄습니다. 이어서 만들기를 누르면 끝난 지점부터 다시 시도합니다.';
+        await persistJob(job);
+      }
     } else {
       jobs.set(job.id, job);
     }
@@ -864,6 +932,7 @@ function resumeJob(id, ownerKey) {
     err.statusCode = 400;
     throw err;
   }
+  clearRetries(job);
   touch(job, { status: 'running', error: null, progress: { message: '이어서 생성 중…', pct: job.progress && job.progress.pct || 20 } });
   setImmediate(() => { void processJob(job); });
   return { jobId: job.id, status: job.status, progress: job.progress };

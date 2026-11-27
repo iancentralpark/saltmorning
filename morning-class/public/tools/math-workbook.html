@@ -289,8 +289,8 @@
     renderPreview(data);
     if (running) schedulePoll(data.id);
     else stopPoll();
-    if (data.status === 'interrupted') {
-      $('error').textContent = data.error || '생성이 멈췄습니다.';
+    if (data.status === 'interrupted' || data.status === 'error') {
+      $('error').textContent = data.error || '생성이 멈췄습니다. 이어서 만들기를 누르면 끝난 지점부터 다시 시도합니다.';
       $('generate').textContent = '이어서 만들기';
       $('generate').disabled = false;
     } else if (!running) {
@@ -414,7 +414,7 @@
     var ids = picked.map(function (c) { return c.id; }).sort().join(',');
     var jobIds = (job && job.chapters && job.chapters.length ? job.chapters : (job && job.chapter ? [job.chapter] : []))
       .map(function (c) { return c.id; }).sort().join(',');
-    if (job && job.status === 'interrupted' && ids === jobIds) {
+    if (job && (job.status === 'interrupted' || job.status === 'error') && ids === jobIds) {
       api('/api/math-workbook/jobs/' + encodeURIComponent(job.id) + '/resume', { method: 'POST', body: {} })
         .then(function () { refreshJob(job.id); }).catch(function (e) { $('error').textContent = e.message; });
       return;
