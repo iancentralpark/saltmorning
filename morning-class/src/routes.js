@@ -4346,7 +4346,7 @@ router.patch('/math-workbook/jobs/:id', requireRole('teacher', 'admin'), async (
   try {
     const job = await mathWorkbook.getJob(req.params.id, mathOwnerKey(req));
     if (!job) return res.status(404).json({ error: 'Workbook not found.' });
-    res.json(mathWorkbook.updateJob(req.params.id, mathOwnerKey(req), req.body || {}));
+    res.json(await mathWorkbook.updateJob(req.params.id, mathOwnerKey(req), req.body || {}));
   } catch (e) {
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not update workbook.' });
   }
