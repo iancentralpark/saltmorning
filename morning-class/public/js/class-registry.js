@@ -149,7 +149,7 @@
       allowedDaysChecked(formClass.allowedDays) + '</div>' +
       '<label>Portal mode <select class="cr-input-portal">' +
       '<option value="full"' + (portalMode === 'full' ? ' selected' : '') + '>Full school portal</option>' +
-      '<option value="content"' + (portalMode === 'content' ? ' selected' : '') + '>Content only (Debrief / Lessons / Booster)</option>' +
+      '<option value="content"' + (portalMode === 'content' ? ' selected' : '') + '>Content only (school tools hidden)</option>' +
       '</select></label>' +
       '<div class="cr-form-days cr-content-flags"><span class="cr-field-label">Content portal links</span>' +
       '<label class="cr-day-chip"><input type="checkbox" class="cr-flag-booster"' +
@@ -157,7 +157,7 @@
       '<label class="cr-day-chip"><input type="checkbox" class="cr-flag-magic"' +
       (flags.magicAcademy === true ? ' checked' : '') + '> Magic Academy</label>' +
       '</div>' +
-      '<p class="muted small">Content-only classes hide attendance/timetable for students and show Oral Debrief, Online Lessons, and external product links.</p>' +
+      '<p class="muted small">Oral Debrief and Online Lessons are in both portal modes. Content-only classes hide attendance, timetable, and grades, and add Salty plus the external links below.</p>' +
       '<button type="submit" class="btn btn-primary">Save class</button>' +
       (isNew ? '' :
         '<button type="button" class="btn btn-danger cr-delete-btn">Delete class</button>') +

@@ -219,8 +219,8 @@
         <button class="class-subnav-item" data-tab="analytics" type="button" data-i18n="nav.analytics">Analytics</button>
         <button class="class-subnav-item" data-tab="lesson" data-homeroom-only="1" type="button" data-i18n="nav.lessons">Lessons</button>
         <button class="class-subnav-item hidden" data-tab="content" data-content-only="1" type="button">Content</button>
-        <button class="class-subnav-item hidden" data-tab="debrief" data-content-only="1" type="button">Oral Debrief</button>
-        <button class="class-subnav-item hidden" data-tab="online" data-content-only="1" type="button">Online Lessons</button>
+        <button class="class-subnav-item hidden" data-tab="debrief" data-all-portals="1" type="button">Oral Debrief</button>
+        <button class="class-subnav-item hidden" data-tab="online" data-all-portals="1" type="button">Online Lessons</button>
         <button class="class-subnav-item hidden" data-tab="salty" data-content-only="1" type="button">Salty</button>
       </div>
     </nav>
@@ -817,8 +817,8 @@
     const quick = content
       ? [['content', 'Monitor'], ['debrief', 'Debrief'], ['online', 'Lessons']]
       : (isHomeroom
-        ? [['attendance', 'Attendance'], ['timetable', 'Timetable'], ['grades', 'Grades']]
-        : [['timetable', 'Timetable'], ['grades', 'Grades'], ['homework', 'Homework']]);
+        ? [['attendance', 'Attendance'], ['timetable', 'Timetable'], ['grades', 'Grades'], ['debrief', 'Debrief'], ['online', 'Lessons']]
+        : [['timetable', 'Timetable'], ['grades', 'Grades'], ['homework', 'Homework'], ['debrief', 'Debrief'], ['online', 'Lessons']]);
     const actions = quick.map((pair) =>
       '<button type="button" class="class-card-quick" data-tab="' + pair[0] + '">' + pair[1] + '</button>'
     ).join('') +
@@ -2472,9 +2472,10 @@
     const content = isContentClass(currentClass);
     document.querySelectorAll('#classTabs .class-subnav-item').forEach((btn) => {
       const contentOnly = btn.getAttribute('data-content-only') === '1';
+      const allPortals = btn.getAttribute('data-all-portals') === '1';
       const homeroomOnly = btn.getAttribute('data-homeroom-only') === '1';
       if (content) {
-        btn.classList.toggle('hidden', !contentOnly);
+        btn.classList.toggle('hidden', !(contentOnly || allPortals));
       } else {
         btn.classList.toggle('hidden', contentOnly || (homeroomOnly && !hr));
       }
@@ -2633,10 +2634,11 @@
 
   function switchTab(name, opts) {
     opts = opts || {};
-    const contentOnly = { content: 1, debrief: 1, online: 1, salty: 1 };
+    const contentOnly = { content: 1, salty: 1 };
+    const contentAllowed = { content: 1, debrief: 1, online: 1, salty: 1 };
     const homeroomOnly = { attendance: 1, vocab: 1, lesson: 1 };
     if (isContentClass(currentClass)) {
-      if (!contentOnly[name]) name = 'content';
+      if (!contentAllowed[name]) name = 'content';
     } else {
       if (contentOnly[name]) name = defaultClassTab();
       if (homeroomOnly[name] && !isHomeroomClass(currentClass)) {
