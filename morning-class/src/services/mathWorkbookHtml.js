@@ -107,6 +107,7 @@ function labels(lang) {
     className: ko ? '반' : 'Class',
     date: ko ? '날짜' : 'Date',
     workbook: ko ? '수학 워크북' : 'Mathematics Workbook',
+    edition: ko ? '학생용' : 'Student Edition',
     answerKey: ko ? '정답표' : 'Answer Key',
     solutions: ko ? '해설지' : 'Solution Guide',
     hint: ko ? '힌트' : 'Hint',
@@ -190,23 +191,24 @@ html, body { margin: 0; padding: 0; }
 body { color: var(--ink); background: #fff; font-family: var(--body); font-size: 11.5pt; line-height: 1.45; }
 p, li { orphans: 3; widows: 3; }
 .running { display: none; }
-.cover { page: cover; height: 297mm; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); break-after: page; }
-.cover-top { background: var(--cover); color: var(--cover-ink); padding: 18mm 16mm 12mm; }
-.cover-top .brand { font-family: var(--sans); letter-spacing: .22em; font-size: 11pt; font-weight: 700; }
-.cover-top .series { margin-top: 3mm; font-family: var(--display); font-size: 16pt; color: var(--series); }
-.stamp { display: inline-block; margin-top: 6mm; border: 1px solid var(--series); color: var(--series); letter-spacing: .16em; text-transform: uppercase; font-family: var(--sans); font-size: 9pt; padding: 1.5mm 3mm; }
-.cover-main { flex: 1; padding: 14mm 16mm 6mm; }
-.eyebrow { font-family: var(--sans); letter-spacing: .16em; text-transform: uppercase; font-size: 9pt; color: var(--accent2); font-weight: 700; }
-.cover-main h1 { font-family: var(--display); font-size: 34pt; line-height: 1.05; color: var(--accent); margin: 4mm 0 2mm; font-weight: 700; }
-.gold { width: 28mm; height: 1.4mm; background: var(--mark); margin: 5mm 0 7mm; }
+.cover { page: cover; height: 297mm; display: flex; flex-direction: column; position: relative; overflow: hidden; background: var(--paper); color: var(--ink); break-after: page; }
+.cover-hero { position: relative; padding: 16mm 16mm 8mm; }
+.brandrow { display: flex; justify-content: space-between; align-items: baseline; gap: 6mm; }
+.brand { font-family: var(--sans); letter-spacing: .24em; text-transform: uppercase; font-size: 9pt; font-weight: 700; }
+.series { font-family: var(--sans); font-size: 11pt; letter-spacing: .08em; }
+.stamp { display: inline-block; margin-top: 5mm; border: 1px solid currentColor; letter-spacing: .16em; text-transform: uppercase; font-family: var(--sans); font-size: 8pt; padding: 1.2mm 2.6mm; }
+.cover-hero h1 { font-family: var(--display); font-size: 40pt; line-height: .98; margin: 8mm 0 0; font-weight: 700; max-width: 150mm; }
+.cover-kicker { font-family: var(--sans); letter-spacing: .18em; text-transform: uppercase; font-size: 9pt; margin: 4mm 0 0; }
+.cover-mark { width: 36mm; height: 36mm; }
+.cover-mark svg { width: 100%; height: 100%; display: block; }
+.cover-body { flex: 1; padding: 4mm 16mm 0; }
 .cover-list { list-style: none; margin: 0; padding: 0; }
-.cover-list li { font-family: var(--sans); border-top: 1px solid var(--line); padding: 2.6mm 0; font-size: 12pt; }
-.cover-list li:last-child { border-bottom: 1px solid var(--line); }
-.cover-foot { margin: 0 16mm 14mm; display: grid; grid-template-columns: 1.5fr .8fr .8fr; border: 1.5px solid var(--accent); }
-.cover-foot div { padding: 3.5mm 4mm 5mm; border-right: 1px solid var(--accent); }
-.cover-foot div:last-child { border-right: 0; }
-.cover-foot span { display: block; font-family: var(--sans); font-size: 8pt; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.cover-foot i { display: block; height: 7mm; }
+.cover-list.many { columns: 2; column-gap: 8mm; }
+.cover-list li { display: flex; gap: 3mm; align-items: baseline; break-inside: avoid; font-family: var(--sans); font-size: 11pt; padding: 1.7mm 0; }
+.cn { font-weight: 700; min-width: 8mm; font-size: 10pt; color: var(--mark); }
+.cover-foot { display: grid; grid-template-columns: 1.6fr .8fr .8fr; gap: 6mm; padding: 6mm 16mm 12mm; }
+.cover-foot span { display: block; font-family: var(--sans); font-size: 8pt; letter-spacing: .14em; text-transform: uppercase; }
+.cover-foot i { display: block; height: 8mm; border-bottom: 1px solid currentColor; opacity: .55; }
 .chapter { break-before: auto; }
 .sheet { break-before: page; }
 h2, h3, .band, .opener, .kicker { break-after: avoid; }
@@ -249,19 +251,56 @@ a.toc-row::after { content: target-counter(attr(href), page); font-family: var(-
 .akey .n { font-family: var(--sans); font-weight: 700; color: var(--accent); min-width: 8mm; }
 .note { font-family: var(--sans); font-size: 10pt; color: var(--muted); }
 body.theme-playful .pnum { border-radius: 999px; background: var(--mark); border-color: var(--mark); color: #3a2a10; }
-body.theme-playful .concept, body.theme-playful .example, body.theme-playful .rulebox, body.theme-playful .solution, body.theme-playful .stamp { border-radius: 12px; }
-body.theme-playful .gold { height: 3.2mm; border-radius: 99px; }
+body.theme-playful .concept, body.theme-playful .example, body.theme-playful .rulebox, body.theme-playful .solution { border-radius: 12px; }
 body.theme-playful .band { border-radius: 999px; width: fit-content; padding-left: 5mm; padding-right: 5mm; }
-body.theme-modern .cover-top, body.theme-editorial .band, body.theme-modern .band { background: transparent; color: var(--accent); }
-body.theme-modern .cover { background: #fff; }
-body.theme-modern .cover-top { color: var(--ink); padding-bottom: 4mm; }
-body.theme-modern .cover-top .brand { color: var(--accent2); }
-body.theme-modern .cover-top .series { color: var(--accent2); }
-body.theme-modern .stamp { color: var(--accent2); border-color: var(--accent2); }
-body.theme-modern .gold { width: 16mm; height: .5mm; }
-body.theme-modern .band, body.theme-editorial .band { border-bottom: 1.5px solid var(--accent); padding-left: 0; padding-right: 0; letter-spacing: .16em; }
+body.theme-modern .band, body.theme-editorial .band { background: transparent; color: var(--accent); border-bottom: 1.5px solid var(--accent); padding-left: 0; padding-right: 0; letter-spacing: .16em; }
 body.theme-modern .concept, body.theme-modern .example, body.theme-modern .solution { border-width: 0 0 1px; border-radius: 0; }
-body.theme-editorial .cover-main h1, body.theme-editorial .opener h2, body.theme-editorial .chnum { font-weight: 500; }
+body.theme-editorial .opener h2, body.theme-editorial .chnum { font-weight: 500; }
+body.theme-classic .cover { background: #10283f; color: #f4efe4; padding: 0; }
+body.theme-classic .cover-hero { padding: 20mm 18mm 0; min-height: 132mm; }
+body.theme-classic .brand { color: #e6c98a; }
+body.theme-classic .series { color: #f4efe4; letter-spacing: .16em; text-transform: uppercase; font-size: 10pt; }
+body.theme-classic .cover-hero h1 { color: #f7f3ea; font-size: 46pt; max-width: 128mm; }
+body.theme-classic .cover-kicker { color: #e6c98a; }
+body.theme-classic .cover-mark { position: absolute; right: 16mm; bottom: 8mm; width: 48mm; height: 48mm; color: #e6c98a; }
+body.theme-classic .cover-body { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 18mm 3mm; }
+body.theme-classic .cover-list li { color: #f4efe4; border-top: 1px solid rgba(230, 201, 138, .35); }
+body.theme-classic .cn { color: #e6c98a; }
+body.theme-classic .cover-foot { margin-top: 6mm; background: #f7f3ea; color: #16324f; padding: 7mm 18mm 9mm; }
+body.theme-classic .cover-foot span { color: #6d6458; }
+body.theme-playful .cover { background: #fff8ee; padding: 10mm 10mm 0; }
+body.theme-playful .cover-hero { background: #1f8a70; color: #fff8ee; border-radius: 8mm; min-height: 158mm; padding: 14mm 14mm 16mm; overflow: hidden; }
+body.theme-playful .cover-hero::after { content: ""; position: absolute; width: 78mm; height: 78mm; border-radius: 50%; background: #d94f3d; right: -16mm; bottom: -24mm; }
+body.theme-playful .brand, body.theme-playful .series, body.theme-playful .cover-hero h1, body.theme-playful .cover-kicker, body.theme-playful .stamp { position: relative; z-index: 1; }
+body.theme-playful .series { color: #ffe08a; font-weight: 700; }
+body.theme-playful .cover-hero h1 { color: #fff; font-size: 40pt; max-width: 140mm; }
+body.theme-playful .cover-kicker { color: #ffe08a; }
+body.theme-playful .cover-mark { position: absolute; z-index: 1; right: 16mm; bottom: 14mm; width: 34mm; height: 34mm; color: #ffe08a; }
+body.theme-playful .cover-body { padding: 6mm 6mm 0; }
+body.theme-playful .cn { color: #d94f3d; }
+body.theme-playful .cover-foot { padding: 4mm 6mm 8mm; }
+body.theme-modern .cover { background: #fff; padding: 0 16mm 0 20mm; }
+body.theme-modern .cover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 7mm; background: #c2410c; }
+body.theme-modern .cover-hero { padding: 22mm 0 0; min-height: 150mm; }
+body.theme-modern .brand { color: #c2410c; }
+body.theme-modern .series { color: #5f5f5f; letter-spacing: .2em; text-transform: uppercase; font-size: 10pt; }
+body.theme-modern .cover-hero h1 { color: #111; font-size: 48pt; font-weight: 700; letter-spacing: -.03em; max-width: 160mm; }
+body.theme-modern .cover-kicker { color: #5f5f5f; }
+body.theme-modern .cover-mark { width: 32mm; height: 32mm; color: #c2410c; margin-top: 8mm; }
+body.theme-modern .cover-body { padding: 0; }
+body.theme-modern .cover-list li { border-bottom: 1px solid #e3e0da; }
+body.theme-modern .cn { color: #c2410c; }
+body.theme-modern .cover-foot { padding: 6mm 0 12mm; }
+body.theme-editorial .cover { background: #f3efe6; padding: 0; }
+body.theme-editorial .cover-hero { background: #6b2d3c; color: #f7f1e6; flex: 1.15; padding: 18mm 16mm 14mm; }
+body.theme-editorial .brand { color: #e7c7a1; }
+body.theme-editorial .series { color: #f7f1e6; letter-spacing: .18em; text-transform: uppercase; font-size: 10pt; }
+body.theme-editorial .cover-hero h1 { color: #f7f1e6; font-weight: 500; font-size: 46pt; max-width: 150mm; }
+body.theme-editorial .cover-kicker { color: #e7c7a1; }
+body.theme-editorial .cover-mark { position: absolute; right: 14mm; bottom: 12mm; width: 42mm; height: 42mm; color: #e7c7a1; }
+body.theme-editorial .cover-body { padding: 8mm 16mm 0; }
+body.theme-editorial .cn { color: #6b2d3c; }
+body.theme-editorial .cover-foot { padding: 4mm 16mm 10mm; }
 @media screen {
   body { background: var(--desk); padding: 18px 0 40px; }
   .cover, .sheet { width: 210mm; min-height: 297mm; margin: 0 auto 16px; background: var(--paper); box-shadow: 0 10px 28px rgba(22, 28, 40, .16); }
@@ -307,25 +346,34 @@ function chapterId(part, index) {
   return String(ch.id || ('ch' + (index + 1)));
 }
 
+function coverMark() {
+  return '<div class="cover-mark" aria-hidden="true"><svg viewBox="0 0 120 120">' +
+    '<circle cx="60" cy="60" r="52" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+    '<path d="M24 78 L46 40 L66 62 L96 30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<circle cx="46" cy="40" r="3.2" fill="currentColor"/>' +
+    '<circle cx="66" cy="62" r="3.2" fill="currentColor"/>' +
+    '<circle cx="96" cy="30" r="3.2" fill="currentColor"/>' +
+    '</svg></div>';
+}
+
 function coverBlock(doc, parts, kind) {
   const L = labels(doc.language);
   const ch = (parts[0] && parts[0].chapter) || doc.chapter || {};
   const series = ch.curriculumTitle || 'Pre-Algebra';
   const items = parts.map((part, i) => {
     const c = part.chapter || {};
-    return '<li>' + escapeHtml(pad2(c.number || (i + 1)) + '  ' + (c.title || '')) + '</li>';
+    return '<li><span class="cn">' + escapeHtml(pad2(c.number || (i + 1))) + '</span><span>' + escapeHtml(c.title || '') + '</span></li>';
   }).join('');
   const stamp = kind === 'answers'
     ? '<div class="stamp">' + escapeHtml(L.answerKey) + '</div>'
     : (kind === 'solutions' ? '<div class="stamp">' + escapeHtml(L.solutions) + '</div>' : '');
-  const foot = kind
-    ? '<div class="cover-foot"><div><span>' + escapeHtml(L.teacher) + '</span><i></i></div><div><span>' + escapeHtml(L.className) + '</span><i></i></div><div><span>' + escapeHtml(L.date) + '</span><i></i></div></div>'
-    : '<div class="cover-foot"><div><span>' + escapeHtml(L.name) + '</span><i></i></div><div><span>' + escapeHtml(L.className) + '</span><i></i></div><div><span>' + escapeHtml(L.date) + '</span><i></i></div></div>';
-  const eyebrow = L.workbook;
-  return '<section class="cover"><div class="cover-top"><div class="brand">Salt Academy</div><div class="series">' +
-    escapeHtml(series) + '</div>' + stamp + '</div><div class="cover-main"><div class="eyebrow">' +
-    escapeHtml(eyebrow) + '</div><h1>' + rich(doc.title || ch.title || 'Workbook') + '</h1><div class="gold"></div><ol class="cover-list">' +
-    items + '</ol></div>' + foot + '</section>';
+  const who = kind ? L.teacher : L.name;
+  const foot = '<div class="cover-foot"><div><span>' + escapeHtml(who) + '</span><i></i></div><div><span>' + escapeHtml(L.className) + '</span><i></i></div><div><span>' + escapeHtml(L.date) + '</span><i></i></div></div>';
+  const many = parts.length > 5 ? ' many' : '';
+  return '<section class="cover"><div class="cover-hero"><div class="brandrow"><div class="brand">Salt Academy</div><div class="series">' +
+    escapeHtml(series) + '</div></div>' + stamp + '<h1>' + rich(doc.title || ch.title || 'Workbook') + '</h1><p class="cover-kicker">' +
+    escapeHtml(L.edition) + ' · ' + escapeHtml(L.workbook) + '</p>' + coverMark() + '</div><div class="cover-body"><ol class="cover-list' +
+    many + '">' + items + '</ol></div>' + foot + '</section>';
 }
 
 function tocBlock(doc, parts) {
