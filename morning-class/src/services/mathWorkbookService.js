@@ -31,7 +31,7 @@ const SYSTEM = [
   'When a question has a numeric or linear answer, include "expression" that a calculator can check:',
   '- arithmetic: digits, parentheses, + - * / ^ only. Example: "(3+4)*2"',
   '- linear equation in x: exactly one "=". Example: "2*x+5=17"',
-  'Answers are simplified integers or fractions like 3/4. No units and no words.',
+  'Answers are simplified integers, fractions like 3/4, or a simplified expression in x such as 5x+3. No units and no words.',
   'If a question cannot be written that way, omit expression.',
   'Do not repeat a question stem.',
   'Steps state why each operation happens.'
@@ -384,7 +384,9 @@ function chapterBrief(chapter) {
 
 function checkModeNote(mode) {
   if (mode === 'equation') return 'Every practice item is a one-variable linear equation. expression must contain = and the variable x.';
-  if (mode === 'expression') return 'Prefer evaluate-by-substitution items whose expression is fully numeric after the value is plugged in. Simplifying-only items may omit expression.';
+  if (mode === 'expression') {
+    return 'Evaluate items use a fully numeric expression after the value is substituted, and a numeric answer. Simplify items use x in the expression, and the answer is the simplified form such as 5x+3, 2x, or 7.';
+  }
   if (mode === 'mixed') return 'Include expression whenever the item reduces to arithmetic or a linear equation. Omit it for diagram-only items.';
   return 'Every practice item needs a numeric expression with no variables.';
 }
