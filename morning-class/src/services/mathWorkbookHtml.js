@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PORT } = require('../config');
+const { renderFigureSvg } = require('./mathFigures');
 
 let katex = null;
 try { katex = require('katex'); } catch (e) { katex = null; }
@@ -188,6 +189,8 @@ a.toc-row::after { content: target-counter(attr(href), page); font-family: "Libe
 .pnum { flex: 0 0 8mm; height: 8mm; border: 1.5px solid #16324f; color: #16324f; font-family: "Liberation Sans", Arial, sans-serif; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 10pt; }
 .pbody { flex: 1; min-width: 0; }
 .pbody p { margin: 0 0 1.5mm; }
+.fig { margin: 1.5mm 0 2mm; break-inside: avoid; }
+.fig svg { width: 78mm; max-width: 100%; height: auto; display: block; }
 .hint { color: #3d4a57; font-size: 10.5pt; }
 .lines i { display: block; border-bottom: 1px solid #d9d0c2; height: 6.2mm; }
 .akey { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5mm 8mm; }
@@ -204,6 +207,11 @@ a.toc-row::after { content: target-counter(attr(href), page); font-family: "Libe
   .contents, .chapter, .back { width: auto; min-height: 0; margin: 0; box-shadow: none; background: #fff; padding: 0; }
 }
 `;
+}
+
+function figureHtml(figure) {
+  const svg = renderFigureSvg(figure);
+  return svg ? '<div class="fig">' + svg + '</div>' : '';
 }
 
 function publishable(question) {
@@ -304,6 +312,7 @@ function examplesBlock(part, index, doc) {
   const items = examples.map((ex, i) => {
     const steps = (ex.steps || []).map((s) => '<li>' + rich(s) + '</li>').join('');
     return '<div class="example"><div class="exhead">' + escapeHtml(L.example) + ' ' + (i + 1) + '</div><p>' + rich(ex.prompt) + '</p>' +
+      figureHtml(ex.figure) +
       (steps ? '<ol class="steps">' + steps + '</ol>' : '') +
       (ex.answer ? '<div class="exanswer">' + escapeHtml(L.answer) + ' · ' + rich(ex.answer) + '</div>' : '') + '</div>';
   }).join('');
@@ -327,11 +336,12 @@ function practiceBlock(part, index, doc, counter) {
   return groups.map((g) => {
     const lines = SECTION_LINES[g.section] || 3;
     const lineHtml = '<div class="lines">' + new Array(lines).fill('<i></i>').join('') + '</div>';
-    const cols = (g.section === 'basic' || g.section === 'intermediate') && g.items.length >= 4 ? ' cols' : '';
+    const hasFig = g.items.some((q) => q.figure);
+    const cols = !hasFig && (g.section === 'basic' || g.section === 'intermediate') && g.items.length >= 4 ? ' cols' : '';
     const items = g.items.map((q) => {
       counter.n += 1;
       const hint = g.section === 'guided' && q.hint ? '<p class="hint">' + escapeHtml(L.hint) + ': ' + rich(q.hint) + '</p>' : '';
-      return '<div class="problem"><div class="pnum">' + counter.n + '</div><div class="pbody"><p>' + rich(q.prompt) + '</p>' + hint + lineHtml + '</div></div>';
+      return '<div class="problem"><div class="pnum">' + counter.n + '</div><div class="pbody"><p>' + rich(q.prompt) + '</p>' + figureHtml(q.figure) + hint + lineHtml + '</div></div>';
     }).join('');
     const score = g.section === 'mastery' ? '<p class="score">' + escapeHtml(L.score) + ' <i></i> / ' + g.items.length + '</p>' : '';
     return '<section id="ch-' + escapeHtml(id) + '-' + escapeHtml(g.section) + '"><h2 class="band">' + escapeHtml(sectionLabel(g.section, doc.language)) + '</h2>' + score + '<div class="practice' + cols + '">' + items + '</div></section>';
@@ -366,6 +376,7 @@ function solutionsBlock(doc) {
       const steps = (q.steps || []).map((s) => '<li>' + rich(s) + '</li>').join('');
       const mistakes = (q.mistakes || []).filter(Boolean).map((s) => '<li>' + rich(s) + '</li>').join('');
       return '<div class="solution"><div class="exhead">' + counter.n + '</div><p>' + rich(q.prompt) + '</p>' +
+        figureHtml(q.figure) +
         (steps ? '<ol class="steps">' + steps + '</ol>' : '') +
         '<div class="exanswer">' + escapeHtml(L.answer) + ' · ' + rich(q.answer) + '</div>' +
         (mistakes ? '<p class="note">' + escapeHtml(L.mistakes) + '</p><ul>' + mistakes + '</ul>' : '') +

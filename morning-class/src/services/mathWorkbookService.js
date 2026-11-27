@@ -6,6 +6,7 @@ const { isOpsDbEnabled, query, table } = require('../db/pool');
 const { listChapters, listCurricula, getChapter } = require('./mathCurriculum');
 const { verifyQuestion } = require('./mathVerify');
 const { renderWorkbookHtml } = require('./mathWorkbookHtml');
+const { isGeometryChapter, normalizeFigure, checkFigure, renderFigureSvg, figureGuide } = require('./mathFigures');
 
 const jobs = new Map();
 const MAX_JOBS = 40;
@@ -32,6 +33,7 @@ const SYSTEM = [
   '- linear equation in x: exactly one "=". Example: "2*x+5=17"',
   'Answers are simplified integers, fractions like 3/4, a simplified expression in x such as 5x+3, or an ordered pair such as 3, -2. A perfect-square root is sqrt(25). No units and no words.',
   'If a question cannot be written that way, omit expression.',
+  'On a geometry chapter, every example and question includes a figure object. The figure lists the givens, and the answer is the unknown those givens determine.',
   'Do not repeat a question stem.',
   'Steps state why each operation happens.'
 ].join('\n');
@@ -263,6 +265,13 @@ function statsOf(doc) {
   return stats;
 }
 
+function withFigureSvg(item) {
+  if (!item || !item.figure) return item;
+  const svg = renderFigureSvg(item.figure);
+  if (!svg) return item;
+  return Object.assign({}, item, { figureSvg: svg });
+}
+
 function publicJob(job) {
   if (!job) return null;
   const doc = job.document || {};
@@ -282,8 +291,8 @@ function publicJob(job) {
     concepts: doc.concepts || [],
     definitions: doc.definitions || [],
     rules: doc.rules || [],
-    examples: doc.examples || [],
-    questions: allQuestions(doc),
+    examples: (doc.examples || []).map(withFigureSvg),
+    questions: allQuestions(doc).map(withFigureSvg),
     parts: (doc.parts || []).map((part) => ({
       chapter: part.chapter || null,
       introduction: part.introduction || '',
@@ -339,7 +348,8 @@ function cleanTeach(parsed, chapter) {
       prompt: String(ex.prompt || '').trim().slice(0, 800),
       steps: strList(ex.steps, 8),
       answer: String(ex.answer || '').trim().slice(0, 200),
-      expression: String(ex.expression || '').trim().slice(0, 200)
+      expression: String(ex.expression || '').trim().slice(0, 200),
+      figure: ex.figure || null
     })).filter((ex) => ex.prompt && ex.answer),
     objectiveIds: (chapter.objectives || []).map((o) => o.id)
   };
@@ -362,6 +372,7 @@ function cleanQuestion(raw, section, chapter) {
     prompt: prompt,
     hint: String(raw.hint || '').trim().slice(0, 300),
     expression: String(raw.expression || raw.equation || '').trim().slice(0, 240),
+    figure: raw.figure || null,
     answer: answer,
     steps: strList(raw.steps, 8),
     mistakes: strList(raw.mistakes || raw.commonMistakes, 4)
@@ -421,8 +432,9 @@ async function stageTeach(job) {
     'Chapter: ' + JSON.stringify(chapterBrief(job.chapter)),
     'Sequence: ' + JSON.stringify(doc.lessons || []),
     'Return JSON with introduction, concepts (3 to 5), definitions (4 to 8), rules (3 to 6), examples (' + job.options.examples + ').',
-    'Each example has prompt, steps (array of why-this-step strings), answer, and expression when the answer is numeric.',
-    'Schema: {"introduction":"","concepts":[{"title":"","body":""}],"definitions":[{"term":"","meaning":""}],"rules":[{"name":"","formula":"","note":""}],"examples":[{"prompt":"","steps":[],"answer":"","expression":""}]}'
+    figureGuide(job.chapter),
+    'Each example has prompt, steps (array of why-this-step strings), answer, expression, and figure when this is a geometry chapter.',
+    'Schema: {"introduction":"","concepts":[{"title":"","body":""}],"definitions":[{"term":"","meaning":""}],"rules":[{"name":"","formula":"","note":""}],"examples":[{"prompt":"","steps":[],"answer":"","expression":"","figure":{}}]}'
   ].join('\n\n'), 7000);
   const teach = cleanTeach(parsed, job.chapter);
   if (!teach.concepts.length || !teach.examples.length) {
@@ -437,10 +449,17 @@ async function stageTeach(job) {
   doc.examples = teach.examples.map((ex) => {
     const verification = ex.expression ? verifyQuestion(ex) : { status: 'needs_review', reason: 'example' };
     if (verification.status === 'failed') return null;
+    let figure = null;
+    if (isGeometryChapter(job.chapter)) {
+      figure = normalizeFigure(ex.figure, job.chapter);
+      const fig = figure && checkFigure({ answer: ex.answer, figure: figure });
+      if (!fig || !fig.ok || verification.status !== 'verified') return null;
+    }
     return {
       prompt: ex.prompt,
       steps: ex.steps,
       answer: ex.answer,
+      figure: figure,
       verification: verification
     };
   }).filter(Boolean);
@@ -458,10 +477,11 @@ async function fetchBatch(job, section, need, already) {
     languageNote(job.options.language),
     levelNote(job.options.level),
     checkModeNote(job.chapter.checkMode),
+    figureGuide(job.chapter),
     'Chapter: ' + JSON.stringify(chapterBrief(job.chapter)),
     'Rules already taught: ' + JSON.stringify((bucket(job).rules || []).map((r) => r.name)),
     already.length ? ('Do not repeat these stems: ' + JSON.stringify(already.slice(-12))) : '',
-    'Each question: section "' + section + '", objectiveId, type, prompt, expression, answer, steps (2 or more), mistakes (1 or 2).',
+    'Each question: section "' + section + '", objectiveId, type, prompt, expression, answer, figure, steps (2 or more), mistakes (1 or 2).',
     section === 'guided' ? 'Include a short hint.' : 'Leave hint empty.',
     'Return {"questions":[...]} with exactly ' + need + ' questions.'
   ].filter(Boolean).join('\n\n'), 7000);
@@ -487,7 +507,8 @@ async function stagePractice(job) {
     await persistJob(job);
     let got = [];
     let guard = 0;
-    while (got.length < need && guard < 4) {
+    const tries = isGeometryChapter(job.chapter) ? 6 : 4;
+    while (got.length < need && guard < tries) {
       guard += 1;
       const batchNeed = Math.min(BATCH, need - got.length);
       const rows = await fetchBatch(job, section, batchNeed, Array.from(seen));
@@ -495,6 +516,7 @@ async function stagePractice(job) {
       rows.forEach((row) => {
         const key = row.prompt.toLowerCase();
         if (seen.has(key) || got.length >= need) return;
+        if (!keepQuestion(row, job.chapter)) return;
         seen.add(key);
         got.push(row);
       });
@@ -511,14 +533,41 @@ async function stagePractice(job) {
   doc.stagesDone = ['outline', 'teach', 'practice'];
 }
 
+function keepQuestion(row, chapter) {
+  if (!isGeometryChapter(chapter)) {
+    row.figure = null;
+    return true;
+  }
+  const figure = normalizeFigure(row.figure, chapter);
+  if (!figure) return false;
+  row.figure = figure;
+  const fig = checkFigure(row);
+  if (!fig.ok) return false;
+  return verifyQuestion(row).status === 'verified';
+}
+
 function stageVerify(job) {
   const doc = bucket(job);
   const objectives = new Set();
   doc.warnings = (doc.warnings || []).filter((w) => !String(w).startsWith('학습목표'));
   doc.questions = (doc.questions || []).map((q) => {
-    const verification = verifyQuestion(q);
+    let figure = q.figure || null;
+    let verification = verifyQuestion(q);
+    if (isGeometryChapter(job.chapter)) {
+      figure = normalizeFigure(q.figure, job.chapter);
+      const fig = figure && checkFigure(Object.assign({}, q, { figure: figure }));
+      if (!figure || !fig.ok || verification.status !== 'verified') {
+        verification = {
+          status: 'failed',
+          reason: (fig && fig.reason) || verification.reason || 'figure',
+          computed: (fig && fig.computed) || verification.computed || ''
+        };
+      }
+    } else {
+      figure = null;
+    }
     if (q.objectiveId) objectives.add(q.objectiveId);
-    return Object.assign({}, q, { verification: verification });
+    return Object.assign({}, q, { figure: figure, verification: verification });
   });
   (job.chapter.objectives || []).forEach((o) => {
     if (!objectives.has(o.id)) {
