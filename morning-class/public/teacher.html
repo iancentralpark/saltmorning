@@ -54,6 +54,7 @@
           <button type="button" class="teacher-nav-dropdown-item" id="openJeopardyBtn" role="menuitem">AI Jeopardy</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openGrammarClinicBtn" role="menuitem">내신 문법 Generator</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openMathWorkbookBtn" role="menuitem">Math Workbook</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openNovelStudyBtn" role="menuitem">Novel Study Workbook</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openDebriefBooksBtn" role="menuitem">Oral Debrief Books</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openLmsLessonsBtn" role="menuitem">Video Library (영상 라이브러리)</button>
@@ -3266,6 +3267,13 @@
     openGrammarClinicBtn.addEventListener('click', () => {
       closeClassToolsMenu();
       window.open('/tools/grammar-clinic', 'saltGrammarClinic', 'noopener,width=1440,height=900');
+    });
+  }
+  const openMathWorkbookBtn = $('openMathWorkbookBtn');
+  if (openMathWorkbookBtn) {
+    openMathWorkbookBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/math-workbook', 'saltMathWorkbook', 'noopener,width=1440,height=900');
     });
   }
   const openNovelStudyBtn = $('openNovelStudyBtn');

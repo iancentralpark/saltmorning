@@ -83,6 +83,13 @@ app.get('/tools/grammar-clinic', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'grammar-clinic.html'));
 });
 
+app.use('/vendor/katex', express.static(path.join(__dirname, '..', 'node_modules', 'katex', 'dist')));
+
+app.get('/tools/math-workbook', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'math-workbook.html'));
+});
+
 app.get('/tools/bible-slides', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'bible-slides.html'));
