@@ -5039,6 +5039,14 @@ router.patch('/debrief/books/:id/profile', requireRole('teacher', 'admin'), asyn
   }
 });
 
+router.post('/debrief/books/:id/resume', requireRole('teacher', 'admin'), async (req, res) => {
+  try {
+    res.json(await debriefBooks.resumeBook(req.params.id));
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ error: e.message || 'Could not resume book profile.' });
+  }
+});
+
 router.delete('/debrief/books/:id', requireRole('teacher', 'admin'), async (req, res) => {
   try {
     res.json(await debriefBooks.deleteBook(req.params.id, debriefTeacherId(req)));

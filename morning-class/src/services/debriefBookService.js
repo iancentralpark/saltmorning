@@ -20,6 +20,12 @@ const JOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** @type {Map<string, object>} */
 const books = new Map();
+const AUTO_RETRY_LIMIT = 4;
+let askOverride = null;
+
+function setAskForTests(fn) {
+  askOverride = typeof fn === 'function' ? fn : null;
+}
 
 const GRADE_BANDS = {
   elementary: 'Upper elementary (grades 3–5). Simple vocabulary in questions.',
@@ -58,6 +64,7 @@ function extractJson(text) {
 
 async function askClaudeJson(system, prompt, opts) {
   opts = opts || {};
+  if (askOverride) return askOverride(system, prompt, opts);
   if (!isClaudeConfigured()) {
     const err = new Error('Claude is not configured (set ANTHROPIC_API_KEY).');
     err.statusCode = 503;
@@ -218,6 +225,7 @@ function publicBook(book, opts) {
     progress: book.progress,
     message: book.message || '',
     error: book.error || undefined,
+    canResume: book.status === 'error' && !!(book._sourceText || book.sourceText),
     createdBy: book.createdBy,
     createdAt: book.createdAt,
     updatedAt: book.updatedAt
@@ -229,20 +237,23 @@ function publicBook(book, opts) {
 }
 
 async function persistBook(book) {
+  if (!book || book._cancelled || !books.has(book.id)) return;
   if (!isOpsDbEnabled()) return;
   await query(
     'INSERT INTO ' + table('debrief_books') + ' (' +
       'id, title, author, grade_band, lexile_level, source_type, source_excerpt, novel_study_job_id, ' +
-      'debrief_profile, is_verified, status, progress, message, error, created_by, created_at, updated_at' +
+      'debrief_profile, is_verified, status, progress, message, error, created_by, created_at, updated_at, ' +
+      'source_text, auto_retries' +
     ') VALUES (' +
-      '$1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,to_timestamp($16/1000.0),to_timestamp($17/1000.0)' +
+      '$1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,to_timestamp($16/1000.0),to_timestamp($17/1000.0),$18,$19' +
     ') ON CONFLICT (id) DO UPDATE SET ' +
       'title = EXCLUDED.title, author = EXCLUDED.author, grade_band = EXCLUDED.grade_band, ' +
       'lexile_level = EXCLUDED.lexile_level, source_type = EXCLUDED.source_type, ' +
       'source_excerpt = EXCLUDED.source_excerpt, novel_study_job_id = EXCLUDED.novel_study_job_id, ' +
       'debrief_profile = EXCLUDED.debrief_profile, is_verified = EXCLUDED.is_verified, ' +
       'status = EXCLUDED.status, progress = EXCLUDED.progress, message = EXCLUDED.message, ' +
-      'error = EXCLUDED.error, updated_at = EXCLUDED.updated_at',
+      'error = EXCLUDED.error, updated_at = EXCLUDED.updated_at, ' +
+      'source_text = EXCLUDED.source_text, auto_retries = EXCLUDED.auto_retries',
     [
       book.id,
       book.title,
@@ -260,7 +271,9 @@ async function persistBook(book) {
       book.error || null,
       book.createdBy || '',
       book.createdAt || Date.now(),
-      book.updatedAt || Date.now()
+      book.updatedAt || Date.now(),
+      book._cancelled ? '' : String(book._sourceText || book.sourceText || ''),
+      Number(book.autoRetries) || 0
     ]
   );
 }
@@ -281,6 +294,9 @@ function rowToBook(row) {
     progress: Number(row.progress) || 0,
     message: row.message || '',
     error: row.error || null,
+    sourceText: row.source_text || '',
+    _sourceText: row.source_text || '',
+    autoRetries: Number(row.auto_retries) || 0,
     createdBy: row.created_by || '',
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now()
@@ -304,16 +320,161 @@ function pruneMemory() {
   }
 }
 
+function retryCount(book) {
+  const n = Number(book && book.autoRetries);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function sourceOf(book) {
+  return String((book && (book._sourceText || book.sourceText)) || '');
+}
+
+function friendlyFail(err) {
+  const msg = String(err && err.message || '');
+  if (/invalid JSON/i.test(msg)) return 'AI 응답이 깨졌습니다.';
+  return msg || '프로필 생성에 실패했습니다.';
+}
+
+function canAutoRetry(book, err) {
+  if (!book || book._cancelled || book.status === 'cancelled') return false;
+  if (!sourceOf(book)) return false;
+  if (err && (err.statusCode === 400 || err.statusCode === 503)) return false;
+  return retryCount(book) < AUTO_RETRY_LIMIT;
+}
+
+function keptProgress(book) {
+  const n = Number(book && book.progress);
+  if (Number.isFinite(n) && n > 0 && n < 100) return n;
+  return 25;
+}
+
+async function runGenerate(book) {
+  if (!book || book._cancelled || book._running || !books.has(book.id)) return;
+  book._running = true;
+  book._resumeScheduled = false;
+  let again = false;
+  try {
+    const text = sourceOf(book);
+    book._sourceText = text;
+    if (text.length < 200) {
+      const err = new Error('본문이 없어 이어서 만들 수 없습니다. 삭제 후 다시 만들어 주세요.');
+      err.statusCode = 400;
+      throw err;
+    }
+    touch(book, {
+      status: 'generating',
+      progress: Math.max(25, keptProgress(book)),
+      message: retryCount(book)
+        ? ('끝난 지점부터 다시 시도합니다 (' + retryCount(book) + '/' + AUTO_RETRY_LIMIT + ').')
+        : '줄거리·인물·질문 은행 생성 중…',
+      error: null
+    });
+    await persistBook(book);
+    const raw = await askClaudeJson(
+      SYSTEM_PROFILE,
+      buildProfilePrompt({
+        title: book.title,
+        author: book.author,
+        gradeBand: book.gradeBand,
+        text: book._sourceText
+      }),
+      { maxOutputTokens: 12000 }
+    );
+    if (book._cancelled || !books.has(book.id)) return;
+    touch(book, { progress: 80, message: '프로필 정리 중…' });
+    const profile = coerceProfile(raw, { title: book.title, author: book.author });
+    if (!profile.summary || profile.questionBank.comprehension.length < 4) {
+      const err = new Error('프로필이 너무 빈약합니다. 본문을 더 넣거나 다시 시도해 주세요.');
+      err.statusCode = 502;
+      throw err;
+    }
+    book._sourceText = '';
+    book.sourceText = '';
+    book.autoRetries = 0;
+    touch(book, {
+      status: 'ready',
+      progress: 100,
+      message: '초안 완료 — 검수 후 Verified로 표시하세요.',
+      debriefProfile: profile,
+      error: null
+    });
+    await persistBook(book);
+  } catch (e) {
+    if (book._cancelled || !books.has(book.id)) return;
+    if (canAutoRetry(book, e)) {
+      const n = retryCount(book) + 1;
+      book.autoRetries = n;
+      touch(book, {
+        status: 'generating',
+        progress: keptProgress(book),
+        error: null,
+        message: friendlyFail(e) + ' 끝난 지점부터 다시 시도합니다 (' + n + '/' + AUTO_RETRY_LIMIT + ').'
+      });
+      await persistBook(book);
+      again = true;
+      const wait = askOverride ? 0 : 1200 * n;
+      setTimeout(() => {
+        book._running = false;
+        void runGenerate(book);
+      }, wait);
+      return;
+    }
+    const stuck = !sourceOf(book);
+    touch(book, {
+      status: 'error',
+      progress: keptProgress(book),
+      error: stuck
+        ? '생성이 중간에 멈췄습니다. 삭제 후 다시 만들어 주세요.'
+        : (friendlyFail(e) + ' 이어서 만들기를 누르면 다시 시도합니다.'),
+      message: stuck
+        ? '생성이 중간에 멈췄습니다. 삭제 후 다시 만들어 주세요.'
+        : '이어서 만들 수 있습니다'
+    });
+    await persistBook(book);
+    console.error('debrief book job', book.id, e);
+  } finally {
+    if (!again) book._running = false;
+  }
+}
+
+async function reconcile(book) {
+  if (!book || book.status !== 'generating' || book._running || book._cancelled) return book;
+  const text = sourceOf(book);
+  if (text && retryCount(book) < AUTO_RETRY_LIMIT) {
+    book._sourceText = text;
+    if (!book._resumeScheduled) {
+      book._resumeScheduled = true;
+      setImmediate(() => { void runGenerate(book); });
+    }
+    return book;
+  }
+  touch(book, {
+    status: 'error',
+    progress: keptProgress(book),
+    error: text
+      ? '여러 번 실패했습니다. 이어서 만들기를 누르면 다시 시도합니다.'
+      : '생성이 중간에 멈췄습니다. 삭제 후 다시 만들어 주세요.',
+    message: text
+      ? '이어서 만들 수 있습니다'
+      : '생성이 중간에 멈췄습니다. 삭제 후 다시 만들어 주세요.'
+  });
+  await persistBook(book);
+  return book;
+}
+
 async function getBook(id, ownerKey) {
   pruneMemory();
-  let book = books.get(String(id || ''));
-  if (!book) book = await loadBookFromDb(id);
+  const key = String(id || '');
+  const live = books.get(key);
+  if (live && live._running) return live;
+  let book = live || await loadBookFromDb(id);
   if (!book) return null;
   if (ownerKey && book.createdBy && book.createdBy !== String(ownerKey) && book.status === 'generating') {
-    // Allow other teachers to see ready books; hide others' in-flight jobs
     return null;
   }
+  if (live && live._sourceText) book._sourceText = live._sourceText;
   books.set(book.id, book);
+  await reconcile(book);
   return book;
 }
 
@@ -328,17 +489,32 @@ async function listBooks(opts) {
         ' ORDER BY updated_at DESC LIMIT $1',
       [limit]
     );
-    return r.rows.map(rowToBook).map((b) => {
-      books.set(b.id, b);
-      return publicBook(b, { includeProfile: !!opts.includeProfile });
-    });
+    const out = [];
+    for (const row of r.rows) {
+      const fresh = rowToBook(row);
+      const live = books.get(fresh.id);
+      if (live && live._running) {
+        out.push(publicBook(live, { includeProfile: !!opts.includeProfile }));
+        continue;
+      }
+      if (live && live._sourceText) fresh._sourceText = live._sourceText;
+      books.set(fresh.id, fresh);
+      await reconcile(fresh);
+      out.push(publicBook(fresh, { includeProfile: !!opts.includeProfile }));
+    }
+    return out;
   }
   pruneMemory();
-  return Array.from(books.values())
+  const rows = Array.from(books.values())
     .filter((b) => (verifiedOnly ? b.isVerified : true))
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-    .slice(0, limit)
-    .map((b) => publicBook(b, { includeProfile: !!opts.includeProfile }));
+    .slice(0, limit);
+  const out = [];
+  for (const book of rows) {
+    if (!book._running) await reconcile(book);
+    out.push(publicBook(book, { includeProfile: !!opts.includeProfile }));
+  }
+  return out;
 }
 
 async function extractPdfText(buf) {
@@ -409,54 +585,37 @@ function startGenerateJob(opts, ownerKey) {
     createdBy: String(ownerKey || ''),
     createdAt: now,
     updatedAt: now,
-    _sourceText: text
+    sourceText: text,
+    _sourceText: text,
+    autoRetries: 0
   };
   books.set(id, book);
   persistBook(book).catch((e) => console.warn('[debrief] persist start', e.message));
+  setImmediate(() => { void runGenerate(book); });
+  return publicBook(book);
+}
 
-  setImmediate(() => {
-    (async () => {
-      touch(book, { progress: 25, message: '줄거리·인물·질문 은행 생성 중…' });
-      await persistBook(book).catch(() => {});
-      const raw = await askClaudeJson(
-        SYSTEM_PROFILE,
-        buildProfilePrompt({
-          title: book.title,
-          author: book.author,
-          gradeBand: book.gradeBand,
-          text: book._sourceText
-        }),
-        { maxOutputTokens: 12000 }
-      );
-      touch(book, { progress: 80, message: '프로필 정리 중…' });
-      const profile = coerceProfile(raw, { title: book.title, author: book.author });
-      if (!profile.summary || profile.questionBank.comprehension.length < 4) {
-        const err = new Error('프로필이 너무 빈약합니다. 본문을 더 넣거나 다시 시도해 주세요.');
-        err.statusCode = 502;
-        throw err;
-      }
-      delete book._sourceText;
-      touch(book, {
-        status: 'ready',
-        progress: 100,
-        message: '초안 완료 — 검수 후 Verified로 표시하세요.',
-        debriefProfile: profile,
-        error: null
-      });
-      await persistBook(book);
-    })().catch((e) => {
-      delete book._sourceText;
-      touch(book, {
-        status: 'error',
-        progress: 100,
-        error: e.message || '생성 실패',
-        message: e.message || '생성 실패'
-      });
-      persistBook(book).catch(() => {});
-      console.error('debrief book job', id, e);
-    });
-  });
-
+async function resumeBook(id) {
+  const book = await getBook(id, null);
+  if (!book) {
+    const err = new Error('책을 찾을 수 없습니다.');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (book.status === 'ready' && book.debriefProfile) return publicBook(book);
+  if (book._running) return publicBook(book);
+  const text = sourceOf(book);
+  if (text.length < 200) {
+    const err = new Error('본문이 없어 이어서 만들 수 없습니다. 삭제 후 다시 만들어 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  book._cancelled = false;
+  book._sourceText = text;
+  book.autoRetries = 0;
+  book.status = 'generating';
+  books.set(book.id, book);
+  setImmediate(() => { void runGenerate(book); });
   return publicBook(book);
 }
 
@@ -553,6 +712,8 @@ async function deleteBook(id, ownerKey) {
       if (e.statusCode) throw e;
     }
   }
+  book._cancelled = true;
+  book.status = 'cancelled';
   books.delete(String(id));
   if (isOpsDbEnabled()) {
     await query('DELETE FROM ' + table('debrief_books') + ' WHERE id = $1', [String(id)]);
@@ -566,12 +727,14 @@ module.exports = {
   isClaudeConfigured,
   startGenerateJob,
   startGenerateFromPdf,
+  resumeBook,
   listBooks,
   getBook,
   publicBook,
   setVerified,
   updateProfile,
   deleteBook,
+  setAskForTests,
   extractPdfText,
   askClaudeJson
 };
