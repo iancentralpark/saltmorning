@@ -96,10 +96,11 @@ function normalizeOptions(body, chapter) {
   }
   const level = ['beginner', 'standard', 'advanced'].includes(src.level) ? src.level : 'standard';
   const language = src.language === 'ko' ? 'ko' : 'en';
+  const theme = ['classic', 'playful', 'modern', 'editorial'].includes(src.theme) ? src.theme : 'classic';
   const title = String(src.title || '').trim().slice(0, 120) ||
     ((chapter.title || 'Workbook') + ' Workbook');
   const examples = src.include && src.include.examples === false ? 0 : 4;
-  return { title, level, language, counts, examples, total };
+  return { title, level, language, theme, counts, examples, total };
 }
 
 function levelNote(level) {
@@ -710,6 +711,7 @@ function blankDocument(chapters, options) {
     title: options.title,
     language: options.language,
     level: options.level,
+    theme: options.theme || 'classic',
     chapter: chapterSummary(first),
     chapters: chapters.map(chapterSummary),
     parts: [],

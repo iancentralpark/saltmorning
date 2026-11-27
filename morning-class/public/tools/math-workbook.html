@@ -75,6 +75,14 @@
       </select>
       <label for="title">워크북 제목</label>
       <input id="title" maxlength="120" placeholder="챕터를 고르면 제목이 채워집니다">
+      <label for="theme">교재 스타일</label>
+      <select id="theme">
+        <option value="classic">클래식 교재</option>
+        <option value="playful">어린이 컬러</option>
+        <option value="modern" selected>모던</option>
+        <option value="editorial">매거진</option>
+      </select>
+      <p class="muted" id="themeNote">여백이 넓은 단정한 흑백입니다.</p>
       <label for="language">워크북 언어</label>
       <select id="language">
         <option value="en" selected>English</option>
@@ -379,6 +387,15 @@
     onChapter();
     if (!job || job.status !== 'running') $('generate').textContent = '워크북 만들기';
   });
+  var THEME_NOTES = {
+    classic: '남색과 크림색의 전통 교재입니다.',
+    playful: '둥근 모서리와 밝은 색의 어린이용입니다.',
+    modern: '여백이 넓은 단정한 흑백입니다.',
+    editorial: '와인색과 세리프의 매거진입니다.'
+  };
+  $('theme').addEventListener('change', function () {
+    $('themeNote').textContent = THEME_NOTES[$('theme').value] || '';
+  });
   $('generate').addEventListener('click', function () {
     var picked = selectedChapters();
     if (!picked.length) { $('error').textContent = '챕터를 하나 이상 선택해 주세요.'; return; }
@@ -399,6 +416,7 @@
         title: $('title').value,
         level: $('level').value,
         language: $('language').value,
+        theme: $('theme').value,
         counts: countsBody()
       }
     }).then(function (data) {
