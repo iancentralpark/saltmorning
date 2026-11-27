@@ -41,13 +41,17 @@
     .hidden { display: none !important; }
     .stats { display: flex; gap: .6rem; flex-wrap: wrap; margin: .4rem 0 .8rem; }
     .history button { display: block; width: 100%; text-align: left; margin-top: .35rem; }
+    .chapters { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem .6rem; }
+    .chapters .unit { margin: .7rem 0 .2rem; font-size: .75rem; color: var(--muted); font-weight: 700; }
+    .chapters label { display: flex; gap: .45rem; align-items: flex-start; font-weight: 600; margin: .28rem 0; }
+    .chapters input { width: auto; margin-top: .15rem; }
   </style>
 </head>
 <body>
   <header>
     <div>
       <h1>Math Workbook</h1>
-      <p>챕터와 제목을 고르면 설명, 문제, 검산, 학생용·답안지·해설지까지 만들어집니다.</p>
+      <p>챕터를 여러 개 고르면 한 권으로 이어지고, 검산 뒤 학생용·답안지·해설지를 따로 받습니다.</p>
     </div>
     <a href="/teacher">선생님 포털</a>
   </header>
@@ -55,8 +59,8 @@
     <section>
       <label for="curriculum">수학 레벨</label>
       <select id="curriculum"><option value="pre-algebra">Pre-Algebra</option></select>
-      <label for="chapter">챕터</label>
-      <select id="chapter"></select>
+      <label>챕터 <span class="muted">한 번에 4개까지. 문항 수는 챕터마다 적용됩니다.</span></label>
+      <div class="chapters" id="chapterList"></div>
       <p class="muted" id="chapterBlurb"></p>
       <label for="level">학생 수준</label>
       <select id="level">
@@ -73,7 +77,7 @@
       </select>
       <label>문항 수</label>
       <div class="grid" id="counts"></div>
-      <p class="muted">기본 46문항. 한 권은 60문항까지입니다. 검산에 실패한 문항은 파일에서 빠집니다.</p>
+      <p class="muted" id="countNote">기본 46문항이 챕터마다 들어갑니다. 검산에 실패한 문항은 파일에서 빠집니다.</p>
       <div class="row" style="margin-top:.8rem">
         <button class="primary" id="generate" type="button">워크북 만들기</button>
         <button id="cancel" type="button" class="hidden">취소</button>
@@ -158,8 +162,25 @@
     }
   }
 
-  function selectedChapter() {
-    return chapters.filter(function (c) { return c.id === $('chapter').value; })[0] || null;
+  function selectedChapters() {
+    return Array.prototype.map.call(document.querySelectorAll('#chapterList input:checked'), function (input) {
+      return chapters.filter(function (c) { return c.id === input.value; })[0];
+    }).filter(Boolean).sort(function (a, b) { return a.number - b.number; });
+  }
+
+  function fillChapters() {
+    var html = '';
+    var lastUnit = '';
+    chapters.forEach(function (c, i) {
+      if (c.unitTitle !== lastUnit) {
+        html += '<div class="unit">' + esc(c.unitTitle) + '</div>';
+        lastUnit = c.unitTitle;
+      }
+      html += '<label><input type="checkbox" value="' + esc(c.id) + '"' + (i === 0 ? ' checked' : '') + '> ' +
+        c.number + '. ' + esc(c.title) + '</label>';
+    });
+    $('chapterList').innerHTML = html;
+    onChapter();
   }
 
   function fillCounts() {
@@ -168,27 +189,26 @@
     }).join('');
   }
 
-  function fillChapters() {
-    var html = '';
-    var lastUnit = '';
-    chapters.forEach(function (c) {
-      if (c.unitTitle !== lastUnit) {
-        if (lastUnit) html += '</optgroup>';
-        html += '<optgroup label="' + esc(c.unitTitle) + '">';
-        lastUnit = c.unitTitle;
-      }
-      html += '<option value="' + esc(c.id) + '">' + c.number + '. ' + esc(c.title) + '</option>';
-    });
-    if (lastUnit) html += '</optgroup>';
-    $('chapter').innerHTML = html;
-    onChapter();
-  }
-
   function onChapter() {
-    var c = selectedChapter();
-    if (!c) return;
-    $('chapterBlurb').textContent = c.description || '';
-    if (!$('title').dataset.edited) $('title').value = c.title + ' Workbook';
+    var picked = selectedChapters();
+    if (!picked.length) {
+      $('chapterBlurb').textContent = '챕터를 하나 이상 선택해 주세요.';
+      $('countNote').textContent = '한 번에 4챕터까지입니다.';
+      return;
+    }
+    if (picked.length > 4) {
+      $('chapterBlurb').textContent = '4개를 넘었습니다. 선택을 줄여 주세요.';
+    } else if (picked.length === 1) {
+      $('chapterBlurb').textContent = picked[0].description || '';
+    } else {
+      $('chapterBlurb').textContent = picked.map(function (c) { return c.number + '. ' + c.title; }).join(' · ');
+    }
+    var per = 0;
+    document.querySelectorAll('[data-count]').forEach(function (input) { per += Number(input.value || 0); });
+    $('countNote').textContent = '챕터마다 약 ' + per + '문항, 이번 선택 ' + picked.length + '개라 약 ' + (per * picked.length) + '문항입니다. 챕터당 60문항, 한 번에 4챕터까지입니다.';
+    if ($('title').dataset.edited) return;
+    if (picked.length === 1) $('title').value = picked[0].title + ' Workbook';
+    else $('title').value = 'Pre-Algebra Chapters ' + picked.map(function (c) { return c.number; }).join(', ');
   }
 
   function countsBody() {
@@ -239,13 +259,18 @@
       if (data && data.status === 'running') return;
     }
     var html = '';
-    if (data.introduction) html += '<h2>도입</h2><p>' + esc(data.introduction) + '</p>';
-    (data.concepts || []).forEach(function (c) {
-      html += '<h3>' + esc(c.title) + '</h3><p>' + esc(c.body) + '</p>';
+    (data.parts || []).forEach(function (part) {
+      var name = part.chapter ? (part.chapter.number + '. ' + part.chapter.title) : '';
+      if (name) html += '<h2>' + esc(name) + '</h2>';
+      if (part.introduction) html += '<p>' + esc(part.introduction) + '</p>';
+      (part.concepts || []).forEach(function (c) {
+        html += '<h3>' + esc(c.title) + '</h3><p>' + esc(c.body) + '</p>';
+      });
     });
+    if (!html && data.introduction) html += '<h2>도입</h2><p>' + esc(data.introduction) + '</p>';
     (data.questions || []).forEach(function (q, i) {
       var st = (q.verification && q.verification.status) || 'needs_review';
-      html += '<div class="q"><header class="row"><strong>' + (i + 1) + '. ' + esc(q.section) + '</strong>' +
+      html += '<div class="q"><header class="row"><strong>' + (i + 1) + '. ' + esc(q.chapterTitle ? q.chapterNumber + ' ' + q.section : q.section) + '</strong>' +
         '<span class="pill ' + st + '">' + st + '</span>' +
         (q.verification && q.verification.computed ? '<span class="muted">계산값 ' + esc(q.verification.computed) + '</span>' : '') +
         '</header><p class="prompt" data-id="' + esc(q.id) + '">' + esc(q.prompt) + '</p>' +
@@ -297,16 +322,21 @@
   }
 
   fillCounts();
+  $('counts').addEventListener('input', onChapter);
   $('title').addEventListener('input', function () { $('title').dataset.edited = '1'; });
-  $('chapter').addEventListener('change', function () {
+  $('chapterList').addEventListener('change', function () {
     $('title').dataset.edited = '';
     onChapter();
     if (!job || job.status !== 'running') $('generate').textContent = '워크북 만들기';
   });
   $('generate').addEventListener('click', function () {
-    var c = selectedChapter();
-    if (!c) return;
-    if (job && job.status === 'interrupted' && c && job.chapter && job.chapter.id === c.id) {
+    var picked = selectedChapters();
+    if (!picked.length) { $('error').textContent = '챕터를 하나 이상 선택해 주세요.'; return; }
+    if (picked.length > 4) { $('error').textContent = '한 권에는 챕터를 4개까지 넣을 수 있습니다.'; return; }
+    var ids = picked.map(function (c) { return c.id; }).sort().join(',');
+    var jobIds = (job && job.chapters && job.chapters.length ? job.chapters : (job && job.chapter ? [job.chapter] : []))
+      .map(function (c) { return c.id; }).sort().join(',');
+    if (job && job.status === 'interrupted' && ids === jobIds) {
       api('/api/math-workbook/jobs/' + encodeURIComponent(job.id) + '/resume', { method: 'POST', body: {} })
         .then(function () { refreshJob(job.id); }).catch(function (e) { $('error').textContent = e.message; });
       return;
@@ -316,7 +346,7 @@
     api('/api/math-workbook/generate', {
       method: 'POST',
       body: {
-        chapterId: c.id,
+        chapterIds: picked.map(function (c) { return c.id; }),
         title: $('title').value,
         level: $('level').value,
         language: $('language').value,

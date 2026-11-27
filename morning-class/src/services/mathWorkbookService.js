@@ -21,6 +21,7 @@ const DEFAULT_COUNTS = {
 };
 const MAX_SECTION = 20;
 const MAX_TOTAL = 60;
+const MAX_CHAPTERS = 4;
 
 const SYSTEM = [
   'You write Salt Academy Pre-Algebra workbook content.',
@@ -230,8 +231,28 @@ async function persistJob(job) {
   }
 }
 
+function bucket(job) {
+  return job.part || job.document;
+}
+
+function allQuestions(doc) {
+  if (doc && Array.isArray(doc.parts) && doc.parts.length) {
+    return doc.parts.reduce(function (acc, part) { return acc.concat(part.questions || []); }, []);
+  }
+  return (doc && doc.questions) || [];
+}
+
+function collectWarnings(doc) {
+  const out = ((doc && doc.warnings) || []).slice();
+  ((doc && doc.parts) || []).forEach(function (part) {
+    const name = part.chapter && part.chapter.title;
+    (part.warnings || []).forEach(function (w) { out.push(name ? name + ': ' + w : w); });
+  });
+  return out;
+}
+
 function statsOf(doc) {
-  const questions = (doc && doc.questions) || [];
+  const questions = allQuestions(doc);
   const stats = { verified: 0, needsReview: 0, failed: 0, included: 0, total: questions.length };
   questions.forEach((q) => {
     const st = q.verification && q.verification.status;
@@ -253,8 +274,9 @@ function publicJob(job) {
     error: job.error || null,
     title: job.title,
     chapter: job.chapter || null,
+    chapters: job.chapters || (job.chapter ? [job.chapter] : []),
     options: job.options || null,
-    warnings: doc.warnings || [],
+    warnings: collectWarnings(doc),
     stagesDone: doc.stagesDone || [],
     introduction: doc.introduction || '',
     objectives: doc.objectives || [],
@@ -262,7 +284,12 @@ function publicJob(job) {
     definitions: doc.definitions || [],
     rules: doc.rules || [],
     examples: doc.examples || [],
-    questions: doc.questions || [],
+    questions: allQuestions(doc),
+    parts: (doc.parts || []).map((part) => ({
+      chapter: part.chapter || null,
+      introduction: part.introduction || '',
+      concepts: part.concepts || []
+    })),
     stats: statsOf(doc),
     createdAt: job.createdAt,
     updatedAt: job.updatedAt
@@ -328,6 +355,9 @@ function cleanQuestion(raw, section, chapter) {
   return {
     id: newId('mq'),
     section: section,
+    chapterId: chapter.id,
+    chapterNumber: chapter.number,
+    chapterTitle: chapter.title,
     objectiveId: objectiveId,
     type: String(raw.type || 'computation').slice(0, 40),
     prompt: prompt,
@@ -360,6 +390,7 @@ function checkModeNote(mode) {
 }
 
 async function stageOutline(job) {
+  const doc = bucket(job);
   const chapter = job.chapter;
   const parsed = await askJson([
     'Design the teaching sequence for this chapter. Do not write the practice set yet.',
@@ -370,22 +401,23 @@ async function stageOutline(job) {
     'introduction is 2 to 4 sentences. lessons has 3 to 5 items. beats are short teaching moves.'
   ].join('\n\n'), 2500);
   const lessons = Array.isArray(parsed.lessons) ? parsed.lessons.slice(0, 6) : [];
-  job.document.introduction = String(parsed.introduction || '').trim().slice(0, 2000);
-  job.document.lessons = lessons.map((lesson) => ({
+  doc.introduction = String(parsed.introduction || '').trim().slice(0, 2000);
+  doc.lessons = lessons.map((lesson) => ({
     title: String(lesson.title || '').trim().slice(0, 160),
     objectiveIds: strList(lesson.objectiveIds, 6),
     beats: strList(lesson.beats, 6)
   })).filter((lesson) => lesson.title);
-  job.document.stagesDone = ['outline'];
+  doc.stagesDone = ['outline'];
 }
 
 async function stageTeach(job) {
+  const doc = bucket(job);
   const parsed = await askJson([
     'Write the instructional pages for this chapter.',
     languageNote(job.options.language),
     levelNote(job.options.level),
     'Chapter: ' + JSON.stringify(chapterBrief(job.chapter)),
-    'Sequence: ' + JSON.stringify(job.document.lessons || []),
+    'Sequence: ' + JSON.stringify(doc.lessons || []),
     'Return JSON with introduction, concepts (3 to 5), definitions (4 to 8), rules (3 to 6), examples (' + job.options.examples + ').',
     'Each example has prompt, steps (array of why-this-step strings), answer, and expression when the answer is numeric.',
     'Schema: {"introduction":"","concepts":[{"title":"","body":""}],"definitions":[{"term":"","meaning":""}],"rules":[{"name":"","formula":"","note":""}],"examples":[{"prompt":"","steps":[],"answer":"","expression":""}]}'
@@ -396,11 +428,11 @@ async function stageTeach(job) {
     err.statusCode = 502;
     throw err;
   }
-  job.document.introduction = teach.introduction || job.document.introduction;
-  job.document.concepts = teach.concepts;
-  job.document.definitions = teach.definitions;
-  job.document.rules = teach.rules;
-  job.document.examples = teach.examples.map((ex) => {
+  doc.introduction = teach.introduction || doc.introduction;
+  doc.concepts = teach.concepts;
+  doc.definitions = teach.definitions;
+  doc.rules = teach.rules;
+  doc.examples = teach.examples.map((ex) => {
     const verification = ex.expression ? verifyQuestion(ex) : { status: 'needs_review', reason: 'example' };
     if (verification.status === 'failed') return null;
     return {
@@ -410,12 +442,12 @@ async function stageTeach(job) {
       verification: verification
     };
   }).filter(Boolean);
-  if (!job.document.examples.length) {
+  if (!doc.examples.length) {
     const err = new Error('예제 검산을 통과한 항목이 없습니다. 다시 생성해 주세요.');
     err.statusCode = 502;
     throw err;
   }
-  job.document.stagesDone = ['outline', 'teach'];
+  doc.stagesDone = ['outline', 'teach'];
 }
 
 async function fetchBatch(job, section, need, already) {
@@ -425,7 +457,7 @@ async function fetchBatch(job, section, need, already) {
     levelNote(job.options.level),
     checkModeNote(job.chapter.checkMode),
     'Chapter: ' + JSON.stringify(chapterBrief(job.chapter)),
-    'Rules already taught: ' + JSON.stringify((job.document.rules || []).map((r) => r.name)),
+    'Rules already taught: ' + JSON.stringify((bucket(job).rules || []).map((r) => r.name)),
     already.length ? ('Do not repeat these stems: ' + JSON.stringify(already.slice(-12))) : '',
     'Each question: section "' + section + '", objectiveId, type, prompt, expression, answer, steps (2 or more), mistakes (1 or 2).',
     section === 'guided' ? 'Include a short hint.' : 'Leave hint empty.',
@@ -436,13 +468,20 @@ async function fetchBatch(job, section, need, already) {
 }
 
 async function stagePractice(job) {
-  const done = new Set(job.document.sectionsDone || []);
-  const seen = new Set((job.document.questions || []).map((q) => q.prompt.toLowerCase()));
+  const doc = bucket(job);
+  const done = new Set(doc.sectionsDone || []);
+  const seen = new Set((doc.questions || []).map((q) => q.prompt.toLowerCase()));
   for (const section of SECTION_ORDER) {
     if (job.status === 'cancelled') return;
     const need = job.options.counts[section] || 0;
     if (!need || done.has(section)) continue;
-    touch(job, { progress: { message: section + ' 문항 생성 중…', pct: 35 + done.size * 8, section: section } });
+    touch(job, {
+      progress: {
+        message: (job.chapter.title || '') + ' · ' + section + ' 문항 생성 중…',
+        pct: Math.min(96, (job._pctBase || 30) + done.size * 4),
+        section: section
+      }
+    });
     await persistJob(job);
     let got = [];
     let guard = 0;
@@ -459,59 +498,73 @@ async function stagePractice(job) {
       });
     }
     if (got.length < need) {
-      job.document.warnings = job.document.warnings || [];
-      job.document.warnings.push(section + ' 문항이 ' + got.length + '/' + need + '개입니다.');
+      doc.warnings = doc.warnings || [];
+      doc.warnings.push(section + ' 문항이 ' + got.length + '/' + need + '개입니다.');
     }
-    job.document.questions = (job.document.questions || []).concat(got);
-    job.document.sectionsDone = (job.document.sectionsDone || []).concat([section]);
+    doc.questions = (doc.questions || []).concat(got);
+    doc.sectionsDone = (doc.sectionsDone || []).concat([section]);
     done.add(section);
     await persistJob(job);
   }
-  job.document.stagesDone = ['outline', 'teach', 'practice'];
+  doc.stagesDone = ['outline', 'teach', 'practice'];
 }
 
 function stageVerify(job) {
+  const doc = bucket(job);
   const objectives = new Set();
-  job.document.warnings = (job.document.warnings || []).filter((w) => !String(w).startsWith('학습목표'));
-  job.document.questions = (job.document.questions || []).map((q) => {
+  doc.warnings = (doc.warnings || []).filter((w) => !String(w).startsWith('학습목표'));
+  doc.questions = (doc.questions || []).map((q) => {
     const verification = verifyQuestion(q);
     if (q.objectiveId) objectives.add(q.objectiveId);
     return Object.assign({}, q, { verification: verification });
   });
   (job.chapter.objectives || []).forEach((o) => {
     if (!objectives.has(o.id)) {
-      job.document.warnings = job.document.warnings || [];
-      job.document.warnings.push('학습목표에 문항이 없습니다: ' + o.text);
+      doc.warnings = doc.warnings || [];
+      doc.warnings.push('학습목표에 문항이 없습니다: ' + o.text);
     }
   });
-  job.document.stagesDone = ['outline', 'teach', 'practice', 'verify'];
+  doc.stagesDone = ['outline', 'teach', 'practice', 'verify'];
 }
 
 async function processJob(job) {
   if (job._running) return;
   job._running = true;
   try {
-    const done = new Set((job.document && job.document.stagesDone) || []);
-    if (!done.has('outline')) {
-      touch(job, { status: 'running', progress: { message: '단원 구성을 잡는 중…', pct: 12 } });
-      await persistJob(job);
-      await stageOutline(job);
+    const chapters = job.chapters && job.chapters.length ? job.chapters : [job.chapter];
+    for (let i = 0; i < chapters.length; i++) {
       if (job.status === 'cancelled') return;
-      await persistJob(job);
+      const chapter = chapters[i];
+      job.chapter = chapter;
+      job.part = ensurePart(job, chapter);
+      job._pctBase = Math.round((i / chapters.length) * 90);
+      const done = new Set(job.part.stagesDone || []);
+      const label = '챕터 ' + (i + 1) + '/' + chapters.length + ' · ' + chapter.title;
+      if (!done.has('outline')) {
+        touch(job, { status: 'running', progress: { message: label + ' 구성 중…', pct: job._pctBase + 4 } });
+        await persistJob(job);
+        await stageOutline(job);
+        if (job.status === 'cancelled') return;
+        await persistJob(job);
+      }
+      if (!(job.part.stagesDone || []).includes('teach')) {
+        touch(job, { progress: { message: label + ' 설명과 예제…', pct: job._pctBase + 12 } });
+        await persistJob(job);
+        await stageTeach(job);
+        if (job.status === 'cancelled') return;
+        await persistJob(job);
+      }
+      if (!(job.part.stagesDone || []).includes('practice')) {
+        await stagePractice(job);
+        if (job.status === 'cancelled') return;
+      }
+      if (!(job.part.stagesDone || []).includes('verify')) {
+        touch(job, { progress: { message: label + ' 검산 중…', pct: job._pctBase + 20 } });
+        stageVerify(job);
+        await persistJob(job);
+      }
     }
-    if (!done.has('teach') && !(job.document.stagesDone || []).includes('teach')) {
-      touch(job, { progress: { message: '설명과 예제를 쓰는 중…', pct: 28 } });
-      await persistJob(job);
-      await stageTeach(job);
-      if (job.status === 'cancelled') return;
-      await persistJob(job);
-    }
-    if (!(job.document.stagesDone || []).includes('practice')) {
-      await stagePractice(job);
-      if (job.status === 'cancelled') return;
-    }
-    touch(job, { progress: { message: '식을 다시 계산하는 중…', pct: 92 } });
-    stageVerify(job);
+    job.part = null;
     const included = statsOf(job.document).included;
     if (!included) {
       const err = new Error('검산을 통과한 문항이 없습니다. 다시 생성해 주세요.');
@@ -530,53 +583,103 @@ async function processJob(job) {
     await persistJob(job);
   } finally {
     job._running = false;
+    job.part = null;
   }
 }
 
-function blankDocument(chapter, options) {
+function chapterSummary(chapter) {
+  return {
+    id: chapter.id,
+    number: chapter.number,
+    title: chapter.title,
+    unitTitle: chapter.unitTitle,
+    curriculumTitle: chapter.curriculumTitle
+  };
+}
+
+function ensurePart(job, chapter) {
+  if (!Array.isArray(job.document.parts)) job.document.parts = [];
+  let part = job.document.parts.find((p) => p.chapter && p.chapter.id === chapter.id);
+  if (!part) {
+    part = {
+      chapter: chapterSummary(chapter),
+      objectives: chapter.objectives || [],
+      introduction: '',
+      lessons: [],
+      concepts: [],
+      definitions: [],
+      rules: [],
+      examples: [],
+      questions: [],
+      warnings: [],
+      sectionsDone: [],
+      stagesDone: []
+    };
+    job.document.parts.push(part);
+  }
+  return part;
+}
+
+function blankDocument(chapters, options) {
+  const first = chapters[0];
   return {
     title: options.title,
     language: options.language,
     level: options.level,
-    chapter: {
-      id: chapter.id,
-      number: chapter.number,
-      title: chapter.title,
-      unitTitle: chapter.unitTitle,
-      curriculumTitle: chapter.curriculumTitle
-    },
-    objectives: chapter.objectives,
-    introduction: '',
-    lessons: [],
-    concepts: [],
-    definitions: [],
-    rules: [],
-    examples: [],
-    questions: [],
-    warnings: [],
-    sectionsDone: [],
-    stagesDone: []
+    chapter: chapterSummary(first),
+    chapters: chapters.map(chapterSummary),
+    parts: [],
+    warnings: []
   };
 }
 
-function runningMatch(ownerKey, chapterId) {
+function defaultTitle(chapters) {
+  if (chapters.length === 1) return chapters[0].title + ' Workbook';
+  return 'Pre-Algebra Chapters ' + chapters.map((c) => c.number).join(', ');
+}
+
+function resolveChapters(body) {
+  const src = body || {};
+  let ids = [];
+  if (Array.isArray(src.chapterIds) && src.chapterIds.length) ids = src.chapterIds.map(String);
+  else if (src.chapterId) ids = [String(src.chapterId)];
+  ids = Array.from(new Set(ids.filter(Boolean)));
+  if (!ids.length) {
+    const err = new Error('챕터를 하나 이상 선택해 주세요.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (ids.length > MAX_CHAPTERS) {
+    const err = new Error('한 권에는 챕터를 ' + MAX_CHAPTERS + '개까지 넣을 수 있습니다.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const chapters = ids.map(getChapter).filter(Boolean);
+  if (chapters.length !== ids.length) {
+    const err = new Error('고른 챕터를 찾지 못했습니다.');
+    err.statusCode = 400;
+    throw err;
+  }
+  chapters.sort((a, b) => a.number - b.number);
+  return chapters;
+}
+
+function runningMatch(ownerKey, chapterKey) {
   for (const job of jobs.values()) {
-    if (job.ownerKey === ownerKey && job.chapter && job.chapter.id === chapterId && job.status === 'running') {
-      return job;
-    }
+    if (job.ownerKey === ownerKey && job.chapterKey === chapterKey && job.status === 'running') return job;
   }
   return null;
 }
 
 function startGenerateJob(body, ownerKey) {
-  const chapter = getChapter(body && body.chapterId);
-  if (!chapter) {
-    const err = new Error('챕터를 선택해 주세요.');
-    err.statusCode = 400;
-    throw err;
-  }
-  const options = normalizeOptions(body, chapter);
-  const existing = runningMatch(String(ownerKey || ''), chapter.id);
+  const chapters = resolveChapters(body);
+  const titled = Object.assign({}, body || {}, {
+    title: String((body && body.title) || '').trim() || defaultTitle(chapters)
+  });
+  const options = normalizeOptions(titled, chapters[0]);
+  options.chapterIds = chapters.map((c) => c.id);
+  const chapterKey = options.chapterIds.join(',');
+  const existing = runningMatch(String(ownerKey || ''), chapterKey);
   if (existing) {
     return { jobId: existing.id, status: existing.status, progress: existing.progress, reused: true };
   }
@@ -589,11 +692,13 @@ function startGenerateJob(body, ownerKey) {
     createdAt: now,
     updatedAt: now,
     title: options.title,
-    chapter: chapter,
+    chapter: chapters[0],
+    chapters: chapters,
+    chapterKey: chapterKey,
     options: options,
     progress: { message: '준비 중…', pct: 4 },
     error: null,
-    document: blankDocument(chapter, options)
+    document: blankDocument(chapters, options)
   };
   jobs.set(job.id, job);
   void persistJob(job);
@@ -604,7 +709,11 @@ function startGenerateJob(body, ownerKey) {
 function jobFromRow(row) {
   if (!row) return null;
   const doc = row.document || {};
-  const chapter = getChapter(row.chapter_id) || (doc.chapter ? Object.assign({ objectives: doc.objectives || [] }, doc.chapter) : null);
+  const ids = (row.options && row.options.chapterIds) ||
+    (doc.chapters || []).map((c) => c.id).filter(Boolean);
+  const chapters = (ids.length ? ids : [row.chapter_id]).map(getChapter).filter(Boolean);
+  const chapter = chapters[0] || getChapter(row.chapter_id) ||
+    (doc.chapter ? Object.assign({ objectives: doc.objectives || [] }, doc.chapter) : null);
   return {
     id: row.id,
     ownerKey: row.teacher_id || '',
@@ -613,6 +722,8 @@ function jobFromRow(row) {
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
     title: row.title || doc.title || '',
     chapter: chapter,
+    chapters: chapters.length ? chapters : (chapter ? [chapter] : []),
+    chapterKey: (chapters.length ? chapters : (chapter ? [chapter] : [])).map((c) => c.id).join(','),
     options: row.options || null,
     progress: row.progress || null,
     error: row.error || null,
@@ -687,10 +798,15 @@ function updateJob(id, ownerKey, body) {
   (Array.isArray(body.edits) ? body.edits : []).forEach((edit) => {
     if (edit && edit.id) edits[String(edit.id)] = String(edit.prompt || '').trim().slice(0, 900);
   });
-  job.document.questions = (job.document.questions || []).filter((q) => !remove.has(q.id)).map((q) => {
+  const mapQuestions = (list) => (list || []).filter((q) => !remove.has(q.id)).map((q) => {
     if (!edits[q.id]) return q;
     return Object.assign({}, q, { prompt: edits[q.id] || q.prompt });
   });
+  if (job.document.parts && job.document.parts.length) {
+    job.document.parts.forEach((part) => { part.questions = mapQuestions(part.questions); });
+  } else {
+    job.document.questions = mapQuestions(job.document.questions);
+  }
   touch(job, { updatedAt: new Date().toISOString() });
   void persistJob(job);
   return publicJob(job);
@@ -768,5 +884,6 @@ module.exports = {
   processJob,
   setAskForTests,
   verifyQuestion,
-  DEFAULT_COUNTS
+  DEFAULT_COUNTS,
+  MAX_CHAPTERS
 };
