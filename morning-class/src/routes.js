@@ -4828,7 +4828,7 @@ router.post('/novel-study/jobs/:id/google-docs', requireRole('teacher', 'admin')
 const debriefBooks = require('./services/debriefBookService');
 const debriefPdfUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 40 * 1024 * 1024 },
+  limits: { fileSize: debriefBooks.MAX_PDF_BYTES },
   fileFilter: (req, file, cb) => {
     const mime = String(file.mimetype || '').toLowerCase();
     const name = String(file.originalname || '').toLowerCase();
@@ -4888,7 +4888,14 @@ router.post(
   novelStudyJobLimiter,
   (req, res) => {
     debriefPdfUpload.single('pdf')(req, res, async (err) => {
-      if (err) return res.status(400).json({ error: err.message || 'Invalid PDF upload.' });
+      if (err) {
+        const tooBig = err.code === 'LIMIT_FILE_SIZE';
+        const maxMb = Math.round(debriefBooks.MAX_PDF_BYTES / (1024 * 1024));
+        const message = tooBig
+          ? ('PDF는 ' + maxMb + 'MB 이하로 올려 주세요.')
+          : (err.message || 'Invalid PDF upload.');
+        return res.status(400).json({ error: message });
+      }
       try {
         const body = req.body || {};
         const started = await debriefBooks.startGenerateFromPdf({
