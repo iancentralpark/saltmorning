@@ -42,7 +42,7 @@
     .stats { display: flex; gap: .6rem; flex-wrap: wrap; margin: .4rem 0 .8rem; }
     .history button { display: block; width: 100%; text-align: left; margin-top: .35rem; }
     .chapters { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: .35rem .6rem .6rem; }
-    .chapters .unit { margin: .7rem 0 .2rem; font-size: .75rem; color: var(--muted); font-weight: 700; }
+    .chapters .unit { display: block; width: 100%; text-align: left; margin: .7rem 0 .2rem; padding: 0; border: 0; background: transparent; font-size: .75rem; color: var(--muted); font-weight: 700; cursor: pointer; }
     .chapters label { display: flex; gap: .45rem; align-items: flex-start; font-weight: 600; margin: .28rem 0; }
     .chapters input { width: auto; margin-top: .15rem; }
   </style>
@@ -51,7 +51,7 @@
   <header>
     <div>
       <h1>Math Workbook</h1>
-      <p>챕터를 여러 개 고르면 한 권으로 이어지고, 검산 뒤 학생용·답안지·해설지를 따로 받습니다.</p>
+      <p>레벨의 챕터를 고르면 챕터마다 나눠 만들고, 한 권으로 묶습니다.</p>
     </div>
     <a href="/teacher">선생님 포털</a>
   </header>
@@ -59,7 +59,11 @@
     <section>
       <label for="curriculum">수학 레벨</label>
       <select id="curriculum"><option value="pre-algebra">Pre-Algebra</option></select>
-      <label>챕터 <span class="muted">한 번에 4개까지. 문항 수는 챕터마다 적용됩니다.</span></label>
+      <label>챕터 <span class="muted">문항 수는 챕터마다 적용됩니다. 생성 요청은 챕터와 문항 묶음으로 나뉩니다.</span></label>
+      <div class="row">
+        <button type="button" id="selectLevel">이 레벨 전체</button>
+        <button type="button" id="clearChapters">선택 해제</button>
+      </div>
       <div class="chapters" id="chapterList"></div>
       <p class="muted" id="chapterBlurb"></p>
       <label for="level">학생 수준</label>
@@ -105,6 +109,7 @@
   <script>
 (function () {
   var chapters = [];
+  var curricula = [];
   var job = null;
   var poll = null;
   var COUNTS = [
@@ -168,15 +173,30 @@
     }).filter(Boolean).sort(function (a, b) { return a.number - b.number; });
   }
 
+  function currentLevel() {
+    return curricula.filter(function (item) { return item.id === $('curriculum').value; })[0] || curricula[0] || { id: 'pre-algebra', title: 'Pre-Algebra' };
+  }
+
+  function levelChapters() {
+    var id = currentLevel().id;
+    return chapters.filter(function (c) { return c.curriculumId === id; });
+  }
+
+  function fillCurricula() {
+    $('curriculum').innerHTML = curricula.map(function (item) {
+      return '<option value="' + esc(item.id) + '">' + esc(item.title) + '</option>';
+    }).join('');
+  }
+
   function fillChapters() {
     var html = '';
     var lastUnit = '';
-    chapters.forEach(function (c, i) {
+    levelChapters().forEach(function (c, i) {
       if (c.unitTitle !== lastUnit) {
-        html += '<div class="unit">' + esc(c.unitTitle) + '</div>';
+        html += '<button type="button" class="unit" data-unit="' + esc(c.unitTitle) + '">' + esc(c.unitTitle) + '</button>';
         lastUnit = c.unitTitle;
       }
-      html += '<label><input type="checkbox" value="' + esc(c.id) + '"' + (i === 0 ? ' checked' : '') + '> ' +
+      html += '<label><input type="checkbox" value="' + esc(c.id) + '" data-unit="' + esc(c.unitTitle) + '"' + (i === 0 ? ' checked' : '') + '> ' +
         c.number + '. ' + esc(c.title) + '</label>';
     });
     $('chapterList').innerHTML = html;
@@ -192,23 +212,26 @@
   function onChapter() {
     var picked = selectedChapters();
     if (!picked.length) {
-      $('chapterBlurb').textContent = '챕터를 하나 이상 선택해 주세요.';
-      $('countNote').textContent = '한 번에 4챕터까지입니다.';
+      $('chapterBlurb').textContent = '챕터를 하나 이상 선택해 주세요. 단원 이름을 누르면 그 단원만 골라집니다.';
+      $('countNote').textContent = '생성은 챕터마다, 문항은 묶음마다 나눠 요청합니다.';
       return;
     }
-    if (picked.length > 4) {
-      $('chapterBlurb').textContent = '4개를 넘었습니다. 선택을 줄여 주세요.';
-    } else if (picked.length === 1) {
-      $('chapterBlurb').textContent = picked[0].description || '';
-    } else {
-      $('chapterBlurb').textContent = picked.map(function (c) { return c.number + '. ' + c.title; }).join(' · ');
-    }
+    var level = currentLevel();
+    var all = levelChapters();
+    if (picked.length === 1) $('chapterBlurb').textContent = picked[0].description || '';
+    else if (picked.length === all.length) $('chapterBlurb').textContent = level.title + ' ' + picked.length + '개 챕터를 순서대로 나눠 한 권으로 만듭니다.';
+    else $('chapterBlurb').textContent = picked.length + '개 챕터를 순서대로 나눠 만듭니다. ' + picked.map(function (c) { return c.number; }).join(', ');
     var per = 0;
     document.querySelectorAll('[data-count]').forEach(function (input) { per += Number(input.value || 0); });
-    $('countNote').textContent = '챕터마다 약 ' + per + '문항, 이번 선택 ' + picked.length + '개라 약 ' + (per * picked.length) + '문항입니다. 챕터당 60문항, 한 번에 4챕터까지입니다.';
+    $('countNote').textContent = '챕터마다 약 ' + per + '문항, 이번 선택 ' + picked.length + '개라 약 ' + (per * picked.length) + '문항입니다. 챕터당 60문항까지이고, 요청은 챕터와 문항 묶음으로 나뉩니다.';
     if ($('title').dataset.edited) return;
     if (picked.length === 1) $('title').value = picked[0].title + ' Workbook';
-    else $('title').value = 'Pre-Algebra Chapters ' + picked.map(function (c) { return c.number; }).join(', ');
+    else if (picked.length === all.length) $('title').value = level.title + ' Workbook';
+    else {
+      var nums = picked.map(function (c) { return c.number; });
+      var contiguous = nums.every(function (n, i) { return i === 0 || n === nums[i - 1] + 1; });
+      $('title').value = contiguous ? (level.title + ' Chapters ' + nums[0] + '–' + nums[nums.length - 1]) : (level.title + ' Chapters ' + nums.join(', '));
+    }
   }
 
   function countsBody() {
@@ -324,6 +347,31 @@
   fillCounts();
   $('counts').addEventListener('input', onChapter);
   $('title').addEventListener('input', function () { $('title').dataset.edited = '1'; });
+  $('curriculum').addEventListener('change', function () {
+    $('title').dataset.edited = '';
+    fillChapters();
+  });
+  $('selectLevel').addEventListener('click', function () {
+    document.querySelectorAll('#chapterList input').forEach(function (input) { input.checked = true; });
+    $('title').dataset.edited = '';
+    onChapter();
+  });
+  $('clearChapters').addEventListener('click', function () {
+    document.querySelectorAll('#chapterList input').forEach(function (input) { input.checked = false; });
+    $('title').dataset.edited = '';
+    onChapter();
+  });
+  $('chapterList').addEventListener('click', function (ev) {
+    var unit = ev.target.getAttribute && ev.target.getAttribute('data-unit');
+    if (!unit || ev.target.tagName !== 'BUTTON') return;
+    var boxes = Array.prototype.filter.call(document.querySelectorAll('#chapterList input'), function (input) {
+      return input.getAttribute('data-unit') === unit;
+    });
+    var allOn = boxes.every(function (input) { return input.checked; });
+    boxes.forEach(function (input) { input.checked = !allOn; });
+    $('title').dataset.edited = '';
+    onChapter();
+  });
   $('chapterList').addEventListener('change', function () {
     $('title').dataset.edited = '';
     onChapter();
@@ -332,7 +380,6 @@
   $('generate').addEventListener('click', function () {
     var picked = selectedChapters();
     if (!picked.length) { $('error').textContent = '챕터를 하나 이상 선택해 주세요.'; return; }
-    if (picked.length > 4) { $('error').textContent = '한 권에는 챕터를 4개까지 넣을 수 있습니다.'; return; }
     var ids = picked.map(function (c) { return c.id; }).sort().join(',');
     var jobIds = (job && job.chapters && job.chapters.length ? job.chapters : (job && job.chapter ? [job.chapter] : []))
       .map(function (c) { return c.id; }).sort().join(',');
@@ -396,6 +443,8 @@
   } else {
     api('/api/math-workbook/chapters').then(function (data) {
       chapters = data.chapters || [];
+      curricula = data.curricula || [{ id: 'pre-algebra', title: 'Pre-Algebra' }];
+      fillCurricula();
       fillChapters();
       loadHistory();
     }).catch(function (e) { $('error').textContent = e.message; });

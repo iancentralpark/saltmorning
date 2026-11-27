@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { askGemini, isClaudeConfigured } = require('./geminiService');
 const { isOpsDbEnabled, query, table } = require('../db/pool');
-const { listChapters, getChapter } = require('./mathCurriculum');
+const { listChapters, listCurricula, getChapter } = require('./mathCurriculum');
 const { verifyQuestion } = require('./mathVerify');
 const { renderWorkbookHtml } = require('./mathWorkbookHtml');
 
@@ -21,7 +21,6 @@ const DEFAULT_COUNTS = {
 };
 const MAX_SECTION = 20;
 const MAX_TOTAL = 60;
-const MAX_CHAPTERS = 4;
 
 const SYSTEM = [
   'You write Salt Academy Pre-Algebra workbook content.',
@@ -84,7 +83,7 @@ function normalizeOptions(body, chapter) {
     total += counts[key];
   });
   if (total > MAX_TOTAL) {
-    const err = new Error('문항 수는 한 권에 ' + MAX_TOTAL + '개까지입니다. 섹션 수를 줄여 주세요.');
+    const err = new Error('문항 수는 챕터마다 ' + MAX_TOTAL + '개까지입니다. 섹션 수를 줄여 주세요.');
     err.statusCode = 400;
     throw err;
   }
@@ -543,7 +542,7 @@ async function processJob(job) {
       const done = new Set(job.part.stagesDone || []);
       const label = '챕터 ' + (i + 1) + '/' + chapters.length + ' · ' + chapter.title;
       if (!done.has('outline')) {
-        touch(job, { status: 'running', progress: { message: label + ' 구성 중…', pct: job._pctBase + 4 } });
+        touch(job, { status: 'running', progress: { message: label + ' · 구성 요청…', pct: job._pctBase + 4, chapterIndex: i + 1, chapterCount: chapters.length } });
         await persistJob(job);
         await stageOutline(job);
         if (job.status === 'cancelled') return;
@@ -636,8 +635,14 @@ function blankDocument(chapters, options) {
 }
 
 function defaultTitle(chapters) {
+  const series = (chapters[0] && chapters[0].curriculumTitle) || 'Workbook';
   if (chapters.length === 1) return chapters[0].title + ' Workbook';
-  return 'Pre-Algebra Chapters ' + chapters.map((c) => c.number).join(', ');
+  const all = listChapters().filter((c) => c.curriculumId === chapters[0].curriculumId);
+  if (chapters.length === all.length) return series + ' Workbook';
+  const nums = chapters.map((c) => c.number);
+  const contiguous = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+  if (contiguous) return series + ' Chapters ' + nums[0] + '–' + nums[nums.length - 1];
+  return series + ' Chapters ' + nums.join(', ');
 }
 
 function resolveChapters(body) {
@@ -651,14 +656,15 @@ function resolveChapters(body) {
     err.statusCode = 400;
     throw err;
   }
-  if (ids.length > MAX_CHAPTERS) {
-    const err = new Error('한 권에는 챕터를 ' + MAX_CHAPTERS + '개까지 넣을 수 있습니다.');
-    err.statusCode = 400;
-    throw err;
-  }
   const chapters = ids.map(getChapter).filter(Boolean);
   if (chapters.length !== ids.length) {
     const err = new Error('고른 챕터를 찾지 못했습니다.');
+    err.statusCode = 400;
+    throw err;
+  }
+  const levelId = chapters[0].curriculumId;
+  if (chapters.some((c) => c.curriculumId !== levelId)) {
+    const err = new Error('한 권에는 같은 수학 레벨의 챕터만 넣을 수 있습니다.');
     err.statusCode = 400;
     throw err;
   }
@@ -873,6 +879,7 @@ async function renderPdf(html) {
 
 module.exports = {
   listChapters,
+  listCurricula,
   normalizeOptions,
   startGenerateJob,
   getJob,
@@ -886,6 +893,5 @@ module.exports = {
   processJob,
   setAskForTests,
   verifyQuestion,
-  DEFAULT_COUNTS,
-  MAX_CHAPTERS
+  DEFAULT_COUNTS
 };

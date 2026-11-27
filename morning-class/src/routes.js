@@ -4289,7 +4289,7 @@ function mathOwnerKey(req) {
 
 router.get('/math-workbook/chapters', requireRole('teacher', 'admin'), (req, res) => {
   res.json({
-    curriculum: { id: 'pre-algebra', title: 'Pre-Algebra' },
+    curricula: mathWorkbook.listCurricula(),
     chapters: mathWorkbook.listChapters()
   });
 });
