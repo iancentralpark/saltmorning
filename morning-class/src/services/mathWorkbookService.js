@@ -398,6 +398,21 @@ function checkModeNote(mode) {
     return 'Evaluate items use a fully numeric expression after the value is substituted, and a numeric answer. Simplify items use x in the expression, and the answer is the simplified form such as 5x+3, 2x, or 7.';
   }
   if (mode === 'pair') return 'Every item is an ordered pair. expression is two numeric parts separated by a comma, such as "2+1, 5-2". The answer is "3, 3".';
+  if (mode === 'quadratic') {
+    return 'Every item is one polynomial identity of degree at most 2 in x. expression and answer are two forms of the same polynomial, such as "(x+2)(x+3)" and "x^2+5x+6". Use ^ for powers. No y, and no degree higher than 2.';
+  }
+  if (mode === 'quad') {
+    return 'Every item is one quadratic equation in x with rational roots. expression contains =. List both roots in the answer, separated by a comma, such as "2, 5". A double root is a single number, such as "3".';
+  }
+  if (mode === 'radical') {
+    return 'Every item simplifies square roots. expression uses sqrt(n), a product, a quotient, or a sum of like radicals. The answer is simplified, such as 2*sqrt(3), 3*sqrt(2), or 5. Do not use variables.';
+  }
+  if (mode === 'system') {
+    return 'Every item is a system of two linear equations in x and y. Join the equations with a semicolon, such as "2x+y=7; x-y=2". The answer is the pair x, y, such as "3, 1".';
+  }
+  if (mode === 'vertex') {
+    return 'Vertex items are an ordered pair. expression has two numeric parts separated by a comma, such as "-(-4)/(2*1), 1-(-4)^2/(4*1)", and the answer is "2, -3". Evaluation items substitute the number first and use a numeric expression with no variables.';
+  }
   if (mode === 'mixed') return 'Use a comma pair for a point, sqrt(n) for a perfect-square root, or a numeric or linear expression. Omit expression only for a diagram-only item.';
   return 'Every practice item needs a numeric expression with no variables. A perfect-square root is sqrt(25). For a circle, write 3.14 for pi.';
 }
@@ -455,6 +470,7 @@ async function stageTeach(job) {
       const fig = figure && checkFigure({ answer: ex.answer, figure: figure });
       if (!fig || !fig.ok || verification.status !== 'verified') return null;
     }
+    if (isAlgebra2(job.chapter) && verification.status !== 'verified') return null;
     return {
       prompt: ex.prompt,
       steps: ex.steps,
@@ -507,7 +523,7 @@ async function stagePractice(job) {
     await persistJob(job);
     let got = [];
     let guard = 0;
-    const tries = isGeometryChapter(job.chapter) ? 6 : 4;
+    const tries = (isGeometryChapter(job.chapter) || isAlgebra2(job.chapter)) ? 6 : 4;
     while (got.length < need && guard < tries) {
       guard += 1;
       const batchNeed = Math.min(BATCH, need - got.length);
@@ -533,7 +549,15 @@ async function stagePractice(job) {
   doc.stagesDone = ['outline', 'teach', 'practice'];
 }
 
+function isAlgebra2(chapter) {
+  return !!(chapter && chapter.curriculumId === 'algebra-2');
+}
+
 function keepQuestion(row, chapter) {
+  if (isAlgebra2(chapter)) {
+    row.figure = null;
+    return verifyQuestion(row).status === 'verified';
+  }
   if (!isGeometryChapter(chapter)) {
     row.figure = null;
     return true;
@@ -561,6 +585,15 @@ function stageVerify(job) {
           status: 'failed',
           reason: (fig && fig.reason) || verification.reason || 'figure',
           computed: (fig && fig.computed) || verification.computed || ''
+        };
+      }
+    } else if (isAlgebra2(job.chapter)) {
+      figure = null;
+      if (verification.status !== 'verified') {
+        verification = {
+          status: 'failed',
+          reason: verification.reason || 'unverified',
+          computed: verification.computed || ''
         };
       }
     } else {

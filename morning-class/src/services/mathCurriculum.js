@@ -1,14 +1,15 @@
 'use strict';
 
 /**
- * Pre-Algebra and Algebra 1 seeds. The teacher page loads these through the API.
+ * Pre-Algebra through Algebra 2 seeds. The teacher page loads these through the API.
  * Learning objectives stay fixed so each workbook is aligned to the same chapter.
  */
 
 const CURRICULA = [
   { id: 'pre-algebra', title: 'Pre-Algebra', gradeBand: '6-8' },
   { id: 'algebra-1', title: 'Algebra 1', gradeBand: '8-9' },
-  { id: 'geometry', title: 'Geometry', gradeBand: '8-10' }
+  { id: 'geometry', title: 'Geometry', gradeBand: '8-10' },
+  { id: 'algebra-2', title: 'Algebra 2', gradeBand: '9-11' }
 ];
 
 const CURRICULUM = CURRICULA[0];
@@ -28,6 +29,15 @@ function ch(partial) {
 
 function a1(partial) {
   const curriculum = level('algebra-1');
+  return Object.assign({
+    curriculumId: curriculum.id,
+    curriculumTitle: curriculum.title,
+    gradeBand: curriculum.gradeBand
+  }, partial);
+}
+
+function a2(partial) {
+  const curriculum = level('algebra-2');
   return Object.assign({
     curriculumId: curriculum.id,
     curriculumTitle: curriculum.title,
@@ -415,6 +425,102 @@ const CHAPTERS = [
       { id: 'gm-c08-o1', text: 'Find an actual length from a scale.' },
       { id: 'gm-c08-o2', text: 'Find a scale factor from two corresponding lengths.' },
       { id: 'gm-c08-o3', text: 'Find an area scale from a length scale.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c01', number: 1, unitId: 'b1', unitTitle: 'Powers and Roots',
+    title: 'Integer Exponents',
+    checkMode: 'numeric',
+    description: 'Products, quotients, and powers of powers, including negative exponents written as fractions.',
+    prerequisites: ['Order of operations', 'Fractions'],
+    objectives: [
+      { id: 'a2-c01-o1', text: 'Multiply and divide powers with the same base.' },
+      { id: 'a2-c01-o2', text: 'Apply a power to a power or a product.' },
+      { id: 'a2-c01-o3', text: 'Rewrite a negative exponent as a fraction.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c02', number: 2, unitId: 'b1', unitTitle: 'Powers and Roots',
+    title: 'Simplifying Square Roots',
+    checkMode: 'radical',
+    description: 'Take square factors out of a radical, and multiply or add like radicals.',
+    prerequisites: ['Perfect squares', 'Fractions'],
+    objectives: [
+      { id: 'a2-c02-o1', text: 'Simplify sqrt(n) by removing the largest perfect-square factor.' },
+      { id: 'a2-c02-o2', text: 'Multiply or divide square roots and simplify the result.' },
+      { id: 'a2-c02-o3', text: 'Add or subtract like radicals.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c03', number: 3, unitId: 'b2', unitTitle: 'Quadratics',
+    title: 'Polynomial Operations',
+    checkMode: 'quadratic',
+    description: 'Add, subtract, and multiply polynomials that stay degree 2 or less.',
+    prerequisites: ['Distributive property', 'Like terms'],
+    objectives: [
+      { id: 'a2-c03-o1', text: 'Add and subtract polynomials in x.' },
+      { id: 'a2-c03-o2', text: 'Multiply two binomials.' },
+      { id: 'a2-c03-o3', text: 'Square a binomial.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c04', number: 4, unitId: 'b2', unitTitle: 'Quadratics',
+    title: 'Factoring Quadratics',
+    checkMode: 'quadratic',
+    description: 'Factor a quadratic into linear factors with integer coefficients.',
+    prerequisites: ['Multiplying binomials', 'Greatest common factor'],
+    objectives: [
+      { id: 'a2-c04-o1', text: 'Factor out a common monomial.' },
+      { id: 'a2-c04-o2', text: 'Factor a difference of squares.' },
+      { id: 'a2-c04-o3', text: 'Factor a quadratic trinomial into two binomials.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c05', number: 5, unitId: 'b2', unitTitle: 'Quadratics',
+    title: 'Quadratic Equations',
+    checkMode: 'quad',
+    description: 'Solve a quadratic equation whose roots are rational.',
+    prerequisites: ['Factoring quadratics', 'Zero product property'],
+    objectives: [
+      { id: 'a2-c05-o1', text: 'Solve a quadratic equation by factoring.' },
+      { id: 'a2-c05-o2', text: 'Report both roots when there are two.' },
+      { id: 'a2-c05-o3', text: 'Recognize a double root.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c06', number: 6, unitId: 'b2', unitTitle: 'Quadratics',
+    title: 'Vertex of a Parabola',
+    checkMode: 'vertex',
+    description: 'Find the vertex of a quadratic written as y = ax^2 + bx + c, or evaluate it after substituting a number.',
+    prerequisites: ['Evaluating expressions', 'Fractions'],
+    objectives: [
+      { id: 'a2-c06-o1', text: 'Find the x-coordinate of the vertex, -b/(2a).' },
+      { id: 'a2-c06-o2', text: 'Find the vertex as an ordered pair.' },
+      { id: 'a2-c06-o3', text: 'Evaluate a quadratic after substituting a given number.' }
+    ]
+  }),
+  a2({
+    id: 'a2-c07', number: 7, unitId: 'b3', unitTitle: 'Systems and Sequences',
+    title: 'Systems of Linear Equations',
+    checkMode: 'system',
+    description: 'Solve a system of two linear equations in x and y.',
+    prerequisites: ['Linear equations', 'Ordered pairs'],
+    objectives: [
+      { id: 'a2-c07-o1', text: 'Solve a system with integer coefficients.' },
+      { id: 'a2-c07-o2', text: 'Solve a system that includes a fraction or a negative coefficient.' },
+      { id: 'a2-c07-o3', text: 'Write the solution as an ordered pair (x, y).' }
+    ]
+  }),
+  a2({
+    id: 'a2-c08', number: 8, unitId: 'b3', unitTitle: 'Systems and Sequences',
+    title: 'Sequences',
+    checkMode: 'numeric',
+    description: 'Arithmetic and geometric sequences with a whole-number index, and a simple exponential change.',
+    prerequisites: ['Integer exponents', 'Multiplication'],
+    objectives: [
+      { id: 'a2-c08-o1', text: 'Find a term of an arithmetic sequence.' },
+      { id: 'a2-c08-o2', text: 'Find a term of a geometric sequence.' },
+      { id: 'a2-c08-o3', text: 'Evaluate a simple exponential expression such as a start value times an integer power.' }
     ]
   })
 ];
