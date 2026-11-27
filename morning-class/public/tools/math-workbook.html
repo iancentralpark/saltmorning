@@ -37,6 +37,7 @@
     .needs_review { background: #ffedd5; color: var(--warn); }
     .failed { background: #ffe4e6; color: var(--bad); }
     .q { border-top: 1px solid var(--line); padding: .7rem 0; }
+    .q .fig svg { width: 240px; max-width: 100%; height: auto; display: block; margin: .35rem 0; }
     .q header { position: static; border: 0; padding: 0; background: transparent; }
     .hidden { display: none !important; }
     .stats { display: flex; gap: .6rem; flex-wrap: wrap; margin: .4rem 0 .8rem; }
@@ -297,6 +298,7 @@
         '<span class="pill ' + st + '">' + st + '</span>' +
         (q.verification && q.verification.computed ? '<span class="muted">계산값 ' + esc(q.verification.computed) + '</span>' : '') +
         '</header><p class="prompt" data-id="' + esc(q.id) + '">' + esc(q.prompt) + '</p>' +
+        (q.figureSvg ? '<div class="fig">' + q.figureSvg + '</div>' : '') +
         '<p class="muted">답: ' + esc(q.answer) + (q.expression ? ' · 식 ' + esc(q.expression) : '') + '</p>' +
         '<div class="row"><button type="button" data-edit="' + esc(q.id) + '">문장 고치기</button>' +
         '<button type="button" data-drop="' + esc(q.id) + '">빼기</button></div></div>';
