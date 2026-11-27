@@ -41,17 +41,23 @@ function renderTex(tex, display) {
 }
 
 function rich(text) {
-  const src = String(text || '');
+  const src = String(text || '').replace(/\\\$/g, '\u0001');
+  const plain = (s) => escapeHtml(s).replace(/\u0001/g, '$').replace(/\n/g, '<br>');
   const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
   let out = '';
   let last = 0;
   let m;
   while ((m = re.exec(src))) {
-    out += escapeHtml(src.slice(last, m.index)).replace(/\n/g, '<br>');
-    out += renderTex(m[1] != null ? m[1] : m[2], m[1] != null);
+    // "$3 flat fee plus $2" is two prices, not one formula.
+    if (m[1] == null && /^\d/.test(m[2]) && /\s$/.test(m[2])) {
+      re.lastIndex = m.index + 1;
+      continue;
+    }
+    out += plain(src.slice(last, m.index));
+    out += renderTex((m[1] != null ? m[1] : m[2]).replace(/\u0001/g, '\\$'), m[1] != null);
     last = m.index + m[0].length;
   }
-  out += escapeHtml(src.slice(last)).replace(/\n/g, '<br>');
+  out += plain(src.slice(last));
   return out;
 }
 
