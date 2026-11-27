@@ -300,6 +300,7 @@ function publicJob(job) {
       concepts: part.concepts || []
     })),
     stats: statsOf(doc),
+    layout: doc.layout || { note: '', flow: [], summary: '각 섹션이 새 페이지에서 시작합니다.' },
     createdAt: job.createdAt,
     updatedAt: job.updatedAt
   };
@@ -878,13 +879,156 @@ function cancelJob(id, ownerKey) {
   return publicJob(job);
 }
 
-function updateJob(id, ownerKey, body) {
+const LAYOUT_ORDER = ['contents', 'teach', 'examples', 'guided', 'basic', 'intermediate', 'advanced', 'word', 'mastery'];
+const LAYOUT_PRACTICE = ['guided', 'basic', 'intermediate', 'advanced', 'word', 'mastery'];
+const LAYOUT_LABELS = {
+  contents: '목차',
+  teach: '개념',
+  examples: '예제',
+  guided: '안내',
+  basic: '기본',
+  intermediate: '중간',
+  advanced: '심화',
+  word: '문장제',
+  mastery: '단원평가'
+};
+const LAYOUT_ALIASES = [
+  ['contents', /목차|contents|table of contents|\btoc\b/],
+  ['teach', /개념|도입|설명|학습 ?목표|teach|concepts?|introduction|intro/],
+  ['examples', /예제|examples?/],
+  ['guided', /안내|가이드|guided/],
+  ['basic', /기본|basic/],
+  ['intermediate', /중간|중급|intermediate/],
+  ['advanced', /심화|고급|advanced/],
+  ['word', /문장제|word problems?/],
+  ['mastery', /단원 ?평가|마스터|mastery|chapter test/],
+  ['practice', /연습|practice/]
+];
+
+function layoutSummary(flow) {
+  if (!flow.length) return '각 섹션이 새 페이지에서 시작합니다.';
+  return '앞 섹션에 이어 붙습니다: ' + flow.map((kind) => LAYOUT_LABELS[kind] || kind).join(', ') + '.';
+}
+
+function layoutKindsIn(text) {
+  const found = [];
+  LAYOUT_ALIASES.forEach(([name, re]) => {
+    if (re.test(text)) found.push(name);
+  });
+  const specific = found.filter((name) => LAYOUT_PRACTICE.includes(name));
+  if (specific.length && found.includes('practice')) return found.filter((name) => name !== 'practice');
+  return found;
+}
+
+function expandLayout(name) {
+  return name === 'practice' ? LAYOUT_PRACTICE.slice() : [name];
+}
+
+function interpretLayoutNote(note) {
+  const text = String(note || '').trim().slice(0, 400);
+  if (!text) return { note: '', flow: [], summary: layoutSummary([]) };
+  const clauses = text.split(/\s*(?:그리고|그리고요|\.|\;|\n)\s*/).filter(Boolean);
+  const flow = new Set();
+  let matched = false;
+  clauses.forEach((clause) => {
+    const low = clause.toLowerCase();
+    if (/각 섹션|섹션마다|섹션별|원래대로|every section|reset/.test(low)) {
+      flow.clear();
+      matched = true;
+      return;
+    }
+    const names = [];
+    layoutKindsIn(low).forEach((name) => {
+      expandLayout(name).forEach((kind) => { if (!names.includes(kind)) names.push(kind); });
+    });
+    if (!names.length) return;
+    const join = /붙여|이어|같은 페이지|한 페이지|바로 뒤|함께|붙|together|same page|keep with|follow/.test(low);
+    const split = /새 페이지|나눠|나누|따로|page break|new page|separate/.test(low);
+    const only = /만/.test(low) && split;
+    if (only) {
+      LAYOUT_PRACTICE.forEach((kind) => flow.add(kind));
+      names.forEach((kind) => flow.delete(kind));
+      matched = true;
+      return;
+    }
+    if (join) {
+      const idx = names.map((kind) => LAYOUT_ORDER.indexOf(kind)).filter((n) => n >= 0).sort((a, b) => a - b);
+      if (!idx.length) return;
+      const from = idx.length === 1 ? idx[0] : idx[0] + 1;
+      const to = idx[idx.length - 1];
+      for (let i = from; i <= to; i++) flow.add(LAYOUT_ORDER[i]);
+      matched = true;
+      return;
+    }
+    if (split) {
+      names.forEach((kind) => flow.delete(kind));
+      matched = true;
+    }
+  });
+  if (!matched) return null;
+  const list = LAYOUT_ORDER.filter((kind) => flow.has(kind) && kind !== 'contents');
+  return { note: text, flow: list, summary: layoutSummary(list) };
+}
+
+function layoutFromModel(parsed, note) {
+  const flow = Array.isArray(parsed && parsed.flow) ? parsed.flow : [];
+  const list = [];
+  flow.forEach((kind) => {
+    const key = String(kind || '').trim();
+    if (LAYOUT_ORDER.includes(key) && key !== 'contents' && !list.includes(key)) list.push(key);
+  });
+  if (parsed && parsed.unclear) return null;
+  if (!list.length && parsed && parsed.unclear !== false) return null;
+  const ordered = LAYOUT_ORDER.filter((kind) => list.includes(kind));
+  const summary = String(parsed.summary || '').trim().slice(0, 180) || layoutSummary(ordered);
+  return { note: note, flow: ordered, summary: summary };
+}
+
+async function resolveLayout(note) {
+  const text = String(note || '').trim().slice(0, 400);
+  const local = interpretLayoutNote(text);
+  if (local) return local;
+  const hint = '페이지 배치로 읽지 못했습니다. 예: "기본 연습을 예제 뒤에 붙여 줘" 또는 "각 섹션은 새 페이지".';
+  let parsed = null;
+  if (askOverride) {
+    parsed = await askOverride('layout:' + text, 500);
+  } else if (isClaudeConfigured()) {
+    const result = await askGemini([
+      'A teacher is adjusting page breaks in a printed math workbook.',
+      'Sections in order: teach, examples, guided, basic, intermediate, advanced, word, mastery.',
+      'Return one JSON object. flow is the list of sections that should continue on the previous section page instead of starting a new A4 page.',
+      'Never include contents. If the note is not about page breaks, return {"unclear":true,"flow":[]}.',
+      'summary is one short Korean sentence saying what changed.',
+      'Note: ' + text
+    ].join('\n'), {
+      provider: 'claude',
+      noGeminiFallback: true,
+      temperature: 0,
+      maxOutputTokens: 400,
+      responseMimeType: 'application/json',
+      model: claudeModel()
+    });
+    parsed = extractJson((result && (result.answer || result.text)) || result);
+  }
+  const layout = parsed ? layoutFromModel(parsed, text) : null;
+  if (!layout) {
+    const err = new Error(hint);
+    err.statusCode = 400;
+    throw err;
+  }
+  return layout;
+}
+
+async function updateJob(id, ownerKey, body) {
   const job = jobs.get(String(id || ''));
   if (!job || (ownerKey && job.ownerKey && job.ownerKey !== ownerKey)) return null;
   if (job.status === 'running') {
     const err = new Error('생성이 끝난 뒤에 고칠 수 있습니다.');
     err.statusCode = 409;
     throw err;
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'layoutNote')) {
+    job.document.layout = await resolveLayout(body.layoutNote);
   }
   const remove = new Set(Array.isArray(body.removeQuestionIds) ? body.removeQuestionIds.map(String) : []);
   const edits = {};
@@ -972,6 +1116,8 @@ module.exports = {
   resumeJob,
   cancelJob,
   updateJob,
+  interpretLayoutNote,
+  resolveLayout,
   listWorkbooks,
   renderWorkbookHtml,
   renderPdf,

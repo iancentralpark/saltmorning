@@ -344,7 +344,7 @@ function tocBlock(doc, parts) {
       rows.push('<a class="toc-row sub" href="#ch-' + escapeHtml(id) + '-' + escapeHtml(q.section) + '"><span>' + escapeHtml(label) + '</span><span class="fill"></span></a>');
     });
   });
-  return '<section class="contents sheet"><h2>' + escapeHtml(L.contents) + '</h2>' + rows.join('') + '</section>';
+  return '<h2>' + escapeHtml(L.contents) + '</h2>' + rows.join('');
 }
 
 function teachBlock(part, index, doc) {
@@ -367,7 +367,7 @@ function teachBlock(part, index, doc) {
     bits.push('<div class="block"><div class="kicker">' + escapeHtml(L.rules) + '</div>' + part.rules.map((r) => '<div class="rulebox"><h3>' + rich(r.name) + '</h3><div class="formula">' + rich(r.formula) + '</div>' + (r.note ? '<p class="note">' + rich(r.note) + '</p>' : '') + '</div>').join('') + '</div>');
   }
   bits.push('</div>');
-  return '<section class="sheet">' + bits.join('') + '</section>';
+  return bits.join('');
 }
 
 function examplesBlock(part, index, doc) {
@@ -382,12 +382,12 @@ function examplesBlock(part, index, doc) {
       (steps ? '<ol class="steps">' + steps + '</ol>' : '') +
       (ex.answer ? '<div class="exanswer">' + escapeHtml(L.answer) + ' · ' + rich(ex.answer) + '</div>' : '') + '</div>';
   }).join('');
-  return '<section class="sheet" id="ch-' + escapeHtml(id) + '-ex"><h2>' + escapeHtml(L.examples) + '</h2>' + items + '</section>';
+  return '<div id="ch-' + escapeHtml(id) + '-ex"><h2>' + escapeHtml(L.examples) + '</h2>' + items + '</div>';
 }
 
 function practiceBlock(part, index, doc, counter) {
   const questions = (part.questions || []).filter(publishable);
-  if (!questions.length) return '';
+  if (!questions.length) return [];
   const L = labels(doc.language);
   const id = chapterId(part, index);
   const groups = [];
@@ -410,8 +410,22 @@ function practiceBlock(part, index, doc, counter) {
       return '<div class="problem"><div class="pnum">' + counter.n + '</div><div class="pbody"><p>' + rich(q.prompt) + '</p>' + figureHtml(q.figure) + hint + lineHtml + '</div></div>';
     }).join('');
     const score = g.section === 'mastery' ? '<p class="score">' + escapeHtml(L.score) + ' <i></i> / ' + g.items.length + '</p>' : '';
-    return '<section class="sheet" id="ch-' + escapeHtml(id) + '-' + escapeHtml(g.section) + '"><h2 class="band">' + escapeHtml(sectionLabel(g.section, doc.language)) + '</h2>' + score + '<div class="practice' + cols + '">' + items + '</div></section>';
-  }).join('');
+    return {
+      kind: g.section,
+      html: '<div id="ch-' + escapeHtml(id) + '-' + escapeHtml(g.section) + '"><h2 class="band">' + escapeHtml(sectionLabel(g.section, doc.language)) + '</h2>' + score + '<div class="practice' + cols + '">' + items + '</div></div>'
+    };
+  });
+}
+
+function groupSheets(blocks, doc) {
+  const flow = new Set(((doc && doc.layout && doc.layout.flow) || []).filter((kind) => kind !== 'contents'));
+  const groups = [];
+  blocks.forEach((block) => {
+    if (!block || !block.html) return;
+    if (block.kind !== 'contents' && flow.has(block.kind) && groups.length) groups[groups.length - 1].push(block);
+    else groups.push([block]);
+  });
+  return groups.map((group) => '<section class="sheet">' + group.map((block) => block.html).join('') + '</section>').join('');
 }
 
 function answersBlock(doc) {
@@ -469,9 +483,14 @@ function renderWorkbookHtml(doc, options) {
   else if (part === 'solutions') body += solutionsBlock(book);
   else {
     const counter = { n: 0 };
-    body += coverBlock(book, parts) + tocBlock(book, parts) + parts.map((piece, i) => {
-      return '<article class="chapter">' + teachBlock(piece, i, book) + examplesBlock(piece, i, book) + practiceBlock(piece, i, book, counter) + '</article>';
-    }).join('');
+    const blocks = [{ kind: 'contents', html: tocBlock(book, parts) }];
+    parts.forEach((piece, i) => {
+      blocks.push({ kind: 'teach', html: teachBlock(piece, i, book) });
+      const examples = examplesBlock(piece, i, book);
+      if (examples) blocks.push({ kind: 'examples', html: examples });
+      practiceBlock(piece, i, book, counter).forEach((block) => blocks.push(block));
+    });
+    body += coverBlock(book, parts) + groupSheets(blocks, book);
   }
   return '<!DOCTYPE html><html lang="' + escapeHtml(book.language || 'en') + '"><head><meta charset="utf-8">' +
     '<title>' + escapeHtml(title) + '</title>' + katexCss(forPdf) + '<style>' + pageCss(title, partName, theme.id) + '</style></head><body class="theme-' + theme.id + '">' +

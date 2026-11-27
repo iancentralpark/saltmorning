@@ -112,6 +112,13 @@
       </div>
       <div class="stats" id="stats"></div>
       <div id="warnings" class="muted"></div>
+      <div id="layoutBox" class="hidden">
+        <label for="layoutNote">페이지 배치</label>
+        <p class="muted">문항 문장은 아래에서 고칩니다. 페이지가 어색하면 한 줄만 적습니다. 예: 기본 연습을 예제 뒤에 붙여 줘</p>
+        <textarea id="layoutNote" rows="2" maxlength="400" placeholder="기본 연습을 예제 뒤에 붙여 줘"></textarea>
+        <p class="muted" id="layoutSummary"></p>
+        <button type="button" id="applyLayout">배치 적용</button>
+      </div>
       <div id="preview"><p class="muted">생성이 끝나면 설명과 문항이 여기 표시됩니다. 문항 문장은 고칠 수 있고, 빼 두면 세 파일 모두에서 빠집니다.</p></div>
     </section>
   </main>
@@ -266,6 +273,11 @@
     $('progressBar').style.width = pct + '%';
     $('error').textContent = data.error || '';
     var ready = data.status === 'done';
+    $('layoutBox').classList.toggle('hidden', !ready);
+    if (ready && data.layout) {
+      if (document.activeElement !== $('layoutNote')) $('layoutNote').value = data.layout.note || '';
+      $('layoutSummary').textContent = data.layout.summary || '';
+    }
     ['dlStudent', 'dlAnswers', 'dlSolutions', 'dlHtml'].forEach(function (id) { $(id).disabled = !ready; });
     var s = data.stats || {};
     $('stats').innerHTML = ready ? (
@@ -436,6 +448,20 @@
   $('dlAnswers').addEventListener('click', function () { download('answers', 'pdf'); });
   $('dlSolutions').addEventListener('click', function () { download('solutions', 'pdf'); });
   $('dlHtml').addEventListener('click', function () { download('student', 'html'); });
+  $('applyLayout').addEventListener('click', function () {
+    if (!job) return;
+    $('applyLayout').disabled = true;
+    api('/api/math-workbook/jobs/' + encodeURIComponent(job.id), {
+      method: 'PATCH',
+      body: { layoutNote: $('layoutNote').value }
+    }).then(function (data) {
+      $('applyLayout').disabled = false;
+      showJob(data);
+    }).catch(function (e) {
+      $('applyLayout').disabled = false;
+      $('error').textContent = e.message;
+    });
+  });
   $('preview').addEventListener('click', function (ev) {
     var drop = ev.target.getAttribute && ev.target.getAttribute('data-drop');
     var edit = ev.target.getAttribute && ev.target.getAttribute('data-edit');
