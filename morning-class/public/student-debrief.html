@@ -109,11 +109,10 @@
 
   <div class="buddy-stage" id="buddyStage" aria-hidden="false">
     <div class="buddy-frame" id="buddyFrame">
-      <img id="buddyImg" src="/img/salt-buddy/idle-512.png?v=20261120idle" alt="Salt buddy">
-      <video id="buddyVideo" class="hidden" muted loop playsinline preload="metadata"
-        poster="/img/salt-buddy/talking.png">
-        <source src="/img/salt-buddy/talking-loop.webm" type="video/webm">
-        <source src="/img/salt-buddy/talking-loop.mp4" type="video/mp4">
+      <img id="buddyImg" class="hidden" alt="">
+      <video id="buddyVideo" muted loop playsinline autoplay preload="auto">
+        <source src="/img/salt-buddy/listening-loop.webm" type="video/webm">
+        <source src="/img/salt-buddy/listening-loop.mp4" type="video/mp4">
       </video>
     </div>
     <div class="buddy-caption" id="buddyCaption">Ready when you are</div>
@@ -197,6 +196,7 @@
   /* Per-mood video bases (Higgsfield). speaking uses talking-loop (always shipped).
      Extra moods light up after generate-salt-buddy-higgsfield.sh writes *-loop.mp4. */
   var BUDDY_VIDEO = {
+    idle: '/img/salt-buddy/listening-loop',
     speaking: '/img/salt-buddy/talking-loop',
     listening: '/img/salt-buddy/listening-loop',
     thinking: '/img/salt-buddy/thinking-loop',
@@ -204,8 +204,8 @@
   };
   var buddyMood = 'idle';
   var buddyTalkTimer = null;
-  var buddyVideoBase = '';
-  var buddyVideoOk = { speaking: true }; // talking-loop always present
+  var buddyVideoBase = '/img/salt-buddy/listening-loop';
+  var buddyVideoOk = { idle: true, speaking: true, listening: true, thinking: true, happy: true };
 
   function probeBuddyVideos() {
     ['listening', 'thinking', 'happy'].forEach(function (mood) {
@@ -232,7 +232,7 @@
     mp4.type = 'video/mp4';
     vid.appendChild(webm);
     vid.appendChild(mp4);
-    vid.poster = (BUDDY[moodForBase(base)] || BUDDY.idle);
+    vid.removeAttribute('poster');
     vid.load();
   }
 
@@ -265,18 +265,7 @@
     try {
       var p = vid.play();
       if (p && p.catch) p.catch(function () {
-        vid.classList.add('hidden');
-        img.classList.remove('hidden');
-        if (mood === 'speaking') {
-          var open = false;
-          img.src = BUDDY.idle;
-          buddyTalkTimer = setInterval(function () {
-            open = !open;
-            img.src = open ? BUDDY.talking : BUDDY.idle;
-          }, 140);
-        } else {
-          img.src = BUDDY[fallbackStill] || BUDDY.idle;
-        }
+        // A rejected autoplay leaves the moving clip in place; the next tap starts it.
       });
     } catch (e) {}
   }
@@ -301,11 +290,7 @@
       return;
     }
 
-    frame.classList.remove('is-speaking');
-    try { vid.pause(); vid.currentTime = 0; } catch (e) {}
-    vid.classList.add('hidden');
-    img.classList.remove('hidden');
-    img.src = BUDDY[mood] || BUDDY.idle;
+    playBuddyVideo('idle', 'listening');
   }
 
   /* ------------------------------------------------------------------
@@ -323,6 +308,11 @@
 
   // Browsers only let a page make sound after the user has touched it.
   function wakePlayback() {
+    var vid = $('buddyVideo');
+    if (vid && vid.paused) {
+      var vp = vid.play();
+      if (vp && vp.catch) vp.catch(function () {});
+    }
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     if (!playCtx) {
@@ -392,13 +382,15 @@
 
   function cancelTypewriter(finishText) {
     if (reveal.timer) { clearInterval(reveal.timer); reveal.timer = null; }
-    if (reveal.typing || reveal.waitingAudio || reveal.hideLastAi) {
-      reveal.typing = false;
-      reveal.waitingAudio = false;
-      if (finishText && reveal.full) reveal.shown = reveal.full.length;
-      reveal.hideLastAi = false;
-      render();
-    }
+    var dirty = reveal.typing || reveal.waitingAudio || reveal.hideLastAi;
+    var keepHidden = reveal.hideLastAi;
+    reveal.typing = false;
+    reveal.waitingAudio = false;
+    if (finishText && reveal.full) reveal.shown = reveal.full.length;
+    if (!keepHidden) reveal.hideLastAi = false;
+    // A reply that is about to be spoken stays hidden. Painting it here flashes
+    // the full sentence, then the waiting dots wipe it, then the words return.
+    if (dirty && !keepHidden) render();
     reveal.gen++;
   }
 
@@ -1223,6 +1215,7 @@
     }
 
     // Show the student's final turn immediately; keep AI hidden until voice is ready.
+    // Set the hide flag before cancelling so the old typewriter cannot paint the new reply.
     reveal.hideLastAi = true;
     cancelTypewriter(false);
     render();
@@ -1279,7 +1272,6 @@
       ttsConfigured = !!meta.ttsConfigured;
       session = await api('/api/student/debrief/assignments/' + encodeURIComponent(assignmentId) + '/session',
         { method: 'POST' }, role);
-      render();
       if (!sttConfigured) {
         setHint('Voice recognition is not available right now. Please try again later.', true);
         $('micRow').classList.add('hidden');
@@ -1289,6 +1281,8 @@
       var last = session.turns[session.turns.length - 1];
       if (session.status === 'active' && last && last.role === 'ai' && session.turns.length === 1) {
         presentTeacherReply(last.text, true);
+      } else {
+        render();
       }
     } catch (e) {
       $('chat').innerHTML = '<div class="error-card">' + esc(e.message || 'Could not start.') + '</div>';
