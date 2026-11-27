@@ -687,11 +687,12 @@
   var VAD = {
     startMs: 160,          // voiced audio needed before an answer starts
     preRollMs: 500,        // audio kept from before the start, so first words are not clipped
-    endSilenceMs: 3000,    // pause that ends a normal answer
-    endSilenceShortMs: 3000, // same wait right after a short start ("Um...")
-    endSilenceLongMs: 3500,  // longest wait, once the answer is already long
-    shortAnswerMs: 1500,
-    longAnswerMs: 8000,      // voiced time before breath-sized pauses are kept
+    // Gemini Live's server default is about 800ms of silence. OpenAI server VAD
+    // defaults to 500ms, and its own guide says that short a gap jumps in on a breath.
+    silenceMs: 800,
+    // ChatGPT voice uses semantic VAD. Eagerness "auto" is "medium": a finished
+    // sentence ends on the short pause, and an unfinished one waits up to 4s.
+    unfinishedMaxMs: 4000,
     minVoicedMs: 450,      // less voiced audio than this is treated as noise
     maxMs: 90000,
     tailMs: 350,           // silence kept after the last word
@@ -702,18 +703,37 @@
     targetRate: 16000
   };
 
+  // Last word of an answer that is still in progress. A breath after one of these
+  // is not the end of the turn, same as ChatGPT semantic VAD on a trailing clause.
+  var UNFINISHED_WORDS = {
+    and: 1, but: 1, or: 1, because: 1, so: 1, if: 1, when: 1, while: 1, although: 1, though: 1,
+    that: 1, which: 1, who: 1, what: 1, where: 1, the: 1, a: 1, an: 1, to: 1, of: 1, in: 1, on: 1,
+    for: 1, with: 1, about: 1, from: 1, at: 1, as: 1, into: 1, then: 1, than: 1,
+    um: 1, uh: 1, er: 1, hmm: 1, like: 1, well: 1, just: 1,
+    is: 1, am: 1, are: 1, was: 1, were: 1, be: 1, been: 1, being: 1,
+    can: 1, will: 1, would: 1, could: 1, should: 1, do: 1, did: 1, does: 1,
+    have: 1, has: 1, had: 1, my: 1, his: 1, her: 1, their: 1, its: 1, our: 1, your: 1,
+    '그리고': 1, '그래서': 1, '근데': 1, '왜냐하면': 1, '음': 1, '어': 1, '그': 1
+  };
+
+  var OPEN_CLAUSE = {
+    and: 1, but: 1, or: 1, because: 1, so: 1, if: 1, when: 1, while: 1, although: 1, though: 1,
+    that: 1, which: 1, who: 1, '그리고': 1, '그래서': 1, '근데': 1, '왜냐하면': 1
+  };
+
   var hf = {
     on: false, state: 'off',
     ctx: null, stream: null, source: null, node: null, sink: null, rate: 48000,
     pre: [], preMs: 0, seg: [], segMs: 0,
     voicedRunMs: 0, voicedMs: 0, silenceMs: 0, lastVoicedSegMs: 0,
-    floor: 0.003, level: 0, misses: 0, starting: false, deafUntil: 0
+    floor: 0.003, level: 0, misses: 0, starting: false, deafUntil: 0,
+    recog: null, liveText: '', restartRecog: false
   };
 
   var STATE_TEXT = {
     off: ['Start talking', 'Tap the microphone once. After that, just talk — no more tapping.'],
     listening: ['Listening', 'Go ahead — I am listening.'],
-    hearing: ['I hear you', 'A short breath is fine. Pause when you are finished, or tap to send now.'],
+    hearing: ['I hear you', 'Pause when you are finished, or tap to send now.'],
     thinking: ['Thinking', 'Understanding your answer…'],
     speaking: ['Salty is speaking', 'Tap to skip and answer.']
   };
@@ -738,6 +758,7 @@
     if (st === 'listening') {
       hf.pre = []; hf.preMs = 0; hf.seg = []; hf.segMs = 0;
       hf.voicedRunMs = 0; hf.voicedMs = 0; hf.silenceMs = 0; hf.lastVoicedSegMs = 0;
+      hf.liveText = '';
     }
     if (st === 'listening') setBuddy('listening', 'Listening…');
     else if (st === 'hearing') setBuddy('listening', 'I hear you');
@@ -782,6 +803,7 @@
         hf.seg = hf.pre; hf.segMs = hf.preMs;
         hf.pre = []; hf.preMs = 0;
         hf.voicedMs = hf.voicedRunMs; hf.silenceMs = 0; hf.lastVoicedSegMs = hf.segMs;
+        armUtteranceText();
         setState('hearing');
       }
       return;
@@ -789,24 +811,82 @@
 
     hf.seg.push(buf); hf.segMs += ms;
     if (level >= contThr) {
-      var before = hf.voicedMs;
       hf.voicedMs += ms; hf.silenceMs = 0; hf.lastVoicedSegMs = hf.segMs;
-      if (before < VAD.longAnswerMs && hf.voicedMs >= VAD.longAnswerMs) {
-        setHint('A short breath is fine. Pause when you are finished, or tap to send.');
-      }
     } else {
       hf.silenceMs += ms;
     }
-    if (hf.silenceMs >= endPatienceMs(hf.voicedMs) || hf.segMs >= VAD.maxMs) finishUtterance();
+    if (hf.silenceMs >= endPatienceMs(hf.liveText, !!hf.recog) || hf.segMs >= VAD.maxMs) finishUtterance();
   }
 
-  // Silence that ends a turn stays between 3 and 3.5 seconds.
-  // A short answer ends at 3s. A long answer may include a breath, so it ends at 3.5s.
-  function endPatienceMs(voicedMs) {
-    if (voicedMs < VAD.shortAnswerMs) return VAD.endSilenceShortMs;
-    if (voicedMs >= VAD.longAnswerMs) return VAD.endSilenceLongMs;
-    var span = (voicedMs - VAD.shortAnswerMs) / (VAD.longAnswerMs - VAD.shortAnswerMs);
-    return Math.round(VAD.endSilenceMs + span * (VAD.endSilenceLongMs - VAD.endSilenceMs));
+  // A finished sentence ends after the short silence used by Gemini voice (~800ms).
+  // An unfinished sentence, or no words yet, waits up to ChatGPT's semantic
+  // medium timeout (4s). Speech coming back clears the silence clock.
+  function utteranceUnfinished(text) {
+    var raw = String(text || '').trim();
+    if (!raw) return true;
+    if (/[.?!]["']?$/.test(raw)) return false;
+    var words = raw.toLowerCase().replace(/[.,!?;:"'…]+$/g, '').split(/\s+/).filter(Boolean);
+    var clean = function (w) { return String(w || '').replace(/[^a-z가-힣']/g, ''); };
+    var last = clean(words[words.length - 1]);
+    var prev = clean(words[words.length - 2]);
+    if (UNFINISHED_WORDS[last]) return true;
+    // "because he" is still an open clause even though "he" can end a sentence.
+    return !!OPEN_CLAUSE[prev];
+  }
+
+  function endPatienceMs(liveText, hasRecog) {
+    if (hasRecog && !utteranceUnfinished(liveText)) return VAD.silenceMs;
+    return VAD.unfinishedMaxMs;
+  }
+
+  function startEndpointing() {
+    stopEndpointing();
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    var rec;
+    try { rec = new SR(); } catch (e) { return; }
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onresult = function (ev) {
+      var text = '';
+      for (var i = 0; i < ev.results.length; i++) {
+        text += (ev.results[i][0] && ev.results[i][0].transcript) || '';
+        text += ' ';
+      }
+      hf.liveText = text.trim();
+    };
+    rec.onerror = function (ev) {
+      if (ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed')) hf.recog = null;
+    };
+    rec.onend = function () {
+      if (hf.recog !== rec || !hf.on) return;
+      if (hf.restartRecog) { hf.restartRecog = false; hf.liveText = ''; }
+      if (hf.state !== 'listening' && hf.state !== 'hearing') return;
+      try { rec.start(); } catch (e) { hf.recog = null; }
+    };
+    try { rec.start(); hf.recog = rec; } catch (e) { hf.recog = null; }
+  }
+
+  function stopEndpointing() {
+    var rec = hf.recog;
+    hf.recog = null;
+    hf.liveText = '';
+    hf.restartRecog = false;
+    if (!rec) return;
+    rec.onend = null;
+    rec.onresult = null;
+    rec.onerror = null;
+    try { rec.stop(); } catch (e) {}
+  }
+
+  // Each answer gets its own transcript, so an earlier finished sentence
+  // cannot make the next breath look like the end of the turn.
+  function armUtteranceText() {
+    hf.liveText = '';
+    if (!hf.recog) return;
+    hf.restartRecog = true;
+    try { hf.recog.stop(); } catch (e) { hf.restartRecog = false; }
   }
 
   function encodeWav(chunks, rate, keepMs) {
@@ -1012,6 +1092,7 @@
     }
     hf.starting = false;
     hf.on = true; hf.misses = 0; hf.floor = 0.003;
+    startEndpointing();
     // A question that is already being read keeps playing; listening starts when it ends.
     var teacherTalking = !!speechTimer;
     setState(teacherTalking ? 'speaking' : 'listening');
@@ -1025,6 +1106,7 @@
 
   function stopHandsFree(hint, isError) {
     hf.on = false; hf.state = 'off';
+    stopEndpointing();
     try { if (hf.node) { hf.node.disconnect(); if (hf.node.port) hf.node.port.onmessage = null; hf.node.onaudioprocess = null; } } catch (e) {}
     try { if (hf.source) hf.source.disconnect(); } catch (e) {}
     try { if (hf.stream) hf.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
