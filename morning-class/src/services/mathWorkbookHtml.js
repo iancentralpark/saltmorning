@@ -116,40 +116,56 @@ function publishable(question) {
   return question && question.verification && question.verification.status !== 'failed';
 }
 
-function coverBlock(doc) {
-  const ch = doc.chapter || {};
+function partsOf(doc) {
+  if (doc && Array.isArray(doc.parts) && doc.parts.length) return doc.parts;
+  return [doc || {}];
+}
+
+function chapterLabel(part, index) {
+  const ch = (part && part.chapter) || {};
+  const n = ch.number || (index + 1);
+  return 'Chapter ' + n + '. ' + (ch.title || '');
+}
+
+function coverBlock(doc, parts) {
+  const list = parts && parts.length > 1
+    ? parts.map((part, i) => chapterLabel(part, i)).join('<br>')
+    : '';
+  const ch = (parts && parts[0] && parts[0].chapter) || doc.chapter || {};
+  const single = !list;
   return `
   <section class="cover">
     <div class="brand">Salt Academy</div>
     <div class="rule"></div>
     <h1>${rich(doc.title || ch.title || 'Mathematics Workbook')}</h1>
-    <p class="meta">${escapeHtml(ch.curriculumTitle || 'Pre-Algebra')} · Chapter ${escapeHtml(ch.number || '')}<br>${escapeHtml(ch.title || '')}</p>
-    <p class="meta">${escapeHtml(ch.unitTitle || '')}</p>
+    <p class="meta">${escapeHtml(ch.curriculumTitle || 'Pre-Algebra')}${single ? ' · Chapter ' + escapeHtml(ch.number || '') : ''}</p>
+    ${single ? '<p class="meta">' + escapeHtml(ch.title || '') + '<br>' + escapeHtml(ch.unitTitle || '') + '</p>' : '<p class="meta">' + list + '</p>'}
     <p class="name-line">Name <span></span> Date <span></span></p>
   </section>`;
 }
 
-function conceptsBlock(doc) {
+function conceptsBlock(part, multi) {
   const bits = [];
-  if (doc.introduction) bits.push('<h2>Chapter Introduction</h2><p>' + rich(doc.introduction) + '</p>');
-  if (doc.objectives && doc.objectives.length) {
-    bits.push('<h2>Learning Objectives</h2><ul>' + doc.objectives.map((o) => '<li>' + rich(o.text) + '</li>').join('') + '</ul>');
+  if (multi) bits.push('<h2>' + escapeHtml(chapterLabel(part, 0).replace(/^Chapter /, 'Chapter ')) + '</h2>');
+  if (part.introduction) bits.push('<h2>Chapter Introduction</h2><p>' + rich(part.introduction) + '</p>');
+  if (part.objectives && part.objectives.length) {
+    bits.push('<h2>Learning Objectives</h2><ul>' + part.objectives.map((o) => '<li>' + rich(o.text) + '</li>').join('') + '</ul>');
   }
-  if (doc.concepts && doc.concepts.length) {
-    bits.push('<h2>Concept Explanations</h2>' + doc.concepts.map((c) => '<h3>' + rich(c.title) + '</h3><p>' + rich(c.body) + '</p>').join(''));
+  if (part.concepts && part.concepts.length) {
+    bits.push('<h2>Concept Explanations</h2>' + part.concepts.map((c) => '<h3>' + rich(c.title) + '</h3><p>' + rich(c.body) + '</p>').join(''));
   }
-  if (doc.definitions && doc.definitions.length) {
-    bits.push('<h2>Key Definitions</h2><table>' + doc.definitions.map((d) => '<tr><td><strong>' + rich(d.term) + '</strong></td><td>' + rich(d.meaning) + '</td></tr>').join('') + '</table>');
+  if (part.definitions && part.definitions.length) {
+    bits.push('<h2>Key Definitions</h2><table>' + part.definitions.map((d) => '<tr><td><strong>' + rich(d.term) + '</strong></td><td>' + rich(d.meaning) + '</td></tr>').join('') + '</table>');
   }
-  if (doc.rules && doc.rules.length) {
-    bits.push('<h2>Rules and Formulas</h2>' + doc.rules.map((r) => '<h3>' + rich(r.name) + '</h3><p>' + rich(r.formula) + '</p>' + (r.note ? '<p class="small">' + rich(r.note) + '</p>' : '')).join(''));
+  if (part.rules && part.rules.length) {
+    bits.push('<h2>Rules and Formulas</h2>' + part.rules.map((r) => '<h3>' + rich(r.name) + '</h3><p>' + rich(r.formula) + '</p>' + (r.note ? '<p class="small">' + rich(r.note) + '</p>' : '')).join(''));
   }
   if (!bits.length) return '';
-  return '<section class="section first">' + bits.join('') + '</section>';
+  return '<section class="section">' + bits.join('') + '</section>';
 }
 
-function examplesBlock(doc) {
-  const examples = doc.examples || [];
+function examplesBlock(part) {
+  const examples = part.examples || [];
   if (!examples.length) return '';
   const items = examples.map((ex, i) => {
     const steps = (ex.steps || []).map((s) => '<li>' + rich(s) + '</li>').join('');
@@ -160,8 +176,8 @@ function examplesBlock(doc) {
   return '<section class="section"><h2>Worked Examples</h2>' + items + '</section>';
 }
 
-function practiceBlock(doc) {
-  const questions = (doc.questions || []).filter(publishable);
+function practiceBlock(part, counter) {
+  const questions = (part.questions || []).filter(publishable);
   if (!questions.length) return '';
   const groups = [];
   let current = null;
@@ -172,72 +188,87 @@ function practiceBlock(doc) {
     }
     current.items.push(q);
   });
-  let n = 0;
   return groups.map((g) => {
     const label = SECTION_LABELS[g.section] || g.section;
     const lines = SECTION_LINES[g.section] || 3;
     const lineHtml = '<div class="lines">' + new Array(lines).fill('<i></i>').join('') + '</div>';
     const items = g.items.map((q) => {
-      n += 1;
+      counter.n += 1;
       const hint = g.section === 'guided' && q.hint ? '<p class="hint">Hint: ' + rich(q.hint) + '</p>' : '';
-      return '<div class="item"><div class="num">' + n + '.</div><p>' + rich(q.prompt) + '</p>' + hint + lineHtml + '</div>';
+      return '<div class="item"><div class="num">' + counter.n + '.</div><p>' + rich(q.prompt) + '</p>' + hint + lineHtml + '</div>';
     }).join('');
     return '<section class="section"><h2>' + escapeHtml(label) + '</h2>' + items + '</section>';
   }).join('');
 }
 
 function answersBlock(doc) {
-  const questions = (doc.questions || []).filter(publishable);
-  let n = 0;
-  const rows = questions.map((q) => {
-    n += 1;
-    return '<tr><td class="num">' + n + '</td><td>' + rich(q.answer) + '</td></tr>';
+  const parts = partsOf(doc);
+  const counter = { n: 0 };
+  const body = parts.map((part, i) => {
+    const questions = (part.questions || []).filter(publishable);
+    if (!questions.length) return '';
+    const rows = questions.map((q) => {
+      counter.n += 1;
+      return '<tr><td class="num">' + counter.n + '</td><td>' + rich(q.answer) + '</td></tr>';
+    }).join('');
+    const heading = parts.length > 1 ? '<h2>' + escapeHtml(chapterLabel(part, i)) + '</h2>' : '<h2>Answer Key</h2>';
+    return '<section class="section">' + heading + '<table>' + rows + '</table></section>';
   }).join('');
-  return coverish(doc, 'Answer Key') + '<section class="section first"><h2>Answer Key</h2><table>' + rows + '</table></section>';
+  return coverish(doc, 'Answer Key') + body;
 }
 
 function solutionsBlock(doc) {
-  const questions = (doc.questions || []).filter(publishable);
-  let n = 0;
-  const items = questions.map((q) => {
-    n += 1;
-    const steps = (q.steps || []).map((s) => '<li>' + rich(s) + '</li>').join('');
-    const mistakes = (q.mistakes || []).filter(Boolean).map((s) => '<li>' + rich(s) + '</li>').join('');
-    return '<div class="item"><div class="num">' + n + '.</div><p>' + rich(q.prompt) + '</p>' +
-      (steps ? '<ol class="steps">' + steps + '</ol>' : '') +
-      '<p class="answer">Answer: ' + rich(q.answer) + '</p>' +
-      (mistakes ? '<p class="small">Common mistakes</p><ul>' + mistakes + '</ul>' : '') +
-      '</div>';
+  const parts = partsOf(doc);
+  const counter = { n: 0 };
+  const body = parts.map((part, i) => {
+    const questions = (part.questions || []).filter(publishable);
+    if (!questions.length) return '';
+    const items = questions.map((q) => {
+      counter.n += 1;
+      const steps = (q.steps || []).map((s) => '<li>' + rich(s) + '</li>').join('');
+      const mistakes = (q.mistakes || []).filter(Boolean).map((s) => '<li>' + rich(s) + '</li>').join('');
+      return '<div class="item"><div class="num">' + counter.n + '.</div><p>' + rich(q.prompt) + '</p>' +
+        (steps ? '<ol class="steps">' + steps + '</ol>' : '') +
+        '<p class="answer">Answer: ' + rich(q.answer) + '</p>' +
+        (mistakes ? '<p class="small">Common mistakes</p><ul>' + mistakes + '</ul>' : '') +
+        '</div>';
+    }).join('');
+    const heading = parts.length > 1 ? chapterLabel(part, i) : 'Detailed Solutions';
+    return '<section class="section"><h2>' + escapeHtml(heading) + '</h2>' + items + '</section>';
   }).join('');
-  return coverish(doc, 'Solution Guide') + '<section class="section first"><h2>Detailed Solutions</h2>' + items + '</section>';
+  return coverish(doc, 'Solution Guide') + body;
 }
 
 function coverish(doc, kind) {
-  const ch = doc.chapter || {};
+  const parts = partsOf(doc);
+  const ch = (parts[0] && parts[0].chapter) || doc.chapter || {};
+  const list = parts.length > 1 ? parts.map((part, i) => escapeHtml(chapterLabel(part, i))).join(' · ') : escapeHtml(ch.title || '');
   return `<section class="cover">
     <div class="brand">Salt Academy · ${escapeHtml(kind)}</div>
     <div class="rule"></div>
     <h1>${rich(doc.title || '')}</h1>
-    <p class="meta">${escapeHtml(ch.curriculumTitle || '')} · ${escapeHtml(ch.title || '')}</p>
+    <p class="meta">${escapeHtml(ch.curriculumTitle || 'Pre-Algebra')} · ${list}</p>
   </section>`;
 }
 
-function tocBlock(doc, part) {
-  if (part !== 'student') return '';
-  const items = ['Chapter Introduction', 'Learning Objectives'];
-  if (doc.concepts && doc.concepts.length) items.push('Concept Explanations');
-  if (doc.definitions && doc.definitions.length) items.push('Key Definitions');
-  if (doc.rules && doc.rules.length) items.push('Rules and Formulas');
-  if (doc.examples && doc.examples.length) items.push('Worked Examples');
-  const seen = {};
-  (doc.questions || []).filter(publishable).forEach((q) => {
-    const label = SECTION_LABELS[q.section] || q.section;
-    if (!seen[label]) {
-      seen[label] = true;
-      items.push(label);
-    }
+function tocBlock(doc, parts) {
+  const items = [];
+  parts.forEach((part, i) => {
+    if (parts.length > 1) items.push(chapterLabel(part, i));
+    items.push('Chapter Introduction');
+    items.push('Learning Objectives');
+    if (part.concepts && part.concepts.length) items.push('Concept Explanations');
+    if (part.examples && part.examples.length) items.push('Worked Examples');
+    const seen = {};
+    (part.questions || []).filter(publishable).forEach((q) => {
+      const label = SECTION_LABELS[q.section] || q.section;
+      if (!seen[label]) {
+        seen[label] = true;
+        items.push(label);
+      }
+    });
   });
-  return '<section class="section first"><h2>Contents</h2><ol class="toc">' +
+  return '<section class="section"><h2>Contents</h2><ol class="toc">' +
     items.map((t) => '<li>' + escapeHtml(t) + '</li>').join('') + '</ol></section>';
 }
 
@@ -245,16 +276,21 @@ function renderWorkbookHtml(doc, options) {
   const opts = options || {};
   const part = opts.part || 'student';
   const forPdf = !!opts.forPdf;
-  const ch = (doc && doc.chapter) || {};
-  const title = (doc && doc.title) || ch.title || 'Workbook';
+  const book = doc || {};
+  const parts = partsOf(book);
+  const ch = (parts[0] && parts[0].chapter) || book.chapter || {};
+  const title = book.title || ch.title || 'Workbook';
   let body = '';
-  if (part === 'answers') body = answersBlock(doc || {});
-  else if (part === 'solutions') body = solutionsBlock(doc || {});
+  if (part === 'answers') body = answersBlock(book);
+  else if (part === 'solutions') body = solutionsBlock(book);
   else {
-    body = coverBlock(doc || {}) + tocBlock(doc || {}, 'student') + conceptsBlock(doc || {}) +
-      examplesBlock(doc || {}) + practiceBlock(doc || {});
+    const counter = { n: 0 };
+    const multi = parts.length > 1;
+    body = coverBlock(book, parts) + tocBlock(book, parts) + parts.map((piece) => {
+      return conceptsBlock(piece, multi) + examplesBlock(piece) + practiceBlock(piece, counter);
+    }).join('');
   }
-  return '<!DOCTYPE html><html lang="' + escapeHtml((doc && doc.language) || 'en') + '"><head><meta charset="utf-8">' +
+  return '<!DOCTYPE html><html lang="' + escapeHtml(book.language || 'en') + '"><head><meta charset="utf-8">' +
     '<title>' + escapeHtml(title) + '</title>' + katexCss(forPdf) + '<style>' + pageCss() + '</style></head><body>' +
     body + '</body></html>';
 }
