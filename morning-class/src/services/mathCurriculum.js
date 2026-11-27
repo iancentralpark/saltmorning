@@ -1,21 +1,36 @@
 'use strict';
 
 /**
- * Pre-Algebra Boot Camp seed. The teacher page loads this through the API.
+ * Pre-Algebra and Algebra 1 seeds. The teacher page loads these through the API.
  * Learning objectives stay fixed so each workbook is aligned to the same chapter.
  */
 
-const CURRICULUM = {
-  id: 'pre-algebra',
-  title: 'Pre-Algebra',
-  gradeBand: '6-8'
-};
+const CURRICULA = [
+  { id: 'pre-algebra', title: 'Pre-Algebra', gradeBand: '6-8' },
+  { id: 'algebra-1', title: 'Algebra 1', gradeBand: '8-9' }
+];
+
+const CURRICULUM = CURRICULA[0];
+
+function level(id) {
+  return CURRICULA.find((item) => item.id === id) || CURRICULA[0];
+}
 
 function ch(partial) {
+  const curriculum = level('pre-algebra');
   return Object.assign({
-    curriculumId: CURRICULUM.id,
-    curriculumTitle: CURRICULUM.title,
-    gradeBand: CURRICULUM.gradeBand
+    curriculumId: curriculum.id,
+    curriculumTitle: curriculum.title,
+    gradeBand: curriculum.gradeBand
+  }, partial);
+}
+
+function a1(partial) {
+  const curriculum = level('algebra-1');
+  return Object.assign({
+    curriculumId: curriculum.id,
+    curriculumTitle: curriculum.title,
+    gradeBand: curriculum.gradeBand
   }, partial);
 }
 
@@ -175,8 +190,132 @@ const CHAPTERS = [
       { id: 'pa-c13-o2', text: 'Compute accurately with fractions, decimals, integers, and percent.' },
       { id: 'pa-c13-o3', text: 'Solve and check a two-step equation.' }
     ]
+  }),
+  a1({
+    id: 'a1-c01', number: 1, unitId: 'a1', unitTitle: 'Linear Expressions',
+    title: 'Evaluating Expressions',
+    checkMode: 'numeric',
+    description: 'Substitute a number and evaluate using the order of operations.',
+    prerequisites: ['Order of operations', 'Integers'],
+    objectives: [
+      { id: 'a1-c01-o1', text: 'Substitute a given value for a variable.' },
+      { id: 'a1-c01-o2', text: 'Evaluate a numeric expression that includes parentheses and exponents.' },
+      { id: 'a1-c01-o3', text: 'Check a substituted result with the order of operations.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c02', number: 2, unitId: 'a1', unitTitle: 'Linear Expressions',
+    title: 'Simplifying Linear Expressions',
+    checkMode: 'expression',
+    description: 'Distribute and combine like terms in expressions that stay linear in x.',
+    prerequisites: ['Like terms', 'Distributive property'],
+    objectives: [
+      { id: 'a1-c02-o1', text: 'Apply the distributive property.' },
+      { id: 'a1-c02-o2', text: 'Combine like terms, including subtraction.' },
+      { id: 'a1-c02-o3', text: 'Simplify an expression to the form ax+b.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c03', number: 3, unitId: 'a2', unitTitle: 'Linear Equations',
+    title: 'Two-Step Equations',
+    checkMode: 'equation',
+    description: 'Solve two-step equations in one variable.',
+    prerequisites: ['One-step equations', 'Integers'],
+    objectives: [
+      { id: 'a1-c03-o1', text: 'Undo multiplication or division after addition or subtraction.' },
+      { id: 'a1-c03-o2', text: 'Solve two-step equations that include integers and simple fractions.' },
+      { id: 'a1-c03-o3', text: 'Check a solution by substitution.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c04', number: 4, unitId: 'a2', unitTitle: 'Linear Equations',
+    title: 'Multi-Step Equations',
+    checkMode: 'equation',
+    description: 'Simplify both sides, then solve a linear equation.',
+    prerequisites: ['Distributive property', 'Two-step equations'],
+    objectives: [
+      { id: 'a1-c04-o1', text: 'Simplify one side before solving.' },
+      { id: 'a1-c04-o2', text: 'Use the distributive property inside an equation.' },
+      { id: 'a1-c04-o3', text: 'Check a solution by substitution.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c05', number: 5, unitId: 'a2', unitTitle: 'Linear Equations',
+    title: 'Variables on Both Sides',
+    checkMode: 'equation',
+    description: 'Solve linear equations that have the variable on both sides.',
+    prerequisites: ['Multi-step equations'],
+    objectives: [
+      { id: 'a1-c05-o1', text: 'Move variable terms to one side.' },
+      { id: 'a1-c05-o2', text: 'Solve an equation of the form ax+b=cx+d.' },
+      { id: 'a1-c05-o3', text: 'Check a solution by substitution.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c06', number: 6, unitId: 'a3', unitTitle: 'Rates and Exponents',
+    title: 'Proportions and Percent',
+    checkMode: 'numeric',
+    description: 'Solve proportion and percent problems that reduce to arithmetic.',
+    prerequisites: ['Ratios', 'Decimal operations'],
+    objectives: [
+      { id: 'a1-c06-o1', text: 'Solve a proportion for the missing number.' },
+      { id: 'a1-c06-o2', text: 'Find a percent of a number and the whole from a percent.' },
+      { id: 'a1-c06-o3', text: 'Increase or decrease a quantity by a percent.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c07', number: 7, unitId: 'a3', unitTitle: 'Rates and Exponents',
+    title: 'Integer Exponents',
+    checkMode: 'numeric',
+    description: 'Multiply and divide powers of the same base, and evaluate simple powers.',
+    prerequisites: ['Multiplication', 'Fractions'],
+    objectives: [
+      { id: 'a1-c07-o1', text: 'Evaluate a power with a positive or zero exponent.' },
+      { id: 'a1-c07-o2', text: 'Multiply and divide powers of the same base.' },
+      { id: 'a1-c07-o3', text: 'Evaluate a negative exponent as a unit fraction.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c08', number: 8, unitId: 'a4', unitTitle: 'Linear Models',
+    title: 'Slope',
+    checkMode: 'numeric',
+    description: 'Find slope from two points or from rise and run.',
+    prerequisites: ['Integers', 'Division'],
+    objectives: [
+      { id: 'a1-c08-o1', text: 'Compute rise over run from two points.' },
+      { id: 'a1-c08-o2', text: 'Tell whether a slope is positive, negative, zero, or undefined as a number when it exists.' },
+      { id: 'a1-c08-o3', text: 'Find the missing coordinate when the slope is given.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c09', number: 9, unitId: 'a4', unitTitle: 'Linear Models',
+    title: 'Slope-Intercept Form',
+    checkMode: 'mixed',
+    description: 'Read slope and intercept, and evaluate a line at a given x.',
+    prerequisites: ['Slope', 'Evaluating expressions'],
+    objectives: [
+      { id: 'a1-c09-o1', text: 'Identify the slope and y-intercept of y=mx+b.' },
+      { id: 'a1-c09-o2', text: 'Evaluate a line at a given x.' },
+      { id: 'a1-c09-o3', text: 'Write a numeric check for a point on the line.' }
+    ]
+  }),
+  a1({
+    id: 'a1-c10', number: 10, unitId: 'a4', unitTitle: 'Linear Models',
+    title: 'Real-World Linear Equations',
+    checkMode: 'equation',
+    description: 'Write and solve a linear equation from a rate or total.',
+    prerequisites: ['Multi-step equations', 'Percent'],
+    objectives: [
+      { id: 'a1-c10-o1', text: 'Define a variable for an unknown quantity.' },
+      { id: 'a1-c10-o2', text: 'Write and solve a linear equation from a situation.' },
+      { id: 'a1-c10-o3', text: 'Interpret the solution in the original situation.' }
+    ]
   })
 ];
+
+function listCurricula() {
+  return CURRICULA.map((item) => Object.assign({}, item));
+}
 
 function listChapters() {
   return CHAPTERS.map((c) => Object.assign({}, c, {
@@ -191,8 +330,10 @@ function getChapter(id) {
 }
 
 module.exports = {
+  CURRICULA,
   CURRICULUM,
   CHAPTERS,
+  listCurricula,
   listChapters,
   getChapter
 };
