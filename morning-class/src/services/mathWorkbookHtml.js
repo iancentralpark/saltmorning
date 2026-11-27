@@ -17,15 +17,6 @@ const SECTION_LABELS = {
   mastery: 'Chapter Mastery Test'
 };
 
-const SECTION_LINES = {
-  guided: 2,
-  basic: 3,
-  intermediate: 4,
-  advanced: 5,
-  word: 7,
-  mastery: 4
-};
-
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -102,6 +93,8 @@ function labels(lang) {
     examples: ko ? '예제' : 'Worked Examples',
     example: ko ? '예제' : 'Example',
     answer: ko ? '답' : 'Answer',
+    equation: ko ? '식' : 'Equation',
+    step: ko ? '단계' : 'Step',
     mistakes: ko ? '자주 하는 실수' : 'Common mistakes',
     name: ko ? '이름' : 'Name',
     className: ko ? '반' : 'Class',
@@ -268,7 +261,29 @@ a.toc-row::after { content: target-counter(attr(href), page); font-family: var(-
 .fig { margin: 1.5mm 0 2mm; break-inside: avoid; }
 .fig svg { width: 78mm; max-width: 100%; height: auto; display: block; }
 .hint { color: var(--soft); font-size: 10.5pt; }
-.lines i { display: block; border-bottom: 1px solid var(--line); height: 6.2mm; }
+.work { min-height: 18mm; }
+.ans { display: flex; justify-content: flex-end; align-items: flex-end; gap: 1.8mm; font-size: 11pt; margin-top: 1mm; }
+.ans .lab { font-family: var(--sans); font-size: 9.5pt; font-weight: 700; color: var(--accent); margin-right: .6mm; }
+.ans .bl { display: inline-block; width: 24mm; height: 6.5mm; border-bottom: 1.3px solid var(--ink); }
+.ans .bl.tiny { width: 13mm; }
+.ans .bl.wide { width: 46mm; }
+.ans .bl.grow { flex: 1; width: auto; margin-right: 4mm; }
+.ans .paren { font-size: 13pt; line-height: 1; }
+.ans.split { justify-content: flex-start; }
+.practice.cols .ans .bl.wide { width: 38mm; }
+.scaffold { margin: 1.5mm 0 0; border-top: 1px dashed var(--line); }
+.scaffold .st { min-height: 10.5mm; border-bottom: 1px dashed var(--line); padding-top: 1mm; }
+.scaffold .st span { font-family: var(--sans); font-size: 8.5pt; font-weight: 700; color: var(--accent2); }
+.draw { display: flex; gap: 6mm; align-items: stretch; margin-top: 1.5mm; }
+.draw .work { flex: 1; }
+.draw .fig { flex: 0 0 auto; margin: 0; }
+.draw .fig svg { width: 70mm; }
+.grid { flex: 0 0 52mm; }
+.grid svg { width: 52mm; height: 52mm; display: block; }
+.nline { margin: 2.5mm 0 0; }
+.nline svg { width: 100%; max-width: 150mm; height: auto; display: block; }
+.practice.test .ans .bl { border: 1.3px solid var(--ink); height: 8mm; }
+body.theme-playful .practice.test .ans .bl { border-radius: 2.5mm; }
 .akey { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5mm 8mm; }
 .akey div { display: flex; gap: 3mm; break-inside: avoid; border-bottom: 1px solid var(--line); padding: 1mm 0; }
 .akey .n { font-family: var(--sans); font-weight: 700; color: var(--accent); min-width: 8mm; }
@@ -455,6 +470,126 @@ function examplesBlock(part, index, doc) {
   return '<div id="ch-' + escapeHtml(id) + '-ex"><h2>' + escapeHtml(L.examples) + '</h2>' + items + '</div>';
 }
 
+function promptVariable(prompt) {
+  const src = String(prompt || '');
+  const found = new Set();
+  const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const seg = (m[1] != null ? m[1] : m[2]).replace(/\\text\{[^}]*\}/g, ' ').replace(/\\[a-zA-Z]+/g, ' ');
+    (seg.match(/[a-zA-Z]/g) || []).forEach((c) => found.add(c));
+  }
+  if (found.size === 1) return Array.from(found)[0];
+  if (!found.size && /(^|[^a-zA-Z])x([^a-zA-Z]|$)/.test(src)) return 'x';
+  return '';
+}
+
+/**
+ * Chooses the writing area from what the item asks for: its section, the
+ * chapter's check mode, the shape of the stored answer, and the stem wording.
+ */
+function answerPlan(q, mode) {
+  const prompt = String(q.prompt || '');
+  const answer = String(q.answer || '').replace(/\$/g, '').trim();
+  const expression = String(q.expression || '');
+  const section = q.section;
+  const steps = (q.steps || []).length;
+  const drawVerb = /(^|[.;:,?]\s+|\band\s+|\bthen\s+)(graph|plot|sketch|draw|mark|locate)\b/i.test(prompt) ||
+    /(그리시오|그리세요|그려|나타내시오|나타내어|나타내세요|표시하|찍으)/.test(prompt);
+  const isPair = /^\(?\s*[^,()]+,\s*[^,()]+\)?$/.test(answer);
+  const isWord = section === 'word' || /word/i.test(String(q.type || ''));
+
+  let blank = 'number';
+  if (isWord) blank = 'wide';
+  else if (mode === 'system' && isPair) blank = 'system';
+  else if (mode === 'quad') blank = 'roots';
+  else if (isPair && (mode === 'pair' || mode === 'vertex' || mode === 'mixed')) blank = 'pair';
+  else if (/^[a-zA-Z]\s*=/.test(answer) || (expression.includes('=') && !expression.includes(';') && (mode === 'equation' || mode === 'mixed'))) blank = 'solve';
+  else if (/[a-zA-Z^]/.test(answer)) blank = 'wide';
+
+  let layout = 'work';
+  if (drawVerb && /(number line|수직선)/i.test(prompt)) layout = 'numberline';
+  else if (drawVerb && !q.figure) layout = 'graph';
+  else if (isWord) layout = 'word';
+  else if (section === 'guided') layout = 'guided';
+
+  const fallback = { basic: 2, intermediate: 3, advanced: 4, mastery: 3, word: 4, guided: 2 }[section] || 3;
+  const depth = Math.max(2, Math.min(6, steps || fallback));
+  return {
+    layout: layout,
+    blank: blank,
+    depth: depth,
+    percent: /%$/.test(answer),
+    variable: blank === 'solve' || blank === 'roots' ? (promptVariable(prompt) || (blank === 'roots' ? 'x' : '')) : ''
+  };
+}
+
+function blankGrid() {
+  const size = 10;
+  const cell = 10;
+  const span = size * cell;
+  let lines = '';
+  for (let i = 0; i <= size; i += 1) {
+    const p = i * cell;
+    lines += '<line x1="' + p + '" y1="0" x2="' + p + '" y2="' + span + '"/><line x1="0" y1="' + p + '" x2="' + span + '" y2="' + p + '"/>';
+  }
+  const mid = span / 2;
+  return '<div class="grid"><svg viewBox="-8 -8 ' + (span + 16) + ' ' + (span + 16) + '" role="img" aria-label="coordinate grid">' +
+    '<g stroke="#c9ced6" stroke-width="0.5">' + lines + '</g>' +
+    '<g stroke="#2b3340" stroke-width="1.1"><line x1="-4" y1="' + mid + '" x2="' + (span + 4) + '" y2="' + mid + '"/><line x1="' + mid + '" y1="-4" x2="' + mid + '" y2="' + (span + 4) + '"/></g>' +
+    '<g fill="#2b3340" font-family="Arial, sans-serif" font-size="6" font-style="italic"><text x="' + (span + 5) + '" y="' + (mid + 6.5) + '" text-anchor="end">x</text><text x="' + (mid + 3) + '" y="-2.5">y</text></g>' +
+    '<text x="' + (mid - 2) + '" y="' + (mid + 6.5) + '" text-anchor="end" fill="#2b3340" font-family="Arial, sans-serif" font-size="5.5">O</text>' +
+    '</svg></div>';
+}
+
+function blankNumberLine() {
+  const ticks = 20;
+  const step = 9;
+  const width = ticks * step;
+  let marks = '';
+  for (let i = 0; i <= ticks; i += 1) {
+    const x = i * step;
+    const tall = i % 5 === 0;
+    marks += '<line x1="' + x + '" y1="' + (tall ? 5 : 7) + '" x2="' + x + '" y2="' + (tall ? 15 : 13) + '"/>';
+  }
+  return '<div class="nline"><svg viewBox="-8 0 ' + (width + 16) + ' 26" role="img" aria-label="number line">' +
+    '<g stroke="#2b3340" stroke-width="1"><line x1="-6" y1="10" x2="' + (width + 6) + '" y2="10"/>' + marks + '</g>' +
+    '<path d="M-8 10 l4 -2.6 v5.2 z M' + (width + 8) + ' 10 l-4 -2.6 v5.2 z" fill="#2b3340"/>' +
+    '<text x="' + (width / 2) + '" y="24" text-anchor="middle" fill="#2b3340" font-family="Arial, sans-serif" font-size="7">0</text>' +
+    '</svg></div>';
+}
+
+function answerBlank(plan, L) {
+  const label = '<span class="lab">' + escapeHtml(L.answer) + '</span>';
+  if (plan.blank === 'pair') return label + '<span class="paren">(</span><i class="bl tiny"></i><span class="paren">,</span><i class="bl tiny"></i><span class="paren">)</span>';
+  if (plan.blank === 'system') return label + renderTex('x =') + '<i class="bl tiny"></i><span class="paren">,</span>' + renderTex('y =') + '<i class="bl tiny"></i>';
+  if (plan.blank === 'roots') return label + renderTex(plan.variable + ' =') + '<i class="bl wide"></i>';
+  if (plan.blank === 'solve' && plan.variable) return label + renderTex(plan.variable + ' =') + '<i class="bl"></i>';
+  if (plan.blank === 'wide') return label + '<i class="bl wide"></i>';
+  return label + '<i class="bl"></i>' + (plan.percent ? '<span class="paren">%</span>' : '');
+}
+
+function answerSpace(q, mode, L, hint) {
+  const plan = answerPlan(q, mode);
+  const fig = figureHtml(q.figure);
+  const ans = '<div class="ans">' + answerBlank(plan, L) + '</div>';
+  const tip = hint || '';
+  if (plan.layout === 'guided') {
+    const rows = Math.min(4, plan.depth);
+    let steps = '';
+    for (let i = 1; i <= rows; i += 1) steps += '<div class="st"><span>' + escapeHtml(L.step) + ' ' + i + '</span></div>';
+    return fig + tip + '<div class="scaffold">' + steps + '</div>' + ans;
+  }
+  if (plan.layout === 'word') {
+    return fig + tip + '<div class="work" style="min-height:' + (12 + plan.depth * 5) + 'mm"></div>' +
+      '<div class="ans split"><span class="lab">' + escapeHtml(L.equation) + '</span><i class="bl grow"></i>' + answerBlank(plan, L) + '</div>';
+  }
+  if (plan.layout === 'graph') return tip + '<div class="draw">' + blankGrid() + '<div class="work"></div></div>' + ans;
+  if (plan.layout === 'numberline') return fig + tip + blankNumberLine() + '<div class="work" style="min-height:8mm"></div>' + ans;
+  if (fig) return tip + '<div class="draw">' + fig + '<div class="work"></div></div>' + ans;
+  return tip + '<div class="work" style="min-height:' + (7 + plan.depth * 5.5) + 'mm"></div>' + ans;
+}
+
 function practiceBlock(part, index, doc, counter) {
   const questions = (part.questions || []).filter(publishable);
   if (!questions.length) return [];
@@ -469,20 +604,19 @@ function practiceBlock(part, index, doc, counter) {
     }
     current.items.push(q);
   });
+  const mode = (part.chapter && part.chapter.checkMode) || '';
   return groups.map((g) => {
-    const lines = SECTION_LINES[g.section] || 3;
-    const lineHtml = '<div class="lines">' + new Array(lines).fill('<i></i>').join('') + '</div>';
-    const hasFig = g.items.some((q) => q.figure);
-    const cols = !hasFig && (g.section === 'basic' || g.section === 'intermediate') && g.items.length >= 4 ? ' cols' : '';
+    const wide = g.items.some((q) => q.figure || ['graph', 'numberline'].includes(answerPlan(q, mode).layout));
+    const cols = !wide && (g.section === 'basic' || g.section === 'intermediate') && g.items.length >= 4 ? ' cols' : '';
     const items = g.items.map((q) => {
       counter.n += 1;
       const hint = g.section === 'guided' && q.hint ? '<p class="hint">' + escapeHtml(L.hint) + ': ' + rich(q.hint) + '</p>' : '';
-      return '<div class="problem"><div class="pnum">' + counter.n + '</div><div class="pbody"><p>' + rich(q.prompt) + '</p>' + figureHtml(q.figure) + hint + lineHtml + '</div></div>';
+      return '<div class="problem"><div class="pnum">' + counter.n + '</div><div class="pbody"><p>' + rich(q.prompt) + '</p>' + answerSpace(q, mode, L, hint) + '</div></div>';
     }).join('');
     const score = g.section === 'mastery' ? '<p class="score">' + escapeHtml(L.score) + ' <i></i> / ' + g.items.length + '</p>' : '';
     return {
       kind: g.section,
-      html: '<div id="ch-' + escapeHtml(id) + '-' + escapeHtml(g.section) + '"><h2 class="band">' + escapeHtml(sectionLabel(g.section, doc.language)) + '</h2>' + score + '<div class="practice' + cols + '">' + items + '</div></div>'
+      html: '<div id="ch-' + escapeHtml(id) + '-' + escapeHtml(g.section) + '"><h2 class="band">' + escapeHtml(sectionLabel(g.section, doc.language)) + '</h2>' + score + '<div class="practice' + cols + (g.section === 'mastery' ? ' test' : '') + '">' + items + '</div></div>'
     };
   });
 }
@@ -569,6 +703,7 @@ function renderWorkbookHtml(doc, options) {
 
 module.exports = {
   renderWorkbookHtml,
+  answerPlan,
   SECTION_LABELS,
   publishable,
   escapeHtml
