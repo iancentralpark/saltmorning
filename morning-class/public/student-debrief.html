@@ -687,9 +687,9 @@
   var VAD = {
     startMs: 160,          // voiced audio needed before an answer starts
     preRollMs: 500,        // audio kept from before the start, so first words are not clipped
-    endSilenceMs: 2400,    // pause that ends a normal answer
-    endSilenceShortMs: 2600, // longer patience right after a short start ("Um...")
-    endSilenceLongMs: 4500,  // a long answer may include a breath
+    endSilenceMs: 3000,    // pause that ends a normal answer
+    endSilenceShortMs: 3000, // same wait right after a short start ("Um...")
+    endSilenceLongMs: 3500,  // longest wait, once the answer is already long
     shortAnswerMs: 1500,
     longAnswerMs: 8000,      // voiced time before breath-sized pauses are kept
     minVoicedMs: 450,      // less voiced audio than this is treated as noise
@@ -713,7 +713,7 @@
   var STATE_TEXT = {
     off: ['Start talking', 'Tap the microphone once. After that, just talk — no more tapping.'],
     listening: ['Listening', 'Go ahead — I am listening.'],
-    hearing: ['I hear you', 'A breath is fine. Pause when you are finished, or tap to send now.'],
+    hearing: ['I hear you', 'A short breath is fine. Pause when you are finished, or tap to send now.'],
     thinking: ['Thinking', 'Understanding your answer…'],
     speaking: ['Salty is speaking', 'Tap to skip and answer.']
   };
@@ -792,7 +792,7 @@
       var before = hf.voicedMs;
       hf.voicedMs += ms; hf.silenceMs = 0; hf.lastVoicedSegMs = hf.segMs;
       if (before < VAD.longAnswerMs && hf.voicedMs >= VAD.longAnswerMs) {
-        setHint('Take your time. A breath will not cut you off. Pause when you are finished, or tap to send.');
+        setHint('A short breath is fine. Pause when you are finished, or tap to send.');
       }
     } else {
       hf.silenceMs += ms;
@@ -800,8 +800,8 @@
     if (hf.silenceMs >= endPatienceMs(hf.voicedMs) || hf.segMs >= VAD.maxMs) finishUtterance();
   }
 
-  // Short answers still end after a brief pause. Once the student is well
-  // into a long answer, a breath-sized gap is not the end of the turn.
+  // Silence that ends a turn stays between 3 and 3.5 seconds.
+  // A short answer ends at 3s. A long answer may include a breath, so it ends at 3.5s.
   function endPatienceMs(voicedMs) {
     if (voicedMs < VAD.shortAnswerMs) return VAD.endSilenceShortMs;
     if (voicedMs >= VAD.longAnswerMs) return VAD.endSilenceLongMs;
