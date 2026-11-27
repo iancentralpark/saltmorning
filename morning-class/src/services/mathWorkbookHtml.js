@@ -185,7 +185,7 @@ function pageCss(bookTitle, partName, themeId) {
   @bottom-right { content: counter(page); font-family: var(--sans); font-size: 9pt; color: var(--accent); }
 }
 @page cover { margin: 0; @top-center { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 html, body { margin: 0; padding: 0; }
 body { color: var(--ink); background: #fff; font-family: var(--body); font-size: 11.5pt; line-height: 1.45; }
 p, li { orphans: 3; widows: 3; }
@@ -270,7 +270,9 @@ body.theme-editorial .cover-main h1, body.theme-editorial .opener h2, body.theme
 }
 @media print {
   body { background: #fff; }
-  .chapter, .sheet { width: auto; min-height: 0; margin: 0; box-shadow: none; background: transparent; padding: 0; }
+  .cover { background: var(--paper); }
+  .chapter, .sheet { width: auto; min-height: 0; margin: 0; box-shadow: none; padding: 0; }
+  .sheet { background: transparent; }
 }
 `;
 }
