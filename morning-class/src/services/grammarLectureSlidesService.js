@@ -299,6 +299,13 @@ const SYSTEM_BLUEPRINT = `당신은 한국 중·고등학교 영어 문법 단�
 - slideBeats는 그 순서를 강의 장면 이름으로만 적습니다. 최대 14개. 예문 문장은 적지 마세요.
 - 카탈로그 힌트가 교과서 설명과 어긋나면 교과서를 따르고, 어긋난 힌트는 neverClaim이나 생략으로 처리하세요.
 
+[깊이 예시]
+이번 주제와 같은 단원일 때만 아래 수준으로 적으세요. 다른 단원 내용을 이번 기준표에 넣지 마세요.
+- 비교급: -er / -ier / more, than, 강조 부사, 이중비교 금지.
+- 문장 형식·4형식: to / for / of 분류. for를 취하는 동사 buy, make, cook, get, find. 4형식이 안 되는 동사 explain me [X] → explain to me [O]. 대명사 목적어 Give me it [X] → Give it to me [O].
+- 동명사와 to부정사: 목적어로 동명사를 취하는 enjoy, finish, mind와 to부정사를 취하는 want, hope, decide. 뜻이 갈리는 remember, forget, stop + to-v / v-ing. 전치사 to 뒤는 동명사 look forward to -ing.
+- 관계대명사: 선행사 유무와 주격·목적격·소유격. 생략은 목적격, 또는 주격 뒤에 be동사. 계속적 용법에서는 that, what 불가 (, that [X]).
+
 출력 JSON만:
 {
   "topic": "",
@@ -492,7 +499,7 @@ function buildBlueprintPrompt({ title, units, grade, customTopic }) {
       : 'catalog: 없음. customTopic만으로 교과서·참고서 공통 구성을 정리할 것.',
     '',
     'mustCover에는 이 주제를 설명할 때 같이 나와야 하는 형태·구분·짝꿍·예외만 넣으세요.',
-    '예: 비교급이면 -er/-ier/more, than, 강조 부사, 이중비교 금지처럼 세트로 가르칩니다.'
+    '깊이 예시와 같은 단원이면 그 목록·함정·구분을 항목에 적으세요. 다른 단원 예시는 넣지 마세요.'
   ].filter(Boolean).join('\n');
 }
 
