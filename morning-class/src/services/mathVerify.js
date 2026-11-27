@@ -2,8 +2,9 @@
 
 /**
  * Deterministic checks for workbook questions.
- * Arithmetic and one-variable linear equations are verified exactly with rationals.
- * Anything else is needs_review. A computed answer that disagrees is failed.
+ * Arithmetic, simplified linear expressions in x, and one-variable linear
+ * equations are verified exactly with rationals. Anything else is needs_review.
+ * A computed answer that disagrees is failed.
  */
 
 const LIMIT = 1e12;
@@ -239,6 +240,72 @@ function usesVar(node) {
   return usesVar(node.left) || usesVar(node.right);
 }
 
+function nonlinear() {
+  const err = new Error('nonlinear');
+  err.code = 'needs_review';
+  throw err;
+}
+
+function asPoly(node) {
+  if (!node) throw new Error('poly');
+  if (node.op === 'num') return { a: rat(0, 1), b: node.value };
+  if (node.op === 'var') return { a: rat(1, 1), b: rat(0, 1) };
+  if (node.op === 'neg') {
+    const p = asPoly(node.left);
+    return { a: rneg(p.a), b: rneg(p.b) };
+  }
+  if (node.op === '+' || node.op === '-') {
+    const l = asPoly(node.left);
+    const r = asPoly(node.right);
+    return node.op === '+'
+      ? { a: radd(l.a, r.a), b: radd(l.b, r.b) }
+      : { a: rsub(l.a, r.a), b: rsub(l.b, r.b) };
+  }
+  if (node.op === '*') {
+    const l = asPoly(node.left);
+    const r = asPoly(node.right);
+    if (l.a.n !== 0 && r.a.n !== 0) nonlinear();
+    return {
+      a: radd(rmul(l.a, r.b), rmul(l.b, r.a)),
+      b: rmul(l.b, r.b)
+    };
+  }
+  if (node.op === '/') {
+    const l = asPoly(node.left);
+    const r = asPoly(node.right);
+    if (r.a.n !== 0 || r.b.n === 0) nonlinear();
+    return { a: rdiv(l.a, r.b), b: rdiv(l.b, r.b) };
+  }
+  if (node.op === '^') {
+    if (node.right.op === 'num' && node.right.value.n === 1 && node.right.value.d === 1) return asPoly(node.left);
+    if (node.right.op === 'num' && node.right.value.n === 0 && node.right.value.d === 1) return { a: rat(0, 1), b: rat(1, 1) };
+    const base = asPoly(node.left);
+    if (base.a.n === 0 && node.right.op === 'num') return { a: rat(0, 1), b: rpow(base.b, node.right.value) };
+    nonlinear();
+  }
+  throw new Error('poly');
+}
+
+function polyEq(p, q) {
+  return req(p.a, q.a) && req(p.b, q.b);
+}
+
+function formatPoly(p) {
+  if (p.a.n === 0) return formatRat(p.b);
+  let coeff = '';
+  if (!(p.a.n === 1 && p.a.d === 1)) {
+    coeff = (p.a.n === -1 && p.a.d === 1) ? '-' : formatRat(p.a);
+  }
+  let s = coeff + 'x';
+  if (p.b.n === 0) return s;
+  if (p.b.n > 0) return s + '+' + formatRat(p.b);
+  return s + formatRat(p.b);
+}
+
+function stripMath(raw) {
+  return String(raw || '').trim().replace(/^\$+|\$+$/g, '').trim();
+}
+
 function solveLinear(equation) {
   const parts = String(equation || '').split('=');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -279,6 +346,20 @@ function verifyQuestion(question) {
   const q = question || {};
   const raw = String(q.expression || q.equation || '').trim();
   if (!raw) return review('no_expression');
+  const answerText = stripMath(q.answer);
+  try {
+    if (!raw.includes('=') && (usesVar(parseExpr(raw)) || /[a-zA-Z]/.test(answerText))) {
+      const got = asPoly(parseExpr(raw));
+      const want = asPoly(parseExpr(answerText));
+      const computed = formatPoly(got);
+      if (polyEq(got, want)) return { status: 'verified', computed: computed };
+      return { status: 'failed', reason: 'answer_mismatch', computed: computed };
+    }
+  } catch (e) {
+    if (e && e.code === 'failed') return { status: 'failed', reason: e.message };
+    if (e && e.code === 'needs_review') return review(e.message);
+    if (/[a-zA-Z]/.test(answerText) || /[a-zA-Z]/.test(raw)) return review((e && e.message) || 'unparsed');
+  }
   let answer;
   try {
     answer = parseAnswer(q.answer);
@@ -287,9 +368,7 @@ function verifyQuestion(question) {
   }
   try {
     const computed = raw.includes('=') ? solveLinear(raw) : evalNode(parseExpr(raw), null);
-    if (req(computed, answer)) {
-      return { status: 'verified', computed: formatRat(computed) };
-    }
+    if (req(computed, answer)) return { status: 'verified', computed: formatRat(computed) };
     return { status: 'failed', reason: 'answer_mismatch', computed: formatRat(computed) };
   } catch (e) {
     if (e && e.code === 'failed') return { status: 'failed', reason: e.message };
