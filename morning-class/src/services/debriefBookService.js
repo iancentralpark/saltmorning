@@ -14,7 +14,7 @@ const { askGemini, isClaudeConfigured, formatGeminiClientError } = require('./ge
 const { isOpsDbEnabled, query, table } = require('../db/pool');
 
 const MAX_TEXT_CHARS = 90000;
-const MAX_PDF_BYTES = 40 * 1024 * 1024;
+const MAX_PDF_BYTES = 100 * 1024 * 1024;
 const EXCERPT_CHARS = 1200;
 const JOB_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -348,7 +348,7 @@ async function extractPdfText(buf) {
     throw err;
   }
   if (buf.length > MAX_PDF_BYTES) {
-    const err = new Error('PDF는 40MB 이하로 올려 주세요.');
+    const err = new Error('PDF는 ' + Math.round(MAX_PDF_BYTES / (1024 * 1024)) + 'MB 이하로 올려 주세요.');
     err.statusCode = 400;
     throw err;
   }
@@ -561,6 +561,7 @@ async function deleteBook(id, ownerKey) {
 }
 
 module.exports = {
+  MAX_PDF_BYTES,
   GRADE_BANDS,
   isClaudeConfigured,
   startGenerateJob,
