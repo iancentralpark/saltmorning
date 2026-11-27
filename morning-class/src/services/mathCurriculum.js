@@ -7,7 +7,8 @@
 
 const CURRICULA = [
   { id: 'pre-algebra', title: 'Pre-Algebra', gradeBand: '6-8' },
-  { id: 'algebra-1', title: 'Algebra 1', gradeBand: '8-9' }
+  { id: 'algebra-1', title: 'Algebra 1', gradeBand: '8-9' },
+  { id: 'geometry', title: 'Geometry', gradeBand: '8-10' }
 ];
 
 const CURRICULUM = CURRICULA[0];
@@ -27,6 +28,15 @@ function ch(partial) {
 
 function a1(partial) {
   const curriculum = level('algebra-1');
+  return Object.assign({
+    curriculumId: curriculum.id,
+    curriculumTitle: curriculum.title,
+    gradeBand: curriculum.gradeBand
+  }, partial);
+}
+
+function gm(partial) {
+  const curriculum = level('geometry');
   return Object.assign({
     curriculumId: curriculum.id,
     curriculumTitle: curriculum.title,
@@ -309,6 +319,102 @@ const CHAPTERS = [
       { id: 'a1-c10-o1', text: 'Define a variable for an unknown quantity.' },
       { id: 'a1-c10-o2', text: 'Write and solve a linear equation from a situation.' },
       { id: 'a1-c10-o3', text: 'Interpret the solution in the original situation.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c01', number: 1, unitId: 'g1', unitTitle: 'Points and Angles',
+    title: 'Points on the Plane',
+    checkMode: 'pair',
+    description: 'Name and move ordered pairs, and find a horizontal or vertical distance.',
+    prerequisites: ['Integers', 'Coordinate plane'],
+    objectives: [
+      { id: 'gm-c01-o1', text: 'Read and write an ordered pair.' },
+      { id: 'gm-c01-o2', text: 'Translate a point by adding to x or y.' },
+      { id: 'gm-c01-o3', text: 'Find the distance between points that share an x- or y-coordinate.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c02', number: 2, unitId: 'g1', unitTitle: 'Points and Angles',
+    title: 'Angles',
+    checkMode: 'numeric',
+    description: 'Complementary, supplementary, and vertical angles.',
+    prerequisites: ['Addition', 'Subtraction'],
+    objectives: [
+      { id: 'gm-c02-o1', text: 'Find a complement or a supplement.' },
+      { id: 'gm-c02-o2', text: 'Use vertical angles to find an unknown measure.' },
+      { id: 'gm-c02-o3', text: 'Add angles around a point to 360 degrees.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c03', number: 3, unitId: 'g2', unitTitle: 'Polygons',
+    title: 'Triangles',
+    checkMode: 'numeric',
+    description: 'Triangle angle sum, perimeter, and the third side of a right triangle when it is a whole number.',
+    prerequisites: ['Angle measures', 'Perfect squares'],
+    objectives: [
+      { id: 'gm-c03-o1', text: 'Find a missing angle in a triangle.' },
+      { id: 'gm-c03-o2', text: 'Find the perimeter of a triangle.' },
+      { id: 'gm-c03-o3', text: 'Find a whole-number side of a right triangle with sqrt of a perfect square.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c04', number: 4, unitId: 'g2', unitTitle: 'Polygons',
+    title: 'Polygons and Quadrilaterals',
+    checkMode: 'numeric',
+    description: 'Interior angle sums and perimeters of polygons.',
+    prerequisites: ['Triangle angle sum'],
+    objectives: [
+      { id: 'gm-c04-o1', text: 'Find the interior angle sum of a polygon.' },
+      { id: 'gm-c04-o2', text: 'Find a missing angle in a quadrilateral.' },
+      { id: 'gm-c04-o3', text: 'Find the perimeter of a rectangle or regular polygon.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c05', number: 5, unitId: 'g3', unitTitle: 'Measure',
+    title: 'Area',
+    checkMode: 'numeric',
+    description: 'Areas of rectangles, triangles, and parallelograms.',
+    prerequisites: ['Multiplication', 'Fractions'],
+    objectives: [
+      { id: 'gm-c05-o1', text: 'Find the area of a rectangle or square.' },
+      { id: 'gm-c05-o2', text: 'Find the area of a triangle or parallelogram.' },
+      { id: 'gm-c05-o3', text: 'Find a missing length when the area is given.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c06', number: 6, unitId: 'g3', unitTitle: 'Measure',
+    title: 'Circles',
+    checkMode: 'numeric',
+    description: 'Circumference and area using 3.14 for pi.',
+    prerequisites: ['Decimal multiplication'],
+    objectives: [
+      { id: 'gm-c06-o1', text: 'Find a circumference using 3.14.' },
+      { id: 'gm-c06-o2', text: 'Find an area using 3.14.' },
+      { id: 'gm-c06-o3', text: 'Find a diameter from a radius, or the reverse.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c07', number: 7, unitId: 'g3', unitTitle: 'Measure',
+    title: 'Volume and Surface Area',
+    checkMode: 'numeric',
+    description: 'Rectangular prisms: volume and surface area.',
+    prerequisites: ['Area of a rectangle'],
+    objectives: [
+      { id: 'gm-c07-o1', text: 'Find the volume of a rectangular prism.' },
+      { id: 'gm-c07-o2', text: 'Find the surface area of a rectangular prism.' },
+      { id: 'gm-c07-o3', text: 'Find a missing edge when the volume is given.' }
+    ]
+  }),
+  gm({
+    id: 'gm-c08', number: 8, unitId: 'g4', unitTitle: 'Similarity',
+    title: 'Scale Drawings',
+    checkMode: 'numeric',
+    description: 'Scale factors, corresponding lengths, and areas under a scale.',
+    prerequisites: ['Ratios', 'Area'],
+    objectives: [
+      { id: 'gm-c08-o1', text: 'Find an actual length from a scale.' },
+      { id: 'gm-c08-o2', text: 'Find a scale factor from two corresponding lengths.' },
+      { id: 'gm-c08-o3', text: 'Find an area scale from a length scale.' }
     ]
   })
 ];

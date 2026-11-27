@@ -130,6 +130,11 @@ function tokenize(input) {
       tokens.push({ t: 'num', v: lex });
       i = j;
     } else if (/[a-zA-Z]/.test(c)) {
+      if (src.slice(i, i + 4).toLowerCase() === 'sqrt') {
+        tokens.push({ t: 'sqrt' });
+        i += 4;
+        continue;
+      }
       if (c.toLowerCase() !== 'x') throw new Error('var');
       tokens.push({ t: 'var', v: 'x' });
       i++;
@@ -144,7 +149,7 @@ function tokenize(input) {
     const prev = out[out.length - 1];
     if (prev && (
       (prev.t === 'num' || prev.t === 'var' || prev.t === ')') &&
-      (cur.t === 'var' || cur.t === 'num' || cur.t === '(')
+      (cur.t === 'var' || cur.t === 'num' || cur.t === '(' || cur.t === 'sqrt')
     )) out.push({ t: '*' });
     out.push(cur);
   }
@@ -200,6 +205,14 @@ function parseTokens(tokens) {
       return { op: 'num', value: v };
     }
     if (tok.t === 'var') return { op: 'var' };
+    if (tok.t === 'sqrt') {
+      const open = take();
+      if (!open || open.t !== '(') throw new Error('paren');
+      const inner = parseExpr();
+      const close = take();
+      if (!close || close.t !== ')') throw new Error('paren');
+      return { op: 'sqrt', left: inner };
+    }
     if (tok.t === '(') {
       const inner = parseExpr();
       const close = take();
@@ -220,6 +233,7 @@ function evalNode(node, x) {
     return x;
   }
   if (node.op === 'neg') return rneg(evalNode(node.left, x));
+  if (node.op === 'sqrt') return rsqrt(evalNode(node.left, x));
   const l = evalNode(node.left, x);
   const r = evalNode(node.right, x);
   if (node.op === '+') return radd(l, r);
@@ -283,6 +297,11 @@ function asPoly(node) {
     if (base.a.n === 0 && node.right.op === 'num') return { a: rat(0, 1), b: rpow(base.b, node.right.value) };
     nonlinear();
   }
+  if (node.op === 'sqrt') {
+    const inner = asPoly(node.left);
+    if (inner.a.n !== 0) nonlinear();
+    return { a: rat(0, 1), b: rsqrt(inner.b) };
+  }
   throw new Error('poly');
 }
 
@@ -304,6 +323,36 @@ function formatPoly(p) {
 
 function stripMath(raw) {
   return String(raw || '').trim().replace(/^\$+|\$+$/g, '').trim();
+}
+
+function intSqrt(n) {
+  if (!isInt(n) || n < 0) return null;
+  let lo = 0;
+  let hi = n < 2 ? n : Math.min(n, 1000000);
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const sq = mid * mid;
+    if (sq === n) return mid;
+    if (sq < n) lo = mid + 1;
+    else hi = mid - 1;
+  }
+  return null;
+}
+
+function rsqrt(a) {
+  if (a.n < 0) {
+    const err = new Error('sqrt');
+    err.code = 'needs_review';
+    throw err;
+  }
+  const ns = intSqrt(a.n);
+  const ds = intSqrt(a.d);
+  if (ns == null || ds == null) {
+    const err = new Error('sqrt');
+    err.code = 'needs_review';
+    throw err;
+  }
+  return rat(ns, ds);
 }
 
 function solveLinear(equation) {
@@ -342,12 +391,48 @@ function review(reason) {
   return { status: 'needs_review', reason: reason };
 }
 
+function splitPair(raw) {
+  let s = stripMath(raw).trim();
+  if (s.startsWith('(') && s.endsWith(')')) s = s.slice(1, -1).trim();
+  if (!s.includes(',')) return null;
+  const parts = s.split(',');
+  if (parts.length !== 2) return null;
+  const a = parts[0].trim();
+  const b = parts[1].trim();
+  if (!a || !b) return null;
+  return [a, b];
+}
+
+function comparePart(expr, answer) {
+  const node = parseExpr(expr);
+  const ans = stripMath(answer);
+  if (usesVar(node) || /[a-zA-Z]/.test(ans)) {
+    const got = asPoly(node);
+    const want = asPoly(parseExpr(ans));
+    return { ok: polyEq(got, want), computed: formatPoly(got) };
+  }
+  const computed = evalNode(node, null);
+  return { ok: req(computed, parseAnswer(ans)), computed: formatRat(computed) };
+}
+
 function verifyQuestion(question) {
   const q = question || {};
   const raw = String(q.expression || q.equation || '').trim();
   if (!raw) return review('no_expression');
   const answerText = stripMath(q.answer);
   try {
+    if (!raw.includes('=')) {
+      const left = splitPair(raw);
+      const right = splitPair(answerText);
+      if (left || right) {
+        if (!left || !right) return { status: 'failed', reason: 'answer_mismatch', computed: 'pair' };
+        const xPart = comparePart(left[0], right[0]);
+        const yPart = comparePart(left[1], right[1]);
+        const computed = xPart.computed + ', ' + yPart.computed;
+        if (xPart.ok && yPart.ok) return { status: 'verified', computed: computed };
+        return { status: 'failed', reason: 'answer_mismatch', computed: computed };
+      }
+    }
     if (!raw.includes('=') && (usesVar(parseExpr(raw)) || /[a-zA-Z]/.test(answerText))) {
       const got = asPoly(parseExpr(raw));
       const want = asPoly(parseExpr(answerText));
