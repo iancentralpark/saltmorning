@@ -96,7 +96,7 @@
     <div class="layout">
       <aside class="side">
         <h2>새 프로필 만들기</h2>
-        <p class="hint">원서 텍스트 또는 PDF를 넣으면 AI가 인터뷰·채점용 <strong>Book Debrief Profile</strong>을 만듭니다. 원문 전체는 저장하지 않고 짧은 발췌만 남깁니다.</p>
+        <p class="hint">원서 텍스트 또는 PDF를 넣으면 AI가 인터뷰·채점용 <strong>Book Debrief Profile</strong>을 만듭니다. 만드는 동안만 본문을 보관하고, 끝나면 짧은 발췌만 남깁니다. 중간에 멈추면 스스로 다시 시도합니다.</p>
         <label>제목 <input type="text" id="titleInput" placeholder="예: Charlotte's Web"></label>
         <label>저자 <input type="text" id="authorInput" placeholder="예: E. B. White"></label>
         <label>학년대
@@ -129,6 +129,7 @@
           <div class="actions" style="margin:0">
             <button type="button" class="btn btn-ok btn-sm" id="btnVerify" disabled>Verified 표시</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btnUnverify" disabled>검수 취소</button>
+            <button type="button" class="btn btn-primary btn-sm hidden" id="btnResume">이어서 만들기</button>
             <button type="button" class="btn btn-ghost btn-sm" id="btnDelete" disabled>삭제</button>
           </div>
         </div>
@@ -227,7 +228,8 @@
     var ready = book.status === 'ready' && book.debriefProfile;
     $('btnVerify').disabled = !ready || !!book.isVerified;
     $('btnUnverify').disabled = !ready || !book.isVerified;
-    $('btnDelete').disabled = !book.id || book.status === 'generating';
+    $('btnDelete').disabled = !book.id;
+    $('btnResume').classList.toggle('hidden', !book.canResume);
     if (!book.debriefProfile) {
       $('emptyDetail').classList.remove('hidden');
       $('emptyDetail').textContent = book.message || (book.status === 'generating' ? '생성 중…' : '프로필이 없습니다.');
@@ -389,6 +391,22 @@
       loadList();
       setStatus('검수 취소됨', 'ok');
     }).catch(function (e) { setStatus(e.message, 'error'); });
+  });
+  $('btnResume').addEventListener('click', function () {
+    if (!current) return;
+    $('btnResume').disabled = true;
+    api('/api/debrief/books/' + encodeURIComponent(current.id) + '/resume', { method: 'POST', body: {} })
+      .then(function (book) {
+        var idx = books.findIndex(function (b) { return b.id === book.id; });
+        if (idx >= 0) books[idx] = Object.assign({}, books[idx], book);
+        renderDetail(book);
+        $('progress').classList.remove('hidden');
+        $('progressBar').style.width = Math.max(8, Number(book.progress) || 25) + '%';
+        setStatus(book.message || '끝난 지점부터 다시 시도합니다');
+        startPoll(book.id);
+      })
+      .catch(function (e) { setStatus(e.message || '다시 시작 실패', 'error'); })
+      .then(function () { $('btnResume').disabled = false; });
   });
   $('btnDelete').addEventListener('click', function () {
     if (!current) return;
