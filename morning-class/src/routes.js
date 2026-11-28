@@ -439,6 +439,12 @@ router.get('/health', async (req, res) => {
     sheetsStorage = { mode: 'unknown', ready: false, reason: e.message || String(e) };
   }
   const push = require('./services/pushService');
+  let satImport = null;
+  try {
+    satImport = require('./services/sat/satImportService').pdfReaderStatus();
+  } catch (e) {
+    satImport = { pdfReader: 'error', reason: e.message || String(e) };
+  }
   res.json({
     ok: true,
     service: 'salt-morning-class',
@@ -458,6 +464,7 @@ router.get('/health', async (req, res) => {
     gradesStorage,
     rosterStorage,
     sheetsStorage,
+    satImport,
     webPush: { enabled: push.isPushEnabled() },
     isolation: 'Salt Morning ops DB is separate from Mr.Park Supabase tables'
   });
@@ -4278,6 +4285,9 @@ router.get('/grammar-clinic/worksheet/jobs/:id/html', requireRole('teacher', 'ad
     res.status(e.statusCode || 500).json({ error: e.message || 'Could not download worksheet.' });
   }
 });
+
+// SAT question bank (PDF import and review) lives in its own router.
+router.use('/sat', requireRole('teacher', 'admin'), require('./satRoutes'));
 
 const mathWorkbook = require('./services/mathWorkbookService');
 
