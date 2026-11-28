@@ -20,7 +20,7 @@
   var DIFF = { easy: '쉬움', medium: '보통', hard: '어려움' };
   var STEP_OF = { rw1: 'rw1', rw2e: 'rw2', rw2h: 'rw2', m1: 'm1', m2e: 'm2', m2h: 'm2' };
 
-  var S = { view: 'sets', sets: null, pool: null, detail: null, key: 'rw1', assignments: [], busy: false };
+  var S = { stats: null, statsFilter: { setId: '', classId: '' }, view: 'sets', sets: null, pool: null, detail: null, key: 'rw1', assignments: [], busy: false };
 
   // ------------------------------------------------------------- plumbing
 
@@ -98,6 +98,7 @@
     setNav(S.view === 'set' ? 'sets' : S.view);
     if (S.view === 'set') return renderSet();
     if (S.view === 'assigned') return renderAssigned();
+    if (S.view === 'stats') return renderStats();
     return renderSets();
   }
 
@@ -559,6 +560,136 @@
         '<h3 style="margin-top:1rem">영역별 정답률</h3>' + bars +
         '<h3 style="margin-top:1.2rem">문항별 결과 <span class="small muted" style="font-weight:400">(초록 정답 · 빨강 오답 · 회색 무응답, 마우스를 올리면 문항 정보)</span></h3>' + maps +
         '<div class="small muted">풀이에 쓴 시간 약 ' + Math.max(1, Math.round((sum.timeMs || 0) / 60000)) + '분</div>';
+    }).catch(function (e) { m.querySelector('.body').innerHTML = '<div class="banner bad">' + esc(e.message) + '</div>'; });
+  }
+
+  // ---------------------------------------------------------------- statistics
+
+  function renderStats() {
+    var main = $('main');
+    main.innerHTML = '<p class="muted">통계를 불러오는 중…</p>';
+    var q = [];
+    if (S.statsFilter.setId) q.push('setId=' + encodeURIComponent(S.statsFilter.setId));
+    if (S.statsFilter.classId) q.push('classId=' + encodeURIComponent(S.statsFilter.classId));
+    api('/stats/overview' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
+      if (S.view !== 'stats') return;
+      S.stats = d;
+      drawStats(d);
+    }).catch(function (e) { main.innerHTML = '<div class="banner bad">' + esc(e.message) + '</div>'; });
+  }
+
+  function rateClass(p) { return p < 50 ? 'bad' : p < 70 ? 'mid' : 'good'; }
+
+  function skillBars(list, limit) {
+    if (!list.length) return '<div class="empty">아직 채점된 응시가 없습니다.</div>';
+    return list.slice(0, limit).map(function (k) {
+      return '<div class="sk"><div class="n" title="' + esc(k.domain) + '">' + esc(k.skill) + ' <small>' + (k.section === 'rw' ? 'R&amp;W' : 'Math') + ' · ' + k.attempts + '문항</small></div>' +
+        '<div class="btrack"><span class="' + rateClass(k.correctRate) + '" style="width:' + k.correctRate + '%"></span></div><div style="text-align:right"><b>' + k.correctRate + '%</b></div></div>';
+    }).join('');
+  }
+
+  function drawStats(d) {
+    var c = d.counts, sc = d.scores, f = d.filters || { classes: [], sets: [] };
+    var sel = S.statsFilter;
+    var opts = function (list, key, name, cur, all) {
+      return '<option value="">' + all + '</option>' + list.map(function (x) {
+        return '<option value="' + esc(x[key]) + '"' + (String(x[key]) === String(cur) ? ' selected' : '') + '>' + esc(x[name]) + '</option>';
+      }).join('');
+    };
+    var head = '<div class="row"><h2 class="grow">응시 통계</h2><button class="btn" id="stRefresh">새로고침</button></div>' +
+      '<div class="filters"><select id="stSet">' + opts(f.sets, 'id', 'name', sel.setId, '모든 시험 세트') + '</select>' +
+      '<select id="stClass">' + opts(f.classes, 'classId', 'className', sel.classId, '모든 반') + '</select>' +
+      '<span class="small muted">교사 미리보기 응시는 통계에 포함되지 않습니다. 점수는 추정치입니다.</span></div>';
+    if (!c.sessions) {
+      $('main').innerHTML = head + '<div class="panel empty" style="margin-top:1rem">아직 응시 기록이 없습니다. 학생이 시험을 시작하면 여기에 통계가 채워집니다.</div>';
+      bindStatsFilters();
+      return;
+    }
+    var has = sc.avg != null;
+    var kpi = function (cls, l, v, s) { return '<div class="kpi ' + cls + '"><div class="l">' + l + '</div><div class="v">' + v + '</div><div class="s">' + (s || '&nbsp;') + '</div></div>'; };
+    var partPct = c.sessions ? Math.round(c.completed / c.sessions * 100) : 0;
+    var kpis = '<div class="kpis">' +
+      kpi('navy', '평균 총점', has ? sc.avg : '—', has ? '중앙값 ' + sc.median : '완료된 응시 없음') +
+      kpi('', '응시 완료', c.completed + '<span style="font-size:1rem;color:var(--muted)"> / ' + c.sessions + '</span>', partPct + '% · 응시 중 ' + c.inProgress + '명 · 학생 ' + c.students + '명') +
+      kpi('', '최고 / 최저', has ? sc.max + ' / ' + sc.min : '—', '') +
+      kpi('', 'R&amp;W 평균', has ? sc.avgRw : '—', has && d.routes.rwHardPct != null ? '상위 모듈 2 ' + d.routes.rwHardPct + '%' : '') +
+      kpi('', 'Math 평균', has ? sc.avgMath : '—', has && d.routes.mathHardPct != null ? '상위 모듈 2 ' + d.routes.mathHardPct + '%' : '') +
+      kpi('', '평균 풀이 시간', has ? (d.time.avgRwMin + d.time.avgMathMin) + '분' : '—', has ? 'R&amp;W ' + d.time.avgRwMin + '분 · Math ' + d.time.avgMathMin + '분' : '') +
+      kpi('', '오답 복습 완료', d.review.total ? d.review.pct + '%' : '—', d.review.total ? d.review.done + ' / ' + d.review.total + '문항' : '복습할 오답 없음') +
+      '</div>';
+    var maxN = Math.max.apply(null, sc.distribution.map(function (b) { return b.n; }).concat([1]));
+    var hist = '<div class="hist">' + sc.distribution.map(function (b) {
+      return '<div class="col"><div class="bar' + (b.n ? '' : ' zero') + '" style="height:' + (b.n ? Math.max(4, Math.round(b.n / maxN * 100)) : 2) + '%">' + (b.n ? '<b>' + b.n + '</b>' : '') + '</div><div class="lab">' + b.from + '</div></div>';
+    }).join('') + '</div>';
+    var weak = d.skills.filter(function (k) { return k.attempts >= 1; });
+    var grids = '<div class="grid2"><div class="panel"><h3>총점 분포 <span class="small muted" style="font-weight:400">(100점 구간)</span></h3>' + (has ? hist : '<div class="empty">완료된 응시가 없습니다.</div>') + '</div>' +
+      '<div class="panel"><h3>취약 유형 <span class="small muted" style="font-weight:400">(정답률 낮은 순)</span></h3>' + skillBars(weak, 9) + '</div></div>';
+    var hard = '<div class="panel"><h3>가장 많이 틀린 문항</h3>' + (d.hardest.length ? '<table class="tbl"><thead><tr><th>문항</th><th>유형</th><th>난이도</th><th class="num">응시</th><th class="num">오답률</th><th>가장 많은 오답</th><th class="num">평균 시간</th></tr></thead><tbody>' +
+      d.hardest.slice(0, 15).map(function (h) {
+        return '<tr><td><b style="font-family:ui-monospace,monospace">' + esc(h.sourceId) + '</b><div class="small muted" style="max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(h.snippet) + '</div></td>' +
+          '<td>' + esc(h.skill) + '<div class="small muted">' + (h.section === 'rw' ? 'R&amp;W' : 'Math') + '</div></td><td><span class="pill ' + esc(h.difficulty) + '">' + esc(DIFF[h.difficulty] || h.difficulty) + '</span></td>' +
+          '<td class="num">' + h.attempts + '</td><td class="num"><b style="color:' + (h.wrongRate >= 60 ? 'var(--bad)' : 'inherit') + '">' + h.wrongRate + '%</b></td>' +
+          '<td>' + (h.topWrong ? esc(h.topWrong.answer) + ' <span class="small muted">(' + h.topWrong.n + '명)</span>' : '—') + (h.blank ? ' <span class="small muted">· 무응답 ' + h.blank + '</span>' : '') + '</td><td class="num">' + h.avgSec + '초</td></tr>';
+      }).join('') + '</tbody></table>' : '<div class="empty">아직 데이터가 없습니다.</div>') + '</div>';
+    var st = '<div class="panel" style="margin-top:1rem"><h3>학생별 현황 <span class="small muted" style="font-weight:400">(이름을 누르면 상세 추이)</span></h3><table class="tbl"><thead><tr><th>학생</th><th>반</th><th>시험</th><th>상태</th><th class="num">총점</th><th class="num">R&amp;W</th><th class="num">Math</th><th>일시</th><th class="num">오답 복습</th></tr></thead><tbody>' +
+      d.students.map(function (s) {
+        var pill = s.status === 'completed' ? '<span class="pill ok">완료</span>' : '<span class="pill warn">응시 중</span>';
+        return '<tr class="click" data-st="' + esc(s.studentId) + '"><td><b>' + esc(s.name) + '</b></td><td>' + esc(s.className || '') + '</td><td>' + esc(s.setName) + '</td><td>' + pill + '</td>' +
+          '<td class="num"><b>' + (s.total != null ? s.total : '—') + '</b></td><td class="num">' + (s.rw != null ? s.rw : '—') + '</td><td class="num">' + (s.math != null ? s.math : '—') + '</td>' +
+          '<td>' + fmt(s.completedAt || s.startedAt) + '</td><td class="num">' + (s.reviewTotal ? s.reviewDone + ' / ' + s.reviewTotal : '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    $('main').innerHTML = head + kpis + grids + hard + st;
+    bindStatsFilters();
+    document.querySelectorAll('tr[data-st]').forEach(function (r) { r.onclick = function () { openStudentStats(r.getAttribute('data-st')); }; });
+  }
+
+  function bindStatsFilters() {
+    var go = function () { S.statsFilter = { setId: $('stSet').value, classId: $('stClass').value }; renderStats(); };
+    $('stSet').onchange = go;
+    $('stClass').onchange = go;
+    $('stRefresh').onclick = renderStats;
+  }
+
+  function trendSvg(sessions) {
+    var pts = sessions.filter(function (s) { return s.total != null; }).slice().reverse();
+    if (pts.length < 1) return '<div class="empty">완료된 응시가 없습니다.</div>';
+    var W = 760, H = 190, L = 44, R = 18, T = 26, B = 34;
+    var x = function (i) { return pts.length === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (pts.length - 1); };
+    var y = function (v) { return T + (1600 - v) / 1200 * (H - T - B); };
+    var grid = [400, 800, 1200, 1600].map(function (v) {
+      return '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="#e4ebf5"/><text x="' + (L - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="#5d6b82">' + v + '</text>';
+    }).join('');
+    var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.total).toFixed(1); }).join(' ');
+    var dots = pts.map(function (p, i) {
+      return '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.total).toFixed(1) + '" r="5" fill="#0a58ca" stroke="#fff" stroke-width="2"><title>' + esc(p.setName) + ' · ' + p.total + '</title></circle>' +
+        '<text x="' + x(i).toFixed(1) + '" y="' + (y(p.total) - 10).toFixed(1) + '" text-anchor="middle" font-size="11.5" font-weight="700" fill="#14213a">' + p.total + '</text>' +
+        '<text x="' + x(i).toFixed(1) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="10.5" fill="#5d6b82">' + esc(new Date(p.completedAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric' })) + '</text>';
+    }).join('');
+    return '<svg class="trend" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="점수 추이">' + grid + (pts.length > 1 ? '<path d="' + line + '" fill="none" stroke="#0a58ca" stroke-width="2.5"/>' : '') + dots + '</svg>';
+  }
+
+  function openStudentStats(studentId) {
+    var m = openModal({ title: '학생 통계', wide: true, body: '<p class="muted">불러오는 중…</p>', footer: '<button class="btn" data-close>닫기</button>' });
+    m.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = closeModal; });
+    var qs = S.statsFilter.classId ? '?classId=' + encodeURIComponent(S.statsFilter.classId) : '';
+    api('/stats/students/' + encodeURIComponent(studentId) + qs).then(function (d) {
+      m.querySelector('header h3').textContent = d.student.name + (d.student.className ? ' · ' + d.student.className : '');
+      var rows = d.sessions.map(function (s) {
+        return '<tr><td>' + esc(s.setName) + '</td><td>' + (s.status === 'completed' ? '<span class="pill ok">완료</span>' : '<span class="pill warn">응시 중</span>') + '</td>' +
+          '<td class="num"><b>' + (s.total != null ? s.total : '—') + '</b></td><td class="num">' + (s.rw != null ? s.rw : '—') + '</td><td class="num">' + (s.math != null ? s.math : '—') + '</td><td>' + fmt(s.completedAt || s.startedAt) + '</td>' +
+          '<td>' + (s.status === 'completed' ? '<button class="btn sm" data-res="' + esc(s.sessionId) + '">결과</button>' : '') + '</td></tr>';
+      }).join('');
+      var rv = d.review;
+      var open = (rv.openBySkill || []).slice(0, 6).map(function (k) {
+        return '<div class="sk"><div class="n">' + esc(k.skill) + ' <small>' + (k.section === 'rw' ? 'R&amp;W' : 'Math') + '</small></div><div></div><div style="text-align:right"><b>' + k.open + '</b></div></div>';
+      }).join('');
+      m.querySelector('.body').innerHTML =
+        '<h3>점수 추이</h3>' + trendSvg(d.sessions) +
+        '<div class="grid2" style="margin:.4rem 0"><div><h3>취약 유형</h3>' + skillBars(d.skills.filter(function (k) { return k.attempts >= 1; }), 7) + '</div>' +
+        '<div><h3>오답 복습 <span class="small muted" style="font-weight:400">' + (rv.total ? rv.done + ' / ' + rv.total + ' 완료' : '') + '</span></h3>' +
+        (rv.total ? '<div class="btrack" style="margin:.2rem 0 .8rem"><span style="width:' + Math.round(rv.done / rv.total * 100) + '%"></span></div>' + (open ? '<div class="small muted">남은 문항 (유형별)</div>' + open : '<div class="small" style="color:var(--ok);font-weight:700">모두 복습 완료</div>') : '<div class="empty">복습할 오답이 없습니다.</div>') + '</div></div>' +
+        '<h3 style="margin-top:1rem">응시 기록</h3><table class="tbl"><thead><tr><th>시험</th><th>상태</th><th class="num">총점</th><th class="num">R&amp;W</th><th class="num">Math</th><th>일시</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+      m.querySelectorAll('[data-res]').forEach(function (b) { b.onclick = function () { openResult(b.getAttribute('data-res')); }; });
     }).catch(function (e) { m.querySelector('.body').innerHTML = '<div class="banner bad">' + esc(e.message) + '</div>'; });
   }
 

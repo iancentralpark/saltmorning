@@ -1025,6 +1025,7 @@ async function sessionResult(sessionId) {
       setName: set.name,
       studentId: s.student_id,
       studentName: s.student_name,
+      classId: s.class_id || '',
       isPreview: s.is_preview,
       step: s.step
     },
@@ -1106,6 +1107,7 @@ async function assetForSession(sessionId, assetId, user) {
 }
 
 module.exports = {
+  studentQuestion,
   listSets,
   getSet,
   poolSummary,
