@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAT 문제은행 — Salt Morning</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=20260818">
+  <link rel="stylesheet" href="/vendor/katex/katex.min.css">
+  <script defer src="/vendor/katex/katex.min.js"></script>
+  <script defer src="/js/sat-render.js?v=20261128a"></script>
+  <style>
+    :root {
+      --ink: #172033; --muted: #5c6b7a; --line: #d5e0ea; --card: #fff;
+      --sea: #0f766e; --sea-deep: #115e59; --paper: #f4f7f8; --warn: #9a3412; --warn-bg: #fff7ed;
+      --ok: #166534; --ok-bg: #dcfce7; --bad: #9f1239; --bad-bg: #ffe4e6; --info-bg: #e0f2fe; --info: #075985;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Source Sans 3", "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: var(--ink); background: var(--paper); }
+    header.top { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .7rem 1.2rem; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+    h1 { font-family: Georgia, serif; font-size: 1.35rem; margin: 0; color: var(--sea-deep); }
+    h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+    a { color: var(--sea-deep); }
+    .tabs { display: flex; gap: .3rem; }
+    .tabs button { border: 0; background: transparent; padding: .45rem .9rem; border-radius: 99px; font-weight: 700; color: var(--muted); }
+    .tabs button.on { background: var(--sea); color: #fff; }
+    main { padding: 1rem 1.2rem 3rem; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.1rem; }
+    .card + .card { margin-top: .8rem; }
+    button { font: inherit; font-weight: 700; border-radius: 9px; border: 1px solid var(--line); background: #fff; padding: .45rem .75rem; cursor: pointer; color: var(--ink); }
+    button.primary { background: var(--sea); color: #fff; border-color: var(--sea); }
+    button.quiet { border-color: transparent; color: var(--muted); font-weight: 600; }
+    button.danger { color: var(--bad); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    input, select, textarea { font: inherit; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+    textarea { width: 100%; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .86rem; line-height: 1.45; }
+    .muted { color: var(--muted); font-size: .88rem; }
+    .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .grow { flex: 1; }
+    .hidden { display: none !important; }
+    .bar { height: 8px; background: #e6eef2; border-radius: 99px; overflow: hidden; margin: .5rem 0; }
+    .bar span { display: block; height: 100%; background: var(--sea); width: 0; transition: width .3s; }
+    .pill { display: inline-block; border-radius: 99px; padding: .05rem .5rem; font-size: .76rem; font-weight: 700; background: #eef2f6; color: var(--muted); white-space: nowrap; }
+    .pill.ok { background: var(--ok-bg); color: var(--ok); }
+    .pill.warn { background: #ffedd5; color: var(--warn); }
+    .pill.bad { background: var(--bad-bg); color: var(--bad); }
+    .pill.info { background: var(--info-bg); color: var(--info); }
+    .error { color: var(--bad); font-size: .9rem; }
+    .notice { border-radius: 10px; padding: .6rem .8rem; font-size: .92rem; margin: .5rem 0; }
+    .notice.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid #fed7aa; }
+    .notice.info { background: var(--info-bg); color: var(--info); }
+
+    /* import */
+    .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 1.4rem; text-align: center; background: #fbfdfe; }
+    .drop.over { border-color: var(--sea); background: #ecfdf5; }
+    #jobs { margin-top: .8rem; }
+    .why { margin: .6rem 0 0; padding: .6rem .8rem .6rem 1.8rem; background: #fef2f2; border-radius: 8px; font-size: .85rem; max-height: 220px; overflow: auto; }
+    .why li { margin: .15rem 0; }
+    .job h3 { margin: 0; font-size: 1rem; word-break: break-all; }
+    .job .facts { display: flex; gap: 1.2rem; flex-wrap: wrap; margin: .5rem 0; font-size: .9rem; }
+    .job .facts b { display: block; font-size: 1.05rem; }
+
+    /* review */
+    .filters { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: .7rem; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: #fff; }
+    .seg button { border: 0; border-radius: 0; padding: .4rem .7rem; font-weight: 600; color: var(--muted); }
+    .seg button.on { background: var(--sea); color: #fff; }
+    .review { display: grid; grid-template-columns: 300px 1fr; gap: .8rem; align-items: start; }
+    .qlist { position: sticky; top: 4.2rem; max-height: calc(100vh - 5.2rem); overflow: auto; padding: .5rem; }
+    .qitem { display: block; width: 100%; text-align: left; border: 0; border-radius: 9px; padding: .45rem .5rem; font-weight: 400; background: transparent; border-left: 3px solid transparent; }
+    .qitem:hover { background: #f1f5f9; }
+    .qitem.on { background: #ecfdf5; border-left-color: var(--sea); }
+    .qitem .l1 { display: flex; gap: .35rem; align-items: center; font-size: .8rem; }
+    .qitem .sid { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+    .qitem .l2 { font-size: .82rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .15rem; }
+    .qitem.done .sid { color: var(--ok); }
+    .qitem.out { opacity: .55; }
+    .actions { position: sticky; top: 3.6rem; z-index: 10; background: var(--paper); padding: .4rem 0 .5rem; display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+    .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .8rem; align-items: start; }
+    @media (max-width: 1100px) { .review { grid-template-columns: 1fr; } .qlist { position: static; max-height: 260px; } .cols { grid-template-columns: 1fr; } }
+    .colhead { font-size: .78rem; font-weight: 700; color: var(--muted); letter-spacing: .04em; margin-bottom: .4rem; }
+    .page { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; margin-bottom: .6rem; user-select: none; }
+    .page img { display: block; width: 100%; height: auto; -webkit-user-drag: none; }
+    .page .pno { position: absolute; top: .4rem; right: .5rem; }
+    .cropping .page { cursor: crosshair; outline: 2px solid var(--sea); }
+    .sel { position: absolute; border: 2px solid var(--sea); background: rgba(15, 118, 110, .15); pointer-events: none; }
+    .flags { margin: 0 0 .7rem; padding: .55rem .8rem .55rem 1.9rem; background: var(--warn-bg); border: 1px solid #fed7aa; border-radius: 10px; color: var(--warn); font-size: .9rem; }
+    .flags li + li { margin-top: .15rem; }
+    .meta { display: flex; gap: .35rem; flex-wrap: wrap; margin-bottom: .6rem; }
+    .label { font-size: .76rem; font-weight: 700; color: var(--muted); margin: .9rem 0 .25rem; }
+    .passage { border-left: 3px solid var(--line); padding: .1rem 0 .1rem .8rem; }
+    .choice { display: flex; gap: .6rem; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: .5rem .7rem; margin-top: .4rem; }
+    .choice .k { flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1.5px solid var(--ink); display: grid; place-items: center; font-weight: 700; font-size: .85rem; }
+    .choice.correct { border-color: #16a34a; background: #f0fdf4; }
+    .choice.correct .k { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .figs { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .figcard { border: 1px solid var(--line); border-radius: 10px; padding: .4rem; width: 150px; font-size: .8rem; }
+    .figcard img { display: block; max-width: 100%; max-height: 110px; margin: 0 auto .3rem; }
+    .figcard button { padding: .15rem .4rem; font-size: .76rem; }
+    .form label { display: block; font-size: .8rem; font-weight: 700; margin: .7rem 0 .2rem; }
+    .form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
+    .form select, .form input[type=text] { width: 100%; }
+    kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 .3rem; font-size: .78rem; background: #fff; }
+
+    /* question text */
+    .sat-rich { white-space: pre-wrap; line-height: 1.55; font-size: 1rem; overflow-wrap: anywhere; }
+    .sat-rich table { white-space: normal; overflow-wrap: normal; border-collapse: collapse; margin: .5rem 0; font-size: .93rem; }
+    .sat-rich th, .sat-rich td { border: 1px solid #64748b; padding: .25rem .6rem; text-align: left; }
+    .sat-rich th { background: #f1f5f9; }
+    .sat-rich .sat-fig { display: block; max-width: min(100%, 420px); height: auto; margin: .4rem 0; }
+    .sat-rich .sat-display { margin: .5rem 0; overflow-x: auto; }
+    .sat-rich .sat-display .katex-display { margin: 0; text-align: left; }
+    .sat-fig-missing, .sat-math-error { color: var(--bad); background: var(--bad-bg); border-radius: 4px; padding: 0 .25rem; }
+    .choice .sat-rich .sat-fig { max-width: min(100%, 260px); margin: 0; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>SAT 문제은행</h1>
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" id="tabImport" class="on" role="tab">PDF 가져오기</button>
+      <button type="button" id="tabReview" role="tab">문항 검수</button>
+    </div>
+    <a href="/teacher">선생님 포털</a>
+  </header>
+
+  <main>
+    <p id="pageError" class="error hidden"></p>
+    <div id="configNote" class="notice warn hidden">Claude API 키가 설정되지 않아 변환을 시작할 수 없습니다. PDF 올리기와 문항 위치 찾기까지만 됩니다.</div>
+
+    <div id="viewImport">
+      <div class="card">
+        <h2>PDF 올리기</h2>
+        <p class="muted" style="margin:.1rem 0 .7rem">문제 PDF를 올리면 문항 위치를 찾은 뒤, 먼저 50문항만 변환해서 보여 줍니다. 원본과 비교해 보고 나머지를 진행합니다.</p>
+        <div class="drop" id="drop">
+          <input type="file" id="file" accept="application/pdf,.pdf" class="hidden">
+          <button type="button" class="primary" id="pick">PDF 선택</button>
+          <span class="muted" id="dropHint" style="margin-left:.6rem">또는 여기로 끌어다 놓기</span>
+        </div>
+        <div id="uploadBox" class="hidden">
+          <p class="muted" id="uploadText" style="margin:.7rem 0 0"></p>
+          <div class="bar"><span id="uploadBar"></span></div>
+        </div>
+        <p id="uploadError" class="error"></p>
+      </div>
+      <div id="jobs"></div>
+    </div>
+
+    <div id="viewReview" class="hidden">
+      <div class="filters">
+        <select id="fJob" aria-label="가져온 파일"></select>
+        <div class="seg" id="fStatus">
+          <button type="button" data-v="review" class="on">검수 대기</button>
+          <button type="button" data-v="approved">승인</button>
+          <button type="button" data-v="excluded">제외</button>
+          <button type="button" data-v="">전체</button>
+        </div>
+        <select id="fSection" aria-label="섹션"><option value="">섹션 전체</option></select>
+        <select id="fDomain" aria-label="영역"><option value="">영역 전체</option></select>
+        <select id="fDifficulty" aria-label="난이도">
+          <option value="">난이도 전체</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+        </select>
+        <label class="row" style="gap:.3rem;font-size:.9rem"><input type="checkbox" id="fFlagged"> 확인 필요만</label>
+        <input type="search" id="fSearch" placeholder="Question ID 또는 본문 검색" style="min-width:220px">
+        <span class="grow"></span>
+        <button type="button" id="approveClean" class="hidden"></button>
+      </div>
+      <div class="review">
+        <aside class="card qlist">
+          <p class="muted" id="listInfo" style="margin:.2rem .4rem .5rem"></p>
+          <div id="list"></div>
+          <button type="button" id="more" class="hidden" style="width:100%;margin-top:.4rem">더 보기</button>
+        </aside>
+        <section id="detail"></section>
+      </div>
+    </div>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var num = function (n) { return Number(n || 0).toLocaleString('ko-KR'); };
+  var usd = function (n) { return '$' + (Number(n) || 0).toFixed(n >= 100 ? 0 : 2); };
+  var mb = function (bytes) { return (bytes / (1024 * 1024)).toFixed(bytes > 10 * 1024 * 1024 ? 0 : 1) + 'MB'; };
+
+  function token() {
+    try {
+      return localStorage.getItem('salt_teacher_token') ||
+        sessionStorage.getItem('salt_teacher_token') ||
+        localStorage.getItem('salt_admin_token') ||
+        sessionStorage.getItem('salt_admin_token') || '';
+    } catch (e) { return ''; }
+  }
+
+  function api(url, opts) {
+    opts = opts || {};
+    var headers = { Authorization: 'Bearer ' + token() };
+    var body = opts.body;
+    if (opts.raw) headers['Content-Type'] = 'application/octet-stream';
+    else if (body !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(body); }
+    return fetch('/api/sat' + url, { method: opts.method || 'GET', headers: headers, body: body }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (res.status === 401) throw new Error('로그인이 필요합니다. 선생님 포털에서 로그인한 뒤 이 창을 새로고침해 주세요.');
+        if (!res.ok) throw new Error((data && data.error) || '요청에 실패했습니다.');
+        return data;
+      });
+    });
+  }
+
+  function imgUrl(path) {
+    return '/api/sat' + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'access_token=' + encodeURIComponent(token());
+  }
+
+  function showPageError(message) {
+    $('pageError').textContent = message || '';
+    $('pageError').classList.toggle('hidden', !message);
+  }
+
+  var state = {
+    tab: 'import',
+    meta: null,
+    jobs: [],
+    uploading: false,
+    why: {},
+    filters: { jobId: '', status: 'review', section: '', domain: '', difficulty: '', flagged: false, search: '' },
+    list: [],
+    total: 0,
+    summary: {},
+    currentId: null,
+    current: null,
+    editing: false,
+    crop: null,
+    busy: false
+  };
+
+  // ------------------------------------------------------------------ import
+
+  var STATUS_LABEL = {
+    uploading: ['올리는 중', ''],
+    analyzing: ['문항 위치 찾는 중', 'info'],
+    ready: ['변환 대기', 'info'],
+    running: ['변환 중', 'info'],
+    checkpoint: ['50문항 확인 대기', 'warn'],
+    paused: ['멈춤', 'warn'],
+    done: ['변환 완료', 'ok'],
+    failed: ['실패', 'bad']
+  };
+
+  function priceNote(u) {
+    return 'Claude ' + esc(u.priceLabel) + ' 요금(입력 $' + u.priceIn + ', 출력 $' + u.priceOut + ' / 100만 토큰) 기준';
+  }
+
+  function jobCard(j) {
+    var label = STATUS_LABEL[j.status] || [j.status, ''];
+    var u = j.units;
+    var q = j.questions;
+    var body = '';
+    var buttons = '';
+    var bar = null;
+    var unitWord = j.splitMode === 'window' ? '묶음' : '문항';
+
+    if (j.status === 'uploading') {
+      bar = j.chunkCount ? j.chunksReceived / j.chunkCount : 0;
+      body = '<p class="muted">' + (state.uploading === j.id
+        ? '파일을 올리고 있습니다.'
+        : '업로드가 끝나지 않았습니다. 같은 파일을 다시 선택하면 이어서 올립니다.') + '</p>';
+    } else if (j.status === 'analyzing') {
+      bar = j.pageCount ? j.pagesScanned / j.pageCount : 0;
+      body = '<p class="muted">' + (j.pageCount
+        ? num(j.pagesScanned) + ' / ' + num(j.pageCount) + '쪽을 읽었습니다.'
+        : 'PDF를 여는 중입니다.') + '</p>';
+    } else if (j.status === 'failed') {
+      body = '<p class="error">' + esc(j.statusMessage || '처리하지 못했습니다.') + '</p>';
+    } else {
+      var facts = '<div class="facts">' +
+        '<div><b>' + num(j.pageCount) + '</b>쪽</div>' +
+        '<div><b>' + num(u.total) + '</b>' + unitWord + '</div>' +
+        '<div><b>' + num(u.done) + '</b>변환 완료</div>' +
+        (u.failed ? '<div><b style="color:var(--bad)">' + num(u.failed) + '</b>변환 실패</div>' : '') +
+        (u.skipped ? '<div title="같은 Question ID가 이미 문제은행에 있어 다시 변환하지 않았습니다. 먼저 들어온 문항을 그대로 둡니다."><b>' + num(u.skipped) + '</b>이미 있는 문항</div>' : '') +
+        '<div><b>' + num(q.review) + '</b>검수 대기' + (q.flagged ? ' (확인 필요 ' + num(q.flagged) + ')' : '') + '</div>' +
+        '<div><b>' + num(q.approved) + '</b>승인</div>' +
+        '</div>';
+      var left = Math.max(0, u.total - u.done - u.failed);
+
+      if (j.status === 'ready') {
+        body = (j.splitMode === 'window'
+          ? '<div class="notice warn">이 PDF에서는 문항 번호(Question ID)를 찾지 못했습니다. 3쪽씩 묶어 읽으며, 문항 수는 변환해 봐야 알 수 있습니다.</div>'
+          : '') + facts +
+          '<p class="muted">먼저 파일 전체에서 고르게 뽑은 ' + num(u.sampleTotal) + unitWord + '만 변환합니다. 전체 예상 비용은 약 ' +
+          usd(j.usage.remainingUsd) + '입니다 (' + priceNote(j.usage) + ', 변환 전 추정).</p>';
+        buttons = '<button class="primary" data-act="start">' + num(u.sampleTotal) + unitWord + ' 변환 시작</button>';
+      } else if (j.status === 'running') {
+        var phaseTotal = j.samplePassed ? u.total : u.sampleTotal;
+        var phaseDone = j.samplePassed ? u.done : u.sampleDone;
+        bar = phaseTotal ? phaseDone / phaseTotal : 0;
+        body = facts + '<p class="muted">' + num(phaseDone) + ' / ' + num(phaseTotal) + unitWord + ' 변환 · 지금까지 ' + usd(j.usage.spentUsd) + '</p>';
+        buttons = '<button data-act="pause">일시정지</button>' +
+          (q.total ? '<button data-act="review">변환된 문항 보기</button>' : '');
+      } else if (j.status === 'checkpoint') {
+        body = facts + '<div class="notice info">' + num(u.sampleDone) + unitWord + ' 변환을 마쳤습니다. 검수 화면에서 원본과 비교해 보세요. 괜찮으면 나머지 ' +
+          num(left) + unitWord + '을 변환합니다. 남은 예상 비용은 약 ' + usd(j.usage.remainingUsd) + '입니다 (' + priceNote(j.usage) + ', 지금까지 실제 사용량으로 계산).</div>';
+        buttons = '<button class="primary" data-act="review">변환 결과 검수</button>' +
+          '<button data-act="start">나머지 ' + num(left) + unitWord + ' 변환</button>';
+      } else if (j.status === 'paused') {
+        body = facts + (j.statusMessage ? '<div class="notice warn">' + esc(j.statusMessage) + '</div>' : '') +
+          '<p class="muted">남은 ' + num(left) + unitWord + ' · 지금까지 ' + usd(j.usage.spentUsd) + '</p>';
+        buttons = '<button class="primary" data-act="start">계속</button>' +
+          (q.total ? '<button data-act="review">변환된 문항 보기</button>' : '');
+      } else if (j.status === 'done') {
+        body = facts + '<p class="muted">사용 금액 약 ' + usd(j.usage.spentUsd) + ' (' + priceNote(j.usage) + ')</p>';
+        buttons = '<button class="primary" data-act="review">문항 검수</button>' +
+          (u.failed ? '<button data-act="retry">실패한 ' + num(u.failed) + '개 다시 시도</button>' : '');
+      }
+    }
+
+    return '<div class="card job" data-id="' + esc(j.id) + '">' +
+      '<div class="row"><h3 class="grow">' + esc(j.filename) + '</h3>' +
+      '<span class="muted">' + mb(j.sizeBytes) + '</span>' +
+      '<span class="pill ' + label[1] + '">' + esc(label[0]) + '</span></div>' +
+      (bar != null ? '<div class="bar"><span style="width:' + Math.round(bar * 100) + '%"></span></div>' : '') +
+      body +
+      '<div class="row" style="margin-top:.5rem">' + buttons +
+      (u && u.failed ? '<button class="quiet" data-act="why">' + (state.why[j.id] ? '실패 이유 닫기' : '실패 이유 보기') + '</button>' : '') +
+      '<span class="grow"></span>' +
+      '<button class="quiet danger" data-act="delete">삭제</button></div>' +
+      (u && u.failed && state.why[j.id] ? whyList(state.why[j.id]) : '') +
+      '<p class="error" data-err></p></div>';
+  }
+
+  function whyList(units) {
+    if (!units.length) return '';
+    return '<ul class="why">' + units.map(function (x) {
+      var where = (x.sourceId ? x.sourceId + ' · ' : '') + x.pageFrom + (x.pageTo > x.pageFrom ? '–' + x.pageTo : '') + '쪽';
+      return '<li><b>' + esc(where) + '</b> ' + esc(x.error || '이유가 기록되지 않았습니다.') + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  function renderJobs() {
+    $('jobs').innerHTML = state.jobs.length
+      ? state.jobs.map(jobCard).join('')
+      : '<p class="muted" style="margin:1rem .3rem">아직 올린 PDF가 없습니다.</p>';
+    var sel = $('fJob');
+    var keep = state.filters.jobId;
+    sel.innerHTML = '<option value="">모든 파일</option>' + state.jobs.filter(function (j) { return j.questions.total > 0; }).map(function (j) {
+      return '<option value="' + esc(j.id) + '">' + esc(j.filename) + '</option>';
+    }).join('');
+    sel.value = keep;
+    if (sel.value !== keep) state.filters.jobId = '';
+  }
+
+  var pollTimer = null;
+  function loadJobs() {
+    return api('/imports').then(function (data) {
+      state.jobs = data.jobs || [];
+      renderJobs();
+      showPageError('');
+      var active = state.jobs.some(function (j) { return j.status === 'analyzing' || j.status === 'running'; });
+      clearTimeout(pollTimer);
+      if (state.tab === 'import') pollTimer = setTimeout(loadJobs, active ? 2500 : 20000);
+    }).catch(function (e) {
+      showPageError(e.message);
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(loadJobs, 10000);
+    });
+  }
+
+  $('jobs').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('button[data-act]');
+    if (!btn) return;
+    var card = btn.closest('.job');
+    var id = card.getAttribute('data-id');
+    var job = state.jobs.filter(function (j) { return j.id === id; })[0];
+    var act = btn.getAttribute('data-act');
+    var err = card.querySelector('[data-err]');
+    if (act === 'review') {
+      state.filters.jobId = id;
+      state.filters.status = 'review';
+      switchTab('review');
+      return;
+    }
+    if (act === 'why') {
+      if (state.why[id]) { delete state.why[id]; renderJobs(); return; }
+      api('/imports/' + id + '/failed').then(function (data) {
+        state.why[id] = data.units || [];
+        renderJobs();
+      }).catch(function (e) { err.textContent = e.message; });
+      return;
+    }
+    var call;
+    if (act === 'start') call = api('/imports/' + id + '/start', { method: 'POST' });
+    else if (act === 'pause') call = api('/imports/' + id + '/pause', { method: 'POST' });
+    else if (act === 'retry') call = api('/imports/' + id + '/retry-failed', { method: 'POST' });
+    else if (act === 'delete') {
+      var waiting = job ? job.questions.review + job.questions.excluded : 0;
+      var msg = '"' + (job ? job.filename : '') + '" 원본 PDF를 삭제합니다.' +
+        (waiting ? '\n아직 승인하지 않은 문항 ' + num(waiting) + '개도 함께 삭제됩니다.' : '') +
+        (job && job.questions.approved ? '\n승인한 문항 ' + num(job.questions.approved) + '개는 남지만, 원본 쪽은 더 볼 수 없습니다.' : '');
+      if (!window.confirm(msg)) return;
+      call = api('/imports/' + id, { method: 'DELETE' });
+    }
+    if (!call) return;
+    btn.disabled = true;
+    call.then(loadJobs).catch(function (e) {
+      btn.disabled = false;
+      err.textContent = e.message;
+    });
+  });
+
+  function uploadFile(file) {
+    if (state.uploading) return;
+    $('uploadError').textContent = '';
+    if (!/\.pdf$/i.test(file.name)) { $('uploadError').textContent = 'PDF 파일만 올릴 수 있습니다.'; return; }
+    if (state.meta && file.size > state.meta.maxPdfBytes) {
+      $('uploadError').textContent = 'PDF는 ' + mb(state.meta.maxPdfBytes) + ' 이하로 올려 주세요. 이 파일은 ' + mb(file.size) + '입니다.';
+      return;
+    }
+    state.uploading = true;
+    $('pick').disabled = true;
+    $('uploadBox').classList.remove('hidden');
+    var setProgress = function (done, total) {
+      $('uploadBar').style.width = Math.round(done / total * 100) + '%';
+      $('uploadText').textContent = file.name + ' 올리는 중 — ' + mb(Math.min(file.size, done * state.chunkSize)) + ' / ' + mb(file.size);
+    };
+
+    api('/imports', { method: 'POST', body: { filename: file.name, sizeBytes: file.size } }).then(function (job) {
+      state.uploading = job.id;
+      state.chunkSize = job.chunkSize;
+      var have = {};
+      (job.received || []).forEach(function (i) { have[i] = true; });
+      var todo = [];
+      for (var i = 0; i < job.chunkCount; i++) if (!have[i]) todo.push(i);
+      var done = job.chunkCount - todo.length;
+      setProgress(done, job.chunkCount);
+
+      function sendOne(i, attempt) {
+        var blob = file.slice(i * job.chunkSize, (i + 1) * job.chunkSize);
+        return api('/imports/' + job.id + '/chunks/' + i, { method: 'PUT', body: blob, raw: true }).catch(function (e) {
+          if (attempt >= 3) throw e;
+          return new Promise(function (r) { setTimeout(r, 1500 * (attempt + 1)); }).then(function () { return sendOne(i, attempt + 1); });
+        });
+      }
+      function lane() {
+        var i = todo.shift();
+        if (i === undefined) return Promise.resolve();
+        return sendOne(i, 0).then(function () {
+          done++;
+          setProgress(done, job.chunkCount);
+          return lane();
+        });
+      }
+      return Promise.all([lane(), lane(), lane()]).then(function () {
+        return api('/imports/' + job.id + '/complete', { method: 'POST' });
+      });
+    }).catch(function (e) {
+      $('uploadError').textContent = '업로드가 멈췄습니다: ' + e.message + ' 같은 파일을 다시 선택하면 이어서 올립니다.';
+    }).then(function () {
+      state.uploading = false;
+      $('uploadBox').classList.add('hidden');
+      $('uploadBar').style.width = '0';
+      $('pick').disabled = false;
+      $('file').value = '';
+      loadJobs();
+    });
+  }
+
+  window.addEventListener('beforeunload', function (ev) {
+    if (!state.uploading) return;
+    ev.preventDefault();
+    ev.returnValue = '';
+  });
+
+  $('pick').addEventListener('click', function () { $('file').click(); });
+  $('file').addEventListener('change', function () { if (this.files[0]) uploadFile(this.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (name) {
+    $('drop').addEventListener(name, function (ev) { ev.preventDefault(); $('drop').classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (name) {
+    $('drop').addEventListener(name, function (ev) { ev.preventDefault(); $('drop').classList.remove('over'); });
+  });
+  $('drop').addEventListener('drop', function (ev) {
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) uploadFile(f);
+  });
+
+  // ------------------------------------------------------------------ review list
+
+  var FLAG_FIELD = { passage: '지문', stem: '발문', rationale: '해설' };
+  function fieldName(f) {
+    if (!f) return '';
+    if (FLAG_FIELD[f]) return FLAG_FIELD[f];
+    return f.replace(/^choice /, '선지 ');
+  }
+  function flagText(f) {
+    var d = f.detail || '';
+    var where = f.field ? ' (' + fieldName(f.field) + ')' : '';
+    switch (f.code) {
+      case 'no_stem': return '발문이 비어 있습니다.';
+      case 'choices_count': return '선지가 4개가 아닙니다 (지금 ' + d + '개).';
+      case 'choice_empty': return '비어 있는 선지가 있습니다.';
+      case 'answer_missing': return '정답이 없습니다.';
+      case 'answer_invalid': return '정답이 선지에 없습니다.';
+      case 'answer_mismatch': return 'PDF에 적힌 정답(' + d + ')과 다릅니다.';
+      case 'spr_no_accepted': return '주관식인데 인정 답안이 없습니다.';
+      case 'spr_answer_format': return '인정 답안이 숫자 형식이 아닙니다: ' + d;
+      case 'section_unknown': return '섹션(Reading and Writing / Math)을 알 수 없습니다.';
+      case 'domain_unknown': return '영역이 공식 목록에 없습니다' + (d ? ': ' + d : '.');
+      case 'skill_unknown': return '유형이 공식 목록에 없습니다' + (d ? ': ' + d : '.');
+      case 'difficulty_unknown': return '난이도가 없습니다.';
+      case 'difficulty_mismatch': return 'PDF에 적힌 난이도(' + d + ')와 다릅니다.';
+      case 'id_mismatch': return 'PDF의 Question ID(' + d + ')와 다릅니다.';
+      case 'math_error': return '수식이 그려지지 않습니다' + where + ': ' + d;
+      case 'math_unbalanced': return '수식 표시 \\( \\) 의 짝이 맞지 않습니다' + where + '.';
+      case 'dollar_math': return '$ 기호가 수식 표시로 쓰인 것 같습니다' + where + '.';
+      case 'markup_unbalanced': return '밑줄·기울임·표 표시의 짝이 맞지 않습니다' + where + '.';
+      case 'markup_unknown': return '쓸 수 없는 표시가 있습니다' + where + ': <' + d + '>';
+      case 'fig_missing': return '본문에 표시된 그림이 없습니다: ' + d;
+      case 'fig_unused': return '본문에 쓰이지 않은 그림이 있습니다: ' + d;
+      case 'fig_crop_failed': return '그림을 자르지 못했습니다: ' + d;
+      case 'text_drift': return '원본 PDF 글자에 없는 단어가 있습니다: ' + d;
+      case 'unit_count': return '한 문항 자리에서 문항이 ' + d + '개 나왔습니다.';
+      case 'truncated': return '응답이 길어 끝이 잘렸을 수 있습니다.';
+      case 'model_note': return 'AI 메모: ' + d;
+      default: return f.code + (d ? ': ' + d : '');
+    }
+  }
+
+  var DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  var STATUS_PILL = { review: ['검수 대기', ''], approved: ['승인', 'ok'], excluded: ['제외', 'bad'] };
+
+  function listQuery(offset) {
+    var f = state.filters;
+    var p = ['limit=60', 'offset=' + offset];
+    ['jobId', 'status', 'section', 'domain', 'difficulty', 'search'].forEach(function (k) {
+      if (f[k]) p.push(k + '=' + encodeURIComponent(f[k]));
+    });
+    if (f.flagged) p.push('flagged=true');
+    return '/questions?' + p.join('&');
+  }
+
+  var listSeq = 0;
+  function loadList(reset) {
+    var seq = ++listSeq;
+    var offset = reset ? 0 : state.list.length;
+    return api(listQuery(offset)).then(function (data) {
+      if (seq !== listSeq) return;
+      state.list = reset ? data.questions : state.list.concat(data.questions);
+      state.total = data.total;
+      state.summary = data.summary || {};
+      renderList();
+      showPageError('');
+      if (reset) {
+        if (state.list.length) openQuestion(state.list[0].id);
+        else { state.currentId = null; state.current = null; renderDetail(); }
+      }
+    }).catch(function (e) { showPageError(e.message); });
+  }
+
+  function renderList() {
+    var s = state.summary;
+    $('listInfo').textContent = num(state.total) + '문항' + (state.list.length < state.total ? ' 중 ' + num(state.list.length) + '개 표시' : '');
+    $('list').innerHTML = state.list.map(function (q) {
+      var cls = 'qitem' + (q.id === state.currentId ? ' on' : '') +
+        (q.status === 'approved' ? ' done' : '') + (q.status === 'excluded' ? ' out' : '');
+      return '<button type="button" class="' + cls + '" data-id="' + esc(q.id) + '">' +
+        '<div class="l1"><span class="sid">' + esc(q.sourceId || '(ID 없음)') + '</span>' +
+        '<span class="pill">' + (q.section === 'math' ? 'Math' : q.section === 'rw' ? 'RW' : '?') + '</span>' +
+        (q.difficulty ? '<span class="pill">' + DIFF_LABEL[q.difficulty] + '</span>' : '') +
+        (q.flagCount ? '<span class="pill warn">확인 ' + q.flagCount + '</span>' : '') +
+        (q.status === 'approved' ? '<span class="pill ok">승인</span>' : '') +
+        (q.status === 'excluded' ? '<span class="pill bad">제외</span>' : '') +
+        '</div><div class="l2">' + esc(q.snippet || '') + '</div></button>';
+    }).join('') || '<p class="muted" style="margin:.6rem .4rem">조건에 맞는 문항이 없습니다.</p>';
+    $('more').classList.toggle('hidden', state.list.length >= state.total);
+
+    var seg = $('fStatus').querySelectorAll('button');
+    var counts = { review: s.review, approved: s.approved, excluded: s.excluded };
+    var names = { review: '검수 대기', approved: '승인', excluded: '제외', '': '전체' };
+    Array.prototype.forEach.call(seg, function (b) {
+      var v = b.getAttribute('data-v');
+      b.classList.toggle('on', v === state.filters.status);
+      b.textContent = names[v] + (v && counts[v] != null ? ' ' + num(counts[v]) : '');
+    });
+    var clean = s.reviewClean || 0;
+    $('approveClean').classList.toggle('hidden', !clean);
+    $('approveClean').textContent = '확인 필요 없는 ' + num(clean) + '문항 모두 승인';
+  }
+
+  $('list').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.qitem');
+    if (b) openQuestion(b.getAttribute('data-id'));
+  });
+  $('more').addEventListener('click', function () { loadList(false); });
+
+  function fillFilterOptions() {
+    var tax = (state.meta && state.meta.taxonomy) || [];
+    $('fSection').innerHTML = '<option value="">섹션 전체</option>' + tax.map(function (s) {
+      return '<option value="' + s.id + '">' + esc(s.label) + '</option>';
+    }).join('');
+    fillDomainFilter();
+  }
+  function fillDomainFilter() {
+    var tax = (state.meta && state.meta.taxonomy) || [];
+    var sec = state.filters.section;
+    var domains = [];
+    tax.forEach(function (s) { if (!sec || s.id === sec) s.domains.forEach(function (d) { domains.push(d.name); }); });
+    $('fDomain').innerHTML = '<option value="">영역 전체</option>' + domains.map(function (d) {
+      return '<option>' + esc(d) + '</option>';
+    }).join('');
+    $('fDomain').value = state.filters.domain;
+    if ($('fDomain').value !== state.filters.domain) state.filters.domain = '';
+  }
+
+  $('fJob').addEventListener('change', function () { state.filters.jobId = this.value; loadList(true); });
+  $('fSection').addEventListener('change', function () { state.filters.section = this.value; fillDomainFilter(); loadList(true); });
+  $('fDomain').addEventListener('change', function () { state.filters.domain = this.value; loadList(true); });
+  $('fDifficulty').addEventListener('change', function () { state.filters.difficulty = this.value; loadList(true); });
+  $('fFlagged').addEventListener('change', function () { state.filters.flagged = this.checked; loadList(true); });
+  $('fStatus').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    state.filters.status = b.getAttribute('data-v');
+    loadList(true);
+  });
+  var searchTimer = null;
+  $('fSearch').addEventListener('input', function () {
+    var v = this.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { state.filters.search = v; loadList(true); }, 350);
+  });
+  $('approveClean').addEventListener('click', function () {
+    var n = state.summary.reviewClean || 0;
+    var f = state.filters;
+    var scope = [f.jobId ? '선택한 파일' : '모든 파일', f.section, f.domain, f.difficulty, f.search ? '검색어 "' + f.search + '"' : '']
+      .filter(Boolean).join(', ');
+    if (!window.confirm('자동 검사에서 걸린 것이 없는 ' + num(n) + '문항을 한 번에 승인합니다 (' + scope + ').\n원본과 하나씩 비교하지 않은 문항도 포함됩니다. 계속할까요?')) return;
+    var body = {};
+    ['jobId', 'section', 'domain', 'difficulty', 'search'].forEach(function (k) { if (f[k]) body[k] = f[k]; });
+    api('/questions/approve-clean', { method: 'POST', body: body }).then(function () { loadList(true); })
+      .catch(function (e) { showPageError(e.message); });
+  });
+
+  // ------------------------------------------------------------------ detail
+
+  function rich(text) {
+    var q = state.current;
+    return '<div class="sat-rich">' + window.SatRender.html(text, {
+      figureUrl: function (ref) {
+        var a = q && q.assets.filter(function (x) { return x.ref === ref; })[0];
+        return a ? imgUrl('/assets/' + a.id) : '';
+      }
+    }) + '</div>';
+  }
+
+  var detailSeq = 0;
+  function openQuestion(id) {
+    var seq = ++detailSeq;
+    state.currentId = id;
+    state.editing = false;
+    state.crop = null;
+    Array.prototype.forEach.call($('list').querySelectorAll('.qitem'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-id') === id);
+    });
+    var on = $('list').querySelector('.qitem.on');
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+    return api('/questions/' + id).then(function (q) {
+      if (seq !== detailSeq) return;
+      state.current = q;
+      renderDetail();
+    }).catch(function (e) { showPageError(e.message); });
+  }
+
+  function syncListItem(q) {
+    state.list.forEach(function (item) {
+      if (item.id !== q.id) return;
+      item.status = q.status;
+      item.flagCount = q.flags.length;
+      item.sourceId = q.sourceId;
+      item.section = q.section;
+      item.difficulty = q.difficulty;
+    });
+  }
+
+  function sourceHtml(q) {
+    if (!q.hasSource || !q.pageFrom) {
+      return '<p class="muted">원본 PDF가 삭제되어 원본 쪽을 볼 수 없습니다.</p>';
+    }
+    var out = '';
+    for (var p = q.pageFrom; p <= (q.pageTo || q.pageFrom); p++) {
+      out += '<div class="page" data-page="' + p + '"><img loading="lazy" draggable="false" alt="원본 ' + p + '쪽" src="' +
+        esc(imgUrl('/imports/' + q.jobId + '/pages/' + p + '?edge=1500')) + '"><span class="pill pno">' + p + '쪽</span></div>';
+    }
+    return out;
+  }
+
+  function viewHtml(q) {
+    var sec = q.section === 'math' ? 'Math' : q.section === 'rw' ? 'Reading and Writing' : '섹션 없음';
+    var html = '<div class="meta"><span class="pill info">' + sec + '</span>' +
+      '<span class="pill">' + esc(q.domain || '영역 없음') + '</span>' +
+      '<span class="pill">' + esc(q.skill || '유형 없음') + '</span>' +
+      '<span class="pill">' + esc(DIFF_LABEL[q.difficulty] || '난이도 없음') + '</span>' +
+      '<span class="pill">' + (q.qtype === 'spr' ? '주관식' : '객관식') + '</span>' +
+      (q.edited ? '<span class="pill">직접 수정함</span>' : '') + '</div>';
+    if (q.flags.length) {
+      html += '<ul class="flags">' + q.flags.map(function (f) { return '<li>' + esc(flagText(f)) + '</li>'; }).join('') + '</ul>';
+    }
+    if (q.passage) html += '<div class="label">지문</div><div class="passage">' + rich(q.passage) + '</div>';
+    html += '<div class="label">발문</div>' + (q.stem ? rich(q.stem) : '<p class="error">비어 있음</p>');
+    if (q.qtype === 'mcq') {
+      html += '<div class="label">선지</div>' + q.choices.map(function (c) {
+        return '<div class="choice' + (c.label === q.answer ? ' correct' : '') + '"><span class="k">' + esc(c.label) + '</span>' +
+          '<div class="grow">' + rich(c.text) + '</div>' + (c.label === q.answer ? '<span class="pill ok">정답</span>' : '') + '</div>';
+      }).join('');
+      if (!q.answer) html += '<p class="error">정답이 지정되지 않았습니다.</p>';
+    } else {
+      html += '<div class="label">정답 (주관식)</div><p style="margin:.2rem 0">PDF 표기: <b>' + esc(q.answer || '없음') + '</b></p>' +
+        '<p style="margin:.2rem 0">입력 인정: ' + (q.acceptedAnswers.length
+          ? q.acceptedAnswers.map(function (a) { return '<span class="pill ok">' + esc(a) + '</span>'; }).join(' ')
+          : '<span class="error">없음</span>') + '</p>';
+    }
+    html += '<div class="label">해설</div>' + (q.rationale ? rich(q.rationale) : '<p class="muted">없음</p>');
+
+    html += '<div class="label">그림</div><div class="figs">' + q.assets.map(function (a) {
+      return '<div class="figcard"><img alt="' + esc(a.ref) + '" src="' + esc(imgUrl('/assets/' + a.id)) + '">' +
+        '<div class="row" style="gap:.25rem"><b class="grow">' + esc(a.ref) + '</b>' +
+        (q.hasSource ? '<button type="button" data-crop="' + esc(a.ref) + '">다시 자르기</button>' : '') +
+        '<button type="button" class="danger" data-delfig="' + esc(a.ref) + '">삭제</button></div></div>';
+    }).join('') + '</div>' +
+      (q.hasSource ? '<div class="row" style="margin-top:.5rem"><button type="button" data-crop="">그림 추가</button>' +
+        '<span class="muted">원본에서 영역을 끌어서 자릅니다.</span></div>' : '');
+    return html;
+  }
+
+  function option(value, label, selected) {
+    return '<option value="' + esc(value) + '"' + (selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+
+  function formHtml(q) {
+    var tax = (state.meta && state.meta.taxonomy) || [];
+    var choices = ['A', 'B', 'C', 'D'].map(function (k, i) {
+      var c = q.choices[i];
+      return '<label for="eChoice' + k + '">선지 ' + k + '</label><textarea id="eChoice' + k + '" rows="2">' + esc(c ? c.text : '') + '</textarea>';
+    }).join('');
+    return '<div class="form">' +
+      '<p class="muted">수식은 <code>\\( x^2 \\)</code>, 한 줄 수식은 <code>\\[ ... \\]</code>, 밑줄 <code>&lt;u&gt;…&lt;/u&gt;</code>, 기울임 <code>&lt;i&gt;…&lt;/i&gt;</code>, 빈칸 <code>______</code>, 그림 자리 <code>[[fig1]]</code>. $ 는 그대로 달러 기호입니다.</p>' +
+      '<div class="grid">' +
+      '<div><label for="eId">Question ID</label><input type="text" id="eId" value="' + esc(q.sourceId) + '"></div>' +
+      '<div><label for="eSection">섹션</label><select id="eSection">' + option('', '선택', !q.section) +
+        tax.map(function (s) { return option(s.id, s.label, s.id === q.section); }).join('') + '</select></div>' +
+      '<div><label for="eDomain">영역</label><select id="eDomain"></select></div>' +
+      '<div><label for="eSkill">유형</label><select id="eSkill"></select></div>' +
+      '<div><label for="eDifficulty">난이도</label><select id="eDifficulty">' + option('', '선택', !q.difficulty) +
+        ['easy', 'medium', 'hard'].map(function (d) { return option(d, DIFF_LABEL[d], d === q.difficulty); }).join('') + '</select></div>' +
+      '<div><label for="eType">형식</label><select id="eType">' + option('mcq', '객관식 (선지 4개)', q.qtype === 'mcq') +
+        option('spr', '주관식 (직접 입력)', q.qtype === 'spr') + '</select></div>' +
+      '</div>' +
+      '<label for="ePassage">지문</label><textarea id="ePassage" rows="6">' + esc(q.passage) + '</textarea>' +
+      '<label for="eStem">발문</label><textarea id="eStem" rows="4">' + esc(q.stem) + '</textarea>' +
+      '<div id="eMcq">' + choices +
+        '<label for="eAnswer">정답</label><select id="eAnswer" style="width:auto">' + option('', '선택', !q.answer) +
+        ['A', 'B', 'C', 'D'].map(function (k) { return option(k, k, q.qtype === 'mcq' && k === q.answer); }).join('') + '</select></div>' +
+      '<div id="eSpr"><label for="eSprAnswer">정답 (PDF 표기)</label><input type="text" id="eSprAnswer" value="' + esc(q.qtype === 'spr' ? q.answer : '') + '">' +
+        '<label for="eAccepted">입력 인정 답안 (쉼표로 구분, 예: 3/5, .6, 0.6)</label><input type="text" id="eAccepted" value="' + esc(q.acceptedAnswers.join(', ')) + '"></div>' +
+      '<label for="eRationale">해설</label><textarea id="eRationale" rows="6">' + esc(q.rationale) + '</textarea>' +
+      '<div class="row" style="margin-top:.8rem"><button type="button" class="primary" id="eSave">저장</button>' +
+      '<button type="button" id="eCancel">취소</button><span class="error" id="eError"></span></div></div>';
+  }
+
+  function wireForm(q) {
+    var tax = (state.meta && state.meta.taxonomy) || [];
+    function fillDomains(keep) {
+      var sec = tax.filter(function (s) { return s.id === $('eSection').value; })[0];
+      var names = sec ? sec.domains.map(function (d) { return d.name; }) : [];
+      if (keep && names.indexOf(keep) < 0) names.unshift(keep);
+      $('eDomain').innerHTML = option('', '선택', !keep) + names.map(function (n) { return option(n, n, n === keep); }).join('');
+    }
+    function fillSkills(keep) {
+      var sec = tax.filter(function (s) { return s.id === $('eSection').value; })[0];
+      var dom = sec && sec.domains.filter(function (d) { return d.name === $('eDomain').value; })[0];
+      var names = dom ? dom.skills.slice() : [];
+      if (keep && names.indexOf(keep) < 0) names.unshift(keep);
+      $('eSkill').innerHTML = option('', '선택', !keep) + names.map(function (n) { return option(n, n, n === keep); }).join('');
+    }
+    function showType() {
+      var spr = $('eType').value === 'spr';
+      $('eMcq').classList.toggle('hidden', spr);
+      $('eSpr').classList.toggle('hidden', !spr);
+    }
+    fillDomains(q.domain);
+    fillSkills(q.skill);
+    showType();
+    $('eSection').addEventListener('change', function () { fillDomains(''); fillSkills(''); });
+    $('eDomain').addEventListener('change', function () { fillSkills(''); });
+    $('eType').addEventListener('change', showType);
+    $('eCancel').addEventListener('click', function () { state.editing = false; renderDetail(); });
+    $('eSave').addEventListener('click', function () {
+      var spr = $('eType').value === 'spr';
+      var patch = {
+        sourceId: $('eId').value,
+        section: $('eSection').value,
+        domain: $('eDomain').value,
+        skill: $('eSkill').value,
+        difficulty: $('eDifficulty').value,
+        passage: $('ePassage').value,
+        stem: $('eStem').value,
+        rationale: $('eRationale').value,
+        choices: spr ? [] : ['A', 'B', 'C', 'D'].map(function (k) { return { text: $('eChoice' + k).value }; }),
+        answer: spr ? $('eSprAnswer').value : $('eAnswer').value,
+        acceptedAnswers: spr ? $('eAccepted').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : []
+      };
+      $('eSave').disabled = true;
+      api('/questions/' + q.id, { method: 'PUT', body: patch }).then(function (saved) {
+        state.current = saved;
+        state.editing = false;
+        syncListItem(saved);
+        renderList();
+        renderDetail();
+      }).catch(function (e) {
+        $('eSave').disabled = false;
+        $('eError').textContent = e.message;
+      });
+    });
+  }
+
+  function renderDetail() {
+    var q = state.current;
+    var box = $('detail');
+    if (!q) {
+      box.innerHTML = '<div class="card"><p class="muted">왼쪽에서 문항을 고르세요. 변환된 문항이 없으면 먼저 PDF 가져오기에서 PDF를 올려 주세요.</p></div>';
+      return;
+    }
+    var pill = STATUS_PILL[q.status] || [q.status, ''];
+    var idx = state.list.map(function (x) { return x.id; }).indexOf(q.id);
+    var actions = '<div class="actions">' +
+      '<b style="font-family:ui-monospace,Menlo,Consolas,monospace">' + esc(q.sourceId || '(ID 없음)') + '</b>' +
+      '<span class="pill ' + pill[1] + '">' + pill[0] + '</span>' +
+      '<span class="muted">' + (idx >= 0 ? (idx + 1) + ' / ' + num(state.total) : '') + '</span>' +
+      '<span class="grow"></span>' +
+      '<button type="button" data-do="prev" title="이전 (K)">이전</button>' +
+      '<button type="button" data-do="next" title="다음 (J)">다음</button>' +
+      '<button type="button" class="primary" data-do="approve" title="승인하고 다음 (A)"' + (q.status === 'approved' ? ' disabled' : '') + '>승인</button>' +
+      '<button type="button" data-do="exclude" title="제외하고 다음 (X)"' + (q.status === 'excluded' ? ' disabled' : '') + '>제외</button>' +
+      (q.status !== 'review' ? '<button type="button" data-do="review">검수 대기로</button>' : '') +
+      '<button type="button" data-do="edit" title="수정 (E)">수정</button>' +
+      (q.hasSource ? '<button type="button" data-do="reconvert">다시 변환</button>' : '') +
+      '</div>';
+    box.innerHTML = actions +
+      '<p class="error" id="detailError"></p>' +
+      '<div class="cols">' +
+      '<div><div class="colhead">원본 PDF</div><div id="cropHint" class="notice info hidden">자를 영역을 원본 위에서 끌어 주세요. <kbd>Esc</kbd> 취소</div>' +
+      '<div id="source">' + sourceHtml(q) + '</div></div>' +
+      '<div><div class="colhead">변환 결과</div><div class="card" id="converted">' + (state.editing ? formHtml(q) : viewHtml(q)) + '</div>' +
+      '<p class="muted" style="margin-top:.5rem"><kbd>A</kbd> 승인 · <kbd>X</kbd> 제외 · <kbd>J</kbd> 다음 · <kbd>K</kbd> 이전 · <kbd>E</kbd> 수정</p></div>' +
+      '</div>';
+    if (state.editing) wireForm(q);
+    setCropMode(state.crop);
+  }
+
+  function step(delta) {
+    var ids = state.list.map(function (x) { return x.id; });
+    var i = ids.indexOf(state.currentId) + delta;
+    if (i < 0) return;
+    if (i < ids.length) { openQuestion(ids[i]); return; }
+    if (state.list.length < state.total) {
+      loadList(false).then(function () {
+        if (state.list[i]) openQuestion(state.list[i].id);
+      });
+    }
+  }
+
+  function setStatus(status, advance) {
+    var q = state.current;
+    if (!q || state.busy) return;
+    var before = q.status;
+    state.busy = true;
+    api('/questions/' + q.id + '/status', { method: 'POST', body: { status: status } }).then(function (saved) {
+      state.busy = false;
+      state.current = saved;
+      syncListItem(saved);
+      var s = state.summary;
+      if (s[before] != null) s[before] = Math.max(0, s[before] - 1);
+      s[status] = (s[status] || 0) + 1;
+      if (!saved.flags.length) {
+        if (before === 'review') s.reviewClean = Math.max(0, (s.reviewClean || 0) - 1);
+        if (status === 'review') s.reviewClean = (s.reviewClean || 0) + 1;
+      }
+      renderList();
+      var ids = state.list.map(function (x) { return x.id; });
+      if (advance && (ids.indexOf(saved.id) < ids.length - 1 || state.list.length < state.total)) step(1);
+      else renderDetail();
+    }).catch(function (e) {
+      state.busy = false;
+      $('detailError').textContent = e.message;
+    });
+  }
+
+  function reconvert() {
+    var q = state.current;
+    if (!q || state.busy) return;
+    if (!window.confirm('이 문항을 원본에서 다시 변환합니다. 직접 고친 내용과 그림은 새 결과로 바뀝니다.')) return;
+    state.busy = true;
+    $('detailError').textContent = '다시 변환하는 중입니다…';
+    api('/questions/' + q.id + '/reconvert', { method: 'POST' }).then(function (r) {
+      state.busy = false;
+      var newId = r.questionIds && r.questionIds[0];
+      if (!newId) return loadList(true);
+      state.list.forEach(function (item) { if (item.id === q.id) item.id = newId; });
+      return openQuestion(newId).then(function () {
+        if (state.current) { syncListItem(state.current); renderList(); }
+      });
+    }).catch(function (e) {
+      state.busy = false;
+      $('detailError').textContent = e.message;
+    });
+  }
+
+  $('detail').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    var act = b.getAttribute('data-do');
+    if (act === 'prev') step(-1);
+    else if (act === 'next') step(1);
+    else if (act === 'approve') setStatus('approved', true);
+    else if (act === 'exclude') setStatus('excluded', true);
+    else if (act === 'review') setStatus('review', false);
+    else if (act === 'edit') { state.editing = true; renderDetail(); }
+    else if (act === 'reconvert') reconvert();
+    else if (b.hasAttribute('data-crop')) setCropMode({ ref: b.getAttribute('data-crop') });
+    else if (b.hasAttribute('data-delfig')) {
+      var ref = b.getAttribute('data-delfig');
+      if (!window.confirm(ref + ' 그림을 삭제합니다.')) return;
+      api('/questions/' + state.current.id + '/assets/' + encodeURIComponent(ref), { method: 'DELETE' }).then(function (saved) {
+        state.current = saved;
+        syncListItem(saved);
+        renderList();
+        renderDetail();
+      }).catch(function (e) { $('detailError').textContent = e.message; });
+    }
+  });
+
+  // ------------------------------------------------------------------ crop
+
+  function setCropMode(crop) {
+    state.crop = crop || null;
+    var src = $('source');
+    var hint = $('cropHint');
+    if (!src || !hint) return;
+    src.classList.toggle('cropping', !!state.crop);
+    hint.classList.toggle('hidden', !state.crop);
+    if (state.crop) src.scrollIntoView({ block: 'nearest' });
+  }
+
+  var drag = null;
+  $('detail').addEventListener('mousedown', function (ev) {
+    if (!state.crop) return;
+    var page = ev.target.closest('.page');
+    if (!page) return;
+    ev.preventDefault();
+    var rect = page.getBoundingClientRect();
+    var sel = document.createElement('div');
+    sel.className = 'sel';
+    page.appendChild(sel);
+    drag = { page: page, rect: rect, x0: ev.clientX - rect.left, y0: ev.clientY - rect.top, sel: sel };
+  });
+  window.addEventListener('mousemove', function (ev) {
+    if (!drag) return;
+    var x = Math.max(0, Math.min(drag.rect.width, ev.clientX - drag.rect.left));
+    var y = Math.max(0, Math.min(drag.rect.height, ev.clientY - drag.rect.top));
+    drag.x1 = x;
+    drag.y1 = y;
+    drag.sel.style.left = Math.min(drag.x0, x) + 'px';
+    drag.sel.style.top = Math.min(drag.y0, y) + 'px';
+    drag.sel.style.width = Math.abs(x - drag.x0) + 'px';
+    drag.sel.style.height = Math.abs(y - drag.y0) + 'px';
+  });
+  window.addEventListener('mouseup', function () {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    var w = d.rect.width;
+    var h = d.rect.height;
+    var box = [Math.min(d.x0, d.x1) / w, Math.min(d.y0, d.y1) / h, Math.max(d.x0, d.x1) / w, Math.max(d.y0, d.y1) / h];
+    if (d.x1 == null || box[2] - box[0] < 0.02 || box[3] - box[1] < 0.01) {
+      d.sel.remove();
+      return;
+    }
+    var crop = state.crop;
+    api('/questions/' + state.current.id + '/assets', {
+      method: 'POST',
+      body: { page: Number(d.page.getAttribute('data-page')), box: box, ref: crop && crop.ref }
+    }).then(function (r) {
+      state.current = r.question;
+      state.crop = null;
+      syncListItem(r.question);
+      renderList();
+      renderDetail();
+    }).catch(function (e) {
+      d.sel.remove();
+      $('detailError').textContent = e.message;
+    });
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (state.tab !== 'review' || !state.current) return;
+    if (ev.key === 'Escape' && state.crop) { setCropMode(null); return; }
+    var t = ev.target;
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    if (ev.metaKey || ev.ctrlKey || ev.altKey || state.editing) return;
+    var k = ev.key.toLowerCase();
+    if (k === 'j' || ev.key === 'ArrowRight') step(1);
+    else if (k === 'k' || ev.key === 'ArrowLeft') step(-1);
+    else if (k === 'a') setStatus('approved', true);
+    else if (k === 'x') setStatus('excluded', true);
+    else if (k === 'e') { state.editing = true; renderDetail(); }
+    else return;
+    ev.preventDefault();
+  });
+
+  // ------------------------------------------------------------------ tabs and start
+
+  function switchTab(tab) {
+    state.tab = tab;
+    $('tabImport').classList.toggle('on', tab === 'import');
+    $('tabReview').classList.toggle('on', tab === 'review');
+    $('viewImport').classList.toggle('hidden', tab !== 'import');
+    $('viewReview').classList.toggle('hidden', tab !== 'review');
+    if (tab === 'import') loadJobs();
+    else {
+      clearTimeout(pollTimer);
+      $('fJob').value = state.filters.jobId;
+      $('fFlagged').checked = state.filters.flagged;
+      loadList(true);
+    }
+  }
+  $('tabImport').addEventListener('click', function () { switchTab('import'); });
+  $('tabReview').addEventListener('click', function () { switchTab('review'); });
+
+  function start() {
+    if (!token()) {
+      showPageError('로그인이 필요합니다. 선생님 포털에서 로그인한 뒤 이 창을 새로고침해 주세요.');
+      return;
+    }
+    api('/meta').then(function (meta) {
+      state.meta = meta;
+      fillFilterOptions();
+      $('configNote').classList.toggle('hidden', !!meta.claudeConfigured);
+      return loadJobs();
+    }).catch(function (e) { showPageError(e.message); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+</body>
+</html>

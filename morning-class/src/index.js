@@ -90,6 +90,11 @@ app.get('/tools/math-workbook', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'math-workbook.html'));
 });
 
+app.get('/tools/sat-bank', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'sat-bank.html'));
+});
+
 app.get('/tools/bible-slides', (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, '..', 'public', 'tools', 'bible-slides.html'));
@@ -116,7 +121,9 @@ app.get('/', (req, res) => {
 
 const server = http.createServer(app);
 initRealtime(server);
-ensureOpsDbStarted();
+ensureOpsDbStarted()
+  .then(() => require('./services/sat/satImportService').resumeOnBoot())
+  .catch((e) => console.warn('SAT import resume:', e.message));
 
 server.listen(PORT, () => {
   console.log('Salt Morning Class listening on http://localhost:' + PORT);
