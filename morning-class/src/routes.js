@@ -4288,6 +4288,7 @@ router.get('/grammar-clinic/worksheet/jobs/:id/html', requireRole('teacher', 'ad
 
 // SAT question bank (PDF import and review) lives in its own router.
 router.use('/sat', requireRole('teacher', 'admin'), require('./satRoutes'));
+router.use('/sat-exam', require('./satExamRoutes'));
 
 const mathWorkbook = require('./services/mathWorkbookService');
 
