@@ -416,6 +416,18 @@ function checkModeNote(mode) {
     return 'Vertex items are an ordered pair. expression has two numeric parts separated by a comma, such as "-(-4)/(2*1), 1-(-4)^2/(4*1)", and the answer is "2, -3". Evaluation items substitute the number first and use a numeric expression with no variables.';
   }
   if (mode === 'mixed') return 'Use a comma pair for a point, sqrt(n) for a perfect-square root, or a numeric or linear expression. Omit expression only for a diagram-only item.';
+  if (mode === 'roots') return 'Every item is a polynomial equation in x of degree 3 or 4 with rational roots. expression contains =0. List every root, repeating a repeated root, such as "1, 2, 2".';
+  if (mode === 'rational') return 'Simplify items use a rational expression that cancels to a polynomial, such as "(x^2-1)/(x-1)" with answer "x+1". Hole items start with hole: and the answer is the excluded value, such as "hole:(x^2-1)/(x-1)" with answer "1". Asymptote items start with asymp: and the answer is the horizontal asymptote, such as "asymp:(2*x+1)/(x-3)" with answer "2".';
+  if (mode === 'exponential') return 'Evaluate items are numeric powers such as "100*2^3". Solve items are "2^x=32" with a rational answer. The base is a positive integer.';
+  if (mode === 'log') return 'Use log(base, argument). Evaluate "log(2,8)" as 3. Solve "log(2,x)=5" as 32. Bases are positive integers other than 1, and the value is an exact small rational.';
+  if (mode === 'trig') return 'Every item is sin, cos, or tan of a special angle. Use radians with pi, such as "sin(pi/6)", or degrees with deg, such as "sin(30deg)". The answer is an exact value such as 1/2, sqrt(2)/2, or sqrt(3).';
+  if (mode === 'wave') return 'Amplitude items are "amp:3*sin(2*x)" with answer "3". Period items are "period:sin(2*x)" with answer "pi". Shift items are "shift:sin(x-pi/6)" with answer "pi/6", the rightward shift. Use a*sin(b*x-c) or a*cos(b*x-c).';
+  if (mode === 'trigeq') return 'Every item is sin(x), cos(x), or tan(x) equal to an exact special value. List every solution on [0, 2pi), such as "sin(x)=1/2" with answer "pi/6, 5*pi/6".';
+  if (mode === 'conic') return 'Equation items are two forms of the same circle, ellipse, or hyperbola, such as "(x-1)^2+(y+2)^2=9" with answer "x^2+y^2-2*x+4*y-4=0". Radius items are "radius:(x-1)^2+(y+2)^2=9" with answer "3". Center items are "center:(x-1)^2+(y+2)^2=9" with answer "1, -2".';
+  if (mode === 'limit') return 'Use lim(target, expression). A finite target is "lim(2,(x^2-4)/(x-2))" with answer "4". Infinity is "lim(inf,(2*x+1)/(x-3))" with answer "2". One-sided infinite limits use "lim(1+,(1)/(x-1))" with answer "inf" or "-inf". The expression is a rational function.';
+  if (mode === 'deriv') return 'Derivative items are "deriv(x^3-2*x+1)" with answer "3*x^2-2". Also allowed: products and powers of linear polynomials, sin, cos, exp, and ln of a linear argument, such as "deriv(sin(2*x))" with answer "2*cos(2*x)". Slope at a point is "derivAt(2,x^2)" with answer "4". A tangent line is "tangent(2,x^2)" with answer "4*x-4".';
+  if (mode === 'crit') return 'Critical points are "crit(x^2-4*x)" with answer "2". A maximum value on a closed interval is "maxOn(0,3,4*x-x^2)" with answer "4". The expression is a polynomial.';
+  if (mode === 'integral') return 'Antiderivatives are "int(3*x^2)" with answer "x^3" and no constant added. Definite integrals are "defint(0,2,3*x^2)" with answer "8". The integrand is a polynomial and the bounds are rational numbers.';
   return 'Every practice item needs a numeric expression with no variables. A perfect-square root is sqrt(25). For a circle, write 3.14 for pi.';
 }
 
@@ -473,7 +485,7 @@ async function stageTeach(job) {
       const fig = figure && checkFigure({ answer: ex.answer, figure: figure });
       if (!fig || !fig.ok || verification.status !== 'verified') return null;
     }
-    if (isAlgebra2(job.chapter) && verification.status !== 'verified') return null;
+    if (isChecked(job.chapter) && verification.status !== 'verified') return null;
     return {
       prompt: ex.prompt,
       steps: ex.steps,
@@ -527,7 +539,7 @@ async function stagePractice(job) {
     await persistJob(job);
     let got = [];
     let guard = 0;
-    const tries = (isGeometryChapter(job.chapter) || isAlgebra2(job.chapter)) ? 6 : 4;
+    const tries = (isGeometryChapter(job.chapter) || isChecked(job.chapter)) ? 6 : 4;
     while (got.length < need && guard < tries) {
       guard += 1;
       const batchNeed = Math.min(BATCH, need - got.length);
@@ -554,12 +566,13 @@ async function stagePractice(job) {
   doc.stagesDone = ['outline', 'teach', 'practice'];
 }
 
-function isAlgebra2(chapter) {
-  return !!(chapter && chapter.curriculumId === 'algebra-2');
+function isChecked(chapter) {
+  const id = chapter && chapter.curriculumId;
+  return id === 'algebra-2' || id === 'precalculus' || id === 'calculus';
 }
 
 function keepQuestion(row, chapter) {
-  if (isAlgebra2(chapter)) {
+  if (isChecked(chapter)) {
     row.figure = null;
     return verifyQuestion(row).status === 'verified';
   }
@@ -592,7 +605,7 @@ function stageVerify(job) {
           computed: (fig && fig.computed) || verification.computed || ''
         };
       }
-    } else if (isAlgebra2(job.chapter)) {
+    } else if (isChecked(job.chapter)) {
       figure = null;
       if (verification.status !== 'verified') {
         verification = {

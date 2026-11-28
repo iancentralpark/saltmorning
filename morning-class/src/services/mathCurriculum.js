@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Pre-Algebra through Algebra 2 seeds. The teacher page loads these through the API.
+ * Pre-Algebra through Calculus seeds. The teacher page loads these through the API.
  * Learning objectives stay fixed so each workbook is aligned to the same chapter.
  */
 
@@ -9,7 +9,9 @@ const CURRICULA = [
   { id: 'pre-algebra', title: 'Pre-Algebra', gradeBand: '6-8' },
   { id: 'algebra-1', title: 'Algebra 1', gradeBand: '8-9' },
   { id: 'geometry', title: 'Geometry', gradeBand: '8-10' },
-  { id: 'algebra-2', title: 'Algebra 2', gradeBand: '9-11' }
+  { id: 'algebra-2', title: 'Algebra 2', gradeBand: '9-11' },
+  { id: 'precalculus', title: 'Precalculus', gradeBand: '10-12' },
+  { id: 'calculus', title: 'Calculus', gradeBand: '11-12' }
 ];
 
 const CURRICULUM = CURRICULA[0];
@@ -38,6 +40,24 @@ function a1(partial) {
 
 function a2(partial) {
   const curriculum = level('algebra-2');
+  return Object.assign({
+    curriculumId: curriculum.id,
+    curriculumTitle: curriculum.title,
+    gradeBand: curriculum.gradeBand
+  }, partial);
+}
+
+function pc(partial) {
+  const curriculum = level('precalculus');
+  return Object.assign({
+    curriculumId: curriculum.id,
+    curriculumTitle: curriculum.title,
+    gradeBand: curriculum.gradeBand
+  }, partial);
+}
+
+function ca(partial) {
+  const curriculum = level('calculus');
   return Object.assign({
     curriculumId: curriculum.id,
     curriculumTitle: curriculum.title,
@@ -521,6 +541,246 @@ const CHAPTERS = [
       { id: 'a2-c08-o1', text: 'Find a term of an arithmetic sequence.' },
       { id: 'a2-c08-o2', text: 'Find a term of a geometric sequence.' },
       { id: 'a2-c08-o3', text: 'Evaluate a simple exponential expression such as a start value times an integer power.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c01', number: 1, unitId: 'p1', unitTitle: 'Functions',
+    title: 'Functions and Transformations',
+    checkMode: 'numeric',
+    description: 'Evaluate a function after a number is substituted, including a vertical or horizontal shift that has already been written into the expression.',
+    prerequisites: ['Evaluating expressions', 'Integers'],
+    objectives: [
+      { id: 'pc-c01-o1', text: 'Evaluate a linear or quadratic function at an integer.' },
+      { id: 'pc-c01-o2', text: 'Evaluate a function after it is shifted up, down, left, or right.' },
+      { id: 'pc-c01-o3', text: 'Evaluate a reflection of y = x^2 or y = |x| at an integer.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c02', number: 2, unitId: 'p1', unitTitle: 'Functions',
+    title: 'Composition and Inverses',
+    checkMode: 'expression',
+    description: 'Compose two functions whose result stays degree 2 or less, and find the inverse of a linear function.',
+    prerequisites: ['Evaluating functions', 'Linear equations'],
+    objectives: [
+      { id: 'pc-c02-o1', text: 'Find f(g(x)) for linear or simple quadratic functions.' },
+      { id: 'pc-c02-o2', text: 'Find g(f(x)) and compare it with f(g(x)).' },
+      { id: 'pc-c02-o3', text: 'Find the inverse of a linear function y = ax + b.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c03', number: 3, unitId: 'p2', unitTitle: 'Polynomial and Rational Functions',
+    title: 'Polynomial Functions',
+    checkMode: 'roots',
+    description: 'Find all rational roots of a cubic or quartic that factors over the integers.',
+    prerequisites: ['Factoring quadratics', 'Zero product property'],
+    objectives: [
+      { id: 'pc-c03-o1', text: 'Find the roots of a cubic with three integer roots.' },
+      { id: 'pc-c03-o2', text: 'Find the roots of a cubic with a double root.' },
+      { id: 'pc-c03-o3', text: 'Find the roots of a quartic that factors into four linear factors.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c04', number: 4, unitId: 'p2', unitTitle: 'Polynomial and Rational Functions',
+    title: 'Rational Functions',
+    checkMode: 'rational',
+    description: 'Cancel a common factor, name the excluded value, and read a horizontal asymptote.',
+    prerequisites: ['Factoring', 'Fractions'],
+    objectives: [
+      { id: 'pc-c04-o1', text: 'Simplify a rational expression that cancels to a polynomial.' },
+      { id: 'pc-c04-o2', text: 'State the excluded value of a rational expression.' },
+      { id: 'pc-c04-o3', text: 'State the horizontal asymptote of a rational function as a number.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c05', number: 5, unitId: 'p3', unitTitle: 'Exponential and Logarithmic Functions',
+    title: 'Exponential Functions',
+    checkMode: 'exponential',
+    description: 'Evaluate an integer exponential expression, and solve b^x = n when the answer is a small integer.',
+    prerequisites: ['Integer exponents', 'Sequences'],
+    objectives: [
+      { id: 'pc-c05-o1', text: 'Evaluate a start value times an integer power.' },
+      { id: 'pc-c05-o2', text: 'Solve an exponential equation with an integer solution.' },
+      { id: 'pc-c05-o3', text: 'Evaluate a decay expression whose power is a small positive integer.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c06', number: 6, unitId: 'p3', unitTitle: 'Exponential and Logarithmic Functions',
+    title: 'Logarithms',
+    checkMode: 'log',
+    description: 'Evaluate a logarithm that comes out even, and solve log_b(x) = k.',
+    prerequisites: ['Integer exponents', 'Exponential equations'],
+    objectives: [
+      { id: 'pc-c06-o1', text: 'Evaluate log_b(n) when the result is an integer.' },
+      { id: 'pc-c06-o2', text: 'Evaluate a logarithm whose result is a simple fraction such as 3/2.' },
+      { id: 'pc-c06-o3', text: 'Solve log_b(x) = k for x.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c07', number: 7, unitId: 'p4', unitTitle: 'Trigonometry',
+    title: 'Unit Circle',
+    checkMode: 'trig',
+    description: 'Exact sine, cosine, and tangent of the special angles from 0 to 360 degrees.',
+    prerequisites: ['Right triangles', 'Square roots'],
+    objectives: [
+      { id: 'pc-c07-o1', text: 'Give the exact sine or cosine of 30, 45, or 60 degrees.' },
+      { id: 'pc-c07-o2', text: 'Give the exact value at an angle in another quadrant.' },
+      { id: 'pc-c07-o3', text: 'Give the exact tangent of a special angle where tangent is defined.' }
+    ]
+  }),
+  pc({
+    id: 'pc-c08', number: 8, unitId: 'p4', unitTitle: 'Trigonometry',
+    title: 'Sine and Cosine Graphs',
+    checkMode: 'wave',
+    description: 'Read the amplitude, period, and horizontal shift of a sine or cosine graph written as a*sin(b*x-c).',
+    prerequisites: ['Unit circle', 'Transformations'],
+    objectives: [
+      { id: 'pc-c08-o1', text: 'State the amplitude of a*sin(bx) or a*cos(bx).' },
+      { id: 'pc-c08-o2', text: 'State the period as a multiple of pi.' },
+      { id: 'pc-c08-o3', text: 'State the rightward shift of sin(x-c) or sin(bx-c).' }
+    ]
+  }),
+  pc({
+    id: 'pc-c09', number: 9, unitId: 'p4', unitTitle: 'Trigonometry',
+    title: 'Trigonometric Equations',
+    checkMode: 'trigeq',
+    description: 'Solve sin(x), cos(x), or tan(x) equal to a special value on the interval from 0 to 2pi.',
+    prerequisites: ['Unit circle'],
+    objectives: [
+      { id: 'pc-c09-o1', text: 'Solve a sine equation with two solutions on [0, 2pi).' },
+      { id: 'pc-c09-o2', text: 'Solve a cosine equation with two solutions on [0, 2pi).' },
+      { id: 'pc-c09-o3', text: 'Solve a tangent equation with two solutions on [0, 2pi).' }
+    ]
+  }),
+  pc({
+    id: 'pc-c10', number: 10, unitId: 'p5', unitTitle: 'Conic Sections',
+    title: 'Conic Sections',
+    checkMode: 'conic',
+    description: 'Rewrite a circle in general form, and read the center and radius of a circle.',
+    prerequisites: ['Completing the square', 'Distance'],
+    objectives: [
+      { id: 'pc-c10-o1', text: 'Rewrite a circle from standard form to general form.' },
+      { id: 'pc-c10-o2', text: 'State the radius of a circle.' },
+      { id: 'pc-c10-o3', text: 'State the center of a circle as an ordered pair.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c01', number: 1, unitId: 'k1', unitTitle: 'Limits',
+    title: 'Limits',
+    checkMode: 'limit',
+    description: 'Evaluate a limit of a rational function by substituting or by canceling a common factor.',
+    prerequisites: ['Rational expressions', 'Factoring'],
+    objectives: [
+      { id: 'ca-c01-o1', text: 'Evaluate a limit by direct substitution.' },
+      { id: 'ca-c01-o2', text: 'Evaluate a 0/0 limit after canceling a common factor.' },
+      { id: 'ca-c01-o3', text: 'Evaluate a limit of a polynomial at an integer.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c02', number: 2, unitId: 'k1', unitTitle: 'Limits',
+    title: 'Continuity and Asymptotes',
+    checkMode: 'limit',
+    description: 'Read an infinite limit and a limit at infinity of a rational function.',
+    prerequisites: ['Limits', 'Horizontal asymptotes'],
+    objectives: [
+      { id: 'ca-c02-o1', text: 'Evaluate a limit at positive infinity.' },
+      { id: 'ca-c02-o2', text: 'Evaluate a one-sided infinite limit.' },
+      { id: 'ca-c02-o3', text: 'Evaluate a limit at negative infinity when the degrees match.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c03', number: 3, unitId: 'k2', unitTitle: 'Derivatives',
+    title: 'Power Rule',
+    checkMode: 'deriv',
+    description: 'Differentiate a polynomial.',
+    prerequisites: ['Polynomials', 'Exponents'],
+    objectives: [
+      { id: 'ca-c03-o1', text: 'Differentiate a monomial x^n.' },
+      { id: 'ca-c03-o2', text: 'Differentiate a polynomial with three or more terms.' },
+      { id: 'ca-c03-o3', text: 'Differentiate a polynomial that includes a constant term.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c04', number: 4, unitId: 'k2', unitTitle: 'Derivatives',
+    title: 'Product, Quotient, and Chain Rules',
+    checkMode: 'deriv',
+    description: 'Differentiate a product, a quotient, or a power of a linear polynomial. The result may be expanded.',
+    prerequisites: ['Power rule', 'Polynomial multiplication'],
+    objectives: [
+      { id: 'ca-c04-o1', text: 'Differentiate a product of two polynomials.' },
+      { id: 'ca-c04-o2', text: 'Differentiate a power of a linear polynomial.' },
+      { id: 'ca-c04-o3', text: 'Differentiate a quotient of two polynomials.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c05', number: 5, unitId: 'k2', unitTitle: 'Derivatives',
+    title: 'Transcendental Derivatives',
+    checkMode: 'deriv',
+    description: 'Differentiate sine, cosine, e to a linear power, and a natural log of a linear expression.',
+    prerequisites: ['Chain rule', 'Unit circle', 'Logarithms'],
+    objectives: [
+      { id: 'ca-c05-o1', text: 'Differentiate sin(ax+b) or cos(ax+b).' },
+      { id: 'ca-c05-o2', text: 'Differentiate exp(ax+b).' },
+      { id: 'ca-c05-o3', text: 'Differentiate ln(ax+b).' }
+    ]
+  }),
+  ca({
+    id: 'ca-c06', number: 6, unitId: 'k3', unitTitle: 'Applications of the Derivative',
+    title: 'Tangent Lines and Motion',
+    checkMode: 'deriv',
+    description: 'Find the slope of a polynomial at a point, and write the tangent line as mx+b.',
+    prerequisites: ['Power rule', 'Linear equations'],
+    objectives: [
+      { id: 'ca-c06-o1', text: 'Find the derivative of a polynomial at an integer.' },
+      { id: 'ca-c06-o2', text: 'Write the tangent line of a polynomial at an integer.' },
+      { id: 'ca-c06-o3', text: 'Find the instantaneous rate of change of a quadratic at an integer.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c07', number: 7, unitId: 'k3', unitTitle: 'Applications of the Derivative',
+    title: 'Extrema and Optimization',
+    checkMode: 'crit',
+    description: 'Find critical points of a polynomial, and the maximum value on a closed interval.',
+    prerequisites: ['Power rule', 'Solving equations'],
+    objectives: [
+      { id: 'ca-c07-o1', text: 'Find the critical points of a quadratic or cubic.' },
+      { id: 'ca-c07-o2', text: 'Find the maximum value of a quadratic on a closed interval.' },
+      { id: 'ca-c07-o3', text: 'Find the maximum value of a cubic on a closed interval when the critical points are rational.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c08', number: 8, unitId: 'k3', unitTitle: 'Applications of the Derivative',
+    title: 'Related Rates',
+    checkMode: 'numeric',
+    description: 'A related-rate problem whose expression is the finished numeric calculation.',
+    prerequisites: ['Implicit numeric formulas', 'Fractions'],
+    objectives: [
+      { id: 'ca-c08-o1', text: 'Compute a rate from a product of two known numbers.' },
+      { id: 'ca-c08-o2', text: 'Compute a rate that includes a fraction.' },
+      { id: 'ca-c08-o3', text: 'Compute a rate from similar figures when the setup is already a numeric expression.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c09', number: 9, unitId: 'k4', unitTitle: 'Integrals',
+    title: 'Antiderivatives',
+    checkMode: 'integral',
+    description: 'Find an antiderivative of a polynomial, with the constant taken to be zero.',
+    prerequisites: ['Power rule', 'Polynomials'],
+    objectives: [
+      { id: 'ca-c09-o1', text: 'Find the antiderivative of a monomial.' },
+      { id: 'ca-c09-o2', text: 'Find the antiderivative of a polynomial.' },
+      { id: 'ca-c09-o3', text: 'Find the antiderivative of a polynomial that includes a constant term.' }
+    ]
+  }),
+  ca({
+    id: 'ca-c10', number: 10, unitId: 'k4', unitTitle: 'Integrals',
+    title: 'Definite Integrals and Area',
+    checkMode: 'integral',
+    description: 'Evaluate a definite integral of a polynomial between rational bounds.',
+    prerequisites: ['Antiderivatives', 'Area'],
+    objectives: [
+      { id: 'ca-c10-o1', text: 'Evaluate a definite integral of a monomial.' },
+      { id: 'ca-c10-o2', text: 'Evaluate a definite integral of a polynomial.' },
+      { id: 'ca-c10-o3', text: 'Use a definite integral to find the area under a polynomial on an interval where the curve stays nonnegative.' }
     ]
   })
 ];
