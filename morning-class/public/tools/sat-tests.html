@@ -155,8 +155,33 @@
     .chip.ok { background: var(--ok-bg); color: var(--ok); border-color: #b4e3c3; }
     .chip.no { background: var(--bad-bg); color: var(--bad); border-color: #f5bdb7; }
     .chip.skip { background: var(--gray-bg); color: var(--muted); border-color: var(--line); }
+    /* stats */
+    .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: .7rem; margin: 1rem 0; }
+    .kpi { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: .85rem 1rem; }
+    .kpi .l { font-size: .74rem; font-weight: 700; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; }
+    .kpi .v { font-size: 1.75rem; font-weight: 800; line-height: 1.2; margin-top: .15rem; }
+    .kpi .s { font-size: .8rem; color: var(--muted); }
+    .kpi.navy { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .kpi.navy .l, .kpi.navy .s { color: #b9c8de; }
+    .panel { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem 1.2rem; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+    .hist { display: flex; align-items: flex-end; gap: 6px; height: 170px; padding-top: 18px; }
+    .hist .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+    .hist .bar { width: 100%; background: linear-gradient(180deg, #3d8bff, #0a58ca); border-radius: 6px 6px 0 0; min-height: 2px; position: relative; }
+    .hist .bar b { position: absolute; top: -18px; left: 0; right: 0; text-align: center; font-size: .75rem; color: var(--ink); }
+    .hist .bar.zero { background: #e4ebf5; }
+    .hist .lab { font-size: .68rem; color: var(--muted); margin-top: .3rem; white-space: nowrap; }
+    .sk { display: grid; grid-template-columns: minmax(0, 1fr) 120px 48px; gap: .7rem; align-items: center; margin: .5rem 0; font-size: .86rem; }
+    .sk .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sk .n small { color: var(--muted); }
+    .sk .btrack span.bad { background: #d9534f; }
+    .sk .btrack span.mid { background: #e08a2c; }
+    .sk .btrack span.good { background: #2f9e5b; }
+    .filters { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; margin-top: .9rem; }
+    .trend { width: 100%; height: 190px; }
+    .empty { text-align: center; padding: 2.2rem 1rem; color: var(--muted); }
     #toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--navy); color: #fff; padding: .7rem 1.2rem; border-radius: 12px; font-weight: 600; z-index: 90; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-    @media (max-width: 960px) { .editor { grid-template-columns: 1fr; } .scores { grid-template-columns: 1fr; } .brow { grid-template-columns: 1fr 1fr 48px; } }
+    @media (max-width: 960px) { .editor { grid-template-columns: 1fr; } .scores { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } .brow { grid-template-columns: 1fr 1fr 48px; } }
   </style>
 </head>
 <body>
@@ -165,6 +190,7 @@
     <nav id="nav">
       <button type="button" data-view="sets" class="on">시험 세트</button>
       <button type="button" data-view="assigned">배정 현황</button>
+      <button type="button" data-view="stats">통계</button>
     </nav>
     <div class="sp"></div>
     <a href="/tools/sat-bank" target="_blank" rel="noopener">문제은행</a>
@@ -173,6 +199,6 @@
   <main id="main"><p class="muted">불러오는 중…</p></main>
   <div id="layer"></div>
   <div id="toast" class="hidden"></div>
-  <script src="/js/sat-tests.js?v=20261128a"></script>
+  <script src="/js/sat-tests.js?v=20261128b"></script>
 </body>
 </html>

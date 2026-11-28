@@ -4,6 +4,7 @@
 
 const express = require('express');
 const satExam = require('./services/sat/satExamService');
+const satReview = require('./services/sat/satReviewService');
 const { requireRole } = require('./auth/tokenAuth');
 
 const router = express.Router();
@@ -72,6 +73,50 @@ router.post('/sessions/:id/submit', anyone, async (req, res) => {
 router.get('/sessions/:id/assets/:assetId', anyone, async (req, res) => {
   try {
     const img = await satExam.assetForSession(req.params.id, req.params.assetId, who(req));
+    res.set('Content-Type', img.mime || 'image/png');
+    res.set('Cache-Control', 'private, max-age=3600');
+    res.send(img.data);
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/review', requireRole('student'), async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satReview.list(who(req)));
+  } catch (e) { fail(res, e, '복습 목록을 불러오지 못했습니다.'); }
+});
+
+router.get('/review/summary', requireRole('student'), async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satReview.summary(who(req)));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/review/notes/:id', requireRole('student'), async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satReview.getNote(req.params.id, who(req)));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/review/notes/:id/answer', requireRole('student'), async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satReview.answer(req.params.id, who(req), (req.body || {}).answer));
+  } catch (e) { fail(res, e); }
+});
+
+router.post('/review/notes/:id/next', requireRole('student'), async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satReview.next(req.params.id, who(req)));
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/review/notes/:id/assets/:assetId', requireRole('student'), async (req, res) => {
+  try {
+    const img = await satReview.assetForNote(req.params.id, req.params.assetId, who(req));
     res.set('Content-Type', img.mime || 'image/png');
     res.set('Cache-Control', 'private, max-age=3600');
     res.send(img.data);

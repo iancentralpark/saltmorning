@@ -1055,7 +1055,9 @@
       '<h3 class="sec-title">Your answers</h3><div class="legend" style="justify-content:flex-start"><span><span class="chip ok" style="width:18px;height:18px;font-size:0"></span>Correct</span><span><span class="chip no" style="width:18px;height:18px;font-size:0"></span>Incorrect</span><span><span class="chip skip" style="width:18px;height:18px;font-size:0"></span>Left blank</span></div>' +
       '<div class="qmap">' + maps + '</div>' +
       '<p class="fine">Time spent on questions: about ' + Math.max(1, mins) + ' minute' + (mins > 1 ? 's' : '') + '.</p>' +
-      '<div class="center" style="margin-top:22px"><a class="btn big" style="display:inline-block;text-decoration:none" href="' + homeUrl() + '">Back to home</a></div>' +
+      '<div class="center" style="margin-top:22px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">' +
+      (d.session.isPreview ? '' : '<a class="btn big" style="display:inline-block;text-decoration:none" href="/sat-review.html">Review your mistakes</a>') +
+      '<a class="btn big ghost" style="display:inline-block;text-decoration:none" href="' + homeUrl() + '">Back to home</a></div>' +
       '</div></div>';
   }
 

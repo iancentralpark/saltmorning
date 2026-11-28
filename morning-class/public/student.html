@@ -682,6 +682,14 @@
       const open = list.filter((a) => a.status !== 'completed' && !(a.status === 'not_started' && a.overdue));
       status.textContent = open.length ? open.length + ' to take' : 'All done!';
       box.innerHTML = list.map(satCard).join('');
+      try {
+        const rv = await api('/api/sat-exam/review/summary', {}, role);
+        if (rv && rv.total) {
+          const meta = rv.open ? rv.open + ' to review · ' + rv.done + ' mastered' : 'All ' + rv.total + ' mistakes mastered';
+          box.insertAdjacentHTML('beforeend', '<a class="stu-lesson-card" href="/sat-review.html"><div><div><strong>Review your mistakes</strong></div><div class="meta">' +
+            escapeHtml(meta) + '</div></div><span class="stu-sat-go' + (rv.open ? '' : ' done') + '">' + (rv.open ? 'Review' : 'Open') + '</span></a>');
+        }
+      } catch (e2) { /* review link is optional */ }
     } catch (e) {
       hide(section);
     }

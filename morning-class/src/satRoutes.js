@@ -7,6 +7,7 @@ const satImport = require('./services/sat/satImportService');
 const satQuestions = require('./services/sat/satQuestionService');
 const satExtract = require('./services/sat/satExtract');
 const satExam = require('./services/sat/satExamService');
+const satStats = require('./services/sat/satStatsService');
 const taxonomy = require('./services/sat/satTaxonomy');
 const { isAdminPortalRole } = require('./auth/tokenAuth');
 
@@ -375,7 +376,11 @@ router.delete('/assignments/:id', async (req, res) => {
 
 router.get('/sessions/:id/result', async (req, res) => {
   try {
-    res.json(await satExam.sessionResult(req.params.id));
+    const out = await satExam.sessionResult(req.params.id);
+    if (req.session.role === 'teacher' && !out.session.isPreview && out.session.classId) {
+      await assertClassAccess(req, out.session.classId);
+    }
+    res.json(out);
   } catch (e) { fail(res, e); }
 });
 
@@ -392,6 +397,32 @@ router.put('/score-tables/:section/:route', async (req, res) => {
     }
     res.json(await satExam.putScoreTable(req.params.section, req.params.route, (req.body || {}).points, userKey(req)));
   } catch (e) { fail(res, e); }
+});
+
+async function statsFilter(req) {
+  const filter = { setId: req.query.setId || '', classId: req.query.classId || '' };
+  if (req.session.role === 'teacher') {
+    const mine = (await classesFor(req)).map((c) => c.classId);
+    if (filter.classId && mine.indexOf(String(filter.classId)) < 0) {
+      throw Object.assign(new Error('이 반을 맡고 있지 않습니다.'), { statusCode: 403 });
+    }
+    filter.classIds = mine;
+  }
+  return filter;
+}
+
+router.get('/stats/overview', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satStats.overview(await statsFilter(req)));
+  } catch (e) { fail(res, e, '통계를 불러오지 못했습니다.'); }
+});
+
+router.get('/stats/students/:studentId', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await satStats.studentReport(req.params.studentId, await statsFilter(req)));
+  } catch (e) { fail(res, e, '학생 통계를 불러오지 못했습니다.'); }
 });
 
 module.exports = router;
