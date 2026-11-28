@@ -268,6 +268,7 @@ mark.hl.p { background: #ffc2e0; }
 .toast {
   position: fixed; left: 50%; top: 84px; transform: translateX(-50%); z-index: 40; background: var(--ink); color: #fff;
   padding: 12px 22px; border-radius: 10px; font-weight: 600; box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+  width: max-content; max-width: calc(100vw - 32px); text-align: center;
 }
 textarea.notes { width: 100%; min-height: 160px; resize: vertical; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 15px; line-height: 1.5; }
 

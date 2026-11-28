@@ -353,6 +353,10 @@
     var rb = document.getElementById('refBtn');
     if (rb) rb.onclick = toggleRef;
     renderWork();
+    if (window.innerWidth < 560 && !sessionStorage.getItem('satsmall')) {
+      sessionStorage.setItem('satsmall', '1');
+      toast('The test works best on a laptop or tablet. Try turning your phone sideways.');
+    }
     updateTimer(true);
     S.timerId = setInterval(updateTimer, 250);
     S.flushId = setInterval(flush, 4000);
