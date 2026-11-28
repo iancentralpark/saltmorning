@@ -55,6 +55,7 @@
           <button type="button" class="teacher-nav-dropdown-item" id="openItemBankBtn" role="menuitem">Item Bank</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openGrammarClinicBtn" role="menuitem">내신 문법 Generator</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openMathWorkbookBtn" role="menuitem">Math Workbook</button>
+          <button type="button" class="teacher-nav-dropdown-item" id="openSatBankBtn" role="menuitem">SAT 문제은행</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openNovelStudyBtn" role="menuitem">Novel Study Workbook</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openDebriefBooksBtn" role="menuitem">Oral Debrief Books</button>
           <button type="button" class="teacher-nav-dropdown-item" id="openLmsLessonsBtn" role="menuitem">Video Library (영상 라이브러리)</button>
@@ -3274,6 +3275,13 @@
     openMathWorkbookBtn.addEventListener('click', () => {
       closeClassToolsMenu();
       window.open('/tools/math-workbook', 'saltMathWorkbook', 'noopener,width=1440,height=900');
+    });
+  }
+  const openSatBankBtn = $('openSatBankBtn');
+  if (openSatBankBtn) {
+    openSatBankBtn.addEventListener('click', () => {
+      closeClassToolsMenu();
+      window.open('/tools/sat-bank', 'saltSatBank', 'noopener,width=1500,height=950');
     });
   }
   const openNovelStudyBtn = $('openNovelStudyBtn');
