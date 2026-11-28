@@ -638,6 +638,11 @@ async function reconvertQuestion(questionId) {
   } catch (e) {
     throw httpError(409, '원본 PDF가 삭제되어 다시 변환할 수 없습니다.');
   }
+  const inSet = await query(
+    'SELECT 1 FROM ' + table('sat_test_set_items') + ' WHERE question_id = $1 LIMIT 1',
+    [String(questionId || '')]
+  ).catch(() => ({ rows: [] }));
+  if (inSet.rows.length) throw httpError(409, '이미 시험 세트에 들어 있는 문항은 다시 변환할 수 없습니다. 직접 수정해 주세요.');
   const u = await query('SELECT * FROM ' + T.units() + ' WHERE job_id = $1 AND idx = $2', [job.id, row.unit_idx]);
   if (!u.rows[0]) throw httpError(409, '원본 위치를 찾을 수 없습니다.');
   if (!extract.isConfigured()) throw httpError(503, 'Claude API 키가 설정되지 않았습니다.');

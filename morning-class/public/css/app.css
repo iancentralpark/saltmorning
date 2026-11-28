@@ -7098,6 +7098,9 @@ body.salty-panel-open .msg-fab {
 .stu-lesson-card.overdue { border-color: #e9b9b4; background: #fff7f6; }
 .stu-lesson-card.overdue .meta { color: #b4443c; font-weight: 600; }
 .stu-lesson-done summary { cursor: pointer; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.45rem; width: fit-content; }
+.stu-sat-go { flex: none; font-size: 0.8rem; font-weight: 700; color: #fff; background: #0a58ca; border-radius: 999px; padding: 0.38rem 0.95rem; }
+.stu-sat-go.done { background: #e8f0fd; color: #08408f; }
+.stu-lesson-card.locked .stu-sat-go { background: #cbd5e1; color: #475569; }
 .stu-lesson-card .meta { font-size: 0.76rem; color: var(--muted); margin-top: 0.15rem; }
 .stu-lesson-card .bar { height: 4px; background: #e5edf3; border-radius: 999px; margin-top: 0.35rem; overflow: hidden; max-width: 10rem; }
 .stu-lesson-card .bar > i { display: block; height: 100%; background: var(--primary); }

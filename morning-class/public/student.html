@@ -17,7 +17,7 @@
   <link rel="shortcut icon" href="/favicon.ico?v=20260818">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="/css/app.css?v=20261126saltyMic1">
+  <link rel="stylesheet" href="/css/app.css?v=20261128sat1">
   <link rel="stylesheet" href="/css/vocab-learn.css">
 </head>
 <body class="student-body">
@@ -69,6 +69,12 @@
       <div class="card-title"><i class="fa-solid fa-circle-play"></i> Online Lessons</div>
       <p class="muted small" id="lessonsStatus">Loading…</p>
       <div id="lessonsList"></div>
+    </div>
+
+    <div class="card stu-card hidden" id="sectionSat">
+      <div class="card-title"><i class="fa-solid fa-graduation-cap"></i> SAT Practice Tests</div>
+      <p class="muted small" id="satStatus">Loading…</p>
+      <div id="satList"></div>
     </div>
 
     <div class="card stu-card" id="sectionDebrief">
@@ -643,6 +649,44 @@
       encodeURIComponent(l.id) + '">' + inner + '</a>';
   }
 
+  function satDue(ms) {
+    if (!ms) return '';
+    return new Date(ms).toLocaleString('en-US', { timeZone: 'Asia/Seoul', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' KST';
+  }
+
+  function satCard(a) {
+    const closed = a.status === 'not_started' && a.overdue;
+    const meta = a.status === 'completed'
+      ? 'Completed' + (a.total != null ? ' · estimated score ' + a.total : '')
+      : a.questions + ' questions · ' + a.minutes + ' min' + (a.dueAt ? ' · due ' + satDue(a.dueAt) : '');
+    const action = closed ? 'Closed' : a.status === 'completed' ? 'View results' : a.status === 'in_progress' ? 'Continue' : 'Start';
+    const inner = '<div><div><strong>' + escapeHtml(a.setName) + '</strong></div><div class="meta">' + escapeHtml(meta) + '</div></div>' +
+      '<span class="stu-sat-go' + (a.status === 'completed' ? ' done' : '') + '">' + action + '</span>';
+    if (closed) return '<div class="stu-lesson-card locked">' + inner + '</div>';
+    const href = a.sessionId && a.status !== 'not_started'
+      ? '/sat-exam.html?session=' + encodeURIComponent(a.sessionId)
+      : '/sat-exam.html?assignment=' + encodeURIComponent(a.id);
+    return '<a class="stu-lesson-card' + (a.overdue && a.status === 'in_progress' ? ' overdue' : '') + '" href="' + href + '">' + inner + '</a>';
+  }
+
+  async function loadSat() {
+    const box = $('satList');
+    const status = $('satStatus');
+    const section = $('sectionSat');
+    if (!box || !status || !section) return;
+    try {
+      const d = await api('/api/sat-exam/my', {}, role);
+      const list = d.assignments || [];
+      if (!list.length) { hide(section); return; }
+      show(section);
+      const open = list.filter((a) => a.status !== 'completed' && !(a.status === 'not_started' && a.overdue));
+      status.textContent = open.length ? open.length + ' to take' : 'All done!';
+      box.innerHTML = list.map(satCard).join('');
+    } catch (e) {
+      hide(section);
+    }
+  }
+
   async function loadLessons() {
     const box = $('lessonsList');
     const status = $('lessonsStatus');
@@ -877,6 +921,7 @@
       renderHome();
       renderDebrief();
       loadLessons();
+      loadSat();
       renderContentLinks();
       if (!isContentPortal()) {
         renderHomework();
