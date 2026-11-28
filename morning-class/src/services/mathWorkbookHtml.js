@@ -387,6 +387,8 @@ function chapterId(part, index) {
 
 function levelMark(series) {
   const s = String(series || '');
+  if (/pre-?calculus/i.test(s)) return 'PC';
+  if (/calculus/i.test(s)) return 'C';
   if (/pre-?algebra/i.test(s)) return 'PA';
   if (/algebra\s*2/i.test(s)) return 'A2';
   if (/algebra\s*1/i.test(s)) return 'A1';
@@ -508,8 +510,8 @@ function answerPlan(q, mode) {
   let blank = 'number';
   if (isWord) blank = 'wide';
   else if (mode === 'system' && isPair) blank = 'system';
-  else if (mode === 'quad') blank = 'roots';
-  else if (isPair && (mode === 'pair' || mode === 'vertex' || mode === 'mixed')) blank = 'pair';
+  else if (mode === 'quad' || mode === 'roots' || mode === 'trigeq') blank = 'roots';
+  else if (isPair && (mode === 'pair' || mode === 'vertex' || mode === 'mixed' || mode === 'conic')) blank = 'pair';
   else if (/^[a-zA-Z]\s*=/.test(answer) || (expression.includes('=') && !expression.includes(';') && (mode === 'equation' || mode === 'mixed'))) blank = 'solve';
   else if (/[a-zA-Z^]/.test(answer)) blank = 'wide';
 

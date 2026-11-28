@@ -772,6 +772,10 @@ function verifyQuestion(question) {
   const raw = String(q.expression || q.equation || '').trim();
   if (!raw) return review('no_expression');
   const answerText = stripMath(q.answer);
+  try {
+    const higher = require('./mathHigher').tryHigher(raw, answerText);
+    if (higher) return higher;
+  } catch (e) { /* keep the linear and quadratic checks */ }
   if (raw.includes(';')) {
     try {
       const sol = solveSystem(raw);
